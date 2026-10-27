@@ -13,6 +13,7 @@ import {
 import { getPushSubscription } from '@nagiyu/browser';
 import { extractErrorMessage } from '@nagiyu/common';
 import { validateMaxCountInput } from '@/lib/mylist-register-validation';
+import { ERROR_MESSAGES } from '@/lib/constants/errors';
 import NiconicoSessionManager from './NiconicoSessionManager';
 
 interface MylistRegisterFormProps {
@@ -39,20 +40,31 @@ export default function MylistRegisterForm({ onSuccess }: MylistRegisterFormProp
 
   // セッション状態（マウント時に取得、管理UIで変化したときに更新）
   const [sessionStatus, setSessionStatus] = useState<NiconicoSessionStatus | null>(null);
+  // 取得失敗は未登録と区別して警告するため、状態とは別に持つ
+  const [sessionStatusFetchFailed, setSessionStatusFetchFailed] = useState(false);
 
   /**
    * 登録ボタンを無効化する条件
    *
    * - セッション状態取得前（null）：取得完了まで無効化
+   * - セッション状態の取得失敗：有効性が分からないため無効化（再取得の成功で解除）
    * - セッション未登録（hasSession=false）
    * - セッション無効（validity='invalid'）
    * - valid / unknown は有効化（判定不能でロックアウトしない）
    */
   const isRegisterDisabled =
-    sessionStatus === null || !sessionStatus.hasSession || sessionStatus.validity === 'invalid';
+    sessionStatusFetchFailed ||
+    sessionStatus === null ||
+    !sessionStatus.hasSession ||
+    sessionStatus.validity === 'invalid';
 
   const handleSessionStatusChange = useCallback((status: NiconicoSessionStatus) => {
     setSessionStatus(status);
+    setSessionStatusFetchFailed(false);
+  }, []);
+
+  const handleSessionStatusFetchError = useCallback(() => {
+    setSessionStatusFetchFailed(true);
   }, []);
 
   // 初回マウント時にもセッション状態を取得（NiconicoSessionManager 経由で反映される）
@@ -145,7 +157,10 @@ export default function MylistRegisterForm({ onSuccess }: MylistRegisterFormProp
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
       {/* セッション管理コンポーネント */}
-      <NiconicoSessionManager onStatusChange={handleSessionStatusChange} />
+      <NiconicoSessionManager
+        onStatusChange={handleSessionStatusChange}
+        onStatusFetchError={handleSessionStatusFetchError}
+      />
 
       {/* マイリスト登録フォーム */}
       <Card>
@@ -158,12 +173,14 @@ export default function MylistRegisterForm({ onSuccess }: MylistRegisterFormProp
             {/* エラーメッセージ */}
             {error && <ErrorAlert message={error} />}
 
-            {/* セッション未登録/無効時の警告 */}
+            {/* セッション未登録/無効/取得失敗時の警告 */}
             {isRegisterDisabled && (
               <Alert severity="warning" sx={{ mb: 2 }}>
-                {sessionStatus?.hasSession
-                  ? 'ニコニコセッションが無効です。「セッション管理」ボタンから user_session を更新してください。'
-                  : 'ニコニコセッションが未登録です。「セッション管理」ボタンから user_session を登録してください。'}
+                {sessionStatusFetchFailed
+                  ? ERROR_MESSAGES.NICONICO_SESSION_STATUS_UNAVAILABLE_WARNING
+                  : sessionStatus?.hasSession
+                    ? 'ニコニコセッションが無効です。「セッション管理」ボタンから user_session を更新してください。'
+                    : 'ニコニコセッションが未登録です。「セッション管理」ボタンから user_session を登録してください。'}
               </Alert>
             )}
 

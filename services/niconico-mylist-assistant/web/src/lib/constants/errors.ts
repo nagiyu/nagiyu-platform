@@ -57,6 +57,8 @@ export const ERROR_MESSAGES = {
   NICONICO_SESSION_SAVE_FAILED: 'セッションの保存に失敗しました',
   NICONICO_SESSION_DELETE_FAILED: 'セッションの削除に失敗しました',
   NICONICO_SESSION_STATUS_FETCH_FAILED: 'セッション状態の取得に失敗しました',
+  NICONICO_SESSION_STATUS_UNAVAILABLE_WARNING:
+    'ニコニコセッションの状態を取得できませんでした。ページを再読み込みしてください。',
 
   // セッション管理 UI バリデーション
   USER_SESSION_INPUT_REQUIRED: 'user_session を入力してください',
