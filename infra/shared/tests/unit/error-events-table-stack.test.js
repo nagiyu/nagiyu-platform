@@ -1,5 +1,5 @@
 const cdk = require('aws-cdk-lib');
-const { Template } = require('aws-cdk-lib/assertions');
+const { Template, Match } = require('aws-cdk-lib/assertions');
 
 require('ts-node/register/transpile-only');
 const { ErrorEventsTableStack } = require('../../lib/error-events-table-stack');
@@ -53,7 +53,7 @@ describe('ErrorEventsTableStack', () => {
     });
   });
 
-  it('TTL 属性 TTL を有効化する', () => {
+  it('TTL を無効にする', () => {
     const app = new cdk.App();
     const stack = new ErrorEventsTableStack(app, 'TestErrorEventsTable', {
       environment: 'dev',
@@ -61,10 +61,7 @@ describe('ErrorEventsTableStack', () => {
 
     const template = Template.fromStack(stack);
     template.hasResourceProperties('AWS::DynamoDB::Table', {
-      TimeToLiveSpecification: {
-        AttributeName: 'TTL',
-        Enabled: true,
-      },
+      TimeToLiveSpecification: Match.absent(),
     });
   });
 
