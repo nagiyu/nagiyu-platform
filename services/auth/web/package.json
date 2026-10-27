@@ -25,6 +25,6 @@
     "@nagiyu/nextjs": "*",
     "@nagiyu/ui": "*",
     "next-auth": "^5.0.0-beta.32",
-    "zod": "^4.3.6"
+    "zod": "^4.6.6"
   }
 }
