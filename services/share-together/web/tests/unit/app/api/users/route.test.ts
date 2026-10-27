@@ -28,21 +28,12 @@ jest.mock('@nagiyu/nextjs', () => ({
         };
       };
       const session = await authFn();
-      if (!session || !session.user?.id) {
+      if (!session) {
         return NextResponse.json(
           {
             error: { code: 'UNAUTHORIZED', message: '認証が必要です' },
           },
           { status: 401 }
-        );
-      }
-
-      if (!Array.isArray((session.user as { roles?: unknown }).roles)) {
-        return NextResponse.json(
-          {
-            error: { code: 'INTERNAL_SERVER_ERROR', message: '認証処理に失敗しました' },
-          },
-          { status: 500 }
         );
       }
       return handler(session);
@@ -119,6 +110,20 @@ describe('POST /api/users', () => {
     expect(mockSend).not.toHaveBeenCalled();
   });
 
+  it('セッションのユーザー情報が不足している場合は400レスポンスを返す', async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-1', email: 'user@example.com', name: '', roles: [] },
+    } as Awaited<ReturnType<typeof getSession>>);
+
+    const response = await POST();
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual(
+      expect.objectContaining({ error: 'VALIDATION_ERROR' })
+    );
+    expect(mockCreateUserRepository).not.toHaveBeenCalled();
+  });
+
   it('既存ユーザーの場合はプロフィールを更新して返す', async () => {
     mockGetSession.mockResolvedValue({
       user: {
@@ -126,6 +131,7 @@ describe('POST /api/users', () => {
         email: 'updated@example.com',
         name: '更新ユーザー',
         image: 'https://example.com/new.png',
+        roles: [],
       },
     } as Awaited<ReturnType<typeof getSession>>);
     mockGetById.mockResolvedValue({
@@ -173,6 +179,7 @@ describe('POST /api/users', () => {
         email: 'new@example.com',
         name: '新規ユーザー',
         image: null,
+        roles: [],
       },
     } as Awaited<ReturnType<typeof getSession>>);
     mockGetById.mockResolvedValue(null);
@@ -221,8 +228,8 @@ describe('POST /api/users', () => {
   it('想定外の例外は500レスポンスを返し reportErrorEvent を呼ぶ', async () => {
     jest.spyOn(console, 'error').mockImplementation(() => undefined);
     mockGetSession.mockResolvedValue({
-      user: { id: 'user-1', email: 'user@example.com', name: 'ユーザー' },
-    } as Session);
+      user: { id: 'user-1', email: 'user@example.com', name: 'ユーザー', roles: [] },
+    } as Awaited<ReturnType<typeof getSession>>);
     mockGetById.mockRejectedValue(new Error('DB 障害'));
 
     const response = await POST();

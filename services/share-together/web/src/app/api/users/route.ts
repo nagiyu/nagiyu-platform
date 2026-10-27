@@ -1,7 +1,6 @@
 import type { User } from '@nagiyu/share-together-core';
 import { withApiErrorReporting } from '@/lib/api-error-reporting';
 import { withAuth } from '@nagiyu/nextjs';
-import type { Session } from '@nagiyu/common';
 import { NextResponse } from 'next/server';
 import type { UserResponse } from '@/types';
 import { getSession } from '@/lib/auth/session';
@@ -11,26 +10,10 @@ import { createListRepository, createUserRepository } from '@nagiyu/share-togeth
 import { createValidationErrorResponse } from '@/lib/api/responses';
 
 const DEFAULT_LIST_NAME = 'デフォルトリスト';
-const DEFAULT_ROLES: string[] = [];
-
-async function getSessionWithRoles(): Promise<Session | null> {
-  const session = await getSession();
-  if (!session) {
-    return null;
-  }
-
-  return {
-    ...session,
-    user: {
-      ...session.user,
-      roles: DEFAULT_ROLES,
-    },
-  };
-}
 
 export const POST = withApiErrorReporting(
   'Web API: ユーザー登録エラー',
-  withAuth(getSessionWithRoles, null, async (session): Promise<NextResponse> => {
+  withAuth(getSession, null, async (session): Promise<NextResponse> => {
     const userId = session.user.id;
     const email = session.user.email;
     const name = session.user.name;
