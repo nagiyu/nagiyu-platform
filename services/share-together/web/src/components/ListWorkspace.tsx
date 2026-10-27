@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Box, Snackbar, Stack } from '@mui/material';
-import { Select, type SelectOption } from '@nagiyu/ui';
+import { Box, Snackbar, Stack, Typography } from '@mui/material';
+import { ConfirmDialog, Select, type SelectOption } from '@nagiyu/ui';
 import { CreateItemDialog } from '@/components/CreateItemDialog';
 import { ListSidebar } from '@/components/ListSidebar';
 import { TodoList } from '@/components/TodoList';
@@ -73,6 +73,8 @@ export function ListWorkspace({
   // 別の画面へ移ろうとした人の操作を黙って潰してしまう。人が選び直したあとだけ書き戻す。
   const [hasUserSelected, setHasUserSelected] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [renameTarget, setRenameTarget] = useState<SharedList | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<SharedList | null>(null);
   const [snackbarMessage, setSnackbarMessage] = useState<string | null>(null);
 
   const getErrorMessage = async (response: Response): Promise<string> => {
@@ -298,9 +300,8 @@ export function ListWorkspace({
     }
   };
 
-  const handleRenameSharedList = async (list: SharedList) => {
-    const name = globalThis.prompt('共有リスト名を入力してください。', list.name);
-    if (!name?.trim() || name.trim() === list.name) {
+  const handleRenameSharedList = async (list: SharedList, name: string) => {
+    if (name === list.name) {
       return;
     }
 
@@ -311,7 +312,7 @@ export function ListWorkspace({
         {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: name.trim() }),
+          body: JSON.stringify({ name }),
         }
       );
       if (!response.ok) {
@@ -335,10 +336,6 @@ export function ListWorkspace({
   };
 
   const handleDeleteSharedList = async (list: SharedList) => {
-    if (!globalThis.confirm(`「${list.name}」を削除しますか？`)) {
-      return;
-    }
-
     const targetGroupId = selectedGroupId;
     try {
       const response = await globalThis.fetch(
@@ -434,8 +431,8 @@ export function ListWorkspace({
                 setSelectedListId(listId);
               }
             }}
-            onRenameList={scope === 'shared' ? handleRenameSharedList : undefined}
-            onDeleteList={scope === 'shared' ? handleDeleteSharedList : undefined}
+            onRenameList={scope === 'shared' ? setRenameTarget : undefined}
+            onDeleteList={scope === 'shared' ? setDeleteTarget : undefined}
           />
         </Stack>
       </Box>
@@ -447,6 +444,14 @@ export function ListWorkspace({
             listId={currentListId}
             groupId={scope === 'shared' ? selectedGroupId : undefined}
           />
+        ) : scope === 'shared' && isSharedDataLoaded ? (
+          // 取得前は 0 件か未取得か区別できないので、取得が済んでから出す。
+          // グループが無いと共有リストは作れないため、その場合はグループ画面へ案内する。
+          <Typography color="text.secondary">
+            {sharedGroups.length === 0
+              ? '参加しているグループがありません。グループ画面でグループを作成するか、招待を承認してください。'
+              : '共有リストはまだありません。「共有リストを作成」から追加できます。'}
+          </Typography>
         ) : null}
       </Box>
       <CreateItemDialog
@@ -455,6 +460,31 @@ export function ListWorkspace({
         label="リスト名"
         onClose={() => setCreateDialogOpen(false)}
         onCreate={handleCreateList}
+      />
+      <CreateItemDialog
+        open={renameTarget !== null}
+        title="共有リスト名を変更"
+        label="リスト名"
+        initialValue={renameTarget?.name ?? ''}
+        submitLabel="保存"
+        onClose={() => setRenameTarget(null)}
+        onCreate={(name) => {
+          if (renameTarget) {
+            void handleRenameSharedList(renameTarget, name);
+          }
+        }}
+      />
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="共有リストを削除"
+        description={`「${deleteTarget?.name ?? ''}」を削除しますか？`}
+        onConfirm={() => {
+          if (deleteTarget) {
+            void handleDeleteSharedList(deleteTarget);
+          }
+          setDeleteTarget(null);
+        }}
+        onCancel={() => setDeleteTarget(null)}
       />
       <Snackbar
         open={snackbarMessage !== null}

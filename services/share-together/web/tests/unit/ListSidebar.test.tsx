@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { ListSidebar } from '@/components/ListSidebar';
 
 const mockPush = jest.fn();
@@ -12,13 +12,9 @@ jest.mock('next/navigation', () => ({
 
 describe('ListSidebar', () => {
   let originalFetch: typeof globalThis.fetch;
-  let promptSpy: jest.SpyInstance;
-  let confirmSpy: jest.SpyInstance;
 
   beforeEach(() => {
     originalFetch = globalThis.fetch;
-    promptSpy = jest.spyOn(window, 'prompt');
-    confirmSpy = jest.spyOn(window, 'confirm');
     mockPush.mockReset();
   });
 
@@ -27,8 +23,6 @@ describe('ListSidebar', () => {
       writable: true,
       value: originalFetch,
     });
-    promptSpy.mockRestore();
-    confirmSpy.mockRestore();
   });
 
   it('一覧取得・作成・名称変更・削除を API 経由で実行できる', async () => {
@@ -65,9 +59,6 @@ describe('ListSidebar', () => {
       value: fetchMock,
     });
 
-    promptSpy.mockReturnValueOnce('新規リスト').mockReturnValueOnce('仕事(更新)');
-    confirmSpy.mockReturnValue(true);
-
     render(
       <ListSidebar
         heading="個人リスト"
@@ -83,6 +74,13 @@ describe('ListSidebar', () => {
     });
 
     fireEvent.click(screen.getByRole('button', { name: '個人リストを作成' }));
+    fireEvent.change(
+      within(screen.getByRole('dialog')).getByRole('textbox', { name: 'リスト名' }),
+      {
+        target: { value: '新規リスト' },
+      }
+    );
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '作成' }));
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith('/api/lists', {
         method: 'POST',
@@ -92,7 +90,17 @@ describe('ListSidebar', () => {
       expect(mockPush).toHaveBeenCalledWith('/lists/new-list');
     });
 
+    // ダイアログが閉じ終わるまで、背後の要素は支援技術から隠れている。
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
     fireEvent.click(screen.getByRole('button', { name: '仕事を編集' }));
+    const renameInput = within(screen.getByRole('dialog')).getByRole('textbox', {
+      name: 'リスト名',
+    });
+    expect(renameInput).toHaveValue('仕事');
+    fireEvent.change(renameInput, { target: { value: '仕事(更新)' } });
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '保存' }));
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith('/api/lists/work-list', {
         method: 'PUT',
@@ -104,7 +112,13 @@ describe('ListSidebar', () => {
       expect(screen.getByRole('link', { name: '仕事(更新)' })).toBeInTheDocument();
     });
 
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
     fireEvent.click(screen.getByRole('button', { name: '仕事(更新)を削除' }));
+    expect(fetchMock).not.toHaveBeenCalledWith('/api/lists/work-list', { method: 'DELETE' });
+    expect(screen.getByText('「仕事(更新)」を削除しますか？')).toBeInTheDocument();
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '削除' }));
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith('/api/lists/work-list', {
         method: 'DELETE',
@@ -231,5 +245,91 @@ describe('ListSidebar', () => {
     fireEvent.click(screen.getByRole('button', { name: '旅行準備を削除' }));
     expect(handleDelete).toHaveBeenCalledWith({ listId: 'shared-1', name: '旅行準備' });
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  describe('個人リストのダイアログ操作', () => {
+    const mockInitialLists = () => {
+      const fetchMock = jest.fn().mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          data: {
+            lists: [
+              { listId: 'default-list', name: 'デフォルトリスト', isDefault: true },
+              { listId: 'work-list', name: '仕事', isDefault: false },
+            ],
+          },
+        }),
+      } as Response);
+      Object.defineProperty(globalThis, 'fetch', { writable: true, value: fetchMock });
+      return fetchMock;
+    };
+
+    const renderSidebar = async () => {
+      render(
+        <ListSidebar
+          heading="個人リスト"
+          createButtonLabel="個人リストを作成"
+          selectedListId="work-list"
+          hrefPrefix="/lists"
+        />
+      );
+      await screen.findByRole('link', { name: '仕事' });
+    };
+
+    it('名前を変更しないで保存しても API を呼ばない', async () => {
+      const fetchMock = mockInitialLists();
+      await renderSidebar();
+
+      fireEvent.click(screen.getByRole('button', { name: '仕事を編集' }));
+      fireEvent.change(
+        within(screen.getByRole('dialog')).getByRole('textbox', { name: 'リスト名' }),
+        { target: { value: '  仕事  ' } }
+      );
+      fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '保存' }));
+
+      await waitFor(() => {
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      });
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('名前変更を途中でやめて開き直すと、現在の名前から始まる', async () => {
+      mockInitialLists();
+      await renderSidebar();
+
+      fireEvent.click(screen.getByRole('button', { name: '仕事を編集' }));
+      fireEvent.change(
+        within(screen.getByRole('dialog')).getByRole('textbox', { name: 'リスト名' }),
+        { target: { value: '書きかけ' } }
+      );
+      fireEvent.click(
+        within(screen.getByRole('dialog')).getByRole('button', { name: 'キャンセル' })
+      );
+      await waitFor(() => {
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByRole('button', { name: '仕事を編集' }));
+
+      expect(
+        within(screen.getByRole('dialog')).getByRole('textbox', { name: 'リスト名' })
+      ).toHaveValue('仕事');
+    });
+
+    it('削除の確認でキャンセルすると API を呼ばない', async () => {
+      const fetchMock = mockInitialLists();
+      await renderSidebar();
+
+      fireEvent.click(screen.getByRole('button', { name: '仕事を削除' }));
+      fireEvent.click(
+        within(screen.getByRole('dialog')).getByRole('button', { name: 'キャンセル' })
+      );
+
+      await waitFor(() => {
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      });
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(screen.getByRole('link', { name: '仕事' })).toBeInTheDocument();
+    });
   });
 });

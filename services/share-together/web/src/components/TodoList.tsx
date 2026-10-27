@@ -63,6 +63,8 @@ export function TodoList({ scope = 'personal', listId, groupId }: TodoListProps)
   const [todos, setTodos] = useState<Array<Pick<TodoItemType, 'todoId' | 'title' | 'isCompleted'>>>(
     []
   );
+  // 取得前や取得失敗時に「ToDoはまだありません」と出すと誤解を招くため、取得に成功したかを持つ。
+  const [isTodosLoaded, setIsTodosLoaded] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [snackbarMessage, setSnackbarMessage] = useState<string | null>(null);
   const fetchControllerRef = useRef<AbortController | null>(null);
@@ -87,6 +89,7 @@ export function TodoList({ scope = 'personal', listId, groupId }: TodoListProps)
           return;
         }
         setTodos(result.data.todos.map(toDisplayTodo));
+        setIsTodosLoaded(true);
       })
       .catch((error: unknown) => {
         if (controller.signal.aborted) {
@@ -113,6 +116,7 @@ export function TodoList({ scope = 'personal', listId, groupId }: TodoListProps)
       return;
     }
 
+    setIsTodosLoaded(false);
     fetchTodos(listId);
     return () => {
       fetchControllerRef.current?.abort();
@@ -251,6 +255,9 @@ export function TodoList({ scope = 'personal', listId, groupId }: TodoListProps)
           ToDo
         </Typography>
         <TodoForm onAdd={handleAdd} />
+        {isTodosLoaded && todos.length === 0 ? (
+          <Typography color="text.secondary">ToDoはまだありません。</Typography>
+        ) : null}
         <List disablePadding>
           {todos.map((todo) => (
             <TodoItem

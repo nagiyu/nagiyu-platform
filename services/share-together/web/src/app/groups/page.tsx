@@ -23,6 +23,8 @@ export default function GroupsPage() {
   const [isSelectedGroupLoading, setIsSelectedGroupLoading] = useState(false);
   const [selectedGroupError, setSelectedGroupError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  // 取得に失敗したときに「グループはまだありません」と出さないよう、成功したかを持つ。
+  const [isGroupsLoaded, setIsGroupsLoaded] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState<string | null>(null);
 
@@ -57,6 +59,7 @@ export default function GroupsPage() {
 
         setGroups(groupsWithMemberCount);
         setCurrentUserId(groupsData.data.currentUserId);
+        setIsGroupsLoaded(true);
         if (groupsWithMemberCount.length > 0) {
           setSelectedGroupId(groupsWithMemberCount[0].groupId);
         }
@@ -152,6 +155,10 @@ export default function GroupsPage() {
         </Stack>
         {isLoading ? (
           <Typography color="text.secondary">読み込み中...</Typography>
+        ) : isGroupsLoaded && groups.length === 0 ? (
+          <Typography color="text.secondary">
+            グループはまだありません。「グループを作成」から追加できます。
+          </Typography>
         ) : (
           <Stack spacing={2}>
             {groups.map((group) => (
@@ -159,6 +166,7 @@ export default function GroupsPage() {
                 key={group.groupId}
                 name={group.name}
                 memberCount={group.memberCount}
+                selected={group.groupId === selectedGroupId}
                 onClick={() => setSelectedGroupId(group.groupId)}
               />
             ))}
@@ -173,6 +181,7 @@ export default function GroupsPage() {
             ) : selectedGroup ? (
               <GroupDetailClient
                 groupId={selectedGroupId}
+                groupName={selectedGroup.name}
                 isOwner={selectedGroup.isOwner ?? selectedGroup.ownerUserId === currentUserId}
                 currentUserId={currentUserId}
                 members={members}

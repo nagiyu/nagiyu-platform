@@ -89,7 +89,11 @@ function ListsPageContent() {
         }
       })
       .finally(() => {
-        setIsLoading(false);
+        // 中断された取得 (開発時の Strict Mode による effect の二重実行など) が読み込み中を解除すると、
+        // 後続の取得が終わるまでの間、解決前の空の ID のままエラー文言が出てしまう。
+        if (!controller.signal.aborted) {
+          setIsLoading(false);
+        }
       });
 
     return () => {
