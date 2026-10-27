@@ -829,6 +829,95 @@ describe('listVideosWithSettings', () => {
     expect(videoIds).toContain('sm3');
   });
 
+  // --- お気に入り以外フィルタの回帰テスト ---
+  // バグ修正: isFavorite=false のとき「設定なし動画を除外」していた不具合の回帰テスト
+  // USER_SETTING は UI 操作時のみ作成されるため、設定を持たない動画は「お気に入りでない」として扱う。
+
+  const createSetting = (videoId: string, isFavorite: boolean, isSkip: boolean) => ({
+    PK: 'USER#user123',
+    SK: `VIDEO#${videoId}`,
+    Type: 'USER_SETTING',
+    UserID: 'user123',
+    VideoID: videoId,
+    IsFavorite: isFavorite,
+    IsSkip: isSkip,
+    CreatedAt: 1704067200000,
+    UpdatedAt: 1704067200000,
+  });
+
+  const createVideo = (videoId: string, title: string, createdAt: number) => ({
+    PK: `VIDEO#${videoId}`,
+    SK: `VIDEO#${videoId}`,
+    Type: 'VIDEO',
+    VideoID: videoId,
+    Title: title,
+    ThumbnailURL: `https://example.com/${videoId}.jpg`,
+    Length: '3:00',
+    CreatedAt: createdAt,
+  });
+
+  it('【回帰】isFavorite=false のとき設定レコードを持たない動画が残る', async () => {
+    // sm1 のみ設定あり（isFavorite=true）。sm2, sm3 は設定なし
+    ddbMock.on(QueryCommand).resolves({ Items: [createSetting('sm1', true, false)] });
+    ddbMock.on(ScanCommand).resolves({
+      Items: [
+        createVideo('sm1', '動画1（お気に入り）', 1704067200003),
+        createVideo('sm2', '動画2（設定なし）', 1704067200002),
+        createVideo('sm3', '動画3（設定なし）', 1704067200001),
+      ],
+    });
+
+    const result = await listVideosWithSettings('user123', { isFavorite: false });
+
+    expect(result.total).toBe(2);
+    const videoIds = result.videos.map((v) => v.videoId);
+    expect(videoIds).toContain('sm2');
+    expect(videoIds).toContain('sm3');
+    expect(videoIds).not.toContain('sm1');
+  });
+
+  it('【回帰】isFavorite=false のとき明示的に isFavorite=true の動画は除外され、isFavorite=false の設定ありの動画は残る', async () => {
+    ddbMock.on(QueryCommand).resolves({
+      Items: [createSetting('sm1', true, false), createSetting('sm2', false, false)],
+    });
+    ddbMock.on(ScanCommand).resolves({
+      Items: [
+        createVideo('sm1', '動画1（お気に入り）', 1704067200002),
+        createVideo('sm2', '動画2（お気に入りでない設定あり）', 1704067200001),
+        createVideo('sm3', '動画3（設定なし）', 1704067200000),
+      ],
+    });
+
+    const result = await listVideosWithSettings('user123', { isFavorite: false });
+
+    expect(result.total).toBe(2);
+    const videoIds = result.videos.map((v) => v.videoId);
+    expect(videoIds).not.toContain('sm1');
+    expect(videoIds).toContain('sm2');
+    expect(videoIds).toContain('sm3');
+  });
+
+  it('【回帰】isFavorite=false と isSkip=false を組み合わせたとき設定なしは残り、isSkip=true は除外される', async () => {
+    ddbMock.on(QueryCommand).resolves({
+      Items: [createSetting('sm1', false, true), createSetting('sm2', false, false)],
+    });
+    ddbMock.on(ScanCommand).resolves({
+      Items: [
+        createVideo('sm1', '動画1（スキップ指定あり）', 1704067200002),
+        createVideo('sm2', '動画2（設定あり・スキップなし）', 1704067200001),
+        createVideo('sm3', '動画3（設定なし）', 1704067200000),
+      ],
+    });
+
+    const result = await listVideosWithSettings('user123', { isFavorite: false, isSkip: false });
+
+    expect(result.total).toBe(2);
+    const videoIds = result.videos.map((v) => v.videoId);
+    expect(videoIds).not.toContain('sm1');
+    expect(videoIds).toContain('sm2');
+    expect(videoIds).toContain('sm3');
+  });
+
   it('isSkip=true のとき設定ありかつ isSkip=true の動画だけが返る', async () => {
     const mockSettings = [
       {
