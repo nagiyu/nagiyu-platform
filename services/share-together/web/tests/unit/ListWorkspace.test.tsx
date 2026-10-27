@@ -720,6 +720,33 @@ describe('ListWorkspace', () => {
       expect(screen.queryByText(EMPTY_MESSAGE)).not.toBeInTheDocument();
     });
 
+    it('参加しているグループが無いときは、グループ画面へ案内する', async () => {
+      const baseFetch = globalThis.fetch as jest.Mock;
+      const fetchMock = jest
+        .fn()
+        .mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+          if (input === '/api/groups') {
+            return Promise.resolve({
+              ok: true,
+              status: 200,
+              json: async () => ({ data: { groups: [], currentUserId: 'user-1' } }),
+            } as Response);
+          }
+          return baseFetch(input, init);
+        });
+      Object.defineProperty(globalThis, 'fetch', { writable: true, value: fetchMock });
+      Object.defineProperty(window, 'fetch', { writable: true, value: fetchMock });
+
+      render(<ListWorkspace initialScope="shared" initialListId="x" />);
+
+      expect(
+        await screen.findByText(
+          '参加しているグループがありません。グループ画面でグループを作成するか、招待を承認してください。'
+        )
+      ).toBeInTheDocument();
+      expect(screen.queryByText(EMPTY_MESSAGE)).not.toBeInTheDocument();
+    });
+
     it('共有リストを全部削除すると、案内に切り替わる', async () => {
       render(
         <ListWorkspace

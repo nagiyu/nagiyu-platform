@@ -446,8 +446,11 @@ export function ListWorkspace({
           />
         ) : scope === 'shared' && isSharedDataLoaded ? (
           // 取得前は 0 件か未取得か区別できないので、取得が済んでから出す。
+          // グループが無いと共有リストは作れないため、その場合はグループ画面へ案内する。
           <Typography color="text.secondary">
-            共有リストはまだありません。「共有リストを作成」から追加できます。
+            {sharedGroups.length === 0
+              ? '参加しているグループがありません。グループ画面でグループを作成するか、招待を承認してください。'
+              : '共有リストはまだありません。「共有リストを作成」から追加できます。'}
           </Typography>
         ) : null}
       </Box>
