@@ -6,7 +6,7 @@
  */
 
 import React from 'react';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { VideosListResponse } from '@nagiyu/niconico-mylist-assistant-core';
 import VideoList from '../../../src/components/VideoList';
 
@@ -35,19 +35,41 @@ jest.mock('../../../src/components/VideoCard', () => ({
     onToggleFavorite,
     onToggleSkip,
     onClick,
+    disabled,
   }: {
-    video: { videoId: string; title: string };
+    video: {
+      videoId: string;
+      title: string;
+      userSetting?: { isFavorite: boolean; isSkip: boolean };
+    };
     onToggleFavorite: (id: string, value: boolean) => void;
     onToggleSkip: (id: string, value: boolean) => void;
     onClick: (id: string) => void;
-  }) => (
-    <div data-testid="video-card">
-      <span>{video.title}</span>
-      <button onClick={() => onToggleFavorite(video.videoId, true)}>お気に入り</button>
-      <button onClick={() => onToggleSkip(video.videoId, true)}>スキップ</button>
-      <button onClick={() => onClick(video.videoId)}>詳細</button>
-    </div>
-  ),
+    disabled?: boolean;
+  }) => {
+    const isFavorite = video.userSetting?.isFavorite ?? false;
+    const isSkip = video.userSetting?.isSkip ?? false;
+    return (
+      <div data-testid="video-card">
+        <span>{video.title}</span>
+        <button
+          disabled={disabled}
+          data-favorite={String(isFavorite)}
+          onClick={() => onToggleFavorite(video.videoId, !isFavorite)}
+        >
+          お気に入り
+        </button>
+        <button
+          disabled={disabled}
+          data-skip={String(isSkip)}
+          onClick={() => onToggleSkip(video.videoId, !isSkip)}
+        >
+          スキップ
+        </button>
+        <button onClick={() => onClick(video.videoId)}>詳細</button>
+      </div>
+    );
+  },
 }));
 
 jest.mock('../../../src/components/VideoListFilters', () => ({
@@ -452,6 +474,181 @@ describe('VideoList', () => {
 
       fireEvent.click(screen.getByText('スキップ'));
       expect(await screen.findByRole('alert')).toHaveTextContent('スキップの更新に失敗しました');
+    });
+
+    describe('お気に入り・スキップの楽観的な更新', () => {
+      const putCalls = (fetchMock: jest.Mock) =>
+        fetchMock.mock.calls.filter(([, init]) => init?.method === 'PUT');
+
+      /** PUT の応答をテスト側で制御し、一覧の取得は即座に返す */
+      const setupWithDeferredPut = async () => {
+        let resolvePut!: (response: Response) => void;
+        const fetchMock = jest.fn((input: RequestInfo | URL, init?: RequestInit) => {
+          if (init?.method === 'PUT') {
+            return new Promise<Response>((resolve) => {
+              resolvePut = resolve;
+            });
+          }
+          return Promise.resolve(okResponse(createResponse(['動画'])));
+        });
+        global.fetch = fetchMock as unknown as typeof fetch;
+        render(<VideoList />);
+        await screen.findByText('動画');
+        return { fetchMock, resolvePut: (response: Response) => resolvePut(response) };
+      };
+
+      it('お気に入りを押した直後に、PUT の完了を待たず表示が切り替わる', async () => {
+        await setupWithDeferredPut();
+        expect(screen.getByText('お気に入り')).toHaveAttribute('data-favorite', 'false');
+
+        fireEvent.click(screen.getByText('お気に入り'));
+
+        expect(screen.getByText('お気に入り')).toHaveAttribute('data-favorite', 'true');
+      });
+
+      it('お気に入りの送信中はその動画のボタンが無効になり、押しても PUT は 1 回だけ', async () => {
+        const { fetchMock, resolvePut } = await setupWithDeferredPut();
+
+        fireEvent.click(screen.getByText('お気に入り'));
+        fireEvent.click(screen.getByText('お気に入り'));
+        fireEvent.click(screen.getByText('お気に入り'));
+
+        expect(screen.getByText('お気に入り')).toBeDisabled();
+        expect(screen.getByText('スキップ')).toBeDisabled();
+        expect(putCalls(fetchMock)).toHaveLength(1);
+        expect(putCalls(fetchMock)[0][1]?.body).toBe(JSON.stringify({ isFavorite: true }));
+
+        await act(async () => {
+          resolvePut({ ok: true } as Response);
+        });
+        await waitFor(() => expect(screen.getByText('お気に入り')).not.toBeDisabled());
+      });
+
+      it('お気に入りの送信中は同じ動画のスキップも送らない', async () => {
+        const { fetchMock, resolvePut } = await setupWithDeferredPut();
+
+        fireEvent.click(screen.getByText('お気に入り'));
+        fireEvent.click(screen.getByText('スキップ'));
+
+        expect(putCalls(fetchMock)).toHaveLength(1);
+        expect(screen.getByText('スキップ')).toHaveAttribute('data-skip', 'false');
+
+        await act(async () => {
+          resolvePut({ ok: true } as Response);
+        });
+        await waitFor(() => expect(screen.getByText('スキップ')).not.toBeDisabled());
+      });
+
+      it('送信が終わったあとにもう一度押すと、OFF の更新が送られる', async () => {
+        // サーバー側の値を持ち、PUT で更新された値を一覧の取得で返す
+        let serverFavorite = false;
+        const fetchMock = jest.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+          if (init?.method === 'PUT') {
+            serverFavorite = JSON.parse(String(init.body)).isFavorite;
+            return { ok: true } as Response;
+          }
+          const body = createResponse(['動画']);
+          body.videos[0].userSetting = {
+            videoId: 'sm0',
+            isFavorite: serverFavorite,
+            isSkip: false,
+            createdAt: 0,
+            updatedAt: 0,
+          };
+          return okResponse(body);
+        });
+        global.fetch = fetchMock as unknown as typeof fetch;
+        render(<VideoList />);
+        await screen.findByText('動画');
+
+        fireEvent.click(screen.getByText('お気に入り'));
+        await waitFor(() => expect(screen.getByText('お気に入り')).not.toBeDisabled());
+        expect(screen.getByText('お気に入り')).toHaveAttribute('data-favorite', 'true');
+
+        fireEvent.click(screen.getByText('お気に入り'));
+        await waitFor(() => expect(screen.getByText('お気に入り')).not.toBeDisabled());
+
+        expect(putCalls(fetchMock).map(([, init]) => init?.body)).toEqual([
+          JSON.stringify({ isFavorite: true }),
+          JSON.stringify({ isFavorite: false }),
+        ]);
+        expect(screen.getByText('お気に入り')).toHaveAttribute('data-favorite', 'false');
+      });
+
+      it('お気に入りの更新に失敗すると元の表示に戻り、エラーを表示する', async () => {
+        const { resolvePut } = await setupWithDeferredPut();
+
+        fireEvent.click(screen.getByText('お気に入り'));
+        expect(screen.getByText('お気に入り')).toHaveAttribute('data-favorite', 'true');
+
+        await act(async () => {
+          resolvePut({ ok: false } as Response);
+        });
+
+        expect(await screen.findByRole('alert')).toHaveTextContent(
+          'お気に入りの更新に失敗しました'
+        );
+        expect(screen.getByText('お気に入り')).toHaveAttribute('data-favorite', 'false');
+        expect(screen.getByText('お気に入り')).not.toBeDisabled();
+      });
+
+      it('スキップを押した直後に表示が切り替わり、送信中は PUT が 1 回だけになる', async () => {
+        const { fetchMock, resolvePut } = await setupWithDeferredPut();
+
+        fireEvent.click(screen.getByText('スキップ'));
+        fireEvent.click(screen.getByText('スキップ'));
+
+        expect(screen.getByText('スキップ')).toHaveAttribute('data-skip', 'true');
+        expect(screen.getByText('スキップ')).toBeDisabled();
+        expect(screen.getByText('お気に入り')).toBeDisabled();
+        expect(putCalls(fetchMock)).toHaveLength(1);
+        expect(putCalls(fetchMock)[0][1]?.body).toBe(JSON.stringify({ isSkip: true }));
+
+        await act(async () => {
+          resolvePut({ ok: true } as Response);
+        });
+        await waitFor(() => expect(screen.getByText('スキップ')).not.toBeDisabled());
+      });
+
+      it('スキップの更新に失敗すると元の表示に戻り、エラーを表示する', async () => {
+        const { resolvePut } = await setupWithDeferredPut();
+
+        fireEvent.click(screen.getByText('スキップ'));
+        expect(screen.getByText('スキップ')).toHaveAttribute('data-skip', 'true');
+
+        await act(async () => {
+          resolvePut({ ok: false } as Response);
+        });
+
+        expect(await screen.findByRole('alert')).toHaveTextContent('スキップの更新に失敗しました');
+        expect(screen.getByText('スキップ')).toHaveAttribute('data-skip', 'false');
+        expect(screen.getByText('スキップ')).not.toBeDisabled();
+      });
+
+      it('別の動画の更新は、送信中の動画に影響されず送れる', async () => {
+        const puts: Array<(response: Response) => void> = [];
+        const fetchMock = jest.fn((_input: RequestInfo | URL, init?: RequestInit) => {
+          if (init?.method === 'PUT') {
+            return new Promise<Response>((resolve) => puts.push(resolve));
+          }
+          return Promise.resolve(okResponse(createResponse(['動画A', '動画B'])));
+        });
+        global.fetch = fetchMock as unknown as typeof fetch;
+        render(<VideoList />);
+        await screen.findByText('動画A');
+
+        const [firstCard, secondCard] = screen.getAllByTestId('video-card');
+        fireEvent.click(within(firstCard).getByText('お気に入り'));
+        fireEvent.click(within(secondCard).getByText('お気に入り'));
+
+        expect(within(firstCard).getByText('お気に入り')).toBeDisabled();
+        expect(within(secondCard).getByText('お気に入り')).toBeDisabled();
+        expect(putCalls(fetchMock)).toHaveLength(2);
+
+        await act(async () => {
+          puts.forEach((resolve) => resolve({ ok: true } as Response));
+        });
+      });
     });
 
     it('フィルター・検索・ページ変更で URL を更新する', async () => {
