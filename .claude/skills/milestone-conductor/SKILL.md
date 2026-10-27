@@ -97,7 +97,6 @@ PR を作った時点の報告は求めない。人は PR を直接見るため�
 - Draft → Ready の切替、PR のマージ
 - ラベル・マイルストーン・Assignee の付与・変更
 - `develop` / `master` への直接 push
-- `release` スキルの手順の代行 (リリースブランチ作成以降は `release` スキルで進める)
 
 ## 関連
 
