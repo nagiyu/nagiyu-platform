@@ -39,11 +39,17 @@ describe('normalizeVideoIdInput', () => {
     ]);
   });
 
-  it('整えても形式に合わないものはそのまま(小文字で)返す', () => {
-    expect(normalizeVideoIdInput('abc https://example.com/watch/sm9 sm')).toEqual([
+  it('整えても形式に合わないものは入力のまま返す', () => {
+    expect(
+      normalizeVideoIdInput(
+        'abc https://example.com/watch/sm9 sm ABC-1 https://www.nicovideo.jp/user/123'
+      )
+    ).toEqual([
       'abc',
       'https://example.com/watch/sm9',
       'sm',
+      'ABC-1',
+      'https://www.nicovideo.jp/user/123',
     ]);
   });
 
