@@ -36,6 +36,7 @@ jest.mock('@nagiyu/aws', () => ({
 }));
 
 import { NextRequest } from 'next/server';
+import { ERROR_MESSAGES } from '../../../../../src/lib/constants/errors';
 import { POST } from '../../../../../src/app/api/mylist/register/route';
 import { getSession } from '../../../../../src/lib/auth/session';
 import { getEncryptedUserSessionBlob } from '../../../../../src/lib/niconico-session';
@@ -255,6 +256,41 @@ describe('POST /api/mylist/register', () => {
 
     const json = await response.json();
     expect(json.error).toBe('INVALID_REQUEST');
+  });
+
+  it.each([
+    ['空白だけ', ' \u3000 ', ERROR_MESSAGES.MYLIST_NAME_REQUIRED],
+    ['51 文字', 'あ'.repeat(51), ERROR_MESSAGES.MYLIST_NAME_TOO_LONG],
+    ['trim 後も 51 文字', ` ${'あ'.repeat(51)} `, ERROR_MESSAGES.MYLIST_NAME_TOO_LONG],
+  ])('mylistName が %s の場合は 400 を返す', async (_label, mylistName, message) => {
+    mockGetSession.mockResolvedValue(MOCK_SESSION);
+    mockGetEncryptedUserSessionBlob.mockResolvedValue(SAMPLE_ENCRYPTED_BLOB);
+
+    const response = await POST(makePostRequest({ maxCount: 10, mylistName }));
+    expect(response.status).toBe(400);
+
+    const json = await response.json();
+    expect(json.error).toBe('INVALID_REQUEST');
+    expect(json.message).toBe(message);
+    expect(mockSelectRandomVideos).not.toHaveBeenCalled();
+  });
+
+  it('mylistName が 50 文字ちょうどなら受け付け、前後の空白を除いてジョブに渡す', async () => {
+    mockGetSession.mockResolvedValue(MOCK_SESSION);
+    mockGetEncryptedUserSessionBlob.mockResolvedValue(SAMPLE_ENCRYPTED_BLOB);
+    mockSelectRandomVideos.mockResolvedValue(makeMockVideos(['sm3']));
+    const mockSend = setupBatchClientMock({ jobId: 'job-003' });
+    mockCreateBatchJob.mockResolvedValue({ ...MOCK_BATCH_JOB_ENTITY, jobId: 'job-003' });
+
+    const name = 'あ'.repeat(50);
+    const response = await POST(makePostRequest({ maxCount: 5, mylistName: `  ${name}\n` }));
+    expect(response.status).toBe(200);
+
+    const sendCallArgs = mockSend.mock.calls[0][0] as {
+      input: { containerOverrides: { environment: Array<{ name: string; value: string }> } };
+    };
+    const env = sendCallArgs.input.containerOverrides.environment;
+    expect(env.find((e) => e.name === 'MYLIST_NAME')?.value).toBe(name);
   });
 
   it('動画が 0 件の場合は 400 を返す', async () => {

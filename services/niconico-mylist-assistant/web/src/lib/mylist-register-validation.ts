@@ -1,4 +1,4 @@
-import { ERROR_MESSAGES } from './constants/errors';
+import { ERROR_MESSAGES, VALIDATION_LIMITS } from './constants/errors';
 
 /** 最大動画数の下限 */
 export const MAX_COUNT_MIN = 1;
@@ -28,4 +28,30 @@ export function validateMaxCountInput(input: string): MaxCountValidationResult {
     return { valid: false, message: ERROR_MESSAGES.MYLIST_REGISTER_MAX_COUNT_INVALID_RANGE };
   }
   return { valid: true, value };
+}
+
+export type MylistNameValidationResult =
+  { valid: true; value: string } | { valid: false; message: string };
+
+/**
+ * マイリスト名を検証し、前後の空白を除いた値を返す。
+ *
+ * 画面の送信時と API で同じ結果にするため、文字数は UTF-16 ではなくコードポイント単位で数える。
+ * 入力欄の maxLength は UTF-16 単位なので、絵文字などは入力欄のほうが先に止まる (厳しい側に倒れるだけで、検証とは矛盾しない)。
+ *
+ * @param input マイリスト名の文字列
+ * @param emptyMessage 空だった場合のメッセージ。画面と API で文言を出し分けるために受け取る
+ */
+export function validateMylistName(
+  input: string,
+  emptyMessage: string = ERROR_MESSAGES.MYLIST_NAME_REQUIRED
+): MylistNameValidationResult {
+  const trimmed = input.trim();
+  if (trimmed === '') {
+    return { valid: false, message: emptyMessage };
+  }
+  if ([...trimmed].length > VALIDATION_LIMITS.MYLIST_NAME_MAX_LENGTH) {
+    return { valid: false, message: ERROR_MESSAGES.MYLIST_NAME_TOO_LONG };
+  }
+  return { valid: true, value: trimmed };
 }
