@@ -34,8 +34,6 @@ export { default as AppThemeProvider } from './components/providers/AppThemeProv
 export type { AppThemeProviderProps } from './components/providers/AppThemeProvider';
 // SessionProviderWrapper は next-auth（ESM）依存を barrel に混ぜないため、
 // サブパス export（@nagiyu/ui/session-provider）で個別に提供する。
-export { ErrorBoundary, useErrorHandler } from './components/error/ErrorBoundary';
-export type { ErrorBoundaryProps } from './components/error/ErrorBoundary';
 export { default as ErrorAlert } from './components/error/ErrorAlert';
 export type { ErrorAlertProps } from './components/error/ErrorAlert';
 export { default as LoadingState } from './components/loading/LoadingState';
@@ -59,3 +57,5 @@ export {
 export type { NotFoundViewProps } from './components/feedback/NotFoundView';
 export { default as ErrorView, ERROR_VIEW_MESSAGES } from './components/feedback/ErrorView';
 export type { ErrorViewProps } from './components/feedback/ErrorView';
+export { default as GlobalErrorView } from './components/feedback/GlobalErrorView';
+export type { GlobalErrorViewProps } from './components/feedback/GlobalErrorView';
