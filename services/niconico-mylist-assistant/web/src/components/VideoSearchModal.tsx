@@ -36,8 +36,9 @@ export default function VideoSearchModal({ open, onClose }: VideoSearchModalProp
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [addStatusById, setAddStatusById] = useState<Record<string, AddStatus>>({});
-  // 追加リクエスト中の動画。二重送信の防止と処理中表示に使う
-  const [addingVideoId, setAddingVideoId] = useState<string | null>(null);
+  // 追加リクエスト中の動画。二重送信の防止と処理中表示に使う。
+  // 複数の追加が並行しうるため、各リクエストは自分の ID だけを出し入れする
+  const [addingVideoIds, setAddingVideoIds] = useState<ReadonlySet<string>>(new Set());
   // 検索が一度でも実行されたかを管理する（未検索と検索済み0件を区別するため）
   const [hasSearched, setHasSearched] = useState(false);
 
@@ -49,7 +50,7 @@ export default function VideoSearchModal({ open, onClose }: VideoSearchModalProp
       setVideos([]);
       setError(null);
       setAddStatusById({});
-      setAddingVideoId(null);
+      setAddingVideoIds(new Set());
       setHasSearched(false);
     }
   }, [open]);
@@ -109,7 +110,7 @@ export default function VideoSearchModal({ open, onClose }: VideoSearchModalProp
 
   const handleAddVideo = async (videoId: string) => {
     setError(null);
-    setAddingVideoId(videoId);
+    setAddingVideoIds((prev) => new Set(prev).add(videoId));
     try {
       const response = await fetch('/api/videos/bulk-import', {
         method: 'POST',
@@ -133,7 +134,11 @@ export default function VideoSearchModal({ open, onClose }: VideoSearchModalProp
     } catch (addError) {
       setError(addError instanceof Error ? addError.message : ERROR_MESSAGES.VIDEO_ADD_FAILED);
     } finally {
-      setAddingVideoId(null);
+      setAddingVideoIds((prev) => {
+        const next = new Set(prev);
+        next.delete(videoId);
+        return next;
+      });
     }
   };
 
@@ -178,7 +183,7 @@ export default function VideoSearchModal({ open, onClose }: VideoSearchModalProp
             <Stack spacing={2}>
               {videos.map((video) => {
                 const addStatus = addStatusById[video.videoId];
-                const isAdding = addingVideoId === video.videoId;
+                const isAdding = addingVideoIds.has(video.videoId);
 
                 return (
                   <Card key={video.videoId}>

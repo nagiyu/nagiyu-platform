@@ -64,6 +64,13 @@ export default function JobStatusDisplay({ jobId, onComplete, onError }: JobStat
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const attemptCountRef = useRef(0);
   const hasCompletedRef = useRef(false);
+  // 呼び出し元が毎回新しい関数を渡しても取得とポーリングをやり直さないよう、最新のコールバックは ref 経由で呼ぶ
+  const onCompleteRef = useRef(onComplete);
+  const onErrorRef = useRef(onError);
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+    onErrorRef.current = onError;
+  }, [onComplete, onError]);
 
   /**
    * 二段階認証コードを送信
@@ -142,11 +149,11 @@ export default function JobStatusDisplay({ jobId, onComplete, onError }: JobStat
         if (!hasCompletedRef.current) {
           hasCompletedRef.current = true;
 
-          if (data.status === 'SUCCEEDED' && data.result && onComplete) {
-            onComplete(data.result);
-          } else if (data.status === 'FAILED' && onError) {
+          if (data.status === 'SUCCEEDED' && data.result) {
+            onCompleteRef.current?.(data.result);
+          } else if (data.status === 'FAILED') {
             const errorMessage = data.result?.errorMessage || 'ジョブが失敗しました';
-            onError(errorMessage);
+            onErrorRef.current?.(errorMessage);
           }
         }
       }
@@ -173,12 +180,12 @@ export default function JobStatusDisplay({ jobId, onComplete, onError }: JobStat
       }
 
       // エラーコールバックを実行（1回のみ）
-      if (!hasCompletedRef.current && onError) {
+      if (!hasCompletedRef.current) {
         hasCompletedRef.current = true;
-        onError(errorMessage);
+        onErrorRef.current?.(errorMessage);
       }
     }
-  }, [jobId, onComplete, onError]);
+  }, [jobId]);
 
   /**
    * ポーリングを開始

@@ -273,3 +273,122 @@ describe('VideoDetailModal - 操作成功', () => {
     });
   });
 });
+
+describe('VideoDetailModal - 未保存のメモ', () => {
+  /** メモを編集して、未保存の変更がある状態にする */
+  function editMemo(value = '編集したメモ') {
+    fireEvent.change(screen.getByRole('textbox'), { target: { value } });
+  }
+
+  const closeRoutes: Array<[string, () => void]> = [
+    ['タイトル右上の ×', () => fireEvent.click(screen.getAllByLabelText('閉じる')[0])],
+    ['下部の「閉じる」ボタン', () => fireEvent.click(screen.getByText('閉じる'))],
+    ['ESC キー', () => fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' })],
+    [
+      '背景クリック',
+      () => {
+        const backdrop = document.querySelector('.MuiBackdrop-root');
+        if (!backdrop) throw new Error('背景が見つかりません');
+        fireEvent.click(backdrop);
+      },
+    ],
+  ];
+
+  it.each(closeRoutes)('%s で閉じようとすると確認が出て、まだ閉じない', async (_name, close) => {
+    const onClose = jest.fn();
+    await renderLoaded({ onClose });
+    editMemo();
+
+    close();
+
+    expect(await screen.findByText('保存していないメモがあります')).toBeInTheDocument();
+    expect(
+      screen.getByText('メモを保存せずに閉じると、編集した内容は破棄されます。')
+    ).toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('「破棄して閉じる」で onClose が呼ばれる', async () => {
+    const onClose = jest.fn();
+    await renderLoaded({ onClose });
+    editMemo();
+    fireEvent.click(screen.getByText('閉じる'));
+
+    fireEvent.click(await screen.findByText('破棄して閉じる'));
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('「キャンセル」では閉じず、編集中のメモが残る', async () => {
+    const onClose = jest.fn();
+    await renderLoaded({ onClose });
+    editMemo();
+    fireEvent.click(screen.getByText('閉じる'));
+
+    // 確認ダイアログ内のキャンセルを押す (削除確認のキャンセルは表示されていない)
+    fireEvent.click(await screen.findByRole('button', { name: 'キャンセル' }));
+
+    await waitFor(() => {
+      expect(screen.queryByText('保存していないメモがあります')).not.toBeInTheDocument();
+    });
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByRole('textbox')).toHaveValue('編集したメモ');
+  });
+
+  it('メモを変更していなければ、確認なしですぐ閉じる', async () => {
+    const onClose = jest.fn();
+    await renderLoaded({ onClose });
+
+    fireEvent.click(screen.getByText('閉じる'));
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText('保存していないメモがあります')).not.toBeInTheDocument();
+  });
+
+  it('編集してから元の値に戻した場合は、確認なしですぐ閉じる', async () => {
+    const onClose = jest.fn();
+    await renderLoaded({ onClose });
+    editMemo();
+    editMemo('元のメモ');
+
+    fireEvent.click(screen.getByLabelText('閉じる', { selector: 'button' }));
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('保存したあとは、確認なしですぐ閉じる', async () => {
+    const onClose = jest.fn();
+    const onUpdate = jest.fn();
+    await renderLoaded({ onClose, onUpdate });
+    editMemo();
+    mockFetch.mockReturnValueOnce(
+      jsonResponse({
+        video: { ...baseVideo, userSetting: { ...baseVideo.userSetting, memo: '編集したメモ' } },
+      })
+    );
+    fireEvent.click(screen.getByText('メモを保存'));
+    await waitFor(() => {
+      expect(onUpdate).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.click(screen.getByText('閉じる'));
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText('保存していないメモがあります')).not.toBeInTheDocument();
+  });
+
+  it('メモを編集していても、削除に成功したときは確認なしで閉じる', async () => {
+    const onClose = jest.fn();
+    await renderLoaded({ onClose });
+    editMemo();
+
+    fireEvent.click(screen.getByText('動画を削除'));
+    mockFetch.mockReturnValueOnce(jsonResponse({}));
+    fireEvent.click(screen.getByText('削除する'));
+
+    await waitFor(() => {
+      expect(onClose).toHaveBeenCalledTimes(1);
+    });
+    expect(screen.queryByText('保存していないメモがあります')).not.toBeInTheDocument();
+  });
+});
