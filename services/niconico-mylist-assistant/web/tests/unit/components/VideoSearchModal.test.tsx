@@ -691,6 +691,81 @@ describe('VideoSearchModal - 動画追加', () => {
   });
 });
 
+describe('VideoSearchModal - 複数動画の並行追加', () => {
+  const makeVideo = (videoId: string, title: string) => ({
+    videoId,
+    title,
+    thumbnailUrl: 'https://example.com/thumb.jpg',
+    description: '',
+    duration: 120,
+    viewCount: 100,
+    commentCount: 10,
+    mylistCount: 5,
+    uploadedAt: '2020-01-01T00:00:00+09:00',
+    tags: [],
+    isRegistered: false,
+  });
+
+  /** 保留中の追加リクエストを作る */
+  const deferredAdd = () => {
+    let resolve: () => void = () => undefined;
+    const promise = new Promise((res) => {
+      resolve = () =>
+        res({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({ success: 1, failed: 0, skipped: 0, total: 1 }),
+        });
+    });
+    return { promise, resolve };
+  };
+
+  it('片方の追加が終わっても、もう片方は処理中のまま再度押せない', async () => {
+    const addA = deferredAdd();
+    const addB = deferredAdd();
+    mockFetch.mockReturnValueOnce(
+      mockSearchResponse([makeVideo('sm1', '動画A'), makeVideo('sm2', '動画B')])
+    );
+    mockFetch.mockReturnValueOnce(addA.promise);
+    mockFetch.mockReturnValueOnce(addB.promise);
+
+    render(<VideoSearchModal open={true} onClose={jest.fn()} />);
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'テスト' } });
+    fireEvent.click(screen.getByText('検索'));
+    await waitFor(() => {
+      expect(screen.getAllByText('追加')).toHaveLength(2);
+    });
+
+    fireEvent.click(screen.getAllByText('追加')[0]);
+    fireEvent.click(screen.getAllByText('追加')[1]);
+
+    await waitFor(() => {
+      expect(screen.getAllByText('追加')).toHaveLength(2);
+      screen.getAllByText('追加').forEach((button) => expect(button).toBeDisabled());
+    });
+    // 各動画の処理中に再度押しても追加リクエストは増えない
+    fireEvent.click(screen.getAllByText('追加')[0]);
+    fireEvent.click(screen.getAllByText('追加')[1]);
+    expect(mockFetch).toHaveBeenCalledTimes(3);
+
+    // A だけ先に終わる
+    addA.resolve();
+    await waitFor(() => {
+      expect(screen.getByText('追加済み')).toBeInTheDocument();
+    });
+    // B はまだ処理中のため無効のまま、押しても再送されない
+    const remaining = screen.getByText('追加');
+    expect(remaining).toBeDisabled();
+    fireEvent.click(remaining);
+    expect(mockFetch).toHaveBeenCalledTimes(3);
+
+    addB.resolve();
+    await waitFor(() => {
+      expect(screen.getAllByText('追加済み')).toHaveLength(2);
+    });
+  });
+});
+
 describe('VideoSearchModal - ダイアログ開閉', () => {
   it('open=false のとき何も表示されない', () => {
     render(<VideoSearchModal open={false} onClose={jest.fn()} />);
