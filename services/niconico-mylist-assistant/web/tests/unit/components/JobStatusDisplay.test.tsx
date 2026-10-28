@@ -252,6 +252,54 @@ describe('JobStatusDisplay - 完了時のコールバック', () => {
   });
 });
 
+describe('JobStatusDisplay - コールバックの変更', () => {
+  it('親の再描画でコールバックが変わっても、取得とポーリングをやり直さない', async () => {
+    mockFetch.mockResolvedValue(statusResponse('RUNNING'));
+
+    const { rerender } = render(
+      <JobStatusDisplay jobId="job-1" onComplete={() => {}} onError={() => {}} />
+    );
+    await flush();
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+
+    // 描画のたびに新しい関数が渡されても、追加の取得は起きない
+    rerender(<JobStatusDisplay jobId="job-1" onComplete={() => {}} onError={() => {}} />);
+    rerender(<JobStatusDisplay jobId="job-1" onComplete={() => {}} onError={() => {}} />);
+    await flush();
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+
+    await advancePolling();
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('最後に渡されたコールバックが完了時に呼ばれる', async () => {
+    const first = jest.fn();
+    const latest = jest.fn();
+    mockFetch.mockResolvedValueOnce(statusResponse('RUNNING'));
+    mockFetch.mockResolvedValue(statusResponse('SUCCEEDED', RESULT));
+
+    const { rerender } = render(<JobStatusDisplay jobId="job-1" onComplete={first} />);
+    await flush();
+    rerender(<JobStatusDisplay jobId="job-1" onComplete={latest} />);
+    await advancePolling();
+
+    expect(first).not.toHaveBeenCalled();
+    expect(latest).toHaveBeenCalledWith(RESULT);
+  });
+
+  it('jobId が変わると新しいジョブを取得し直す', async () => {
+    mockFetch.mockResolvedValue(statusResponse('RUNNING'));
+
+    const { rerender } = render(<JobStatusDisplay jobId="job-1" />);
+    await flush();
+    rerender(<JobStatusDisplay jobId="job-2" />);
+    await flush();
+
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    expect(mockFetch).toHaveBeenLastCalledWith('/api/batch/status/job-2');
+  });
+});
+
 describe('JobStatusDisplay - タイムアウト', () => {
   it('最大試行回数に達したらポーリングを停止してタイムアウトを表示する', async () => {
     const onError = jest.fn();

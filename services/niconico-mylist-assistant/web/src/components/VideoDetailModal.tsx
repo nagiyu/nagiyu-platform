@@ -14,7 +14,7 @@ import {
   CircularProgress,
   Stack,
 } from '@mui/material';
-import { Button, Chip, ErrorAlert, TextField } from '@nagiyu/ui';
+import { Button, Chip, ConfirmDialog, ErrorAlert, TextField } from '@nagiyu/ui';
 import {
   Close,
   Favorite,
@@ -42,6 +42,13 @@ const ERROR_MESSAGES = {
   MEMO_TOO_LONG: 'メモは1000文字以内で入力してください',
 } as const;
 
+const DISCARD_CONFIRM = {
+  TITLE: '保存していないメモがあります',
+  DESCRIPTION: 'メモを保存せずに閉じると、編集した内容は破棄されます。',
+  CONFIRM_LABEL: '破棄して閉じる',
+  CANCEL_LABEL: 'キャンセル',
+} as const;
+
 /**
  * 動画詳細モーダルコンポーネント
  *
@@ -63,6 +70,7 @@ export default function VideoDetailModal({
   const [isSaving, setIsSaving] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
 
   // 動画情報を取得
   useEffect(() => {
@@ -72,6 +80,7 @@ export default function VideoDetailModal({
       setFetchError(null);
       setActionError(null);
       setShowDeleteConfirm(false);
+      setShowDiscardConfirm(false);
       return;
     }
 
@@ -228,6 +237,23 @@ export default function VideoDetailModal({
     }
   };
 
+  // 動画の読み込み前 (video が null) は編集できないため、未保存の変更はない
+  const hasUnsavedMemo = video !== null && memo !== (video.userSetting?.memo || '');
+
+  // ESC・背景・×・閉じるボタンの全経路を通し、未保存のメモを確認なしで捨てないようにする。
+  const handleRequestClose = () => {
+    if (hasUnsavedMemo) {
+      setShowDiscardConfirm(true);
+      return;
+    }
+    onClose();
+  };
+
+  const handleConfirmDiscard = () => {
+    setShowDiscardConfirm(false);
+    onClose();
+  };
+
   /**
    * 日時フォーマット（秒は省略して見やすく表示）
    */
@@ -247,11 +273,11 @@ export default function VideoDetailModal({
   const isSkip = video?.userSetting?.isSkip ?? false;
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+    <Dialog open={open} onClose={handleRequestClose} maxWidth="md" fullWidth>
       <DialogTitle>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Typography variant="h6">動画詳細</Typography>
-          <IconButton onClick={onClose} size="small" aria-label="閉じる">
+          <IconButton onClick={handleRequestClose} size="small" aria-label="閉じる">
             <Close />
           </IconButton>
         </Box>
@@ -407,10 +433,20 @@ export default function VideoDetailModal({
       </DialogContent>
 
       <DialogActions>
-        <Button onClick={onClose} variant="ghost" disabled={isSaving || isDeleting}>
+        <Button onClick={handleRequestClose} variant="ghost" disabled={isSaving || isDeleting}>
           閉じる
         </Button>
       </DialogActions>
+
+      <ConfirmDialog
+        open={showDiscardConfirm}
+        title={DISCARD_CONFIRM.TITLE}
+        description={DISCARD_CONFIRM.DESCRIPTION}
+        confirmLabel={DISCARD_CONFIRM.CONFIRM_LABEL}
+        cancelLabel={DISCARD_CONFIRM.CANCEL_LABEL}
+        onConfirm={handleConfirmDiscard}
+        onCancel={() => setShowDiscardConfirm(false)}
+      />
     </Dialog>
   );
 }

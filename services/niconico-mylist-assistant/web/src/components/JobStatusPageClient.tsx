@@ -22,28 +22,17 @@ export default function JobStatusPageClient({ jobId }: JobStatusPageClientProps)
   const [notification, setNotification] = useState<{
     open: boolean;
     message: string;
-    severity: 'success' | 'error';
-  }>({ open: false, message: '', severity: 'success' });
+  }>({ open: false, message: '' });
 
   /**
    * ジョブ完了時のコールバック
+   *
+   * 失敗は JobStatusDisplay が画面内に表示するため、通知は完了時だけ出して二重表示を避ける。
    */
   const handleJobComplete = (result: BatchResult) => {
     setNotification({
       open: true,
       message: `マイリスト登録が完了しました！ (成功: ${result.registeredCount}件, 失敗: ${result.failedCount}件)`,
-      severity: 'success',
-    });
-  };
-
-  /**
-   * ジョブエラー時のコールバック
-   */
-  const handleJobError = (error: string) => {
-    setNotification({
-      open: true,
-      message: `エラーが発生しました: ${error}`,
-      severity: 'error',
     });
   };
 
@@ -75,7 +64,7 @@ export default function JobStatusPageClient({ jobId }: JobStatusPageClientProps)
         </Box>
 
         {/* ジョブステータス表示 */}
-        <JobStatusDisplay jobId={jobId} onComplete={handleJobComplete} onError={handleJobError} />
+        <JobStatusDisplay jobId={jobId} onComplete={handleJobComplete} />
 
         {/* 通知（Snackbar） */}
         <Snackbar
@@ -84,11 +73,7 @@ export default function JobStatusPageClient({ jobId }: JobStatusPageClientProps)
           onClose={handleCloseNotification}
           anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
         >
-          <Alert
-            onClose={handleCloseNotification}
-            severity={notification.severity}
-            sx={{ width: '100%' }}
-          >
+          <Alert onClose={handleCloseNotification} severity="success" sx={{ width: '100%' }}>
             {notification.message}
           </Alert>
         </Snackbar>
