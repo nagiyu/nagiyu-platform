@@ -336,7 +336,7 @@ test.describe('JSON Formatter - E2E Tests', () => {
       const inputField = page.getByPlaceholder('JSON を入力してください...');
       await expect(inputField).toHaveValue('');
 
-      const readButton = page.getByRole('button', { name: /クリップボードから JSON を読み取る/ });
+      const readButton = page.getByRole('button', { name: 'クリップボードから読み取り (JSON)' });
       await readButton.click();
 
       // 入力フィールドにクリップボードの内容が挿入されることを確認
@@ -434,8 +434,8 @@ test.describe('JSON Formatter - E2E Tests', () => {
 
       // 重要なボタンにARIAラベルが設定されていることを確認（値も検証）
       await expect(
-        page.getByRole('button', { name: 'クリップボードから JSON を読み取る' })
-      ).toHaveAttribute('aria-label', 'クリップボードから JSON を読み取る');
+        page.getByRole('button', { name: 'クリップボードから読み取り (JSON)' })
+      ).toHaveAttribute('aria-label', 'クリップボードから読み取り (JSON)');
       await expect(page.getByRole('button', { name: 'JSON を整形する' })).toHaveAttribute(
         'aria-label',
         'JSON を整形する'

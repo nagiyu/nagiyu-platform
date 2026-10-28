@@ -238,7 +238,7 @@ function TransitConverterContent() {
             variant="outline"
             startIcon={<ContentPasteIcon />}
             onClick={handleReadClipboard}
-            aria-label="クリップボードから乗り換え案内テキストを読み取る"
+            aria-label="クリップボードから読み取り (乗り換え案内テキスト)"
           >
             クリップボードから読み取り
           </Button>

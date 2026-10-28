@@ -149,7 +149,7 @@ export default function JsonFormatterClient() {
             variant="outline"
             startIcon={<ContentPasteIcon />}
             onClick={handleReadClipboard}
-            aria-label="クリップボードから JSON を読み取る"
+            aria-label="クリップボードから読み取り (JSON)"
           >
             クリップボードから読み取り
           </Button>
