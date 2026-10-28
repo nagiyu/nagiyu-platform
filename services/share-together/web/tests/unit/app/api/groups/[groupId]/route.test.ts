@@ -1,3 +1,7 @@
+/**
+ * @jest-environment node
+ */
+
 jest.mock('next/server', () => ({
   NextResponse: class {
     public readonly status: number;

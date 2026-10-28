@@ -1,3 +1,7 @@
+/**
+ * @jest-environment node
+ */
+
 import type { NoteEntity, TopicBundle } from '@nagiyu/livetalk-core';
 import { sortNotes, toNoteDetail, toNoteListItem } from '@/lib/notes/serializer';
 import { decodeNoteId } from '@/lib/notes/note-id';

@@ -1,3 +1,7 @@
+/**
+ * @jest-environment node
+ */
+
 import { reportErrorEvent } from '@nagiyu/aws';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import type { JobRepository } from '@nagiyu/quick-clip-core';

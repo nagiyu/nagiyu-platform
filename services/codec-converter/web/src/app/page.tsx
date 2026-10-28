@@ -158,7 +158,6 @@ export default function Home() {
           onDrop={handleDrop}
           role="button"
           tabIndex={0}
-          aria-label="ファイルをドラッグ&ドロップ または クリックして選択"
           elevation={isDragging ? 8 : 2}
           sx={{
             border: (theme) =>

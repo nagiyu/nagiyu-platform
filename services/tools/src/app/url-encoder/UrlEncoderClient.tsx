@@ -139,12 +139,7 @@ export default function UrlEncoderClient() {
           spacing={2}
           sx={{ '& > button': { xs: { width: '100%' }, sm: { width: 'auto' } } }}
         >
-          <Button
-            variant="outline"
-            startIcon={<ContentPasteIcon />}
-            onClick={handleReadClipboard}
-            aria-label="クリップボードから入力を読み取る"
-          >
+          <Button variant="outline" startIcon={<ContentPasteIcon />} onClick={handleReadClipboard}>
             クリップボードから読み取り
           </Button>
           <Button

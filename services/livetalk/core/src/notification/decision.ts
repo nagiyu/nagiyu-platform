@@ -29,12 +29,7 @@ export type NotifyDecision =
   | {
       notify: false;
       reason:
-        | 'not_due'
-        | 'outside_window'
-        | 'sleeping'
-        | 'daily_cap'
-        | 'inactive_stopped'
-        | 'no_content';
+        'not_due' | 'outside_window' | 'sleeping' | 'daily_cap' | 'inactive_stopped' | 'no_content';
     };
 
 export interface NotifyDecisionInput {

@@ -233,8 +233,7 @@ export function collectKnownProbabilitySamples(
     const outcome = sample.outcome;
     const probability = (
       sample.probabilities as
-        | Partial<Record<Question, { probability: number; baseline: number }>>
-        | undefined
+        Partial<Record<Question, { probability: number; baseline: number }>> | undefined
     )?.[question];
     if (outcome === undefined || probability === undefined) continue;
     if (!sampleUsable(sample, outcome.nextDate, date, market, exchanges)) continue;

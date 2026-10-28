@@ -1,3 +1,7 @@
+/**
+ * @jest-environment node
+ */
+
 import { reportErrorEvent } from '@nagiyu/aws';
 import { POST } from '@/app/api/jobs/[jobId]/highlights/recover/route';
 import type { HighlightRepository, JobRepository } from '@nagiyu/quick-clip-core';
