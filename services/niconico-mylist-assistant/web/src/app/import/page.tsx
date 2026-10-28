@@ -20,6 +20,8 @@ import { Button, Chip, ErrorAlert, TextField } from '@nagiyu/ui';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { useRouter } from 'next/navigation';
 import VideoSearchModal from '@/components/VideoSearchModal';
+import { ERROR_MESSAGES, VALIDATION_LIMITS } from '@/lib/constants/errors';
+import { normalizeVideoIdInput, summarizeInvalidIds } from '@/lib/video-id-input';
 
 interface ImportResult {
   success: number;
@@ -32,34 +34,49 @@ interface ImportResult {
   }>;
 }
 
+/**
+ * サーバーが形式不正と判定した動画 ID の一覧。多いときは先頭の数件と残りの件数だけ示す。
+ */
+function InvalidIdList({ ids }: { ids: string[] }) {
+  const { shown, remaining } = summarizeInvalidIds(
+    ids,
+    VALIDATION_LIMITS.INVALID_VIDEO_IDS_DISPLAY_COUNT
+  );
+  return (
+    <Typography variant="body2" sx={{ mt: 1, wordBreak: 'break-all' }}>
+      {ERROR_MESSAGES.INVALID_VIDEO_IDS_LABEL}: {shown.join(', ')}
+      {remaining > 0 &&
+        ` ${ERROR_MESSAGES.INVALID_VIDEO_IDS_REMAINING_PREFIX} ${remaining} ${ERROR_MESSAGES.INVALID_VIDEO_IDS_REMAINING_SUFFIX}`}
+    </Typography>
+  );
+}
+
 export default function ImportPage() {
   const router = useRouter();
   const [videoIds, setVideoIds] = useState('');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [invalidIds, setInvalidIds] = useState<string[]>([]);
   const [searchModalOpen, setSearchModalOpen] = useState(false);
 
   const handleImport = async () => {
     setLoading(true);
     setError(null);
+    setInvalidIds([]);
     setResult(null);
 
     try {
-      // 動画 ID を抽出（改行、カンマ、スペース区切り対応）
-      const ids = videoIds
-        .split(/[\n,\s]+/)
-        .map((id) => id.trim())
-        .filter((id) => id.length > 0);
+      const ids = normalizeVideoIdInput(videoIds);
 
       if (ids.length === 0) {
-        setError('動画 ID を入力してください');
+        setError(ERROR_MESSAGES.IMPORT_VIDEO_IDS_REQUIRED);
         setLoading(false);
         return;
       }
 
       if (ids.length > 100) {
-        setError('一度に登録できる動画は最大 100 件です');
+        setError(ERROR_MESSAGES.VIDEO_IDS_TOO_MANY);
         setLoading(false);
         return;
       }
@@ -74,13 +91,16 @@ export default function ImportPage() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'インポートに失敗しました');
+        if (Array.isArray(errorData.invalidIds)) {
+          setInvalidIds(errorData.invalidIds.map(String));
+        }
+        throw new Error(errorData.error || ERROR_MESSAGES.IMPORT_FAILED);
       }
 
       const data = await response.json();
       setResult(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'エラーが発生しました');
+      setError(err instanceof Error ? err.message : ERROR_MESSAGES.GENERIC_ERROR);
     } finally {
       setLoading(false);
     }
@@ -94,9 +114,10 @@ export default function ImportPage() {
         </Typography>
 
         <Typography variant="body2" color="text.secondary" gutterBottom>
-          ニコニコ動画の動画 ID（sm9, so12345, nm98765 など）を入力してください。
+          ニコニコ動画の動画 ID（sm9, so12345, nm98765 など）または動画の URL
+          を入力してください。大文字でも貼り付けられます。
           <br />
-          改行、カンマ、スペース区切りで複数指定できます（最大 100 件）。
+          改行、カンマ、読点、スペース区切りで複数指定できます（最大 100 件）。
         </Typography>
 
         <Box sx={{ mt: 3 }}>
@@ -129,6 +150,7 @@ export default function ImportPage() {
         {error && (
           <Box sx={{ mt: 3 }}>
             <ErrorAlert message={error} />
+            {invalidIds.length > 0 && <InvalidIdList ids={invalidIds} />}
           </Box>
         )}
 

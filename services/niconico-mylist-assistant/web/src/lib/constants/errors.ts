@@ -37,6 +37,8 @@ export const ERROR_MESSAGES = {
   INVALID_PUSH_SUBSCRIPTION: 'pushSubscription の形式が不正です',
   MYLIST_NAME_REQUIRED: 'mylistName は必須です',
   MYLIST_NAME_MUST_BE_STRING: 'mylistName は文字列である必要があります',
+  MYLIST_NAME_TOO_LONG: 'マイリスト名は 50 文字以内で入力してください',
+  MYLIST_NAME_INPUT_REQUIRED: 'マイリスト名を入力してください',
   JOB_ID_MUST_BE_STRING: 'jobId は文字列である必要があります',
   USER_SESSION_REQUIRED: 'user_session は必須です',
   USER_SESSION_MUST_BE_STRING: 'user_session は文字列である必要があります',
@@ -63,8 +65,20 @@ export const ERROR_MESSAGES = {
   // セッション管理 UI バリデーション
   USER_SESSION_INPUT_REQUIRED: 'user_session を入力してください',
   GENERIC_ERROR: 'エラーが発生しました',
+
+  // インポート画面
+  IMPORT_VIDEO_IDS_REQUIRED: '動画 ID を入力してください',
+  IMPORT_FAILED: 'インポートに失敗しました',
+  INVALID_VIDEO_IDS_LABEL: '形式が正しくない動画 ID',
+  INVALID_VIDEO_IDS_REMAINING_PREFIX: 'ほか',
+  INVALID_VIDEO_IDS_REMAINING_SUFFIX: '件',
 } as const;
 
 export const VALIDATION_LIMITS = {
   SEARCH_KEYWORD_MAX_LENGTH: 100,
+  // バッチがニコニコのマイリスト作成画面に名前を入力し、その後は名前の一致でマイリストを探す。
+  // ニコニコ側で切り詰められると一致しなくなるため、切られない短い値にしている。
+  MYLIST_NAME_MAX_LENGTH: 50,
+  // 取り込みエラーで一覧表示する不正 ID の最大数。残りは件数だけ示す
+  INVALID_VIDEO_IDS_DISPLAY_COUNT: 10,
 } as const;
