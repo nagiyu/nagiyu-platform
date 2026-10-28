@@ -1,9 +1,5 @@
 name: React Library - Verification
 
-env:
-  SERVICE_ID: react
-  SERVICE_DISPLAY_NAME: React Library
-
 on:
   pull_request:
     branches:
@@ -16,6 +12,7 @@ on:
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/react-verify.yml'
+      - '.github/workflows/reusable-lib-verify.yml'
 
 # 同じ PR (push 起点ではブランチ) の古いコミットに対する検証は不要なため、新しい run が来たら打ち切る。
 concurrency:
@@ -23,150 +20,12 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
-    name: Build Library
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js and install dependencies
-        uses: ./.github/actions/setup-node
-        with:
-          node-version: '24'
-          cache-dependency-path: './package-lock.json'
-
-      - name: Build shared libraries
-        run: npm run build:libs
-
-      - name: Build library
-        run: npm run build --workspace=@nagiyu/react
-
-  test:
-    name: Run Unit Tests
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js and install dependencies
-        uses: ./.github/actions/setup-node
-        with:
-          node-version: '24'
-          cache-dependency-path: './package-lock.json'
-
-      - name: Build shared libraries
-        run: npm run build:libs
-
-      - name: Run tests
-        run: npm run test --workspace=@nagiyu/react
-
-  coverage:
-    name: Test Coverage Check
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js and install dependencies
-        uses: ./.github/actions/setup-node
-        with:
-          node-version: '24'
-          cache-dependency-path: './package-lock.json'
-
-      - name: Build shared libraries
-        run: npm run build:libs
-
-      - name: Run tests with coverage
-        run: npm run test:coverage --workspace=@nagiyu/react
-
-  lint:
-    name: Lint Code
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js and install dependencies
-        uses: ./.github/actions/setup-node
-        with:
-          node-version: '24'
-          cache-dependency-path: './package-lock.json'
-
-      - name: Run lint
-        run: npm run lint --workspace=@nagiyu/react
-
-  format-check:
-    name: Format Check
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js and install dependencies
-        uses: ./.github/actions/setup-node
-        with:
-          node-version: '24'
-          cache-dependency-path: './package-lock.json'
-
-      - name: Check formatting
-        run: npm run format:check --workspace=@nagiyu/react
-
-  report:
-    name: Report Results to PR
-    runs-on: ubuntu-latest
-    if: always()
-    needs: [build, test, coverage, lint, format-check]
-
+  verify:
+    uses: ./.github/workflows/reusable-lib-verify.yml
+    with:
+      workspace: '@nagiyu/react'
+      display-name: React Library
     permissions:
       contents: read
       pull-requests: write
-
-    steps:
-      - name: Create PR Comment
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const results = {
-              'Build': '${{ needs.build.result }}',
-              'Unit Tests': '${{ needs.test.result }}',
-              'Coverage Check': '${{ needs.coverage.result }}',
-              'Lint': '${{ needs.lint.result }}',
-              'Format Check': '${{ needs.format-check.result }}'
-            };
-
-            const statusEmoji = {
-              'success': '✅',
-              'failure': '❌',
-              'cancelled': '⚠️',
-              'skipped': '⏭️'
-            };
-
-            const allSuccess = Object.values(results).every(r => r === 'success');
-            const header = allSuccess
-              ? '## ✅ [${{ env.SERVICE_DISPLAY_NAME }}] Verification Passed'
-              : '## ❌ [${{ env.SERVICE_DISPLAY_NAME }}] Verification Failed';
-
-            let body = `${header}\n\n`;
-            body += '| Job | Status |\n';
-            body += '|-----|--------|\n';
-
-            for (const [job, result] of Object.entries(results)) {
-              const emoji = statusEmoji[result] || '❓';
-              body += `| ${job} | ${emoji} ${result} |\n`;
-            }
-
-            body += `\n[View workflow run](${context.payload.repository.html_url}/actions/runs/${context.runId})`;
-
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: body
-            });
+      actions: read
