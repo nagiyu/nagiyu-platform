@@ -271,4 +271,83 @@ describe('JobPage', () => {
       expect(screen.getByText('文字起こし（スキップ）')).toBeInTheDocument();
     });
   });
+
+  const mockJob = (status: string, extra: Record<string, unknown> = {}) => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        jobId: 'job-x',
+        status,
+        originalFileName: 'movie.mp4',
+        fileSize: 1024,
+        createdAt: 1,
+        expiresAt: 2,
+        ...extra,
+      }),
+    }) as jest.Mock;
+  };
+
+  it('見出しは状態によらず「処理状況」で、完了後も「処理中」と出さない', async () => {
+    mockJob('COMPLETED');
+    render(<JobPage params={Promise.resolve({ jobId: 'job-x' })} />);
+
+    expect(screen.getByRole('heading', { level: 1, name: '処理状況' })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText('処理完了')).toBeInTheDocument();
+    });
+    expect(screen.queryByText('処理中')).not.toBeInTheDocument();
+  });
+
+  it('状態のチップに Tailwind のクラスを付けず、内容幅にそろえる', async () => {
+    mockJob('PROCESSING');
+    render(<JobPage params={Promise.resolve({ jobId: 'job-x' })} />);
+
+    const chip = await screen.findByText('処理中');
+    expect(chip).not.toHaveClass('w-fit');
+    expect(chip.closest('.MuiBox-root')).toHaveStyle({ alignSelf: 'flex-start' });
+  });
+
+  it.each(['PENDING', 'PROCESSING'])('%s のあいだスピナーを表示する', async (status) => {
+    mockJob(status);
+    render(<JobPage params={Promise.resolve({ jobId: 'job-x' })} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('ジョブID: job-x')).toBeInTheDocument();
+    });
+    expect(screen.getByRole('progressbar', { name: '処理中' })).toBeInTheDocument();
+  });
+
+  it.each(['COMPLETED', 'FAILED'])('%s ではスピナーを表示しない', async (status) => {
+    mockJob(status);
+    render(<JobPage params={Promise.resolve({ jobId: 'job-x' })} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('ジョブID: job-x')).toBeInTheDocument();
+    });
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
+  });
+
+  it('FAILED のとき解析の段をエラー表示にして「処理失敗」を添える', async () => {
+    mockJob('FAILED', { errorMessage: '解析に失敗しました' });
+    const { container } = render(<JobPage params={Promise.resolve({ jobId: 'job-x' })} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('ジョブID: job-x')).toBeInTheDocument();
+    });
+    // チップと段の補足の 2 か所に「処理失敗」が出る
+    expect(screen.getAllByText('処理失敗')).toHaveLength(2);
+    expect(container.querySelectorAll('.MuiStepLabel-label.Mui-error')).toHaveLength(1);
+    expect(screen.getByText('解析')).toHaveClass('Mui-error');
+  });
+
+  it('FAILED 以外では解析の段をエラー表示にしない', async () => {
+    mockJob('PROCESSING', { batchStage: 'analyzing' });
+    const { container } = render(<JobPage params={Promise.resolve({ jobId: 'job-x' })} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('ジョブID: job-x')).toBeInTheDocument();
+    });
+    expect(container.querySelectorAll('.Mui-error')).toHaveLength(0);
+  });
 });
