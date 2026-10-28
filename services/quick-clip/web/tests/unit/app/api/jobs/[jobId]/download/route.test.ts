@@ -149,7 +149,7 @@ describe('POST /api/jobs/[jobId]/download', () => {
 
   const mockRequest = {} as Request;
 
-  it('正常系: zip-generator Lambda を非同期 Invoke して202を返す', async () => {
+  it('異常系: 採用された見どころに FAILED があれば 409 を返し、Lambda を呼ばない', async () => {
     mockGetByJobId.mockResolvedValue([
       {
         highlightId: 'h1',
@@ -168,6 +168,68 @@ describe('POST /api/jobs/[jobId]/download', () => {
         endSec: 40,
         status: 'accepted',
         clipStatus: 'FAILED',
+      },
+    ]);
+
+    const response = await POST(mockRequest, {
+      params: Promise.resolve({ jobId: 'job-1' }),
+    });
+    const body = (await response.json()) as { error: string };
+
+    expect(response.status).toBe(409);
+    expect(body.error).toBe('CLIP_GENERATION_FAILED');
+    expect(lambdaSend).not.toHaveBeenCalled();
+    expect(s3Send).not.toHaveBeenCalled();
+  });
+
+  it('正常系: 採用されていない見どころが FAILED でも 202 を返す', async () => {
+    mockGetByJobId.mockResolvedValue([
+      {
+        highlightId: 'h1',
+        jobId: 'job-1',
+        order: 1,
+        startSec: 10,
+        endSec: 20,
+        status: 'accepted',
+        clipStatus: 'GENERATED',
+      },
+      {
+        highlightId: 'h2',
+        jobId: 'job-1',
+        order: 2,
+        startSec: 30,
+        endSec: 40,
+        status: 'rejected',
+        clipStatus: 'FAILED',
+      },
+    ]);
+
+    const response = await POST(mockRequest, {
+      params: Promise.resolve({ jobId: 'job-1' }),
+    });
+
+    expect(response.status).toBe(202);
+  });
+
+  it('正常系: zip-generator Lambda を非同期 Invoke して202を返す', async () => {
+    mockGetByJobId.mockResolvedValue([
+      {
+        highlightId: 'h1',
+        jobId: 'job-1',
+        order: 1,
+        startSec: 10,
+        endSec: 20,
+        status: 'accepted',
+        clipStatus: 'GENERATED',
+      },
+      {
+        highlightId: 'h2',
+        jobId: 'job-1',
+        order: 2,
+        startSec: 30,
+        endSec: 40,
+        status: 'accepted',
+        clipStatus: 'GENERATED',
       },
     ]);
 
@@ -199,7 +261,7 @@ describe('POST /api/jobs/[jobId]/download', () => {
         startSec: 30,
         endSec: 40,
         status: 'accepted',
-        clipStatus: 'FAILED',
+        clipStatus: 'GENERATED',
       },
     ]);
 

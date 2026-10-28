@@ -1,6 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
+import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import {
   Alert,
   Box,
@@ -22,7 +24,7 @@ import {
 import { Button, Chip, ErrorAlert, TextField } from '@nagiyu/ui';
 import ReplayIcon from '@mui/icons-material/Replay';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutlined';
-import type { Highlight, TranscriptSegment } from '@/types/quick-clip';
+import type { Highlight, JobStatus, TranscriptSegment } from '@/types/quick-clip';
 import { ColumnVisibilityButton } from '@/components/highlights/ColumnVisibilityButton';
 import { HIGHLIGHT_TABLE_COLUMNS } from '@/constants/highlightTableColumns';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
@@ -37,6 +39,19 @@ const ERROR_MESSAGES = {
   RECOVER_FAILED: '作り直しが止まった見どころの復旧に失敗しました',
   DOWNLOAD_FAILED: 'ダウンロードの開始に失敗しました',
   NO_HIGHLIGHTS: '見どころが検出されませんでした',
+  JOB_NOT_FOUND: COMMON_ERROR_MESSAGES.JOB_NOT_FOUND,
+  JOB_LOAD_FAILED: 'ジョブ情報の取得に失敗しました',
+} as const;
+
+const JOB_NOT_READY_MESSAGES = {
+  IN_PROGRESS: 'まだ処理が終わっていません',
+  FAILED: '処理に失敗しました',
+  GO_TO_JOB: '処理状況を確認する',
+} as const;
+
+const DOWNLOAD_DISABLED_REASONS = {
+  FAILED_CLIP: '生成に失敗したクリップが採用されています。リトライするか、採用を外してください',
+  GENERATING: 'クリップの生成が終わるまでお待ちください',
 } as const;
 
 const INFO_MESSAGES = {
@@ -142,6 +157,13 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
   // 更新・作り直しを送信中の見どころ。サーバーの応答で clipStatus が変わるまでの間も入力を止める
   const [submittingIds, setSubmittingIds] = useState<ReadonlySet<string>>(new Set());
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // ジョブの状態。取得前は null。見どころ一覧は COMPLETED と分かってから取る
+  const [jobStatus, setJobStatus] = useState<JobStatus | null>(null);
+  const [jobError, setJobError] = useState<
+    typeof ERROR_MESSAGES.JOB_NOT_FOUND | typeof ERROR_MESSAGES.JOB_LOAD_FAILED | null
+  >(null);
+  // 0 件の表示は一覧の取得に成功したときだけにする。失敗時に「検出されなかった」と誤らせない
+  const [hasLoadedHighlights, setHasLoadedHighlights] = useState(false);
   const [expiresAt, setExpiresAt] = useState<number | null>(null);
   const [transcriptSegments, setTranscriptSegments] = useState<TranscriptSegment[]>([]);
   const isFetchingRef = useRef(false);
@@ -193,6 +215,7 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
 
         const data = (await response.json()) as HighlightsResponse;
         setHighlights(data.highlights);
+        setHasLoadedHighlights(true);
         setClipUrls((current) => {
           const updated = { ...current };
           let changed = false;
@@ -228,31 +251,55 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
   );
 
   useEffect(() => {
-    if (!jobId) {
+    if (!jobId || jobStatus !== 'COMPLETED') {
       return;
     }
 
     void fetchHighlights({ isInitialLoad: true });
-  }, [fetchHighlights, jobId]);
+  }, [fetchHighlights, jobId, jobStatus]);
 
   useEffect(() => {
     if (!jobId) return;
-    const fetchExpiresAt = async () => {
+    let active = true;
+    const fetchJob = async () => {
       try {
         const res = await fetch(`/api/jobs/${jobId}`);
-        if (!res.ok) return;
-        const data = (await res.json()) as { expiresAt: number };
-        setExpiresAt(data.expiresAt);
+        if (!active) return;
+        if (res.status === 404) {
+          setJobError(ERROR_MESSAGES.JOB_NOT_FOUND);
+          setIsLoading(false);
+          return;
+        }
+        if (!res.ok) {
+          setJobError(ERROR_MESSAGES.JOB_LOAD_FAILED);
+          setIsLoading(false);
+          return;
+        }
+        const data = (await res.json()) as { status: JobStatus; expiresAt?: number };
+        if (!active) return;
+        if (typeof data.expiresAt === 'number') {
+          setExpiresAt(data.expiresAt);
+        }
+        setJobStatus(data.status);
+        // 一覧を取りに行かない状態では、一覧取得の完了で下ろされる読み込み表示をここで止める
+        if (data.status !== 'COMPLETED') {
+          setIsLoading(false);
+        }
       } catch (error) {
-        // 有効期限取得失敗は非致命的
-        console.warn('有効期限の取得に失敗しました', error);
+        if (!active) return;
+        console.warn(ERROR_MESSAGES.JOB_LOAD_FAILED, error);
+        setJobError(ERROR_MESSAGES.JOB_LOAD_FAILED);
+        setIsLoading(false);
       }
     };
-    void fetchExpiresAt();
+    void fetchJob();
+    return () => {
+      active = false;
+    };
   }, [jobId]);
 
   useEffect(() => {
-    if (!jobId) return;
+    if (!jobId || jobStatus !== 'COMPLETED') return;
     const fetchTranscript = async () => {
       try {
         const res = await fetch(`/api/jobs/${jobId}/transcript`);
@@ -265,7 +312,7 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
       }
     };
     void fetchTranscript();
-  }, [jobId]);
+  }, [jobId, jobStatus]);
 
   const selectedHighlight = useMemo(() => {
     const highlight = highlights.find((item) => item.highlightId === selectedId);
@@ -319,6 +366,19 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
       ),
     [highlights]
   );
+  const hasFailedAcceptedClip = useMemo(
+    () =>
+      highlights.some(
+        (highlight) => highlight.status === 'accepted' && highlight.clipStatus === 'FAILED'
+      ),
+    [highlights]
+  );
+  // 失敗の方が人の操作を要するので、両方あるときは失敗を優先して伝える
+  const downloadDisabledReason = hasFailedAcceptedClip
+    ? DOWNLOAD_DISABLED_REASONS.FAILED_CLIP
+    : hasUngeneratedAcceptedClip
+      ? DOWNLOAD_DISABLED_REASONS.GENERATING
+      : null;
 
   const setSubmitting = (highlightId: string, isSubmitting: boolean): void => {
     setSubmittingIds((current) => {
@@ -517,6 +577,21 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
           </Stack>
         )}
 
+        {jobError && <ErrorAlert message={jobError} />}
+
+        {(jobStatus === 'PENDING' || jobStatus === 'PROCESSING' || jobStatus === 'FAILED') && (
+          <Stack spacing={2} sx={{ mb: 2, alignItems: 'flex-start' }}>
+            <Alert severity={jobStatus === 'FAILED' ? 'error' : 'info'}>
+              {jobStatus === 'FAILED'
+                ? JOB_NOT_READY_MESSAGES.FAILED
+                : JOB_NOT_READY_MESSAGES.IN_PROGRESS}
+            </Alert>
+            <Button asChild variant="outline">
+              <Link href={`/jobs/${jobId}`}>{JOB_NOT_READY_MESSAGES.GO_TO_JOB}</Link>
+            </Button>
+          </Stack>
+        )}
+
         {errorMessage && <ErrorAlert message={errorMessage} />}
 
         {expiresAt !== null && (
@@ -526,7 +601,7 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
           </Typography>
         )}
 
-        {!isLoading && highlights.length === 0 && (
+        {!isLoading && hasLoadedHighlights && highlights.length === 0 && (
           <Alert severity="info" sx={{ mb: 2 }}>
             {ERROR_MESSAGES.NO_HIGHLIGHTS}
           </Alert>
@@ -805,6 +880,11 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
                 >
                   {isDownloading ? 'ダウンロード準備中...' : 'ZIP ダウンロード'}
                 </Button>
+                {downloadDisabledReason && (
+                  <Typography variant="body2" color="text.secondary">
+                    {downloadDisabledReason}
+                  </Typography>
+                )}
               </Stack>
             </Box>
           </Stack>

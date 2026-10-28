@@ -1,5 +1,6 @@
 import '@testing-library/jest-dom';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { formatFileSize } from '@nagiyu/common';
 import Home from '@/app/page';
 import { getVideoDurationSec } from '@/lib/get-video-duration';
 
@@ -66,6 +67,16 @@ describe('Home', () => {
       screen.getByText('動画をアップロードして見どころ抽出を開始します。')
     ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'アップロードして処理開始' })).toBeDisabled();
+  });
+
+  it('選択中のファイルを名前とサイズで表示する', () => {
+    const file = new File([new Uint8Array(2048)], 'input.mp4', { type: 'video/mp4' });
+    render(<Home />);
+    fireEvent.change(document.querySelector('input[type="file"]') as HTMLInputElement, {
+      target: { files: [file] },
+    });
+
+    expect(screen.getByText(`選択中: input.mp4 (${formatFileSize(2048)})`)).toBeInTheDocument();
   });
 
   it('制約通知 Alert が表示される', () => {
