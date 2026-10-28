@@ -197,7 +197,7 @@ test.describe('Error Handling', () => {
       await page.goto('/holdings');
 
       // ページが正常にロードされることを確認
-      // ErrorBoundary は ThemeRegistry に統合されている
+      // ルートレイアウトの例外は global-error.tsx が受ける
       await expect(page.getByRole('table')).toBeVisible();
     });
   });
