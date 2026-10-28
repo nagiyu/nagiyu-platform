@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { hasPermission } from '@nagiyu/common';
 import type { Permission } from '@nagiyu/common';
@@ -27,6 +28,7 @@ import MenuIcon from '@mui/icons-material/Menu';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import { findCurrentItem } from '../../utils/navigation';
 
 export interface NavigationItem {
   /**
@@ -149,19 +151,45 @@ function filterNavigationItems(items: NavigationItem[], roles: string[]): Naviga
 }
 
 /**
+ * AppBar 上（白文字）で「今いるページ」を示す見た目。
+ * 色だけに頼らず、太字と下線で示す。
+ */
+const CURRENT_NAV_SX = {
+  fontWeight: 700,
+  textDecoration: 'underline',
+  textDecorationThickness: '2px',
+  textUnderlineOffset: '6px',
+} as const;
+
+/**
+ * 子項目のどれかが現在の項目かを返す。
+ */
+function hasCurrentChild(item: NavigationItem, current: NavigationItem | null): boolean {
+  return current !== null && (item.children?.includes(current) ?? false);
+}
+
+/**
  * デスクトップ用のナビゲーションメニュー項目コンポーネント
  */
-function NavigationMenuItem({ item }: { item: NavigationItem }) {
+function NavigationMenuItem({
+  item,
+  current,
+}: {
+  item: NavigationItem;
+  current: NavigationItem | null;
+}) {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 
   if (!item.children) {
+    const isCurrent = item === current;
     return (
       <Button
         color="inherit"
         href={item.href}
         startIcon={item.icon}
-        sx={{ mx: 0.5 }}
+        sx={{ mx: 0.5, ...(isCurrent && CURRENT_NAV_SX) }}
         aria-label={item.label}
+        aria-current={isCurrent ? 'page' : undefined}
       >
         {item.label}
       </Button>
@@ -175,7 +203,7 @@ function NavigationMenuItem({ item }: { item: NavigationItem }) {
         onClick={(e) => setAnchorEl(e.currentTarget)}
         endIcon={<ArrowDropDownIcon />}
         startIcon={item.icon}
-        sx={{ mx: 0.5 }}
+        sx={{ mx: 0.5, ...(hasCurrentChild(item, current) && CURRENT_NAV_SX) }}
         aria-label={`${item.label} メニュー`}
         aria-haspopup="true"
         aria-expanded={Boolean(anchorEl)}
@@ -198,6 +226,8 @@ function NavigationMenuItem({ item }: { item: NavigationItem }) {
             component="a"
             href={child.href}
             onClick={() => setAnchorEl(null)}
+            selected={child === current}
+            aria-current={child === current ? 'page' : undefined}
           >
             {child.icon && <ListItemIcon>{child.icon}</ListItemIcon>}
             {child.label}
@@ -211,13 +241,28 @@ function NavigationMenuItem({ item }: { item: NavigationItem }) {
 /**
  * モバイル用のDrawerメニュー項目コンポーネント
  */
-function NavigationDrawerItem({ item, onClose }: { item: NavigationItem; onClose: () => void }) {
-  const [open, setOpen] = useState(false);
+function NavigationDrawerItem({
+  item,
+  current,
+  onClose,
+}: {
+  item: NavigationItem;
+  current: NavigationItem | null;
+  onClose: () => void;
+}) {
+  // 現在のページが子にあるとき、開いた状態から始めて今いる場所が見えるようにする
+  const [open, setOpen] = useState(() => hasCurrentChild(item, current));
 
   if (!item.children) {
     return (
       <ListItem disablePadding>
-        <ListItemButton component="a" href={item.href} onClick={onClose}>
+        <ListItemButton
+          component="a"
+          href={item.href}
+          onClick={onClose}
+          selected={item === current}
+          aria-current={item === current ? 'page' : undefined}
+        >
           {item.icon && <ListItemIcon>{item.icon}</ListItemIcon>}
           <ListItemText primary={item.label} />
         </ListItemButton>
@@ -238,7 +283,14 @@ function NavigationDrawerItem({ item, onClose }: { item: NavigationItem; onClose
         <List component="div" disablePadding>
           {item.children.map((child) => (
             <ListItem key={child.label} disablePadding>
-              <ListItemButton sx={{ pl: 4 }} component="a" href={child.href} onClick={onClose}>
+              <ListItemButton
+                sx={{ pl: 4 }}
+                component="a"
+                href={child.href}
+                onClick={onClose}
+                selected={child === current}
+                aria-current={child === current ? 'page' : undefined}
+              >
                 {child.icon && <ListItemIcon>{child.icon}</ListItemIcon>}
                 <ListItemText primary={child.label} />
               </ListItemButton>
@@ -357,6 +409,8 @@ export default function Header({
     () => filterNavigationItems(navigationItems ?? [], roles ?? []),
     [navigationItems, roles]
   );
+  const pathname = usePathname();
+  const current = useMemo(() => findCurrentItem(visibleItems, pathname), [visibleItems, pathname]);
   const hasNavigation = visibleItems.length > 0;
   const defaultAriaLabel = `${title} - Navigate to homepage`;
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -406,7 +460,7 @@ export default function Header({
           {hasNavigation && (
             <Box sx={{ display: { xs: 'none', md: 'flex' }, ml: 4 }}>
               {visibleItems.map((item) => (
-                <NavigationMenuItem key={item.label} item={item} />
+                <NavigationMenuItem key={item.label} item={item} current={current} />
               ))}
             </Box>
           )}
@@ -462,7 +516,12 @@ export default function Header({
           >
             <List>
               {visibleItems.map((item) => (
-                <NavigationDrawerItem key={item.label} item={item} onClose={handleDrawerClose} />
+                <NavigationDrawerItem
+                  key={item.label}
+                  item={item}
+                  current={current}
+                  onClose={handleDrawerClose}
+                />
               ))}
             </List>
           </Box>
