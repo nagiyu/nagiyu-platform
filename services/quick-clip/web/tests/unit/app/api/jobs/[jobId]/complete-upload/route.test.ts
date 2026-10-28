@@ -1,3 +1,7 @@
+/**
+ * @jest-environment node
+ */
+
 import { reportErrorEvent } from '@nagiyu/aws';
 import type { JobRepository } from '@nagiyu/quick-clip-core';
 import { getBatchClient, getS3Client } from '@/lib/server/aws';

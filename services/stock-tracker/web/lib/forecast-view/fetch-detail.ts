@@ -1,9 +1,7 @@
 import type { ForecastDetailResponse } from '../../types/forecast';
 
 export type ForecastDetailResult =
-  | { status: 'ok'; data: ForecastDetailResponse }
-  | { status: 'unavailable' }
-  | { status: 'error' };
+  { status: 'ok'; data: ForecastDetailResponse } | { status: 'unavailable' } | { status: 'error' };
 
 /**
  * 銘柄の確度の詳細を取得する。

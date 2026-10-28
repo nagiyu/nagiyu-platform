@@ -1,3 +1,7 @@
+/**
+ * @jest-environment node
+ */
+
 import { buildSelfFactSK, type SelfFactKey } from '@nagiyu/livetalk-core';
 import { decodeSelfFactId, encodeSelfFactId } from '@/lib/memory/memory-id';
 

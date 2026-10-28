@@ -150,13 +150,8 @@ test.describe('Transit Converter - E2E Tests', () => {
 
   test.describe('2. クリップボード読み取り機能', () => {
     /**
-     * 以前は「CI環境のクリップボード制約」を理由に無条件 test.skip されていたが、
-     * 実際の原因はロケータのバグだった: `getByRole('button', { name: /クリップボードから読み取り/ })`
-     * は、ボタンの アクセシブルネーム（aria-label="クリップボードから乗り換え案内テキストを読み取る"）
-     * ではなく可視テキスト（「クリップボードから読み取り」）にマッチさせようとしていたが、
-     * 可視テキストは aria-label に上書きされるため一致せず、要素が見つからずタイムアウトしていた。
-     * aria-label をそのまま指定するよう修正したところ、json-formatter.spec.ts と同じ手法
-     * （Chromium のみ context.grantPermissions を使う）で決定的に動作することを確認できたため復活させる。
+     * ボタンはアクセシブルネーム (aria-label) の完全一致で特定する。
+     * クリップボードの権限は Chromium のみ context.grantPermissions で与えると決定的に動く。
      */
     test('should read text from clipboard', async ({ page, context, browserName }) => {
       test.skip(
@@ -177,7 +172,7 @@ test.describe('Transit Converter - E2E Tests', () => {
       await expect(inputField).toHaveValue('');
 
       const readButton = page.getByRole('button', {
-        name: 'クリップボードから乗り換え案内テキストを読み取る',
+        name: 'クリップボードから読み取り (乗り換え案内テキスト)',
       });
       await readButton.click();
 
@@ -200,7 +195,7 @@ test.describe('Transit Converter - E2E Tests', () => {
       await page.waitForLoadState('networkidle');
 
       const readButton = page.getByRole('button', {
-        name: 'クリップボードから乗り換え案内テキストを読み取る',
+        name: 'クリップボードから読み取り (乗り換え案内テキスト)',
       });
       await expect(readButton).toBeVisible();
       await readButton.click();
@@ -511,7 +506,7 @@ test.describe('Transit Converter - E2E Tests', () => {
       // 重要なボタンにARIAラベルが設定されていることを確認
       // 正確なテキストで指定してstrict mode violationを回避
       await expect(
-        page.getByRole('button', { name: 'クリップボードから乗り換え案内テキストを読み取る' })
+        page.getByRole('button', { name: 'クリップボードから読み取り (乗り換え案内テキスト)' })
       ).toHaveAttribute('aria-label');
       await expect(
         page.getByRole('button', { name: '乗り換え案内テキストを変換する' })

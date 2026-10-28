@@ -1,3 +1,7 @@
+/**
+ * @jest-environment node
+ */
+
 import { GET } from '@/app/api/jobs/[jobId]/route';
 import type { JobRepository } from '@nagiyu/quick-clip-core';
 import { getBatchClient, getDynamoDBDocumentClient } from '@/lib/server/aws';

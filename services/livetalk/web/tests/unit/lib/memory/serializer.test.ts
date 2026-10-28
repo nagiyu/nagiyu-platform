@@ -1,3 +1,7 @@
+/**
+ * @jest-environment node
+ */
+
 import type { SelfFactEntity } from '@nagiyu/livetalk-core';
 import { sortSelfFacts, toSelfFactListItem } from '@/lib/memory/serializer';
 import { decodeSelfFactId } from '@/lib/memory/memory-id';

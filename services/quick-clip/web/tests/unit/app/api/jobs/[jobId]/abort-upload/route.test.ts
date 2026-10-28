@@ -1,3 +1,7 @@
+/**
+ * @jest-environment node
+ */
+
 import { reportErrorEvent } from '@nagiyu/aws';
 import { getS3Client } from '@/lib/server/aws';
 import { POST } from '@/app/api/jobs/[jobId]/abort-upload/route';

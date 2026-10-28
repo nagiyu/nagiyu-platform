@@ -82,8 +82,7 @@ function probabilityOf(
 ): number | undefined {
   return (
     sample.probabilities as
-      | Partial<Record<Question, { probability: number; baseline: number }>>
-      | undefined
+      Partial<Record<Question, { probability: number; baseline: number }>> | undefined
   )?.[question]?.probability;
 }
 

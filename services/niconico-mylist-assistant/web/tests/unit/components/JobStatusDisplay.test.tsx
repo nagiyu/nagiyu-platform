@@ -5,6 +5,11 @@
  * 一時的な失敗からの復帰・回復しない失敗での停止・取得前の表示を検証する。
  */
 
+// モック: niconico-mylist-assistant-core は DB 層を含み jsdom で読み込めないため、使う値だけ差し替える。正規表現は本物と同じ定義を使う
+jest.mock('@nagiyu/niconico-mylist-assistant-core', () => ({
+  TWO_FACTOR_AUTH_CODE_REGEX: /^\d{6}$/,
+}));
+
 import React from 'react';
 import { render, screen, act } from '@testing-library/react';
 import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
