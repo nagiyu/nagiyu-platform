@@ -41,7 +41,38 @@ const DEFAULT_CONTENT_SX: SxProps<Theme> = {
   // 表の中のコードは単語の途中で割れると読めないため、折り返さず表の横スクロールに任せる
   '& td > code, & th > code': { overflowWrap: 'normal' },
   // 表は表の中で横スクロールさせ、ページ幅を広げない
-  '& table': { display: 'block', maxWidth: '100%', overflowX: 'auto', mb: 2 },
+  // 横スクロールできることを、はみ出している側の端に出す影で示す（local の覆いがスクロール端で影を隠す）
+  '& table': {
+    display: 'block',
+    maxWidth: '100%',
+    overflowX: 'auto',
+    mb: 2,
+    borderCollapse: 'collapse',
+    // 覆いの色と同じ面の色にそろえ、ダークテーマでも覆いが浮かない
+    backgroundColor: 'var(--color-bg-surface)',
+    backgroundRepeat: 'no-repeat',
+    backgroundAttachment: 'local, local, scroll, scroll',
+    backgroundPosition: 'left center, right center, left center, right center',
+    backgroundSize: '24px 100%, 24px 100%, 12px 100%, 12px 100%',
+    backgroundImage: [
+      'linear-gradient(to right, var(--color-bg-surface) 30%, transparent)',
+      'linear-gradient(to left, var(--color-bg-surface) 30%, transparent)',
+      'radial-gradient(farthest-side at 0 50%, rgba(0, 0, 0, 0.28), transparent)',
+      'radial-gradient(farthest-side at 100% 50%, rgba(0, 0, 0, 0.28), transparent)',
+    ].join(', '),
+  },
+  // 見出し行の背景は半透明にし、表の背景に出すスクロール影を隠さない
+  '& th, & td': {
+    px: 1.5,
+    py: 1,
+    border: 1,
+    borderColor: 'divider',
+    textAlign: 'left',
+    verticalAlign: 'top',
+    // 狭い画面で 1〜2 文字ずつ折り返されないための下限
+    minWidth: '8em',
+  },
+  '& th': { bgcolor: 'action.hover', fontWeight: 700 },
   '& pre': {
     bgcolor: 'grey.100',
     p: 2,
