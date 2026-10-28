@@ -19,6 +19,8 @@ const ERROR_MESSAGES = {
   JOB_NOT_FOUND: COMMON_ERROR_MESSAGES.JOB_NOT_FOUND,
   NO_ACCEPTED_HIGHLIGHTS: '採用された見どころがありません',
   CLIP_GENERATION_INCOMPLETE: '採用された見どころのクリップ生成が完了していません',
+  CLIP_GENERATION_FAILED:
+    '採用された見どころに生成に失敗したクリップがあります。リトライするか、採用を外してください',
   INTERNAL_SERVER_ERROR: 'ダウンロードの準備に失敗しました',
 } as const;
 
@@ -98,6 +100,19 @@ export const POST = withApiErrorReporting(
             message: ERROR_MESSAGES.NO_ACCEPTED_HIGHLIGHTS,
           },
           { status: 400 }
+        );
+      }
+      // ZIP 生成は失敗したクリップの動画を読めないため、作り始める前に断る
+      const hasFailedAcceptedHighlights = acceptedHighlights.some(
+        (highlight) => highlight.clipStatus === 'FAILED'
+      );
+      if (hasFailedAcceptedHighlights) {
+        return NextResponse.json(
+          {
+            error: 'CLIP_GENERATION_FAILED',
+            message: ERROR_MESSAGES.CLIP_GENERATION_FAILED,
+          },
+          { status: 409 }
         );
       }
       const hasIncompleteAcceptedHighlights = acceptedHighlights.some(
