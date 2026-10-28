@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
-import { Container, Typography, Grid, Box, Card, CardContent, CardActions } from '@mui/material';
-import { Button, Chip } from '@nagiyu/ui';
+import { Container, Typography, Grid, Box, Card, CardContent } from '@mui/material';
+import { Chip } from '@nagiyu/ui';
 import { getAllArticles, getCategoryLabel } from '@/lib/content';
+import ArticleCardLink from '@/components/ArticleCardLink';
 import { buildPageMetadata } from '@/lib/pageMetadata';
 
 export const metadata: Metadata = buildPageMetadata(
@@ -37,43 +37,40 @@ export default function TechPage() {
           {articles.map((article) => (
             <Grid size={{ xs: 12, sm: 6, md: 4 }} key={article.slug}>
               <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-                <CardContent sx={{ flexGrow: 1 }}>
-                  <Typography variant="h6" component="h2" gutterBottom>
-                    {article.title}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                    {article.description}
-                  </Typography>
-                  <Typography
-                    variant="caption"
-                    color="text.secondary"
-                    sx={{ display: 'block', mb: 1 }}
-                  >
-                    {article.publishedAt}
-                  </Typography>
-                  {/* カテゴリラベル（非リンク） */}
-                  {article.categories && article.categories.length > 0 && (
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 0.5 }}>
-                      {article.categories.map((cat) => (
-                        <Chip key={cat} size="sm" variant="solid" color="primary">
-                          {getCategoryLabel(cat)}
+                <ArticleCardLink slug={article.slug}>
+                  <CardContent sx={{ flexGrow: 1 }}>
+                    <Typography variant="h6" component="h2" gutterBottom>
+                      {article.title}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                      {article.description}
+                    </Typography>
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      sx={{ display: 'block', mb: 1 }}
+                    >
+                      {article.publishedAt}
+                    </Typography>
+                    {/* カテゴリラベル（非リンク） */}
+                    {article.categories && article.categories.length > 0 && (
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 0.5 }}>
+                        {article.categories.map((cat) => (
+                          <Chip key={cat} size="sm" variant="solid" color="primary">
+                            {getCategoryLabel(cat)}
+                          </Chip>
+                        ))}
+                      </Box>
+                    )}
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                      {article.tags.map((tag) => (
+                        <Chip key={tag} size="sm" variant="outline">
+                          {tag}
                         </Chip>
                       ))}
                     </Box>
-                  )}
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                    {article.tags.map((tag) => (
-                      <Chip key={tag} size="sm" variant="outline">
-                        {tag}
-                      </Chip>
-                    ))}
-                  </Box>
-                </CardContent>
-                <CardActions>
-                  <Button asChild size="sm" variant="ghost">
-                    <Link href={`/tech/${article.slug}`}>記事を読む</Link>
-                  </Button>
-                </CardActions>
+                  </CardContent>
+                </ArticleCardLink>
               </Card>
             </Grid>
           ))}
