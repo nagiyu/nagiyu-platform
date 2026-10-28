@@ -299,7 +299,7 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
   }, [jobId]);
 
   useEffect(() => {
-    if (!jobId) return;
+    if (!jobId || jobStatus !== 'COMPLETED') return;
     const fetchTranscript = async () => {
       try {
         const res = await fetch(`/api/jobs/${jobId}/transcript`);
@@ -312,7 +312,7 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
       }
     };
     void fetchTranscript();
-  }, [jobId]);
+  }, [jobId, jobStatus]);
 
   const selectedHighlight = useMemo(() => {
     const highlight = highlights.find((item) => item.highlightId === selectedId);

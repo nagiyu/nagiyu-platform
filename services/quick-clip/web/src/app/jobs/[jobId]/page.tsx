@@ -255,7 +255,7 @@ export default function JobPage({ params }: JobPageProps) {
 
             {(job.status === 'PENDING' || job.status === 'PROCESSING') && (
               <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-                <CircularProgress size={20} aria-label="処理中" />
+                <CircularProgress size={20} aria-label={STATUS_LABELS.PROCESSING} />
                 <Typography color="text.secondary">{INFO_MESSAGES.TAB_CLOSE_OK}</Typography>
               </Stack>
             )}

@@ -843,12 +843,15 @@ describe('HighlightsPage', () => {
 
     it('ジョブ取得が通信エラーでも取得失敗だけを表示する', async () => {
       const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
-      installFetch(async () => {
+      const fetchMock = installFetch(async () => {
         throw new Error('network');
       });
       render(<HighlightsPage params={Promise.resolve({ jobId: 'job-1' })} />);
 
       expect(await screen.findByText('ジョブ情報の取得に失敗しました')).toBeVisible();
+      expect(requestedUrls(fetchMock).some((url) => url.endsWith('/highlights'))).toBe(false);
+      expect(requestedUrls(fetchMock).some((url) => url.endsWith('/recover'))).toBe(false);
+      expect(requestedUrls(fetchMock).some((url) => url.endsWith('/transcript'))).toBe(false);
       warnSpy.mockRestore();
     });
 
