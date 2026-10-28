@@ -8,7 +8,7 @@ const config: Config = {
   moduleNameMapper: {
     // @nagiyu/ui の CSS Modules import をスタブ化（クラス名そのものを返す）
     '\\.module\\.css$': 'identity-obj-proxy',
-    // @nagiyu/ui/tokens.css は CSS Modules ではないため別途スタブ化（global-error が参照する）
+    // tokens.css / base.css は CSS Modules ではないため別途スタブ化（global-error が参照する）
     '^@nagiyu/ui/tokens\\.css$': 'identity-obj-proxy',
     '^@nagiyu/ui/base\\.css$': 'identity-obj-proxy',
     '^@/(.*)$': '<rootDir>/$1',
