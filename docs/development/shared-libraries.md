@@ -151,10 +151,9 @@ Next.jsとMaterial-UIに依存するUIコンポーネント。
 - AppThemeProvider（`AppRouterCacheProvider + ThemeProvider + CssBaseline` の軽量プロバイダー。`ServiceLayout` を採用しないサービス向け）
 - theme.ts（カラーパレット、タイポグラフィ）
 - グローバルCSS
-- ErrorBoundary（React エラーキャッチ用クラスコンポーネント）
 - ErrorAlert（MUI Alert ラッパー。アクセシビリティ対応済みのエラー表示）
 - LoadingState（MUI CircularProgress ラッパー。ローディング表示）
-- NotFoundView / ErrorView（404 ページ・エラーページの表示。後述の「404・エラー画面」を参照）
+- NotFoundView / ErrorView / GlobalErrorView（404 ページ・エラーページ・ルートレイアウト例外ページの表示。後述の「404・エラー画面」を参照）
 - ConfirmDialog（汎用確認ダイアログ。削除系操作の確認に利用。Props: `open / title / description / confirmLabel / cancelLabel / loading / onConfirm / onCancel`）
 
 ### パッケージ名
@@ -169,7 +168,6 @@ Next.jsとMaterial-UIに依存するUIコンポーネント。
 
 サービスの web パッケージでエラーやローディング状態を表示する場合は `@nagiyu/ui` のコンポーネントを利用する。
 
-- **`ErrorBoundary`**: React のエラーバウンダリ。コンポーネントツリーで発生したエラーをキャッチして代替 UI を表示する。`'use client'` コンポーネント。
 - **`ErrorAlert`**: MUI `Alert` をラップしたエラー表示コンポーネント。アクセシビリティ対応済み。`'use client'` コンポーネント。
 - **`LoadingState`**: MUI `CircularProgress` をラップしたローディング表示コンポーネント。`'use client'` コンポーネント。
 
@@ -179,13 +177,14 @@ Next.jsとMaterial-UIに依存するUIコンポーネント。
 
 存在しない URL を開いたときや、画面の表示中に例外が起きたときに、Next.js 既定の英語の画面を出さない。既定の画面にはサービスのヘッダーもナビゲーションも無く、利用者が戻る手段を失うためである。
 
-- 各サービスは、ルートの app ディレクトリ直下に `not-found.tsx` と `error.tsx` を置き、`NotFoundView` / `ErrorView` を描く。新しいサービスを足すときも置く
-    - ルート直下に置くと、ルートレイアウト (ヘッダー・フッター・テーマ) の内側に描かれ、全ルートの未一致 URL と、レイアウト配下の例外を受けられる
-- `ErrorView` には、Next.js が `error.tsx` に渡す再試行の関数を渡す
+- 各サービスは、ルートの app ディレクトリ直下に `not-found.tsx` / `error.tsx` / `global-error.tsx` を置き、`NotFoundView` / `ErrorView` / `GlobalErrorView` を描く。新しいサービスを足すときも置く
+  - ルート直下に置くと、ルートレイアウト (ヘッダー・フッター・テーマ) の内側に描かれ、全ルートの未一致 URL と、レイアウト配下の例外を受けられる
+  - `global-error.tsx` は、ルートレイアウト自身の例外を受ける。`error.tsx` はルートレイアウトの内側にしか効かないため、これが無いとレイアウトの例外で Next.js 既定の英語の画面が出る
+- `ErrorView` / `GlobalErrorView` には、Next.js が `error.tsx` / `global-error.tsx` に渡す再試行の関数 (`retry`) を渡す
 - 例外の内容 (message / digest) は画面に出さない。本番では Next.js が詳細を伏せるうえ、利用者に見せる情報ではないためである
-- 例外のログ出力は、部品ではなく各サービスの `error.tsx` で行う。サーバーへ例外を報告する仕組みを持つサービスは、そこにも送る。エラーバウンダリが捕捉した例外は window のエラーイベントにならず、window を監視する報告の仕組みでは拾えないためである
-- 両部品は main ランドマークを持たない。各サービスのレイアウトが main を持ち、その内側に描かれるため、持たせると二重になる
-- ルートレイアウト自身の例外を受ける `global-error.tsx` は置いていない
+- 例外のログ出力は、部品ではなく各サービスの `error.tsx` / `global-error.tsx` で行う。サーバーへ例外を報告する仕組みを持つサービスは、そこにも送る。エラーバウンダリが捕捉した例外は window のエラーイベントにならず、window を監視する報告の仕組みでは拾えないためである
+- `NotFoundView` / `ErrorView` は main ランドマークを持たない。各サービスのレイアウトが main を持ち、その内側に描かれるため、持たせると二重になる
+- `GlobalErrorView` はルートレイアウトを置き換えるため、`html` / `body` / テーマ / `main` を自前で持つ。ルートレイアウトの CSS 読み込みも引き継がれないため、`global-error.tsx` で `@nagiyu/ui/tokens.css` / `@nagiyu/ui/base.css` など、そのサービスの見た目に必要な CSS を読み込み直す
 
 ## libs/react/
 
