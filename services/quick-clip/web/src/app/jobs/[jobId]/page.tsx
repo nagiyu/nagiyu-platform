@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import Link from 'next/link';
 import {
+  Box,
   CircularProgress,
   Container,
   Paper,
@@ -186,7 +187,7 @@ export default function JobPage({ params }: JobPageProps) {
     <Container maxWidth="md" sx={{ py: 4 }}>
       <Paper sx={{ p: 4 }}>
         <Typography variant="h4" component="h1" gutterBottom>
-          処理中
+          処理状況
         </Typography>
 
         {isLoading && (
@@ -206,8 +207,13 @@ export default function JobPage({ params }: JobPageProps) {
               </Step>
               <Step>
                 <StepLabel
+                  error={job.status === 'FAILED'}
                   optional={
-                    job.status === 'PROCESSING' && job.batchStage ? (
+                    job.status === 'FAILED' ? (
+                      <Typography variant="caption" color="error">
+                        {STATUS_LABELS.FAILED}
+                      </Typography>
+                    ) : job.status === 'PROCESSING' && job.batchStage ? (
                       job.analysisProgress ? (
                         <Stack spacing={0.5} sx={{ alignItems: 'flex-start' }}>
                           <AnalysisItem label="モーション解析" item={job.analysisProgress.motion} />
@@ -242,12 +248,16 @@ export default function JobPage({ params }: JobPageProps) {
             </Stepper>
 
             <Typography>ジョブID: {job.jobId}</Typography>
-            <Chip color={STATUS_COLORS[job.status]} className="w-fit">
-              {STATUS_LABELS[job.status]}
-            </Chip>
+            {/* Stack の子は既定で幅いっぱいに伸びるため、内容幅にするには包む */}
+            <Box sx={{ alignSelf: 'flex-start' }}>
+              <Chip color={STATUS_COLORS[job.status]}>{STATUS_LABELS[job.status]}</Chip>
+            </Box>
 
             {(job.status === 'PENDING' || job.status === 'PROCESSING') && (
-              <Typography color="text.secondary">{INFO_MESSAGES.TAB_CLOSE_OK}</Typography>
+              <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+                <CircularProgress size={20} aria-label={STATUS_LABELS.PROCESSING} />
+                <Typography color="text.secondary">{INFO_MESSAGES.TAB_CLOSE_OK}</Typography>
+              </Stack>
             )}
 
             <Typography variant="body2" color="text.secondary">

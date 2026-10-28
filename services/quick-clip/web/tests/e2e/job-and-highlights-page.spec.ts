@@ -21,7 +21,7 @@ test.describe('QuickClip Job Page', () => {
 
     await page.goto('/jobs/e2e-job-completed');
 
-    await expect(page.getByRole('heading', { level: 1, name: '処理中' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: '処理状況' })).toBeVisible();
     await expect(page.getByText('処理完了')).toBeVisible();
     await page.getByRole('link', { name: '見どころを確認する' }).click();
     await expect(page).toHaveURL(/\/jobs\/e2e-job-completed\/highlights$/);
@@ -55,6 +55,18 @@ test.describe('QuickClip Highlights Page', () => {
       },
     ];
 
+    // 見どころ一覧はジョブが COMPLETED と分かってから取るため、ジョブの応答も用意する
+    await page.route('**/api/jobs/e2e-job-highlights', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          jobId: 'e2e-job-highlights',
+          status: 'COMPLETED',
+          expiresAt: Date.now() + 86400 * 1000,
+        }),
+      });
+    });
     await page.route('**/api/jobs/e2e-job-highlights/highlights', async (route) => {
       await route.fulfill({
         status: 200,

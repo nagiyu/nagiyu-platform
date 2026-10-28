@@ -45,12 +45,22 @@ jest.mock('@nagiyu/ui', () => ({
     value,
     onChange,
     type,
+    maxLength,
   }: {
     label: string;
     value: string;
     onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
     type?: string;
-  }) => <input type={type || 'text'} value={value} onChange={onChange} aria-label={label} />,
+    maxLength?: number;
+  }) => (
+    <input
+      type={type || 'text'}
+      value={value}
+      onChange={onChange}
+      aria-label={label}
+      maxLength={maxLength}
+    />
+  ),
   ErrorAlert: ({ message }: { message: string }) => <div role="alert">{message}</div>,
 }));
 
@@ -191,6 +201,50 @@ describe('MylistRegisterForm - 送信時の検証', () => {
     await waitFor(() =>
       expect(onSuccess).toHaveBeenCalledWith({ jobId: 'job-1', selectedCount: 10 })
     );
+  });
+});
+
+describe('MylistRegisterForm - マイリスト名', () => {
+  function setName(value: string) {
+    fireEvent.change(screen.getByLabelText('マイリスト名'), { target: { value } });
+  }
+
+  async function submit() {
+    const button = screen.getByRole('button', { name: 'マイリストに登録' });
+    await waitFor(() => expect(button).not.toBeDisabled());
+    fireEvent.click(button);
+  }
+
+  it('入力欄に上限の文字数を設定する', () => {
+    render(<MylistRegisterForm />);
+    expect(screen.getByLabelText('マイリスト名')).toHaveAttribute('maxlength', '50');
+  });
+
+  it('前後の空白を除いた名前を送る', async () => {
+    render(<MylistRegisterForm />);
+    setName('  テスト \u3000');
+    await submit();
+
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(1));
+    expect(requestBody().mylistName).toBe('テスト');
+  });
+
+  it('空白だけなら入力を促して送信しない', async () => {
+    render(<MylistRegisterForm />);
+    setName('   ');
+    await submit();
+
+    expect(await screen.findByText(ERROR_MESSAGES.MYLIST_NAME_INPUT_REQUIRED)).toBeInTheDocument();
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('上限を超えていたらエラーを表示して送信しない', async () => {
+    render(<MylistRegisterForm />);
+    setName('あ'.repeat(51));
+    await submit();
+
+    expect(await screen.findByText(ERROR_MESSAGES.MYLIST_NAME_TOO_LONG)).toBeInTheDocument();
+    expect(mockFetch).not.toHaveBeenCalled();
   });
 });
 

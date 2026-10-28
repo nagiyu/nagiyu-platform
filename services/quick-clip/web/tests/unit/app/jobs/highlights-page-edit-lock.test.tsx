@@ -65,6 +65,9 @@ const installRoutedFetch = ({ lists, recover, mutate }: RoutedFetchOptions) => {
       }
       return { ok: true, json: async () => ({ highlights }) };
     }
+    if (url === '/api/jobs/job-1') {
+      return { ok: true, json: async () => ({ status: 'COMPLETED', expiresAt: 0 }) };
+    }
     if (url.endsWith('/transcript')) {
       return { ok: true, json: async () => ({ segments: [] }) };
     }

@@ -1,6 +1,6 @@
-import Link from 'next/link';
-import { Box, Typography, Grid, Card, CardContent, CardActions } from '@mui/material';
-import { Button, Chip } from '@nagiyu/ui';
+import { Box, Typography, Grid, Card, CardContent } from '@mui/material';
+import { Chip } from '@nagiyu/ui';
+import ArticleCardLink from '@/components/ArticleCardLink';
 import type { ArticleMeta } from '@/types/content';
 
 interface HomeFeaturedSectionProps {
@@ -38,58 +38,55 @@ export default function HomeFeaturedSection({ articles }: HomeFeaturedSectionPro
                 borderTopColor: 'primary.main',
               }}
             >
-              <CardContent sx={{ flexGrow: 1 }}>
-                {/* 特集バッジ */}
-                <Box sx={{ mb: 1.5 }}>
-                  <Chip variant="solid" color="primary" size="sm">
-                    特集
-                  </Chip>
-                </Box>
-
-                {/* タイトル */}
-                <Typography
-                  variant="h6"
-                  component="h3"
-                  gutterBottom
-                  sx={{ fontWeight: 600, lineHeight: 1.4 }}
-                >
-                  {article.title}
-                </Typography>
-
-                {/* 本文冒頭プレビュー（description を 150 字以内で表示） */}
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{ mb: 1.5, lineHeight: 1.7 }}
-                >
-                  {article.description.length > 150
-                    ? `${article.description.slice(0, 150)}…`
-                    : article.description}
-                </Typography>
-
-                {/* 公開日 */}
-                <Typography
-                  variant="caption"
-                  color="text.disabled"
-                  sx={{ display: 'block', mb: 1 }}
-                >
-                  {article.publishedAt}
-                </Typography>
-
-                {/* タグ */}
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                  {article.tags.slice(0, 3).map((tag) => (
-                    <Chip key={tag} size="sm" variant="outline">
-                      {tag}
+              <ArticleCardLink slug={article.slug}>
+                <CardContent sx={{ flexGrow: 1 }}>
+                  {/* 特集バッジ */}
+                  <Box sx={{ mb: 1.5 }}>
+                    <Chip variant="solid" color="primary" size="sm">
+                      特集
                     </Chip>
-                  ))}
-                </Box>
-              </CardContent>
-              <CardActions>
-                <Button asChild size="sm" variant="ghost">
-                  <Link href={`/tech/${article.slug}`}>記事を読む</Link>
-                </Button>
-              </CardActions>
+                  </Box>
+
+                  {/* タイトル */}
+                  <Typography
+                    variant="h6"
+                    component="h3"
+                    gutterBottom
+                    sx={{ fontWeight: 600, lineHeight: 1.4 }}
+                  >
+                    {article.title}
+                  </Typography>
+
+                  {/* 本文冒頭プレビュー（description を 150 字以内で表示） */}
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ mb: 1.5, lineHeight: 1.7 }}
+                  >
+                    {article.description.length > 150
+                      ? `${article.description.slice(0, 150)}…`
+                      : article.description}
+                  </Typography>
+
+                  {/* 公開日 */}
+                  <Typography
+                    variant="caption"
+                    color="text.disabled"
+                    sx={{ display: 'block', mb: 1 }}
+                  >
+                    {article.publishedAt}
+                  </Typography>
+
+                  {/* タグ */}
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                    {article.tags.slice(0, 3).map((tag) => (
+                      <Chip key={tag} size="sm" variant="outline">
+                        {tag}
+                      </Chip>
+                    ))}
+                  </Box>
+                </CardContent>
+              </ArticleCardLink>
             </Card>
           </Grid>
         ))}
