@@ -20,6 +20,7 @@ on:
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/niconico-mylist-assistant-verify.yml'
+      - '.github/workflows/reusable-e2e.yml'
 
 permissions:
   contents: read
@@ -359,229 +360,21 @@ jobs:
       - name: Run batch tests
         run: npm run test --workspace=@nagiyu/niconico-mylist-assistant-batch
 
-  e2e-test-web-chromium-mobile:
-    name: E2E Tests (chromium-mobile)
-    # Playwright 1.60.0 は Ubuntu 26.04 (ubuntu-latest) に対応しておらず、ブラウザを入れられないため固定する。
-    runs-on: ubuntu-24.04
+  e2e:
+    name: E2E
     needs: [build-web]
-
+    uses: ./.github/workflows/reusable-e2e.yml
+    with:
+      workspace: '@nagiyu/niconico-mylist-assistant-web'
+      shared-workspaces: '@nagiyu/niconico-mylist-assistant-core'
+      web-dir: services/niconico-mylist-assistant/web
+      report-key: niconico-mylist-assistant
+      full: ${{ github.base_ref == 'develop' }}
+      env: |
+        DYNAMODB_TABLE_NAME=dummy-table
     permissions:
       id-token: write
       contents: read
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js and install dependencies
-        uses: ./.github/actions/setup-node
-        with:
-          node-version: '24'
-          cache-dependency-path: './package-lock.json'
-
-      - name: Build shared libraries
-        run: npm run build:libs
-
-      - name: Build core library
-        run: npm run build --workspace=@nagiyu/niconico-mylist-assistant-core
-
-      - name: Build web application
-        env:
-          # Next.js build時にAPI routeの評価で参照されるため、CIではダミー値を設定
-          DYNAMODB_TABLE_NAME: dummy-table
-        run: npm run build --workspace=@nagiyu/niconico-mylist-assistant-web
-
-      - name: Install Playwright Browsers
-        run: npx playwright install --with-deps chromium
-        working-directory: ./services/niconico-mylist-assistant/web
-
-      - name: Run E2E tests (chromium-mobile)
-        env:
-          CI: true
-          PROJECT: chromium-mobile
-          # E2E実行時のweb server起動でもAPI routeが参照するため設定
-          DYNAMODB_TABLE_NAME: dummy-table
-        run: npm run test:e2e --workspace=@nagiyu/niconico-mylist-assistant-web
-
-      - name: Upload test results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: ${{ env.SERVICE_ID }}-playwright-report-full-chromium-mobile
-          path: services/niconico-mylist-assistant/web/playwright-report/
-          retention-days: 30
-
-      - name: Upload test artifacts
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: ${{ env.SERVICE_ID }}-test-results-full-chromium-mobile
-          path: services/niconico-mylist-assistant/web/test-results/
-          retention-days: 30
-
-      - name: Configure AWS credentials for report upload
-        if: always()
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ vars.AWS_PR_ROLE_ARN }}
-          aws-region: us-east-1
-
-      - name: Upload Playwright HTML report to E2E reports
-        if: always()
-        run: |
-          aws s3 sync services/niconico-mylist-assistant/web/playwright-report/ \
-            "s3://${{ vars.E2E_REPORTS_BUCKET || 'nagiyu-e2e-reports' }}/niconico-mylist-assistant/pr-${{ github.event.pull_request.number }}/${{ github.run_id }}/chromium-mobile/" \
-            --delete --no-progress
-
-  e2e-test-web-chromium-desktop:
-    name: E2E Tests (chromium-desktop)
-    # Playwright 1.60.0 は Ubuntu 26.04 (ubuntu-latest) に対応しておらず、ブラウザを入れられないため固定する。
-    runs-on: ubuntu-24.04
-    needs: [build-web]
-    if: github.base_ref == 'develop'
-
-    permissions:
-      id-token: write
-      contents: read
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js and install dependencies
-        uses: ./.github/actions/setup-node
-        with:
-          node-version: '24'
-          cache-dependency-path: './package-lock.json'
-
-      - name: Build shared libraries
-        run: npm run build:libs
-
-      - name: Build core library
-        run: npm run build --workspace=@nagiyu/niconico-mylist-assistant-core
-
-      - name: Build web application
-        env:
-          # Next.js build時にAPI routeの評価で参照されるため、CIではダミー値を設定
-          DYNAMODB_TABLE_NAME: dummy-table
-        run: npm run build --workspace=@nagiyu/niconico-mylist-assistant-web
-
-      - name: Install Playwright Browsers
-        run: npx playwright install --with-deps chromium
-        working-directory: ./services/niconico-mylist-assistant/web
-
-      - name: Run E2E tests (chromium-desktop)
-        env:
-          CI: true
-          PROJECT: chromium-desktop
-          # E2E実行時のweb server起動でもAPI routeが参照するため設定
-          DYNAMODB_TABLE_NAME: dummy-table
-        run: npm run test:e2e --workspace=@nagiyu/niconico-mylist-assistant-web
-
-      - name: Upload test results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: ${{ env.SERVICE_ID }}-playwright-report-full-chromium-desktop
-          path: services/niconico-mylist-assistant/web/playwright-report/
-          retention-days: 30
-
-      - name: Upload test artifacts
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: ${{ env.SERVICE_ID }}-test-results-full-chromium-desktop
-          path: services/niconico-mylist-assistant/web/test-results/
-          retention-days: 30
-
-      - name: Configure AWS credentials for report upload
-        if: always()
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ vars.AWS_PR_ROLE_ARN }}
-          aws-region: us-east-1
-
-      - name: Upload Playwright HTML report to E2E reports
-        if: always()
-        run: |
-          aws s3 sync services/niconico-mylist-assistant/web/playwright-report/ \
-            "s3://${{ vars.E2E_REPORTS_BUCKET || 'nagiyu-e2e-reports' }}/niconico-mylist-assistant/pr-${{ github.event.pull_request.number }}/${{ github.run_id }}/chromium-desktop/" \
-            --delete --no-progress
-
-  e2e-test-web-webkit-mobile:
-    name: E2E Tests (webkit-mobile)
-    # Playwright 1.60.0 は Ubuntu 26.04 (ubuntu-latest) に対応しておらず、ブラウザを入れられないため固定する。
-    runs-on: ubuntu-24.04
-    needs: [build-web]
-    if: github.base_ref == 'develop'
-
-    permissions:
-      id-token: write
-      contents: read
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js and install dependencies
-        uses: ./.github/actions/setup-node
-        with:
-          node-version: '24'
-          cache-dependency-path: './package-lock.json'
-
-      - name: Build shared libraries
-        run: npm run build:libs
-
-      - name: Build core library
-        run: npm run build --workspace=@nagiyu/niconico-mylist-assistant-core
-
-      - name: Build web application
-        env:
-          # Next.js build時にAPI routeの評価で参照されるため、CIではダミー値を設定
-          DYNAMODB_TABLE_NAME: dummy-table
-        run: npm run build --workspace=@nagiyu/niconico-mylist-assistant-web
-
-      - name: Install Playwright Browsers
-        run: npx playwright install --with-deps webkit
-        working-directory: ./services/niconico-mylist-assistant/web
-
-      - name: Run E2E tests (webkit-mobile)
-        env:
-          CI: true
-          PROJECT: webkit-mobile
-          # E2E実行時のweb server起動でもAPI routeが参照するため設定
-          DYNAMODB_TABLE_NAME: dummy-table
-        run: npm run test:e2e --workspace=@nagiyu/niconico-mylist-assistant-web
-
-      - name: Upload test results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: ${{ env.SERVICE_ID }}-playwright-report-full-webkit-mobile
-          path: services/niconico-mylist-assistant/web/playwright-report/
-          retention-days: 30
-
-      - name: Upload test artifacts
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: ${{ env.SERVICE_ID }}-test-results-full-webkit-mobile
-          path: services/niconico-mylist-assistant/web/test-results/
-          retention-days: 30
-
-      - name: Configure AWS credentials for report upload
-        if: always()
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ vars.AWS_PR_ROLE_ARN }}
-          aws-region: us-east-1
-
-      - name: Upload Playwright HTML report to E2E reports
-        if: always()
-        run: |
-          aws s3 sync services/niconico-mylist-assistant/web/playwright-report/ \
-            "s3://${{ vars.E2E_REPORTS_BUCKET || 'nagiyu-e2e-reports' }}/niconico-mylist-assistant/pr-${{ github.event.pull_request.number }}/${{ github.run_id }}/webkit-mobile/" \
-            --delete --no-progress
 
   test-batch-integration:
     name: Batch Integration Tests
@@ -633,9 +426,7 @@ jobs:
         docker-build-web,
         docker-build-batch,
         test-batch,
-        e2e-test-web-chromium-mobile,
-        e2e-test-web-chromium-desktop,
-        e2e-test-web-webkit-mobile,
+        e2e,
         test-batch-integration,
       ]
 
