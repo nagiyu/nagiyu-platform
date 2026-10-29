@@ -17,6 +17,7 @@ on:
       - '.github/workflows/codec-converter-deploy.yml'
       - '.github/actions/update-lambda-image/**'
       - '.github/actions/health-check/**'
+      - '.github/actions/push-ecr-image/**'
   workflow_dispatch:
     inputs:
       environment:
@@ -168,24 +169,23 @@ jobs:
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Build Web Docker image
-        uses: ./.github/actions/build-docker-image
-        with:
-          dockerfile: services/codec-converter/web/Dockerfile
-          image-tag: ${{ steps.login-ecr.outputs.registry }}/nagiyu-codec-converter-${{ needs.prepare-infrastructure.outputs.environment }}:latest
-          build-args: APP_VERSION=${{ steps.get-version.outputs.app-version }}
-
-      - name: Push Web Docker image to ECR
+      - name: Get ECR repository URI
+        id: get-ecr
         env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: nagiyu-codec-converter-${{ needs.prepare-infrastructure.outputs.environment }}
-          IMAGE_TAG: latest
+          ENVIRONMENT: ${{ needs.prepare-infrastructure.outputs.environment }}
         run: |
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          REPOSITORY_URI="$ACCOUNT_ID.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/nagiyu-codec-converter-$ENVIRONMENT"
+          echo "repository-uri=$REPOSITORY_URI" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push Web Docker image
+        uses: ./.github/actions/push-ecr-image
+        with:
+          repository-uri: ${{ steps.get-ecr.outputs.repository-uri }}
+          dockerfile: services/codec-converter/web/Dockerfile
+          build-args: APP_VERSION=${{ steps.get-version.outputs.app-version }}
+          tags: |
+            latest
 
   build-batch:
     name: Build and Push Batch Worker Image
@@ -215,24 +215,23 @@ jobs:
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Build Batch Docker image
-        uses: ./.github/actions/build-docker-image
-        with:
-          dockerfile: services/codec-converter/batch/Dockerfile
-          image-tag: ${{ steps.login-ecr.outputs.registry }}/nagiyu-codec-converter-ffmpeg-${{ needs.prepare-infrastructure.outputs.environment }}:latest
-          build-args: APP_VERSION=${{ steps.get-version.outputs.app-version }}
-
-      - name: Push Batch worker Docker image to ECR
+      - name: Get ECR repository URI
+        id: get-ecr
         env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: nagiyu-codec-converter-ffmpeg-${{ needs.prepare-infrastructure.outputs.environment }}
-          IMAGE_TAG: latest
+          ENVIRONMENT: ${{ needs.prepare-infrastructure.outputs.environment }}
         run: |
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          REPOSITORY_URI="$ACCOUNT_ID.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/nagiyu-codec-converter-ffmpeg-$ENVIRONMENT"
+          echo "repository-uri=$REPOSITORY_URI" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push Batch worker Docker image
+        uses: ./.github/actions/push-ecr-image
+        with:
+          repository-uri: ${{ steps.get-ecr.outputs.repository-uri }}
+          dockerfile: services/codec-converter/batch/Dockerfile
+          build-args: APP_VERSION=${{ steps.get-version.outputs.app-version }}
+          tags: |
+            latest
 
   deploy:
     name: Deploy Full Stack

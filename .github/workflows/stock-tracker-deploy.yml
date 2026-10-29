@@ -17,6 +17,7 @@ on:
       - '.github/workflows/stock-tracker-deploy.yml'
       - '.github/actions/update-lambda-image/**'
       - '.github/actions/health-check/**'
+      - '.github/actions/push-ecr-image/**'
   workflow_dispatch:
     inputs:
       environment:
@@ -144,30 +145,16 @@ jobs:
           echo "repository-uri=$REPOSITORY_URI" >> "$GITHUB_OUTPUT"
           echo "ECR Repository (Web): $REPOSITORY_URI"
 
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Build Web Docker image
-        uses: ./.github/actions/build-docker-image
-        with:
-          dockerfile: services/stock-tracker/web/Dockerfile
-          image-tag: ${{ steps.get-ecr.outputs.repository-uri }}:${{ github.sha }}
-          build-args: APP_VERSION=${{ steps.get-version.outputs.app-version }}
-
-      - name: Push Web Docker image
+      - name: Build and push Web Docker image
         id: build-image
-        env:
-          REPOSITORY_URI: ${{ steps.get-ecr.outputs.repository-uri }}
-          IMAGE_TAG: ${{ github.sha }}
-        run: |
-          docker push "$REPOSITORY_URI:$IMAGE_TAG"
-
-          # Also tag as latest
-          docker tag "$REPOSITORY_URI:$IMAGE_TAG" "$REPOSITORY_URI:latest"
-          docker push "$REPOSITORY_URI:latest"
-
-          echo "image-uri=$REPOSITORY_URI:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+        uses: ./.github/actions/push-ecr-image
+        with:
+          repository-uri: ${{ steps.get-ecr.outputs.repository-uri }}
+          dockerfile: services/stock-tracker/web/Dockerfile
+          build-args: APP_VERSION=${{ steps.get-version.outputs.app-version }}
+          tags: |
+            ${{ github.sha }}
+            latest
 
   build-batch:
     name: Build and Push Batch Docker Image
@@ -217,30 +204,16 @@ jobs:
           echo "repository-uri=$REPOSITORY_URI" >> "$GITHUB_OUTPUT"
           echo "ECR Repository (Batch): $REPOSITORY_URI"
 
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Build Batch Docker image
-        uses: ./.github/actions/build-docker-image
-        with:
-          dockerfile: services/stock-tracker/batch/Dockerfile
-          image-tag: ${{ steps.get-ecr.outputs.repository-uri }}:${{ github.sha }}
-          build-args: APP_VERSION=${{ steps.get-version.outputs.app-version }}
-
-      - name: Push Batch Docker image
+      - name: Build and push Batch Docker image
         id: build-image
-        env:
-          REPOSITORY_URI: ${{ steps.get-ecr.outputs.repository-uri }}
-          IMAGE_TAG: ${{ github.sha }}
-        run: |
-          docker push "$REPOSITORY_URI:$IMAGE_TAG"
-
-          # Also tag as latest
-          docker tag "$REPOSITORY_URI:$IMAGE_TAG" "$REPOSITORY_URI:latest"
-          docker push "$REPOSITORY_URI:latest"
-
-          echo "image-uri=$REPOSITORY_URI:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+        uses: ./.github/actions/push-ecr-image
+        with:
+          repository-uri: ${{ steps.get-ecr.outputs.repository-uri }}
+          dockerfile: services/stock-tracker/batch/Dockerfile
+          build-args: APP_VERSION=${{ steps.get-version.outputs.app-version }}
+          tags: |
+            ${{ github.sha }}
+            latest
 
   infrastructure-app:
     name: Deploy Application Infrastructure

@@ -17,6 +17,7 @@ on:
       - '.github/workflows/niconico-mylist-assistant-deploy.yml'
       - '.github/actions/update-lambda-image/**'
       - '.github/actions/health-check/**'
+      - '.github/actions/push-ecr-image/**'
   workflow_dispatch:
     inputs:
       environment:
@@ -154,31 +155,24 @@ jobs:
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Build Web Docker image
-        uses: ./.github/actions/build-docker-image
-        with:
-          dockerfile: services/niconico-mylist-assistant/web/Dockerfile
-          image-tag: ${{ steps.login-ecr.outputs.registry }}/nagiyu-niconico-mylist-assistant-web-ecr-${{ needs.prepare-infrastructure.outputs.environment }}:${{ github.sha }}
-          build-args: APP_VERSION=${{ steps.get-version.outputs.app-version }}
-
-      - name: Push Web Docker image to ECR
+      - name: Get ECR repository URI
+        id: get-ecr
         env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: nagiyu-niconico-mylist-assistant-web-ecr-${{ needs.prepare-infrastructure.outputs.environment }}
-          IMAGE_TAG: ${{ github.sha }}
+          ENVIRONMENT: ${{ needs.prepare-infrastructure.outputs.environment }}
         run: |
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          REPOSITORY_URI="$ACCOUNT_ID.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/nagiyu-niconico-mylist-assistant-web-ecr-$ENVIRONMENT"
+          echo "repository-uri=$REPOSITORY_URI" >> "$GITHUB_OUTPUT"
 
-          # Also tag as latest
-          docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
-            $ECR_REGISTRY/$ECR_REPOSITORY:latest
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
-
-          echo "Web image pushed: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+      - name: Build and push Web Docker image
+        uses: ./.github/actions/push-ecr-image
+        with:
+          repository-uri: ${{ steps.get-ecr.outputs.repository-uri }}
+          dockerfile: services/niconico-mylist-assistant/web/Dockerfile
+          build-args: APP_VERSION=${{ steps.get-version.outputs.app-version }}
+          tags: |
+            ${{ github.sha }}
+            latest
 
   build-batch:
     name: Build and Push Batch Worker Image
@@ -211,31 +205,24 @@ jobs:
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Build Batch Docker image
-        uses: ./.github/actions/build-docker-image
-        with:
-          dockerfile: services/niconico-mylist-assistant/batch/Dockerfile
-          image-tag: ${{ steps.login-ecr.outputs.registry }}/nagiyu-niconico-mylist-assistant-batch-ecr-${{ needs.prepare-infrastructure.outputs.environment }}:${{ github.sha }}
-          build-args: APP_VERSION=${{ steps.get-version.outputs.app-version }}
-
-      - name: Push Batch worker Docker image to ECR
+      - name: Get ECR repository URI
+        id: get-ecr
         env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: nagiyu-niconico-mylist-assistant-batch-ecr-${{ needs.prepare-infrastructure.outputs.environment }}
-          IMAGE_TAG: ${{ github.sha }}
+          ENVIRONMENT: ${{ needs.prepare-infrastructure.outputs.environment }}
         run: |
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          REPOSITORY_URI="$ACCOUNT_ID.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/nagiyu-niconico-mylist-assistant-batch-ecr-$ENVIRONMENT"
+          echo "repository-uri=$REPOSITORY_URI" >> "$GITHUB_OUTPUT"
 
-          # Also tag as latest
-          docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
-            $ECR_REGISTRY/$ECR_REPOSITORY:latest
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
-
-          echo "Batch image pushed: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+      - name: Build and push Batch worker Docker image
+        uses: ./.github/actions/push-ecr-image
+        with:
+          repository-uri: ${{ steps.get-ecr.outputs.repository-uri }}
+          dockerfile: services/niconico-mylist-assistant/batch/Dockerfile
+          build-args: APP_VERSION=${{ steps.get-version.outputs.app-version }}
+          tags: |
+            ${{ github.sha }}
+            latest
 
   deploy:
     name: Deploy Full Stack
