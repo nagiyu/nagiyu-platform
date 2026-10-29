@@ -15,8 +15,7 @@ export class IamCorePolicyStack extends cdk.Stack {
 
     this.policy = new iam.ManagedPolicy(this, 'Policy', {
       managedPolicyName: 'nagiyu-deploy-policy-core',
-      description:
-        'nagiyu コアデプロイ権限（CloudFormation, IAM, Network, Logs）',
+      description: 'nagiyu コアデプロイ権限（CloudFormation, IAM, Network, Logs）',
       statements: [
         // CloudFormation Operations
         new iam.PolicyStatement({

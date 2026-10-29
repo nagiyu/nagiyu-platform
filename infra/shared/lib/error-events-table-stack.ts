@@ -35,8 +35,7 @@ export class ErrorEventsTableStack extends cdk.Stack {
       pointInTimeRecovery: true,
       timeToLiveAttribute: 'TTL',
       stream: dynamodb.StreamViewType.NEW_IMAGE,
-      removalPolicy:
-        environment === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
+      removalPolicy: environment === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
       encryption: dynamodb.TableEncryption.AWS_MANAGED,
     });
 

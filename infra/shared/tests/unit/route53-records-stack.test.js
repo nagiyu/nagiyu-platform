@@ -140,8 +140,9 @@ describe('Route53RecordsStack', () => {
 
     const params = template.findParameters('*');
     const ssmRefs = Object.values(params).filter(
-      (p) => p.Type === 'AWS::SSM::Parameter::Value<String>'
-        && p.Default === '/nagiyu/shared/route53/hosted-zone-id',
+      (p) =>
+        p.Type === 'AWS::SSM::Parameter::Value<String>' &&
+        p.Default === '/nagiyu/shared/route53/hosted-zone-id'
     );
     expect(ssmRefs.length).toBeGreaterThan(0);
   });

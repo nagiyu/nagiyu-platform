@@ -29,17 +29,13 @@ export class VpcStack extends cdk.Stack {
     });
 
     // Internet Gateway
-    const internetGateway = new ec2.CfnInternetGateway(
-      this,
-      'NagiyuInternetGateway',
-      {
-        tags: [
-          { key: 'Name', value: `nagiyu-${props.environment}-igw` },
-          { key: 'Application', value: 'nagiyu' },
-          { key: 'Environment', value: props.environment },
-        ],
-      }
-    );
+    const internetGateway = new ec2.CfnInternetGateway(this, 'NagiyuInternetGateway', {
+      tags: [
+        { key: 'Name', value: `nagiyu-${props.environment}-igw` },
+        { key: 'Application', value: 'nagiyu' },
+        { key: 'Environment', value: props.environment },
+      ],
+    });
 
     // Attach Internet Gateway to VPC
     const vpcGatewayAttachment = new ec2.CfnVPCGatewayAttachment(
@@ -101,18 +97,14 @@ export class VpcStack extends cdk.Stack {
     }
 
     // Route Table for Public Subnets
-    const publicRouteTable = new ec2.CfnRouteTable(
-      this,
-      'NagiyuPublicRouteTable',
-      {
-        vpcId: this.vpc.ref,
-        tags: [
-          { key: 'Name', value: `nagiyu-${props.environment}-public-rt` },
-          { key: 'Application', value: 'nagiyu' },
-          { key: 'Environment', value: props.environment },
-        ],
-      }
-    );
+    const publicRouteTable = new ec2.CfnRouteTable(this, 'NagiyuPublicRouteTable', {
+      vpcId: this.vpc.ref,
+      tags: [
+        { key: 'Name', value: `nagiyu-${props.environment}-public-rt` },
+        { key: 'Application', value: 'nagiyu' },
+        { key: 'Environment', value: props.environment },
+      ],
+    });
 
     // Default Route to Internet Gateway
     const publicRoute = new ec2.CfnRoute(this, 'NagiyuPublicRoute', {
@@ -123,24 +115,16 @@ export class VpcStack extends cdk.Stack {
     publicRoute.addDependency(vpcGatewayAttachment);
 
     // Associate Route Table with Public Subnet 1a
-    new ec2.CfnSubnetRouteTableAssociation(
-      this,
-      'NagiyuPublicSubnet1aRouteTableAssociation',
-      {
-        subnetId: publicSubnet1a.ref,
-        routeTableId: publicRouteTable.ref,
-      }
-    );
+    new ec2.CfnSubnetRouteTableAssociation(this, 'NagiyuPublicSubnet1aRouteTableAssociation', {
+      subnetId: publicSubnet1a.ref,
+      routeTableId: publicRouteTable.ref,
+    });
 
     // Associate Route Table with Public Subnet 1b
-    new ec2.CfnSubnetRouteTableAssociation(
-      this,
-      'NagiyuPublicSubnet1bRouteTableAssociation',
-      {
-        subnetId: publicSubnet1b.ref,
-        routeTableId: publicRouteTable.ref,
-      }
-    );
+    new ec2.CfnSubnetRouteTableAssociation(this, 'NagiyuPublicSubnet1bRouteTableAssociation', {
+      subnetId: publicSubnet1b.ref,
+      routeTableId: publicRouteTable.ref,
+    });
 
     // Exports（既存の名前を維持）
     new cdk.CfnOutput(this, 'VpcId', {
