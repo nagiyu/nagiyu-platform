@@ -1,0 +1,105 @@
+name: Reusable E2E Tests
+
+on:
+  workflow_call:
+    inputs:
+      workspace:
+        description: web のワークスペース名 (例 @nagiyu/admin)
+        required: true
+        type: string
+      shared-workspaces:
+        description: web より先にビルドする core 等のワークスペース (カンマ区切り)
+        required: false
+        type: string
+        default: ''
+      web-dir:
+        description: web のディレクトリ (例 services/admin/web)
+        required: true
+        type: string
+      report-key:
+        description: S3 上の E2E レポートの置き場所の名前
+        required: true
+        type: string
+      full:
+        description: true なら 3 デバイス、false なら chromium-mobile のみ
+        required: true
+        type: boolean
+      env:
+        description: ビルドとテストに渡す追加の環境変数 (1 行 1 つの KEY=VALUE)
+        required: false
+        type: string
+        default: ''
+
+jobs:
+  e2e:
+    name: E2E Tests (${{ matrix.project }})
+    # Playwright 1.60.0 は Ubuntu 26.04 (ubuntu-latest) に対応しておらず、ブラウザを入れられないため固定する。
+    runs-on: ubuntu-24.04
+
+    permissions:
+      id-token: write
+      contents: read
+
+    strategy:
+      # 1 デバイスの失敗で他のデバイスの結果とレポートが失われないようにする
+      fail-fast: false
+      matrix:
+        project: ${{ fromJSON(inputs.full && '["chromium-mobile","chromium-desktop","webkit-mobile"]' || '["chromium-mobile"]') }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 入力を run に埋め込むと改行や引用符でスクリプトが壊れるため、env 経由で受け取る
+      - name: Set additional environment variables
+        if: inputs.env != ''
+        env:
+          ADDITIONAL_ENV: ${{ inputs.env }}
+        run: printf '%s\n' "$ADDITIONAL_ENV" >> "$GITHUB_ENV"
+
+      - name: Build web application
+        uses: ./.github/actions/build-web-app
+        with:
+          workspace: ${{ inputs.workspace }}
+          shared-workspaces: ${{ inputs.shared-workspaces }}
+
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps ${{ startsWith(matrix.project, 'webkit-') && 'webkit' || 'chromium' }}
+        working-directory: ./${{ inputs.web-dir }}
+
+      # デバイスの絞り込みは、共通の Playwright 設定が PROJECT 環境変数で行う
+      - name: Run Playwright tests (${{ matrix.project }})
+        env:
+          CI: true
+          PROJECT: ${{ matrix.project }}
+        run: npm run test:e2e --workspace=${{ inputs.workspace }}
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ${{ inputs.report-key }}-playwright-report-${{ matrix.project }}
+          path: ${{ inputs.web-dir }}/playwright-report/
+          retention-days: 30
+
+      - name: Upload test artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ${{ inputs.report-key }}-test-results-${{ matrix.project }}
+          path: ${{ inputs.web-dir }}/test-results/
+          retention-days: 30
+
+      - name: Configure AWS credentials for report upload
+        if: always()
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_PR_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Upload Playwright HTML report to E2E reports
+        if: always()
+        run: |
+          aws s3 sync ${{ inputs.web-dir }}/playwright-report/ \
+            "s3://${{ vars.E2E_REPORTS_BUCKET || 'nagiyu-e2e-reports' }}/${{ inputs.report-key }}/pr-${{ github.event.pull_request.number }}/${{ github.run_id }}/${{ matrix.project }}/" \
+            --delete --no-progress
