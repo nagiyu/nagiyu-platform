@@ -323,8 +323,7 @@ npm run cdk -w codec-converter -- destroy --context env=dev --context deployment
 
 **ワークフロー**:
 
-- `codec-converter-verify-fast.yml`: PR 時の高速検証
-- `codec-converter-verify-full.yml`: 本番マージ前の完全検証
+- `codec-converter-verify.yml`: PR 時の検証 (integration 向けは Fast、develop 向けは Full)
 - `codec-converter-deploy.yml`: マージ後の自動デプロイ
 
 ---
