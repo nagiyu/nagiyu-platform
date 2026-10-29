@@ -27,8 +27,6 @@ interface CapturedSessionHeaderProps {
 let capturedHeaderProps: CapturedSessionHeaderProps | undefined;
 
 jest.mock('@nagiyu/ui', () => ({
-  ErrorBoundary: ({ children }: { children: React.ReactNode }) =>
-    React.createElement(React.Fragment, null, children),
   ServiceLayout: ({
     children,
     headerSlot,
