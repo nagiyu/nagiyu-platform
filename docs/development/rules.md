@@ -908,33 +908,24 @@ it('should calculate total', () => {
   run: npm run synth --workspace @nagiyu/infra -- <StackName>
 ```
 
-#### MUST: 品質チェックを実施
+#### MUST: 品質チェックとテストは再利用ワークフローで実施
+
+lint、format、ユニットテスト、カバレッジ (Full Verification のみ)、契約テストは、`{target}-verify.yml` に手で並べず、再利用ワークフロー (`reusable-service-verify.yml`) を `dirs` を渡して呼ぶ。
 
 ```yaml
-- name: Run lint
-  run: npm run lint --workspace <service-name>
-
-- name: Check formatting
-  run: npm run format:check --workspace <service-name>
+verify:
+  name: Verify
+  uses: ./.github/workflows/reusable-service-verify.yml
+  with:
+    dirs: services/<service> infra/<service>
+  permissions:
+    contents: read
 ```
 
-#### MUST: テストを実施
+- 対象は `dirs` 配下のワークスペースで、かける検査は各ワークスペースの npm scripts (`lint` / `format:check` / `test` / `test:coverage` / `test:contract`) の有無で決まる。パッケージを足したときは、検査したいものの scripts を用意する (詳細は [テスト戦略](./testing.md) の「新しいサービスやパッケージを足すとき」を参照)
+- **理由**: 検査の対象をワークフローごとに手で並べると、並べ忘れたパッケージが検査から漏れる
 
-**ユニットテスト**:
-
-```yaml
-- name: Run tests
-  run: npm run test --workspace <service-name>
-```
-
-**カバレッジチェック (Full Verification のみ)**:
-
-```yaml
-- name: Run tests with coverage
-  run: npm run test:coverage --workspace <service-name>
-```
-
-**E2Eテスト**:
+#### MUST: E2E テストを実施
 
 - Fast: chromium-mobile のみ
 - Full: chromium-desktop、chromium-mobile、webkit-mobile
@@ -954,7 +945,7 @@ report:
   name: Report Results to PR
   runs-on: ubuntu-latest
   if: always()
-  needs: [nextjs-build, docker-build, test, coverage, e2e, lint, format-check]
+  needs: [verify, nextjs-build, docker-build, e2e]
   permissions:
     contents: read
     pull-requests: write
