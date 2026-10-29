@@ -32,11 +32,31 @@ const CLOUDFRONT_CNAMES: ReadonlyArray<{
   { recordName: 'tools', target: 'dxsm9dplwcq8k.cloudfront.net', comment: 'Tools (prod)' },
   { recordName: 'auth', target: 'd34m95nq713g26.cloudfront.net', comment: 'Auth (prod)' },
   { recordName: 'admin', target: 'da84amiv79v4m.cloudfront.net', comment: 'Admin (prod)' },
-  { recordName: 'quick-clip', target: 'd1v96dysvz62zc.cloudfront.net', comment: 'Quick Clip (prod)' },
-  { recordName: 'stock-tracker', target: 'd1n3pw1wiam9k0.cloudfront.net', comment: 'Stock Tracker (prod)' },
-  { recordName: 'share-together', target: 'd3vh0c4lc7bae6.cloudfront.net', comment: 'Share Together (prod)' },
-  { recordName: 'niconico-mylist-assistant', target: 'd2jj4a3zh6zf5h.cloudfront.net', comment: 'Niconico Mylist Assistant (prod)' },
-  { recordName: 'codec-converter', target: 'd1bh7qvatnkglt.cloudfront.net', comment: 'Codec Converter (prod)' },
+  {
+    recordName: 'quick-clip',
+    target: 'd1v96dysvz62zc.cloudfront.net',
+    comment: 'Quick Clip (prod)',
+  },
+  {
+    recordName: 'stock-tracker',
+    target: 'd1n3pw1wiam9k0.cloudfront.net',
+    comment: 'Stock Tracker (prod)',
+  },
+  {
+    recordName: 'share-together',
+    target: 'd3vh0c4lc7bae6.cloudfront.net',
+    comment: 'Share Together (prod)',
+  },
+  {
+    recordName: 'niconico-mylist-assistant',
+    target: 'd2jj4a3zh6zf5h.cloudfront.net',
+    comment: 'Niconico Mylist Assistant (prod)',
+  },
+  {
+    recordName: 'codec-converter',
+    target: 'd1bh7qvatnkglt.cloudfront.net',
+    comment: 'Codec Converter (prod)',
+  },
 ];
 
 /**
@@ -114,7 +134,7 @@ export class Route53RecordsStack extends cdk.Stack {
 
     const hostedZoneId = ssm.StringParameter.valueForStringParameter(
       this,
-      SSM_PARAMETERS.ROUTE53_HOSTED_ZONE_ID,
+      SSM_PARAMETERS.ROUTE53_HOSTED_ZONE_ID
     );
 
     const hostedZone = route53.HostedZone.fromHostedZoneAttributes(this, 'HostedZone', {

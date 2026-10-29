@@ -33,8 +33,7 @@ export class IamClaudeReadonlyPolicyStack extends cdk.Stack {
 
     this.policy = new iam.ManagedPolicy(this, 'Policy', {
       managedPolicyName: 'nagiyu-claude-readonly-policy',
-      description:
-        'Claude Code on the web 用の閲覧専用権限。機密リソースは明示 Deny で遮断。',
+      description: 'Claude Code on the web 用の閲覧専用権限。機密リソースは明示 Deny で遮断。',
       statements: [
         new iam.PolicyStatement({
           sid: 'AllowReadOnlyOperations',
@@ -146,10 +145,7 @@ export class IamClaudeReadonlyPolicyStack extends cdk.Stack {
         new iam.PolicyStatement({
           sid: 'DenySecretRetrieval',
           effect: iam.Effect.DENY,
-          actions: [
-            'secretsmanager:GetSecretValue',
-            'secretsmanager:GetRandomPassword',
-          ],
+          actions: ['secretsmanager:GetSecretValue', 'secretsmanager:GetRandomPassword'],
           resources: ['*'],
         }),
         // 復号経路を遮断（SecureString パラメータの値取得もこれで防げる）
@@ -189,12 +185,7 @@ export class IamClaudeReadonlyPolicyStack extends cdk.Stack {
         new iam.PolicyStatement({
           sid: 'DenyAuthUsersTableAccess',
           effect: iam.Effect.DENY,
-          actions: [
-            'dynamodb:GetItem',
-            'dynamodb:BatchGetItem',
-            'dynamodb:Scan',
-            'dynamodb:Query',
-          ],
+          actions: ['dynamodb:GetItem', 'dynamodb:BatchGetItem', 'dynamodb:Scan', 'dynamodb:Query'],
           resources: [
             'arn:aws:dynamodb:*:*:table/nagiyu-auth-users-*',
             'arn:aws:dynamodb:*:*:table/nagiyu-auth-users-*/index/*',

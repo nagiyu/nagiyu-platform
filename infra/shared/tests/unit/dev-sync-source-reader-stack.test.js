@@ -2,9 +2,7 @@ const cdk = require('aws-cdk-lib');
 const { Template, Match } = require('aws-cdk-lib/assertions');
 
 require('ts-node/register/transpile-only');
-const {
-  DevSyncSourceReaderStack,
-} = require('../../lib/iam/dev-sync-source-reader-stack');
+const { DevSyncSourceReaderStack } = require('../../lib/iam/dev-sync-source-reader-stack');
 const { ACCOUNT_IDS } = require('../../lib/account-scope');
 
 describe('DevSyncSourceReaderStack', () => {
@@ -69,7 +67,12 @@ describe('DevSyncSourceReaderStack', () => {
     const uniqueActions = [...new Set(allActions)].sort();
     expect(uniqueActions).toEqual(['dynamodb:GetItem', 'dynamodb:Query', 'dynamodb:Scan']);
 
-    const forbidden = ['dynamodb:PutItem', 'dynamodb:DeleteItem', 'dynamodb:UpdateItem', 'dynamodb:BatchWriteItem'];
+    const forbidden = [
+      'dynamodb:PutItem',
+      'dynamodb:DeleteItem',
+      'dynamodb:UpdateItem',
+      'dynamodb:BatchWriteItem',
+    ];
     for (const action of forbidden) {
       expect(uniqueActions).not.toContain(action);
     }

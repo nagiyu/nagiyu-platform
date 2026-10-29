@@ -113,7 +113,8 @@ const corePolicyStack = new IamCorePolicyStack(app, 'NagiyuSharedIamCore', {
 
 const applicationPolicyStack = new IamApplicationPolicyStack(app, 'NagiyuSharedIamApplication', {
   env: stackEnv,
-  description: 'Shared IAM Application Deploy Policy (Lambda, S3, DynamoDB, API Gateway, CloudFront)',
+  description:
+    'Shared IAM Application Deploy Policy (Lambda, S3, DynamoDB, API Gateway, CloudFront)',
 });
 
 const containerPolicyStack = new IamContainerPolicyStack(app, 'NagiyuSharedIamContainer', {
@@ -123,14 +124,20 @@ const containerPolicyStack = new IamContainerPolicyStack(app, 'NagiyuSharedIamCo
 
 const integrationPolicyStack = new IamIntegrationPolicyStack(app, 'NagiyuSharedIamIntegration', {
   env: stackEnv,
-  description: 'Shared IAM Integration and Security Deploy Policy (KMS, Secrets, SSM, SNS, SQS, EventBridge, Auto Scaling)',
+  description:
+    'Shared IAM Integration and Security Deploy Policy (KMS, Secrets, SSM, SNS, SQS, EventBridge, Auto Scaling)',
 });
 
 // Claude Code on the web 用の閲覧専用ポリシー（環境非依存・既存 4 ポリシーから独立）
-const claudeReadonlyPolicyStack = new IamClaudeReadonlyPolicyStack(app, 'NagiyuSharedIamClaudeReadonly', {
-  env: stackEnv,
-  description: 'Shared IAM Claude Read-Only Policy (List/Get/Describe with explicit Deny on secrets/PII)',
-});
+const claudeReadonlyPolicyStack = new IamClaudeReadonlyPolicyStack(
+  app,
+  'NagiyuSharedIamClaudeReadonly',
+  {
+    env: stackEnv,
+    description:
+      'Shared IAM Claude Read-Only Policy (List/Get/Describe with explicit Deny on secrets/PII)',
+  }
+);
 
 // Claude Code on the web の dev/prod 両アカウント対応ロール・キー保持ユーザー（Issue #3861）。
 // dev アカウントには追加で dev-operations ポリシー（Lambda 実行のみ）を付与し、
