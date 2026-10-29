@@ -1,6 +1,10 @@
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
-import { CloudFrontStackBase, CloudFrontStackBaseProps, getCloudFrontDomainName } from '@nagiyu/infra-common';
+import {
+  CloudFrontStackBase,
+  CloudFrontStackBaseProps,
+  getCloudFrontDomainName,
+} from '@nagiyu/infra-common';
 
 export interface CloudFrontStackProps extends cdk.StackProps {
   environment: string;
