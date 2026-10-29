@@ -1,0 +1,141 @@
+name: Reusable Library Verification
+
+on:
+  workflow_call:
+    inputs:
+      workspace:
+        description: 検証対象のワークスペース名 (例 @nagiyu/common)
+        required: true
+        type: string
+      display-name:
+        description: PR コメントの見出しに出すライブラリ名
+        required: true
+        type: string
+
+jobs:
+  build:
+    name: Build Library
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
+        with:
+          node-version: '24'
+          cache-dependency-path: './package-lock.json'
+
+      # 依存する lib の dist が無いとビルドやテストが解決に失敗するため、全 lib で先に作る
+      - name: Build shared libraries
+        run: npm run build:libs
+
+      - name: Build library
+        run: npm run build --workspace=${{ inputs.workspace }}
+
+  test:
+    name: Run Unit Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
+        with:
+          node-version: '24'
+          cache-dependency-path: './package-lock.json'
+
+      # 依存する lib の dist が無いとビルドやテストが解決に失敗するため、全 lib で先に作る
+      - name: Build shared libraries
+        run: npm run build:libs
+
+      - name: Run tests
+        run: npm run test --workspace=${{ inputs.workspace }}
+
+  coverage:
+    name: Test Coverage Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
+        with:
+          node-version: '24'
+          cache-dependency-path: './package-lock.json'
+
+      # 依存する lib の dist が無いとビルドやテストが解決に失敗するため、全 lib で先に作る
+      - name: Build shared libraries
+        run: npm run build:libs
+
+      - name: Run tests with coverage
+        run: npm run test:coverage --workspace=${{ inputs.workspace }}
+
+  lint:
+    name: Lint Code
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
+        with:
+          node-version: '24'
+          cache-dependency-path: './package-lock.json'
+
+      # 依存する lib の dist が無いとビルドやテストが解決に失敗するため、全 lib で先に作る
+      - name: Build shared libraries
+        run: npm run build:libs
+
+      - name: Run lint
+        run: npm run lint --workspace=${{ inputs.workspace }}
+
+  format-check:
+    name: Format Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
+        with:
+          node-version: '24'
+          cache-dependency-path: './package-lock.json'
+
+      # 依存する lib の dist が無いとビルドやテストが解決に失敗するため、全 lib で先に作る
+      - name: Build shared libraries
+        run: npm run build:libs
+
+      - name: Check formatting
+        run: npm run format:check --workspace=${{ inputs.workspace }}
+
+  report:
+    name: Report Results to PR
+    runs-on: ubuntu-latest
+    if: always()
+    needs: [build, test, coverage, lint, format-check]
+
+    permissions:
+      contents: read
+      pull-requests: write
+      actions: read
+
+    steps:
+      - name: Checkout actions
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/actions
+
+      - name: Report results to PR
+        uses: ./.github/actions/report-verify-results
+        with:
+          display-name: ${{ inputs.display-name }}
