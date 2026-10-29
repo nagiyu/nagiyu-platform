@@ -999,25 +999,25 @@ E2E の再利用ワークフローが、デバイスごとに Playwright レポ�
 name: Hoge Verify
 ```
 
-#### MUST: ファイル名は {target}-verify.yml または {target}-verify-fast.yml / {target}-verify-full.yml
+#### MUST: ファイル名は {target}-verify.yml
 
 ```
 .github/workflows/
-├── tools-verify-fast.yml
-├── tools-verify-full.yml
+├── tools-verify.yml
 ├── common-verify.yml
 └── browser-verify.yml
 ```
 
-#### MUST: E2E テストを持つサービスでは 2 段階のワークフローを作成
+#### MUST: E2E テストを持つサービスでも、Fast / Full を 1 本のワークフローで出し分ける
 
-- `*-verify-fast.yml`: integration/\*\* ブランチ用
-- `*-verify-full.yml`: develop ブランチ用
+- `*-verify.yml` 1 本で、PR の向き先 (`github.base_ref`) によって Fast / Full を切り替える
+- integration/\*\* 向けは Fast (E2E は chromium-mobile のみ、カバレッジ検査なし)
+- develop 向けは Full (E2E は全デバイス、カバレッジ検査あり)
 
 #### MUST: Verify ワークフローは PR をトリガーとし、パスフィルターを設定
 
 ```yaml
-# *-verify-fast.yml / *-verify-full.yml
+# *-verify.yml
 on:
   pull_request:
     branches:
@@ -1033,7 +1033,7 @@ on:
       - '.github/actions/**' # 共有 composite action
       - 'package.json'
       - 'package-lock.json'
-      - '.github/workflows/<service>-verify-*.yml'
+      - '.github/workflows/<service>-verify.yml'
 ```
 
 **理由**:

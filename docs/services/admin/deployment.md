@@ -150,52 +150,13 @@ Admin サービスでは、以下の GitHub Actions ワークフローを使用�
 
 各ワークフローのパスフィルター (`paths`) は [コーディング規約](../../development/rules.md) の共通ルールに従うため、ここには記載しません。
 
-#### 1. 高速検証ワークフロー (`.github/workflows/admin-verify-fast.yml`)
+#### 1. 検証ワークフロー (`.github/workflows/admin-verify.yml`)
 
-**目的**: integration/\*\* ブランチへのプルリクエスト時に素早いフィードバックを提供
+**目的**: integration/\*\* と develop へのプルリクエスト時に品質を検証
 
-**トリガー条件**:
+1 本で、PR の向き先によって Fast / Full を出し分ける。Fast は integration/\*\* 向けで E2E は chromium-mobile のみ、Full は develop 向けで E2E は全デバイス (chromium-desktop, chromium-mobile, webkit-mobile) に加えてテストカバレッジチェック (80%以上必須) を行う。
 
-```yaml
-on:
-  pull_request:
-    branches:
-      - integration/**
-```
-
-**ジョブ構成**:
-
-1. **build**: Next.js アプリケーションのビルド検証
-2. **docker-build**: Docker イメージのビルド検証
-3. **test**: 単体テストの実行
-4. **e2e-test**: E2Eテストの実行（chromium-mobile のみ）
-5. **lint**: ESLint チェック
-6. **format-check**: Prettier フォーマットチェック
-
-#### 2. 完全検証ワークフロー (`.github/workflows/admin-verify-full.yml`)
-
-**目的**: develop ブランチへのプルリクエスト時に完全な品質検証を実施
-
-**トリガー条件**:
-
-```yaml
-on:
-  pull_request:
-    branches:
-      - develop
-```
-
-**ジョブ構成**:
-
-1. **build**: Next.js アプリケーションのビルド検証
-2. **docker-build**: Docker イメージのビルド検証
-3. **test**: 単体テストの実行
-4. **coverage**: テストカバレッジチェック（80%以上必須）
-5. **e2e-test**: E2Eテストの実行（全デバイス: chromium-desktop, chromium-mobile, webkit-mobile）
-6. **lint**: ESLint チェック
-7. **format-check**: Prettier フォーマットチェック
-
-#### 3. デプロイワークフロー (`.github/workflows/admin-deploy.yml`)
+#### 2. デプロイワークフロー (`.github/workflows/admin-deploy.yml`)
 
 **目的**: develop, integration/\*\*, master ブランチへのプッシュ時に自動デプロイ
 
@@ -248,7 +209,7 @@ git checkout -b feature/new-feature
 git push origin feature/new-feature
 
 # GitHub でプルリクエストを integration/feature-test ブランチに作成
-# → admin-verify-fast.yml が自動実行される
+# → admin-verify.yml (Fast) が自動実行される
 #   ✓ ビルド検証
 #   ✓ 単体テスト実行
 #   ✓ E2Eテスト実行（chromium-mobile のみ）
@@ -256,7 +217,7 @@ git push origin feature/new-feature
 # → すべて成功でマージ可能
 
 # integration/** ブランチから develop へのプルリクエスト作成
-# → admin-verify-full.yml が自動実行される
+# → admin-verify.yml (Full) が自動実行される
 #   ✓ ビルド検証
 #   ✓ Docker ビルド検証
 #   ✓ 単体テスト実行
