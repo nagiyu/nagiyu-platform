@@ -530,33 +530,15 @@ Referrer-Policy: strict-origin-when-cross-origin
 
 ### GitHub Actions ワークフロー
 
-#### 1. Fast Verify (`.github/workflows/codec-converter-verify-fast.yml`)
+#### 1. Verify (`.github/workflows/codec-converter-verify.yml`)
 
-**トリガー**: `integration/codec-converter` ブランチへのPull Request
+**トリガー**: `integration/**`, `develop` ブランチへのPull Request
 
-**実行内容**:
+1 本で、PR の向き先によって Fast / Full を出し分ける。Fast は integration 向けで E2E は chromium-mobile のみ、Full は develop 向けで E2E は 3 デバイス (chromium-mobile + chromium-desktop + webkit-mobile) に加えてカバレッジチェック (80%以上) を行う。
 
-- 共通ライブラリのビルド（依存関係順: common → browser → ui）
-- Next.jsアプリケーションのビルド検証
-- Batch Worker のビルド検証
-- 両サービスのユニットテスト実行
-- E2Eテスト実行（chromium-desktop のみ、codec-converter のみ）
-- 両サービスの Lint/Format チェック
+**目的**: integration では開発中の素早いフィードバック、develop では本番マージ前の完全な品質チェック
 
-**目的**: 開発中の素早いフィードバック
-
-#### 2. Full Verify (`.github/workflows/codec-converter-verify-full.yml`)
-
-**トリガー**: `develop`, `master` ブランチへのPull Request
-
-**実行内容**:
-
-- Fast Verifyと同じ内容
-- 両サービスのカバレッジチェック（80%以上）
-
-**目的**: 本番マージ前の完全な品質チェック
-
-#### 3. Deploy (`.github/workflows/codec-converter-deploy.yml`)
+#### 2. Deploy (`.github/workflows/codec-converter-deploy.yml`)
 
 **トリガー**: `integration/codec-converter`, `develop`, `master` ブランチへのマージ完了時
 
