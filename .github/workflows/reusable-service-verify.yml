@@ -111,8 +111,10 @@ jobs:
           && !(github.base_ref == 'develop' && matrix.workspace.coverage)
         run: npm run test --workspace="$WORKSPACE_NAME"
 
+  # ジョブ名に matrix の式を書くと、契約テストが無くてスキップしたときに式がそのまま表示される。
+  # 名前は固定にし、matrix にワークスペース名だけを渡して、GitHub に括弧付きで付けさせる
   contract:
-    name: Contract Test (${{ matrix.workspace.name }})
+    name: Contract Test
     runs-on: ubuntu-latest
     needs: [discover]
     if: needs.discover.outputs.has-contract == 'true'
@@ -129,7 +131,7 @@ jobs:
           - 8000:8000
 
     env:
-      WORKSPACE_NAME: ${{ matrix.workspace.name }}
+      WORKSPACE_NAME: ${{ matrix.workspace }}
       PREBUILD: ${{ needs.discover.outputs.prebuild }}
 
     steps:

@@ -15,7 +15,7 @@ outputs:
     description: '[{name, location, lint, format, test, coverage, contract}] の JSON'
     value: ${{ steps.list.outputs.workspaces }}
   contract-workspaces:
-    description: 契約テストを持つワークスペースだけの JSON
+    description: 契約テストを持つワークスペース名の JSON 配列
     value: ${{ steps.list.outputs.contract-workspaces }}
   has-contract:
     description: "契約テストを持つワークスペースがあれば 'true'"

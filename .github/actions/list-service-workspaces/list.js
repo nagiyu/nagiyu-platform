@@ -123,7 +123,7 @@ function deriveOutputs({ candidates, dirs, coverageExclude }) {
   const contractEntries = entries.filter((entry) => entry.contract);
   return {
     workspaces: JSON.stringify(entries),
-    contractWorkspaces: JSON.stringify(contractEntries),
+    contractWorkspaces: JSON.stringify(contractEntries.map((entry) => entry.name)),
     hasContract: String(contractEntries.length > 0),
     prebuild: buildPrebuildList(entries),
   };
