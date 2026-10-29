@@ -129,80 +129,22 @@ curl https://<FUNCTION_URL>/api/health
 
 ### 4.1 ワークフロー概要
 
-Tools アプリでは、2段階のテスト戦略に基づく3つの GitHub Actions ワークフローを使用します:
+Tools アプリでは、2段階のテスト戦略に基づく2つの GitHub Actions ワークフローを使用します:
 
 各ワークフローのパスフィルター (`paths`) は [コーディング規約](../../development/rules.md) の共通ルールに従うため、ここには記載しません。
 
-#### 1. 高速検証ワークフロー (`.github/workflows/tools-verify-fast.yml`)
+#### 1. 検証ワークフロー (`.github/workflows/tools-verify.yml`)
 
-**目的**: integration/** ブランチへのプルリクエスト時に素早いフィードバックを提供
+**目的**: integration/\*\* と develop へのプルリクエスト時に品質を検証
 
-**トリガー条件**:
-
-```yaml
-on:
-  pull_request:
-    branches:
-      - integration/**
-```
-
-**ジョブ構成**:
-
-1. **nextjs-build**: Next.js アプリケーションのビルド検証
-    - 依存関係のインストール (`npm ci`)
-    - プロダクションビルドの実行 (`npm run build`)
-    - TypeScript 型チェックとビルドエラーの検出
-
-2. **docker-build**: Lambda 用 Docker イメージのビルド検証
-    - Dockerfile を使用したイメージビルド
-    - ビルドエラーの早期検出
-    - ECR へのプッシュは行わない (検証のみ)
-
-3. **test**: 単体テストの実行
-    - Jest テストスイートの実行 (`npm test`)
-    - すべてのテストの合格を確認
-
-4. **e2e-test**: E2Eテストの実行（chromium-mobile のみ）
-    - Playwright テストの実行（`PROJECT=chromium-mobile`）
-    - 高速フィードバックのため最小構成
-
-5. **lint**: リントチェック
-6. **format-check**: フォーマットチェック
+1 本で、PR の向き先によって Fast / Full を出し分ける。Fast は integration/\*\* 向けで E2E は chromium-mobile のみ、Full は develop 向けで E2E は全デバイス (chromium-desktop, chromium-mobile, webkit-mobile) に加えてテストカバレッジチェック (80%以上必須) を行う。
 
 **マージ条件**:
 - すべてのジョブが成功すること
-
-#### 2. 完全検証ワークフロー (`.github/workflows/tools-verify-full.yml`)
-
-**目的**: develop ブランチへのプルリクエスト時に完全な品質検証を実施
-
-**トリガー条件**:
-
-```yaml
-on:
-  pull_request:
-    branches:
-      - develop
-```
-
-**ジョブ構成**:
-
-1. **nextjs-build**: Next.js アプリケーションのビルド検証
-2. **docker-build**: Lambda 用 Docker イメージのビルド検証
-3. **test**: 単体テストの実行
-4. **coverage**: テストカバレッジチェック
-    - `npm run test:coverage` で80%未満の場合は失敗
-5. **e2e-test**: E2Eテストの実行（全デバイス）
-    - 全デバイス（chromium-desktop, chromium-mobile, webkit-mobile）で実行
-6. **lint**: リントチェック
-7. **format-check**: フォーマットチェック
-
-**マージ条件**:
-- すべてのジョブが成功すること
-- カバレッジが80%以上であること
+- develop 向けでは、カバレッジが80%以上であること
 - GitHub のブランチプロテクションルールで必須チェックとして設定推奨
 
-#### 3. デプロイワークフロー (`.github/workflows/tools-deploy.yml`)
+#### 2. デプロイワークフロー (`.github/workflows/tools-deploy.yml`)
 
 **目的**: develop, integration/**, master ブランチへのプッシュ時に自動デプロイ
 
@@ -264,7 +206,7 @@ git checkout -b feature/new-tool
 git push origin feature/new-tool
 
 # GitHub でプルリクエストを integration/feature-test ブランチに作成
-# → tools-verify-fast.yml が自動実行される
+# → tools-verify.yml (Fast) が自動実行される
 #   ✓ Next.js ビルド検証
 #   ✓ Docker ビルド検証
 #   ✓ 単体テスト実行
@@ -274,7 +216,7 @@ git push origin feature/new-tool
 # → すべて成功でマージ可能
 
 # integration/** ブランチから develop へのプルリクエスト作成
-# → tools-verify-full.yml が自動実行される
+# → tools-verify.yml (Full) が自動実行される
 #   ✓ Next.js ビルド検証
 #   ✓ Docker ビルド検証
 #   ✓ 単体テスト実行
@@ -713,78 +655,22 @@ curl https://<FUNCTION_URL>/api/health
 
 ### 3.1 ワークフロー概要
 
-Tools アプリでは、2段階のテスト戦略に基づく3つの GitHub Actions ワークフローを使用します:
+Tools アプリでは、2段階のテスト戦略に基づく2つの GitHub Actions ワークフローを使用します:
 
 各ワークフローのパスフィルター (`paths`) は [コーディング規約](../../development/rules.md) の共通ルールに従うため、ここには記載しません。
 
-#### 1. 高速検証ワークフロー (`.github/workflows/tools-verify-fast.yml`)
+#### 1. 検証ワークフロー (`.github/workflows/tools-verify.yml`)
 
-**目的**: integration/** ブランチへのプルリクエスト時に素早いフィードバックを提供
+**目的**: integration/\*\* と develop へのプルリクエスト時に品質を検証
 
-**トリガー条件**:
-```yaml
-on:
-  pull_request:
-    branches:
-        - integration/**
-```
-
-**ジョブ構成**:
-
-1. **nextjs-build**: Next.js アプリケーションのビルド検証
-    - 依存関係のインストール (`npm ci`)
-    - プロダクションビルドの実行 (`npm run build`)
-    - TypeScript 型チェックとビルドエラーの検出
-
-2. **docker-build**: Lambda 用 Docker イメージのビルド検証
-    - Dockerfile を使用したイメージビルド
-    - ビルドエラーの早期検出
-    - ECR へのプッシュは行わない (検証のみ)
-
-3. **test**: 単体テストの実行
-    - Jest テストスイートの実行 (`npm test`)
-    - すべてのテストの合格を確認
-
-4. **e2e-test**: E2Eテストの実行（chromium-mobile のみ）
-    - Playwright テストの実行（`PROJECT=chromium-mobile`）
-    - 高速フィードバックのため最小構成
-
-5. **lint**: リントチェック
-6. **format-check**: フォーマットチェック
+1 本で、PR の向き先によって Fast / Full を出し分ける。Fast は integration/\*\* 向けで E2E は chromium-mobile のみ、Full は develop 向けで E2E は全デバイス (chromium-desktop, chromium-mobile, webkit-mobile) に加えてテストカバレッジチェック (80%以上必須) を行う。
 
 **マージ条件**:
 - すべてのジョブが成功すること
-
-#### 2. 完全検証ワークフロー (`.github/workflows/tools-verify-full.yml`)
-
-**目的**: develop ブランチへのプルリクエスト時に完全な品質検証を実施
-
-**トリガー条件**:
-```yaml
-on:
-  pull_request:
-    branches:
-        - develop
-```
-
-**ジョブ構成**:
-
-1. **nextjs-build**: Next.js アプリケーションのビルド検証
-2. **docker-build**: Lambda 用 Docker イメージのビルド検証
-3. **test**: 単体テストの実行
-4. **coverage**: テストカバレッジチェック
-    - `npm run test:coverage` で80%未満の場合は失敗
-5. **e2e-test**: E2Eテストの実行（全デバイス）
-    - 全デバイス（chromium-desktop, chromium-mobile, webkit-mobile）で実行
-6. **lint**: リントチェック
-7. **format-check**: フォーマットチェック
-
-**マージ条件**:
-- すべてのジョブが成功すること
-- カバレッジが80%以上であること
+- develop 向けでは、カバレッジが80%以上であること
 - GitHub のブランチプロテクションルールで必須チェックとして設定推奨
 
-#### 3. デプロイワークフロー (`.github/workflows/tools-deploy.yml`)
+#### 2. デプロイワークフロー (`.github/workflows/tools-deploy.yml`)
 
 **目的**: develop, integration/**, master ブランチへのプッシュ時に自動デプロイ
 
@@ -824,7 +710,7 @@ git checkout -b feature/new-tool
 git push origin feature/new-tool
 
 # GitHub でプルリクエストを integration/feature-test ブランチに作成
-# → tools-verify-fast.yml が自動実行される
+# → tools-verify.yml (Fast) が自動実行される
 #   ✓ Next.js ビルド検証
 #   ✓ Docker ビルド検証
 #   ✓ 単体テスト実行
@@ -834,7 +720,7 @@ git push origin feature/new-tool
 # → すべて成功でマージ可能
 
 # integration/** ブランチから develop へのプルリクエスト作成
-# → tools-verify-full.yml が自動実行される
+# → tools-verify.yml (Full) が自動実行される
 #   ✓ Next.js ビルド検証
 #   ✓ Docker ビルド検証
 #   ✓ 単体テスト実行
