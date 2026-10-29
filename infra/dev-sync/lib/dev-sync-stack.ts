@@ -83,11 +83,7 @@ export class DevSyncStack extends cdk.Stack {
     }
 
     // 既存 ECR リポジトリの参照
-    const repository = ecr.Repository.fromRepositoryName(
-      this,
-      'EcrRepository',
-      ecrRepositoryName
-    );
+    const repository = ecr.Repository.fromRepositoryName(this, 'EcrRepository', ecrRepositoryName);
 
     const region = cdk.Stack.of(this).region;
     const account = cdk.Stack.of(this).account;
