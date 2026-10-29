@@ -17,6 +17,7 @@ on:
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/portal-verify.yml'
+      - '.github/workflows/reusable-service-verify.yml'
       - '.github/workflows/reusable-e2e.yml'
 
 permissions:
@@ -28,44 +29,17 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  lint:
-    name: Lint Code
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js and install dependencies
-        uses: ./.github/actions/setup-node
-        with:
-          node-version: '24'
-          cache-dependency-path: './package-lock.json'
-
-      - name: Run lint
-        run: npm run lint --workspace @nagiyu/portal-web
-
-  format-check:
-    name: Format Check
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js and install dependencies
-        uses: ./.github/actions/setup-node
-        with:
-          node-version: '24'
-          cache-dependency-path: './package-lock.json'
-
-      - name: Check formatting
-        run: npm run format:check --workspace @nagiyu/portal-web
+  verify:
+    name: Verify
+    uses: ./.github/workflows/reusable-service-verify.yml
+    with:
+      dirs: services/portal
+    permissions:
+      contents: read
 
   build:
     name: Next.js Build Verification
     runs-on: ubuntu-latest
-    needs: [lint, format-check]
 
     steps:
       - name: Checkout code
@@ -109,10 +83,10 @@ jobs:
           image-tag: portal-verify-test
           build-args: APP_VERSION=${{ steps.get-version.outputs.app-version }}
 
-  unit-test:
-    name: Run Unit Tests
+  # サービス固有の検査のため、再利用ワークフローには含めない
+  internal-links:
+    name: Check Internal Links
     runs-on: ubuntu-latest
-    needs: [build]
 
     steps:
       - name: Checkout code
@@ -123,41 +97,13 @@ jobs:
         with:
           node-version: '24'
           cache-dependency-path: './package-lock.json'
-
-      - name: Build shared libraries
-        run: npm run build:libs
-
-      - name: Run unit tests
-        run: npm run test --workspace @nagiyu/portal-web
 
       - name: 内部リンクチェック
         run: npm run check:internal-links --workspace @nagiyu/portal-web
 
-  coverage:
-    name: Test Coverage Check
-    runs-on: ubuntu-latest
-    needs: [unit-test]
-    if: github.base_ref == 'develop'
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js and install dependencies
-        uses: ./.github/actions/setup-node
-        with:
-          node-version: '24'
-          cache-dependency-path: './package-lock.json'
-
-      - name: Build shared libraries
-        run: npm run build:libs
-
-      - name: Run tests with coverage
-        run: npm run test:coverage --workspace @nagiyu/portal-web
-
   e2e:
     name: E2E
-    needs: [unit-test]
+    needs: [build]
     uses: ./.github/workflows/reusable-e2e.yml
     with:
       workspace: '@nagiyu/portal-web'
@@ -172,7 +118,7 @@ jobs:
     name: Report Results to PR
     runs-on: ubuntu-latest
     if: always()
-    needs: [lint, format-check, build, docker-build, unit-test, coverage, e2e]
+    needs: [verify, build, docker-build, internal-links, e2e]
 
     permissions:
       contents: read
