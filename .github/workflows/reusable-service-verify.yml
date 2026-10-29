@@ -111,8 +111,7 @@ jobs:
           && !(github.base_ref == 'develop' && matrix.workspace.coverage)
         run: npm run test --workspace="$WORKSPACE_NAME"
 
-  # ジョブ名に matrix の式を書くと、契約テストが無くてスキップしたときに式がそのまま表示される。
-  # 名前は固定にし、matrix にワークスペース名だけを渡して、GitHub に括弧付きで付けさせる
+  # スキップ時は matrix が展開されず、名前に書いた式がそのまま表示されるため、名前に matrix の式を使わない
   contract:
     name: Contract Test
     runs-on: ubuntu-latest
