@@ -42,7 +42,7 @@
 
 - 契約テストは通常のユニットテスト（`npm test`）から隔離し、専用スクリプト（例: `test:contract`）で実行する。DynamoDB Local への接続を前提とし、接続できない場合は自己スキップせず失敗させる（決定的に検知するため）。
 - ローカル: DynamoDB Local コンテナ（`docker run -p 8000:8000 amazon/dynamodb-local`）を起動してから、対象ワークスペースの契約テストを実行する。Docker デーモンが使えない環境（Claude on Web）での起動手順は [claude-environment.md](./claude-environment.md) を参照。
-- CI: 各サービスの verify ワークフローで DynamoDB Local を service container として起動し、専用ジョブとして実行する。
+- CI: サービスの verify ワークフローが、`test:contract` スクリプトを持つワークスペースを対象に、DynamoDB Local を service container として起動した専用ジョブで実行する。契約テストを足すときは、スクリプトを用意すれば CI にかかる (ワークフローの変更は要らない)。
 
 #### 契約に書いてよいもの・書いてはいけないもの
 
@@ -283,7 +283,8 @@ on:
             - 'package.json'              # ルートパッケージ定義
             - 'package-lock.json'         # 依存関係ロック
             - '.github/workflows/hoge-verify.yml'  # ワークフロー自体
-            - '.github/workflows/reusable-e2e.yml' # 呼んでいる再利用ワークフロー
+            - '.github/workflows/reusable-service-verify.yml' # 呼んでいる再利用ワークフロー
+            - '.github/workflows/reusable-e2e.yml'
 ```
 
 **設計原則**:
@@ -318,18 +319,41 @@ on:
     - ライブラリ間の依存関係: `@nagiyu/ui` → `@nagiyu/browser` → `@nagiyu/common`
     - 詳細は [shared-libraries.md](./shared-libraries.md) の「ビルド順序」を参照
 
-**標準ジョブ構成**:
+**検査の対象と、検査の決まり方**:
 
-- **build**: ビルド検証
-- **test**: ユニットテスト実行
-- **coverage**: テストカバレッジチェック（Jest の `coverageThreshold` 設定により、80%未満で自動失敗）
-- **lint**: ESLint によるコード品質チェック
-- **format-check**: Prettier によるフォーマットチェック
-- **report**: 全ジョブの結果をPRにコメント
+lint・format・ユニットテスト・カバレッジ・契約テストは、サービスごとに書かず、再利用ワークフロー (`reusable-service-verify.yml`) にまとめる。`{target}-verify.yml` は、対象のディレクトリ (`dirs`。例: `services/quick-clip infra/quick-clip`) を渡して呼ぶだけにする。
+
+- **対象**: ルート `package.json` の `workspaces` を展開し、`dirs` 配下にあるワークスペースを検査する。ワークスペースを手で並べない
+- **どの検査をかけるか**: 各ワークスペースの npm scripts の有無で決まる。スクリプトを持たない検査はかからず、どの検査も持たないワークスペースは対象から外れる
+
+    | 検査 | npm script |
+    |---|---|
+    | lint | `lint` |
+    | format | `format:check` |
+    | ユニットテスト | `test` |
+    | カバレッジ | `test:coverage` |
+    | 契約テスト | `test:contract` |
+
+- **なぜスクリプトの有無で決めるか**: 検査の対象をワークフローごとに手で並べていたため、並べ忘れたパッケージがユニットテストやカバレッジの検査から漏れていた (どこでも unit テストが走っていないパッケージがあった)。パッケージを足しても、ワークフローを書き換えずに検査がかかるようにする
+- **カバレッジを外したいワークスペース**: 再利用ワークフローの `coverage-exclude` に名前を渡すと、`test:coverage` を持っていても `test` だけを流す。通常はスクリプト自体を置かないことで足りる
+
+**新しいサービスやパッケージを足すとき**:
+
+1. `{target}-verify.yml` を作り、`dirs` を渡して再利用ワークフローを呼ぶ。パッケージを同じディレクトリ配下に足すだけなら、ワークフローは変えない
+2. 検査をかけたいものは、そのパッケージに npm scripts を用意する。用意しなければ、その検査はかからない。**漏れても CI は赤くならない**ため、新しいパッケージには `lint` / `format:check` / `test` / `test:coverage` を揃えるのを基本とする
+3. ユニットテストの前に、web や batch が参照する `core` と、infra が参照する `@nagiyu/infra-common` はビルドされる。この前提から外れる構成 (別名の共有パッケージなど) では、ワークフロー側の変更が要る
+4. ビルド・Docker・synth・E2E・サービス固有の検査 (portal の内部リンクチェック、niconico の batch の `test:integration` など) は、`{target}-verify.yml` 側にジョブとして残す。再利用ワークフローの対象外である
+
+**検査の流し方**:
+
+- **ワークスペースごとに 1 ジョブ (matrix)** で、lint → format → テストの順に流す。1 つが落ちても他のワークスペースの結果が見えるようにする
+- **format はビルドより前に流す**。ビルドでできる `dist/` を prettier が拾って落ちるため
+- **lint が落ちても format とテストは流す**。1 回の run で全部の結果を見えるようにし、直す往復を減らす
+- **カバレッジは `develop` 向けの PR だけで検査する**。`develop` 向けは `test:coverage`、`integration/**` 向けは `test` を流す (Fast / Full の出し分けと同じ考え方)
 
 **カバレッジチェックの動作**:
 
-Jest の設定ファイル（`jest.config.ts`）で `coverageThreshold` を定義している場合、テストカバレッジが閾値を下回ると `npm run test:coverage` コマンドが非ゼロの終了コードで終了します。これによりGitHub Actionsのジョブが自動的に失敗し、PRマージを防ぎます。
+Jest の設定ファイル（`jest.config.ts`）で `coverageThreshold` を定義している場合、テストカバレッジが閾値を下回ると `npm run test:coverage` コマンドが非ゼロの終了コードで終了する。これによりジョブが自動的に失敗し、PR のマージを防ぐ。閾値は 80% とする。infra の各パッケージも同じ扱いで、`test:coverage` を持つ。
 
 ```typescript
 // jest.config.ts
@@ -359,81 +383,13 @@ coverageThreshold: {
 
 #### ジョブ依存関係（needs）の設計
 
-CI ワークフローでは `needs` を使ってジョブ間の依存関係を設定することで、以下の効果を得られます:
+`needs` でジョブ間の依存を設定し、失敗した前提の後続を流さない。
 
-1. **早期失敗**: lint/format が失敗した場合、ビルド・テストをスキップ
-2. **リソース節約**: 前提ジョブが失敗すると後続ジョブが実行されない
-3. **明確な依存関係**: ビルド順序が保証される
+- **ビルド成果物を使うジョブは、ビルドのジョブに `needs` を張る**: web / batch のビルドは core のビルドの後、Docker ビルドと E2E は web / batch のビルドの後に流す。ビルド順序が保証され、前提が壊れているときに後続が無駄に流れない
+- **lint / format / テストは `needs` で縛らない**: 再利用ワークフローの中で、同じジョブ内の手順として流す。lint が落ちても後続を流して全部の結果を見せるため、ジョブを分けて止める設計にはしない
+- **ビルド系ジョブどうしは並列にする**: 依存のないジョブは `needs` で直列にしない
 
-**推奨する依存関係グラフ（core/web/batch 構成）**:
-
-```mermaid
-flowchart LR
-    lint[lint]
-    format[format-check]
-    build_core[build-core]
-    synth[synth-infra]
-    build_web[build-web]
-    build_batch[build-batch]
-    test_core[test-core]
-    coverage[coverage]
-    build_infra[build-infra]
-    docker_web[docker-build-web]
-    docker_batch[docker-build-batch]
-    test_batch[test-batch]
-    e2e[e2e]
-    report[report]
-
-    lint --> build_core
-    format --> build_core
-    lint --> synth
-    format --> synth
-
-    build_core --> build_web
-    build_core --> build_batch
-    build_core --> test_core
-    build_core --> coverage
-    synth --> build_infra
-
-    build_web --> docker_web
-    build_web --> e2e
-    build_batch --> docker_batch
-    build_batch --> test_batch
-
-    docker_web --> report
-    docker_batch --> report
-    test_core --> report
-    test_batch --> report
-    coverage --> report
-    e2e --> report
-    build_infra --> report
-```
-
-**標準パターン（core/web/batch 構成）**:
-
-| ジョブ             | 依存先（needs）    | 理由                             |
-| ------------------ | ------------------ | -------------------------------- |
-| lint               | なし               | 最初に実行                       |
-| format-check       | なし               | lint と並列実行                  |
-| build-core         | lint, format-check | コード品質確認後にビルド         |
-| synth-infra        | lint, format-check | infra も lint 後に検証           |
-| build-web          | build-core         | core のビルド成果物に依存        |
-| build-batch        | build-core         | 同上                             |
-| test-core          | build-core         | ビルド成功後にテスト             |
-| coverage           | build-core         | ビルド成功後にカバレッジチェック |
-| build-infra        | synth-infra        | synth 成功後にビルド             |
-| docker-build-web   | build-web          | ビルド成功後に Docker ビルド     |
-| docker-build-batch | build-batch        | 同上                             |
-| test-batch         | build-batch        | ビルド成功後にテスト             |
-| e2e                | build-web          | ビルド成功後に E2E (デバイスは再利用ワークフローの matrix) |
-| report             | 全ジョブ           | 最後に結果を集約                 |
-
-**設計のポイント**:
-
-- **並列実行の最大化**: 依存関係のないジョブ（lint と format-check）は並列実行
-- **段階的な検証**: 品質チェック → ビルド → テスト → Docker の順で段階的に検証
-- **失敗時の無駄な実行を防止**: 前提条件が満たされない場合は後続ジョブをスキップ
-- **明示的な依存関係**: ビルド成果物を使用するジョブは明確に依存を宣言
+この方針はサービスの構成 (core / web / batch など) に依らない。構成が異なるサービスでも、同じ原則でビルド成果物の依存だけに `needs` を張る。
 
 **`report` ジョブと `if:` 条件の注意点**:
 
@@ -441,8 +397,6 @@ flowchart LR
 - `needs` には全ジョブを並べる。結果を渡すためではなく、全ジョブの終了を待つため
 - `if: github.base_ref == 'develop'` でスキップされたジョブ (`skipped`) は、action が成功として扱う
 - PR のターゲットブランチは、ジョブの `if:` では `github.base_ref` で参照する（`github.ref` ではない）。`actions/github-script` のスクリプトの中では `github` が API クライアントを指し `github.base_ref` は undefined になるため、`context.payload.pull_request.base.ref` を使う
-
-この依存関係パターンは、core/web/batch 構成のサービスに適用できます。サービスの構成が異なる場合は、同じ原則に基づいて依存関係を設計してください。
 
 ## テスト作成ガイドライン
 
