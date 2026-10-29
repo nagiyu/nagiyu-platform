@@ -20,9 +20,7 @@ const appVersion = process.env.APP_VERSION || '1.0.0';
 // 許可された環境値のチェック
 const allowedEnvironments = ['dev', 'prod'];
 if (!allowedEnvironments.includes(env)) {
-  throw new Error(
-    `Invalid environment: ${env}. Allowed values: ${allowedEnvironments.join(', ')}`
-  );
+  throw new Error(`Invalid environment: ${env}. Allowed values: ${allowedEnvironments.join(', ')}`);
 }
 
 const stackEnv = {
@@ -34,7 +32,7 @@ const envSuffix = env.charAt(0).toUpperCase() + env.slice(1);
 
 // ECR スタックを作成
 // Note: Secrets Manager は Auth サービスで管理される nagiyu-auth-nextauth-secret を使用
-const ecrStack = new ECRStack(app, `NagiyuAdminECR${envSuffix}`, {
+new ECRStack(app, `NagiyuAdminECR${envSuffix}`, {
   environment: env,
   env: stackEnv,
   description: `Admin Service ECR - ${env} environment`,

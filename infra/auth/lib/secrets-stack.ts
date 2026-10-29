@@ -20,20 +20,14 @@ export class SecretsStack extends cdk.Stack {
     const secretEnvironment = environment as Environment;
 
     // Google OAuth credentials
-    this.googleOAuthSecret = new secretsmanager.Secret(
-      this,
-      'GoogleOAuthSecret',
-      {
-        secretName: SECRET_NAMES.AUTH_GOOGLE_OAUTH(secretEnvironment),
-        description: 'Google OAuth credentials for Auth service',
-        secretObjectValue: {
-          clientId: cdk.SecretValue.unsafePlainText('PLACEHOLDER_CLIENT_ID'),
-          clientSecret: cdk.SecretValue.unsafePlainText(
-            'PLACEHOLDER_CLIENT_SECRET'
-          ),
-        },
-      }
-    );
+    this.googleOAuthSecret = new secretsmanager.Secret(this, 'GoogleOAuthSecret', {
+      secretName: SECRET_NAMES.AUTH_GOOGLE_OAUTH(secretEnvironment),
+      description: 'Google OAuth credentials for Auth service',
+      secretObjectValue: {
+        clientId: cdk.SecretValue.unsafePlainText('PLACEHOLDER_CLIENT_ID'),
+        clientSecret: cdk.SecretValue.unsafePlainText('PLACEHOLDER_CLIENT_SECRET'),
+      },
+    });
 
     // NextAuth.js secret
     this.nextAuthSecret = new secretsmanager.Secret(this, 'NextAuthSecret', {

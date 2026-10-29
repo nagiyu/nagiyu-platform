@@ -65,7 +65,7 @@ const albStack = new LiveTalkAlbStack(app, `NagiyuLiveTalkAlb${envSuffix}`, {
 // テーブル名 / ARN は ECS Service Stack 側でも `getDynamoDBTableName('livetalk', env)`
 // / `getDynamoDBTableArn(...)` を呼んで独立に組み立てる（SSM もクロススタック参照も
 // 介さない方針）。両 stack の deploy 順序や export 依存は発生しない。
-const dynamoDbStack = new LiveTalkDynamoDbStack(app, `NagiyuLiveTalkDynamoDB${envSuffix}`, {
+new LiveTalkDynamoDbStack(app, `NagiyuLiveTalkDynamoDB${envSuffix}`, {
   env: stackEnv,
   environment,
   description: `LiveTalk DynamoDB Single Table (${environment})`,

@@ -6,6 +6,9 @@
   "scripts": {
     "build": "tsc",
     "watch": "tsc -w",
+    "lint": "eslint 'bin/**/*.ts' 'lib/**/*.ts'",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "cdk": "npx cdk",
     "synth": "npx cdk synth",
     "deploy": "npx cdk deploy",

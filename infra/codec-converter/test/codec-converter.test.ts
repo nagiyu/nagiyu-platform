@@ -2,6 +2,9 @@ import * as cdk from 'aws-cdk-lib';
 import { Template, Match } from 'aws-cdk-lib/assertions';
 import * as CodecConverter from '../lib/codec-converter-stack';
 
+// CloudFormation テンプレート上の Batch ResourceRequirements の要素
+type ResourceRequirement = { Type: string; Value: string };
+
 // Helper function to create a test stack with required environment
 function createTestStack(context: Record<string, string> = {}): {
   app: cdk.App;
@@ -165,8 +168,8 @@ test('Batch Job Definitions Created with correct resources', () => {
   expectedConfigs.forEach((expectedConfig) => {
     const matchingJobDef = jobDefs.find((jobDef) => {
       const resourceReqs = jobDef.Properties.ContainerProperties.ResourceRequirements;
-      const vcpuReq = resourceReqs.find((r: any) => r.Type === 'VCPU');
-      const memoryReq = resourceReqs.find((r: any) => r.Type === 'MEMORY');
+      const vcpuReq = resourceReqs.find((r: ResourceRequirement) => r.Type === 'VCPU');
+      const memoryReq = resourceReqs.find((r: ResourceRequirement) => r.Type === 'MEMORY');
       return vcpuReq.Value === expectedConfig.vcpu && memoryReq.Value === expectedConfig.memory;
     });
 

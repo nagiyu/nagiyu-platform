@@ -1,5 +1,4 @@
 import * as cdk from 'aws-cdk-lib';
-import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import { Construct } from 'constructs';
 import { CloudFrontStackBase, CloudFrontStackBaseProps } from '@nagiyu/infra-common';
 

@@ -97,8 +97,16 @@ const nextAuthSecret = app.node.tryGetContext('nextAuthSecret') || 'PLACEHOLDER'
 // BatchStack に Export を作成し LambdaStack に Fn::ImportValue を生成する。
 // Job Definition の更新（リビジョン変更）時に Export 値が変わり CF が更新を拒否するため、
 // リテラル文字列で ARN を構築して Export/Import を使わない設計にする。
-const batchJobQueueArn = getBatchJobQueueArn(stackEnv.region, stackEnv.account!, `nagiyu-niconico-mylist-assistant-${env}`);
-const batchJobDefinitionArn = getBatchJobDefinitionArn(stackEnv.region, stackEnv.account!, `nagiyu-niconico-mylist-assistant-${env}`);
+const batchJobQueueArn = getBatchJobQueueArn(
+  stackEnv.region,
+  stackEnv.account!,
+  `nagiyu-niconico-mylist-assistant-${env}`
+);
+const batchJobDefinitionArn = getBatchJobDefinitionArn(
+  stackEnv.region,
+  stackEnv.account!,
+  `nagiyu-niconico-mylist-assistant-${env}`
+);
 
 const lambdaStack = new LambdaStack(app, `NagiyuNiconicoMylistAssistantLambda${envSuffix}`, {
   environment: env,

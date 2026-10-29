@@ -6,7 +6,12 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
-import { getEcrRepositoryName, getDynamoDBTableName, SSM_PARAMETERS, grantErrorEventsWrite } from '@nagiyu/infra-common';
+import {
+  getEcrRepositoryName,
+  getDynamoDBTableName,
+  SSM_PARAMETERS,
+  grantErrorEventsWrite,
+} from '@nagiyu/infra-common';
 import { BatchRuntimePolicy } from './policies/batch-runtime-policy';
 
 export interface BatchStackProps extends cdk.StackProps {
@@ -71,10 +76,7 @@ export class BatchStack extends cdk.Stack {
     // DynamoDB テーブル名の取得
     const tableName = getDynamoDBTableName('niconico-mylist-assistant', env);
 
-    const vpcId = ssm.StringParameter.valueForStringParameter(
-      this,
-      SSM_PARAMETERS.VPC_ID(env)
-    );
+    const vpcId = ssm.StringParameter.valueForStringParameter(this, SSM_PARAMETERS.VPC_ID(env));
     const publicSubnetIdsStr = ssm.StringParameter.valueForStringParameter(
       this,
       SSM_PARAMETERS.PUBLIC_SUBNET_IDS(env)
@@ -220,11 +222,11 @@ export class BatchStack extends cdk.Stack {
           },
           ...(screenshotBucketName
             ? [
-              {
-                name: 'SCREENSHOT_BUCKET_NAME',
-                value: screenshotBucketName,
-              },
-            ]
+                {
+                  name: 'SCREENSHOT_BUCKET_NAME',
+                  value: screenshotBucketName,
+                },
+              ]
             : []),
         ],
       },

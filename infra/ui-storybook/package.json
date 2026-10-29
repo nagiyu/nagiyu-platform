@@ -10,6 +10,7 @@
     "test:coverage": "jest --coverage",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "lint": "eslint 'bin/**/*.ts' 'lib/**/*.ts'",
     "cdk": "npx cdk",
     "bootstrap": "npx cdk bootstrap",
     "synth": "npx cdk synth",
