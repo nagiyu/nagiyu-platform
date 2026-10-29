@@ -255,15 +255,17 @@ E2Eテストを持つサービスでは、1つのワークフローファイル�
 
 **{target}-verify.yml**:
 - トリガー: `integration/**` および `develop` ブランチへのPR
-- E2Eテスト: デバイスごとに独立したジョブで並列実行
-    - `e2e-test-chromium-mobile`: 常時実行
-    - `e2e-test-chromium-desktop`: `develop` へのPR のみ実行（`if: github.base_ref == 'develop'`）
-    - `e2e-test-webkit-mobile`: `develop` へのPR のみ実行（`if: github.base_ref == 'develop'`）
+- E2Eテスト: 共通の E2E 再利用ワークフローを 1 ジョブで呼ぶ。デバイスは再利用ワークフローの中の matrix で並列実行する
+    - `develop` へのPR では 3 デバイス、それ以外は chromium-mobile のみ (呼び出し側が `full: ${{ github.base_ref == 'develop' }}` を渡す)
+    - サービスごとの違い (先にビルドする core、web のディレクトリ、レポートの置き場所、追加の環境変数) は入力で渡す
+    - サービスごとに E2E のジョブを書かない。デバイス × サービスの数だけジョブをコピーすると、修正が一部のワークフローにしか入らなくなる
 - カバレッジチェック: `develop` へのPR のみ実行（`if: github.base_ref == 'develop'`）
 - 目的: 1ファイルで Fast（chromium-mobile のみ）と Full（全デバイス + カバレッジ）を制御
 
 **ライブラリの場合**:
 - E2Eテストがないため、単一の `{target}-verify.yml` のみ
+- 中身は共通のライブラリ検証の再利用ワークフローで、`{target}-verify.yml` はトリガーとワークスペースを渡すだけの薄いファイルにする
+- ライブラリごとにファイルを分けるのは、PR のチェックとコメントをライブラリごとに分けて見せるため
 - トリガー: `develop` および `integration/**` ブランチへのPR
 
 **トリガー設定のベストプラクティス**:
@@ -281,6 +283,7 @@ on:
             - 'package.json'              # ルートパッケージ定義
             - 'package-lock.json'         # 依存関係ロック
             - '.github/workflows/hoge-verify.yml'  # ワークフロー自体
+            - '.github/workflows/reusable-e2e.yml' # 呼んでいる再利用ワークフロー
 ```
 
 **設計原則**:
@@ -293,7 +296,7 @@ on:
     - **ターゲット**: 変更対象のディレクトリ（例: `services/hoge/**`）
     - **依存対象**: 依存ライブラリは個別に列挙せず `libs/**` とする。共通インフラ部品・共有設定も含める (理由と対象は [コーディング規約](./rules.md) の「Verify ワークフローは PR をトリガーとし、パスフィルターを設定」を参照)
     - **ルートパッケージ**: `package.json`, `package-lock.json`
-    - **ワークフロー自体**: ワークフロー定義ファイル
+    - **ワークフロー自体**: ワークフロー定義ファイルと、そこから呼ぶ再利用ワークフロー。再利用ワークフローを直したときに、呼び出し側の verify が走らないと検証から漏れる
 
 3. **ワークスペース指定**: パッケージ名を使用
     ```yaml
@@ -378,9 +381,7 @@ flowchart LR
     docker_web[docker-build-web]
     docker_batch[docker-build-batch]
     test_batch[test-batch]
-    e2e_cm[e2e-test-chromium-mobile]
-    e2e_cd[e2e-test-chromium-desktop]
-    e2e_wm[e2e-test-webkit-mobile]
+    e2e[e2e]
     report[report]
 
     lint --> build_core
@@ -395,9 +396,7 @@ flowchart LR
     synth --> build_infra
 
     build_web --> docker_web
-    build_web --> e2e_cm
-    build_web --> e2e_cd
-    build_web --> e2e_wm
+    build_web --> e2e
     build_batch --> docker_batch
     build_batch --> test_batch
 
@@ -406,9 +405,7 @@ flowchart LR
     test_core --> report
     test_batch --> report
     coverage --> report
-    e2e_cm --> report
-    e2e_cd --> report
-    e2e_wm --> report
+    e2e --> report
     build_infra --> report
 ```
 
@@ -428,9 +425,7 @@ flowchart LR
 | docker-build-web   | build-web          | ビルド成功後に Docker ビルド     |
 | docker-build-batch | build-batch        | 同上                             |
 | test-batch         | build-batch        | ビルド成功後にテスト             |
-| e2e-test-chromium-mobile  | build-web          | ビルド成功後に E2E（常時実行）             |
-| e2e-test-chromium-desktop | build-web          | ビルド成功後に E2E（develop へのPR のみ）   |
-| e2e-test-webkit-mobile    | build-web          | ビルド成功後に E2E（develop へのPR のみ）   |
+| e2e                | build-web          | ビルド成功後に E2E (デバイスは再利用ワークフローの matrix) |
 | report             | 全ジョブ           | 最後に結果を集約                 |
 
 **設計のポイント**:
@@ -440,11 +435,12 @@ flowchart LR
 - **失敗時の無駄な実行を防止**: 前提条件が満たされない場合は後続ジョブをスキップ
 - **明示的な依存関係**: ビルド成果物を使用するジョブは明確に依存を宣言
 
-**`if:` 条件によるジョブスキップの注意点**:
+**`report` ジョブと `if:` 条件の注意点**:
 
-- `if: github.base_ref == 'develop'` でスキップされたジョブを `needs:` に含む `report` ジョブでは、スキップ結果（`skipped`）も成功として扱う必要がある
-- `report` ジョブの成否判定では `result == 'success' || result == 'skipped'` のように `skipped` を許容すること
-- PR のターゲットブランチは `github.base_ref` で参照する（`github.ref` ではない）
+- `report` ジョブは共通の報告 action を呼ぶ。action は同じ run のジョブ一覧を Actions API で取って表を作るので、`needs` の結果を手で並べない。ジョブを足しても報告を直さずに済む
+- `needs` には全ジョブを並べる。結果を渡すためではなく、全ジョブの終了を待つため
+- `if: github.base_ref == 'develop'` でスキップされたジョブ (`skipped`) は、action が成功として扱う
+- PR のターゲットブランチは、ジョブの `if:` では `github.base_ref` で参照する（`github.ref` ではない）。`actions/github-script` のスクリプトの中では `github` が API クライアントを指し `github.base_ref` は undefined になるため、`context.payload.pull_request.base.ref` を使う
 
 この依存関係パターンは、core/web/batch 構成のサービスに適用できます。サービスの構成が異なる場合は、同じ原則に基づいて依存関係を設計してください。
 

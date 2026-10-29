@@ -947,14 +947,26 @@ it('should calculate total', () => {
 - 表形式で各ジョブの結果を表示
 - ワークフロー実行へのリンクを含める
 
+報告は共通の報告 action (`report-verify-results`) を呼んで行い、ワークフローごとにスクリプトを書かない。スクリプトをコピーすると、修正が一部のワークフローにしか入らなくなるため。action は同じ run のジョブ一覧から表を作るので、ジョブ一覧を読む `actions: read` の権限が要る。`needs` には全ジョブを並べる (結果を渡すためではなく、終了を待つため)。
+
 ```yaml
 report:
   name: Report Results to PR
+  runs-on: ubuntu-latest
   if: always()
-  needs: [nextjs-build, docker-build, test, coverage, e2e-test, lint, format-check]
+  needs: [nextjs-build, docker-build, test, coverage, e2e, lint, format-check]
   permissions:
     contents: read
     pull-requests: write
+    actions: read
+  steps:
+    - uses: actions/checkout@v4
+      with:
+        sparse-checkout: .github/actions
+    - uses: ./.github/actions/report-verify-results
+      with:
+        display-name: ${{ env.SERVICE_DISPLAY_NAME }}
+        fast-full: 'true'
 ```
 
 #### MUST: 失敗時のアーティファクトを保存
@@ -966,15 +978,7 @@ E2Eテスト失敗時:
 - Playwright レポート
 - 保持期間: 30日
 
-```yaml
-- name: Upload test results
-  uses: actions/upload-artifact@v4
-  if: always()
-  with:
-    name: playwright-report
-    path: services/<service>/playwright-report/
-    retention-days: 30
-```
+E2E の再利用ワークフローが、デバイスごとに Playwright レポートとテスト結果を artifact に保存する。サービス側で書き足す必要はない。
 
 #### SHOULD: CI最適化設定
 
