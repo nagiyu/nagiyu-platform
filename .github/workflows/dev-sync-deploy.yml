@@ -13,6 +13,7 @@ on:
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/dev-sync-deploy.yml'
+      - '.github/actions/update-lambda-image/**'
   workflow_dispatch:
     inputs:
       environment:
@@ -185,30 +186,24 @@ jobs:
             --context env="$ENVIRONMENT" \
             --require-approval never
 
-      - name: Update Lambda function with latest image
+      - name: Resolve Lambda image URI
+        id: resolve-image
         env:
           ENVIRONMENT: ${{ needs.deploy-ecr.outputs.environment }}
         run: |
-          FUNCTION_NAME="nagiyu-dev-sync-$ENVIRONMENT"
           ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
           IMAGE_URI="$ACCOUNT_ID.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/nagiyu-dev-sync-ecr-$ENVIRONMENT:latest"
 
-          echo "Lambda 関数を最新イメージで更新します: $FUNCTION_NAME"
-          aws lambda update-function-code \
-            --function-name "$FUNCTION_NAME" \
-            --image-uri "$IMAGE_URI" \
-            --region "${{ env.AWS_REGION }}"
+          echo "image-uri=$IMAGE_URI" >> "$GITHUB_OUTPUT"
+          echo "Lambda image URI: $IMAGE_URI"
 
-      - name: Wait for Lambda update to complete
-        env:
-          ENVIRONMENT: ${{ needs.deploy-ecr.outputs.environment }}
-        run: |
-          FUNCTION_NAME="nagiyu-dev-sync-$ENVIRONMENT"
-          echo "Lambda 更新の完了を待機します..."
-          aws lambda wait function-updated \
-            --function-name "$FUNCTION_NAME" \
-            --region "${{ env.AWS_REGION }}"
-          echo "Lambda 更新が正常に完了しました"
+      - name: Update Lambda function with latest image
+        uses: ./.github/actions/update-lambda-image
+        with:
+          function-names: |
+            nagiyu-dev-sync-${{ needs.deploy-ecr.outputs.environment }}
+          image-uri: ${{ steps.resolve-image.outputs.image-uri }}
+          region: ${{ env.AWS_REGION }}
 
   summary:
     name: Deployment Summary

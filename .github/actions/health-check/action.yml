@@ -1,0 +1,32 @@
+name: Health Check
+description: デプロイしたサービスのヘルスチェック URL が 200 を返すまで確認し、返らなければ失敗させる
+
+inputs:
+  base-url:
+    description: ヘルスチェック対象のベース URL。末尾の / の有無は問わない
+    required: true
+  path:
+    description: ベース URL に連結するヘルスチェックのパス
+    required: false
+    default: /api/health
+  max-attempts:
+    description: 確認を試みる最大回数
+    required: false
+    default: '10'
+  interval-seconds:
+    description: 再試行の間隔 (秒)
+    required: false
+    default: '10'
+
+runs:
+  using: composite
+  steps:
+    - name: Check health endpoint
+      shell: bash
+      env:
+        # 入力をシェル文字列へ直接埋め込むとインジェクションになるため、env 経由で渡す
+        HEALTH_CHECK_BASE_URL: ${{ inputs.base-url }}
+        HEALTH_CHECK_PATH: ${{ inputs.path }}
+        HEALTH_CHECK_MAX_ATTEMPTS: ${{ inputs.max-attempts }}
+        HEALTH_CHECK_INTERVAL_SECONDS: ${{ inputs.interval-seconds }}
+      run: ${{ github.action_path }}/health-check.sh

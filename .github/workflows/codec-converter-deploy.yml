@@ -15,6 +15,8 @@ on:
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/codec-converter-deploy.yml'
+      - '.github/actions/update-lambda-image/**'
+      - '.github/actions/health-check/**'
   workflow_dispatch:
     inputs:
       environment:
@@ -276,32 +278,44 @@ jobs:
             --context deploymentPhase=full \
             --verbose
 
-      - name: Update Lambda function code
+      - name: Resolve Lambda image URI
+        id: resolve-image
         env:
           ENVIRONMENT: ${{ needs.prepare-infrastructure.outputs.environment }}
         run: |
-          # Get ECR repository URI
           ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
           ECR_REGISTRY="$ACCOUNT_ID.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com"
           IMAGE_URI="$ECR_REGISTRY/nagiyu-codec-converter-$ENVIRONMENT:latest"
 
-          # Update Lambda function code
-          aws lambda update-function-code \
-            --function-name "nagiyu-codec-converter-$ENVIRONMENT" \
-            --image-uri "$IMAGE_URI" \
-            --region ${{ env.AWS_REGION }}
+          echo "image-uri=$IMAGE_URI" >> "$GITHUB_OUTPUT"
+          echo "Lambda image URI: $IMAGE_URI"
 
-          echo "Lambda function code updated with image: $IMAGE_URI"
+      - name: Update Lambda function code
+        uses: ./.github/actions/update-lambda-image
+        with:
+          function-names: |
+            nagiyu-codec-converter-${{ needs.prepare-infrastructure.outputs.environment }}
+          image-uri: ${{ steps.resolve-image.outputs.image-uri }}
+          region: ${{ env.AWS_REGION }}
 
-      - name: Wait for Lambda update to complete
+      - name: Get Lambda Function URL
+        id: get-lambda-url
         env:
-          ENVIRONMENT: ${{ needs.prepare-infrastructure.outputs.environment }}
+          STACK_NAME: ${{ needs.prepare-infrastructure.outputs.stack-name }}
         run: |
-          aws lambda wait function-updated \
-            --function-name "nagiyu-codec-converter-$ENVIRONMENT" \
-            --region ${{ env.AWS_REGION }}
+          FUNCTION_URL=$(aws cloudformation describe-stacks \
+            --stack-name "$STACK_NAME" \
+            --query "Stacks[0].Outputs[?OutputKey=='LambdaFunctionUrl'].OutputValue" \
+            --output text \
+            --region ${{ env.AWS_REGION }})
 
-          echo "Lambda function update completed"
+          echo "function-url=$FUNCTION_URL" >> "$GITHUB_OUTPUT"
+          echo "Function URL: $FUNCTION_URL"
+
+      - name: Verify deployment
+        uses: ./.github/actions/health-check
+        with:
+          base-url: ${{ steps.get-lambda-url.outputs.function-url }}
 
       - name: Display stack outputs
         env:

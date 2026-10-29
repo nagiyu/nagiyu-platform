@@ -1,0 +1,58 @@
+name: Update Lambda Image
+description: 複数の Lambda 関数のコンテナイメージを更新し、すべての更新が完了するまで待機する
+
+inputs:
+  function-names:
+    description: 更新する Lambda 関数名。改行区切りで複数指定でき、空行は無視する
+    required: true
+  image-uri:
+    description: 関数に反映するコンテナイメージの URI
+    required: true
+  region:
+    description: Lambda 関数のリージョン
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Update Lambda function code
+      shell: bash
+      env:
+        # 入力をシェル文字列へ直接埋め込むとインジェクションになるため、env 経由で渡す
+        FUNCTION_NAMES: ${{ inputs.function-names }}
+        IMAGE_URI: ${{ inputs.image-uri }}
+        AWS_REGION_INPUT: ${{ inputs.region }}
+      run: |
+        set -euo pipefail
+
+        # 更新をすべて投げてから待つほうが、関数数ぶんの待機が直列にならず速い
+        UPDATED=()
+        while IFS= read -r LINE; do
+          # 末尾の CR や前後の空白が混ざると関数名が一致しないため落とす
+          TARGET="$(echo "$LINE" | tr -d '\r' | xargs)"
+          if [ -z "$TARGET" ]; then
+            continue
+          fi
+
+          echo "Lambda 関数を更新します: $TARGET (イメージ: $IMAGE_URI)"
+          aws lambda update-function-code \
+            --function-name "$TARGET" \
+            --image-uri "$IMAGE_URI" \
+            --region "$AWS_REGION_INPUT" \
+            --output text \
+            --query 'FunctionArn' > /dev/null
+          UPDATED+=("$TARGET")
+        done <<< "$FUNCTION_NAMES"
+
+        if [ "${#UPDATED[@]}" -eq 0 ]; then
+          echo "::error::更新対象の Lambda 関数名が指定されていません"
+          exit 1
+        fi
+
+        for TARGET in "${UPDATED[@]}"; do
+          echo "Lambda 関数の更新完了を待機します: $TARGET"
+          aws lambda wait function-updated \
+            --function-name "$TARGET" \
+            --region "$AWS_REGION_INPUT"
+          echo "Lambda 関数の更新が完了しました: $TARGET"
+        done

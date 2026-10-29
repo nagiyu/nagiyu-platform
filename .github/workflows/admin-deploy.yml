@@ -15,6 +15,8 @@ on:
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/admin-deploy.yml'
+      - '.github/actions/update-lambda-image/**'
+      - '.github/actions/health-check/**'
   workflow_dispatch:
     inputs:
       environment:
@@ -364,58 +366,21 @@ jobs:
           echo "Lambda Function: $FUNCTION_NAME"
 
       - name: Update Lambda function code
-        env:
-          IMAGE_URI: ${{ needs.build.outputs.image-uri }}
-          FUNCTION_NAME: ${{ steps.get-lambda.outputs.function-name }}
-        run: |
-          echo "Updating Lambda function with new image: $IMAGE_URI"
-          aws lambda update-function-code \
-            --function-name "$FUNCTION_NAME" \
-            --image-uri "$IMAGE_URI" \
-            --region "${{ env.AWS_REGION }}"
-
-      - name: Wait for Lambda update to complete
-        env:
-          FUNCTION_NAME: ${{ steps.get-lambda.outputs.function-name }}
-        run: |
-          echo "Waiting for Lambda update to complete..."
-          aws lambda wait function-updated \
-            --function-name "$FUNCTION_NAME" \
-            --region "${{ env.AWS_REGION }}"
-          echo "Lambda update completed successfully"
+        uses: ./.github/actions/update-lambda-image
+        with:
+          function-names: |
+            ${{ steps.get-lambda.outputs.function-name }}
+          image-uri: ${{ needs.build.outputs.image-uri }}
+          region: ${{ env.AWS_REGION }}
 
       - name: Update Batch Lambda function code (alarm-ingest / stream-handler)
-        env:
-          BATCH_IMAGE_URI: ${{ needs.build-batch.outputs.image-uri }}
-          ENVIRONMENT: ${{ needs.build.outputs.environment }}
-        run: |
-          ALARM_INGEST="nagiyu-admin-alarm-ingest-$ENVIRONMENT"
-          STREAM_HANDLER="nagiyu-admin-stream-handler-$ENVIRONMENT"
-
-          echo "Updating $ALARM_INGEST with new image: $BATCH_IMAGE_URI"
-          aws lambda update-function-code \
-            --function-name "$ALARM_INGEST" \
-            --image-uri "$BATCH_IMAGE_URI" \
-            --region "${{ env.AWS_REGION }}"
-
-          echo "Updating $STREAM_HANDLER with new image: $BATCH_IMAGE_URI"
-          aws lambda update-function-code \
-            --function-name "$STREAM_HANDLER" \
-            --image-uri "$BATCH_IMAGE_URI" \
-            --region "${{ env.AWS_REGION }}"
-
-      - name: Wait for Batch Lambda updates to complete
-        env:
-          ENVIRONMENT: ${{ needs.build.outputs.environment }}
-        run: |
-          echo "Waiting for batch Lambda updates to complete..."
-          aws lambda wait function-updated \
-            --function-name "nagiyu-admin-alarm-ingest-$ENVIRONMENT" \
-            --region "${{ env.AWS_REGION }}"
-          aws lambda wait function-updated \
-            --function-name "nagiyu-admin-stream-handler-$ENVIRONMENT" \
-            --region "${{ env.AWS_REGION }}"
-          echo "Batch Lambda updates completed successfully"
+        uses: ./.github/actions/update-lambda-image
+        with:
+          function-names: |
+            nagiyu-admin-alarm-ingest-${{ needs.build.outputs.environment }}
+            nagiyu-admin-stream-handler-${{ needs.build.outputs.environment }}
+          image-uri: ${{ needs.build-batch.outputs.image-uri }}
+          region: ${{ env.AWS_REGION }}
 
       - name: Get Lambda Function URL
         id: get-lambda-url
@@ -432,22 +397,9 @@ jobs:
           echo "Lambda Function URL: $FUNCTION_URL"
 
       - name: Invoke Lambda health check
-        env:
-          FUNCTION_URL: ${{ steps.get-lambda-url.outputs.function-url }}
-        run: |
-          if [ -n "$FUNCTION_URL" ]; then
-            echo "Invoking Lambda health check..."
-            HTTP_CODE=$(curl -f -s -o /dev/null -w "%{http_code}" "${FUNCTION_URL}api/health" || echo "000")
-            echo "Health check response: $HTTP_CODE"
-
-            if [ "$HTTP_CODE" != "200" ]; then
-              echo "Warning: Health check returned $HTTP_CODE (Lambda may be cold starting)"
-            else
-              echo "Health check passed successfully!"
-            fi
-          else
-            echo "Skipping health check: Function URL not available"
-          fi
+        uses: ./.github/actions/health-check
+        with:
+          base-url: ${{ steps.get-lambda-url.outputs.function-url }}
 
   cloudfront-invalidation:
     name: CloudFront Invalidation
