@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { SessionProvider } from 'next-auth/react';
-import { ErrorBoundary, ServiceLayout, type NavigationItem } from '@nagiyu/ui';
+import { ServiceLayout, type NavigationItem } from '@nagiyu/ui';
 import { SessionHeader } from '@nagiyu/ui/session-provider';
 import { SnackbarProvider } from './SnackbarProvider';
 
@@ -39,22 +39,20 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
 
 function ThemeRegistryContent({ children, version = '1.0.0', authUrl = '' }: ThemeRegistryProps) {
   return (
-    <ErrorBoundary>
-      <SnackbarProvider>
-        <ServiceLayout
-          headerSlot={
-            <SessionHeader
-              title="Stock Tracker"
-              navigationItems={NAVIGATION_ITEMS}
-              authUrl={authUrl}
-            />
-          }
-          footerProps={{ version }}
-        >
-          {children}
-        </ServiceLayout>
-      </SnackbarProvider>
-    </ErrorBoundary>
+    <SnackbarProvider>
+      <ServiceLayout
+        headerSlot={
+          <SessionHeader
+            title="Stock Tracker"
+            navigationItems={NAVIGATION_ITEMS}
+            authUrl={authUrl}
+          />
+        }
+        footerProps={{ version }}
+      >
+        {children}
+      </ServiceLayout>
+    </SnackbarProvider>
   );
 }
 
