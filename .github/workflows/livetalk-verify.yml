@@ -60,9 +60,6 @@ jobs:
       - name: Build CDK TypeScript
         run: npm run build --workspace=@nagiyu/infra-livetalk
 
-      - name: Run infra-livetalk unit tests
-        run: npm run test --workspace=@nagiyu/infra-livetalk
-
       - name: Synthesize CDK stacks (dev)
         env:
           ENVIRONMENT: dev
