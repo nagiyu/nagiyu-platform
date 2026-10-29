@@ -20,6 +20,7 @@ on:
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/niconico-mylist-assistant-verify.yml'
+      - '.github/workflows/reusable-service-verify.yml'
       - '.github/workflows/reusable-e2e.yml'
 
 permissions:
@@ -31,63 +32,17 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  lint:
-    name: Lint Code
-    runs-on: ubuntu-latest
-
+  verify:
+    name: Verify
+    uses: ./.github/workflows/reusable-service-verify.yml
+    with:
+      dirs: services/niconico-mylist-assistant infra/niconico-mylist-assistant
     permissions:
       contents: read
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js and install dependencies
-        uses: ./.github/actions/setup-node
-        with:
-          node-version: '24'
-          cache-dependency-path: './package-lock.json'
-
-      - name: Run ESLint on core
-        run: npm run lint --workspace=@nagiyu/niconico-mylist-assistant-core
-
-      - name: Run ESLint on web
-        run: npm run lint --workspace=@nagiyu/niconico-mylist-assistant-web
-
-      - name: Run ESLint on batch
-        run: npm run lint --workspace=@nagiyu/niconico-mylist-assistant-batch
-
-  format-check:
-    name: Format Check
-    runs-on: ubuntu-latest
-
-    permissions:
-      contents: read
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js and install dependencies
-        uses: ./.github/actions/setup-node
-        with:
-          node-version: '24'
-          cache-dependency-path: './package-lock.json'
-
-      - name: Check core formatting
-        run: npm run format:check --workspace=@nagiyu/niconico-mylist-assistant-core
-
-      - name: Check web formatting
-        run: npm run format:check --workspace=@nagiyu/niconico-mylist-assistant-web
-
-      - name: Check batch formatting
-        run: npm run format:check --workspace=@nagiyu/niconico-mylist-assistant-batch
 
   build-core:
     name: Build Core Package
     runs-on: ubuntu-latest
-    needs: [lint, format-check]
-
     permissions:
       contents: read
 
@@ -110,8 +65,6 @@ jobs:
   build-infra:
     name: Build Infrastructure Package
     runs-on: ubuntu-latest
-    needs: [lint, format-check]
-
     permissions:
       contents: read
 
@@ -179,91 +132,6 @@ jobs:
       - name: Build batch application
         run: npm run build --workspace=@nagiyu/niconico-mylist-assistant-batch
 
-  test-core:
-    name: Core Unit Tests
-    runs-on: ubuntu-latest
-    needs: [build-core]
-
-    permissions:
-      contents: read
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js and install dependencies
-        uses: ./.github/actions/setup-node
-        with:
-          node-version: '24'
-          cache-dependency-path: './package-lock.json'
-
-      - name: Build shared libraries
-        run: npm run build:libs
-
-      - name: Build core library
-        run: npm run build --workspace=@nagiyu/niconico-mylist-assistant-core
-
-      - name: Run core tests
-        run: npm run test --workspace=@nagiyu/niconico-mylist-assistant-core
-
-  test-web:
-    name: Web Unit Tests
-    runs-on: ubuntu-latest
-    needs: [build-core]
-
-    permissions:
-      contents: read
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js and install dependencies
-        uses: ./.github/actions/setup-node
-        with:
-          node-version: '24'
-          cache-dependency-path: './package-lock.json'
-
-      - name: Build shared libraries
-        run: npm run build:libs
-
-      - name: Build core library
-        run: npm run build --workspace=@nagiyu/niconico-mylist-assistant-core
-
-      - name: Run web tests
-        run: npm run test --workspace=@nagiyu/niconico-mylist-assistant-web
-
-  coverage:
-    name: Coverage Check (80% threshold)
-    runs-on: ubuntu-latest
-    needs: [build-core]
-    if: github.base_ref == 'develop'
-
-    permissions:
-      contents: read
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js and install dependencies
-        uses: ./.github/actions/setup-node
-        with:
-          node-version: '24'
-          cache-dependency-path: './package-lock.json'
-
-      - name: Build shared libraries
-        run: npm run build:libs
-
-      - name: Build core library
-        run: npm run build --workspace=@nagiyu/niconico-mylist-assistant-core
-
-      - name: Run core coverage check
-        run: npm run test:coverage --workspace=@nagiyu/niconico-mylist-assistant-core
-
-      - name: Run web coverage check
-        run: npm run test:coverage --workspace=@nagiyu/niconico-mylist-assistant-web
-
   docker-build-web:
     name: Docker Build Web
     runs-on: ubuntu-latest
@@ -330,36 +198,6 @@ jobs:
           image-tag: niconico-mylist-assistant-batch-verify-full-test
           build-args: APP_VERSION=${{ steps.get-version.outputs.app-version }}
 
-  test-batch:
-    name: Batch Unit Tests
-    runs-on: ubuntu-latest
-    needs: [build-batch]
-
-    permissions:
-      contents: read
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js and install dependencies
-        uses: ./.github/actions/setup-node
-        with:
-          node-version: '24'
-          cache-dependency-path: './package-lock.json'
-
-      - name: Build shared libraries
-        run: npm run build:libs
-
-      - name: Build core library
-        run: npm run build --workspace=@nagiyu/niconico-mylist-assistant-core
-
-      - name: Build batch application
-        run: npm run build --workspace=@nagiyu/niconico-mylist-assistant-batch
-
-      - name: Run batch tests
-        run: npm run test --workspace=@nagiyu/niconico-mylist-assistant-batch
-
   e2e:
     name: E2E
     needs: [build-web]
@@ -414,18 +252,13 @@ jobs:
     if: always()
     needs:
       [
-        lint,
-        format-check,
+        verify,
         build-core,
         build-infra,
         build-web,
         build-batch,
-        test-core,
-        test-web,
-        coverage,
         docker-build-web,
         docker-build-batch,
-        test-batch,
         e2e,
         test-batch-integration,
       ]

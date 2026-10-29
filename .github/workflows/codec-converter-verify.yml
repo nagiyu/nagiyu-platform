@@ -19,6 +19,7 @@ on:
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/codec-converter-verify.yml'
+      - '.github/workflows/reusable-service-verify.yml'
       - '.github/workflows/reusable-e2e.yml'
 
 permissions:
@@ -30,11 +31,17 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  verify:
+    name: Verify
+    uses: ./.github/workflows/reusable-service-verify.yml
+    with:
+      dirs: services/codec-converter infra/codec-converter
+    permissions:
+      contents: read
+
   nextjs-build:
     name: Next.js Build Verification
     runs-on: ubuntu-latest
-    needs: [lint, format-check]
-
     permissions:
       contents: read
 
@@ -95,42 +102,8 @@ jobs:
           image-tag: codec-converter-batch-verify-full-test
           build-args: APP_VERSION=${{ steps.get-batch-version.outputs.app-version }}
 
-  test:
-    name: Run Unit Tests
-    runs-on: ubuntu-latest
-    needs: [nextjs-build]
-
-    permissions:
-      contents: read
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js and install dependencies
-        uses: ./.github/actions/setup-node
-        with:
-          node-version: '24'
-          cache-dependency-path: './package-lock.json'
-
-      - name: Build shared libraries
-        run: npm run build:libs
-
-      - name: Build codec-converter-core library
-        run: npm run build --workspace=@nagiyu/codec-converter-core
-
-      - name: Run core tests
-        run: npm run test --workspace=@nagiyu/codec-converter-core
-
-      - name: Run batch tests
-        run: npm run test --workspace=@nagiyu/codec-converter-batch
-
-      - name: Run web tests
-        run: npm run test --workspace=@nagiyu/codec-converter-web
-
   e2e:
     name: E2E
-    needs: [test]
     uses: ./.github/workflows/reusable-e2e.yml
     with:
       workspace: '@nagiyu/codec-converter-web'
@@ -141,78 +114,6 @@ jobs:
     permissions:
       id-token: write
       contents: read
-
-  lint:
-    name: Lint Code
-    runs-on: ubuntu-latest
-
-    permissions:
-      contents: read
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js and install dependencies
-        uses: ./.github/actions/setup-node
-        with:
-          node-version: '24'
-          cache-dependency-path: './package-lock.json'
-
-      - name: Run ESLint on core
-        run: npm run lint --workspace=@nagiyu/codec-converter-core
-
-      - name: Run ESLint on web
-        run: npm run lint --workspace=@nagiyu/codec-converter-web
-
-      - name: Run ESLint on batch
-        run: npm run lint --workspace=@nagiyu/codec-converter-batch
-
-  format-check:
-    name: Format Check
-    runs-on: ubuntu-latest
-
-    permissions:
-      contents: read
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js and install dependencies
-        uses: ./.github/actions/setup-node
-        with:
-          node-version: '24'
-          cache-dependency-path: './package-lock.json'
-
-      - name: Check core formatting
-        run: npm run format:check --workspace=@nagiyu/codec-converter-core
-
-      - name: Check web formatting
-        run: npm run format:check --workspace=@nagiyu/codec-converter-web
-
-      - name: Check batch formatting
-        run: npm run format:check --workspace=@nagiyu/codec-converter-batch
-
-  infra-format-check:
-    name: Infrastructure Format Check
-    runs-on: ubuntu-latest
-
-    permissions:
-      contents: read
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js and install dependencies
-        uses: ./.github/actions/setup-node
-        with:
-          node-version: '24'
-          cache-dependency-path: './package-lock.json'
-
-      - name: Check formatting
-        run: npx prettier --check "infra/codec-converter/**/*.{ts,js,json}"
 
   infra-type-check:
     name: Infrastructure Type Check (Build)
@@ -237,45 +138,11 @@ jobs:
       - name: Build CDK project
         run: npm run build --workspace=@nagiyu/infra-codec-converter
 
-  infra-test:
-    name: Infrastructure Unit Tests
-    runs-on: ubuntu-latest
-
-    permissions:
-      contents: read
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js and install dependencies
-        uses: ./.github/actions/setup-node
-        with:
-          node-version: '24'
-          cache-dependency-path: './package-lock.json'
-
-      - name: Build infra-common library
-        run: npm run build --workspace=@nagiyu/infra-common
-
-      - name: Run tests
-        run: npm run test --workspace=@nagiyu/infra-codec-converter
-
   report:
     name: Report Results to PR
     runs-on: ubuntu-latest
     if: always()
-    needs:
-      [
-        nextjs-build,
-        docker-build,
-        test,
-        e2e,
-        lint,
-        format-check,
-        infra-format-check,
-        infra-type-check,
-        infra-test,
-      ]
+    needs: [verify, nextjs-build, docker-build, e2e, infra-type-check]
 
     permissions:
       contents: read
