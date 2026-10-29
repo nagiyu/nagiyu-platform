@@ -37,9 +37,6 @@ jobs:
     uses: ./.github/workflows/reusable-service-verify.yml
     with:
       dirs: services/quick-clip infra/quick-clip
-      # lambda-clip は分岐カバレッジが閾値の 80% を割っているため、テストを足すまでカバレッジ検査から外す。
-      # 通常のテストと lint は外さない。
-      coverage-exclude: '@nagiyu/quick-clip-lambda-clip'
     permissions:
       contents: read
 

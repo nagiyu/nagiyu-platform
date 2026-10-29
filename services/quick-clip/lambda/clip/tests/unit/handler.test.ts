@@ -151,4 +151,78 @@ describe('clip lambda handler', () => {
     await handler(baseEvent);
     expect(mockUpdate).not.toHaveBeenCalledWith('job-1', 'h-1', { clipStatus: 'FAILED' });
   });
+
+  describe('入力検証', () => {
+    it.each([
+      ['jobId が空', { jobId: '' }],
+      ['highlightId が空', { highlightId: '' }],
+      ['startSec が数値でない', { startSec: '1' }],
+      ['endSec が数値でない', { endSec: undefined }],
+      ['startSec が負数', { startSec: -1 }],
+      ['endSec が startSec と同じ', { startSec: 3, endSec: 3 }],
+      ['endSec が startSec より前', { startSec: 5, endSec: 3 }],
+    ])('%s の場合は副作用を起こさず入力不正で失敗する', async (_label, override) => {
+      const { handler } = await import('../../src/handler.js');
+      await expect(handler({ ...baseEvent, ...override } as typeof baseEvent)).rejects.toThrow(
+        '入力値が不正です'
+      );
+      expect(mockSpawn).not.toHaveBeenCalled();
+      expect(mockSend).not.toHaveBeenCalled();
+      expect(mockUpdate).not.toHaveBeenCalled();
+    });
+  });
+
+  it('ffmpeg が非0で終了した場合は終了コードと stderr を含むエラーでFAILEDへ更新する', async () => {
+    mockSpawn.mockImplementation(() => {
+      let onData: (chunk: Buffer) => void = () => undefined;
+      return {
+        stderr: {
+          on: (event: string, callback: (chunk: Buffer) => void) => {
+            if (event === 'data') onData = callback;
+          },
+        },
+        on: (event: string, callback: (...args: unknown[]) => void) => {
+          if (event === 'close') {
+            onData(Buffer.from('Invalid data found'));
+            callback(1);
+          }
+        },
+      };
+    });
+
+    const { withErrorReporting } = await import('@nagiyu/aws');
+    (withErrorReporting as jest.Mock).mockImplementation(
+      async (opts: { onError?: (e: unknown) => Promise<void> }, fn: () => Promise<unknown>) => {
+        try {
+          return await fn();
+        } catch (error) {
+          if (opts.onError) await opts.onError(error);
+          throw error;
+        }
+      }
+    );
+
+    const { handler } = await import('../../src/handler.js');
+    await expect(handler(baseEvent)).rejects.toThrow(
+      'クリップ分割に失敗しました: exit code 1, stderr: Invalid data found'
+    );
+    expect(mockUpdate).toHaveBeenCalledWith('job-1', 'h-1', { clipStatus: 'FAILED' });
+    expect(mockSend).not.toHaveBeenCalled();
+  });
+
+  it('失敗時も作業ディレクトリを削除する', async () => {
+    mockSpawn.mockImplementation(() => ({
+      stderr: { on: jest.fn() },
+      on: (event: string, callback: (...args: unknown[]) => void) => {
+        if (event === 'error') callback(new Error('spawn ffmpeg ENOENT'));
+      },
+    }));
+
+    const { handler } = await import('../../src/handler.js');
+    await expect(handler(baseEvent)).rejects.toThrow('クリップ分割に失敗しました');
+    expect(mockRm).toHaveBeenCalledWith(expect.stringContaining('job-1'), {
+      recursive: true,
+      force: true,
+    });
+  });
 });
