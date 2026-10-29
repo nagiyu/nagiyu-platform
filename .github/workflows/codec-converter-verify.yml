@@ -19,6 +19,7 @@ on:
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/codec-converter-verify.yml'
+      - '.github/workflows/reusable-e2e.yml'
 
 permissions:
   contents: read
@@ -127,214 +128,19 @@ jobs:
       - name: Run web tests
         run: npm run test --workspace=@nagiyu/codec-converter-web
 
-  integration-test-chromium-mobile:
-    name: Run Integration Tests (chromium-mobile)
-    # Playwright 1.60.0 は Ubuntu 26.04 (ubuntu-latest) に対応しておらず、ブラウザを入れられないため固定する。
-    runs-on: ubuntu-24.04
+  e2e:
+    name: E2E
     needs: [test]
-
+    uses: ./.github/workflows/reusable-e2e.yml
+    with:
+      workspace: '@nagiyu/codec-converter-web'
+      shared-workspaces: '@nagiyu/codec-converter-core'
+      web-dir: services/codec-converter/web
+      report-key: codec-converter
+      full: ${{ github.base_ref == 'develop' }}
     permissions:
       id-token: write
       contents: read
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js and install dependencies
-        uses: ./.github/actions/setup-node
-        with:
-          node-version: '24'
-          cache-dependency-path: './package-lock.json'
-
-      - name: Build shared libraries
-        run: npm run build:libs
-
-      - name: Build codec-converter-core library
-        run: npm run build --workspace=@nagiyu/codec-converter-core
-
-      - name: Build web application
-        run: npm run build --workspace=@nagiyu/codec-converter-web
-
-      - name: Install Playwright Browsers
-        run: npx playwright install --with-deps chromium
-        working-directory: ./services/codec-converter/web
-
-      - name: Run Integration tests (chromium-mobile)
-        env:
-          CI: true
-          PROJECT: chromium-mobile
-        run: npm run test:e2e --workspace=@nagiyu/codec-converter-web
-
-      - name: Upload test results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: ${{ env.SERVICE_ID }}-playwright-report-full-chromium-mobile
-          path: services/codec-converter/web/playwright-report/
-          retention-days: 30
-
-      - name: Upload test artifacts
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: ${{ env.SERVICE_ID }}-test-results-full-chromium-mobile
-          path: services/codec-converter/web/test-results/
-          retention-days: 30
-
-      - name: Configure AWS credentials for report upload
-        if: always()
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ vars.AWS_PR_ROLE_ARN }}
-          aws-region: us-east-1
-
-      - name: Upload Playwright HTML report to E2E reports
-        if: always()
-        run: |
-          aws s3 sync services/codec-converter/web/playwright-report/ \
-            "s3://${{ vars.E2E_REPORTS_BUCKET || 'nagiyu-e2e-reports' }}/codec-converter/pr-${{ github.event.pull_request.number }}/${{ github.run_id }}/chromium-mobile/" \
-            --delete --no-progress
-
-  integration-test-chromium-desktop:
-    name: Run Integration Tests (chromium-desktop)
-    # Playwright 1.60.0 は Ubuntu 26.04 (ubuntu-latest) に対応しておらず、ブラウザを入れられないため固定する。
-    runs-on: ubuntu-24.04
-    needs: [test]
-    if: github.base_ref == 'develop'
-
-    permissions:
-      id-token: write
-      contents: read
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js and install dependencies
-        uses: ./.github/actions/setup-node
-        with:
-          node-version: '24'
-          cache-dependency-path: './package-lock.json'
-
-      - name: Build shared libraries
-        run: npm run build:libs
-
-      - name: Build codec-converter-core library
-        run: npm run build --workspace=@nagiyu/codec-converter-core
-
-      - name: Build web application
-        run: npm run build --workspace=@nagiyu/codec-converter-web
-
-      - name: Install Playwright Browsers
-        run: npx playwright install --with-deps chromium
-        working-directory: ./services/codec-converter/web
-
-      - name: Run Integration tests (chromium-desktop)
-        env:
-          CI: true
-          PROJECT: chromium-desktop
-        run: npm run test:e2e --workspace=@nagiyu/codec-converter-web
-
-      - name: Upload test results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: ${{ env.SERVICE_ID }}-playwright-report-full-chromium-desktop
-          path: services/codec-converter/web/playwright-report/
-          retention-days: 30
-
-      - name: Upload test artifacts
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: ${{ env.SERVICE_ID }}-test-results-full-chromium-desktop
-          path: services/codec-converter/web/test-results/
-          retention-days: 30
-
-      - name: Configure AWS credentials for report upload
-        if: always()
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ vars.AWS_PR_ROLE_ARN }}
-          aws-region: us-east-1
-
-      - name: Upload Playwright HTML report to E2E reports
-        if: always()
-        run: |
-          aws s3 sync services/codec-converter/web/playwright-report/ \
-            "s3://${{ vars.E2E_REPORTS_BUCKET || 'nagiyu-e2e-reports' }}/codec-converter/pr-${{ github.event.pull_request.number }}/${{ github.run_id }}/chromium-desktop/" \
-            --delete --no-progress
-
-  integration-test-webkit-mobile:
-    name: Run Integration Tests (webkit-mobile)
-    # Playwright 1.60.0 は Ubuntu 26.04 (ubuntu-latest) に対応しておらず、ブラウザを入れられないため固定する。
-    runs-on: ubuntu-24.04
-    needs: [test]
-    if: github.base_ref == 'develop'
-
-    permissions:
-      id-token: write
-      contents: read
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js and install dependencies
-        uses: ./.github/actions/setup-node
-        with:
-          node-version: '24'
-          cache-dependency-path: './package-lock.json'
-
-      - name: Build shared libraries
-        run: npm run build:libs
-
-      - name: Build codec-converter-core library
-        run: npm run build --workspace=@nagiyu/codec-converter-core
-
-      - name: Build web application
-        run: npm run build --workspace=@nagiyu/codec-converter-web
-
-      - name: Install Playwright Browsers
-        run: npx playwright install --with-deps webkit
-        working-directory: ./services/codec-converter/web
-
-      - name: Run Integration tests (webkit-mobile)
-        env:
-          CI: true
-          PROJECT: webkit-mobile
-        run: npm run test:e2e --workspace=@nagiyu/codec-converter-web
-
-      - name: Upload test results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: ${{ env.SERVICE_ID }}-playwright-report-full-webkit-mobile
-          path: services/codec-converter/web/playwright-report/
-          retention-days: 30
-
-      - name: Upload test artifacts
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: ${{ env.SERVICE_ID }}-test-results-full-webkit-mobile
-          path: services/codec-converter/web/test-results/
-          retention-days: 30
-
-      - name: Configure AWS credentials for report upload
-        if: always()
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ vars.AWS_PR_ROLE_ARN }}
-          aws-region: us-east-1
-
-      - name: Upload Playwright HTML report to E2E reports
-        if: always()
-        run: |
-          aws s3 sync services/codec-converter/web/playwright-report/ \
-            "s3://${{ vars.E2E_REPORTS_BUCKET || 'nagiyu-e2e-reports' }}/codec-converter/pr-${{ github.event.pull_request.number }}/${{ github.run_id }}/webkit-mobile/" \
-            --delete --no-progress
 
   lint:
     name: Lint Code
@@ -463,9 +269,7 @@ jobs:
         nextjs-build,
         docker-build,
         test,
-        integration-test-chromium-mobile,
-        integration-test-chromium-desktop,
-        integration-test-webkit-mobile,
+        e2e,
         lint,
         format-check,
         infra-format-check,
