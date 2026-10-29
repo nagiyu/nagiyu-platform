@@ -15,21 +15,17 @@ export class AuthStack extends cdk.Stack {
     const { environment } = props;
 
     // 各スタックを作成
-    const dynamoDBStack = new DynamoDBStack(
-      scope,
-      `Auth-DynamoDB-${environment}`,
-      {
-        ...props,
-        environment,
-      }
-    );
-
-    const secretsStack = new SecretsStack(scope, `Auth-Secrets-${environment}`, {
+    new DynamoDBStack(scope, `Auth-DynamoDB-${environment}`, {
       ...props,
       environment,
     });
 
-    const ecrStack = new ECRStack(scope, `Auth-ECR-${environment}`, {
+    new SecretsStack(scope, `Auth-Secrets-${environment}`, {
+      ...props,
+      environment,
+    });
+
+    new ECRStack(scope, `Auth-ECR-${environment}`, {
       ...props,
       environment,
     });

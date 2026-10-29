@@ -43,7 +43,7 @@ new SecretsStack(app, `NagiyuAuthSecrets${envSuffix}`, {
 });
 
 // ECR スタックを作成
-const ecrStack = new ECRStack(app, `NagiyuAuthECR${envSuffix}`, {
+new ECRStack(app, `NagiyuAuthECR${envSuffix}`, {
   environment: env,
   env: stackEnv,
   description: `Auth Service ECR - ${env} environment`,
