@@ -5,7 +5,7 @@ const path = require('node:path');
 
 const ERROR_MESSAGES = {
   DIRS_REQUIRED: 'dirs が指定されていません',
-  NO_WORKSPACES: '対象のワークスペースが見つかりません。dirs を確認してください',
+  NO_WORKSPACES: '検査をかけるワークスペースが見つかりません。dirs を確認してください',
   WORKSPACES_NOT_FOUND: 'ルートの package.json に workspaces が定義されていません',
 };
 
@@ -112,6 +112,8 @@ function deriveOutputs({ candidates, dirs, coverageExclude }) {
   const entries = candidates
     .filter((candidate) => isTargetLocation(candidate.location, targetDirs))
     .map((candidate) => buildWorkspaceEntry(candidate, excluded))
+    // 検査のスクリプトを 1 つも持たないワークスペースは、何もしないジョブが立つだけなので除く
+    .filter(hasAnyCheck)
     .sort((a, b) => a.location.localeCompare(b.location));
 
   if (entries.length === 0) {
@@ -125,6 +127,15 @@ function deriveOutputs({ candidates, dirs, coverageExclude }) {
     hasContract: String(contractEntries.length > 0),
     prebuild: buildPrebuildList(entries),
   };
+}
+
+/**
+ * 検査を 1 つでもかけるワークスペースかを返す。
+ * @param {{ lint: boolean, format: boolean, test: boolean, coverage: boolean, contract: boolean }} entry
+ * @returns {boolean}
+ */
+function hasAnyCheck(entry) {
+  return Object.keys(SCRIPT_NAMES).some((key) => entry[key]);
 }
 
 /**

@@ -108,7 +108,7 @@ test('buildPrebuildList は core も infra も無ければ空文字', () => {
 const CANDIDATES = [
   { name: '@nagiyu/a-web', location: 'services/a/web', scripts: { lint: 'x', test: 'jest' } },
   { name: '@nagiyu/a-core', location: 'services/a/core', scripts: ALL_SCRIPTS },
-  { name: '@nagiyu/infra-a', location: 'infra/a', scripts: { build: 'tsc' } },
+  { name: '@nagiyu/infra-a', location: 'infra/a', scripts: { build: 'tsc', test: 'jest' } },
   { name: '@nagiyu/other-core', location: 'services/other/core', scripts: ALL_SCRIPTS },
 ];
 
@@ -156,4 +156,29 @@ test('deriveOutputs は対象が 0 件ならエラーにする', () => {
   assert.throws(() => deriveOutputs({ candidates: CANDIDATES, dirs: 'services/none' }), {
     message: ERROR_MESSAGES.NO_WORKSPACES,
   });
+});
+
+test('deriveOutputs は検査のスクリプトを 1 つも持たないワークスペースを除く', () => {
+  const outputs = deriveOutputs({
+    candidates: [
+      { name: '@nagiyu/b-core', location: 'services/b/core', scripts: ALL_SCRIPTS },
+      { name: '@nagiyu/infra-b', location: 'infra/b', scripts: { build: 'tsc' } },
+    ],
+    dirs: 'services/b infra/b',
+  });
+  const names = JSON.parse(outputs.workspaces).map((workspace) => workspace.name);
+  assert.deepEqual(names, ['@nagiyu/b-core']);
+  // 除いた infra のために infra-common を事前ビルドしない
+  assert.equal(outputs.prebuild, '@nagiyu/b-core');
+});
+
+test('deriveOutputs は検査できるワークスペースが 0 件ならエラーにする', () => {
+  assert.throws(
+    () =>
+      deriveOutputs({
+        candidates: [{ name: '@nagiyu/infra-c', location: 'infra/c', scripts: { build: 'tsc' } }],
+        dirs: 'infra/c',
+      }),
+    { message: ERROR_MESSAGES.NO_WORKSPACES }
+  );
 });
