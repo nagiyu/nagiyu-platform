@@ -9,7 +9,7 @@ import {
   Divider,
   Typography,
 } from '@mui/material';
-import { hasPermission } from '@nagiyu/common';
+import { formatJstDateTime, hasPermission } from '@nagiyu/common';
 import { AccessDeniedView } from '@nagiyu/ui';
 import type { ErrorSeverity } from '@nagiyu/common';
 import { getDynamoDBDocumentClient } from '@nagiyu/aws';
@@ -43,19 +43,6 @@ function getReader() {
   }
 
   return createErrorEventReader(docClient, tableName);
-}
-
-function formatJst(millis: number): string {
-  const date = new Date(millis);
-  return new Intl.DateTimeFormat('ja-JP', {
-    timeZone: 'Asia/Tokyo',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  }).format(date);
 }
 
 function tryFormatJson(value: string): string {
@@ -157,7 +144,9 @@ export default async function ErrorDetailPage({
               <Typography variant="body2" color="text.secondary" sx={{ minWidth: 120 }}>
                 発生時刻 (JST)
               </Typography>
-              <Typography variant="body2">{formatJst(event.occurredAt)}</Typography>
+              <Typography variant="body2">
+                {formatJstDateTime(event.occurredAt, { seconds: true })}
+              </Typography>
             </Box>
             <Box sx={{ display: 'flex', flexDirection: 'row', gap: 2 }}>
               <Typography variant="body2" color="text.secondary" sx={{ minWidth: 120 }}>

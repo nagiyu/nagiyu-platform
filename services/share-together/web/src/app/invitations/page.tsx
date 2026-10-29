@@ -12,9 +12,9 @@ import {
   Stack,
   Typography,
 } from '@mui/material';
+import { formatJstDateTime } from '@nagiyu/common';
 import { Button, Chip } from '@nagiyu/ui';
 import type { InvitationSummary, InvitationsResponse } from '@/types';
-import { formatDateTimeJst } from '@/lib/format-date-time';
 import { notifyInvitationsChanged } from '@/lib/invitation-events';
 import { ACCEPT_FAILURE_MESSAGE, resolveAcceptFailureMessage } from '@/lib/invitation-errors';
 
@@ -147,7 +147,7 @@ export default function InvitationsPage() {
                       招待者: {invitation.inviterName}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                      招待日時: {formatDateTimeJst(invitation.createdAt)}
+                      招待日時: {formatJstDateTime(invitation.createdAt)}
                     </Typography>
                   </CardContent>
                   <CardActions sx={{ px: 2, pb: 2 }}>

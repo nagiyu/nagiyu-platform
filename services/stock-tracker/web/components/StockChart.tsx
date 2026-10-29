@@ -6,6 +6,7 @@ import type { EChartsOption } from 'echarts';
 import { Box, Typography } from '@mui/material';
 import { DEFAULT_CHART_BAR_COUNT } from '@/types/stock';
 import { ErrorAlert, LoadingState } from '@nagiyu/ui';
+import { formatJstDateTime } from '@nagiyu/common';
 import type { AlertLine } from '../types/alert';
 import { buildChartMarkLines } from '../lib/chart-overlay-lines';
 import { AUTO_REFRESH_INTERVAL_MS } from '../lib/constants';
@@ -143,15 +144,7 @@ export default function StockChart({
     const reversedData = chartData.data.slice().reverse();
 
     // データを日時、OHLC、出来高に分割
-    const dates = reversedData.map((item) =>
-      new Date(item.time).toLocaleString('ja-JP', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-      })
-    );
+    const dates = reversedData.map((item) => formatJstDateTime(item.time));
 
     const ohlcData = reversedData.map((item) => [item.open, item.close, item.low, item.high]);
 

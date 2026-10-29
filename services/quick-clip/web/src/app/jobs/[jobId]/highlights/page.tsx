@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
+import { COMMON_ERROR_MESSAGES, formatJstDateTime } from '@nagiyu/common';
 import {
   Alert,
   Box,
@@ -597,7 +597,7 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
         {expiresAt !== null && (
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
             {INFO_MESSAGES.EXPIRES_AT_PREFIX}
-            {new Date(expiresAt).toLocaleString('ja-JP')}
+            {formatJstDateTime(expiresAt, { seconds: true })}
           </Typography>
         )}
 

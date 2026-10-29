@@ -1,21 +1,4 @@
 /**
- * Unix timestampを日時文字列にフォーマット
- * @param timestamp Unix timestamp（ミリ秒）
- * @returns 日本語ロケールでフォーマットされた日時文字列
- */
-export function formatDateTime(timestamp: number): string {
-  const date = new Date(timestamp);
-  return date.toLocaleString('ja-JP', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  });
-}
-
-/**
  * ジョブIDを短縮表示（先頭8文字 + ... + 最後4文字）
  * @param jobId ジョブID（UUID）
  * @returns 短縮表示されたジョブID

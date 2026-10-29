@@ -15,7 +15,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { hasPermission } from '@nagiyu/common';
+import { formatJstDateTime, hasPermission } from '@nagiyu/common';
 import { AccessDeniedView } from '@nagiyu/ui';
 import type { ErrorEvent, ErrorSeverity } from '@nagiyu/common';
 import { getDynamoDBDocumentClient } from '@nagiyu/aws';
@@ -88,19 +88,6 @@ function buildQueryFromSearchParams(searchParams: {
   }
 
   return query;
-}
-
-function formatJst(millis: number): string {
-  const date = new Date(millis);
-  return new Intl.DateTimeFormat('ja-JP', {
-    timeZone: 'Asia/Tokyo',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  }).format(date);
 }
 
 // 空白の無い長い概要で表が広がって操作列が押し出されないよう、概要の列だけ折り返す。
@@ -228,7 +215,9 @@ export default async function ErrorsListPage({
             <TableBody>
               {items.map((event) => (
                 <TableRow key={`${event.serviceId}#${event.occurredAt}#${event.eventId}`} hover>
-                  <TableCell sx={NO_WRAP_CELL_SX}>{formatJst(event.occurredAt)}</TableCell>
+                  <TableCell sx={NO_WRAP_CELL_SX}>
+                    {formatJstDateTime(event.occurredAt, { seconds: true })}
+                  </TableCell>
                   <TableCell>
                     <Chip label={event.serviceId} size="small" />
                   </TableCell>
