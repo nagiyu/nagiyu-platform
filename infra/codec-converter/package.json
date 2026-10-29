@@ -9,6 +9,7 @@
     "watch": "tsc -w",
     "test": "jest",
     "test:coverage": "jest --coverage",
+    "lint": "eslint 'bin/**/*.ts' 'lib/**/*.ts' 'test/**/*.ts'",
     "cdk": "cdk",
     "bootstrap": "cdk bootstrap --require-approval never",
     "deploy": "cdk deploy --require-approval never",
