@@ -15,6 +15,9 @@ on:
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/tools-deploy.yml'
+      - '.github/actions/update-lambda-image/**'
+      - '.github/actions/health-check/**'
+      - '.github/actions/push-ecr-image/**'
   workflow_dispatch:
     inputs:
       environment:
@@ -141,27 +144,15 @@ jobs:
           echo "repository-uri=$REPOSITORY_URI" >> "$GITHUB_OUTPUT"
           echo "ECR Repository: $REPOSITORY_URI"
 
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Build Docker image
-        uses: ./.github/actions/build-docker-image
-        with:
-          dockerfile: services/tools/Dockerfile
-          image-tag: ${{ steps.get-ecr.outputs.repository-uri }}:latest
-          build-args: APP_VERSION=${{ steps.get-version.outputs.app-version }}
-
-      - name: Push Docker image
+      - name: Build and push Docker image
         id: build-image
-        env:
-          REPOSITORY_URI: ${{ steps.get-ecr.outputs.repository-uri }}
-          IMAGE_TAG: latest
-        run: |
-          docker push "$REPOSITORY_URI:$IMAGE_TAG"
-
-          echo "image-uri=$REPOSITORY_URI:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
-          echo "commit-sha=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+        uses: ./.github/actions/push-ecr-image
+        with:
+          repository-uri: ${{ steps.get-ecr.outputs.repository-uri }}
+          dockerfile: services/tools/Dockerfile
+          build-args: APP_VERSION=${{ steps.get-version.outputs.app-version }}
+          tags: |
+            latest
 
   infrastructure-app:
     name: Deploy Application Infrastructure
@@ -204,33 +195,25 @@ jobs:
 
           echo "Lambda and CloudFront deployed (environment: $ENVIRONMENT)"
 
-      - name: Update Lambda functions with latest images
+      - name: Resolve Lambda image URI
+        id: resolve-image
         env:
           ENVIRONMENT: ${{ needs.build.outputs.environment }}
         run: |
-          # Get ECR repository URI
           ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
           ECR_REGISTRY="${ACCOUNT_ID}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com"
           IMAGE_URI="${ECR_REGISTRY}/nagiyu-tools-ecr-${ENVIRONMENT}:latest"
 
-          # Update Lambda function
-          aws lambda update-function-code \
-            --function-name "nagiyu-tools-lambda-${ENVIRONMENT}" \
-            --image-uri "$IMAGE_URI" \
-            --region "${{ env.AWS_REGION }}"
+          echo "image-uri=$IMAGE_URI" >> "$GITHUB_OUTPUT"
+          echo "Lambda image URI: $IMAGE_URI"
 
-          echo "Lambda function updated with latest image."
-
-      - name: Wait for Lambda updates to complete
-        env:
-          ENVIRONMENT: ${{ needs.build.outputs.environment }}
-        run: |
-          # Wait for function to complete updating
-          aws lambda wait function-updated \
-            --function-name "nagiyu-tools-lambda-${ENVIRONMENT}" \
-            --region "${{ env.AWS_REGION }}"
-
-          echo "Lambda function update successfully"
+      - name: Update Lambda functions with latest images
+        uses: ./.github/actions/update-lambda-image
+        with:
+          function-names: |
+            nagiyu-tools-lambda-${{ needs.build.outputs.environment }}
+          image-uri: ${{ steps.resolve-image.outputs.image-uri }}
+          region: ${{ env.AWS_REGION }}
 
   verify:
     name: Verify Deployment
@@ -239,40 +222,36 @@ jobs:
     environment: ${{ needs.build.outputs.environment }}
 
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Verify deployment
+      - name: Get Lambda Function URL
+        id: get-lambda-url
         env:
           STACK_SUFFIX: ${{ needs.build.outputs.stack-suffix }}
         run: |
           # CDK スタック名を構築
           STACK_NAME="NagiyuToolsLambda${STACK_SUFFIX}"
 
-          # Get Function URL from CloudFormation
           FUNCTION_URL=$(aws cloudformation describe-stacks \
             --stack-name "$STACK_NAME" \
             --query "Stacks[0].Outputs[?OutputKey=='FunctionUrl'].OutputValue" \
             --output text \
             --region "${{ env.AWS_REGION }}")
 
-          if [ -z "$FUNCTION_URL" ]; then
-            echo "Error: Failed to get Function URL from CDK stack."
-            exit 1
-          fi
-
+          echo "function-url=$FUNCTION_URL" >> "$GITHUB_OUTPUT"
           echo "Function URL: $FUNCTION_URL"
 
-          # Health check
-          if ! curl -f -s -o /dev/null -w "%{http_code}" "${FUNCTION_URL}api/health" | grep -q "200"; then
-            echo "Error: Health check failed. The application may not be running correctly."
-            exit 1
-          fi
-
-          echo "Health check passed successfully!"
+      - name: Verify deployment
+        uses: ./.github/actions/health-check
+        with:
+          base-url: ${{ steps.get-lambda-url.outputs.function-url }}
 
       - name: Display deployment information
         env:

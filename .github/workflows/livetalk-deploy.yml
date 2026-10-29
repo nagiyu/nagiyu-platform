@@ -16,6 +16,9 @@ on:
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/livetalk-deploy.yml'
+      - '.github/actions/update-lambda-image/**'
+      - '.github/actions/health-check/**'
+      - '.github/actions/push-ecr-image/**'
   workflow_dispatch:
     inputs:
       environment:
@@ -162,30 +165,16 @@ jobs:
           echo "repository-uri=$REPOSITORY_URI" >> "$GITHUB_OUTPUT"
           echo "ECR Repository: $REPOSITORY_URI"
 
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Build Docker image
-        uses: ./.github/actions/build-docker-image
-        with:
-          dockerfile: services/livetalk/web/Dockerfile
-          image-tag: ${{ steps.get-ecr.outputs.repository-uri }}:${{ github.sha }}
-          build-args: APP_VERSION=${{ steps.get-version.outputs.app-version }}
-
-      - name: Push Docker image
+      - name: Build and push Docker image
         id: build-image
-        env:
-          REPOSITORY_URI: ${{ steps.get-ecr.outputs.repository-uri }}
-          IMAGE_TAG: ${{ github.sha }}
-        run: |
-          docker push "$REPOSITORY_URI:$IMAGE_TAG"
-
-          # Also tag as latest
-          docker tag "$REPOSITORY_URI:$IMAGE_TAG" "$REPOSITORY_URI:latest"
-          docker push "$REPOSITORY_URI:latest"
-
-          echo "image-uri=$REPOSITORY_URI:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+        uses: ./.github/actions/push-ecr-image
+        with:
+          repository-uri: ${{ steps.get-ecr.outputs.repository-uri }}
+          dockerfile: services/livetalk/web/Dockerfile
+          build-args: APP_VERSION=${{ steps.get-version.outputs.app-version }}
+          tags: |
+            ${{ github.sha }}
+            latest
 
   build-batch:
     name: Build and Push Batch Image
@@ -207,31 +196,25 @@ jobs:
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Build Batch Docker image
-        uses: ./.github/actions/build-docker-image
-        with:
-          dockerfile: services/livetalk/batch/Dockerfile
-          # Batch ECR リポジトリ名は命名規則から決定論的に組み立てる（SSM 非依存）。
-          image-tag: ${{ steps.login-ecr.outputs.registry }}/nagiyu-livetalk-batch-ecr-${{ needs.infrastructure-ecr.outputs.environment }}:${{ github.sha }}
-
-      - name: Push Batch Docker image to ECR
+      - name: Get ECR repository URI
+        id: get-ecr
         env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: nagiyu-livetalk-batch-ecr-${{ needs.infrastructure-ecr.outputs.environment }}
-          IMAGE_TAG: ${{ github.sha }}
+          ENVIRONMENT: ${{ needs.infrastructure-ecr.outputs.environment }}
         run: |
-          docker push "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+          # Batch ECR リポジトリ名は命名規則から決定論的に組み立てる（SSM 非依存）。
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          REPOSITORY_URI="$ACCOUNT_ID.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/nagiyu-livetalk-batch-ecr-$ENVIRONMENT"
+          echo "repository-uri=$REPOSITORY_URI" >> "$GITHUB_OUTPUT"
 
-          # Also tag as latest（Batch Lambda は :latest を参照する）
-          docker tag "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" \
-            "$ECR_REGISTRY/$ECR_REPOSITORY:latest"
-          docker push "$ECR_REGISTRY/$ECR_REPOSITORY:latest"
-
-          echo "Batch image pushed: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+      - name: Build and push Batch Docker image
+        uses: ./.github/actions/push-ecr-image
+        with:
+          repository-uri: ${{ steps.get-ecr.outputs.repository-uri }}
+          dockerfile: services/livetalk/batch/Dockerfile
+          # Batch Lambda が :latest を参照するため、latest も push する
+          tags: |
+            ${{ github.sha }}
+            latest
 
   infrastructure-app:
     name: Deploy DynamoDB, ALB, ECS Service and Alarms Stacks
@@ -333,24 +316,17 @@ jobs:
 
           echo "alb-dns-name=$ALB_DNS" >> "$GITHUB_OUTPUT"
 
-      - name: Verify health endpoint via ALB DNS
-        env:
-          ALB_DNS: ${{ steps.fetch-alb-dns.outputs.alb-dns-name }}
-        run: |
-          if [ -z "$ALB_DNS" ]; then
-            echo "Skipping health check: ALB DNS not resolved."
-            exit 0
-          fi
-
-          echo "Probing http://${ALB_DNS}/api/health ..."
-          HTTP_CODE=$(curl -f -s -o /dev/null -w "%{http_code}" "http://${ALB_DNS}/api/health" || echo "000")
-          echo "Health check response: $HTTP_CODE"
-
-          if [ "$HTTP_CODE" != "200" ]; then
-            echo "Warning: ALB health endpoint returned $HTTP_CODE"
+          # DNS が空のまま http:// だけが渡ると URL の欠落をヘルスチェックが検出できないため、空のときは空のまま渡す
+          if [ -n "$ALB_DNS" ]; then
+            echo "alb-url=http://${ALB_DNS}" >> "$GITHUB_OUTPUT"
           else
-            echo "Health check passed."
+            echo "alb-url=" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Verify health endpoint via ALB DNS
+        uses: ./.github/actions/health-check
+        with:
+          base-url: ${{ steps.fetch-alb-dns.outputs.alb-url }}
 
   infrastructure-batch:
     name: Deploy Batch Stack (Lambda + EventBridge)
@@ -409,35 +385,30 @@ jobs:
 
           echo "LiveTalk Batch stack deployed (environment: $ENVIRONMENT)"
 
-      - name: Update Batch Lambda code with latest image
+      - name: Resolve Batch Lambda image URI
+        id: resolve-image
         env:
           ENVIRONMENT: ${{ needs.infrastructure-ecr.outputs.environment }}
         run: |
-          # 既存スタックへの再デプロイでは :latest タグが不変のため CloudFormation が
-          # Lambda コードを更新しない。全バッチ Lambda に明示的に最新イメージを反映する。
           ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
           ECR_REGISTRY="$ACCOUNT_ID.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com"
           IMAGE_URI="$ECR_REGISTRY/nagiyu-livetalk-batch-ecr-$ENVIRONMENT:latest"
 
-          for FN in \
-            "nagiyu-livetalk-batch-learn-user-activity-$ENVIRONMENT" \
-            "nagiyu-livetalk-batch-notify-$ENVIRONMENT" \
-            "nagiyu-livetalk-batch-consolidate-$ENVIRONMENT" \
-            "nagiyu-livetalk-batch-acquire-$ENVIRONMENT"; do
+          echo "image-uri=$IMAGE_URI" >> "$GITHUB_OUTPUT"
+          echo "Batch Lambda image URI: $IMAGE_URI"
 
-            aws lambda update-function-code \
-              --function-name "$FN" \
-              --image-uri "$IMAGE_URI" \
-              --region ${{ env.AWS_REGION }}
-
-            aws lambda wait function-updated \
-              --function-name "$FN" \
-              --region ${{ env.AWS_REGION }}
-
-            echo "Batch Lambda updated: $FN"
-          done
-
-          echo "All batch Lambdas updated with image: $IMAGE_URI"
+      # 既存スタックへの再デプロイでは :latest タグが不変のため CloudFormation が
+      # Lambda コードを更新しない。全バッチ Lambda に明示的に最新イメージを反映する。
+      - name: Update Batch Lambda code with latest image
+        uses: ./.github/actions/update-lambda-image
+        with:
+          function-names: |
+            nagiyu-livetalk-batch-learn-user-activity-${{ needs.infrastructure-ecr.outputs.environment }}
+            nagiyu-livetalk-batch-notify-${{ needs.infrastructure-ecr.outputs.environment }}
+            nagiyu-livetalk-batch-consolidate-${{ needs.infrastructure-ecr.outputs.environment }}
+            nagiyu-livetalk-batch-acquire-${{ needs.infrastructure-ecr.outputs.environment }}
+          image-uri: ${{ steps.resolve-image.outputs.image-uri }}
+          region: ${{ env.AWS_REGION }}
 
   infrastructure-cloudfront:
     name: Deploy CloudFront Distribution
