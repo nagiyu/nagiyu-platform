@@ -1542,11 +1542,8 @@ describe('HighlightsPage', () => {
     await waitFor(() => {
       expect(screen.getByText(/データの有効期限:/)).toBeInTheDocument();
       // expiresAt はミリ秒として扱う (秒として 1000 倍すると遠い未来の日付になる)
-      expect(
-        screen.getByText(
-          new RegExp(new Date(1700000000000).toLocaleString('ja-JP').replace(/\//g, '\\/'))
-        )
-      ).toBeInTheDocument();
+      // 実行環境の TZ に依存せず JST (2023-11-14T22:13:20Z = 2023/11/15 07:13:20) で表示される
+      expect(screen.getByText(/2023\/11\/15 07:13:20/)).toBeInTheDocument();
     });
   });
 });

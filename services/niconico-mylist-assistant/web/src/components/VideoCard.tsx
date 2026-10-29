@@ -2,6 +2,7 @@
 
 import { Card, CardMedia, CardContent, Typography, Box, IconButton, Tooltip } from '@mui/material';
 import { Chip } from '@nagiyu/ui';
+import { formatJstDate } from '@nagiyu/common';
 import { Favorite, FavoriteBorder, RemoveCircle, RemoveCircleOutlined } from '@mui/icons-material';
 import type { VideoData } from '@nagiyu/niconico-mylist-assistant-core';
 
@@ -33,15 +34,6 @@ export default function VideoCard({
 }: VideoCardProps) {
   const isFavorite = video.userSetting?.isFavorite ?? false;
   const isSkip = video.userSetting?.isSkip ?? false;
-
-  const formatDate = (timestamp: number): string => {
-    const date = new Date(timestamp);
-    return date.toLocaleDateString('ja-JP', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    });
-  };
 
   const handleFavoriteClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -118,7 +110,7 @@ export default function VideoCard({
             {video.length}
           </Chip>
           <Typography variant="caption" color="text.secondary">
-            {formatDate(video.createdAt)}
+            {formatJstDate(video.createdAt)}
           </Typography>
         </Box>
 

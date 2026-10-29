@@ -12,7 +12,7 @@ import {
   Divider,
 } from '@mui/material';
 import { Button, TextField, ErrorAlert, Chip, ConfirmDialog } from '@nagiyu/ui';
-import { extractErrorMessage } from '@nagiyu/common';
+import { extractErrorMessage, formatJstDateTime } from '@nagiyu/common';
 import type { NiconicoSessionStatus } from '@/types/mylist';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 
@@ -77,13 +77,7 @@ function formatDate(epochMs: number | undefined): string {
   if (epochMs == null) {
     return '';
   }
-  return new Date(epochMs).toLocaleDateString('ja-JP', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  return formatJstDateTime(epochMs);
 }
 
 /**

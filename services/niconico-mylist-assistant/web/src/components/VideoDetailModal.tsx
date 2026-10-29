@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
+import { COMMON_ERROR_MESSAGES, formatJstDateTime } from '@nagiyu/common';
 import {
   Dialog,
   DialogTitle,
@@ -254,21 +254,6 @@ export default function VideoDetailModal({
     onClose();
   };
 
-  /**
-   * 日時フォーマット（秒は省略して見やすく表示）
-   */
-  const formatDateTime = (timestamp: number): string => {
-    const date = new Date(timestamp);
-    return date.toLocaleDateString('ja-JP', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-    });
-  };
-
   const isFavorite = video?.userSetting?.isFavorite ?? false;
   const isSkip = video?.userSetting?.isSkip ?? false;
 
@@ -338,7 +323,7 @@ export default function VideoDetailModal({
                 {video.length}
               </Chip>
               <Chip size="sm" variant="outline">
-                {formatDateTime(video.createdAt)}
+                {formatJstDateTime(video.createdAt)}
               </Chip>
             </Stack>
 

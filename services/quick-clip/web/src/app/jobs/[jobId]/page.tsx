@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
+import { COMMON_ERROR_MESSAGES, formatJstDateTime } from '@nagiyu/common';
 import Link from 'next/link';
 import {
   Box,
@@ -262,7 +262,7 @@ export default function JobPage({ params }: JobPageProps) {
 
             <Typography variant="body2" color="text.secondary">
               {INFO_MESSAGES.EXPIRES_AT_PREFIX}
-              {new Date(job.expiresAt).toLocaleString('ja-JP')}
+              {formatJstDateTime(job.expiresAt, { seconds: true })}
             </Typography>
 
             {job.status === 'FAILED' && (
