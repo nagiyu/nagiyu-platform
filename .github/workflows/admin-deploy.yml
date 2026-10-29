@@ -389,7 +389,7 @@ jobs:
         run: |
           FUNCTION_URL=$(aws cloudformation describe-stacks \
             --stack-name "NagiyuAdminLambda$(echo $ENVIRONMENT | sed 's/\(.\)/\U\1/')" \
-            --query "Stacks[0].Outputs[?OutputKey=='LambdaFunctionUrl'].OutputValue" \
+            --query "Stacks[0].Outputs[?OutputKey=='FunctionUrl'].OutputValue" \
             --output text \
             --region "${{ env.AWS_REGION }}" 2>/dev/null || echo "")
 
