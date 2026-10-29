@@ -55,11 +55,7 @@ describe('LiveTalkAlbStack', () => {
 
   it('HTTPS リスナー（port 443）は Phase 1c では作成しない', () => {
     const template = synth('dev');
-    template.resourcePropertiesCountIs(
-      'AWS::ElasticLoadBalancingV2::Listener',
-      { Port: 443 },
-      0
-    );
+    template.resourcePropertiesCountIs('AWS::ElasticLoadBalancingV2::Listener', { Port: 443 }, 0);
   });
 
   it('Security Group が 80 / 443 の inbound を許可する', () => {

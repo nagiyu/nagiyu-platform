@@ -81,9 +81,7 @@ describe('LiveTalkEcsServiceStack', () => {
               Condition: 'HEALTHY',
             }),
           ]),
-          Environment: Match.arrayWith([
-            { Name: 'VOICEVOX_URL', Value: 'http://localhost:50021' },
-          ]),
+          Environment: Match.arrayWith([{ Name: 'VOICEVOX_URL', Value: 'http://localhost:50021' }]),
         }),
       ]),
     });
@@ -223,7 +221,7 @@ describe('LiveTalkEcsServiceStack', () => {
     // Read/Write 両系統の代表アクションを検証する。
     const policies = template.findResources('AWS::IAM::Policy');
     const taskRolePolicy = Object.values(policies).find((p) => {
-      const statements = (p.Properties?.PolicyDocument?.Statement ?? []);
+      const statements = p.Properties?.PolicyDocument?.Statement ?? [];
       return statements.some(
         (stmt) =>
           stmt.Effect === 'Allow' &&
@@ -309,7 +307,9 @@ describe('LiveTalkEcsServiceStack', () => {
             Match.objectLike({
               Name: 'VAPID_PUBLIC_KEY',
               ValueFrom: Match.objectLike({
-                'Fn::Join': Match.arrayWith([Match.arrayWith([Match.stringLikeRegexp(':publicKey::$')])]),
+                'Fn::Join': Match.arrayWith([
+                  Match.arrayWith([Match.stringLikeRegexp(':publicKey::$')]),
+                ]),
               }),
             }),
             Match.objectLike({
@@ -329,7 +329,12 @@ describe('LiveTalkEcsServiceStack', () => {
   it('AUTH_SECRET / OPENAI_API_KEY / VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY は平文の Environment に含まれない（退行防止）', () => {
     const template = synth('dev');
     const taskDefs = template.findResources('AWS::ECS::TaskDefinition');
-    const secretEnvNames = ['AUTH_SECRET', 'OPENAI_API_KEY', 'VAPID_PUBLIC_KEY', 'VAPID_PRIVATE_KEY'];
+    const secretEnvNames = [
+      'AUTH_SECRET',
+      'OPENAI_API_KEY',
+      'VAPID_PUBLIC_KEY',
+      'VAPID_PRIVATE_KEY',
+    ];
     for (const taskDef of Object.values(taskDefs)) {
       const webContainer = taskDef.Properties.ContainerDefinitions.find(
         (c) => c.Name === 'livetalk-web'
@@ -345,9 +350,7 @@ describe('LiveTalkEcsServiceStack', () => {
     const template = synth('dev');
     const policies = template.findResources('AWS::IAM::Policy');
     const executionRolePolicies = Object.values(policies).filter((p) =>
-      (p.Properties?.Roles ?? []).some(
-        (role) => JSON.stringify(role).includes('TaskExecutionRole')
-      )
+      (p.Properties?.Roles ?? []).some((role) => JSON.stringify(role).includes('TaskExecutionRole'))
     );
     expect(executionRolePolicies.length).toBeGreaterThan(0);
 

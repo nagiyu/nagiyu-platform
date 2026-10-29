@@ -40,15 +40,7 @@ describe('LiveTalkCloudFrontStack', () => {
       DistributionConfig: Match.objectLike({
         DefaultCacheBehavior: Match.objectLike({
           ViewerProtocolPolicy: 'redirect-to-https',
-          AllowedMethods: [
-            'GET',
-            'HEAD',
-            'OPTIONS',
-            'PUT',
-            'PATCH',
-            'POST',
-            'DELETE',
-          ],
+          AllowedMethods: ['GET', 'HEAD', 'OPTIONS', 'PUT', 'PATCH', 'POST', 'DELETE'],
         }),
       }),
     });
@@ -177,11 +169,13 @@ describe('LiveTalkCloudFrontStack', () => {
     const template = synth('dev');
     const params = template.findParameters('*');
     const zoneIdRef = Object.values(params).find(
-      (p) => p.Type === 'AWS::SSM::Parameter::Value<String>' &&
+      (p) =>
+        p.Type === 'AWS::SSM::Parameter::Value<String>' &&
         p.Default === '/nagiyu/shared/route53/hosted-zone-id'
     );
     const zoneNameRef = Object.values(params).find(
-      (p) => p.Type === 'AWS::SSM::Parameter::Value<String>' &&
+      (p) =>
+        p.Type === 'AWS::SSM::Parameter::Value<String>' &&
         p.Default === '/nagiyu/shared/route53/hosted-zone-name'
     );
     expect(zoneIdRef).toBeDefined();
@@ -288,9 +282,7 @@ describe('LiveTalkCloudFrontStack', () => {
               Match.objectLike({
                 EventType: 'viewer-request',
                 FunctionARN: Match.objectLike({
-                  'Fn::GetAtt': Match.arrayWith([
-                    Match.stringLikeRegexp('^AssetsUriRewrite'),
-                  ]),
+                  'Fn::GetAtt': Match.arrayWith([Match.stringLikeRegexp('^AssetsUriRewrite')]),
                 }),
               }),
             ]),
