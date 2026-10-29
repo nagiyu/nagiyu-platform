@@ -20,6 +20,7 @@ on:
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/tools-verify.yml'
+      - '.github/workflows/reusable-service-verify.yml'
       - '.github/workflows/reusable-e2e.yml'
 
 permissions:
@@ -31,10 +32,17 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  verify:
+    name: Verify
+    uses: ./.github/workflows/reusable-service-verify.yml
+    with:
+      dirs: services/tools infra/tools
+    permissions:
+      contents: read
+
   nextjs-build:
     name: Next.js Build Verification
     runs-on: ubuntu-latest
-    needs: [lint, format-check]
 
     steps:
       - name: Checkout code
@@ -78,46 +86,9 @@ jobs:
           image-tag: tools-verify-full-test
           build-args: APP_VERSION=${{ steps.get-version.outputs.app-version }}
 
-  test:
-    name: Run Unit Tests
-    runs-on: ubuntu-latest
-    needs: [nextjs-build]
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js and install dependencies
-        uses: ./.github/actions/setup-node
-        with:
-          node-version: '24'
-          cache-dependency-path: './package-lock.json'
-
-      - name: Run tests
-        run: npm run test --workspace @nagiyu/tools
-
-  coverage:
-    name: Test Coverage Check
-    runs-on: ubuntu-latest
-    needs: [test]
-    if: github.base_ref == 'develop'
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js and install dependencies
-        uses: ./.github/actions/setup-node
-        with:
-          node-version: '24'
-          cache-dependency-path: './package-lock.json'
-
-      - name: Run tests with coverage
-        run: npm run test:coverage --workspace @nagiyu/tools
-
   e2e:
     name: E2E
-    needs: [test]
+    needs: [nextjs-build]
     uses: ./.github/workflows/reusable-e2e.yml
     with:
       workspace: '@nagiyu/tools'
@@ -128,45 +99,11 @@ jobs:
       id-token: write
       contents: read
 
-  lint:
-    name: Lint Code
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js and install dependencies
-        uses: ./.github/actions/setup-node
-        with:
-          node-version: '24'
-          cache-dependency-path: './package-lock.json'
-
-      - name: Run lint
-        run: npm run lint --workspace @nagiyu/tools
-
-  format-check:
-    name: Format Check
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js and install dependencies
-        uses: ./.github/actions/setup-node
-        with:
-          node-version: '24'
-          cache-dependency-path: './package-lock.json'
-
-      - name: Check formatting
-        run: npm run format:check --workspace @nagiyu/tools
-
   report:
     name: Report Results to PR
     runs-on: ubuntu-latest
     if: always()
-    needs: [nextjs-build, docker-build, test, coverage, e2e, lint, format-check]
+    needs: [verify, nextjs-build, docker-build, e2e]
 
     permissions:
       contents: read
