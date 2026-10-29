@@ -3,10 +3,14 @@ import { Template, Match } from 'aws-cdk-lib/assertions';
 import * as CodecConverter from '../lib/codec-converter-stack';
 
 // Helper function to create a test stack with required environment
-function createTestStack(): { app: cdk.App; stack: cdk.Stack } {
+function createTestStack(context: Record<string, string> = {}): {
+  app: cdk.App;
+  stack: cdk.Stack;
+} {
   const app = new cdk.App({
     context: {
       vpcId: 'vpc-12345678', // Mock VPC ID for testing
+      ...context,
     },
   });
   const stack = new CodecConverter.CodecConverterStack(app, 'TestStack', {
@@ -235,5 +239,87 @@ test('CloudFront defaultBehavior に X-Robots-Tag ヘッダーポリシーが適
         }),
       }),
     }),
+  });
+});
+
+describe('環境による分岐', () => {
+  test('dev 環境では dev アカウントの Route53 ゾーンへ CloudFront 向け ALIAS レコードが作成される', () => {
+    const { stack } = createTestStack({ env: 'dev' });
+    const template = Template.fromStack(stack);
+
+    template.hasResourceProperties('AWS::Route53::RecordSet', {
+      Name: Match.anyValue(),
+      Type: 'A',
+      AliasTarget: Match.objectLike({
+        DNSName: Match.anyValue(),
+      }),
+    });
+  });
+
+  test('prod 環境では ALIAS レコードを作成しない', () => {
+    const { stack } = createTestStack({ env: 'prod' });
+    const template = Template.fromStack(stack);
+
+    template.resourceCountIs('AWS::Route53::RecordSet', 0);
+  });
+
+  test('prod 環境では環境名がリソース名に反映される', () => {
+    const { stack } = createTestStack({ env: 'prod' });
+    const template = Template.fromStack(stack);
+
+    template.hasResourceProperties('AWS::S3::Bucket', {
+      BucketName: 'nagiyu-codec-converter-storage-prod',
+    });
+    template.hasResourceProperties('AWS::Batch::JobQueue', {
+      JobQueueName: 'nagiyu-codec-converter-prod',
+    });
+  });
+});
+
+describe('デプロイフェーズ ecr-only', () => {
+  test('Web 用と Batch ワーカー用の ECR リポジトリが作成される', () => {
+    const { stack } = createTestStack({ deploymentPhase: 'ecr-only', env: 'dev' });
+    const template = Template.fromStack(stack);
+
+    template.resourceCountIs('AWS::ECR::Repository', 2);
+    template.hasResourceProperties('AWS::ECR::Repository', {
+      RepositoryName: 'nagiyu-codec-converter-dev',
+      ImageScanningConfiguration: { ScanOnPush: true },
+    });
+    template.hasResourceProperties('AWS::ECR::Repository', {
+      RepositoryName: 'nagiyu-codec-converter-ffmpeg-dev',
+      ImageScanningConfiguration: { ScanOnPush: true },
+    });
+  });
+
+  test('ECR リポジトリは削除時に保持される', () => {
+    const { stack } = createTestStack({ deploymentPhase: 'ecr-only' });
+    const template = Template.fromStack(stack);
+
+    const repositories = template.findResources('AWS::ECR::Repository');
+    for (const repository of Object.values(repositories)) {
+      expect(repository.DeletionPolicy).toBe('Retain');
+    }
+  });
+
+  test('アプリケーションの Lambda・Batch・CloudFront は作成されない', () => {
+    const { stack } = createTestStack({ deploymentPhase: 'ecr-only' });
+    const template = Template.fromStack(stack);
+
+    template.resourceCountIs('AWS::Lambda::Url', 0);
+    template.resourceCountIs('AWS::Batch::ComputeEnvironment', 0);
+    template.resourceCountIs('AWS::CloudFront::Distribution', 0);
+  });
+
+  test('ecrRepositoryName を指定するとリポジトリ名に反映される', () => {
+    const { stack } = createTestStack({
+      deploymentPhase: 'ecr-only',
+      ecrRepositoryName: 'custom-repo',
+    });
+    const template = Template.fromStack(stack);
+
+    template.hasResourceProperties('AWS::ECR::Repository', {
+      RepositoryName: 'custom-repo',
+    });
   });
 });
