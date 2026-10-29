@@ -1,0 +1,41 @@
+name: Report Verify Results
+description: 同じ workflow run のジョブ結果を集計し、PR にコメントとして投稿する
+
+inputs:
+  display-name:
+    description: 見出しに出すサービス名
+    required: true
+  fast-full:
+    description: "'true' のとき、見出しを Fast / Full で出し分ける"
+    required: false
+    default: 'false'
+  e2e-report-key:
+    description: S3 の E2E レポートの置き場所の名前。指定したときだけ Report 列を出す
+    required: false
+    default: ''
+  reports-base-url:
+    description: E2E レポートの公開 URL の起点。未指定なら既定の公開ホストを使う
+    required: false
+    default: ''
+  github-token:
+    description: PR へのコメントとジョブ一覧の取得に使うトークン
+    required: false
+    default: ${{ github.token }}
+
+runs:
+  using: composite
+  steps:
+    - name: Report results to PR
+      uses: actions/github-script@v7
+      env:
+        # 入力をスクリプト文字列へ直接埋め込むとインジェクションになるため、env 経由で渡す
+        REPORT_DISPLAY_NAME: ${{ inputs.display-name }}
+        REPORT_FAST_FULL: ${{ inputs.fast-full }}
+        REPORT_E2E_REPORT_KEY: ${{ inputs.e2e-report-key }}
+        REPORT_REPORTS_BASE_URL: ${{ inputs.reports-base-url }}
+        REPORT_ACTION_PATH: ${{ github.action_path }}
+      with:
+        github-token: ${{ inputs.github-token }}
+        script: |
+          const { run } = require(`${process.env.REPORT_ACTION_PATH}/report.js`);
+          await run({ github, context, core });

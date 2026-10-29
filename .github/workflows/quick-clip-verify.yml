@@ -776,78 +776,18 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
+      actions: read
+
     steps:
-      - name: Create PR Comment
-        uses: actions/github-script@v7
+      - name: Checkout actions
+        uses: actions/checkout@v4
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const results = {
-              'Lint': '${{ needs.lint.result }}',
-              'Format Check': '${{ needs.format-check.result }}',
-              'Infra Lint Code': '${{ needs.infra-lint.result }}',
-              'Infra Format Check': '${{ needs.infra-format-check.result }}',
-              'Build Core': '${{ needs.build-core.result }}',
-              'Build Web': '${{ needs.build-web.result }}',
-              'Build Batch': '${{ needs.build-batch.result }}',
-              'Build Lambda Clip': '${{ needs.build-lambda-clip.result }}',
-              'Build Lambda Zip': '${{ needs.build-lambda-zip.result }}',
-              'Build Infra': '${{ needs.build-infra.result }}',
-              'Test Core': '${{ needs.test-core.result }}',
-              'Test Web': '${{ needs.test-web.result }}',
-              'Test Batch': '${{ needs.test-batch.result }}',
-              'Test Lambda Clip': '${{ needs.test-lambda-clip.result }}',
-              'Test Lambda Zip': '${{ needs.test-lambda-zip.result }}',
-              'Coverage (80%)': '${{ needs.coverage.result }}',
-              'Docker Build Web': '${{ needs.docker-build-web.result }}',
-              'Docker Build Batch': '${{ needs.docker-build-batch.result }}',
-              'Docker Build Lambda Clip': '${{ needs.docker-build-lambda-clip.result }}',
-              'Docker Build Lambda Zip': '${{ needs.docker-build-lambda-zip.result }}',
-              'E2E Tests (chromium-mobile)': '${{ needs.e2e-test-web-chromium-mobile.result }}',
-              'E2E Tests (chromium-desktop)': '${{ needs.e2e-test-web-chromium-desktop.result }}',
-              'E2E Tests (webkit-mobile)': '${{ needs.e2e-test-web-webkit-mobile.result }}'
-            };
+          sparse-checkout: .github/actions
 
-            const statusEmoji = {
-              success: '✅',
-              failure: '❌',
-              cancelled: '⚠️',
-              skipped: '⏭️'
-            };
-
-            const reportBaseUrl = `${{ vars.E2E_REPORTS_BASE_URL || 'https://reports.nagiyu.com' }}/quick-clip/pr-${context.issue.number}/${context.runId}`;
-            const reportProjects = {
-              'E2E Tests (chromium-mobile)': 'chromium-mobile',
-              'E2E Tests (chromium-desktop)': 'chromium-desktop',
-              'E2E Tests (webkit-mobile)': 'webkit-mobile',
-            };
-
-            const allSuccess = Object.values(results).every(r => r === 'success' || r === 'skipped');
-            const isFull = context.payload.pull_request?.base?.ref === 'develop';
-            const header = allSuccess
-              ? (isFull ? '## ✅ [${{ env.SERVICE_DISPLAY_NAME }}] Full Verification Passed' : '## ✅ [${{ env.SERVICE_DISPLAY_NAME }}] Fast Verification Passed')
-              : (isFull ? '## ❌ [${{ env.SERVICE_DISPLAY_NAME }}] Full Verification Failed' : '## ❌ [${{ env.SERVICE_DISPLAY_NAME }}] Fast Verification Failed');
-
-            let body = `${header}\n\n`;
-            body += isFull ? '**QuickClip - Full Verification**\n\n' : '**QuickClip - Fast Verification**\n\n';
-            body += '| Job | Status | Report |\n';
-            body += '|-----|--------|--------|\n';
-
-            for (const [job, result] of Object.entries(results)) {
-              const emoji = statusEmoji[result] || '❓';
-              const project = reportProjects[job];
-              const reportLink = (project && (result === 'success' || result === 'failure'))
-                ? `[📊 View](${reportBaseUrl}/${project}/)`
-                : '-';
-              body += `| ${job} | ${emoji} ${result} | ${reportLink} |\n`;
-            }
-
-            body += `\n_E2E HTML reports are retained for 3 days. Re-run CI to regenerate._\n`;
-            body += `\n[View workflow run](${context.payload.repository.html_url}/actions/runs/${context.runId})`;
-
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body,
-            });
+      - name: Report results to PR
+        uses: ./.github/actions/report-verify-results
+        with:
+          display-name: ${{ env.SERVICE_DISPLAY_NAME }}
+          fast-full: 'true'
+          e2e-report-key: quick-clip
+          reports-base-url: ${{ vars.E2E_REPORTS_BASE_URL || 'https://reports.nagiyu.com' }}
