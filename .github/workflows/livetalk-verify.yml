@@ -20,6 +20,7 @@ on:
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/livetalk-verify.yml'
+      - '.github/workflows/reusable-service-verify.yml'
       - '.github/workflows/reusable-e2e.yml'
 
 permissions:
@@ -31,56 +32,17 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  lint:
-    name: Lint Code
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js and install dependencies
-        uses: ./.github/actions/setup-node
-        with:
-          node-version: '24'
-          cache-dependency-path: './package-lock.json'
-
-      - name: Run ESLint on core
-        run: npm run lint --workspace=@nagiyu/livetalk-core
-
-      - name: Run ESLint on web
-        run: npm run lint --workspace=@nagiyu/livetalk-web
-
-      - name: Run ESLint on batch
-        run: npm run lint --workspace=@nagiyu/livetalk-batch
-
-  format-check:
-    name: Format Check
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js and install dependencies
-        uses: ./.github/actions/setup-node
-        with:
-          node-version: '24'
-          cache-dependency-path: './package-lock.json'
-
-      - name: Check core formatting
-        run: npm run format:check --workspace=@nagiyu/livetalk-core
-
-      - name: Check web formatting
-        run: npm run format:check --workspace=@nagiyu/livetalk-web
-
-      - name: Check batch formatting
-        run: npm run format:check --workspace=@nagiyu/livetalk-batch
+  verify:
+    name: Verify
+    uses: ./.github/workflows/reusable-service-verify.yml
+    with:
+      dirs: services/livetalk infra/livetalk
+    permissions:
+      contents: read
 
   synth-infra:
     name: Synthesize Infrastructure
     runs-on: ubuntu-latest
-    needs: [lint, format-check]
 
     steps:
       - name: Checkout code
@@ -97,9 +59,6 @@ jobs:
 
       - name: Build CDK TypeScript
         run: npm run build --workspace=@nagiyu/infra-livetalk
-
-      - name: Run infra-livetalk unit tests
-        run: npm run test --workspace=@nagiyu/infra-livetalk
 
       - name: Synthesize CDK stacks (dev)
         env:
@@ -130,7 +89,6 @@ jobs:
   build:
     name: Next.js Build Verification
     runs-on: ubuntu-latest
-    needs: [lint, format-check]
 
     steps:
       - name: Checkout code
@@ -181,110 +139,8 @@ jobs:
           dockerfile: services/livetalk/batch/Dockerfile
           image-tag: livetalk-batch-verify-test
 
-  unit-test:
-    name: Run Unit Tests
-    runs-on: ubuntu-latest
-    needs: [build]
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js and install dependencies
-        uses: ./.github/actions/setup-node
-        with:
-          node-version: '24'
-          cache-dependency-path: './package-lock.json'
-
-      - name: Build shared libraries
-        run: |
-          npm run build:libs
-          npm run build --workspace @nagiyu/livetalk-core
-
-      - name: Run core unit tests
-        run: npm run test --workspace @nagiyu/livetalk-core
-
-      - name: Run web unit tests
-        run: npm run test --workspace @nagiyu/livetalk-web
-
-      - name: Run batch unit tests
-        run: npm run test --workspace @nagiyu/livetalk-batch
-
-  contract-test:
-    name: Run Contract Tests (DynamoDB Local)
-    runs-on: ubuntu-latest
-    needs: [build]
-
-    services:
-      dynamodb-local:
-        image: amazon/dynamodb-local
-        ports:
-          - 8000:8000
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js and install dependencies
-        uses: ./.github/actions/setup-node
-        with:
-          node-version: '24'
-          cache-dependency-path: './package-lock.json'
-
-      - name: Build shared libraries
-        run: npm run build:libs
-
-      - name: Build infra-common package
-        run: npm run build --workspace=@nagiyu/infra-common
-
-      - name: Build core package
-        run: npm run build --workspace @nagiyu/livetalk-core
-
-      - name: Wait for DynamoDB Local
-        run: |
-          for i in $(seq 1 30); do
-            curl -s http://localhost:8000 >/dev/null 2>&1 && break
-            sleep 1
-          done
-
-      - name: Run contract tests
-        env:
-          DYNAMODB_ENDPOINT: http://localhost:8000
-          AWS_REGION: us-east-1
-          AWS_ACCESS_KEY_ID: test
-          AWS_SECRET_ACCESS_KEY: test
-        run: npm run test:contract --workspace @nagiyu/livetalk-core
-
-  coverage:
-    name: Test Coverage Check
-    runs-on: ubuntu-latest
-    needs: [unit-test]
-    if: github.base_ref == 'develop'
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js and install dependencies
-        uses: ./.github/actions/setup-node
-        with:
-          node-version: '24'
-          cache-dependency-path: './package-lock.json'
-
-      - name: Build shared libraries
-        run: |
-          npm run build:libs
-          npm run build --workspace @nagiyu/livetalk-core
-
-      - name: Run core tests with coverage
-        run: npm run test:coverage --workspace @nagiyu/livetalk-core
-
-      - name: Run web tests with coverage
-        run: npm run test:coverage --workspace @nagiyu/livetalk-web
-
   e2e:
     name: E2E
-    needs: [unit-test]
     uses: ./.github/workflows/reusable-e2e.yml
     with:
       workspace: '@nagiyu/livetalk-web'
@@ -300,18 +156,7 @@ jobs:
     name: Report Results to PR
     runs-on: ubuntu-latest
     if: always()
-    needs:
-      [
-        lint,
-        format-check,
-        synth-infra,
-        build,
-        docker-build,
-        unit-test,
-        contract-test,
-        coverage,
-        e2e,
-      ]
+    needs: [verify, synth-infra, build, docker-build, e2e]
 
     permissions:
       contents: read
