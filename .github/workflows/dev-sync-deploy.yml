@@ -14,6 +14,7 @@ on:
       - 'package-lock.json'
       - '.github/workflows/dev-sync-deploy.yml'
       - '.github/actions/update-lambda-image/**'
+      - '.github/actions/push-ecr-image/**'
   workflow_dispatch:
     inputs:
       environment:
@@ -123,29 +124,16 @@ jobs:
           echo "repository-uri=$REPOSITORY_URI" >> "$GITHUB_OUTPUT"
           echo "ECR リポジトリ (Batch): $REPOSITORY_URI"
 
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Build Batch Docker image
-        uses: ./.github/actions/build-docker-image
-        with:
-          dockerfile: services/dev-sync/batch/Dockerfile
-          image-tag: ${{ steps.get-ecr.outputs.repository-uri }}:${{ github.sha }}
-
-      - name: Push Batch Docker image
+      - name: Build and push Batch Docker image
         id: build-image
-        env:
-          REPOSITORY_URI: ${{ steps.get-ecr.outputs.repository-uri }}
-          IMAGE_TAG: ${{ github.sha }}
-        run: |
-          docker push "$REPOSITORY_URI:$IMAGE_TAG"
-
-          # CDK 側は tagOrDigest: 'latest' を参照するため latest もタグ付けして push
-          docker tag "$REPOSITORY_URI:$IMAGE_TAG" "$REPOSITORY_URI:latest"
-          docker push "$REPOSITORY_URI:latest"
-
-          echo "image-uri=$REPOSITORY_URI:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+        uses: ./.github/actions/push-ecr-image
+        with:
+          repository-uri: ${{ steps.get-ecr.outputs.repository-uri }}
+          dockerfile: services/dev-sync/batch/Dockerfile
+          # CDK 側が tagOrDigest: 'latest' を参照するため、latest も push する
+          tags: |
+            ${{ github.sha }}
+            latest
 
   deploy-main:
     name: Deploy Main Stack

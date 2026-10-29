@@ -1,0 +1,94 @@
+name: Push ECR Image
+description: private ECR へログインして Docker イメージをビルドし、指定したすべてのタグを push する
+
+inputs:
+  repository-uri:
+    description: push 先の ECR リポジトリ URI (<registry>/<repository> の形。タグは含めない)
+    required: true
+  dockerfile:
+    description: Dockerfile path (e.g. services/admin/web/Dockerfile)
+    required: true
+  tags:
+    description: push するタグ。改行区切りで複数指定でき、空行は無視する。1 つ目のタグでビルドし、残りは同じイメージへ付け替えて push する
+    required: true
+  build-args:
+    description: 'Build args as KEY=VALUE lines (e.g. APP_VERSION=1.0.0)'
+    required: false
+    default: ''
+
+outputs:
+  image-uri:
+    description: 1 つ目のタグを付けたイメージの URI (<repository-uri>:<1 つ目のタグ>)
+    value: ${{ steps.resolve-tags.outputs.image-uri }}
+
+runs:
+  using: composite
+  steps:
+    - name: Resolve image tags
+      id: resolve-tags
+      shell: bash
+      env:
+        # 入力をシェル文字列へ直接埋め込むとインジェクションになるため、env 経由で渡す
+        REPOSITORY_URI: ${{ inputs.repository-uri }}
+        TAGS: ${{ inputs.tags }}
+      run: |
+        set -euo pipefail
+
+        # URI が空のまま進むと、タグだけのイメージ名で build / push が失敗して原因が分かりにくい
+        if [ -z "$REPOSITORY_URI" ] || [[ "$REPOSITORY_URI" != */* ]]; then
+          echo "::error::ECR リポジトリ URI が不正です (<registry>/<repository> の形で指定してください): '$REPOSITORY_URI'"
+          exit 1
+        fi
+
+        PRIMARY_TAG=""
+        while IFS= read -r LINE; do
+          # 末尾の CR や前後の空白が混ざるとタグとして不正になるため落とす
+          TAG="$(echo "$LINE" | tr -d '\r' | xargs)"
+          if [ -n "$TAG" ]; then
+            PRIMARY_TAG="$TAG"
+            break
+          fi
+        done <<< "$TAGS"
+
+        if [ -z "$PRIMARY_TAG" ]; then
+          echo "::error::push 対象のタグが指定されていません"
+          exit 1
+        fi
+
+        echo "primary-tag=$PRIMARY_TAG" >> "$GITHUB_OUTPUT"
+        echo "image-uri=$REPOSITORY_URI:$PRIMARY_TAG" >> "$GITHUB_OUTPUT"
+
+    - name: Login to Amazon ECR
+      uses: aws-actions/amazon-ecr-login@v2
+
+    - name: Build Docker image
+      uses: ./.github/actions/build-docker-image
+      with:
+        dockerfile: ${{ inputs.dockerfile }}
+        image-tag: ${{ steps.resolve-tags.outputs.image-uri }}
+        build-args: ${{ inputs.build-args }}
+
+    - name: Push Docker image
+      shell: bash
+      env:
+        REPOSITORY_URI: ${{ inputs.repository-uri }}
+        TAGS: ${{ inputs.tags }}
+        PRIMARY_TAG: ${{ steps.resolve-tags.outputs.primary-tag }}
+      run: |
+        set -euo pipefail
+
+        PRIMARY_IMAGE="$REPOSITORY_URI:$PRIMARY_TAG"
+        echo "イメージを push します: $PRIMARY_IMAGE"
+        docker push "$PRIMARY_IMAGE"
+
+        while IFS= read -r LINE; do
+          TAG="$(echo "$LINE" | tr -d '\r' | xargs)"
+          # 1 つ目のタグは push 済みのため、空行と合わせて飛ばす
+          if [ -z "$TAG" ] || [ "$TAG" = "$PRIMARY_TAG" ]; then
+            continue
+          fi
+
+          echo "タグを付けて push します: $REPOSITORY_URI:$TAG"
+          docker tag "$PRIMARY_IMAGE" "$REPOSITORY_URI:$TAG"
+          docker push "$REPOSITORY_URI:$TAG"
+        done <<< "$TAGS"

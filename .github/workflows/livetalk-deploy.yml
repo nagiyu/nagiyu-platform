@@ -18,6 +18,7 @@ on:
       - '.github/workflows/livetalk-deploy.yml'
       - '.github/actions/update-lambda-image/**'
       - '.github/actions/health-check/**'
+      - '.github/actions/push-ecr-image/**'
   workflow_dispatch:
     inputs:
       environment:
@@ -164,30 +165,16 @@ jobs:
           echo "repository-uri=$REPOSITORY_URI" >> "$GITHUB_OUTPUT"
           echo "ECR Repository: $REPOSITORY_URI"
 
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Build Docker image
-        uses: ./.github/actions/build-docker-image
-        with:
-          dockerfile: services/livetalk/web/Dockerfile
-          image-tag: ${{ steps.get-ecr.outputs.repository-uri }}:${{ github.sha }}
-          build-args: APP_VERSION=${{ steps.get-version.outputs.app-version }}
-
-      - name: Push Docker image
+      - name: Build and push Docker image
         id: build-image
-        env:
-          REPOSITORY_URI: ${{ steps.get-ecr.outputs.repository-uri }}
-          IMAGE_TAG: ${{ github.sha }}
-        run: |
-          docker push "$REPOSITORY_URI:$IMAGE_TAG"
-
-          # Also tag as latest
-          docker tag "$REPOSITORY_URI:$IMAGE_TAG" "$REPOSITORY_URI:latest"
-          docker push "$REPOSITORY_URI:latest"
-
-          echo "image-uri=$REPOSITORY_URI:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+        uses: ./.github/actions/push-ecr-image
+        with:
+          repository-uri: ${{ steps.get-ecr.outputs.repository-uri }}
+          dockerfile: services/livetalk/web/Dockerfile
+          build-args: APP_VERSION=${{ steps.get-version.outputs.app-version }}
+          tags: |
+            ${{ github.sha }}
+            latest
 
   build-batch:
     name: Build and Push Batch Image
@@ -209,31 +196,25 @@ jobs:
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Build Batch Docker image
-        uses: ./.github/actions/build-docker-image
-        with:
-          dockerfile: services/livetalk/batch/Dockerfile
-          # Batch ECR リポジトリ名は命名規則から決定論的に組み立てる（SSM 非依存）。
-          image-tag: ${{ steps.login-ecr.outputs.registry }}/nagiyu-livetalk-batch-ecr-${{ needs.infrastructure-ecr.outputs.environment }}:${{ github.sha }}
-
-      - name: Push Batch Docker image to ECR
+      - name: Get ECR repository URI
+        id: get-ecr
         env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: nagiyu-livetalk-batch-ecr-${{ needs.infrastructure-ecr.outputs.environment }}
-          IMAGE_TAG: ${{ github.sha }}
+          ENVIRONMENT: ${{ needs.infrastructure-ecr.outputs.environment }}
         run: |
-          docker push "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+          # Batch ECR リポジトリ名は命名規則から決定論的に組み立てる（SSM 非依存）。
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          REPOSITORY_URI="$ACCOUNT_ID.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/nagiyu-livetalk-batch-ecr-$ENVIRONMENT"
+          echo "repository-uri=$REPOSITORY_URI" >> "$GITHUB_OUTPUT"
 
-          # Also tag as latest（Batch Lambda は :latest を参照する）
-          docker tag "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" \
-            "$ECR_REGISTRY/$ECR_REPOSITORY:latest"
-          docker push "$ECR_REGISTRY/$ECR_REPOSITORY:latest"
-
-          echo "Batch image pushed: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+      - name: Build and push Batch Docker image
+        uses: ./.github/actions/push-ecr-image
+        with:
+          repository-uri: ${{ steps.get-ecr.outputs.repository-uri }}
+          dockerfile: services/livetalk/batch/Dockerfile
+          # Batch Lambda が :latest を参照するため、latest も push する
+          tags: |
+            ${{ github.sha }}
+            latest
 
   infrastructure-app:
     name: Deploy DynamoDB, ALB, ECS Service and Alarms Stacks
