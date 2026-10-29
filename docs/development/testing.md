@@ -353,7 +353,7 @@ lint・format・ユニットテスト・カバレッジ・契約テストは、�
 
 **カバレッジチェックの動作**:
 
-Jest の設定ファイル（`jest.config.ts`）で `coverageThreshold` を定義している場合、テストカバレッジが閾値を下回ると `npm run test:coverage` コマンドが非ゼロの終了コードで終了する。これによりジョブが自動的に失敗し、PR のマージを防ぐ。閾値は 80% とする。infra の各パッケージも同じ扱いで、`test:coverage` を持つ。
+Jest の設定ファイル（`jest.config.ts`）で `coverageThreshold` を定義している場合、テストカバレッジが閾値を下回ると `npm run test:coverage` コマンドが非ゼロの終了コードで終了する。これによりジョブが自動的に失敗し、PR のマージを防ぐ。閾値は 80% とする。テストを持つ infra のパッケージも同じ扱いで、`test:coverage` と閾値を持つ。
 
 ```typescript
 // jest.config.ts
