@@ -120,10 +120,7 @@ test('deriveOutputs は dirs 配下だけを location 順に出し、契約テ�
     workspaces.map((workspace) => workspace.name),
     ['@nagiyu/infra-a', '@nagiyu/a-core', '@nagiyu/a-web']
   );
-  assert.deepEqual(
-    JSON.parse(outputs.contractWorkspaces).map((workspace) => workspace.name),
-    ['@nagiyu/a-core']
-  );
+  assert.deepEqual(JSON.parse(outputs.contractWorkspaces), ['@nagiyu/a-core']);
   assert.equal(outputs.hasContract, 'true');
   assert.equal(outputs.prebuild, '@nagiyu/a-core @nagiyu/infra-common');
 });
