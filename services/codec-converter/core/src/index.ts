@@ -21,7 +21,7 @@ export {
 } from './validation.js';
 
 // Format utilities
-export { formatDateTime, formatJobId } from './format.js';
+export { formatJobId } from './format.js';
 
 // Resource selector
 export type { JobDefinitionSize } from './resource-selector.js';

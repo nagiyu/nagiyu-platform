@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
+import { COMMON_ERROR_MESSAGES, formatJstDateTime } from '@nagiyu/common';
 import {
   Box,
   Card,
@@ -405,14 +405,14 @@ export default function JobStatusDisplay({ jobId, onComplete, onError }: JobStat
           {state.createdAt && state.updatedAt && (
             <Box sx={{ pt: 1, borderTop: 1, borderColor: 'divider' }}>
               <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                作成日時: {new Date(state.createdAt).toLocaleString('ja-JP')}
+                作成日時: {formatJstDateTime(new Date(state.createdAt), { seconds: true })}
               </Typography>
               <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                更新日時: {new Date(state.updatedAt).toLocaleString('ja-JP')}
+                更新日時: {formatJstDateTime(new Date(state.updatedAt), { seconds: true })}
               </Typography>
               {state.completedAt && (
                 <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                  完了日時: {new Date(state.completedAt).toLocaleString('ja-JP')}
+                  完了日時: {formatJstDateTime(new Date(state.completedAt), { seconds: true })}
                 </Typography>
               )}
             </Box>

@@ -3,7 +3,7 @@
  */
 
 import { parseJobInput } from '@nagiyu/niconico-mylist-assistant-core';
-import { formatLocalDateTime, requireEnv } from '@nagiyu/common';
+import { formatJstDateTime, requireEnv } from '@nagiyu/common';
 import { DEFAULT_MYLIST_NAME_PREFIX } from '../constants.js';
 import type { MylistRegistrationJobParams } from '../types.js';
 
@@ -51,7 +51,7 @@ export function readEnvironmentVariables(): BatchEnvironment {
  */
 export function getJobParameters(): MylistRegistrationJobParams {
   const input = parseJobInput(process.env, {
-    defaultMylistName: `${DEFAULT_MYLIST_NAME_PREFIX} ${formatLocalDateTime()}`,
+    defaultMylistName: `${DEFAULT_MYLIST_NAME_PREFIX} ${formatJstDateTime(new Date(), { seconds: true })}`,
   });
   const jobId = process.env.AWS_BATCH_JOB_ID || '';
 
