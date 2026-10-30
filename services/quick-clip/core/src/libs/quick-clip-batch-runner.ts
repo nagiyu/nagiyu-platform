@@ -1,9 +1,4 @@
-import {
-  createErrorReporter,
-  reportErrorEvent,
-  getDynamoDBDocumentClient,
-  getS3Client,
-} from '@nagiyu/aws';
+import { createErrorReporter, getDynamoDBDocumentClient, getS3Client } from '@nagiyu/aws';
 import { GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import { randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
@@ -455,16 +450,8 @@ export const runQuickClipBatch = async (env: QuickClipBatchRunInput): Promise<vo
   } catch (error) {
     const message = toErrorMessage(error);
     await updateErrorMessage(env.jobId, message, env.tableName, env.awsRegion);
-    await reportErrorEvent({
-      serviceId: 'quick-clip',
-      severity: 'error',
-      title: 'QuickClip 抽出処理が失敗しました',
-      message,
-      context: {
-        jobId: env.jobId,
-        command: env.command,
-        errorStack: error instanceof Error ? error.stack : undefined,
-      },
+    await errorReporter.report('QuickClip 抽出処理が失敗しました', error, {
+      context: { jobId: env.jobId, command: env.command },
     });
     throw error;
   }

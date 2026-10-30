@@ -124,19 +124,12 @@ jest.mock('../../../src/libs/emotion-highlight.service.js', () => ({
   })),
 }));
 
-jest.mock('@nagiyu/aws', () => ({
-  ...jest.requireActual('@nagiyu/aws'),
-  reportErrorEvent: jest.fn().mockResolvedValue(null),
-}));
-
-import { createErrorEventWriter, reportErrorEvent, resetErrorEventWriter } from '@nagiyu/aws';
+import { createErrorEventWriter, resetErrorEventWriter } from '@nagiyu/aws';
 import type { InMemoryErrorEventWriter } from '@nagiyu/aws';
 import {
   runQuickClipBatch,
   type QuickClipBatchRunInput,
 } from '../../../src/libs/quick-clip-batch-runner.js';
-
-const reportErrorEventMock = reportErrorEvent as jest.MockedFunction<typeof reportErrorEvent>;
 
 const input: QuickClipBatchRunInput = {
   command: 'extract',
@@ -238,14 +231,22 @@ describe('runQuickClipBatch', () => {
       'job-1',
       'アップロード済みの動画ファイルが見つかりません: uploads/job-1/input.mp4'
     );
-    expect(reportErrorEventMock).toHaveBeenCalledWith(
+    const reported = (createErrorEventWriter() as InMemoryErrorEventWriter).getRecords();
+    expect(reported).toEqual([
       expect.objectContaining({
         serviceId: 'quick-clip',
         severity: 'error',
+        title: 'QuickClip 抽出処理が失敗しました',
         message: 'アップロード済みの動画ファイルが見つかりません: uploads/job-1/input.mp4',
-        context: expect.objectContaining({ jobId: 'job-1', command: 'extract' }),
-      })
-    );
+      }),
+    ]);
+    expect(JSON.parse(reported[0].context)).toEqual({
+      jobId: 'job-1',
+      command: 'extract',
+      errorName: 'Error',
+      errorMessage: 'アップロード済みの動画ファイルが見つかりません: uploads/job-1/input.mp4',
+      errorStack: expect.any(String),
+    });
   });
 
   it('extract コマンドで生成する見どころは clipStatus を GENERATED で保存する', async () => {

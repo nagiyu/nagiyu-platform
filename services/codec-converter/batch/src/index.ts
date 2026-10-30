@@ -11,7 +11,6 @@ import {
 } from '@nagiyu/codec-converter-core';
 import {
   createErrorReporter,
-  reportErrorEvent,
   withErrorReporting,
   getDynamoDBDocumentClient,
   getS3Client,
@@ -310,16 +309,9 @@ export async function processJob(
   } catch (error) {
     const errorMessage = toErrorMessage(error);
     console.error(`Job ${env.JOB_ID} failed:`, errorMessage);
-    await reportErrorEvent({
-      serviceId: 'codec-converter',
+    await errorReporter.report('Batchジョブが失敗しました', error, {
       severity: 'critical',
-      title: 'Batchジョブが失敗しました',
-      message: errorMessage,
-      context: {
-        jobId: env.JOB_ID,
-        outputCodec: env.OUTPUT_CODEC,
-        errorStack: error instanceof Error ? error.stack : undefined,
-      },
+      context: { jobId: env.JOB_ID, outputCodec: env.OUTPUT_CODEC },
     });
 
     // ステータスをFAILEDに更新
