@@ -1,5 +1,5 @@
-import { logger, toErrorMessage, type ErrorSeverity } from '@nagiyu/common';
-import { reportErrorEvent } from '@nagiyu/aws';
+import { logger } from '@nagiyu/common';
+import { createErrorReporter } from '@nagiyu/aws';
 import type { IEmbeddingClient } from '../llm-client/types.js';
 import type { TopicRepository } from '../repositories/topic.repository.interface.js';
 import type { TopicEntity } from '../entities/topic.entity.js';
@@ -9,31 +9,9 @@ import { cosineSimilarity } from '../memory/embedding.js';
 
 /**
  * 想起の失敗は会話を止めずに「想起なし」で続行するため、握りつぶす箇所でその場で報告する。
- * 報告の失敗で会話を止めないよう、reportErrorEvent の失敗は握る。
+ * レポーターは報告の失敗を握るので、報告のために会話が止まることはない。
  */
-async function reportRetrievalFailure(
-  title: string,
-  error: unknown,
-  severity: ErrorSeverity,
-  context: Record<string, unknown>
-): Promise<void> {
-  try {
-    await reportErrorEvent({
-      serviceId: 'livetalk',
-      severity,
-      title,
-      message: toErrorMessage(error),
-      context: {
-        ...context,
-        errorName: error instanceof Error ? error.name : typeof error,
-        errorMessage: toErrorMessage(error),
-        errorStack: error instanceof Error ? error.stack : undefined,
-      },
-    });
-  } catch (reportError) {
-    logger.warn('[topic-retrieval] エラー報告に失敗しました', { err: reportError });
-  }
-}
+const errorReporter = createErrorReporter({ serviceId: 'livetalk' });
 
 /**
  * 想起（関連度 only）で選抜された Topic 1 件分（リブトーク知識再設計 P2 / #3698）。
@@ -116,8 +94,8 @@ export class TopicRetriever implements ITopicRetriever {
       queryEmbedding = await this.embeddingClient.embed(userInput);
     } catch (err) {
       logger.warn('[topic-retrieval] embedding 生成に失敗しました（想起なしで継続）', { err });
-      await reportRetrievalFailure('Topic 想起の embedding 生成エラー', err, 'error', {
-        characterId,
+      await errorReporter.report('Topic 想起の embedding 生成エラー', err, {
+        context: { characterId },
       });
       return [];
     }
@@ -128,7 +106,7 @@ export class TopicRetriever implements ITopicRetriever {
       headers = await this.topicRepository.listTopicHeaders(userId, characterId);
     } catch (err) {
       logger.warn('[topic-retrieval] Topic ヘッダの列挙に失敗しました（想起なしで継続）', { err });
-      await reportRetrievalFailure('Topic 想起のヘッダ列挙エラー', err, 'error', { characterId });
+      await errorReporter.report('Topic 想起のヘッダ列挙エラー', err, { context: { characterId } });
       return [];
     }
     if (headers.length === 0) return [];
@@ -191,9 +169,9 @@ export class TopicRetriever implements ITopicRetriever {
             topicId: header.topicId,
           }
         );
-        await reportRetrievalFailure('Topic 想起のバンドル取得エラー', err, 'warning', {
-          characterId,
-          topicId: header.topicId,
+        await errorReporter.report('Topic 想起のバンドル取得エラー', err, {
+          severity: 'warning',
+          context: { characterId, topicId: header.topicId },
         });
       }
     }
