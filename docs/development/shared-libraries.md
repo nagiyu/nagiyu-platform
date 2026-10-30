@@ -501,6 +501,11 @@ DynamoDB のページネーションで使用する `LastEvaluatedKey` ↔ base6
 - `encodeCursor(lastEvaluatedKey)`: `LastEvaluatedKey` を base64 文字列に変換する。`undefined` の場合は `undefined` を返す。
 - `decodeCursor(cursor)`: base64 文字列を `LastEvaluatedKey` に戻す。不正な値（不正な base64・不正な JSON）は例外を投げず `undefined` を返す（無効カーソルとして扱う）。
 
+1 ページ分の Query / Scan も `@nagiyu/aws` の関数として提供する (`queryPage` / `scanPage`)。cursor の復元、件数と開始位置の指定、次の cursor の生成までを引き受ける。サービス側でこの定型を個別に書かない。各所で書くと、`count` の入れ方などページの意味論が箇所ごとにずれるためである。
+
+- 件数の既定値はリポジトリごとに違うため、関数側では持たず呼び出し側が渡す。
+- エンティティへの変換は呼び出し側に残す。変換に失敗したアイテムの扱い (飛ばして警告するなど) が呼び出し側ごとに違うためである。
+
 ### DynamoDB ConditionalCheckFailedException マッパー
 
 DynamoDB の `ConditionalCheckFailedException` を Entity 例外にマッピングする共通ヘルパーを `@nagiyu/aws` に提供する。
