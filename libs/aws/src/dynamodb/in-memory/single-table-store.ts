@@ -146,7 +146,7 @@ export class InMemorySingleTableStore {
   /**
    * クエリ操作（PK/SK によるクエリ）
    *
-   * limit 省略時は 100 件で切る。DynamoDB 側の `queryItems` 相当のページ単位の口であり、
+   * limit 省略時は 100 件で切る。DynamoDB 側の `queryPage` に当たるページ単位の口であり、
    * 全件が要るときは `queryAll` を使う。
    *
    * @param condition - クエリ条件
