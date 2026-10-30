@@ -38,9 +38,6 @@ jest.mock('../../../../../src/lib/auth/session', () => ({
   getSession: () => mockGetSession(),
 }));
 
-const encodeKey = (key: Record<string, unknown>): string =>
-  Buffer.from(JSON.stringify(key)).toString('base64');
-
 const createRequest = (query = ''): Parameters<typeof GET>[0] =>
   new Request(`http://localhost/api/users${query}`) as unknown as Parameters<typeof GET>[0];
 
@@ -54,43 +51,48 @@ describe('GET /api/users', () => {
     beforeEach(() => {
       mockGetSession.mockResolvedValue({ user: { id: 'admin', roles: ['admin'] } });
       mockHasPermission.mockReturnValue(true);
-      mockListUsers.mockResolvedValue({ users: [{ userId: 'u1' }], lastEvaluatedKey: undefined });
+      mockListUsers.mockResolvedValue({
+        items: [{ userId: 'u1' }],
+        nextCursor: undefined,
+        count: 1,
+      });
     });
 
     it('クエリ未指定の場合は limit=50 で先頭から取得する', async () => {
       const response = await GET(createRequest());
 
       expect(response.status).toBe(200);
-      expect(mockListUsers).toHaveBeenCalledWith(50, undefined);
+      expect(mockListUsers).toHaveBeenCalledWith({ limit: 50, cursor: undefined });
       expect(await response.json()).toEqual({
         users: [{ userId: 'u1' }],
         pagination: { count: 1 },
       });
     });
 
-    it('lastKey をデコードして listUsers へ渡す', async () => {
-      const key = { userId: 'u0' };
+    it('lastKey を cursor としてそのまま listUsers へ渡す', async () => {
+      await GET(createRequest('?limit=10&lastKey=opaque-cursor'));
 
-      await GET(createRequest(`?limit=10&lastKey=${encodeURIComponent(encodeKey(key))}`));
-
-      expect(mockListUsers).toHaveBeenCalledWith(10, key);
+      expect(mockListUsers).toHaveBeenCalledWith({ limit: 10, cursor: 'opaque-cursor' });
     });
 
-    it('不正な lastKey は 400 にせず無視して先頭から取得する', async () => {
+    it('不正な lastKey でも 400 にせず listUsers へ渡す (無視して先頭から取得するのはリポジトリ側)', async () => {
       const response = await GET(createRequest('?lastKey=invalid-base64'));
 
       expect(response.status).toBe(200);
-      expect(mockListUsers).toHaveBeenCalledWith(50, undefined);
+      expect(mockListUsers).toHaveBeenCalledWith({ limit: 50, cursor: 'invalid-base64' });
     });
 
-    it('listUsers の lastEvaluatedKey をエンコードして pagination.lastKey に返す', async () => {
-      const key = { userId: 'u1' };
-      mockListUsers.mockResolvedValueOnce({ users: [{ userId: 'u1' }], lastEvaluatedKey: key });
+    it('listUsers の nextCursor をそのまま pagination.lastKey に返す', async () => {
+      mockListUsers.mockResolvedValueOnce({
+        items: [{ userId: 'u1' }],
+        nextCursor: 'next-cursor',
+        count: 1,
+      });
 
       const response = await GET(createRequest());
       const body = await response.json();
 
-      expect(body.pagination).toEqual({ count: 1, lastKey: encodeKey(key) });
+      expect(body.pagination).toEqual({ count: 1, lastKey: 'next-cursor' });
     });
 
     it.each(['0', '101', 'abc'])(

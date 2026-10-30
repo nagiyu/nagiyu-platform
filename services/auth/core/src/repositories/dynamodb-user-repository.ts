@@ -1,21 +1,19 @@
-import { QueryCommand, ScanCommand } from '@aws-sdk/lib-dynamodb';
+import { QueryCommand } from '@aws-sdk/lib-dynamodb';
 import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import {
   DynamoDBEntityStore,
   getDynamoDBDocumentClient,
   getTableName,
   toDatabaseError,
+  scanPage,
   type EntityStore,
+  type PaginatedResult,
+  type PaginationOptions,
 } from '@nagiyu/aws';
 import type { User } from '@nagiyu/common';
 import { randomUUID } from 'node:crypto';
 import { UserMapper, type UserKey } from '../mappers/user.mapper';
-import type {
-  ListUsersResult,
-  UpdateUserInput,
-  UpsertUserInput,
-  UserRepository,
-} from './user-repository';
+import type { UpdateUserInput, UpsertUserInput, UserRepository } from './user-repository';
 
 /**
  * DynamoDB User Repository
@@ -57,22 +55,18 @@ export class DynamoDBUserRepository implements UserRepository {
     return this.entityStore.get({ userId });
   }
 
-  public async listUsers(
-    limit: number = 100,
-    lastEvaluatedKey?: Record<string, unknown>
-  ): Promise<ListUsersResult> {
+  public async listUsers(options?: PaginationOptions): Promise<PaginatedResult<User>> {
     try {
-      const result = await this.dynamoDb.send(
-        new ScanCommand({
-          TableName: this.tableName,
-          Limit: limit,
-          ExclusiveStartKey: lastEvaluatedKey,
-        })
+      const page = await scanPage(
+        this.dynamoDb,
+        { TableName: this.tableName },
+        { limit: options?.limit || 100, cursor: options?.cursor }
       );
 
       return {
-        users: (result.Items ?? []).map((item) => this.mapper.toEntity(item)),
-        lastEvaluatedKey: result.LastEvaluatedKey,
+        items: page.items.map((item) => this.mapper.toEntity(item)),
+        nextCursor: page.nextCursor,
+        count: page.count,
       };
     } catch (error) {
       throw toDatabaseError(error);

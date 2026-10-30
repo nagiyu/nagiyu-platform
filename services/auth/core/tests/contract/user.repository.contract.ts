@@ -194,21 +194,29 @@ export function defineUserRepositoryContract(
       await expect(repository.deleteUser('not-exist')).rejects.toBeInstanceOf(EntityNotFoundError);
     });
 
-    it('listUsers は limit と lastEvaluatedKey で重複・欠落なく全件を走査できる', async () => {
+    it('listUsers は limit と cursor で重複・欠落なく全件を走査できる', async () => {
       const createdIds: string[] = [];
       for (const suffix of ['p1', 'p2', 'p3', 'p4', 'p5']) {
         createdIds.push((await repository.upsertUser(buildUpsertInput(suffix))).userId);
       }
 
       const collected: string[] = [];
-      let lastEvaluatedKey: Record<string, unknown> | undefined;
+      let cursor: string | undefined;
       do {
-        const page = await repository.listUsers(2, lastEvaluatedKey);
-        collected.push(...page.users.map((user) => user.userId));
-        lastEvaluatedKey = page.lastEvaluatedKey;
-      } while (lastEvaluatedKey);
+        const page = await repository.listUsers({ limit: 2, cursor });
+        collected.push(...page.items.map((user) => user.userId));
+        cursor = page.nextCursor;
+      } while (cursor);
 
       expect([...collected].sort()).toEqual([...createdIds].sort());
+    });
+
+    it('listUsers は不正な cursor を無視して先頭から取得する', async () => {
+      const created = await repository.upsertUser(buildUpsertInput('c1'));
+
+      const page = await repository.listUsers({ limit: 10, cursor: 'invalid-base64' });
+
+      expect(page.items.map((user) => user.userId)).toEqual([created.userId]);
     });
 
     it('旧形式 (旧属性名・ISO 文字列の時刻) のユーザーを読める', async () => {

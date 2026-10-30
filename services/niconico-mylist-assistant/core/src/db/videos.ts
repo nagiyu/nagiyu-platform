@@ -1,4 +1,4 @@
-import { getDynamoDBDocumentClient, getTableName, encodeCursor, decodeCursor } from '@nagiyu/aws';
+import { getDynamoDBDocumentClient, getTableName } from '@nagiyu/aws';
 import { createVideoRepository, createUserSettingRepository } from '../repositories/factory.js';
 import type { VideoRepository } from '../repositories/video.repository.interface.js';
 import type { UserSettingRepository } from '../repositories/user-setting.repository.interface.js';
@@ -131,28 +131,23 @@ export async function updateUserVideoSetting(
  * ユーザーの全動画設定を取得
  * @param userId ユーザーID
  * @param options ページネーションオプション
- * @returns 動画設定の配列と次ページのキー
+ * @returns 動画設定の配列と次ページの cursor
  */
 export async function listUserVideoSettings(
   userId: string,
   options?: {
     limit?: number;
-    lastEvaluatedKey?: Record<string, string>;
+    cursor?: string;
   }
-): Promise<{ settings: UserVideoSetting[]; lastEvaluatedKey?: Record<string, string> }> {
-  const limit = options?.limit || 100;
-  const cursor = encodeCursor(options?.lastEvaluatedKey as Record<string, unknown> | undefined);
-
+): Promise<{ settings: UserVideoSetting[]; nextCursor?: string }> {
   const result = await getUserSettingRepository().getByUserId(userId, {
-    limit,
-    cursor,
+    limit: options?.limit || 100,
+    cursor: options?.cursor,
   });
-
-  const lastEvaluatedKey = decodeCursor(result.nextCursor) as Record<string, string> | undefined;
 
   return {
     settings: result.items as UserVideoSetting[],
-    lastEvaluatedKey,
+    nextCursor: result.nextCursor,
   };
 }
 
@@ -207,16 +202,16 @@ export async function listVideosWithSettings(
   // DynamoDBからユーザーの全設定を取得
   // フィルタリングのため、全件取得が必要
   const allSettings: UserVideoSetting[] = [];
-  let lastKey: Record<string, string> | undefined;
+  let cursor: string | undefined;
 
   do {
     const result = await listUserVideoSettings(userId, {
       limit: 100,
-      lastEvaluatedKey: lastKey,
+      cursor,
     });
     allSettings.push(...result.settings);
-    lastKey = result.lastEvaluatedKey;
-  } while (lastKey);
+    cursor = result.nextCursor;
+  } while (cursor);
 
   const settingMap = new Map(allSettings.map((setting) => [setting.videoId, setting]));
   const mergedVideos: Array<VideoBasicInfo & { userSetting?: UserVideoSetting }> = sortedVideos.map(
