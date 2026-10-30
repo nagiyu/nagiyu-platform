@@ -1039,3 +1039,174 @@ describe('InMemorySingleTableStore: キーオブジェクト経由の操作', ()
     expect(store.size()).toBe(2);
   });
 });
+
+describe('InMemorySingleTableStore: 全件取得 (queryAll / queryAllByAttribute / scanAll)', () => {
+  const TOTAL = 150;
+  let store: InMemorySingleTableStore;
+
+  /** 3 桁ゼロ埋めで辞書順と数値順を一致させる */
+  const pad = (n: number): string => String(n).padStart(3, '0');
+
+  beforeEach(() => {
+    store = new InMemorySingleTableStore();
+  });
+
+  describe('queryAll', () => {
+    it('100 件を超えるアイテムを全件返す', () => {
+      for (let i = 0; i < TOTAL; i++) {
+        store.put({ PK: 'USER#1', SK: `ITEM#${pad(i)}`, Type: 'Item', CreatedAt: 1, UpdatedAt: 1 });
+      }
+      store.put({ PK: 'USER#2', SK: 'ITEM#000', Type: 'Item', CreatedAt: 1, UpdatedAt: 1 });
+
+      const result = store.queryAll({ pk: 'USER#1' });
+
+      expect(result).toHaveLength(TOTAL);
+      expect(result.every((item) => item.PK === 'USER#1')).toBe(true);
+    });
+
+    it('SK 条件でフィルタし、ソートキー昇順で返す (挿入順に依存しない)', () => {
+      for (let i = TOTAL - 1; i >= 0; i--) {
+        store.put({ PK: 'USER#1', SK: `ITEM#${pad(i)}`, Type: 'Item', CreatedAt: 1, UpdatedAt: 1 });
+        store.put({
+          PK: 'USER#1',
+          SK: `OTHER#${pad(i)}`,
+          Type: 'Other',
+          CreatedAt: 1,
+          UpdatedAt: 1,
+        });
+      }
+
+      const result = store.queryAll({
+        pk: 'USER#1',
+        sk: { operator: 'begins_with', value: 'ITEM#' },
+      });
+
+      expect(result).toHaveLength(TOTAL);
+      expect(result.map((item) => item.SK)).toEqual(
+        Array.from({ length: TOTAL }, (_, i) => `ITEM#${pad(i)}`)
+      );
+    });
+
+    it('一致するアイテムがなければ空配列を返す', () => {
+      store.put({ PK: 'USER#1', SK: 'A', Type: 'Item', CreatedAt: 1, UpdatedAt: 1 });
+
+      expect(store.queryAll({ pk: 'USER#9' })).toEqual([]);
+    });
+
+    it('query の既定 100 件の挙動は変わらない', () => {
+      for (let i = 0; i < TOTAL; i++) {
+        store.put({ PK: 'USER#1', SK: `ITEM#${pad(i)}`, Type: 'Item', CreatedAt: 1, UpdatedAt: 1 });
+      }
+
+      const page = store.query({ pk: 'USER#1' });
+
+      expect(page.items).toHaveLength(100);
+      expect(page.nextCursor).toBeDefined();
+    });
+  });
+
+  describe('queryAllByAttribute', () => {
+    beforeEach(() => {
+      for (let i = TOTAL - 1; i >= 0; i--) {
+        store.put({
+          PK: `ITEM#${pad(i)}`,
+          SK: 'META',
+          Type: 'Item',
+          CreatedAt: 1,
+          UpdatedAt: 1,
+          GSI1PK: 'GROUP#A',
+          GSI1SK: `ORDER#${pad(i)}`,
+          Extra: `extra-${i}`,
+        });
+      }
+      store.put({
+        PK: 'ITEM#X',
+        SK: 'META',
+        Type: 'Item',
+        CreatedAt: 1,
+        UpdatedAt: 1,
+        GSI1PK: 'GROUP#B',
+        GSI1SK: 'ORDER#000',
+      });
+    });
+
+    it('100 件を超えるアイテムを全件返す', () => {
+      const result = store.queryAllByAttribute({
+        attributeName: 'GSI1PK',
+        attributeValue: 'GROUP#A',
+      });
+
+      expect(result).toHaveLength(TOTAL);
+    });
+
+    it('sk 条件でフィルタし、その属性の昇順で返す', () => {
+      const result = store.queryAllByAttribute({
+        attributeName: 'GSI1PK',
+        attributeValue: 'GROUP#A',
+        sk: { attributeName: 'GSI1SK', operator: 'gte', value: 'ORDER#100' },
+      });
+
+      expect(result).toHaveLength(TOTAL - 100);
+      expect(result.map((item) => item.GSI1SK)).toEqual(
+        Array.from({ length: TOTAL - 100 }, (_, i) => `ORDER#${pad(100 + i)}`)
+      );
+    });
+
+    it('gsiSortKeyAttributeName でソートする', () => {
+      const result = store.queryAllByAttribute({
+        attributeName: 'GSI1PK',
+        attributeValue: 'GROUP#A',
+        gsiSortKeyAttributeName: 'GSI1SK',
+      });
+
+      expect(result).toHaveLength(TOTAL);
+      expect(result.map((item) => item.GSI1SK)).toEqual(
+        Array.from({ length: TOTAL }, (_, i) => `ORDER#${pad(i)}`)
+      );
+    });
+
+    it('projection を全件に適用する', () => {
+      const result = store.queryAllByAttribute({
+        attributeName: 'GSI1PK',
+        attributeValue: 'GROUP#A',
+        gsiSortKeyAttributeName: 'GSI1SK',
+        projection: { type: 'KEYS_ONLY', keyAttributeNames: ['GSI1PK', 'GSI1SK'] },
+      });
+
+      expect(result).toHaveLength(TOTAL);
+      for (const item of result) {
+        expect(Object.keys(item).sort()).toEqual(['GSI1PK', 'GSI1SK', 'PK', 'SK']);
+      }
+    });
+  });
+
+  describe('scanAll', () => {
+    it('100 件を超えるアイテムを挿入順で全件返す', () => {
+      for (let i = 0; i < TOTAL; i++) {
+        store.put({ PK: `P#${pad(i)}`, SK: 'S', Type: 'Item', CreatedAt: 1, UpdatedAt: 1 });
+      }
+
+      const result = store.scanAll();
+
+      expect(result).toHaveLength(TOTAL);
+      expect(result.map((item) => item.PK)).toEqual(
+        Array.from({ length: TOTAL }, (_, i) => `P#${pad(i)}`)
+      );
+    });
+
+    it('空のストアでは空配列を返す', () => {
+      expect(store.scanAll()).toEqual([]);
+    });
+
+    it('scan の既定 100 件の挙動は変わらない', () => {
+      for (let i = 0; i < TOTAL; i++) {
+        store.put({ PK: `P#${pad(i)}`, SK: 'S', Type: 'Item', CreatedAt: 1, UpdatedAt: 1 });
+      }
+
+      const page = store.scan();
+
+      expect(page.items).toHaveLength(100);
+      expect(page.nextCursor).toBeDefined();
+    });
+  });
+});
