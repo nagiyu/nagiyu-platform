@@ -159,7 +159,6 @@ export function validateObjectField(value: unknown, fieldName: string): Record<s
  * 配列フィールドをバリデーション
  *
  * `isElement` を渡さない場合は要素を検査せず、`T` は呼び出し側の指定をそのまま信じる。
- * 検査の順は 配列か → minLength → 要素。
  *
  * @param value - 検証する値
  * @param fieldName - フィールド名（エラーメッセージ用）
