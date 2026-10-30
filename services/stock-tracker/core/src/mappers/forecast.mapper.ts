@@ -6,12 +6,12 @@
  * 一部属性（寄与など）を落とした軽量読み出しの結果でも動くよう、無い属性は省く。
  */
 import {
-  InvalidEntityDataError,
   immutablePatchValue,
   optionalPatchValue,
   readTimestamp,
   requiredPatchValue,
   validateEnumField,
+  validateObjectField,
   validateStringField,
   type DynamoDBAttributes,
   type DynamoDBKey,
@@ -171,9 +171,9 @@ export class ForecastMapper implements EntityMapper<ForecastEntity, ForecastKey>
       exchangeId: validateStringField(item.ExchangeID, 'ExchangeID'),
       market: validateStringField(item.Market, 'Market'),
       date: validateStringField(item.Date, 'Date'),
-      axisValues: toPlainObject<ForecastEntity['axisValues']>(item.AxisValues, 'AxisValues'),
-      normal: toPlainObject<ForecastNormal>(item.Normal, 'Normal'),
-      probabilities: toPlainObject<ForecastEntity['probabilities']>(
+      axisValues: validateObjectField<ForecastEntity['axisValues']>(item.AxisValues, 'AxisValues'),
+      normal: validateObjectField<ForecastNormal>(item.Normal, 'Normal'),
+      probabilities: validateObjectField<ForecastEntity['probabilities']>(
         item.Probabilities,
         'Probabilities'
       ),
@@ -183,13 +183,13 @@ export class ForecastMapper implements EntityMapper<ForecastEntity, ForecastKey>
       updatedAt: readTimestamp(item, 'UpdatedAt'),
     };
     if (item.BackfilledAxes !== undefined) {
-      entity.backfilledAxes = toPlainObject<NonNullable<ForecastEntity['backfilledAxes']>>(
+      entity.backfilledAxes = validateObjectField<NonNullable<ForecastEntity['backfilledAxes']>>(
         item.BackfilledAxes,
         'BackfilledAxes'
       );
     }
     if (item[FORECAST_OUTCOME_ATTRIBUTE] !== undefined) {
-      entity.outcome = toPlainObject<ForecastOutcome>(
+      entity.outcome = validateObjectField<ForecastOutcome>(
         item[FORECAST_OUTCOME_ATTRIBUTE],
         FORECAST_OUTCOME_ATTRIBUTE
       );
@@ -210,15 +210,18 @@ export class ForecastMapper implements EntityMapper<ForecastEntity, ForecastKey>
       exchangeId: validateStringField(item.ExchangeID, 'ExchangeID'),
       market: validateStringField(item.Market, 'Market'),
       date: validateStringField(item.Date, 'Date'),
-      axisValues: toPlainObject<TickerSample['axisValues']>(item.AxisValues, 'AxisValues'),
+      axisValues: validateObjectField<TickerSample['axisValues']>(item.AxisValues, 'AxisValues'),
     };
 
     if (item.Normal !== undefined) {
-      sample.normal = toPlainObject<NonNullable<TickerSample['normal']>>(item.Normal, 'Normal');
+      sample.normal = validateObjectField<NonNullable<TickerSample['normal']>>(
+        item.Normal,
+        'Normal'
+      );
     }
 
     if (item[FORECAST_OUTCOME_ATTRIBUTE] !== undefined) {
-      const outcome = toPlainObject<ForecastOutcome>(
+      const outcome = validateObjectField<ForecastOutcome>(
         item[FORECAST_OUTCOME_ATTRIBUTE],
         FORECAST_OUTCOME_ATTRIBUTE
       );
@@ -234,7 +237,7 @@ export class ForecastMapper implements EntityMapper<ForecastEntity, ForecastKey>
     }
 
     if (item.Probabilities !== undefined) {
-      const probabilities = toPlainObject<Partial<Record<'DIR' | 'VOL', ProbabilityRecord>>>(
+      const probabilities = validateObjectField<Partial<Record<'DIR' | 'VOL', ProbabilityRecord>>>(
         item.Probabilities,
         'Probabilities'
       );
@@ -271,12 +274,4 @@ export class ForecastMapper implements EntityMapper<ForecastEntity, ForecastKey>
     if (outcome.excludedReason !== undefined) attribute.excludedReason = outcome.excludedReason;
     return attribute;
   }
-}
-
-/** ネストしたマップ属性をプレーンオブジェクトとして受け取る（配列・null・非オブジェクトは拒否） */
-function toPlainObject<T>(value: unknown, fieldName: string): T {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    throw new InvalidEntityDataError(`フィールド "${fieldName}" がオブジェクトではありません`);
-  }
-  return value as T;
 }
