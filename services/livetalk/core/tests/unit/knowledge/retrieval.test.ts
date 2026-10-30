@@ -1,13 +1,18 @@
-import { InMemorySingleTableStore, reportErrorEvent } from '@nagiyu/aws';
+import {
+  InMemorySingleTableStore,
+  createErrorEventWriter,
+  resetErrorEventWriter,
+} from '@nagiyu/aws';
+import type { InMemoryErrorEventWriter } from '@nagiyu/aws';
 import { TopicRetriever } from '../../../src/knowledge/retrieval.js';
 import { InMemoryTopicRepository } from '../../../src/repositories/in-memory-topic.repository.js';
 import type { IEmbeddingClient } from '../../../src/llm-client/types.js';
 import type { TopicRetrieveOptions } from '../../../src/knowledge/retrieval.js';
 
-jest.mock('@nagiyu/aws', () => ({
-  ...jest.requireActual('@nagiyu/aws'),
-  reportErrorEvent: jest.fn().mockResolvedValue(null),
-}));
+/** レポーターが書き込んだ ErrorEvent を取り出す。レポーターは実物を通して context の組み立てまで確かめる */
+function getReportedEvents() {
+  return (createErrorEventWriter() as InMemoryErrorEventWriter).getRecords();
+}
 
 /** 角度（度）から単位円上のベクトルを作る（cosine similarity を意図通りに制御するため）。 */
 function vecAtDegrees(deg: number): number[] {
@@ -39,7 +44,16 @@ describe('TopicRetriever', () => {
   let repo: InMemoryTopicRepository;
   let now: number;
 
+  afterEach(() => {
+    delete process.env.USE_IN_MEMORY_DB;
+    delete process.env.ERROR_EVENTS_TABLE_NAME;
+    resetErrorEventWriter();
+  });
+
   beforeEach(() => {
+    process.env.USE_IN_MEMORY_DB = 'true';
+    process.env.ERROR_EVENTS_TABLE_NAME = 'test-error-events';
+    resetErrorEventWriter();
     store = new InMemorySingleTableStore();
     now = 1_700_000_000_000;
     repo = new InMemoryTopicRepository(
@@ -69,14 +83,21 @@ describe('TopicRetriever', () => {
     const result = await retriever.retrieve('u1', 'hiyori', baseOptions);
 
     expect(result).toEqual([]);
-    expect(reportErrorEvent).toHaveBeenCalledWith(
+    const reported = getReportedEvents();
+    expect(reported).toEqual([
       expect.objectContaining({
         serviceId: 'livetalk',
         severity: 'error',
         title: 'Topic 想起の embedding 生成エラー',
         message: 'embed error',
-      })
-    );
+      }),
+    ]);
+    expect(JSON.parse(reported[0].context)).toEqual({
+      characterId: 'hiyori',
+      errorName: 'Error',
+      errorMessage: 'embed error',
+      errorStack: expect.stringContaining('embed error'),
+    });
   });
 
   it('Topic が 0 件なら空配列を返す', async () => {
@@ -227,13 +248,16 @@ describe('TopicRetriever', () => {
 
     expect(callCount).toBeGreaterThan(0);
     expect(result.map((r) => r.topic.topicId)).toEqual(['B']);
-    expect(reportErrorEvent).toHaveBeenCalledWith(
+    const reported = getReportedEvents();
+    expect(reported).toEqual([
       expect.objectContaining({
         severity: 'warning',
         title: 'Topic 想起のバンドル取得エラー',
         message: 'bundle error',
-        context: expect.objectContaining({ topicId: 'A' }),
-      })
+      }),
+    ]);
+    expect(JSON.parse(reported[0].context)).toEqual(
+      expect.objectContaining({ characterId: 'hiyori', topicId: 'A' })
     );
   });
 
@@ -244,17 +268,19 @@ describe('TopicRetriever', () => {
     const result = await retriever.retrieve('u1', 'hiyori', baseOptions);
 
     expect(result).toEqual([]);
-    expect(reportErrorEvent).toHaveBeenCalledWith(
+    expect(getReportedEvents()).toEqual([
       expect.objectContaining({
         severity: 'error',
         title: 'Topic 想起のヘッダ列挙エラー',
         message: 'list error',
-      })
-    );
+      }),
+    ]);
   });
 
   it('報告に失敗しても想起なしで継続する', async () => {
-    (reportErrorEvent as jest.Mock).mockRejectedValueOnce(new Error('report failed'));
+    jest
+      .spyOn(createErrorEventWriter() as InMemoryErrorEventWriter, 'put')
+      .mockRejectedValue(new Error('report failed'));
     const retriever = new TopicRetriever(repo, makeEmbeddingClient(new Error('embed error')));
 
     await expect(retriever.retrieve('u1', 'hiyori', baseOptions)).resolves.toEqual([]);

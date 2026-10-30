@@ -15,7 +15,10 @@ jest.mock('@/lib/server/repositories', () => ({
   getLifecycleRepository: jest.fn(),
 }));
 
-jest.mock('@nagiyu/aws', () => ({ reportErrorEvent: jest.fn().mockResolvedValue(null) }));
+jest.mock('@nagiyu/aws', () => ({
+  reportErrorEvent: jest.fn().mockResolvedValue(null),
+  createErrorReporter: jest.fn(() => ({ report: jest.fn(), onError: jest.fn(() => jest.fn()) })),
+}));
 
 const mockReportErrorEvent = reportErrorEvent as jest.MockedFunction<typeof reportErrorEvent>;
 

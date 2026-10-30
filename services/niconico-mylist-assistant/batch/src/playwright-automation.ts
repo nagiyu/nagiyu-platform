@@ -13,8 +13,10 @@ import {
   VIDEO_REGISTRATION_WAIT,
 } from './constants.js';
 import { MylistRegistrationResult } from './types.js';
-import { createS3Client, uploadFile, getS3ObjectUrl, reportErrorEvent } from '@nagiyu/aws';
+import { createS3Client, uploadFile, getS3ObjectUrl, createErrorReporter } from '@nagiyu/aws';
 import { readFile } from 'fs/promises';
+
+const errorReporter = createErrorReporter({ serviceId: 'niconico-mylist-assistant' });
 
 const VIDEO_RETRY_OPTIONS: Pick<
   RetryOptions,
@@ -604,16 +606,9 @@ export async function executeMylistRegistration(
 
     console.error('マイリスト登録処理でエラーが発生しました:', errorMessage);
 
-    await reportErrorEvent({
-      serviceId: 'niconico-mylist-assistant',
-      severity: 'error',
-      title: 'Playwright 自動化処理失敗',
+    await errorReporter.report('Playwright 自動化処理失敗', error, {
       message: errorMessage,
-      context: {
-        step: 'executeMylistRegistration',
-        error: errorMessage,
-        stack: error instanceof Error ? error.stack : undefined,
-      },
+      context: { step: 'executeMylistRegistration' },
     });
 
     return {

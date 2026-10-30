@@ -2,7 +2,6 @@ const mockChromiumLaunch = jest.fn();
 
 jest.mock('@nagiyu/aws', () => ({
   ...jest.requireActual('@nagiyu/aws'),
-  reportErrorEvent: jest.fn().mockResolvedValue(null),
   createS3Client: jest.fn().mockReturnValue(null),
   uploadFile: jest.fn().mockResolvedValue(undefined),
   getS3ObjectUrl: jest.fn().mockReturnValue(''),
@@ -19,7 +18,8 @@ import {
   registerOverlayBannerHandler,
   createContextWithSession,
 } from '../../src/playwright-automation';
-import { reportErrorEvent } from '@nagiyu/aws';
+import { createErrorEventWriter, resetErrorEventWriter } from '@nagiyu/aws';
+import type { InMemoryErrorEventWriter } from '@nagiyu/aws';
 import type { Browser, Page } from 'playwright';
 
 function createMockPage(overrides: Partial<Record<string, jest.Mock>> = {}): Page {
@@ -56,10 +56,23 @@ function createMockBrowser(overrides: Partial<Record<string, jest.Mock>> = {}): 
   } as unknown as Browser;
 }
 
+/** レポーターが書き込んだ ErrorEvent を取り出す。レポーターは実物を通して context の組み立てまで確かめる */
+function getReportedEvents() {
+  return (createErrorEventWriter() as InMemoryErrorEventWriter).getRecords();
+}
+
 describe('playwright-automation', () => {
   beforeEach(() => {
-    jest.mocked(reportErrorEvent).mockClear();
+    process.env.USE_IN_MEMORY_DB = 'true';
+    process.env.ERROR_EVENTS_TABLE_NAME = 'test-error-events';
+    resetErrorEventWriter();
     mockChromiumLaunch.mockReset();
+  });
+
+  afterEach(() => {
+    delete process.env.USE_IN_MEMORY_DB;
+    delete process.env.ERROR_EVENTS_TABLE_NAME;
+    resetErrorEventWriter();
   });
 
   describe('registerOverlayBannerHandler', () => {
@@ -193,14 +206,21 @@ describe('playwright-automation', () => {
 
       expect(result.successVideoIds).toHaveLength(0);
       expect(result.failedVideoIds).toEqual(['sm1', 'sm2']);
-      expect(jest.mocked(reportErrorEvent)).toHaveBeenCalledWith(
+      const reported = getReportedEvents();
+      expect(reported).toEqual([
         expect.objectContaining({
           serviceId: 'niconico-mylist-assistant',
           severity: 'error',
           title: 'Playwright 自動化処理失敗',
-          context: expect.objectContaining({ step: 'executeMylistRegistration' }),
-        })
-      );
+          message: 'ブラウザの起動に失敗しました',
+        }),
+      ]);
+      expect(JSON.parse(reported[0].context)).toEqual({
+        step: 'executeMylistRegistration',
+        errorName: 'Error',
+        errorMessage: 'ブラウザの起動に失敗しました',
+        errorStack: expect.stringContaining('ブラウザの起動に失敗しました'),
+      });
     });
 
     it('コンテキスト作成失敗時に reportErrorEvent を呼ぶ', async () => {
@@ -216,13 +236,13 @@ describe('playwright-automation', () => {
 
       expect(result.successVideoIds).toHaveLength(0);
       expect(result.failedVideoIds).toEqual(['sm1', 'sm2']);
-      expect(jest.mocked(reportErrorEvent)).toHaveBeenCalledWith(
+      expect(getReportedEvents()).toEqual([
         expect.objectContaining({
           serviceId: 'niconico-mylist-assistant',
           severity: 'error',
           title: 'Playwright 自動化処理失敗',
-        })
-      );
+        }),
+      ]);
     });
 
     it('ブラウザとコンテキストを正常にクローズする', async () => {

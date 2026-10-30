@@ -1,7 +1,8 @@
-import { reportErrorEvent } from '@nagiyu/aws';
-import { toErrorMessage } from '@nagiyu/common';
+import { createErrorReporter } from '@nagiyu/aws';
 import { getVideoInfo, NiconicoAPIError, NiconicoVideoInfo } from './client.js';
 import { DEFAULT_BATCH_CONCURRENCY } from './constants.js';
+
+const errorReporter = createErrorReporter({ serviceId: 'niconico-mylist-assistant' });
 
 export interface VideoInfoBatchResult {
   success: NiconicoVideoInfo[];
@@ -31,11 +32,7 @@ export async function getVideoInfoBatch(
         success.push(info);
       } catch (error) {
         // 失敗を failed に集めて処理を続けるため、例外は呼び出し元へ届かない。ここで報告する
-        await reportErrorEvent({
-          serviceId: 'niconico-mylist-assistant',
-          severity: 'error',
-          title: 'Niconico API エラー',
-          message: toErrorMessage(error),
+        await errorReporter.report('Niconico API エラー', error, {
           context: {
             videoId,
             errorCode: error instanceof NiconicoAPIError ? error.code : undefined,

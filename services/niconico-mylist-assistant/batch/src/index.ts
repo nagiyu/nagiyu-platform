@@ -11,7 +11,7 @@ import {
   validateUserSession,
 } from '@nagiyu/niconico-mylist-assistant-core';
 import type { CryptoConfig } from '@nagiyu/niconico-mylist-assistant-core';
-import { reportErrorEvent, withErrorReporting } from '@nagiyu/aws';
+import { createErrorReporter, reportErrorEvent, withErrorReporting } from '@nagiyu/aws';
 import { sendWebPushNotification, getVapidConfig } from '@nagiyu/common/push';
 import { executeMylistRegistration } from './playwright-automation.js';
 import { createBatchCompletionPayload } from './lib/web-push-client.js';
@@ -21,6 +21,8 @@ import type { PushSubscription } from '@nagiyu/common';
 import { ERROR_MESSAGES } from './constants.js';
 import { getJobParameters, readEnvironmentVariables } from './lib/job-environment.js';
 import { MylistRegistrationJobParams } from './types.js';
+
+const errorReporter = createErrorReporter({ serviceId: 'niconico-mylist-assistant' });
 
 /**
  * user_session を復号化する
@@ -51,16 +53,7 @@ async function decryptUserSession(encryptedData: string, config: CryptoConfig): 
     return userSession;
   } catch (error) {
     console.error('user_session の復号化に失敗しました:', error);
-    await reportErrorEvent({
-      serviceId: 'niconico-mylist-assistant',
-      severity: 'critical',
-      title: 'user_session 復号化失敗',
-      message: toErrorMessage(error),
-      context: {
-        error: toErrorMessage(error),
-        stack: error instanceof Error ? error.stack : undefined,
-      },
-    });
+    await errorReporter.report('user_session 復号化失敗', error, { severity: 'critical' });
     throw new Error(`${ERROR_MESSAGES.DECRYPTION_FAILED}: ${toErrorMessage(error)}`, {
       cause: error,
     });
