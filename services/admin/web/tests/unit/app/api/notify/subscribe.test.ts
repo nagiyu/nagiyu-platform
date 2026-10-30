@@ -8,6 +8,7 @@ import { getSession } from '@/lib/auth/session';
 
 jest.mock('@nagiyu/aws', () => ({
   getDynamoDBDocumentClient: jest.fn(),
+  createErrorReporter: jest.fn(() => ({ report: jest.fn(), onError: jest.fn(() => jest.fn()) })),
 }));
 
 jest.mock(

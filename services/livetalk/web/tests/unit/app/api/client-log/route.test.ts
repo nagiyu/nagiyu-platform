@@ -13,6 +13,7 @@ jest.mock('@/lib/server/session', () => ({
 
 jest.mock('@nagiyu/aws', () => ({
   reportErrorEvent: jest.fn().mockResolvedValue(null),
+  createErrorReporter: jest.fn(() => ({ report: jest.fn(), onError: jest.fn(() => jest.fn()) })),
 }));
 
 const mockGetSession = getSession as jest.MockedFunction<typeof getSession>;

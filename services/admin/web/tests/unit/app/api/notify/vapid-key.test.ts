@@ -2,20 +2,28 @@
  * @jest-environment node
  */
 import { GET } from '@/app/api/notify/vapid-key/route';
+import { errorReporter } from '@/lib/api-error-reporting';
 
-const mockReportErrorEvent = jest.fn();
-
-jest.mock('@nagiyu/aws', () => ({
-  getDynamoDBDocumentClient: jest.fn(),
-  reportErrorEvent: (...args: unknown[]) => mockReportErrorEvent(...args),
+jest.mock('@/lib/api-error-reporting', () => ({
+  errorReporter: {
+    report: jest.fn(),
+    onError: jest.fn(() => jest.fn()),
+  },
 }));
+
+/**
+ * ルート読み込み時に onError へ渡された報告関数を控える。
+ * beforeEach のモックのリセットで呼び出し履歴が消えるため、ここで取り出しておく。
+ */
+const onErrorMock = errorReporter.onError as jest.Mock;
+const onErrorTitle = onErrorMock.mock.calls[0][0] as string;
+const onErrorHandler = onErrorMock.mock.results[0].value as jest.Mock;
 
 describe('GET /api/notify/vapid-key', () => {
   const original = process.env.VAPID_PUBLIC_KEY;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockReportErrorEvent.mockResolvedValue(null);
     jest.spyOn(console, 'error').mockImplementation(() => undefined);
   });
 
@@ -35,20 +43,16 @@ describe('GET /api/notify/vapid-key', () => {
 
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ publicKey: 'public-key' });
-    expect(mockReportErrorEvent).not.toHaveBeenCalled();
+    expect(onErrorHandler).not.toHaveBeenCalled();
   });
 
-  it('公開鍵が未設定なら 500 を返し、serviceId admin で報告する', async () => {
+  it('公開鍵が未設定なら 500 を返し、報告する', async () => {
     delete process.env.VAPID_PUBLIC_KEY;
 
     const response = await GET();
 
     expect(response.status).toBe(500);
-    expect(mockReportErrorEvent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        serviceId: 'admin',
-        title: 'Web API: VAPID 公開鍵取得エラー',
-      })
-    );
+    expect(onErrorTitle).toBe('Web API: VAPID 公開鍵取得エラー');
+    expect(onErrorHandler).toHaveBeenCalledTimes(1);
   });
 });

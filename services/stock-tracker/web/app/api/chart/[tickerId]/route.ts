@@ -17,10 +17,7 @@ import type { ChartData, ChartDataPoint } from '@nagiyu/stock-tracker-core';
 import { getAuthError } from '@nagiyu/nextjs';
 import { createHoldingRepository } from '../../../../lib/repository-factory';
 import { getSession } from '../../../../lib/auth';
-import {
-  createInternalErrorReporting,
-  reportSwallowedError,
-} from '../../../../lib/api-error-reporting';
+import { createInternalErrorReporting, errorReporter } from '../../../../lib/api-error-reporting';
 
 /**
  * エラーメッセージ定数
@@ -214,7 +211,9 @@ export const GET = withInternalErrorReporting(
       } catch (error) {
         // 保有情報は付加情報のため、取得に失敗してもチャートは返す。握りつぶすので上位のラッパーでは拾えない
         console.error(ERROR_MESSAGES.FETCH_HOLDING_FAILED, error);
-        await reportSwallowedError(REPORT_TITLES.FETCH_HOLDING_FAILED, error, { tickerId });
+        await errorReporter.report(REPORT_TITLES.FETCH_HOLDING_FAILED, error, {
+          context: { tickerId },
+        });
       }
     }
 

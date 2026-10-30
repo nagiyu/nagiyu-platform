@@ -5,7 +5,7 @@ import { GET } from '@/app/api/lifecycle/route';
 import { getSession } from '@/lib/server/session';
 import { getLifecycleRepository } from '@/lib/server/repositories';
 import type { LifecycleEntity, LifecycleRepository } from '@nagiyu/livetalk-core';
-import { reportErrorEvent } from '@nagiyu/aws';
+import { errorReporter } from '@/lib/server/api-error-reporting';
 
 jest.mock('@/lib/server/session', () => ({
   getSession: jest.fn(),
@@ -20,7 +20,13 @@ jest.mock('@nagiyu/aws', () => ({
   createErrorReporter: jest.fn(() => ({ report: jest.fn(), onError: jest.fn(() => jest.fn()) })),
 }));
 
-const mockReportErrorEvent = reportErrorEvent as jest.MockedFunction<typeof reportErrorEvent>;
+jest.mock('@/lib/server/api-error-reporting', () => ({
+  ...jest.requireActual('@/lib/server/api-error-reporting'),
+  errorReporter: {
+    report: jest.fn().mockResolvedValue(null),
+    onError: jest.fn(() => jest.fn()),
+  },
+}));
 
 const mockGetSession = getSession as jest.MockedFunction<typeof getSession>;
 const mockGetLifecycleRepo = getLifecycleRepository as jest.MockedFunction<
@@ -113,12 +119,10 @@ describe('GET /api/lifecycle', () => {
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.state).toBe('awake');
-    expect(mockReportErrorEvent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        serviceId: 'livetalk',
-        title: 'Web API: 生活サイクル状態取得エラー',
-        message: 'db error',
-      })
+    expect(errorReporter.report).toHaveBeenCalledWith(
+      'Web API: 生活サイクル状態取得エラー',
+      expect.objectContaining({ message: 'db error' }),
+      { context: { characterId: 'hiyori' } }
     );
     consoleSpy.mockRestore();
   });

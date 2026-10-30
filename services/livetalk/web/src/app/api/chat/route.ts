@@ -10,7 +10,7 @@ import {
 } from '@nagiyu/livetalk-core';
 import { getCharacterDefinition, hasCharacter } from '@/lib/characters/registry';
 import { getSession } from '@/lib/server/session';
-import { reportSwallowedError, withApiErrorReporting } from '@/lib/server/api-error-reporting';
+import { errorReporter, withApiErrorReporting } from '@/lib/server/api-error-reporting';
 import { getLLMClient } from '@/lib/server/llm';
 import { getVoiceClient } from '@/lib/server/voice';
 import {
@@ -136,7 +136,7 @@ export const POST = withApiErrorReporting(
         '[POST /api/chat] ロック取得に失敗したためバイパスしました。障害時フェイルオープン。',
         lockErr
       );
-      await reportSwallowedError('Web API: チャットのロック取得エラー (バイパス)', lockErr);
+      await errorReporter.report('Web API: チャットのロック取得エラー (バイパス)', lockErr);
       lockResult = null;
     }
 
@@ -168,7 +168,7 @@ export const POST = withApiErrorReporting(
         '[POST /api/chat] レートリミットのチェックに失敗したためバイパスしました。障害時フェイルオープン。',
         rateErr
       );
-      await reportSwallowedError('Web API: チャットのレートリミット確認エラー (バイパス)', rateErr);
+      await errorReporter.report('Web API: チャットのレートリミット確認エラー (バイパス)', rateErr);
       limitPerMinResult = null;
       limitPerHourResult = null;
     }
@@ -185,7 +185,7 @@ export const POST = withApiErrorReporting(
           await chatGuardRepository.releaseLock(userId, ownerToken);
         } catch (releaseErr) {
           console.warn('[POST /api/chat] レート超過時のロック解放に失敗しました。', releaseErr);
-          await reportSwallowedError(
+          await errorReporter.report(
             'Web API: チャットのロック解放エラー (レート超過時)',
             releaseErr
           );
@@ -238,7 +238,7 @@ export const POST = withApiErrorReporting(
           }
         } catch (err) {
           console.error('[POST /api/chat] ストリーミング中にエラーが発生しました', err);
-          await reportSwallowedError('Web API: チャットのストリーミングエラー', err);
+          await errorReporter.report('Web API: チャットのストリーミングエラー', err);
           write({ type: 'error', message: CHAT_ERROR_MESSAGES.INTERNAL_ERROR });
         } finally {
           // lockAcquired が true のときだけ解放する（DB 障害でバイパスした場合は呼ばない）
@@ -248,7 +248,7 @@ export const POST = withApiErrorReporting(
             } catch (releaseErr) {
               // ロック解放失敗は警告のみ（フェイルオープン方針に合わせて握りつぶす）
               console.warn('[POST /api/chat] ロック解放に失敗しました。', releaseErr);
-              await reportSwallowedError('Web API: チャットのロック解放エラー', releaseErr);
+              await errorReporter.report('Web API: チャットのロック解放エラー', releaseErr);
             }
           }
           controller.close();
