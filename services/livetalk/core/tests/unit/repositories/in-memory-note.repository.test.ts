@@ -155,4 +155,17 @@ describe('InMemoryNoteRepository', () => {
       ).rejects.toBeInstanceOf(EntityNotFoundError);
     });
   });
+
+  it('list は 101 件以上でも全件から CreatedAt 降順で最新のものを返す', async () => {
+    // SK 昇順の末尾 (既定の 100 件で切ると落ちる側) が最新になるよう、ノート ID を作成順に昇順で振る
+    for (let i = 0; i < 101; i++) {
+      await repo.put(makeInput({ noteId: `note-${String(i).padStart(3, '0')}` }));
+      now += 100;
+    }
+
+    const list = await repo.list('u1', 'hiyori', 200);
+    expect(list).toHaveLength(101);
+    expect(list[0].noteId).toBe('note-100');
+    expect((await repo.list('u1', 'hiyori', 1))[0].noteId).toBe('note-100');
+  });
 });

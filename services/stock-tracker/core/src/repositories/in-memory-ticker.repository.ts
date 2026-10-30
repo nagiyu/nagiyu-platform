@@ -20,8 +20,6 @@ import type {
 } from '../entities/ticker.entity.js';
 import { TickerMapper, buildTickerGsi3Pk } from '../mappers/ticker.mapper.js';
 
-const FULL_SCAN_PAGE_SIZE = 100;
-
 /**
  * InMemory Ticker Repository
  *
@@ -49,31 +47,16 @@ export class InMemoryTickerRepository implements TickerRepository {
    * 取引所ごとのティッカー一覧を取得
    *
    * GSI3（ExchangeTickerIndex）をqueryByAttributeでシミュレートする。GSI3SK（`TICKER#{TickerID}`）
-   * 昇順ソートで、インタフェース契約のTickerID昇順を実現する。全件を返す契約のため、
-   * nextCursorがなくなるまでstoreのページを辿り切って集約する。
+   * 昇順ソートで、インタフェース契約のTickerID昇順を実現する。
    */
   public async getByExchange(exchangeId: string): Promise<TickerEntity[]> {
-    const items: TickerEntity[] = [];
-    let cursor: string | undefined;
-
-    do {
-      const page = this.store.queryByAttribute(
-        {
-          attributeName: 'GSI3PK',
-          attributeValue: buildTickerGsi3Pk(exchangeId),
-          // sk条件を指定しないため、実DynamoDBのGSI3 Queryと同様にGSI3SK昇順で返すよう明示する
-          gsiSortKeyAttributeName: 'GSI3SK',
-        },
-        {
-          limit: FULL_SCAN_PAGE_SIZE,
-          cursor,
-        }
-      );
-      items.push(...page.items.map((item) => this.mapper.toEntity(item)));
-      cursor = page.nextCursor;
-    } while (cursor);
-
-    return items;
+    const items = this.store.queryAllByAttribute({
+      attributeName: 'GSI3PK',
+      attributeValue: buildTickerGsi3Pk(exchangeId),
+      // sk条件を指定しないため、実DynamoDBのGSI3 Queryと同様にGSI3SK昇順で返すよう明示する
+      gsiSortKeyAttributeName: 'GSI3SK',
+    });
+    return items.map((item) => this.mapper.toEntity(item));
   }
 
   /**
@@ -81,29 +64,18 @@ export class InMemoryTickerRepository implements TickerRepository {
    *
    * `Type`属性の一致でScanを近似する（GSIを介さない）ため、返却順序は保証しない。
    * options未指定時は、実DynamoDB実装（Scan+LastEvaluatedKeyループ）に合わせて
-   * cursorループで全件集約し、nextCursorはundefinedを返す。
+   * 全件を返し、nextCursorはundefinedを返す。
    */
   public async getAll(options?: PaginationOptions): Promise<PaginatedResult<TickerEntity>> {
     const usePagination = options?.limit !== undefined || options?.cursor !== undefined;
 
     if (!usePagination) {
-      const items: TickerEntity[] = [];
-      let cursor: string | undefined;
-
-      do {
-        const page = this.store.queryByAttribute(
-          {
-            attributeName: 'Type',
-            attributeValue: this.mapper.entityType,
-          },
-          {
-            limit: FULL_SCAN_PAGE_SIZE,
-            cursor,
-          }
-        );
-        items.push(...page.items.map((item) => this.mapper.toEntity(item)));
-        cursor = page.nextCursor;
-      } while (cursor);
+      const items = this.store
+        .queryAllByAttribute({
+          attributeName: 'Type',
+          attributeValue: this.mapper.entityType,
+        })
+        .map((item) => this.mapper.toEntity(item));
 
       return {
         items,

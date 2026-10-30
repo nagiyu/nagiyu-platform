@@ -33,10 +33,6 @@ import {
   buildExchangeSummaryGsi4DateUpperBound,
 } from '../mappers/exchange-summary-index.js';
 
-// GSI4 の全件集約（getByExchangeAndDate・サンプル読み出し）で store 既定の queryByAttribute
-// limit (100件) による打ち切りを避けるため、cursorループで全件集約する。
-const GSI4_FULL_AGGREGATION_PAGE_SIZE = 100;
-
 /**
  * InMemory Forecast Repository
  *
@@ -140,7 +136,7 @@ export class InMemoryForecastRepository implements ForecastRepository {
   }
 
   /**
-   * GSI4（`FORECAST#{ExchangeID}` パーティション）の全件を cursor ループで集約する。
+   * GSI4（`FORECAST#{ExchangeID}` パーティション）の全件を取得する。
    * `datePrefix` を渡すと begins_with、`fromDate`/`toDate` を渡すと between/以上 で絞り込む
    * （いずれも省略時はパーティション全件）。
    */
@@ -150,25 +146,14 @@ export class InMemoryForecastRepository implements ForecastRepository {
     fromDate?: string,
     toDate?: string
   ): DynamoDBAttributes[] {
-    const items: DynamoDBAttributes[] = [];
-    let cursor: string | undefined;
     const sk = buildSkCondition(datePrefix, fromDate, toDate);
 
-    do {
-      const page = this.store.queryByAttribute(
-        {
-          attributeName: 'GSI4PK',
-          attributeValue: buildForecastGsi4Pk(exchangeId),
-          gsiSortKeyAttributeName: 'GSI4SK',
-          ...(sk ? { sk } : {}),
-        },
-        { limit: GSI4_FULL_AGGREGATION_PAGE_SIZE, cursor }
-      );
-      items.push(...page.items);
-      cursor = page.nextCursor;
-    } while (cursor);
-
-    return items;
+    return this.store.queryAllByAttribute({
+      attributeName: 'GSI4PK',
+      attributeValue: buildForecastGsi4Pk(exchangeId),
+      gsiSortKeyAttributeName: 'GSI4SK',
+      ...(sk ? { sk } : {}),
+    });
   }
 }
 

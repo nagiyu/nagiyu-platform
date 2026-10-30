@@ -96,11 +96,7 @@ export class InMemoryListRepository implements ListRepository {
   }
 
   private queryByPrefix(pk: string, skPrefix: string): Record<string, unknown>[] {
-    // 既定の件数上限で打ち切られないよう、実 DynamoDB の全ページ取得に合わせて上限を外す
-    const { items } = this.store.query(
-      { pk, sk: { operator: 'begins_with', value: skPrefix } },
-      { limit: Number.MAX_SAFE_INTEGER }
-    );
+    const items = this.store.queryAll({ pk, sk: { operator: 'begins_with', value: skPrefix } });
     return items;
   }
 }

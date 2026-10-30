@@ -3,12 +3,7 @@
  *
  * InMemorySingleTableStoreを使用したPerformanceDailyRepositoryの実装
  */
-import {
-  InMemoryEntityStore,
-  type DynamoDBAttributes,
-  type EntityStore,
-  type InMemorySingleTableStore,
-} from '@nagiyu/aws';
+import { InMemoryEntityStore, type EntityStore, type InMemorySingleTableStore } from '@nagiyu/aws';
 import type { PerformanceDailyRepository } from './performance-daily.repository.interface.js';
 import type { PerformanceDailyKey } from '../entities/performance-daily.entity.js';
 import type { Market, PerformanceDailyItem, Question } from '../forecast/index.js';
@@ -18,10 +13,6 @@ import {
   buildPerformanceDailySk,
   buildPerformanceDailySkUpperBound,
 } from '../mappers/performance-daily.mapper.js';
-
-// ベーステーブル PK（PERF#{Question}#{Market}）の全件集約で store 既定の query limit（100件）
-// による打ち切りを避けるため、他リポジトリと同じ流儀でcursorループを使う。
-const FULL_AGGREGATION_PAGE_SIZE = 100;
 
 /**
  * InMemory PerformanceDaily Repository
@@ -66,8 +57,6 @@ export class InMemoryPerformanceDailyRepository implements PerformanceDailyRepos
     fromDate: string,
     toDate?: string
   ): Promise<PerformanceDailyItem[]> {
-    const items: DynamoDBAttributes[] = [];
-    let cursor: string | undefined;
     const sk =
       toDate !== undefined
         ? {
@@ -80,11 +69,7 @@ export class InMemoryPerformanceDailyRepository implements PerformanceDailyRepos
         : { operator: 'gte' as const, value: buildPerformanceDailySk(fromDate) };
     const pk = buildPerformanceDailyPk(question, market);
 
-    do {
-      const page = this.store.query({ pk, sk }, { limit: FULL_AGGREGATION_PAGE_SIZE, cursor });
-      items.push(...page.items);
-      cursor = page.nextCursor;
-    } while (cursor);
+    const items = this.store.queryAll({ pk, sk });
 
     return items.map((item) => this.mapper.toEntity(item));
   }

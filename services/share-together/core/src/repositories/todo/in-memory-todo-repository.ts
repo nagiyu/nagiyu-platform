@@ -57,11 +57,10 @@ export class InMemoryTodoRepository implements TodoRepository {
   }
 
   private queryByListId(listId: string): Record<string, unknown>[] {
-    // 既定の件数上限で打ち切られないよう、実 DynamoDB の全ページ取得に合わせて上限を外す
-    const { items } = this.tableStore.query(
-      { pk: buildTodoPk(listId), sk: { operator: 'begins_with', value: TODO_SK_PREFIX } },
-      { limit: Number.MAX_SAFE_INTEGER }
-    );
+    const items = this.tableStore.queryAll({
+      pk: buildTodoPk(listId),
+      sk: { operator: 'begins_with', value: TODO_SK_PREFIX },
+    });
     return items;
   }
 }
