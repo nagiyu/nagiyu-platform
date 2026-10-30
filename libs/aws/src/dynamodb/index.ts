@@ -90,7 +90,14 @@ export {
 } from './in-memory/single-table-store.js';
 
 // ページネーション
-export { queryPages, queryAllItems, scanAllItems } from './pagination.js';
+export {
+  queryPages,
+  queryAllItems,
+  scanAllItems,
+  queryPage,
+  scanPage,
+  type PageRequest,
+} from './pagination.js';
 
 // バッチ処理
 export {
