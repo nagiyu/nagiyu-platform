@@ -1,10 +1,10 @@
 import {
   immutablePatchValue,
-  InvalidEntityDataError,
   optionalPatchValue,
   readTimestamp,
   requiredPatchValue,
   validateBooleanField,
+  validateObjectField,
   validateStringField,
   type DynamoDBAttributes,
   type DynamoDBKey,
@@ -20,24 +20,12 @@ import type {
 } from '../entities/profile.entity.js';
 import { buildProfileGSI1PK, buildProfileSK, buildUserPK } from './keys.js';
 
-const ERROR_MESSAGES = {
-  INVALID_CONSENTS: 'Consents が不正です',
-  INVALID_CONSENT_RECORD: '同意記録が不正です',
-} as const;
-
-function asRecord(raw: unknown, message: string): Record<string, unknown> {
-  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
-    throw new InvalidEntityDataError(message);
-  }
-  return raw as Record<string, unknown>;
-}
-
 function consentRecordToItem(record: ConsentRecord): DynamoDBAttributes {
   return { Version: record.version, AgreedAt: record.agreedAt };
 }
 
 function consentRecordToEntity(raw: unknown, name: string): ConsentRecord {
-  const obj = asRecord(raw, `${ERROR_MESSAGES.INVALID_CONSENT_RECORD}: ${name}`);
+  const obj = validateObjectField(raw, name);
   return {
     version: validateStringField(obj['Version'], `${name}.Version`),
     agreedAt: readTimestamp(obj, 'AgreedAt'),
@@ -49,7 +37,7 @@ function ageVerificationToItem(verification: AgeVerification): DynamoDBAttribute
 }
 
 function ageVerificationToEntity(raw: unknown): AgeVerification {
-  const obj = asRecord(raw, `${ERROR_MESSAGES.INVALID_CONSENT_RECORD}: AgeVerified`);
+  const obj = validateObjectField(raw, 'AgeVerified');
   return {
     value: validateBooleanField(obj['Value'], 'AgeVerified.Value'),
     verifiedAt: readTimestamp(obj, 'VerifiedAt'),
@@ -72,7 +60,7 @@ function consentsToItem(consents: UserConsents): DynamoDBAttributes {
 }
 
 function consentsToEntity(raw: unknown): UserConsents {
-  const obj = asRecord(raw, ERROR_MESSAGES.INVALID_CONSENTS);
+  const obj = validateObjectField(raw, 'Consents');
   return {
     ...(obj['TermsAgreed'] !== undefined && {
       termsAgreed: consentRecordToEntity(obj['TermsAgreed'], 'TermsAgreed'),

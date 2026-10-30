@@ -162,6 +162,10 @@ describe('TopicMapper', () => {
       expect(mapper.toEntity(buildItem({ CanonicalSummary: '' })).canonicalSummary).toBe('');
     });
 
+    it('Embedding は空配列でも読める', () => {
+      expect(mapper.toEntity(buildItem({ Embedding: [] })).embedding).toEqual([]);
+    });
+
     it('Embedding が数値配列でなければ InvalidEntityDataError をスローする', () => {
       expect(() => mapper.toEntity(buildItem({ Embedding: ['a'] }))).toThrow(
         InvalidEntityDataError

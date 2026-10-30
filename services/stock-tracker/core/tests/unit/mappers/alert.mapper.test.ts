@@ -338,6 +338,16 @@ describe('AlertMapper', () => {
       );
     });
 
+    it.each([
+      ['配列でない', 'price'],
+      ['オブジェクト', { field: 'price' }],
+      ['null', null],
+    ])('ConditionList が%sの場合は InvalidEntityDataError をスローする', (_label, value) => {
+      expect(() => mapper.toEntity(buildItem({ ConditionList: value }))).toThrow(
+        InvalidEntityDataError
+      );
+    });
+
     it('Mode と Frequency が不正な値の場合は InvalidEntityDataError をスローする', () => {
       expect(() => mapper.toEntity(buildItem({ Mode: 'Hold' }))).toThrow(InvalidEntityDataError);
       expect(() => mapper.toEntity(buildItem({ Frequency: 'DAILY_LEVEL' }))).toThrow(

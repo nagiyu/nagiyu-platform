@@ -1,5 +1,4 @@
 import {
-  InvalidEntityDataError,
   TTL_ATTRIBUTE_NAME,
   immutablePatchValue,
   optionalPatchValue,
@@ -9,6 +8,7 @@ import {
   toTtlSeconds,
   validateEnumField,
   validateNumberField,
+  validateObjectField,
   validateStringField,
   type DynamoDBAttributes,
   type DynamoDBKey,
@@ -153,18 +153,12 @@ export class JobMapper implements EntityMapper<Job, JobKey> {
     }
     const analysisProgress = readAttribute(item, 'AnalysisProgress', ['analysisProgress']);
     if (analysisProgress !== undefined) {
-      entity.analysisProgress = this.validateAnalysisProgress(analysisProgress);
+      entity.analysisProgress = validateObjectField(
+        analysisProgress,
+        'AnalysisProgress'
+      ) as AnalysisProgress;
     }
 
     return entity;
-  }
-
-  private validateAnalysisProgress(value: unknown): AnalysisProgress {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) {
-      throw new InvalidEntityDataError(
-        'フィールド "AnalysisProgress" が不正です: オブジェクトである必要があります'
-      );
-    }
-    return value as AnalysisProgress;
   }
 }

@@ -6,12 +6,13 @@
  * `ModelSnapshotItem` をそのままビジネスオブジェクトとして扱う。
  */
 import {
-  InvalidEntityDataError,
   immutablePatchValue,
   readTimestamp,
   requiredPatchValue,
+  validateArrayField,
   validateEnumField,
   validateNumberField,
+  validateObjectField,
   validateStringField,
   type DynamoDBAttributes,
   type DynamoDBKey,
@@ -153,15 +154,18 @@ export class ModelSnapshotMapper implements EntityMapper<ModelSnapshotItem, Mode
       date: validateStringField(item.Date, 'Date'),
       modelVersion: validateStringField(item.ModelVersion, 'ModelVersion'),
       alpha: validateNumberField(item.Alpha, 'Alpha'),
-      weights: toPlainObject<ModelSnapshotItem['weights']>(item.Weights, 'Weights'),
-      standardization: toPlainObject<ModelSnapshotItem['standardization']>(
+      weights: validateObjectField(item.Weights, 'Weights') as ModelSnapshotItem['weights'],
+      standardization: validateObjectField(
         item.Standardization,
         'Standardization'
-      ),
+      ) as ModelSnapshotItem['standardization'],
       baseline: validateNumberField(item.Baseline, 'Baseline'),
-      neutralBand: toPlainObject<NeutralBandState>(item.NeutralBand, 'NeutralBand'),
-      bandHistory: toArray<BandHistoryEntry>(item.BandHistory, 'BandHistory'),
-      axisStats: toPlainObject<ModelSnapshotItem['axisStats']>(item.AxisStats, 'AxisStats'),
+      neutralBand: validateObjectField(
+        item.NeutralBand,
+        'NeutralBand'
+      ) as unknown as NeutralBandState,
+      bandHistory: validateArrayField<BandHistoryEntry>(item.BandHistory, 'BandHistory'),
+      axisStats: validateObjectField(item.AxisStats, 'AxisStats') as ModelSnapshotItem['axisStats'],
       trainingSize: validateNumberField(item.TrainingSize, 'TrainingSize'),
       distinctTrainingDates: validateNumberField(
         item.DistinctTrainingDates,
@@ -170,20 +174,4 @@ export class ModelSnapshotMapper implements EntityMapper<ModelSnapshotItem, Mode
       createdAt: readTimestamp(item, 'CreatedAt'),
     };
   }
-}
-
-/** ネストしたマップ属性をプレーンオブジェクトとして受け取る（配列・null・非オブジェクトは拒否） */
-function toPlainObject<T>(value: unknown, fieldName: string): T {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    throw new InvalidEntityDataError(`フィールド "${fieldName}" がオブジェクトではありません`);
-  }
-  return value as T;
-}
-
-/** 配列属性を受け取る（非配列は拒否） */
-function toArray<T>(value: unknown, fieldName: string): T[] {
-  if (!Array.isArray(value)) {
-    throw new InvalidEntityDataError(`フィールド "${fieldName}" が配列ではありません`);
-  }
-  return value as T[];
 }

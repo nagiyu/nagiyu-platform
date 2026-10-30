@@ -5,7 +5,6 @@
  */
 
 import {
-  InvalidEntityDataError,
   TTL_ATTRIBUTE_NAME,
   immutablePatchValue,
   optionalPatchValue,
@@ -15,6 +14,7 @@ import {
   requiredPatchValue,
   toTtlSeconds,
   validateEnumField,
+  validateObjectField,
   validateStringField,
   type DynamoDBAttributes,
   type DynamoDBKey,
@@ -24,14 +24,6 @@ import {
 import type { PushSubscription } from '@nagiyu/common';
 import type { BatchJobEntity, BatchJobKey } from '../entities/batch-job.entity.js';
 import type { BatchResult, BatchStatus } from '../types/index.js';
-
-const ERROR_MESSAGES = {
-  RESULT_NOT_OBJECT: 'フィールド "Result" が不正です: オブジェクトである必要があります',
-  PUSH_SUBSCRIPTION_NOT_OBJECT:
-    'フィールド "PushSubscription" が不正です: オブジェクトである必要があります',
-  PUSH_SUBSCRIPTION_KEYS_NOT_OBJECT:
-    'フィールド "PushSubscription.keys" が不正です: オブジェクトである必要があります',
-} as const;
 
 const BATCH_STATUSES = [
   'SUBMITTED',
@@ -43,10 +35,6 @@ const BATCH_STATUSES = [
 
 /** ジョブの保存期間。完了後の結果を Web が照会できる猶予として 7 日残す */
 const BATCH_JOB_TTL_MS = 7 * 24 * 60 * 60 * 1000;
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
 
 /**
  * BatchJob Mapper
@@ -165,10 +153,7 @@ export class BatchJobMapper implements EntityMapper<BatchJobEntity, BatchJobKey>
 
     const result = readAttribute(item, 'Result', legacy.Result);
     if (result !== undefined) {
-      if (!isRecord(result)) {
-        throw new InvalidEntityDataError(ERROR_MESSAGES.RESULT_NOT_OBJECT);
-      }
-      entity.result = result as unknown as BatchResult;
+      entity.result = validateObjectField(result, 'Result') as unknown as BatchResult;
     }
 
     const completedAt = readOptionalTimestamp(item, 'CompletedAt');
@@ -190,18 +175,14 @@ export class BatchJobMapper implements EntityMapper<BatchJobEntity, BatchJobKey>
   }
 
   private toPushSubscription(value: unknown): PushSubscription {
-    if (!isRecord(value)) {
-      throw new InvalidEntityDataError(ERROR_MESSAGES.PUSH_SUBSCRIPTION_NOT_OBJECT);
-    }
-    if (!isRecord(value.keys)) {
-      throw new InvalidEntityDataError(ERROR_MESSAGES.PUSH_SUBSCRIPTION_KEYS_NOT_OBJECT);
-    }
+    const subscription = validateObjectField(value, 'PushSubscription');
+    const keys = validateObjectField(subscription.keys, 'PushSubscription.keys');
 
     return {
-      endpoint: validateStringField(value.endpoint, 'PushSubscription.endpoint'),
+      endpoint: validateStringField(subscription.endpoint, 'PushSubscription.endpoint'),
       keys: {
-        p256dh: validateStringField(value.keys.p256dh, 'PushSubscription.keys.p256dh'),
-        auth: validateStringField(value.keys.auth, 'PushSubscription.keys.auth'),
+        p256dh: validateStringField(keys.p256dh, 'PushSubscription.keys.p256dh'),
+        auth: validateStringField(keys.auth, 'PushSubscription.keys.auth'),
       },
     };
   }

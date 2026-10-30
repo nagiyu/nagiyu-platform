@@ -6,12 +6,13 @@
  * `PerformanceDailyItem` をそのままビジネスオブジェクトとして扱う。
  */
 import {
-  InvalidEntityDataError,
   immutablePatchValue,
   readTimestamp,
   requiredPatchValue,
+  validateArrayField,
   validateEnumField,
   validateNumberField,
+  validateObjectField,
   validateStringField,
   type DynamoDBAttributes,
   type DynamoDBKey,
@@ -153,28 +154,15 @@ export class PerformanceDailyMapper implements EntityMapper<
       date: validateStringField(item.Date, 'Date'),
       evaluatedCount: validateNumberField(item.EvaluatedCount, 'EvaluatedCount'),
       hitCount: validateNumberField(item.HitCount, 'HitCount'),
-      axisStats: toPlainObject<PerformanceDailyItem['axisStats']>(item.AxisStats, 'AxisStats'),
-      probabilityBands: toArray<ProbabilityBandDailyEntry>(
+      axisStats: validateObjectField(
+        item.AxisStats,
+        'AxisStats'
+      ) as PerformanceDailyItem['axisStats'],
+      probabilityBands: validateArrayField<ProbabilityBandDailyEntry>(
         item.ProbabilityBands,
         'ProbabilityBands'
       ),
       createdAt: readTimestamp(item, 'CreatedAt'),
     };
   }
-}
-
-/** ネストしたマップ属性をプレーンオブジェクトとして受け取る（配列・null・非オブジェクトは拒否） */
-function toPlainObject<T>(value: unknown, fieldName: string): T {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    throw new InvalidEntityDataError(`フィールド "${fieldName}" がオブジェクトではありません`);
-  }
-  return value as T;
-}
-
-/** 配列属性を受け取る（非配列は拒否） */
-function toArray<T>(value: unknown, fieldName: string): T[] {
-  if (!Array.isArray(value)) {
-    throw new InvalidEntityDataError(`フィールド "${fieldName}" が配列ではありません`);
-  }
-  return value as T[];
 }
