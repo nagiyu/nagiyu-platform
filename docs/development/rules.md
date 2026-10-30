@@ -494,7 +494,7 @@ throw new Error(ERROR_MESSAGES.EMPTY_INPUT);
 
 - Web API はルート入口のラッパー (`@nagiyu/nextjs` の `createApiErrorReporting`)、Lambda / Batch は `withErrorReporting` が報告する
 - core・リポジトリは報告せず throw する
-- 例外を握りつぶして処理を続ける箇所は、上に届かないためその場で報告する
+- 例外を握りつぶして処理を続ける箇所は、上に届かないためその場で報告する。報告には `@nagiyu/aws` の `createErrorReporter` を使い、context の例外の項目を手書きしない (Admin でどの報告も同じ項目で調べられるようにするため)
 
 ```typescript
 // ❌ NG: 報告して再 throw すると、入口でも報告されて二重になる
