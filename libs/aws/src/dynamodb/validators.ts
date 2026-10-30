@@ -138,6 +138,66 @@ export function validateBooleanField(value: unknown, fieldName: string): boolean
 }
 
 /**
+ * オブジェクトフィールドをバリデーション
+ *
+ * null と配列はオブジェクトとして扱わない。
+ * 中身のプロパティは検証しないため、`T` は呼び出し側の指定をそのまま信じる。必要なら呼び出し側で個別に検証する。
+ *
+ * @param value - 検証する値
+ * @param fieldName - フィールド名（エラーメッセージ用）
+ * @throws InvalidEntityDataError バリデーション失敗時
+ */
+export function validateObjectField<T extends object = Record<string, unknown>>(
+  value: unknown,
+  fieldName: string
+): T {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new InvalidEntityDataError(`フィールド "${fieldName}" がオブジェクトではありません`);
+  }
+
+  return value as T;
+}
+
+/**
+ * 配列フィールドをバリデーション
+ *
+ * `isElement` を渡さない場合は要素を検査せず、`T` は呼び出し側の指定をそのまま信じる。
+ *
+ * @param value - 検証する値
+ * @param fieldName - フィールド名（エラーメッセージ用）
+ * @param options - バリデーションオプション
+ * @param options.isElement - 要素の型ガード。すべての要素が満たす必要がある
+ * @param options.minLength - 最小件数
+ * @throws InvalidEntityDataError バリデーション失敗時
+ */
+export function validateArrayField<T = unknown>(
+  value: unknown,
+  fieldName: string,
+  options: {
+    isElement?: (element: unknown) => element is T;
+    minLength?: number;
+  } = {}
+): T[] {
+  const { isElement, minLength } = options;
+
+  if (!Array.isArray(value)) {
+    throw new InvalidEntityDataError(`フィールド "${fieldName}" が配列ではありません`);
+  }
+
+  if (minLength !== undefined && value.length < minLength) {
+    throw new InvalidEntityDataError(
+      `フィールド "${fieldName}" は${minLength}件以上である必要があります`
+    );
+  }
+
+  if (isElement !== undefined && !value.every((element) => isElement(element))) {
+    throw new InvalidEntityDataError(`フィールド "${fieldName}" の要素が不正です`);
+  }
+
+  return value as T[];
+}
+
+/**
  * タイムスタンプフィールドをバリデーション
  *
  * @param value - 検証する値（数値またはISO形式の文字列）
