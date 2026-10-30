@@ -597,6 +597,14 @@ withErrorReporting(
 
 エラーの `stack` / `message` / `name` は `context` に自動マージされるため、呼び出し側で指定する必要はない。
 
+### 握りつぶした例外の報告 (`createErrorReporter`)
+
+例外を握りつぶして処理を続ける箇所や、Push 系ファクトリの `onError` は、例外が入口のラッパーに届かないため、その場で報告する。このとき `createErrorReporter` で `serviceId` を固定したレポーターを使う。
+
+- **context の例外の項目は手書きしない**: レポーターが errorName・errorMessage・errorStack を必ず入れる。報告箇所ごとに組み立てると項目が欠け、Admin で調べるときに stack や message が見つからなくなるため。呼び出し側は、その箇所に固有の情報だけを context に渡す。
+- **レポーターはサービスで 1 つにする**: web はサービスの `lib/` で作って使い回す。
+- **例外を伴わない報告は対象外**: 結果の失敗など、握った例外がない報告は `reportErrorEvent` を直接使う。
+
 ### 定期実行 Lambda の骨格 (`createScheduledHandler`)
 
 EventBridge から定期実行される Lambda は、`createScheduledHandler` で包む。開始ログ・失敗ログ・エラー報告は骨格が受け持ち、handler は本処理と、統計付きの完了ログだけを書く。
