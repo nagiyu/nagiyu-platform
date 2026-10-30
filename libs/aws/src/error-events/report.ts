@@ -9,6 +9,7 @@
  */
 
 import {
+  buildErrorContext,
   generateEventId,
   logger,
   toErrorMessage,
@@ -120,28 +121,50 @@ function serializeContext(context: Record<string, unknown> | undefined): string 
   }
 }
 
+/** `ErrorReporter.report` の任意指定 */
+export interface ReportOptions {
+  /** 報告に添える補足情報。例外から組み立てる項目より先に展開するため、同名キーは例外側が勝つ */
+  context?: Record<string, unknown>;
+  /** デフォルト: 'error' */
+  severity?: ErrorSeverity;
+  /** デフォルト: 例外のメッセージ */
+  message?: string;
+}
+
 export interface ErrorReporter {
-  report: (
-    input: Omit<ReportErrorEventInput, 'serviceId'> & { serviceId?: string }
-  ) => Promise<ErrorEvent | null>;
+  report: (title: string, error: unknown, options?: ReportOptions) => Promise<ErrorEvent | null>;
+  onError: (title: string) => (error: unknown) => Promise<void>;
 }
 
 /**
- * serviceId を固定したレポーターを生成する。
+ * serviceId を固定した、例外の報告用レポーターを生成する。
  *
- * サービス・バッチごとに `serviceId` を毎回指定する手間を省く。
- * 個別呼び出しで `serviceId` を渡した場合はそちらを優先する。
+ * 例外を握りつぶして処理を続ける箇所や、ルートファクトリの onError から、その場で報告する用途を想定する。
+ * 例外を最後に受け止める層 (ルート入口・Lambda エントリ) は withApiErrorReporting や
+ * createScheduledHandler などの骨格が報告するので、そこで重ねて呼ばない。
+ * context の `errorName` / `errorMessage` / `errorStack` は例外から自動で入る。
  *
  * @example
  * const reporter = createErrorReporter({ serviceId: 'stock-tracker' });
- * await reporter.report({ severity: 'error', title: '...', message: '...' });
+ * await reporter.report('タイトル', error, { context: { market }, severity: 'warning' });
+ * // ルートファクトリに渡す onError
+ * onError: reporter.onError('Push 購読の登録に失敗しました'),
  */
 export function createErrorReporter(defaults: { serviceId: string }): ErrorReporter {
+  const report: ErrorReporter['report'] = (title, error, options = {}) =>
+    // reportErrorEvent は例外を投げないので try/catch は不要
+    reportErrorEvent({
+      serviceId: defaults.serviceId,
+      severity: options.severity ?? 'error',
+      title,
+      message: options.message ?? toErrorMessage(error),
+      context: { ...options.context, ...buildErrorContext(error) },
+    });
+
   return {
-    report: (input) =>
-      reportErrorEvent({
-        ...input,
-        serviceId: input.serviceId ?? defaults.serviceId,
-      }),
+    report,
+    onError: (title) => async (error) => {
+      await report(title, error);
+    },
   };
 }

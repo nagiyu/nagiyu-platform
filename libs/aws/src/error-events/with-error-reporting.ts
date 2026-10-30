@@ -1,4 +1,4 @@
-import { toErrorMessage, type ErrorSeverity } from '@nagiyu/common';
+import { buildErrorContext, toErrorMessage, type ErrorSeverity } from '@nagiyu/common';
 import { reportErrorEvent } from './report.js';
 
 export interface WithErrorReportingOptions {
@@ -34,9 +34,7 @@ export async function withErrorReporting<T>(
     } catch (error) {
       const errorContext: Record<string, unknown> = {
         ...opts.context,
-        errorName: error instanceof Error ? error.name : typeof error,
-        errorMessage: toErrorMessage(error),
-        errorStack: error instanceof Error ? error.stack : undefined,
+        ...buildErrorContext(error),
       };
 
       await reportErrorEvent({
