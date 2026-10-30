@@ -226,9 +226,7 @@ export class AlertMapper implements EntityMapper<AlertEntity, AlertKey> {
       conditionList: validateArrayField<AlertEntity['conditionList'][number]>(
         item.ConditionList,
         'ConditionList',
-        {
-          minLength: 1,
-        }
+        { minLength: 1 }
       ),
       subscription: this.validateSubscription(item),
       createdAt: readTimestamp(item, 'CreatedAt'),
