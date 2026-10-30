@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { withAuth } from '@nagiyu/nextjs';
 import type { TopicBundle } from '@nagiyu/livetalk-core';
 import { getSession } from '@/lib/server/session';
-import { reportSwallowedError, withApiErrorReporting } from '@/lib/server/api-error-reporting';
+import { errorReporter, withApiErrorReporting } from '@/lib/server/api-error-reporting';
 import { getNoteRepository, getTopicRepository } from '@/lib/server/repositories';
 import { decodeNoteId } from '@/lib/notes/note-id';
 import { toNoteDetail } from '@/lib/notes/serializer';
@@ -55,8 +55,8 @@ export const GET = withApiErrorReporting(
           '[GET /api/notes/:id] 参照先 Topic の取得に失敗しました（headline のみ返します）',
           error
         );
-        await reportSwallowedError('Web API: ノート参照先トピック取得エラー', error, {
-          characterId: key.characterId,
+        await errorReporter.report('Web API: ノート参照先トピック取得エラー', error, {
+          context: { characterId: key.characterId },
         });
       }
 

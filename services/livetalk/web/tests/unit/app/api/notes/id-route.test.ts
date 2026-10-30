@@ -5,6 +5,7 @@ import { GET } from '@/app/api/notes/[id]/route';
 import { getSession } from '@/lib/server/session';
 import { getNoteRepository, getTopicRepository } from '@/lib/server/repositories';
 import { reportErrorEvent } from '@nagiyu/aws';
+import { errorReporter } from '@/lib/server/api-error-reporting';
 import type {
   NoteEntity,
   NoteRepository,
@@ -19,7 +20,18 @@ jest.mock('@/lib/server/repositories', () => ({
   getNoteRepository: jest.fn(),
   getTopicRepository: jest.fn(),
 }));
-jest.mock('@nagiyu/aws', () => ({ reportErrorEvent: jest.fn().mockResolvedValue(null) }));
+jest.mock('@nagiyu/aws', () => ({
+  reportErrorEvent: jest.fn().mockResolvedValue(null),
+  createErrorReporter: jest.fn(() => ({ report: jest.fn(), onError: jest.fn(() => jest.fn()) })),
+}));
+
+jest.mock('@/lib/server/api-error-reporting', () => ({
+  ...jest.requireActual('@/lib/server/api-error-reporting'),
+  errorReporter: {
+    report: jest.fn().mockResolvedValue(null),
+    onError: jest.fn(() => jest.fn()),
+  },
+}));
 
 const mockReportErrorEvent = reportErrorEvent as jest.MockedFunction<typeof reportErrorEvent>;
 
@@ -158,12 +170,11 @@ describe('GET /api/notes/:id', () => {
     expect(json.note.headline).toBe(entity.headline);
     expect(json.note.webFacts).toBeUndefined();
     expect(json.note.sources).toBeUndefined();
-    expect(mockReportErrorEvent).toHaveBeenCalledTimes(1);
-    expect(mockReportErrorEvent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        title: 'Web API: ノート参照先トピック取得エラー',
-        message: 'topic fetch failed',
-      })
+    expect(errorReporter.report).toHaveBeenCalledTimes(1);
+    expect(errorReporter.report).toHaveBeenCalledWith(
+      'Web API: ノート参照先トピック取得エラー',
+      expect.objectContaining({ message: 'topic fetch failed' }),
+      { context: { characterId: expect.any(String) } }
     );
     spy.mockRestore();
   });

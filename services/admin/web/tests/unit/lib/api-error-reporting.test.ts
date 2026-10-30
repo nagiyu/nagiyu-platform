@@ -4,13 +4,17 @@
 
 import { NextResponse } from 'next/server';
 import {
-  createRouteErrorReporter,
-  withApiErrorReporting,
-} from '../../../src/lib/api-error-reporting';
+  createErrorEventWriter,
+  resetErrorEventWriter,
+  type InMemoryErrorEventWriter,
+} from '@nagiyu/aws';
+import type { ErrorEvent } from '@nagiyu/common';
+import { errorReporter, withApiErrorReporting } from '../../../src/lib/api-error-reporting';
 
 const mockReportErrorEvent = jest.fn();
 
 jest.mock('@nagiyu/aws', () => ({
+  ...jest.requireActual('@nagiyu/aws'),
   reportErrorEvent: (...args: unknown[]) => mockReportErrorEvent(...args),
 }));
 
@@ -97,34 +101,41 @@ describe('withApiErrorReporting', () => {
   });
 });
 
-describe('createRouteErrorReporter', () => {
+describe('errorReporter', () => {
+  const TABLE_NAME = 'test-error-events';
+
   beforeEach(() => {
-    jest.clearAllMocks();
-    mockReportErrorEvent.mockResolvedValue(null);
-    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    process.env.USE_IN_MEMORY_DB = 'true';
+    process.env.ERROR_EVENTS_TABLE_NAME = TABLE_NAME;
+    resetErrorEventWriter();
   });
 
   afterEach(() => {
-    jest.restoreAllMocks();
+    delete process.env.USE_IN_MEMORY_DB;
+    delete process.env.ERROR_EVENTS_TABLE_NAME;
+    resetErrorEventWriter();
   });
 
-  it('serviceId admin と title を詰めて報告する', async () => {
-    await createRouteErrorReporter('Web API: テストエラー')(new Error('鍵なし'));
+  function getRecords(): readonly ErrorEvent[] {
+    return (createErrorEventWriter() as InMemoryErrorEventWriter).getRecords();
+  }
 
-    expect(mockReportErrorEvent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        serviceId: 'admin',
-        severity: 'error',
-        title: 'Web API: テストエラー',
-        message: '鍵なし',
-      })
-    );
-  });
+  it('serviceId admin と title を詰め、context に例外の情報を載せて報告する', async () => {
+    const error = new TypeError('鍵なし');
 
-  it('報告に失敗しても例外を投げない', async () => {
-    mockReportErrorEvent.mockRejectedValueOnce(new Error('送信失敗'));
+    await errorReporter.onError('Web API: テストエラー')(error);
 
-    await expect(createRouteErrorReporter('t')(new Error('x'))).resolves.toBeUndefined();
-    expect(console.error).toHaveBeenCalled();
+    const [event] = getRecords();
+    expect(event).toMatchObject({
+      serviceId: 'admin',
+      severity: 'error',
+      title: 'Web API: テストエラー',
+      message: '鍵なし',
+    });
+    expect(JSON.parse(event.context)).toEqual({
+      errorName: 'TypeError',
+      errorMessage: '鍵なし',
+      errorStack: error.stack,
+    });
   });
 });

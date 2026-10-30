@@ -1,9 +1,14 @@
 import { NextResponse } from 'next/server';
-import { reportErrorEvent } from '@nagiyu/aws';
+import {
+  createErrorEventWriter,
+  reportErrorEvent,
+  resetErrorEventWriter,
+  type InMemoryErrorEventWriter,
+} from '@nagiyu/aws';
+import type { ErrorEvent } from '@nagiyu/common';
 import {
   createInternalErrorReporting,
-  createRouteErrorReporter,
-  reportSwallowedError,
+  errorReporter,
   withApiErrorReporting,
 } from '../../../lib/api-error-reporting';
 
@@ -165,50 +170,55 @@ describe('api-error-reporting', () => {
     });
   });
 
-  describe('reportSwallowedError', () => {
-    it('Error はスタックと名前を載せ、追加の context を含めて報告する', async () => {
+  describe('errorReporter', () => {
+    const TABLE_NAME = 'test-error-events';
+
+    beforeEach(() => {
+      process.env.USE_IN_MEMORY_DB = 'true';
+      process.env.ERROR_EVENTS_TABLE_NAME = TABLE_NAME;
+      resetErrorEventWriter();
+    });
+
+    afterEach(() => {
+      delete process.env.USE_IN_MEMORY_DB;
+      delete process.env.ERROR_EVENTS_TABLE_NAME;
+      resetErrorEventWriter();
+    });
+
+    function getRecords(): readonly ErrorEvent[] {
+      return (createErrorEventWriter() as InMemoryErrorEventWriter).getRecords();
+    }
+
+    it('stock-tracker として報告し、context に例外の情報と追加の context を載せる', async () => {
       const error = new TypeError('bad value');
 
-      await reportSwallowedError('Web API: テスト', error, { tickerId: 'NSDQ:AAPL' });
+      await errorReporter.report('Web API: テスト', error, { context: { tickerId: 'NSDQ:AAPL' } });
 
-      expect(mockedReportErrorEvent).toHaveBeenCalledWith({
+      const [event] = getRecords();
+      expect(event).toMatchObject({
         serviceId: 'stock-tracker',
         severity: 'error',
         title: 'Web API: テスト',
         message: 'bad value',
-        context: {
-          tickerId: 'NSDQ:AAPL',
-          errorName: 'TypeError',
-          errorStack: error.stack,
-        },
+      });
+      expect(JSON.parse(event.context)).toEqual({
+        tickerId: 'NSDQ:AAPL',
+        errorName: 'TypeError',
+        errorMessage: 'bad value',
+        errorStack: error.stack,
       });
     });
 
-    it('Error 以外の値は型名を載せ、スタックは載せない', async () => {
-      await reportSwallowedError('Web API: テスト', 'plain failure');
+    it('onError は渡したタイトルで報告する', async () => {
+      await errorReporter.onError('Web API: テスト')(new Error('route failed'));
 
-      expect(mockedReportErrorEvent).toHaveBeenCalledWith(
-        expect.objectContaining({
-          message: 'plain failure',
-          context: { errorName: 'string', errorStack: undefined },
-        })
-      );
-    });
-  });
-
-  describe('createRouteErrorReporter', () => {
-    it('渡したタイトルで報告する', async () => {
-      const reporter = createRouteErrorReporter('Web API: テスト');
-
-      await reporter(new Error('route failed'));
-
-      expect(mockedReportErrorEvent).toHaveBeenCalledWith(
+      expect(getRecords()).toEqual([
         expect.objectContaining({
           serviceId: 'stock-tracker',
           title: 'Web API: テスト',
           message: 'route failed',
-        })
-      );
+        }),
+      ]);
     });
   });
 });

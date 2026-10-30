@@ -16,7 +16,7 @@ import { logger, toErrorMessage } from '@nagiyu/common';
 import { sendWebPushNotifications, getVapidConfig } from '@nagiyu/common/push';
 import { defaultUlidFactory, NOTIFICATION_EVENT_TTL_SECONDS } from '@nagiyu/livetalk-core';
 import { getSession } from '@/lib/server/session';
-import { reportSwallowedError, withApiErrorReporting } from '@/lib/server/api-error-reporting';
+import { errorReporter, withApiErrorReporting } from '@/lib/server/api-error-reporting';
 import {
   getPushSubscriptionRepository,
   getNotificationEventRepository,
@@ -114,12 +114,10 @@ export const POST = withApiErrorReporting(
           subscriptionId: sub.subscriptionId,
           error: toErrorMessage(error),
         });
-        await reportSwallowedError(
-          'Web API: 無効なサブスクリプションの削除エラー',
-          error,
-          { characterId, subscriptionId: sub.subscriptionId },
-          'warning'
-        );
+        await errorReporter.report('Web API: 無効なサブスクリプションの削除エラー', error, {
+          context: { characterId, subscriptionId: sub.subscriptionId },
+          severity: 'warning',
+        });
       }
     }
 
