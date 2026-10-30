@@ -4,6 +4,8 @@ import {
   validateEnumField,
   validateBooleanField,
   validateTimestampField,
+  validateObjectField,
+  validateArrayField,
 } from '../../../src/dynamodb/validators.js';
 import { InvalidEntityDataError } from '../../../src/dynamodb/errors.js';
 
@@ -230,6 +232,93 @@ describe('validators', () => {
       const expectedTimestamp = Date.parse(isoString);
       const result = validateTimestampField(isoString, 'timestamp', { allowFuture: false });
       expect(result).toBe(expectedTimestamp);
+    });
+  });
+
+  describe('validateObjectField', () => {
+    it('should accept an empty object', () => {
+      const value = {};
+      expect(validateObjectField(value, 'field')).toBe(value);
+    });
+
+    it('should accept a nested object', () => {
+      const value = { a: { b: [1, 2] }, c: 'x' };
+      expect(validateObjectField(value, 'field')).toBe(value);
+    });
+
+    it.each([
+      ['null', null],
+      ['undefined', undefined],
+      ['array', [1, 2]],
+      ['string', 'text'],
+      ['number', 123],
+    ])('should throw error for %s', (_label, value) => {
+      expect(() => validateObjectField(value, 'field')).toThrow(InvalidEntityDataError);
+      expect(() => validateObjectField(value, 'field')).toThrow(
+        'フィールド "field" がオブジェクトではありません'
+      );
+    });
+  });
+
+  describe('validateArrayField', () => {
+    const isString = (element: unknown): element is string => typeof element === 'string';
+
+    it('should accept an empty array', () => {
+      const value: unknown[] = [];
+      expect(validateArrayField(value, 'field')).toBe(value);
+    });
+
+    it('should not inspect elements without isElement', () => {
+      const value = [1, 'a', null];
+      expect(validateArrayField<number>(value, 'field')).toBe(value);
+    });
+
+    it('should accept an array whose elements all satisfy isElement', () => {
+      const value = ['a', 'b'];
+      const result: string[] = validateArrayField(value, 'field', { isElement: isString });
+      expect(result).toBe(value);
+    });
+
+    it('should accept an array with exactly minLength elements', () => {
+      const value = ['a', 'b'];
+      expect(validateArrayField(value, 'field', { minLength: 2 })).toBe(value);
+    });
+
+    it.each([
+      ['null', null],
+      ['undefined', undefined],
+      ['object', { length: 1 }],
+      ['string', 'abc'],
+      ['number', 1],
+    ])('should throw error for non-array %s', (_label, value) => {
+      expect(() => validateArrayField(value, 'field')).toThrow(InvalidEntityDataError);
+      expect(() => validateArrayField(value, 'field')).toThrow(
+        'フィールド "field" が配列ではありません'
+      );
+    });
+
+    it('should throw error when shorter than minLength', () => {
+      expect(() => validateArrayField(['a'], 'field', { minLength: 2 })).toThrow(
+        InvalidEntityDataError
+      );
+      expect(() => validateArrayField(['a'], 'field', { minLength: 2 })).toThrow(
+        'フィールド "field" は2件以上である必要があります'
+      );
+    });
+
+    it('should throw error when any element does not satisfy isElement', () => {
+      expect(() => validateArrayField(['a', 1], 'field', { isElement: isString })).toThrow(
+        InvalidEntityDataError
+      );
+      expect(() => validateArrayField(['a', 1], 'field', { isElement: isString })).toThrow(
+        'フィールド "field" の要素が不正です'
+      );
+    });
+
+    it('should check minLength before elements', () => {
+      expect(() => validateArrayField([1], 'field', { minLength: 2, isElement: isString })).toThrow(
+        'フィールド "field" は2件以上である必要があります'
+      );
     });
   });
 });

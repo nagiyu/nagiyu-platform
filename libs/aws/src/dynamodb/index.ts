@@ -27,6 +27,8 @@ export {
   validateNumberField,
   validateEnumField,
   validateBooleanField,
+  validateObjectField,
+  validateArrayField,
   validateTimestampField,
   readAttribute,
   readTimestamp,
