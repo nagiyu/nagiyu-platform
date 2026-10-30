@@ -82,7 +82,7 @@ describe('createApiErrorReporting', () => {
     await wrapped();
     const input = report.mock.calls[0][0];
     expect(input.context.errorName).toBe('string');
-    expect(input.context.errorStack).toBeUndefined();
+    expect(input.context).not.toHaveProperty('errorStack');
   });
 
   it('url が不正な Request でも method だけで報告する', async () => {

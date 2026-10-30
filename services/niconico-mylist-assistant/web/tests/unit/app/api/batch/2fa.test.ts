@@ -23,6 +23,7 @@ jest.mock('@nagiyu/niconico-mylist-assistant-core', () => ({
 // モック: @nagiyu/aws (エラー報告)
 jest.mock('@nagiyu/aws', () => ({
   reportErrorEvent: jest.fn(),
+  createErrorReporter: jest.fn(() => ({ report: jest.fn(), onError: jest.fn(() => jest.fn()) })),
 }));
 
 import { NextRequest } from 'next/server';

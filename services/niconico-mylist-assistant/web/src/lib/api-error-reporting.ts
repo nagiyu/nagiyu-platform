@@ -1,9 +1,14 @@
 import { NextResponse } from 'next/server';
-import { reportErrorEvent } from '@nagiyu/aws';
-import { toErrorMessage } from '@nagiyu/common';
+import { createErrorReporter, reportErrorEvent } from '@nagiyu/aws';
 import { createApiErrorReporting } from '@nagiyu/nextjs';
 
 const SERVICE_ID = 'niconico-mylist-assistant';
+
+/**
+ * 例外を握って処理を続ける箇所と、Push 系ルートのファクトリが 500 を返す直前に、その場で報告する。
+ * ファクトリは例外を自前で 500 にするため、ラッパーには届かない。
+ */
+export const errorReporter = createErrorReporter({ serviceId: SERVICE_ID });
 
 /**
  * 想定外エラーを handleApiError の形式で返すルート用のラッパー
@@ -36,26 +41,4 @@ export function createWithApiErrorReportingBody(
       return NextResponse.json(body, { status: 500 });
     },
   });
-}
-
-/**
- * Push 系ルートのファクトリに渡す onError を作る
- *
- * ファクトリは例外を自前で 500 にするため、ラッパーには届かない。ここで報告する。
- *
- * @param title 報告のタイトル
- */
-export function createPushRouteOnError(title: string) {
-  return async (error: unknown): Promise<void> => {
-    await reportErrorEvent({
-      serviceId: SERVICE_ID,
-      severity: 'error',
-      title,
-      message: toErrorMessage(error),
-      context: {
-        errorName: error instanceof Error ? error.name : typeof error,
-        errorStack: error instanceof Error ? error.stack : undefined,
-      },
-    });
-  };
 }

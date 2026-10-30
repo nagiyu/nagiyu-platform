@@ -1,13 +1,27 @@
 import { NextRequest } from 'next/server';
-import * as awsModule from '@nagiyu/aws';
 import { GET } from '../../../../app/api/push/vapid-public-key/route';
 import { POST } from '../../../../app/api/push/subscribe/route';
 import { getSession } from '../../../../lib/auth';
+import { errorReporter } from '../../../../lib/api-error-reporting';
 
-jest.mock('@nagiyu/aws', () => ({
-  ...jest.requireActual('@nagiyu/aws'),
-  reportErrorEvent: jest.fn().mockResolvedValue(null),
+jest.mock('../../../../lib/api-error-reporting', () => ({
+  errorReporter: {
+    report: jest.fn(),
+    onError: jest.fn(() => jest.fn()),
+  },
 }));
+
+/**
+ * ルート読み込み時に onError へ渡された報告関数を、タイトルで引けるように控える。
+ * beforeEach のモックのリセットで呼び出し履歴が消えるため、ここで取り出しておく。
+ */
+const onErrorMock = errorReporter.onError as jest.Mock;
+const handlerByTitle = new Map<string, jest.Mock>(
+  onErrorMock.mock.calls.map(([title]: [string], index: number) => [
+    title,
+    onErrorMock.mock.results[index].value as jest.Mock,
+  ])
+);
 
 jest.mock('../../../../lib/auth', () => ({
   getSession: jest.fn(),
@@ -32,12 +46,7 @@ describe('Push 系ルートの 500 報告', () => {
     const response = await GET();
 
     expect(response.status).toBe(500);
-    expect(awsModule.reportErrorEvent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        serviceId: 'stock-tracker',
-        title: 'Web API: VAPID 公開鍵取得エラー',
-      })
-    );
+    expect(handlerByTitle.get('Web API: VAPID 公開鍵取得エラー')).toHaveBeenCalledTimes(1);
   });
 
   it('VAPID 鍵が未設定の購読登録は 500 を返し、報告する', async () => {
@@ -58,11 +67,6 @@ describe('Push 系ルートの 500 報告', () => {
     const response = await POST(request);
 
     expect(response.status).toBe(500);
-    expect(awsModule.reportErrorEvent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        serviceId: 'stock-tracker',
-        title: 'Web API: Push 購読登録エラー',
-      })
-    );
+    expect(handlerByTitle.get('Web API: Push 購読登録エラー')).toHaveBeenCalledTimes(1);
   });
 });

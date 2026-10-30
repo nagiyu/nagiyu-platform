@@ -5,7 +5,7 @@
  * libs/nextjs は @nagiyu/aws に依存しないので、報告関数は呼び出し側から注入する。
  */
 
-import { toErrorMessage, type ErrorSeverity } from '@nagiyu/common';
+import { buildErrorContext, toErrorMessage, type ErrorSeverity } from '@nagiyu/common';
 import { handleApiError } from './error.js';
 
 /**
@@ -92,9 +92,7 @@ async function reportSafely(
       message: toErrorMessage(error),
       context: {
         ...buildRequestContext(firstArg),
-        errorName: error instanceof Error ? error.name : typeof error,
-        errorMessage: toErrorMessage(error),
-        errorStack: error instanceof Error ? error.stack : undefined,
+        ...buildErrorContext(error),
       },
     });
   } catch (reportError) {

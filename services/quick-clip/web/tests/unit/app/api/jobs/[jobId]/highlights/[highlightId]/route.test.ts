@@ -3,6 +3,7 @@
  */
 
 import { reportErrorEvent } from '@nagiyu/aws';
+import { errorReporter } from '@/lib/api-error-reporting';
 import { PATCH } from '@/app/api/jobs/[jobId]/highlights/[highlightId]/route';
 import type { HighlightRepository } from '@nagiyu/quick-clip-core';
 import {
@@ -40,6 +41,14 @@ jest.mock('next/server', () => ({
 jest.mock('@nagiyu/aws', () => ({
   ...jest.requireActual('@nagiyu/aws'),
   reportErrorEvent: jest.fn().mockResolvedValue(null),
+}));
+
+jest.mock('@/lib/api-error-reporting', () => ({
+  ...jest.requireActual('@/lib/api-error-reporting'),
+  errorReporter: {
+    report: jest.fn().mockResolvedValue(null),
+    onError: jest.fn(() => jest.fn()),
+  },
 }));
 
 jest.mock('@/lib/server/aws', () => ({
@@ -309,7 +318,8 @@ describe('PATCH /api/jobs/[jobId]/highlights/[highlightId]', () => {
     mockUpdate
       .mockResolvedValueOnce({ ...base, startSec: 11, endSec: 21, clipStatus: 'GENERATING' })
       .mockResolvedValueOnce({ ...base, startSec: 11, endSec: 21, clipStatus: 'FAILED' });
-    mockLambdaSend.mockRejectedValueOnce(new Error('invoke failed'));
+    const invokeError = new Error('invoke failed');
+    mockLambdaSend.mockRejectedValueOnce(invokeError);
 
     const request = createRequest({ startSec: 11, endSec: 21 });
 
@@ -326,12 +336,10 @@ describe('PATCH /api/jobs/[jobId]/highlights/[highlightId]', () => {
       '[PATCH /api/jobs/[jobId]/highlights/[highlightId]] クリップ再生成の起動に失敗しました',
       expect.objectContaining({ jobId: 'job-1', highlightId: 'h1', error: expect.any(Error) })
     );
-    expect(reportErrorEvent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        serviceId: 'quick-clip',
-        severity: 'error',
-        title: 'Web API: クリップ再生成起動エラー',
-      })
+    expect(errorReporter.report).toHaveBeenCalledWith(
+      'Web API: クリップ再生成起動エラー',
+      invokeError,
+      { context: { jobId: 'job-1', highlightId: 'h1' } }
     );
   });
 

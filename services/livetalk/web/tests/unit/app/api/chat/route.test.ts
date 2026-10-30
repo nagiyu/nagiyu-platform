@@ -7,12 +7,20 @@ import { getSession } from '@/lib/server/session';
 import { getLLMClient } from '@/lib/server/llm';
 import { getVoiceClient } from '@/lib/server/voice';
 import { getMessageRepository, getChatGuardRepository } from '@/lib/server/repositories';
-import { DatabaseError, reportErrorEvent } from '@nagiyu/aws';
+import { DatabaseError } from '@nagiyu/aws';
+import { errorReporter } from '@/lib/server/api-error-reporting';
 
 jest.mock('@/lib/server/session', () => ({ getSession: jest.fn() }));
 jest.mock('@nagiyu/aws', () => ({
   ...jest.requireActual('@nagiyu/aws'),
   reportErrorEvent: jest.fn().mockResolvedValue(null),
+}));
+jest.mock('@/lib/server/api-error-reporting', () => ({
+  ...jest.requireActual('@/lib/server/api-error-reporting'),
+  errorReporter: {
+    report: jest.fn().mockResolvedValue(null),
+    onError: jest.fn(() => jest.fn()),
+  },
 }));
 jest.mock('@/lib/server/llm', () => ({ getLLMClient: jest.fn() }));
 jest.mock('@/lib/server/voice', () => ({ getVoiceClient: jest.fn() }));
@@ -210,12 +218,9 @@ describe('POST /api/chat', () => {
       expect(res.status).toBe(200);
       const events = await readNDJSONStream(res);
       expect(events[0]).toMatchObject({ type: 'error' });
-      expect(reportErrorEvent).toHaveBeenCalledWith(
-        expect.objectContaining({
-          serviceId: 'livetalk',
-          title: 'Web API: チャットのストリーミングエラー',
-          message: 'usecase error',
-        })
+      expect(errorReporter.report).toHaveBeenCalledWith(
+        'Web API: チャットのストリーミングエラー',
+        expect.objectContaining({ message: 'usecase error' })
       );
     });
 
@@ -410,8 +415,9 @@ describe('POST /api/chat', () => {
       // フェイルオープン: 障害でもリクエストを通す
       expect(res.status).toBe(200);
       expect(mockRunChatUseCase).toHaveBeenCalled();
-      expect(reportErrorEvent).toHaveBeenCalledWith(
-        expect.objectContaining({ title: 'Web API: チャットのロック取得エラー (バイパス)' })
+      expect(errorReporter.report).toHaveBeenCalledWith(
+        'Web API: チャットのロック取得エラー (バイパス)',
+        expect.any(DatabaseError)
       );
     });
 
@@ -438,10 +444,9 @@ describe('POST /api/chat', () => {
       // フェイルオープン: 障害でもリクエストを通す
       expect(res.status).toBe(200);
       expect(mockRunChatUseCase).toHaveBeenCalled();
-      expect(reportErrorEvent).toHaveBeenCalledWith(
-        expect.objectContaining({
-          title: 'Web API: チャットのレートリミット確認エラー (バイパス)',
-        })
+      expect(errorReporter.report).toHaveBeenCalledWith(
+        'Web API: チャットのレートリミット確認エラー (バイパス)',
+        expect.any(DatabaseError)
       );
     });
 

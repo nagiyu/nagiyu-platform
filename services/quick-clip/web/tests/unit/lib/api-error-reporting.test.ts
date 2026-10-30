@@ -2,10 +2,17 @@
  * @jest-environment node
  */
 
-import { reportErrorEvent } from '@nagiyu/aws';
-import { SERVICE_ID, withApiErrorReporting } from '@/lib/api-error-reporting';
+import {
+  createErrorEventWriter,
+  reportErrorEvent,
+  resetErrorEventWriter,
+  type InMemoryErrorEventWriter,
+} from '@nagiyu/aws';
+import type { ErrorEvent } from '@nagiyu/common';
+import { errorReporter, withApiErrorReporting } from '@/lib/api-error-reporting';
 
 jest.mock('@nagiyu/aws', () => ({
+  ...jest.requireActual('@nagiyu/aws'),
   reportErrorEvent: jest.fn().mockResolvedValue(null),
 }));
 
@@ -20,10 +27,6 @@ describe('withApiErrorReporting', () => {
 
   afterEach(() => {
     consoleErrorSpy.mockRestore();
-  });
-
-  it('serviceId は quick-clip', () => {
-    expect(SERVICE_ID).toBe('quick-clip');
   });
 
   it('正常に返したレスポンスはそのまま返し、報告しない', async () => {
@@ -87,5 +90,56 @@ describe('withApiErrorReporting', () => {
     const response = await handler('x', 1);
 
     expect(await response.text()).toBe('x-1');
+  });
+});
+
+describe('errorReporter', () => {
+  const TABLE_NAME = 'test-error-events';
+
+  beforeEach(() => {
+    process.env.USE_IN_MEMORY_DB = 'true';
+    process.env.ERROR_EVENTS_TABLE_NAME = TABLE_NAME;
+    resetErrorEventWriter();
+  });
+
+  afterEach(() => {
+    delete process.env.USE_IN_MEMORY_DB;
+    delete process.env.ERROR_EVENTS_TABLE_NAME;
+    resetErrorEventWriter();
+  });
+
+  function getRecords(): readonly ErrorEvent[] {
+    return (createErrorEventWriter() as InMemoryErrorEventWriter).getRecords();
+  }
+
+  it('quick-clip として報告し、context に例外の情報と追加の context を載せる', async () => {
+    const error = new TypeError('bad value');
+
+    await errorReporter.report('Web API: テスト', error, { context: { step: 'sample' } });
+
+    const [event] = getRecords();
+    expect(event).toMatchObject({
+      serviceId: 'quick-clip',
+      severity: 'error',
+      title: 'Web API: テスト',
+      message: 'bad value',
+    });
+    expect(JSON.parse(event.context)).toEqual({
+      step: 'sample',
+      errorName: 'TypeError',
+      errorMessage: 'bad value',
+      errorStack: error.stack,
+    });
+  });
+
+  it('message と severity を上書きできる', async () => {
+    await errorReporter.report('Web API: テスト', new Error('raw'), {
+      message: '固定の文言',
+      severity: 'warning',
+    });
+
+    expect(getRecords()).toEqual([
+      expect.objectContaining({ severity: 'warning', message: '固定の文言' }),
+    ]);
   });
 });

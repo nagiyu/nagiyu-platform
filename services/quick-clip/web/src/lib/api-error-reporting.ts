@@ -1,9 +1,15 @@
-import { reportErrorEvent } from '@nagiyu/aws';
+import { createErrorReporter, reportErrorEvent } from '@nagiyu/aws';
 import { createApiErrorReporting } from '@nagiyu/nextjs';
 import { NextResponse } from 'next/server';
 
 /** Admin へ報告するときのサービス識別子。バッチ側の報告と同じ値に揃える */
-export const SERVICE_ID = 'quick-clip';
+const SERVICE_ID = 'quick-clip';
+
+/**
+ * 例外を握って処理を続ける箇所から、その場で報告する。
+ * 上に例外が届かないため、ルート入口のラッパーでは拾えない。
+ */
+export const errorReporter = createErrorReporter({ serviceId: SERVICE_ID });
 
 /**
  * ルートハンドラを包み、想定外の例外を 500 に変換して Admin へ報告する。

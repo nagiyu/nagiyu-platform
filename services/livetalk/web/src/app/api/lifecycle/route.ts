@@ -7,7 +7,7 @@ import {
   resolveLifecycleState,
 } from '@nagiyu/livetalk-core';
 import { getSession } from '@/lib/server/session';
-import { reportSwallowedError, withApiErrorReporting } from '@/lib/server/api-error-reporting';
+import { errorReporter, withApiErrorReporting } from '@/lib/server/api-error-reporting';
 import { getLifecycleRepository } from '@/lib/server/repositories';
 import { hasCharacter } from '@/lib/characters/registry';
 
@@ -50,7 +50,9 @@ export const GET = withApiErrorReporting(
     } catch (error) {
       // fail-safe: 演出のための情報なので UI を止めず awake を返す
       console.error('[GET /api/lifecycle] 生活サイクル状態の取得に失敗しました', error);
-      await reportSwallowedError('Web API: 生活サイクル状態取得エラー', error, { characterId });
+      await errorReporter.report('Web API: 生活サイクル状態取得エラー', error, {
+        context: { characterId },
+      });
       return NextResponse.json({ state: 'awake' });
     }
   })

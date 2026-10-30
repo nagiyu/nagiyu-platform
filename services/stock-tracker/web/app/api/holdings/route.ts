@@ -14,7 +14,7 @@ import { validateHolding } from '@nagiyu/stock-tracker-core';
 import { withAuth, parsePagination, readJsonObjectBody } from '@nagiyu/nextjs';
 import { createHoldingRepository, createTickerRepository } from '../../../lib/repository-factory';
 import { getSession } from '../../../lib/auth';
-import { withApiErrorReporting, reportSwallowedError } from '../../../lib/api-error-reporting';
+import { withApiErrorReporting, errorReporter } from '../../../lib/api-error-reporting';
 import { isOptionalString } from '../../../lib/request-guards';
 import type { HoldingEntity } from '@nagiyu/stock-tracker-core';
 
@@ -111,8 +111,8 @@ export const GET = withApiErrorReporting(
         ticker = await tickerRepo.getById(holding.tickerId);
       } catch (error) {
         // 銘柄名は付加情報のため、取得に失敗しても一覧は返す。握りつぶすので上位のラッパーでは拾えない
-        await reportSwallowedError(REPORT_TITLES.TICKER_LOOKUP, error, {
-          tickerId: holding.tickerId,
+        await errorReporter.report(REPORT_TITLES.TICKER_LOOKUP, error, {
+          context: { tickerId: holding.tickerId },
         });
         ticker = null;
       }
