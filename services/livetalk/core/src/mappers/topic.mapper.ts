@@ -1,9 +1,9 @@
 import {
-  InvalidEntityDataError,
   immutablePatchValue,
   optionalPatchValue,
   readTimestamp,
   requiredPatchValue,
+  validateArrayField,
   validateNumberField,
   validateStringField,
   type DynamoDBAttributes,
@@ -13,21 +13,6 @@ import {
 } from '@nagiyu/aws';
 import type { TopicEntity, TopicKey } from '../entities/topic.entity.js';
 import { buildTopicGSI3PK, buildTopicMetaSK, buildUserPK } from './keys.js';
-
-const ERROR_MESSAGES = {
-  INVALID_NUMBER_ARRAY: 'フィールドが数値配列ではありません',
-} as const;
-
-/**
- * 数値配列フィールドをバリデーションする（embedding 用の最小限チェック）。
- * `@nagiyu/aws` には数値配列専用のバリデータが無いため、ここで自前実装する。
- */
-function validateNumberArrayField(value: unknown, fieldName: string): number[] {
-  if (!Array.isArray(value) || !value.every((v) => typeof v === 'number')) {
-    throw new InvalidEntityDataError(`${ERROR_MESSAGES.INVALID_NUMBER_ARRAY}: ${fieldName}`);
-  }
-  return value as number[];
-}
 
 /**
  * `TopicEntity ↔ DynamoDB Item` の変換と PK/SK 組み立てを担当する Mapper。
@@ -116,7 +101,9 @@ export class TopicMapper implements EntityMapper<TopicEntity, TopicKey> {
       }),
       category: validateStringField(item.Category, 'Category'),
       care,
-      embedding: validateNumberArrayField(item.Embedding, 'Embedding'),
+      embedding: validateArrayField(item.Embedding, 'Embedding', {
+        isElement: (v): v is number => typeof v === 'number',
+      }),
       createdAt: readTimestamp(item, 'CreatedAt'),
       updatedAt: readTimestamp(item, 'UpdatedAt'),
       // GSI3 の Query 結果には投影されないため、ベーステーブル読みのときのみ present

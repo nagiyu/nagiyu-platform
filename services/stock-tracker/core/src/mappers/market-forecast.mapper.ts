@@ -5,12 +5,12 @@
  * (`MarketSample`) へ直接変換する `toSample` を持つ (銘柄×日の Forecast の市場版)。
  */
 import {
-  InvalidEntityDataError,
   immutablePatchValue,
   optionalPatchValue,
   readTimestamp,
   requiredPatchValue,
   validateEnumField,
+  validateObjectField,
   validateStringField,
   type DynamoDBAttributes,
   type DynamoDBKey,
@@ -146,8 +146,11 @@ export class MarketForecastMapper implements EntityMapper<MarketForecastEntity, 
     const entity: MarketForecastEntity = {
       market: validateStringField(item.Market, 'Market'),
       date: validateStringField(item.Date, 'Date'),
-      axisValues: toPlainObject<MarketForecastEntity['axisValues']>(item.AxisValues, 'AxisValues'),
-      probabilities: toPlainObject<MarketForecastEntity['probabilities']>(
+      axisValues: validateObjectField<MarketForecastEntity['axisValues']>(
+        item.AxisValues,
+        'AxisValues'
+      ),
+      probabilities: validateObjectField<MarketForecastEntity['probabilities']>(
         item.Probabilities,
         'Probabilities'
       ),
@@ -157,13 +160,12 @@ export class MarketForecastMapper implements EntityMapper<MarketForecastEntity, 
       updatedAt: readTimestamp(item, 'UpdatedAt'),
     };
     if (item.BackfilledAxes !== undefined) {
-      entity.backfilledAxes = toPlainObject<NonNullable<MarketForecastEntity['backfilledAxes']>>(
-        item.BackfilledAxes,
-        'BackfilledAxes'
-      );
+      entity.backfilledAxes = validateObjectField<
+        NonNullable<MarketForecastEntity['backfilledAxes']>
+      >(item.BackfilledAxes, 'BackfilledAxes');
     }
     if (item[MARKET_FORECAST_OUTCOME_ATTRIBUTE] !== undefined) {
-      entity.outcome = toPlainObject<MarketForecastOutcome>(
+      entity.outcome = validateObjectField<MarketForecastOutcome>(
         item[MARKET_FORECAST_OUTCOME_ATTRIBUTE],
         MARKET_FORECAST_OUTCOME_ATTRIBUTE
       );
@@ -179,11 +181,11 @@ export class MarketForecastMapper implements EntityMapper<MarketForecastEntity, 
     const sample: MarketSample = {
       market: validateStringField(item.Market, 'Market'),
       date: validateStringField(item.Date, 'Date'),
-      axisValues: toPlainObject<MarketSample['axisValues']>(item.AxisValues, 'AxisValues'),
+      axisValues: validateObjectField<MarketSample['axisValues']>(item.AxisValues, 'AxisValues'),
     };
 
     if (item[MARKET_FORECAST_OUTCOME_ATTRIBUTE] !== undefined) {
-      const outcome = toPlainObject<MarketForecastOutcome>(
+      const outcome = validateObjectField<MarketForecastOutcome>(
         item[MARKET_FORECAST_OUTCOME_ATTRIBUTE],
         MARKET_FORECAST_OUTCOME_ATTRIBUTE
       );
@@ -194,7 +196,7 @@ export class MarketForecastMapper implements EntityMapper<MarketForecastEntity, 
     }
 
     if (item.Probabilities !== undefined) {
-      const probabilities = toPlainObject<MarketForecastEntity['probabilities']>(
+      const probabilities = validateObjectField<MarketForecastEntity['probabilities']>(
         item.Probabilities,
         'Probabilities'
       );
@@ -223,12 +225,4 @@ export class MarketForecastMapper implements EntityMapper<MarketForecastEntity, 
     if (outcome.rangeRatio !== undefined) attribute.rangeRatio = outcome.rangeRatio;
     return attribute;
   }
-}
-
-/** ネストしたマップ属性をプレーンオブジェクトとして受け取る（配列・null・非オブジェクトは拒否） */
-function toPlainObject<T>(value: unknown, fieldName: string): T {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    throw new InvalidEntityDataError(`フィールド "${fieldName}" がオブジェクトではありません`);
-  }
-  return value as T;
 }

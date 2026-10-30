@@ -14,6 +14,7 @@ import {
   readTimestamp,
   requiredPatchValue,
   toTtlSeconds,
+  validateArrayField,
   validateBooleanField,
   validateEnumField,
   validateStringField,
@@ -222,7 +223,11 @@ export class AlertMapper implements EntityMapper<AlertEntity, AlertKey> {
       mode: validateEnumField(item.Mode, 'Mode', ['Buy', 'Sell'] as const),
       frequency: validateEnumField(item.Frequency, 'Frequency', FREQUENCIES),
       enabled: validateBooleanField(item.Enabled, 'Enabled'),
-      conditionList: this.validateConditionList(item.ConditionList),
+      conditionList: validateArrayField<AlertEntity['conditionList'][number]>(
+        item.ConditionList,
+        'ConditionList',
+        { minLength: 1 }
+      ),
       subscription: this.validateSubscription(item),
       createdAt: readTimestamp(item, 'CreatedAt'),
       updatedAt: readTimestamp(item, 'UpdatedAt'),
@@ -296,18 +301,6 @@ export class AlertMapper implements EntityMapper<AlertEntity, AlertKey> {
       temporary: item.Temporary === true,
       temporaryExpireDate: validateStringField(item.TemporaryExpireDate, 'TemporaryExpireDate'),
     };
-  }
-
-  /**
-   * ConditionList をバリデーション
-   */
-  private validateConditionList(value: unknown): AlertEntity['conditionList'] {
-    if (!Array.isArray(value) || value.length === 0) {
-      throw new InvalidEntityDataError(
-        'フィールド "ConditionList" が不正です: 空でない配列である必要があります'
-      );
-    }
-    return value;
   }
 
   /**
