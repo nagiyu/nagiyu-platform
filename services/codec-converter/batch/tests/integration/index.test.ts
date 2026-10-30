@@ -24,9 +24,20 @@ jest.mock('@nagiyu/aws', () => ({
   reportErrorEvent: jest.fn().mockResolvedValue(null),
 }));
 
-import { EntityNotFoundError, reportErrorEvent } from '@nagiyu/aws';
+import {
+  EntityNotFoundError,
+  createErrorEventWriter,
+  reportErrorEvent,
+  resetErrorEventWriter,
+} from '@nagiyu/aws';
+import type { InMemoryErrorEventWriter } from '@nagiyu/aws';
 import { parseUpdateExpression } from '../helpers/update-expression.js';
 const reportErrorEventMock = reportErrorEvent as jest.MockedFunction<typeof reportErrorEvent>;
+
+/** レポーターが書き込んだ ErrorEvent を取り出す。レポーターは実物を通して context の組み立てまで確かめる */
+function getReportedEvents() {
+  return (createErrorEventWriter() as InMemoryErrorEventWriter).getRecords();
+}
 
 // AWS SDK モック
 const s3Mock = mockClient(S3Client);
@@ -610,6 +621,15 @@ describe('processJob', () => {
     unlinkMock.mockClear();
     unlinkMock.mockResolvedValue(undefined);
     reportErrorEventMock.mockClear();
+    process.env.USE_IN_MEMORY_DB = 'true';
+    process.env.ERROR_EVENTS_TABLE_NAME = 'test-error-events';
+    resetErrorEventWriter();
+  });
+
+  afterEach(() => {
+    delete process.env.USE_IN_MEMORY_DB;
+    delete process.env.ERROR_EVENTS_TABLE_NAME;
+    resetErrorEventWriter();
   });
 
   it('S3ダウンロード失敗時に reportErrorEvent が critical で呼ばれる', async () => {
@@ -701,12 +721,26 @@ describe('processJob', () => {
 
     await expect(processJob(env, s3Client, dynamodbClient)).rejects.toThrow();
 
-    // critical（ジョブ失敗）と error（ステータス更新失敗）の2回呼ばれる
+    // critical（ジョブ失敗）は直接、error（ステータス更新失敗）はレポーター経由で報告される
     expect(reportErrorEventMock).toHaveBeenCalledWith(
       expect.objectContaining({ serviceId: 'codec-converter', severity: 'critical' })
     );
-    expect(reportErrorEventMock).toHaveBeenCalledWith(
-      expect.objectContaining({ serviceId: 'codec-converter', severity: 'error' })
+    const reported = getReportedEvents();
+    expect(reported).toEqual([
+      expect.objectContaining({
+        serviceId: 'codec-converter',
+        severity: 'error',
+        message: expect.stringContaining('DynamoDB update failed'),
+      }),
+    ]);
+    expect(JSON.parse(reported[0].context)).toEqual(
+      expect.objectContaining({
+        jobId: 'test-job-status',
+        originalError: expect.stringContaining('S3 error'),
+        errorName: 'Error',
+        errorMessage: expect.stringContaining('DynamoDB update failed'),
+        errorStack: expect.stringContaining('DynamoDB update failed'),
+      })
     );
   });
 
@@ -732,8 +766,20 @@ describe('processJob', () => {
 
     await expect(processJob(env, s3Client, dynamodbClient)).rejects.toThrow();
 
-    expect(reportErrorEventMock).toHaveBeenCalledWith(
-      expect.objectContaining({ serviceId: 'codec-converter', severity: 'warning' })
+    const reported = getReportedEvents();
+    expect(reported).toEqual([
+      expect.objectContaining({
+        serviceId: 'codec-converter',
+        severity: 'warning',
+        message: expect.stringContaining('Permission denied'),
+      }),
+    ]);
+    expect(JSON.parse(reported[0].context)).toEqual(
+      expect.objectContaining({
+        jobId: 'test-job-cleanup',
+        errorMessage: expect.stringContaining('Permission denied'),
+        errorStack: expect.any(String),
+      })
     );
   });
 

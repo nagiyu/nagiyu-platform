@@ -129,7 +129,8 @@ jest.mock('@nagiyu/aws', () => ({
   reportErrorEvent: jest.fn().mockResolvedValue(null),
 }));
 
-import { reportErrorEvent } from '@nagiyu/aws';
+import { createErrorEventWriter, reportErrorEvent, resetErrorEventWriter } from '@nagiyu/aws';
+import type { InMemoryErrorEventWriter } from '@nagiyu/aws';
 import {
   runQuickClipBatch,
   type QuickClipBatchRunInput,
@@ -148,9 +149,20 @@ const input: QuickClipBatchRunInput = {
 const JOB_EXPIRES_AT = 1234567890;
 
 describe('runQuickClipBatch', () => {
+  afterEach(() => {
+    delete process.env.USE_IN_MEMORY_DB;
+    delete process.env.ERROR_EVENTS_TABLE_NAME;
+    resetErrorEventWriter();
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
     jest.useRealTimers();
+
+    // レポーターは実物を通し、書き込み先の in-memory ライターで報告内容を確かめる
+    process.env.USE_IN_MEMORY_DB = 'true';
+    process.env.ERROR_EVENTS_TABLE_NAME = 'test-error-events';
+    resetErrorEventWriter();
 
     mockMkdir.mockResolvedValue(undefined);
     mockStat.mockResolvedValue({ size: 10 * 1024 * 1024 });
@@ -405,14 +417,21 @@ describe('runQuickClipBatch', () => {
     const inputWithKey: QuickClipBatchRunInput = { ...input, openAiApiKey: 'sk-test-key' };
     await expect(runQuickClipBatch(inputWithKey)).resolves.toBeUndefined();
 
-    expect(reportErrorEventMock).toHaveBeenCalledWith(
+    const reported = (createErrorEventWriter() as InMemoryErrorEventWriter).getRecords();
+    expect(reported).toEqual([
       expect.objectContaining({
         serviceId: 'quick-clip',
         severity: 'warning',
         message: 'emotion api failed',
-        context: expect.objectContaining({ jobId: 'job-1', stage: 'emotionScoring' }),
-      })
-    );
+      }),
+    ]);
+    expect(JSON.parse(reported[0].context)).toEqual({
+      jobId: 'job-1',
+      stage: 'emotionScoring',
+      errorName: 'Error',
+      errorMessage: 'emotion api failed',
+      errorStack: expect.stringContaining('emotion api failed'),
+    });
     expect(mockUpdateErrorMessage).not.toHaveBeenCalled();
   });
 

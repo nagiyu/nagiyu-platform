@@ -1,4 +1,9 @@
-import { reportErrorEvent, getDynamoDBDocumentClient, getS3Client } from '@nagiyu/aws';
+import {
+  createErrorReporter,
+  reportErrorEvent,
+  getDynamoDBDocumentClient,
+  getS3Client,
+} from '@nagiyu/aws';
 import { GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import { randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
@@ -44,6 +49,8 @@ const ERROR_MESSAGES = {
     `アップロード済みの動画ファイルが見つかりません: ${sourceVideoKey}`,
   CLIP_SPLIT_FAILED: 'クリップ分割に失敗しました',
 } as const;
+
+const errorReporter = createErrorReporter({ serviceId: 'quick-clip' });
 
 const VIDEO_INPUT_PATH = (jobId: string): string => `/tmp/quick-clip/${jobId}/input.mp4`;
 const SOURCE_VIDEO_KEY = (jobId: string): string => `uploads/${jobId}/input.mp4`;
@@ -311,16 +318,9 @@ const buildHighlights = async (
       console.warn('[buildHighlights] 感情分析をスキップします:', error);
       progress.emotionScoring = { status: 'failed' };
       await updateAnalysisProgress(jobId, { ...progress }, tableName, awsRegion);
-      await reportErrorEvent({
-        serviceId: 'quick-clip',
+      await errorReporter.report('QuickClip 感情分析に失敗しスキップしました', error, {
         severity: 'warning',
-        title: 'QuickClip 感情分析に失敗しスキップしました',
-        message: toErrorMessage(error),
-        context: {
-          jobId,
-          stage: 'emotionScoring',
-          errorStack: error instanceof Error ? error.stack : undefined,
-        },
+        context: { jobId, stage: 'emotionScoring' },
       });
     }
   }

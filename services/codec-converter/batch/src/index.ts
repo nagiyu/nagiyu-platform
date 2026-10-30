@@ -10,12 +10,15 @@ import {
   type CodecType,
 } from '@nagiyu/codec-converter-core';
 import {
+  createErrorReporter,
   reportErrorEvent,
   withErrorReporting,
   getDynamoDBDocumentClient,
   getS3Client,
 } from '@nagiyu/aws';
 import { requireEnv, toErrorMessage } from '@nagiyu/common';
+
+const errorReporter = createErrorReporter({ serviceId: 'codec-converter' });
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
@@ -330,14 +333,8 @@ export async function processJob(
         errorMessage
       );
     } catch (updateError) {
-      const updateErrorMessage =
-        updateError instanceof Error ? updateError.message : String(updateError);
       console.error('Failed to update job status to FAILED:', updateError);
-      await reportErrorEvent({
-        serviceId: 'codec-converter',
-        severity: 'error',
-        title: 'ジョブステータスのFAILD更新に失敗しました',
-        message: updateErrorMessage,
+      await errorReporter.report('ジョブステータスのFAILD更新に失敗しました', updateError, {
         context: { jobId: env.JOB_ID, originalError: errorMessage },
       });
     }
@@ -346,14 +343,9 @@ export async function processJob(
     try {
       await cleanup([inputPath, outputPath]);
     } catch (cleanupError) {
-      const cleanupErrorMessage =
-        cleanupError instanceof Error ? cleanupError.message : String(cleanupError);
       console.error('Cleanup failed:', cleanupError);
-      await reportErrorEvent({
-        serviceId: 'codec-converter',
+      await errorReporter.report('一時ファイルのクリーンアップに失敗しました', cleanupError, {
         severity: 'warning',
-        title: '一時ファイルのクリーンアップに失敗しました',
-        message: cleanupErrorMessage,
         context: { jobId: env.JOB_ID },
       });
     }

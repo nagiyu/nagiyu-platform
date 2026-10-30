@@ -1,15 +1,26 @@
-import { describe, it, expect, jest, beforeEach } from '@jest/globals';
-import { reportErrorEvent } from '@nagiyu/aws';
+import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
+import { createErrorEventWriter, resetErrorEventWriter } from '@nagiyu/aws';
+import type { InMemoryErrorEventWriter } from '@nagiyu/aws';
 import { getVideoInfoBatch } from '../../src/niconico/batch';
 import * as client from '../../src/niconico/client';
 
-jest.mock('@nagiyu/aws', () => ({
-  reportErrorEvent: jest.fn(),
-}));
+/** レポーターが書き込んだ ErrorEvent を取り出す。レポーターは実物を通して context の組み立てまで確かめる */
+function getReportedEvents() {
+  return (createErrorEventWriter() as InMemoryErrorEventWriter).getRecords();
+}
 
 describe('getVideoInfoBatch', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    process.env.USE_IN_MEMORY_DB = 'true';
+    process.env.ERROR_EVENTS_TABLE_NAME = 'test-error-events';
+    resetErrorEventWriter();
+  });
+
+  afterEach(() => {
+    delete process.env.USE_IN_MEMORY_DB;
+    delete process.env.ERROR_EVENTS_TABLE_NAME;
+    resetErrorEventWriter();
   });
 
   it('should fetch multiple videos successfully', async () => {
@@ -71,15 +82,23 @@ describe('getVideoInfoBatch', () => {
     expect(result.failed[0].videoId).toBe('sm2');
     expect(result.failed[0].error).toBe('動画が見つかりませんでした');
     // 失敗を握って処理を続けるため、ここで報告する
-    expect(reportErrorEvent).toHaveBeenCalledTimes(1);
-    expect(reportErrorEvent).toHaveBeenCalledWith(
+    const reported = getReportedEvents();
+    expect(reported).toHaveLength(1);
+    expect(reported[0]).toEqual(
       expect.objectContaining({
         serviceId: 'niconico-mylist-assistant',
+        severity: 'error',
         title: 'Niconico API エラー',
         message: '動画が見つかりませんでした',
-        context: { videoId: 'sm2', errorCode: 'NOT_FOUND' },
       })
     );
+    expect(JSON.parse(reported[0].context)).toEqual({
+      videoId: 'sm2',
+      errorCode: 'NOT_FOUND',
+      errorName: 'NiconicoAPIError',
+      errorMessage: '動画が見つかりませんでした',
+      errorStack: expect.any(String),
+    });
 
     mockGetVideoInfo.mockRestore();
   });
@@ -92,12 +111,14 @@ describe('getVideoInfoBatch', () => {
     const result = await getVideoInfoBatch(['sm1']);
 
     expect(result.failed).toEqual([{ videoId: 'sm1', error: '不明なエラー' }]);
-    expect(reportErrorEvent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        message: '予期しない失敗',
-        context: { videoId: 'sm1', errorCode: undefined },
-      })
-    );
+    const reported = getReportedEvents();
+    expect(reported).toEqual([expect.objectContaining({ message: '予期しない失敗' })]);
+    expect(JSON.parse(reported[0].context)).toEqual({
+      videoId: 'sm1',
+      errorName: 'Error',
+      errorMessage: '予期しない失敗',
+      errorStack: expect.any(String),
+    });
 
     mockGetVideoInfo.mockRestore();
   });
