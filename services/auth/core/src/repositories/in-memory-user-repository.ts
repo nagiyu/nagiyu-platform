@@ -1,19 +1,14 @@
 import {
   InMemoryEntityStore,
   InMemorySingleTableStore,
-  decodeCursor,
-  encodeCursor,
   type EntityStore,
+  type PaginatedResult,
+  type PaginationOptions,
 } from '@nagiyu/aws';
 import type { User } from '@nagiyu/common';
 import { randomUUID } from 'node:crypto';
 import { UserMapper, type UserKey } from '../mappers/user.mapper';
-import type {
-  ListUsersResult,
-  UpdateUserInput,
-  UpsertUserInput,
-  UserRepository,
-} from './user-repository';
+import type { UpdateUserInput, UpsertUserInput, UserRepository } from './user-repository';
 
 /**
  * InMemory User Repository
@@ -45,14 +40,12 @@ export class InMemoryUserRepository implements UserRepository {
     return this.entityStore.get({ userId });
   }
 
-  public async listUsers(
-    limit: number = 100,
-    lastEvaluatedKey?: Record<string, unknown>
-  ): Promise<ListUsersResult> {
-    const result = this.store.scan({ limit, cursor: encodeCursor(lastEvaluatedKey) });
+  public async listUsers(options?: PaginationOptions): Promise<PaginatedResult<User>> {
+    const result = this.store.scan({ limit: options?.limit || 100, cursor: options?.cursor });
     return {
-      users: result.items.map((item) => this.mapper.toEntity(item)),
-      lastEvaluatedKey: decodeCursor(result.nextCursor),
+      items: result.items.map((item) => this.mapper.toEntity(item)),
+      nextCursor: result.nextCursor,
+      count: result.count,
     };
   }
 

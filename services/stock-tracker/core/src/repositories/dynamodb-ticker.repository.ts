@@ -4,14 +4,13 @@
  * DynamoDBを使用したTickerRepositoryの実装
  */
 
-import { ScanCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import {
   DynamoDBEntityStore,
   toDatabaseError,
   queryAllItems,
   scanAllItems,
-  encodeCursor,
-  decodeCursor,
+  scanPage,
   type EntityStore,
   type PaginationOptions,
   type PaginatedResult,
@@ -105,11 +104,9 @@ export class DynamoDBTickerRepository implements TickerRepository {
         };
       }
 
-      const limit = options?.limit || 50;
-      const exclusiveStartKey = decodeCursor(options?.cursor);
-
-      const result = await this.docClient.send(
-        new ScanCommand({
+      const page = await scanPage(
+        this.docClient,
+        {
           TableName: this.tableName,
           FilterExpression: '#type = :type',
           ExpressionAttributeNames: {
@@ -118,18 +115,16 @@ export class DynamoDBTickerRepository implements TickerRepository {
           ExpressionAttributeValues: {
             ':type': this.mapper.entityType,
           },
-          Limit: limit,
-          ExclusiveStartKey: exclusiveStartKey,
-        })
+        },
+        { limit: options?.limit || 50, cursor: options?.cursor }
       );
 
-      const items = (result.Items || []).map((item) => this.mapper.toEntity(item));
-      const nextCursor = encodeCursor(result.LastEvaluatedKey);
+      const items = page.items.map((item) => this.mapper.toEntity(item));
 
       return {
         items,
-        nextCursor,
-        count: result.Count,
+        nextCursor: page.nextCursor,
+        count: page.count,
       };
     } catch (error) {
       throw toDatabaseError(error);

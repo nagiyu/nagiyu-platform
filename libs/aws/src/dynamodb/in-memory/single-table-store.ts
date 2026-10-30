@@ -191,7 +191,7 @@ export class InMemorySingleTableStore {
     return {
       items: paginatedItems,
       nextCursor,
-      count: items.length,
+      count: paginatedItems.length,
     };
   }
 
@@ -243,7 +243,7 @@ export class InMemorySingleTableStore {
       // フルアイテムに対して行い、実DynamoDBのQueryと同様に射影は結果の見え方だけを絞る）
       items: paginatedItems.map((item) => this.applyProjection(item, condition.projection)),
       nextCursor,
-      count: items.length,
+      count: paginatedItems.length,
     };
   }
 
@@ -274,7 +274,7 @@ export class InMemorySingleTableStore {
     return {
       items: paginatedItems,
       nextCursor,
-      count: items.length,
+      count: paginatedItems.length,
     };
   }
 

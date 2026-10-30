@@ -119,7 +119,7 @@ describe('Holding Repository E2E Tests with InMemory Store', () => {
 
       expect(result.items).toHaveLength(3);
       expect(result.nextCursor).toBeDefined();
-      expect(result.count).toBe(5); // 総件数
+      expect(result.count).toBe(3); // そのページで返した件数（総件数ではない）
     });
 
     it('nextCursorを使用して次のページを取得できる', async () => {

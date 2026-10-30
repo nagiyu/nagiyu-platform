@@ -204,12 +204,24 @@ export function defineTickerRepositoryContract(
 
       do {
         const page = await repository.getAll({ limit: 2, cursor });
+        expect(page.count).toBe(page.items.length);
         collected.push(...page.items);
         cursor = page.nextCursor;
       } while (cursor);
 
       expect(collected).toHaveLength(created.length);
       expect(sortByTickerId(collected)).toEqual(sortByTickerId(created));
+    });
+
+    it('getAll のcountはlimitで切れたページでも返したitemsの件数になる（総件数ではない）', async () => {
+      for (const tickerId of ['A', 'B', 'C', 'D', 'E']) {
+        await repository.create(buildTickerInput({ tickerId, exchangeId: 'NASDAQ' }));
+      }
+
+      const page = await repository.getAll({ limit: 2 });
+
+      expect(page.items).toHaveLength(2);
+      expect(page.count).toBe(2);
     });
 
     it('getAll は100件超のTickerがあってもページ境界をまたいで全件を取りこぼさない（打ち切りの回帰防止、順序は保証しない）', async () => {
