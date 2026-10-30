@@ -141,18 +141,21 @@ export function validateBooleanField(value: unknown, fieldName: string): boolean
  * オブジェクトフィールドをバリデーション
  *
  * null と配列はオブジェクトとして扱わない。
- * 中身のプロパティは検証しないため、必要なら呼び出し側で個別に検証する。
+ * 中身のプロパティは検証しないため、`T` は呼び出し側の指定をそのまま信じる。必要なら呼び出し側で個別に検証する。
  *
  * @param value - 検証する値
  * @param fieldName - フィールド名（エラーメッセージ用）
  * @throws InvalidEntityDataError バリデーション失敗時
  */
-export function validateObjectField(value: unknown, fieldName: string): Record<string, unknown> {
+export function validateObjectField<T extends object = Record<string, unknown>>(
+  value: unknown,
+  fieldName: string
+): T {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     throw new InvalidEntityDataError(`フィールド "${fieldName}" がオブジェクトではありません`);
   }
 
-  return value as Record<string, unknown>;
+  return value as T;
 }
 
 /**
