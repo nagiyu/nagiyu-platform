@@ -108,6 +108,21 @@ describe('InMemoryPushSubscriptionRepository', () => {
       const list = await repo.listByUser('u1');
       expect(list).toEqual([]);
     });
+
+    it('101 件以上でも全件を返す', async () => {
+      const store = makeStore();
+      const repo = makeRepo(store);
+      for (let i = 0; i < 101; i++) {
+        const id = String(i).padStart(3, '0');
+        await repo.put(
+          makeSub({ subscriptionId: `sub_${id}`, endpoint: `https://push.example.com/${id}` })
+        );
+      }
+
+      const list = await repo.listByUser('u1');
+      expect(list).toHaveLength(101);
+      expect(list.map((e) => e.subscriptionId)).toContain('sub_100');
+    });
   });
 
   describe('delete', () => {

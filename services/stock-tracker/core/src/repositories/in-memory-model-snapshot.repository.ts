@@ -7,7 +7,6 @@ import {
   DatabaseError,
   EntityAlreadyExistsError,
   InMemoryEntityStore,
-  type DynamoDBAttributes,
   type EntityStore,
   type InMemorySingleTableStore,
 } from '@nagiyu/aws';
@@ -22,10 +21,6 @@ import {
   buildModelSnapshotPk,
   buildModelSnapshotSk,
 } from '../mappers/model-snapshot.mapper.js';
-
-// ベーステーブル PK（MODEL#{Question}#{Market}）の全件集約で store 既定の query limit（100件）
-// による打ち切りを避けるため、他リポジトリと同じ流儀でcursorループを使う。
-const FULL_AGGREGATION_PAGE_SIZE = 100;
 
 /**
  * InMemory ModelSnapshot Repository
@@ -86,20 +81,10 @@ export class InMemoryModelSnapshotRepository implements ModelSnapshotRepository 
     market: Market,
     date: string
   ): Promise<ModelSnapshotItem | null> {
-    const items: DynamoDBAttributes[] = [];
-    let cursor: string | undefined;
-
-    do {
-      const page = this.store.query(
-        {
-          pk: buildModelSnapshotPk(question, market),
-          sk: { operator: 'lt', value: buildModelSnapshotSk(date) },
-        },
-        { limit: FULL_AGGREGATION_PAGE_SIZE, cursor }
-      );
-      items.push(...page.items);
-      cursor = page.nextCursor;
-    } while (cursor);
+    const items = this.store.queryAll({
+      pk: buildModelSnapshotPk(question, market),
+      sk: { operator: 'lt', value: buildModelSnapshotSk(date) },
+    });
 
     if (items.length === 0) {
       return null;

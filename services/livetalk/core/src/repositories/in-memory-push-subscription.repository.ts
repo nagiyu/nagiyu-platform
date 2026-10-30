@@ -37,7 +37,7 @@ export class InMemoryPushSubscriptionRepository implements PushSubscriptionRepos
   public async listByUser(userId: string): Promise<PushSubscriptionEntity[]> {
     const pk = buildUserPK(userId);
     const prefix = buildPushSubscriptionSKPrefix();
-    const result = this.store.query({ pk, sk: { operator: 'begins_with', value: prefix } });
-    return result.items.map((item) => this.mapper.toEntity(item));
+    const items = this.store.queryAll({ pk, sk: { operator: 'begins_with', value: prefix } });
+    return items.map((item) => this.mapper.toEntity(item));
   }
 }

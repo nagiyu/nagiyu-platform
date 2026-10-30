@@ -34,8 +34,8 @@ export class InMemoryStudyTopicRepository implements StudyTopicRepository {
   ): Promise<StudyTopicEntity[]> {
     const pk = buildUserPK(userId);
     const prefix = buildStudyTopicSKPrefix(characterId);
-    const result = this.store.query({ pk, sk: { operator: 'begins_with', value: prefix } });
-    const items = result.items
+    const items = this.store
+      .queryAll({ pk, sk: { operator: 'begins_with', value: prefix } })
       .map((item) => this.mapper.toEntity(item))
       .filter((e) => status === undefined || e.status === status)
       .sort((a, b) => b.priority - a.priority || a.createdAt - b.createdAt);

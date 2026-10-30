@@ -32,8 +32,7 @@ export class InMemoryStoreAdapter implements DynamoTableStore {
     const startIndex = exclusiveStartKey ? this.decodeCursor(exclusiveStartKey) : 0;
 
     // 全件取得してフィルタ
-    const scanResult = this.store.scan({ limit: 10_000 });
-    let items = scanResult.items;
+    let items = this.store.scanAll();
 
     // PK プレフィックスでフィルタ
     if (pkPrefix) {
@@ -66,8 +65,7 @@ export class InMemoryStoreAdapter implements DynamoTableStore {
     const startIndex = exclusiveStartKey ? this.decodeCursor(exclusiveStartKey) : 0;
 
     // GSI シミュレーション: 指定属性でフィルタ
-    const scanResult = this.store.scan({ limit: 10_000 });
-    let items = scanResult.items.filter((item) => item[pkAttributeName] === pkValue);
+    let items = this.store.scanAll().filter((item) => item[pkAttributeName] === pkValue);
 
     // SK 下限でフィルタ（ >= skFrom）
     items = items.filter(

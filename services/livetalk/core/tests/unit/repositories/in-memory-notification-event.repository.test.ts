@@ -148,6 +148,23 @@ describe('InMemoryNotificationEventRepository', () => {
 
       expect(await repo.listByUser('u1')).toEqual([]);
     });
+
+    it('101 件以上でも全件から createdAt 降順で最新のものを返す', async () => {
+      const store = makeStore();
+      let now = BASE_NOW;
+      const repo = makeRepo(store, () => now);
+      // SK 昇順の末尾 (= 既定の 100 件で切ると落ちる側) が最新になるよう、通知 ID を作成順に昇順で振る
+      for (let i = 0; i < 101; i++) {
+        now += 1000;
+        await repo.put(makeInput({ notifId: `NOTIF-${String(i).padStart(3, '0')}` }));
+      }
+
+      const list = await repo.listByUser('u1', 200);
+      expect(list).toHaveLength(101);
+      expect(list[0].notifId).toBe('NOTIF-100');
+      expect(list[100].notifId).toBe('NOTIF-000');
+      expect((await repo.listByUser('u1', 1))[0].notifId).toBe('NOTIF-100');
+    });
   });
 
   describe('markConsumed', () => {

@@ -25,29 +25,20 @@ export class InMemoryProfileRepository implements ProfileRepository {
   }
 
   public async listAllUserIds(): Promise<string[]> {
+    const items = this.store.queryAllByAttribute({
+      attributeName: 'GSI1PK',
+      attributeValue: buildProfileGSI1PK(),
+      projection: PROFILE_GSI_PROJECTION,
+      // sk 条件を指定しないため、実 DynamoDB の GSI1 Query と同様に GSI1SK 昇順で返すよう明示する
+      // (listAllUserIds は順序を約束しないため呼び出し側の挙動には影響しない)
+      gsiSortKeyAttributeName: 'GSI1SK',
+    });
     const userIds: string[] = [];
-    let cursor: string | undefined;
-
-    do {
-      const result = this.store.queryByAttribute(
-        {
-          attributeName: 'GSI1PK',
-          attributeValue: buildProfileGSI1PK(),
-          projection: PROFILE_GSI_PROJECTION,
-          // sk 条件を指定しないため、実 DynamoDB の GSI1 Query と同様に GSI1SK 昇順で返すよう明示する
-          // (listAllUserIds は順序を約束しないため呼び出し側の挙動には影響しない)
-          gsiSortKeyAttributeName: 'GSI1SK',
-        },
-        cursor ? { cursor } : undefined
-      );
-      for (const item of result.items) {
-        if (typeof item.GSI1SK === 'string' && item.GSI1SK) {
-          userIds.push(item.GSI1SK);
-        }
+    for (const item of items) {
+      if (typeof item.GSI1SK === 'string' && item.GSI1SK) {
+        userIds.push(item.GSI1SK);
       }
-      cursor = result.nextCursor;
-    } while (cursor !== undefined);
-
+    }
     return userIds;
   }
 

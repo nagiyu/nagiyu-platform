@@ -8,7 +8,6 @@ import {
   EntityAlreadyExistsError,
   EntityNotFoundError,
   InMemoryEntityStore,
-  type DynamoDBAttributes,
   type EntityStore,
   type InMemorySingleTableStore,
 } from '@nagiyu/aws';
@@ -30,10 +29,6 @@ import {
   buildMarketForecastSk,
   buildMarketForecastSkUpperBound,
 } from '../mappers/market-forecast.mapper.js';
-
-// ベーステーブル PK（MARKETFORECAST#{Market}）の全件集約で store 既定の query limit（100件）
-// による打ち切りを避けるため、cursorループで全件集約する。
-const FULL_AGGREGATION_PAGE_SIZE = 100;
 
 /**
  * InMemory MarketForecast Repository
@@ -123,19 +118,9 @@ export class InMemoryMarketForecastRepository implements MarketForecastRepositor
     fromDate?: string,
     toDate?: string
   ): Promise<MarketSample[]> {
-    const items: DynamoDBAttributes[] = [];
-    let cursor: string | undefined;
     const pk = buildMarketForecastPk(market);
     const sk = buildSkCondition(fromDate, toDate);
-
-    do {
-      const page = this.store.query(
-        { pk, ...(sk ? { sk } : {}) },
-        { limit: FULL_AGGREGATION_PAGE_SIZE, cursor }
-      );
-      items.push(...page.items);
-      cursor = page.nextCursor;
-    } while (cursor);
+    const items = this.store.queryAll({ pk, ...(sk ? { sk } : {}) });
 
     return items.map((item) => this.mapper.toSample(item));
   }

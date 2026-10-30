@@ -96,10 +96,7 @@ export class InMemoryTopicRepository implements TopicRepository {
   public async getTopicBundle(key: TopicKey): Promise<TopicBundle> {
     const pk = buildUserPK(key.userId);
     const prefix = buildTopicBundleSKPrefix(key.characterId, key.topicId);
-    const { items } = this.store.query(
-      { pk, sk: { operator: 'begins_with', value: prefix } },
-      { limit: Number.MAX_SAFE_INTEGER }
-    );
+    const items = this.store.queryAll({ pk, sk: { operator: 'begins_with', value: prefix } });
 
     const bundle: TopicBundle = { topic: null, selfFacts: [], webFacts: [] };
     for (const item of items) {
@@ -136,28 +133,15 @@ export class InMemoryTopicRepository implements TopicRepository {
   /** GSI3（GSI-TOPIC）相当を `GSI3PK` 属性の配列フィルタで再現する。 */
   private async queryGsi3(userId: string, characterId: string): Promise<TopicEntity[]> {
     const gsi3pk = buildTopicGSI3PK(characterId, userId);
-    const results: TopicEntity[] = [];
-    let cursor: string | undefined;
-
-    do {
-      const result = this.store.queryByAttribute(
-        {
-          attributeName: 'GSI3PK',
-          attributeValue: gsi3pk,
-          projection: TOPIC_GSI_PROJECTION,
-          // sk条件を指定しないため、実DynamoDBのGSI3 Queryと同様にGSI3SK（Care、Number型）昇順で
-          // 返すよう明示する。sortBySortKeyはNumber型ソートキーを数値比較するため、実際に数値順になる。
-          gsiSortKeyAttributeName: 'GSI3SK',
-        },
-        { limit: Number.MAX_SAFE_INTEGER, ...(cursor ? { cursor } : {}) }
-      );
-      for (const item of result.items) {
-        results.push(this.topicMapper.toEntity(item));
-      }
-      cursor = result.nextCursor;
-    } while (cursor !== undefined);
-
-    return results;
+    const items = this.store.queryAllByAttribute({
+      attributeName: 'GSI3PK',
+      attributeValue: gsi3pk,
+      projection: TOPIC_GSI_PROJECTION,
+      // sk条件を指定しないため、実DynamoDBのGSI3 Queryと同様にGSI3SK（Care、Number型）昇順で
+      // 返すよう明示する。sortBySortKeyはNumber型ソートキーを数値比較するため、実際に数値順になる。
+      gsiSortKeyAttributeName: 'GSI3SK',
+    });
+    return items.map((item) => this.topicMapper.toEntity(item));
   }
 
   public async putSelfFact(input: CreateSelfFactInput): Promise<SelfFactEntity> {
@@ -176,10 +160,7 @@ export class InMemoryTopicRepository implements TopicRepository {
   ): Promise<SelfFactEntity[]> {
     const pk = buildUserPK(userId);
     const prefix = buildSelfFactSKPrefix(characterId, topicId);
-    const { items } = this.store.query(
-      { pk, sk: { operator: 'begins_with', value: prefix } },
-      { limit: Number.MAX_SAFE_INTEGER }
-    );
+    const items = this.store.queryAll({ pk, sk: { operator: 'begins_with', value: prefix } });
     return items.map((item: DynamoDBAttributes) => this.selfFactMapper.toEntity(item));
   }
 
@@ -203,10 +184,7 @@ export class InMemoryTopicRepository implements TopicRepository {
   ): Promise<WebFactEntity[]> {
     const pk = buildUserPK(userId);
     const prefix = buildWebFactSKPrefix(characterId, topicId);
-    const { items } = this.store.query(
-      { pk, sk: { operator: 'begins_with', value: prefix } },
-      { limit: Number.MAX_SAFE_INTEGER }
-    );
+    const items = this.store.queryAll({ pk, sk: { operator: 'begins_with', value: prefix } });
     return items.map((item: DynamoDBAttributes) => this.webFactMapper.toEntity(item));
   }
 
@@ -220,27 +198,16 @@ export class InMemoryTopicRepository implements TopicRepository {
     // NextReview<=nowMs のフィルタ・昇順ソート・limit の slice で窓走査を再現する
     // （queryGsi3 と同じ方針）。
     const gsi4pk = buildTopicStaleGSI4PK(characterId, userId);
-    const results: WebFactEntity[] = [];
-    let cursor: string | undefined;
-
-    do {
-      const result = this.store.queryByAttribute(
-        {
-          attributeName: 'GSI4PK',
-          attributeValue: gsi4pk,
-          projection: STALE_GSI_PROJECTION,
-          // sk条件を指定しないため、実DynamoDBのGSI4 Queryと同様にGSI4SK（NextReview、Number型）昇順で
-          // 返すよう明示する。sortBySortKeyはNumber型ソートキーを数値比較するため、実際に数値順になる
-          // （最終的な昇順ソートはこの後のJS側.sort()でも重ねて行うが、結果は同じになる）。
-          gsiSortKeyAttributeName: 'GSI4SK',
-        },
-        { limit: Number.MAX_SAFE_INTEGER, ...(cursor ? { cursor } : {}) }
-      );
-      for (const item of result.items) {
-        results.push(this.webFactMapper.toEntity(item));
-      }
-      cursor = result.nextCursor;
-    } while (cursor !== undefined);
+    const items = this.store.queryAllByAttribute({
+      attributeName: 'GSI4PK',
+      attributeValue: gsi4pk,
+      projection: STALE_GSI_PROJECTION,
+      // sk条件を指定しないため、実DynamoDBのGSI4 Queryと同様にGSI4SK（NextReview、Number型）昇順で
+      // 返すよう明示する。sortBySortKeyはNumber型ソートキーを数値比較するため、実際に数値順になる
+      // （最終的な昇順ソートはこの後のJS側.sort()でも重ねて行うが、結果は同じになる）。
+      gsiSortKeyAttributeName: 'GSI4SK',
+    });
+    const results = items.map((item) => this.webFactMapper.toEntity(item));
 
     return results
       .filter((fact) => fact.nextReview !== undefined && fact.nextReview <= nowMs)

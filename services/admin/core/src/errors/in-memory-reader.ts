@@ -22,8 +22,6 @@ import {
   type ListErrorEventsResult,
 } from './reader.js';
 
-const ALL_ITEMS_LIMIT = Number.MAX_SAFE_INTEGER;
-
 /**
  * in-memory 実装。
  *
@@ -66,14 +64,11 @@ export class InMemoryErrorEventReader implements ErrorEventReader {
     const fromMillis = query.from ? Date.parse(query.from) : undefined;
     const toMillis = query.to ? Date.parse(query.to) : undefined;
 
-    const { items } = this.store.queryByAttribute(
-      {
-        attributeName: 'GSI1PK',
-        attributeValue: ERROR_EVENT_GSI1_PK,
-        gsiSortKeyAttributeName: 'GSI1SK',
-      },
-      { limit: ALL_ITEMS_LIMIT }
-    );
+    const items = this.store.queryAllByAttribute({
+      attributeName: 'GSI1PK',
+      attributeValue: ERROR_EVENT_GSI1_PK,
+      gsiSortKeyAttributeName: 'GSI1SK',
+    });
 
     const partitionKey = query.serviceId ? buildErrorEventPK(query.serviceId) : undefined;
     const matched = items

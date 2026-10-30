@@ -37,8 +37,7 @@ import { randomUUID } from 'crypto';
 // 実DynamoDB実装（dynamodb-alert.repository.ts）はgetByUserId/
 // getTemporaryCandidatesByFrequencyのlimit未指定時に50件を既定とするため、
 // InMemory実装もこれに合わせる（store既定の100件のままだと乖離する）。
-// （getByFrequencyは全件返却契約のためこのlimitは使用しない。ページを辿り切る際は
-// FULL_SCAN_PAGE_SIZEを使う）
+// （getByFrequencyは全件返却契約のためこのlimitは使用しない）
 //
 // 実DynamoDB実装と同じFalsyフォールバック（`options?.limit || DEFAULT_PAGE_LIMIT`）にする。
 // Nullishフォールバック（`??`）にすると、limit: 0 がstore（queryByAttribute等）まで
@@ -46,8 +45,6 @@ import { randomUUID } from 'crypto';
 // （この契約テストが潰そうとしている「store既定100件との乖離」がlimit: 0の経路にだけ
 // 温存される）ため、ここは`||`で揃える。
 const DEFAULT_PAGE_LIMIT = 50;
-// getByFrequency（全件返却）の内部走査ページサイズ。DEFAULT_PAGE_LIMITとは独立した実装都合の値。
-const FULL_SCAN_PAGE_SIZE = 100;
 
 /**
  * InMemory Alert Repository
@@ -111,30 +108,16 @@ export class InMemoryAlertRepository implements AlertRepository {
   /**
    * 頻度ごとのアラート一覧を取得（バッチ処理用）。
    *
-   * 全件を返す契約のため、nextCursorがなくなるまでstoreのページを辿り切って集約する。
+   * 全件を返す契約のため、ページで切らずに全件を取得する。
    */
   public async getByFrequency(frequency: 'MINUTE_LEVEL' | 'HOURLY_LEVEL'): Promise<AlertEntity[]> {
-    const items: AlertEntity[] = [];
-    let cursor: string | undefined;
-
-    do {
-      const page = this.store.queryByAttribute(
-        {
-          attributeName: 'GSI2PK',
-          attributeValue: buildAlertGsi2Pk(frequency),
-          // sk条件を指定しないため、実DynamoDBのGSI2 Queryと同様にGSI2SK昇順で返すよう明示する
-          gsiSortKeyAttributeName: 'GSI2SK',
-        },
-        {
-          limit: FULL_SCAN_PAGE_SIZE,
-          cursor,
-        }
-      );
-      items.push(...this.toReadableEntities(page.items));
-      cursor = page.nextCursor;
-    } while (cursor);
-
-    return items;
+    const items = this.store.queryAllByAttribute({
+      attributeName: 'GSI2PK',
+      attributeValue: buildAlertGsi2Pk(frequency),
+      // sk条件を指定しないため、実DynamoDBのGSI2 Queryと同様にGSI2SK昇順で返すよう明示する
+      gsiSortKeyAttributeName: 'GSI2SK',
+    });
+    return this.toReadableEntities(items);
   }
 
   /**
@@ -146,24 +129,14 @@ export class InMemoryAlertRepository implements AlertRepository {
     const result: AlertAuditResult = { alerts: [], unreadable: [] };
 
     for (const frequency of ['MINUTE_LEVEL', 'HOURLY_LEVEL'] as const) {
-      let cursor: string | undefined;
-      do {
-        const page = this.store.queryByAttribute(
-          {
-            attributeName: 'GSI2PK',
-            attributeValue: buildAlertGsi2Pk(frequency),
-            gsiSortKeyAttributeName: 'GSI2SK',
-          },
-          {
-            limit: FULL_SCAN_PAGE_SIZE,
-            cursor,
-          }
-        );
-        const split = this.mapper.splitReadable(page.items);
-        result.alerts.push(...split.alerts);
-        result.unreadable.push(...split.unreadable);
-        cursor = page.nextCursor;
-      } while (cursor);
+      const items = this.store.queryAllByAttribute({
+        attributeName: 'GSI2PK',
+        attributeValue: buildAlertGsi2Pk(frequency),
+        gsiSortKeyAttributeName: 'GSI2SK',
+      });
+      const split = this.mapper.splitReadable(items);
+      result.alerts.push(...split.alerts);
+      result.unreadable.push(...split.unreadable);
     }
 
     return result;

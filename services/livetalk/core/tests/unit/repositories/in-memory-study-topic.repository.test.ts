@@ -196,4 +196,18 @@ describe('InMemoryStudyTopicRepository', () => {
     const found = await repo.findPendingByTopic('u1', 'hiyori', '存在しない');
     expect(found).toBeNull();
   });
+
+  it('listByStatus は 101 件以上でも全件を対象にする', async () => {
+    for (let i = 0; i < 101; i++) {
+      await repo.put(makeInput({ topicId: `tp${String(i).padStart(3, '0')}`, status: 'pending' }));
+    }
+    // SK 昇順の末尾 (既定の 100 件で切ると落ちる側) だけ別の status にする
+    await repo.put(makeInput({ topicId: 'tp101', status: 'done' }));
+
+    const pending = await repo.listByStatus('u1', 'hiyori', 'pending');
+    expect(pending).toHaveLength(101);
+    const done = await repo.listByStatus('u1', 'hiyori', 'done');
+    expect(done.map((e) => e.topicId)).toEqual(['tp101']);
+    expect(await repo.listByStatus('u1', 'hiyori')).toHaveLength(102);
+  });
 });
