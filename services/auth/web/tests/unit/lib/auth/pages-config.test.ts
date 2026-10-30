@@ -11,6 +11,10 @@ jest.mock('@nagiyu/aws', () => ({
   reportErrorEvent: jest.fn().mockResolvedValue(null),
 }));
 
+jest.mock('@/lib/api-error-reporting', () => ({
+  errorReporter: { report: jest.fn().mockResolvedValue(null), onError: jest.fn(() => jest.fn()) },
+}));
+
 jest.mock('next-auth', () => ({
   __esModule: true,
   default: jest.fn().mockReturnValue({

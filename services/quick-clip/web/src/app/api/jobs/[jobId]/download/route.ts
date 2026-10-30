@@ -1,10 +1,10 @@
 import { DeleteObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
-import { COMMON_ERROR_MESSAGES, toErrorMessage } from '@nagiyu/common';
-import { createPresignedDownloadUrl, reportErrorEvent } from '@nagiyu/aws';
+import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
+import { createPresignedDownloadUrl } from '@nagiyu/aws';
 import { DynamoDBHighlightRepository } from '@nagiyu/quick-clip-core';
 import { NextResponse } from 'next/server';
 import { InvokeCommand } from '@aws-sdk/client-lambda';
-import { SERVICE_ID, withApiErrorReporting } from '@/lib/api-error-reporting';
+import { errorReporter, withApiErrorReporting } from '@/lib/api-error-reporting';
 import { DOMAIN_ERROR_MESSAGES, HighlightDomainService } from '@/lib/server/domain-services';
 import {
   getZipGeneratorFunctionName,
@@ -147,16 +147,9 @@ export const POST = withApiErrorReporting(
             deleteError
           );
           // 失敗しても ZIP の再生成を続けるため、例外が上に届かない。ここで報告する
-          await reportErrorEvent({
-            serviceId: SERVICE_ID,
+          await errorReporter.report('Web API: 旧 ZIP 削除エラー', deleteError, {
+            context: { jobId },
             severity: 'warning',
-            title: 'Web API: 旧 ZIP 削除エラー',
-            message: toErrorMessage(deleteError),
-            context: {
-              jobId,
-              errorName: deleteError instanceof Error ? deleteError.name : typeof deleteError,
-              errorStack: deleteError instanceof Error ? deleteError.stack : undefined,
-            },
           });
         }
       }

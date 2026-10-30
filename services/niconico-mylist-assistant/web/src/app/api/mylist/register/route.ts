@@ -10,8 +10,8 @@ import { validateMylistName } from '@/lib/mylist-register-validation';
 import { getSession } from '@/lib/auth/session';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 import { getEncryptedUserSessionBlob } from '@/lib/niconico-session';
-import { toErrorMessage, type ErrorResponse } from '@nagiyu/common';
-import { createWithApiErrorReportingBody } from '@/lib/api-error-reporting';
+import type { ErrorResponse } from '@nagiyu/common';
+import { createWithApiErrorReportingBody, errorReporter } from '@/lib/api-error-reporting';
 import { readJsonObjectBody, validatePushSubscription } from '@nagiyu/nextjs';
 
 /**
@@ -226,16 +226,8 @@ export const POST = withApiErrorReporting(
     } catch (error) {
       if (isDynamoDbError(error)) {
         // 例外を握って 500 を返すため、この場で報告する
-        await reportErrorEvent({
-          serviceId: 'niconico-mylist-assistant',
-          severity: 'error',
-          title: 'DynamoDB 動画取得失敗',
-          message: toErrorMessage(error),
-          context: {
-            userId: session.user.id,
-            errorName: error.name,
-            errorStack: error.stack,
-          },
+        await errorReporter.report('DynamoDB 動画取得失敗', error, {
+          context: { userId: session.user.id },
         });
         return NextResponse.json(
           {
@@ -319,16 +311,8 @@ export const POST = withApiErrorReporting(
       console.log(`バッチジョブレコードを作成しました: ${submitResult.jobId}`);
     } catch (error) {
       console.error('バッチジョブレコード作成エラー:', error);
-      await reportErrorEvent({
-        serviceId: 'niconico-mylist-assistant',
-        severity: 'error',
-        title: 'DynamoDB バッチジョブレコード作成失敗',
-        message: toErrorMessage(error),
-        context: {
-          userId: session.user.id,
-          jobId: submitResult.jobId,
-          error: toErrorMessage(error),
-        },
+      await errorReporter.report('DynamoDB バッチジョブレコード作成失敗', error, {
+        context: { userId: session.user.id, jobId: submitResult.jobId },
       });
       // DynamoDB への保存に失敗した場合はエラーを返す
       // ジョブステータスが照会できないため

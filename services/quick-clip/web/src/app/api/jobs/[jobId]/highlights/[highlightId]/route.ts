@@ -1,6 +1,4 @@
 import { DynamoDBHighlightRepository } from '@nagiyu/quick-clip-core';
-import { reportErrorEvent } from '@nagiyu/aws';
-import { toErrorMessage } from '@nagiyu/common';
 import { readJsonObjectBody } from '@nagiyu/nextjs';
 import { NextResponse } from 'next/server';
 import { InvokeCommand } from '@aws-sdk/client-lambda';
@@ -10,7 +8,7 @@ import {
   getLambdaClient,
   getTableName,
 } from '@/lib/server/aws';
-import { SERVICE_ID, withApiErrorReporting } from '@/lib/api-error-reporting';
+import { errorReporter, withApiErrorReporting } from '@/lib/api-error-reporting';
 import {
   DOMAIN_ERROR_MESSAGES,
   HighlightDomainService,
@@ -177,18 +175,8 @@ export const PATCH = withApiErrorReporting(
           }
         );
         // 起動に失敗しても更新結果を 200 で返すため、例外が上に届かない。ここで報告する
-        await reportErrorEvent({
-          serviceId: SERVICE_ID,
-          severity: 'error',
-          title: 'Web API: クリップ再生成起動エラー',
-          message: toErrorMessage(invokeError),
-          context: {
-            jobId,
-            highlightId,
-            errorName: invokeError instanceof Error ? invokeError.name : typeof invokeError,
-            errorMessage: toErrorMessage(invokeError),
-            errorStack: invokeError instanceof Error ? invokeError.stack : undefined,
-          },
+        await errorReporter.report('Web API: クリップ再生成起動エラー', invokeError, {
+          context: { jobId, highlightId },
         });
         // 起動されていない以上、GENERATING のまま残すと誰も完了させず、以降の変更も 409 で受け付けられなくなる
         updated = await highlightService.updateHighlight(jobId, highlightId, {

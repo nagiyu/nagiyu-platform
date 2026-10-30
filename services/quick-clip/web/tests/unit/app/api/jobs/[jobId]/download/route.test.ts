@@ -3,6 +3,7 @@
  */
 
 import { reportErrorEvent } from '@nagiyu/aws';
+import { errorReporter } from '@/lib/api-error-reporting';
 import type { HighlightRepository } from '@nagiyu/quick-clip-core';
 import { getLambdaClient, getS3Client } from '@/lib/server/aws';
 import { GET, POST } from '@/app/api/jobs/[jobId]/download/route';
@@ -32,6 +33,14 @@ jest.mock('@nagiyu/quick-clip-core', () => ({
 jest.mock('@nagiyu/aws', () => ({
   ...jest.requireActual('@nagiyu/aws'),
   reportErrorEvent: jest.fn().mockResolvedValue(null),
+}));
+
+jest.mock('@/lib/api-error-reporting', () => ({
+  ...jest.requireActual('@/lib/api-error-reporting'),
+  errorReporter: {
+    report: jest.fn().mockResolvedValue(null),
+    onError: jest.fn(() => jest.fn()),
+  },
 }));
 
 jest.mock('@/lib/server/aws', () => ({
@@ -317,7 +326,8 @@ describe('POST /api/jobs/[jobId]/download', () => {
         clipStatus: 'GENERATED',
       },
     ]);
-    s3Send.mockRejectedValue(new Error('AccessDenied'));
+    const deleteError = new Error('AccessDenied');
+    s3Send.mockRejectedValue(deleteError);
 
     const response = await POST(mockRequest, {
       params: Promise.resolve({ jobId: 'job-1' }),
@@ -327,13 +337,10 @@ describe('POST /api/jobs/[jobId]/download', () => {
     expect(response.status).toBe(202);
     expect(body).toEqual({ status: 'PROCESSING' });
     expect(lambdaSend).toHaveBeenCalledTimes(1);
-    expect(reportErrorEvent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        serviceId: 'quick-clip',
-        severity: 'warning',
-        title: 'Web API: 旧 ZIP 削除エラー',
-      })
-    );
+    expect(errorReporter.report).toHaveBeenCalledWith('Web API: 旧 ZIP 削除エラー', deleteError, {
+      context: { jobId: 'job-1' },
+      severity: 'warning',
+    });
   });
 
   it('異常系: Lambda の Invoke に失敗した場合は500を返し報告する', async () => {

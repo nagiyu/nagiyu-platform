@@ -33,6 +33,15 @@ jest.mock('@nagiyu/niconico-mylist-assistant-core', () => ({
 jest.mock('@nagiyu/aws', () => ({
   getBatchClient: jest.fn(),
   reportErrorEvent: jest.fn(),
+  createErrorReporter: jest.fn(() => ({ report: jest.fn(), onError: jest.fn(() => jest.fn()) })),
+}));
+
+jest.mock('@/lib/api-error-reporting', () => ({
+  ...jest.requireActual('@/lib/api-error-reporting'),
+  errorReporter: {
+    report: jest.fn().mockResolvedValue(null),
+    onError: jest.fn(() => jest.fn()),
+  },
 }));
 
 import { NextRequest } from 'next/server';
@@ -42,6 +51,7 @@ import { getSession } from '../../../../../src/lib/auth/session';
 import { getEncryptedUserSessionBlob } from '../../../../../src/lib/niconico-session';
 import { selectRandomVideos, createBatchJob } from '@nagiyu/niconico-mylist-assistant-core';
 import { getBatchClient, reportErrorEvent } from '@nagiyu/aws';
+import { errorReporter } from '../../../../../src/lib/api-error-reporting';
 import type { VideoBasicInfo, UserVideoSetting } from '@nagiyu/niconico-mylist-assistant-core';
 
 const mockGetSession = getSession as jest.MockedFunction<typeof getSession>;
@@ -322,13 +332,10 @@ describe('POST /api/mylist/register', () => {
 
     const json = await response.json();
     expect(json.error).toBe('DATABASE_ERROR');
-    expect(mockReportErrorEvent).toHaveBeenCalledTimes(1);
-    expect(mockReportErrorEvent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        title: 'DynamoDB 動画取得失敗',
-        context: expect.objectContaining({ userId: 'user123' }),
-      })
-    );
+    expect(errorReporter.report).toHaveBeenCalledTimes(1);
+    expect(errorReporter.report).toHaveBeenCalledWith('DynamoDB 動画取得失敗', expect.any(Error), {
+      context: { userId: 'user123' },
+    });
   });
 
   it('Batch jobId が返らない場合は 500 を返す', async () => {
@@ -372,9 +379,11 @@ describe('POST /api/mylist/register', () => {
     const json = await response.json();
     expect(json.error).toBe('DATABASE_ERROR');
     // 例外を握って 500 を返すため、この場で報告する
-    expect(mockReportErrorEvent).toHaveBeenCalledTimes(1);
-    expect(mockReportErrorEvent).toHaveBeenCalledWith(
-      expect.objectContaining({ title: 'DynamoDB バッチジョブレコード作成失敗' })
+    expect(errorReporter.report).toHaveBeenCalledTimes(1);
+    expect(errorReporter.report).toHaveBeenCalledWith(
+      'DynamoDB バッチジョブレコード作成失敗',
+      expect.objectContaining({ message: 'DynamoDB書き込み失敗' }),
+      { context: { userId: 'user123', jobId: 'job-003' } }
     );
   });
 
