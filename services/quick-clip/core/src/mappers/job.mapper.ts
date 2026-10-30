@@ -153,10 +153,10 @@ export class JobMapper implements EntityMapper<Job, JobKey> {
     }
     const analysisProgress = readAttribute(item, 'AnalysisProgress', ['analysisProgress']);
     if (analysisProgress !== undefined) {
-      entity.analysisProgress = validateObjectField(
+      entity.analysisProgress = validateObjectField<AnalysisProgress>(
         analysisProgress,
         'AnalysisProgress'
-      ) as AnalysisProgress;
+      );
     }
 
     return entity;

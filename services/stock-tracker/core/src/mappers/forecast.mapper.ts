@@ -171,31 +171,28 @@ export class ForecastMapper implements EntityMapper<ForecastEntity, ForecastKey>
       exchangeId: validateStringField(item.ExchangeID, 'ExchangeID'),
       market: validateStringField(item.Market, 'Market'),
       date: validateStringField(item.Date, 'Date'),
-      axisValues: validateObjectField(
-        item.AxisValues,
-        'AxisValues'
-      ) as ForecastEntity['axisValues'],
-      normal: validateObjectField(item.Normal, 'Normal') as ForecastNormal,
-      probabilities: validateObjectField(
+      axisValues: validateObjectField<ForecastEntity['axisValues']>(item.AxisValues, 'AxisValues'),
+      normal: validateObjectField<ForecastNormal>(item.Normal, 'Normal'),
+      probabilities: validateObjectField<ForecastEntity['probabilities']>(
         item.Probabilities,
         'Probabilities'
-      ) as ForecastEntity['probabilities'],
+      ),
       modelVersion: validateStringField(item.ModelVersion, 'ModelVersion'),
       source: validateEnumField(item.Source, 'Source', ['REPLAY', 'LIVE'] as const),
       createdAt: readTimestamp(item, 'CreatedAt'),
       updatedAt: readTimestamp(item, 'UpdatedAt'),
     };
     if (item.BackfilledAxes !== undefined) {
-      entity.backfilledAxes = validateObjectField(
+      entity.backfilledAxes = validateObjectField<NonNullable<ForecastEntity['backfilledAxes']>>(
         item.BackfilledAxes,
         'BackfilledAxes'
-      ) as NonNullable<ForecastEntity['backfilledAxes']>;
+      );
     }
     if (item[FORECAST_OUTCOME_ATTRIBUTE] !== undefined) {
-      entity.outcome = validateObjectField(
+      entity.outcome = validateObjectField<ForecastOutcome>(
         item[FORECAST_OUTCOME_ATTRIBUTE],
         FORECAST_OUTCOME_ATTRIBUTE
-      ) as ForecastOutcome;
+      );
     }
     return entity;
   }
@@ -213,20 +210,21 @@ export class ForecastMapper implements EntityMapper<ForecastEntity, ForecastKey>
       exchangeId: validateStringField(item.ExchangeID, 'ExchangeID'),
       market: validateStringField(item.Market, 'Market'),
       date: validateStringField(item.Date, 'Date'),
-      axisValues: validateObjectField(item.AxisValues, 'AxisValues') as TickerSample['axisValues'],
+      axisValues: validateObjectField<TickerSample['axisValues']>(item.AxisValues, 'AxisValues'),
     };
 
     if (item.Normal !== undefined) {
-      sample.normal = validateObjectField(item.Normal, 'Normal') as NonNullable<
-        TickerSample['normal']
-      >;
+      sample.normal = validateObjectField<NonNullable<TickerSample['normal']>>(
+        item.Normal,
+        'Normal'
+      );
     }
 
     if (item[FORECAST_OUTCOME_ATTRIBUTE] !== undefined) {
-      const outcome = validateObjectField(
+      const outcome = validateObjectField<ForecastOutcome>(
         item[FORECAST_OUTCOME_ATTRIBUTE],
         FORECAST_OUTCOME_ATTRIBUTE
-      ) as ForecastOutcome;
+      );
       const sampleOutcome: NonNullable<TickerSample['outcome']> = {
         nextDate: validateStringField(outcome.nextDate, 'Outcome.nextDate'),
         hit: outcome.hit ?? {},
@@ -239,9 +237,10 @@ export class ForecastMapper implements EntityMapper<ForecastEntity, ForecastKey>
     }
 
     if (item.Probabilities !== undefined) {
-      const probabilities = validateObjectField(item.Probabilities, 'Probabilities') as Partial<
-        Record<'DIR' | 'VOL', ProbabilityRecord>
-      >;
+      const probabilities = validateObjectField<Partial<Record<'DIR' | 'VOL', ProbabilityRecord>>>(
+        item.Probabilities,
+        'Probabilities'
+      );
       const picked: NonNullable<TickerSample['probabilities']> = {};
       for (const question of FORECAST_SAMPLE_QUESTIONS) {
         const record = probabilities[question];

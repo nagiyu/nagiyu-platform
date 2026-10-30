@@ -154,10 +154,10 @@ export class PerformanceDailyMapper implements EntityMapper<
       date: validateStringField(item.Date, 'Date'),
       evaluatedCount: validateNumberField(item.EvaluatedCount, 'EvaluatedCount'),
       hitCount: validateNumberField(item.HitCount, 'HitCount'),
-      axisStats: validateObjectField(
+      axisStats: validateObjectField<PerformanceDailyItem['axisStats']>(
         item.AxisStats,
         'AxisStats'
-      ) as PerformanceDailyItem['axisStats'],
+      ),
       probabilityBands: validateArrayField<ProbabilityBandDailyEntry>(
         item.ProbabilityBands,
         'ProbabilityBands'

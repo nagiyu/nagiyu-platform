@@ -154,18 +154,15 @@ export class ModelSnapshotMapper implements EntityMapper<ModelSnapshotItem, Mode
       date: validateStringField(item.Date, 'Date'),
       modelVersion: validateStringField(item.ModelVersion, 'ModelVersion'),
       alpha: validateNumberField(item.Alpha, 'Alpha'),
-      weights: validateObjectField(item.Weights, 'Weights') as ModelSnapshotItem['weights'],
-      standardization: validateObjectField(
+      weights: validateObjectField<ModelSnapshotItem['weights']>(item.Weights, 'Weights'),
+      standardization: validateObjectField<ModelSnapshotItem['standardization']>(
         item.Standardization,
         'Standardization'
-      ) as ModelSnapshotItem['standardization'],
+      ),
       baseline: validateNumberField(item.Baseline, 'Baseline'),
-      neutralBand: validateObjectField(
-        item.NeutralBand,
-        'NeutralBand'
-      ) as unknown as NeutralBandState,
+      neutralBand: validateObjectField<NeutralBandState>(item.NeutralBand, 'NeutralBand'),
       bandHistory: validateArrayField<BandHistoryEntry>(item.BandHistory, 'BandHistory'),
-      axisStats: validateObjectField(item.AxisStats, 'AxisStats') as ModelSnapshotItem['axisStats'],
+      axisStats: validateObjectField<ModelSnapshotItem['axisStats']>(item.AxisStats, 'AxisStats'),
       trainingSize: validateNumberField(item.TrainingSize, 'TrainingSize'),
       distinctTrainingDates: validateNumberField(
         item.DistinctTrainingDates,

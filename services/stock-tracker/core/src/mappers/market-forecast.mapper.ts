@@ -146,30 +146,29 @@ export class MarketForecastMapper implements EntityMapper<MarketForecastEntity, 
     const entity: MarketForecastEntity = {
       market: validateStringField(item.Market, 'Market'),
       date: validateStringField(item.Date, 'Date'),
-      axisValues: validateObjectField(
+      axisValues: validateObjectField<MarketForecastEntity['axisValues']>(
         item.AxisValues,
         'AxisValues'
-      ) as MarketForecastEntity['axisValues'],
-      probabilities: validateObjectField(
+      ),
+      probabilities: validateObjectField<MarketForecastEntity['probabilities']>(
         item.Probabilities,
         'Probabilities'
-      ) as MarketForecastEntity['probabilities'],
+      ),
       modelVersion: validateStringField(item.ModelVersion, 'ModelVersion'),
       source: validateEnumField(item.Source, 'Source', ['REPLAY', 'LIVE'] as const),
       createdAt: readTimestamp(item, 'CreatedAt'),
       updatedAt: readTimestamp(item, 'UpdatedAt'),
     };
     if (item.BackfilledAxes !== undefined) {
-      entity.backfilledAxes = validateObjectField(
-        item.BackfilledAxes,
-        'BackfilledAxes'
-      ) as NonNullable<MarketForecastEntity['backfilledAxes']>;
+      entity.backfilledAxes = validateObjectField<
+        NonNullable<MarketForecastEntity['backfilledAxes']>
+      >(item.BackfilledAxes, 'BackfilledAxes');
     }
     if (item[MARKET_FORECAST_OUTCOME_ATTRIBUTE] !== undefined) {
-      entity.outcome = validateObjectField(
+      entity.outcome = validateObjectField<MarketForecastOutcome>(
         item[MARKET_FORECAST_OUTCOME_ATTRIBUTE],
         MARKET_FORECAST_OUTCOME_ATTRIBUTE
-      ) as MarketForecastOutcome;
+      );
     }
     return entity;
   }
@@ -182,14 +181,14 @@ export class MarketForecastMapper implements EntityMapper<MarketForecastEntity, 
     const sample: MarketSample = {
       market: validateStringField(item.Market, 'Market'),
       date: validateStringField(item.Date, 'Date'),
-      axisValues: validateObjectField(item.AxisValues, 'AxisValues') as MarketSample['axisValues'],
+      axisValues: validateObjectField<MarketSample['axisValues']>(item.AxisValues, 'AxisValues'),
     };
 
     if (item[MARKET_FORECAST_OUTCOME_ATTRIBUTE] !== undefined) {
-      const outcome = validateObjectField(
+      const outcome = validateObjectField<MarketForecastOutcome>(
         item[MARKET_FORECAST_OUTCOME_ATTRIBUTE],
         MARKET_FORECAST_OUTCOME_ATTRIBUTE
-      ) as MarketForecastOutcome;
+      );
       sample.outcome = {
         nextDate: validateStringField(outcome.nextDate, 'Outcome.nextDate'),
         hit: outcome.hit ?? {},
@@ -197,10 +196,10 @@ export class MarketForecastMapper implements EntityMapper<MarketForecastEntity, 
     }
 
     if (item.Probabilities !== undefined) {
-      const probabilities = validateObjectField(
+      const probabilities = validateObjectField<MarketForecastEntity['probabilities']>(
         item.Probabilities,
         'Probabilities'
-      ) as MarketForecastEntity['probabilities'];
+      );
       const record = probabilities.MKT;
       if (record !== undefined) {
         sample.probabilities = {

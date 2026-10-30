@@ -153,7 +153,7 @@ export class BatchJobMapper implements EntityMapper<BatchJobEntity, BatchJobKey>
 
     const result = readAttribute(item, 'Result', legacy.Result);
     if (result !== undefined) {
-      entity.result = validateObjectField(result, 'Result') as unknown as BatchResult;
+      entity.result = validateObjectField<BatchResult>(result, 'Result');
     }
 
     const completedAt = readOptionalTimestamp(item, 'CompletedAt');
