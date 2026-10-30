@@ -136,6 +136,13 @@ describe('InMemoryUserSettingRepository', () => {
       expect(result.nextCursor).toBeDefined();
     });
 
+    it('countはlimitで切れたページでも返したitemsの件数になる（総件数ではない）', async () => {
+      const result = await repository.getByUserId('user1', { limit: 1 });
+
+      expect(result.items).toHaveLength(1);
+      expect(result.count).toBe(1);
+    });
+
     it('cursorでページング継続できる', async () => {
       const page1 = await repository.getByUserId('user1', { limit: 1 });
       const page2 = await repository.getByUserId('user1', {

@@ -18,10 +18,10 @@
  * この契約テストでは境界（50件ちょうど・51件・130件）で全件・順序どおり返ることのみを
  * 検証する。
  *
- * `PaginatedResult.count` は契約対象外。型定義上は「総件数」だが、
- * getTemporaryCandidatesByFrequency等ではInMemoryが総件数・DynamoDBがページ件数を返すなど
- * 実装間でセマンティクスが食い違っている。共有型の意味を決め直す話のため、この契約テストの
- * 範囲では揃えず・assertもしない（検証し忘れではなく意図的な対象外）。
+ * `PaginatedResult.count` は「そのページで返したアイテムの件数」（総件数ではない）。
+ * ページを返す getByUserId / getTemporaryCandidatesByFrequency で、limit で切れるケースでも
+ * `count === items.length` になることを契約として検証する（InMemoryが切る前の総件数を返して
+ * いた乖離の退行ガード）。
  *
  * 末尾の TemporaryAlertCandidate 射影テストは例外的に「乖離検知テスト」ではない
  * （ProjectionExpressionとAlertMapper.toTemporaryCandidateが読む属性が現状ちょうど
@@ -423,6 +423,27 @@ export function defineAlertRepositoryContract(
       expect(result.nextCursor).toBeDefined();
     });
 
+    it('getByUserIdのcountはlimitで切れたページでも返したitemsの件数になる（総件数ではない）', async () => {
+      const userId = 'user-count';
+      for (let i = 0; i < 7; i += 1) {
+        await repository.create(buildAlertInput({ userId }));
+      }
+
+      const page = await repository.getByUserId(userId, { limit: 3 });
+      expect(page.items).toHaveLength(3);
+      expect(page.count).toBe(page.items.length);
+
+      let cursor = page.nextCursor;
+      let total = page.items.length;
+      while (cursor) {
+        const next = await repository.getByUserId(userId, { limit: 3, cursor });
+        expect(next.count).toBe(next.items.length);
+        total += next.items.length;
+        cursor = next.nextCursor;
+      }
+      expect(total).toBe(7);
+    });
+
     it('getByFrequencyは指定頻度のアラートだけを返す（GSI2パーティション分離）', async () => {
       await repository.create(buildAlertInput({ userId: 'user-a', frequency: 'MINUTE_LEVEL' }));
       await repository.create(buildAlertInput({ userId: 'user-b', frequency: 'MINUTE_LEVEL' }));
@@ -581,6 +602,25 @@ export function defineAlertRepositoryContract(
       expect(result.nextCursor).toBeDefined();
     });
 
+    it('getTemporaryCandidatesByFrequencyのcountはlimitで切れたページでも返したitemsの件数になる（総件数ではない）', async () => {
+      for (let i = 0; i < 7; i += 1) {
+        await repository.create(
+          buildAlertInput({
+            userId: paddedUserId(i),
+            frequency: 'MINUTE_LEVEL',
+            temporary: true,
+            temporaryExpireDate: '2024-01-02',
+          })
+        );
+      }
+
+      const first = await repository.getTemporaryCandidatesByFrequency('MINUTE_LEVEL', {
+        limit: 3,
+      });
+      expect(first.items).toHaveLength(3);
+      expect(first.count).toBe(first.items.length);
+    });
+
     it('getTemporaryCandidatesByFrequencyはlimit+cursorで、候補外（Temporary=false）が混在しても候補だけを重複・欠落なくソートキー昇順に走査できる（100件超のフィクスチャ）', async () => {
       // DynamoDBのFilterExpression併用時、Limitは「フィルタ後の返却件数」ではなく
       // 「評価したアイテム件数」に適用される。1ページの返却件数がlimitを下回っても
@@ -609,6 +649,7 @@ export function defineAlertRepositoryContract(
           limit: 15,
           cursor,
         });
+        expect(page.count).toBe(page.items.length);
         collected.push(...page.items.map((item) => item.userId));
         cursor = page.nextCursor;
       } while (cursor);
