@@ -1,8 +1,14 @@
 import { NextResponse } from 'next/server';
-import { reportErrorEvent } from '@nagiyu/aws';
+import { createErrorReporter, reportErrorEvent } from '@nagiyu/aws';
 import { createApiErrorReporting } from '@nagiyu/nextjs';
 
 const SERVICE_ID = 'codec-converter';
+
+/**
+ * 例外を握って処理を続ける箇所から、その場で報告する。
+ * 上に例外が届かないため、ルート入口のラッパーでは拾えない。
+ */
+export const errorReporter = createErrorReporter({ serviceId: SERVICE_ID });
 
 /**
  * ルートハンドラを包み、想定外の例外を報告して 500 を返す。

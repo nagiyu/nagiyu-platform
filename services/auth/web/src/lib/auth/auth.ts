@@ -2,8 +2,9 @@ import NextAuth, { type NextAuthConfig } from 'next-auth';
 import Google from 'next-auth/providers/google';
 import { createAuthConfig } from '@nagiyu/nextjs';
 import { reportErrorEvent } from '@nagiyu/aws';
-import { toErrorMessage, isAllowedNagiyuRedirectUrl } from '@nagiyu/common';
+import { isAllowedNagiyuRedirectUrl } from '@nagiyu/common';
 import { createUserRepository } from '@nagiyu/auth-core';
+import { errorReporter } from '@/lib/api-error-reporting';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
@@ -59,16 +60,11 @@ const sharedAuthConfig = createAuthConfig({
         }
       } catch (error) {
         // NextAuth が jwt コールバックの例外をログイン失敗として握るため、ここで報告しないと残らない
-        await reportErrorEvent({
-          serviceId: 'auth',
-          severity: 'error',
-          title: 'jwt コールバック: ログイン時のユーザー情報取得に失敗しました',
-          message: toErrorMessage(error),
-          context: {
-            step: 'loginUserLookup',
-            errorStack: error instanceof Error ? error.stack : undefined,
-          },
-        });
+        await errorReporter.report(
+          'jwt コールバック: ログイン時のユーザー情報取得に失敗しました',
+          error,
+          { context: { step: 'loginUserLookup' } }
+        );
         throw error;
       }
     } else if (token.googleId) {
@@ -93,16 +89,14 @@ const sharedAuthConfig = createAuthConfig({
           }
           token.rolesRefreshedAt = Date.now();
         } catch (error) {
-          await reportErrorEvent({
-            serviceId: 'auth',
-            severity: 'error',
-            title: 'jwt コールバック: DB からのロール再取得に失敗しました',
-            message: ERROR_MESSAGES.ROLES_REFRESH_FAILED,
-            context: {
-              step: 'rolesRefresh',
-              errorStack: error instanceof Error ? error.stack : undefined,
-            },
-          });
+          await errorReporter.report(
+            'jwt コールバック: DB からのロール再取得に失敗しました',
+            error,
+            {
+              context: { step: 'rolesRefresh' },
+              message: ERROR_MESSAGES.ROLES_REFRESH_FAILED,
+            }
+          );
           // DB エラー時はセッションを壊さず既存トークンをそのまま返す
         }
       }
@@ -176,16 +170,8 @@ export const authConfig: NextAuthConfig = {
           picture: user.image || undefined,
         });
       } catch (error) {
-        const errorMessage = toErrorMessage(error);
-        await reportErrorEvent({
-          serviceId: 'auth',
-          severity: 'error',
-          title: 'signIn: ユーザー upsert エラー',
-          message: errorMessage,
-          context: {
-            step: 'upsertUser',
-            errorStack: error instanceof Error ? error.stack : undefined,
-          },
+        await errorReporter.report('signIn: ユーザー upsert エラー', error, {
+          context: { step: 'upsertUser' },
         });
         return false;
       }
