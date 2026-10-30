@@ -780,6 +780,49 @@ describe('InMemorySingleTableStore', () => {
       expect(result.nextCursor).toBeDefined();
     });
 
+    describe('count はそのページで返したアイテムの件数', () => {
+      it('query は limit で切れたページでも返したアイテムの件数を返す（総件数ではない）', () => {
+        const first = store.query({ pk: 'USER#123' }, { limit: 4 });
+        const second = store.query({ pk: 'USER#123' }, { limit: 4, cursor: first.nextCursor });
+        const last = store.query({ pk: 'USER#123' }, { limit: 4, cursor: second.nextCursor });
+
+        expect(first.count).toBe(4);
+        expect(second.count).toBe(4);
+        expect(last.items).toHaveLength(2);
+        expect(last.count).toBe(2);
+        expect(store.query({ pk: 'USER#123' }, { limit: 100 }).count).toBe(10);
+      });
+
+      it('queryByAttribute は limit で切れたページでも返したアイテムの件数を返す（総件数ではない）', () => {
+        store.clear();
+        for (let i = 0; i < 10; i++) {
+          store.put({
+            PK: `USER#${i}`,
+            SK: 'PROFILE',
+            Type: 'User',
+            GSI1PK: 'ACTIVE',
+            CreatedAt: Date.now(),
+            UpdatedAt: Date.now(),
+          });
+        }
+
+        const result = store.queryByAttribute(
+          { attributeName: 'GSI1PK', attributeValue: 'ACTIVE' },
+          { limit: 3 }
+        );
+
+        expect(result.count).toBe(3);
+      });
+
+      it('scan は limit で切れたページでも返したアイテムの件数を返す（総件数ではない）', () => {
+        const first = store.scan({ limit: 3 });
+        const second = store.scan({ limit: 3, cursor: first.nextCursor });
+
+        expect(first.count).toBe(3);
+        expect(second.count).toBe(second.items.length);
+      });
+    });
+
     describe('nextCursor の境界（実DynamoDBのLastEvaluatedKey挙動に合わせる）', () => {
       // 実DynamoDBはLimitに達した時点でLastEvaluatedKeyを返す。その直後に残り0件であっても
       // （＝ちょうどlimit件で終わる場合）である。よってInMemory実装も「limitちょうど返せたか」を

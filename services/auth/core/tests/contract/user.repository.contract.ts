@@ -204,11 +204,23 @@ export function defineUserRepositoryContract(
       let cursor: string | undefined;
       do {
         const page = await repository.listUsers({ limit: 2, cursor });
+        expect(page.count).toBe(page.items.length);
         collected.push(...page.items.map((user) => user.userId));
         cursor = page.nextCursor;
       } while (cursor);
 
       expect([...collected].sort()).toEqual([...createdIds].sort());
+    });
+
+    it('listUsers の count は limit で切れたページでも返した items の件数になる (総件数ではない)', async () => {
+      for (const suffix of ['q1', 'q2', 'q3', 'q4', 'q5']) {
+        await repository.upsertUser(buildUpsertInput(suffix));
+      }
+
+      const page = await repository.listUsers({ limit: 2 });
+
+      expect(page.items).toHaveLength(2);
+      expect(page.count).toBe(2);
     });
 
     it('listUsers は不正な cursor を無視して先頭から取得する', async () => {
