@@ -9,6 +9,8 @@ import {
 } from '@aws-sdk/lib-dynamodb';
 import {
   DatabaseError,
+  decodeCursor,
+  encodeCursor,
   EntityNotFoundError,
   getDynamoDBDocumentClient,
   getTableName,
@@ -141,16 +143,20 @@ describe('DynamoDBUserRepository', () => {
   });
 
   describe('listUsers', () => {
-    it('Scan の結果を Entity に変換し、LastEvaluatedKey を返す', async () => {
+    it('Scan の結果を Entity に変換し、LastEvaluatedKey を nextCursor にして返す', async () => {
       mockSend.mockResolvedValueOnce({
         Items: [buildStoredUser(), buildStoredUser({ userId: 'user-456', googleId: 'g-456' })],
         LastEvaluatedKey: { userId: 'user-456' },
       });
 
-      const result = await repository.listUsers(2, { userId: 'user-000' });
+      const result = await repository.listUsers({
+        limit: 2,
+        cursor: encodeCursor({ userId: 'user-000' }),
+      });
 
-      expect(result.users.map((user) => user.userId)).toEqual(['user-123', 'user-456']);
-      expect(result.lastEvaluatedKey).toEqual({ userId: 'user-456' });
+      expect(result.items.map((user) => user.userId)).toEqual(['user-123', 'user-456']);
+      expect(result.count).toBe(2);
+      expect(decodeCursor(result.nextCursor)).toEqual({ userId: 'user-456' });
       const command = mockSend.mock.calls[0][0] as ScanCommand;
       expect(command).toBeInstanceOf(ScanCommand);
       expect(command.input).toMatchObject({
@@ -160,12 +166,12 @@ describe('DynamoDBUserRepository', () => {
       });
     });
 
-    it('引数を省略すると limit は 100 になり、最終ページでは lastEvaluatedKey がない', async () => {
+    it('引数を省略すると limit は 100 になり、最終ページでは nextCursor がない', async () => {
       mockSend.mockResolvedValueOnce({});
 
       const result = await repository.listUsers();
 
-      expect(result).toEqual({ users: [], lastEvaluatedKey: undefined });
+      expect(result).toEqual({ items: [], nextCursor: undefined, count: 0 });
       expect((mockSend.mock.calls[0][0] as ScanCommand).input.Limit).toBe(100);
     });
 

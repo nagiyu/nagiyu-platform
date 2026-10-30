@@ -4,19 +4,15 @@
  * DynamoDBを使用したAlertRepositoryの実装
  */
 
-import {
-  QueryCommand,
-  type DynamoDBDocumentClient,
-  type QueryCommandOutput,
-} from '@aws-sdk/lib-dynamodb';
+import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import {
   DynamoDBEntityStore,
   TTL_ATTRIBUTE_NAME,
   toDatabaseError,
   queryAllItems,
-  encodeCursor,
-  decodeCursor,
+  queryPage,
   type DynamoDBAttributes,
+  type DynamoDBItem,
   type EntityStore,
   type PaginationOptions,
   type PaginatedResult,
@@ -77,13 +73,11 @@ export class DynamoDBAlertRepository implements AlertRepository {
     userId: string,
     options?: GetByUserIdOptions
   ): Promise<PaginatedResult<AlertEntity>> {
-    let result: QueryCommandOutput;
+    let page: PaginatedResult<DynamoDBItem>;
     try {
-      const limit = options?.limit || 50;
-      const exclusiveStartKey = decodeCursor(options?.cursor);
-
-      result = await this.docClient.send(
-        new QueryCommand({
+      page = await queryPage(
+        this.docClient,
+        {
           TableName: this.tableName,
           IndexName: 'UserIndex',
           KeyConditionExpression: '#gsi1pk = :userId AND begins_with(#gsi1sk, :prefix)',
@@ -97,9 +91,8 @@ export class DynamoDBAlertRepository implements AlertRepository {
             ':userId': buildAlertGsi1Pk(userId),
             ':prefix': ALERT_GSI1_SK_PREFIX,
           },
-          Limit: limit,
-          ExclusiveStartKey: exclusiveStartKey,
-        })
+        },
+        { limit: options?.limit || 50, cursor: options?.cursor }
       );
     } catch (error) {
       throw toDatabaseError(error);
@@ -109,7 +102,7 @@ export class DynamoDBAlertRepository implements AlertRepository {
     // 全て個別アイテムの検証失敗。バッチ呼び出し全体を壊さないよう、
     // エラー種別の判定に依存せず常にスキップ＆警告ログとする。
     const items: AlertEntity[] = [];
-    for (const item of result.Items || []) {
+    for (const item of page.items) {
       try {
         items.push(this.mapper.toEntity(item));
       } catch (error) {
@@ -121,12 +114,10 @@ export class DynamoDBAlertRepository implements AlertRepository {
       }
     }
 
-    const nextCursor = encodeCursor(result.LastEvaluatedKey);
-
     return {
       items,
-      nextCursor,
-      count: result.Count,
+      nextCursor: page.nextCursor,
+      count: items.length,
     };
   }
 
@@ -227,13 +218,11 @@ export class DynamoDBAlertRepository implements AlertRepository {
     frequency: 'MINUTE_LEVEL' | 'HOURLY_LEVEL',
     options?: PaginationOptions
   ): Promise<PaginatedResult<TemporaryAlertCandidate>> {
-    let result: QueryCommandOutput;
+    let page: PaginatedResult<DynamoDBItem>;
     try {
-      const limit = options?.limit || 50;
-      const exclusiveStartKey = decodeCursor(options?.cursor);
-
-      result = await this.docClient.send(
-        new QueryCommand({
+      page = await queryPage(
+        this.docClient,
+        {
           TableName: this.tableName,
           IndexName: 'AlertIndex',
           KeyConditionExpression: '#gsi2pk = :pk',
@@ -257,16 +246,15 @@ export class DynamoDBAlertRepository implements AlertRepository {
             ':pk': buildAlertGsi2Pk(frequency),
             ':true': true,
           },
-          Limit: limit,
-          ExclusiveStartKey: exclusiveStartKey,
-        })
+        },
+        { limit: options?.limit || 50, cursor: options?.cursor }
       );
     } catch (error) {
       throw toDatabaseError(error);
     }
 
     const items: TemporaryAlertCandidate[] = [];
-    for (const item of result.Items || []) {
+    for (const item of page.items) {
       try {
         items.push(this.mapper.toTemporaryCandidate(item));
       } catch (error) {
@@ -278,12 +266,10 @@ export class DynamoDBAlertRepository implements AlertRepository {
       }
     }
 
-    const nextCursor = encodeCursor(result.LastEvaluatedKey);
-
     return {
       items,
-      nextCursor,
-      count: result.Count,
+      nextCursor: page.nextCursor,
+      count: items.length,
     };
   }
 

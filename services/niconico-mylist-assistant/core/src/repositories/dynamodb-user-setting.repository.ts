@@ -4,12 +4,11 @@
  * DynamoDBを使用したUserSettingRepositoryの実装
  */
 
-import { QueryCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import {
   DynamoDBEntityStore,
   toDatabaseError,
-  encodeCursor,
-  decodeCursor,
+  queryPage,
   type EntityStore,
   type PaginationOptions,
   type PaginatedResult,
@@ -55,30 +54,25 @@ export class DynamoDBUserSettingRepository implements UserSettingRepository {
     options?: PaginationOptions
   ): Promise<PaginatedResult<UserSettingEntity>> {
     try {
-      const limit = options?.limit || 100;
-      const exclusiveStartKey = decodeCursor(options?.cursor);
-
-      const result = await this.docClient.send(
-        new QueryCommand({
+      const page = await queryPage(
+        this.docClient,
+        {
           TableName: this.tableName,
           KeyConditionExpression: 'PK = :pk AND begins_with(SK, :sk)',
           ExpressionAttributeValues: {
             ':pk': `USER#${userId}`,
             ':sk': 'VIDEO#',
           },
-          Limit: limit,
-          ExclusiveStartKey: exclusiveStartKey,
-        })
+        },
+        { limit: options?.limit || 100, cursor: options?.cursor }
       );
 
-      const items = (result.Items || []).map((item) => this.mapper.toEntity(item));
-
-      const nextCursor = encodeCursor(result.LastEvaluatedKey);
+      const items = page.items.map((item) => this.mapper.toEntity(item));
 
       return {
         items,
-        nextCursor,
-        count: result.Count,
+        nextCursor: page.nextCursor,
+        count: page.count,
       };
     } catch (error) {
       throw toDatabaseError(error);
