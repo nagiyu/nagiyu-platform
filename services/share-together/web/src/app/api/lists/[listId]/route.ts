@@ -1,31 +1,25 @@
-import { ListService } from '@nagiyu/share-together-core';
+import { LIST_ERROR_MESSAGES, ListService } from '@nagiyu/share-together-core';
 import { withApiErrorReporting } from '@/lib/api-error-reporting';
 import { NextResponse } from 'next/server';
 import type { PersonalListResponse } from '@/types';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
-import { getDynamoDBDocumentClient } from '@nagiyu/aws';
+import { EntityNotFoundError, getDynamoDBDocumentClient } from '@nagiyu/aws';
+import { InvalidInputError } from '@nagiyu/common';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 import { createListRepository, createTodoRepository } from '@nagiyu/share-together-core';
 import { createValidationErrorResponse, createNotFoundErrorResponse } from '@/lib/api/responses';
-import { isNonEmptyString, isValidationError, isNotFoundError } from '@/lib/api/validation';
+import { isNonEmptyString } from '@/lib/api/validation';
 import { createErrorResponse, readJsonObjectBody } from '@nagiyu/nextjs';
 
 interface RouteContext {
   params: Promise<{ listId: string }>;
 }
 
-const NOT_FOUND_ERROR_MESSAGES: Set<string> = new Set([ERROR_MESSAGES.PERSONAL_LIST_NOT_FOUND]);
-const VALIDATION_ERROR_MESSAGES: Set<string> = new Set([
-  ERROR_MESSAGES.USER_ID_REQUIRED,
-  ERROR_MESSAGES.LIST_ID_REQUIRED,
-  ERROR_MESSAGES.LIST_NAME_INVALID,
-]);
-
 function createDefaultListNotDeletableResponse(): NextResponse {
   return createErrorResponse(
     400,
     'DEFAULT_LIST_NOT_DELETABLE',
-    ERROR_MESSAGES.DEFAULT_LIST_NOT_DELETABLE
+    LIST_ERROR_MESSAGES.DEFAULT_LIST_NOT_DELETABLE
   );
 }
 
@@ -43,7 +37,7 @@ function createListService(): ListService {
 }
 
 function isDefaultListNotDeletableError(error: unknown): boolean {
-  return error instanceof Error && error.message === ERROR_MESSAGES.DEFAULT_LIST_NOT_DELETABLE;
+  return error instanceof Error && error.message === LIST_ERROR_MESSAGES.DEFAULT_LIST_NOT_DELETABLE;
 }
 
 export const GET = withApiErrorReporting(
@@ -69,10 +63,10 @@ export const GET = withApiErrorReporting(
 
       return NextResponse.json(response);
     } catch (error) {
-      if (isValidationError(error, VALIDATION_ERROR_MESSAGES)) {
+      if (error instanceof InvalidInputError) {
         return createValidationErrorResponse();
       }
-      if (isNotFoundError(error, NOT_FOUND_ERROR_MESSAGES)) {
+      if (error instanceof EntityNotFoundError) {
         return createNotFoundErrorResponse();
       }
 
@@ -113,10 +107,10 @@ export const PUT = withApiErrorReporting(
 
       return NextResponse.json(response);
     } catch (error) {
-      if (isValidationError(error, VALIDATION_ERROR_MESSAGES)) {
+      if (error instanceof InvalidInputError) {
         return createValidationErrorResponse();
       }
-      if (isNotFoundError(error, NOT_FOUND_ERROR_MESSAGES)) {
+      if (error instanceof EntityNotFoundError) {
         return createNotFoundErrorResponse();
       }
 
@@ -145,13 +139,13 @@ export const DELETE = withApiErrorReporting(
 
       return new NextResponse(null, { status: 204 });
     } catch (error) {
-      if (isValidationError(error, VALIDATION_ERROR_MESSAGES)) {
+      if (error instanceof InvalidInputError) {
         return createValidationErrorResponse();
       }
       if (isDefaultListNotDeletableError(error)) {
         return createDefaultListNotDeletableResponse();
       }
-      if (isNotFoundError(error, NOT_FOUND_ERROR_MESSAGES)) {
+      if (error instanceof EntityNotFoundError) {
         return createNotFoundErrorResponse();
       }
 

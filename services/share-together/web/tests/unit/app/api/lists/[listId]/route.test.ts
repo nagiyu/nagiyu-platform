@@ -1,3 +1,7 @@
+/**
+ * @jest-environment node
+ */
+
 jest.mock('next/server', () => {
   class MockNextResponse {
     public status: number;
@@ -29,10 +33,15 @@ jest.mock('@/lib/auth/session', () => ({
 }));
 
 jest.mock('@nagiyu/aws', () => ({
+  ...jest.requireActual('@nagiyu/aws'),
   getDynamoDBDocumentClient: jest.fn(),
+  reportErrorEvent: jest.fn().mockResolvedValue(null),
 }));
 
 jest.mock('@nagiyu/share-together-core', () => ({
+  LIST_ERROR_MESSAGES: jest.requireActual<typeof import('@nagiyu/share-together-core')>(
+    '@nagiyu/share-together-core'
+  ).LIST_ERROR_MESSAGES,
   DynamoDBListRepository: jest.fn(),
   createListRepository: jest.fn(),
   createTodoRepository: jest.fn(),
@@ -41,9 +50,13 @@ jest.mock('@nagiyu/share-together-core', () => ({
 
 import { DELETE, GET, PUT } from '@/app/api/lists/[listId]/route';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
-import { getDynamoDBDocumentClient } from '@nagiyu/aws';
-import { ERROR_MESSAGES } from '@/lib/constants/errors';
-import { DynamoDBListRepository, ListService } from '@nagiyu/share-together-core';
+import { EntityNotFoundError, getDynamoDBDocumentClient } from '@nagiyu/aws';
+import { InvalidInputError } from '@nagiyu/common';
+import {
+  DynamoDBListRepository,
+  LIST_ERROR_MESSAGES,
+  ListService,
+} from '@nagiyu/share-together-core';
 
 const mockGetSessionOrUnauthorized = getSessionOrUnauthorized as jest.MockedFunction<
   typeof getSessionOrUnauthorized
@@ -105,6 +118,8 @@ describe('/api/lists/[listId] route handlers', () => {
   afterEach(() => {
     delete process.env.DYNAMODB_TABLE_NAME;
     jest.clearAllMocks();
+    // 500 の経路で黙らせた console.error を、後続のテストへ持ち越さない
+    jest.restoreAllMocks();
   });
 
   it('GET: 個人リストを返す', async () => {
@@ -181,14 +196,111 @@ describe('/api/lists/[listId] route handlers', () => {
     mockGetSessionOrUnauthorized.mockResolvedValue({
       user: { id: 'user-1' },
     } as SessionOrUnauthorized);
-    mockDeletePersonalList.mockRejectedValue(new Error(ERROR_MESSAGES.DEFAULT_LIST_NOT_DELETABLE));
+    mockDeletePersonalList.mockRejectedValue(
+      new Error(LIST_ERROR_MESSAGES.DEFAULT_LIST_NOT_DELETABLE)
+    );
 
     const response = await DELETE({} as Request, createContext());
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({
       error: 'DEFAULT_LIST_NOT_DELETABLE',
-      message: ERROR_MESSAGES.DEFAULT_LIST_NOT_DELETABLE,
+      message: 'デフォルトリストは削除できません',
+    });
+  });
+
+  describe('エラーの振り分け', () => {
+    const notFound = (): EntityNotFoundError =>
+      new EntityNotFoundError('PersonalList', 'USER#user-1#PLIST#list-1');
+    const notFoundBody = { error: 'NOT_FOUND', message: '対象のデータが見つかりません' };
+
+    beforeEach(() => {
+      mockGetSessionOrUnauthorized.mockResolvedValue({
+        user: { id: 'user-1' },
+      } as SessionOrUnauthorized);
+    });
+
+    it('GET: EntityNotFoundError の場合は404を返す', async () => {
+      mockGetPersonalListById.mockRejectedValue(notFound());
+
+      const response = await GET({} as Request, createContext());
+
+      expect(response.status).toBe(404);
+      await expect(response.json()).resolves.toEqual(notFoundBody);
+    });
+
+    it('GET: InvalidInputError の場合は400を返す', async () => {
+      mockGetPersonalListById.mockRejectedValue(new InvalidInputError('リストIDは必須です'));
+
+      const response = await GET({} as Request, createContext());
+
+      expect(response.status).toBe(400);
+    });
+
+    it('GET: 不在や検証エラーと同じ文言でも素の Error は400/404にせず500を返す', async () => {
+      jest.spyOn(console, 'error').mockImplementation(() => undefined);
+      mockGetPersonalListById.mockRejectedValue(new Error('個人リストが見つかりません'));
+      const notFoundResponse = await GET({} as Request, createContext());
+      mockGetPersonalListById.mockRejectedValue(new Error('リストIDは必須です'));
+      const validationResponse = await GET({} as Request, createContext());
+
+      expect(notFoundResponse.status).toBe(500);
+      expect(validationResponse.status).toBe(500);
+    });
+
+    it('PUT: EntityNotFoundError の場合は404を返す', async () => {
+      mockUpdatePersonalList.mockRejectedValue(notFound());
+
+      const response = await PUT(createRequest({ name: '仕事' }), createContext());
+
+      expect(response.status).toBe(404);
+      await expect(response.json()).resolves.toEqual(notFoundBody);
+    });
+
+    it('PUT: InvalidInputError の場合は400を返す', async () => {
+      mockUpdatePersonalList.mockRejectedValue(
+        new InvalidInputError('リスト名は1〜100文字で入力してください')
+      );
+
+      const response = await PUT(createRequest({ name: '仕事' }), createContext());
+
+      expect(response.status).toBe(400);
+    });
+
+    it('PUT: 素の Error は400/404にせず500を返す', async () => {
+      jest.spyOn(console, 'error').mockImplementation(() => undefined);
+      mockUpdatePersonalList.mockRejectedValue(new Error('個人リストが見つかりません'));
+
+      const response = await PUT(createRequest({ name: '仕事' }), createContext());
+
+      expect(response.status).toBe(500);
+    });
+
+    it('DELETE: EntityNotFoundError の場合は404を返す', async () => {
+      mockDeletePersonalList.mockRejectedValue(notFound());
+
+      const response = await DELETE({} as Request, createContext());
+
+      expect(response.status).toBe(404);
+      await expect(response.json()).resolves.toEqual(notFoundBody);
+    });
+
+    it('DELETE: InvalidInputError の場合は400を返す', async () => {
+      mockDeletePersonalList.mockRejectedValue(new InvalidInputError('リストIDは必須です'));
+
+      const response = await DELETE({} as Request, createContext());
+
+      expect(response.status).toBe(400);
+      await expect(response.json()).resolves.toMatchObject({ error: 'VALIDATION_ERROR' });
+    });
+
+    it('DELETE: 素の Error は400/404にせず500を返す', async () => {
+      jest.spyOn(console, 'error').mockImplementation(() => undefined);
+      mockDeletePersonalList.mockRejectedValue(new Error('個人リストが見つかりません'));
+
+      const response = await DELETE({} as Request, createContext());
+
+      expect(response.status).toBe(500);
     });
   });
 

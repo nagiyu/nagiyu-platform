@@ -4,7 +4,7 @@
  * Admin Web で永続化済みエラーイベントを参照するための読み取り専用 API。
  */
 
-import type { ErrorEvent } from '@nagiyu/common';
+import { InvalidInputError, type ErrorEvent } from '@nagiyu/common';
 
 /**
  * 一覧取得時のクエリパラメータ
@@ -69,11 +69,11 @@ const ERROR_MESSAGES = {
  *
  * 実装ごとに判定がずれないよう、DynamoDB 版と in-memory 版で共有する。
  *
- * @throws Error from が to より後のとき
+ * @throws InvalidInputError from が to より後のとき
  */
 export function assertValidRange(query: Pick<ListErrorEventsQuery, 'from' | 'to'>): void {
   if (query.from && query.to && Date.parse(query.from) > Date.parse(query.to)) {
-    throw new Error(ERROR_MESSAGES.INVALID_RANGE);
+    throw new InvalidInputError(ERROR_MESSAGES.INVALID_RANGE);
   }
 }
 
@@ -87,7 +87,7 @@ export function encodeCursor(lastEvaluatedKey: Record<string, unknown>): string 
 /**
  * cursor 文字列から DynamoDB の LastEvaluatedKey をデコードする。
  *
- * @throws cursor が不正な場合
+ * @throws InvalidInputError cursor が不正な場合
  */
 export function decodeCursor(cursor: string): Record<string, unknown> {
   try {
@@ -98,7 +98,7 @@ export function decodeCursor(cursor: string): Record<string, unknown> {
     }
     return parsed as Record<string, unknown>;
   } catch {
-    throw new Error(ERROR_MESSAGES.INVALID_CURSOR);
+    throw new InvalidInputError(ERROR_MESSAGES.INVALID_CURSOR);
   }
 }
 

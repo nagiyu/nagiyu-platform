@@ -1,5 +1,5 @@
 import type { NextRequest } from 'next/server';
-import { COMMON_ERROR_MESSAGES, hasPermission } from '@nagiyu/common';
+import { COMMON_ERROR_MESSAGES, InvalidInputError, hasPermission } from '@nagiyu/common';
 import { getDynamoDBDocumentClient } from '@nagiyu/aws';
 import { createErrorEventReader, type ListErrorEventsQuery } from '@nagiyu/admin-core';
 import {
@@ -89,10 +89,8 @@ export const GET = withApiErrorReporting(
       if (error instanceof PaginationValidationError) {
         return createErrorResponse(400, 'INVALID_REQUEST', error.message);
       }
-      if (error instanceof Error && error.message.includes('cursor')) {
-        return createErrorResponse(400, 'INVALID_REQUEST', ERROR_MESSAGES.INVALID_REQUEST);
-      }
-      if (error instanceof Error && error.message.includes('from は to')) {
+      // cursor などの語を含む DynamoDB 由来の例外を 400 にしないよう、文言ではなく型で判定する
+      if (error instanceof InvalidInputError) {
         return createErrorResponse(400, 'INVALID_REQUEST', ERROR_MESSAGES.INVALID_REQUEST);
       }
 

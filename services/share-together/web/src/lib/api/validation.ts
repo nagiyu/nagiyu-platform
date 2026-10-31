@@ -20,21 +20,3 @@ export function normalizeGroupName(value: unknown): string | null {
   const name = value.trim();
   return name.length > 0 && name.length <= GROUP_NAME_MAX_LENGTH ? name : null;
 }
-
-/**
- * コアのエラーメッセージが入力検証エラーかを判定する。
- *
- * 照合するメッセージ集合は route ごとに異なるため呼び出し側が渡す。
- */
-export function isValidationError(error: unknown, messages: ReadonlySet<string>): boolean {
-  return error instanceof Error && messages.has(error.message);
-}
-
-/**
- * コアのエラーメッセージが対象リソース未存在エラーかを判定する。
- *
- * 照合するメッセージ集合は route ごとに異なるため呼び出し側が渡す。
- */
-export function isNotFoundError(error: unknown, messages: ReadonlySet<string>): boolean {
-  return error instanceof Error && messages.has(error.message);
-}

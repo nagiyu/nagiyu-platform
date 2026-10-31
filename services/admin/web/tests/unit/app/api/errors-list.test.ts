@@ -3,6 +3,7 @@
  */
 import { NextRequest } from 'next/server';
 import { GET } from '@/app/api/errors/route';
+import { InvalidInputError } from '@nagiyu/common';
 import { createErrorEventReader } from '@nagiyu/admin-core';
 import { getSession } from '@/lib/auth/session';
 
@@ -96,13 +97,30 @@ describe('GET /api/errors', () => {
     expect(mockList).not.toHaveBeenCalled();
   });
 
-  it('reader が cursor 不正で例外を投げた場合は 400 を返す', async () => {
-    mockList.mockRejectedValue(new Error('cursor が不正な形式です'));
+  it('reader が InvalidInputError を投げた場合は 400 を返す', async () => {
+    mockList.mockRejectedValue(new InvalidInputError('cursor が不正な形式です'));
 
     const response = await GET(createRequest('?lastKey=broken'));
 
     expect(response.status).toBe(400);
-    expect((await response.json()).error).toBe('INVALID_REQUEST');
+    expect(await response.json()).toEqual({
+      error: 'INVALID_REQUEST',
+      message: expect.any(String),
+    });
+  });
+
+  it('cursor という語を含むだけの素の Error は 400 にせず、ラッパー経由の 500 になる', async () => {
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    mockList.mockRejectedValue(new Error('DynamoDB の cursor の取得に失敗しました'));
+
+    const response = await GET(createRequest());
+
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({
+      error: 'INTERNAL_ERROR',
+      message: 'エラー履歴の取得に失敗しました',
+    });
+    consoleError.mockRestore();
   });
 
   it('未ログインの場合は 401 を返す', async () => {
