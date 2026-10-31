@@ -59,7 +59,7 @@ describe('InMemoryEntityStore', () => {
     const error = await store.createIfAbsent(note).catch((e: unknown) => e);
     expect(error).toBeInstanceOf(DatabaseError);
     expect((error as DatabaseError).message).toContain(
-      ENTITY_STORE_ERROR_MESSAGES.CREATE_CONFLICT_ITEM_MISSING
+      `${ENTITY_STORE_ERROR_MESSAGES.CREATE_CONFLICT_ITEM_MISSING}: Note NOTE#n1#META`
     );
     expect((error as DatabaseError).cause).toBeInstanceOf(EntityAlreadyExistsError);
   });

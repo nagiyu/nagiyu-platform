@@ -92,7 +92,8 @@ export interface EntityStore<TEntity, TKey> {
    * 作成できなかったときは、強い整合性で読み直した既存の値を返す。
    * 作成と同じく `UpdatedAt` は store が現在時刻で設定し、`createdAt` を省略すると同じ時刻で埋める。
    *
-   * @throws DatabaseError 既に存在して作成できなかったが、読み直しで見つからないとき (間に削除された)
+   * @throws DatabaseError 既に存在して作成できなかったが、読み直しで見つからないとき (間に削除された)。
+   *   作成も既存の取得もできず結果を返せない異常のため、不在を表す `EntityNotFoundError` とは分ける
    */
   createIfAbsent(input: EntityCreateInput<TEntity>): Promise<CreateIfAbsentResult<TEntity>>;
 
@@ -125,7 +126,14 @@ export interface EntityStore<TEntity, TKey> {
    * mapper にフィールド名から属性名への汎用の対応がないため、呼び出し側が属性名で指定する。
    * 更新内容の組み立て (`UpdatedAt` の扱い、キー属性のガード、旧名の削除) は `update` と同じ。
    *
-   * @throws EntityNotFoundError 存在しないとき
+   * 「未設定」は、mapper の `legacyAttributeNames[attributeName]` にある旧名も含めて判定する。
+   * 新名と旧名のどれも未設定のときだけ更新し、どれか 1 つでも設定済みなら書かずに `updated: false` を返す。
+   * 旧形式の Item を一括移行せず mapper が読むときに旧名も受け付けるため、新名だけを見ると
+   * 旧名で値が残った Item を未設定と誤判定し、新名を書いたうえで旧名を REMOVE して既存の値を消してしまう。
+   * `null` (DynamoDB の NULL 型) で保存された属性も設定済みとして扱う。
+   *
+   * @throws EntityNotFoundError 存在しないとき。DynamoDB 版で、設定済みの判定後の読み直しで
+   *   見つからなかったときも含む (間に削除されただけで、対象が無いという通常の不在と同じ状態のため)
    * @throws InvalidEntityDataError `toUpdateAttributes` の結果にキー属性が含まれるとき
    */
   updateIfAttributeAbsent(

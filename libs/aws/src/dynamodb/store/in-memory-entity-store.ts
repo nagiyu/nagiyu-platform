@@ -24,6 +24,7 @@ import {
   describeKey,
   planUpdate,
   prepareWriteItem,
+  resolveAbsentAttributeNames,
   resolveKeys,
 } from './entity-store-support.js';
 
@@ -71,6 +72,8 @@ export class InMemoryEntityStore<TEntity, TKey> implements EntityStore<TEntity, 
   ): Promise<CreateIfAbsentResult<TEntity>> {
     const { keys, item } = prepareWriteItem(this.mapper, input, this.now());
     return createOrReadExisting(
+      this.mapper.entityType,
+      keys,
       async () => this.insertIfAbsent(keys, item, {}),
       async () => {
         const existing = this.store.getByKey(keys);
@@ -111,7 +114,9 @@ export class InMemoryEntityStore<TEntity, TKey> implements EntityStore<TEntity, 
     if (!existing) {
       throw new EntityNotFoundError(this.mapper.entityType, describeKey(keys));
     }
-    if (existing[attributeName] !== undefined) {
+    // null (DynamoDB の NULL 型) も設定済みとして扱う。DynamoDB の attribute_not_exists と同じ
+    const absentNames = resolveAbsentAttributeNames(this.mapper, attributeName);
+    if (absentNames.some((name) => existing[name] !== undefined)) {
       return { entity: convertToEntity(this.mapper, existing), updated: false };
     }
     return { entity: this.applyUpdate(keys, existing, fields), updated: true };

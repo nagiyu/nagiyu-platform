@@ -182,6 +182,46 @@ export function defineNoteScenarios(create: () => Harness<Note, { id: string }>)
     });
   });
 
+  it('updateIfAttributeAbsent: 旧名だけに値がある Item は設定済みとして書かず、Item も変えない', async () => {
+    const seeded = {
+      ...noteKeys,
+      Id: 'n1',
+      Title: '題名',
+      memo: '旧名のメモ',
+      CreatedAt: CREATED,
+      UpdatedAt: OLD_UPDATED,
+    };
+    h.seed(noteKeys, { ...seeded });
+    await expect(
+      h.store.updateIfAttributeAbsent({ id: 'n1' }, 'Memo', { memo: '上書きしたい' })
+    ).resolves.toEqual({
+      entity: {
+        id: 'n1',
+        title: '題名',
+        memo: '旧名のメモ',
+        createdAt: CREATED,
+        updatedAt: OLD_UPDATED,
+      },
+      updated: false,
+    });
+    expect(h.peek(noteKeys)).toEqual(seeded);
+  });
+
+  it('updateIfAttributeAbsent: 判定する属性が null (NULL 型) で保存されていれば設定済みとして書かない', async () => {
+    const seeded = {
+      ...noteKeys,
+      Id: 'n1',
+      Title: '題名',
+      Memo: null,
+      CreatedAt: CREATED,
+      UpdatedAt: OLD_UPDATED,
+    };
+    h.seed(noteKeys, { ...seeded });
+    const result = await h.store.updateIfAttributeAbsent({ id: 'n1' }, 'Memo', { memo: '追記' });
+    expect(result.updated).toBe(false);
+    expect(h.peek(noteKeys)).toEqual(seeded);
+  });
+
   it('updateIfAttributeAbsent: 存在しなければ EntityNotFoundError (ストアに作らない)', async () => {
     await expect(
       h.store.updateIfAttributeAbsent({ id: 'n1' }, 'Memo', { memo: 'x' })

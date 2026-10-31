@@ -110,19 +110,29 @@ describe('DynamoDBEntityStore', () => {
       expect(input.ExpressionAttributeNames).toEqual({ '#pk': 'PK' });
     });
 
-    it('updateIfAttributeAbsent は存在と属性の不在を条件にし、失敗時に旧 Item を要求する', async () => {
+    it('updateIfAttributeAbsent は存在と、新名・旧名すべての属性の不在を条件にし、失敗時に旧 Item を要求する', async () => {
       await h.store.create(note);
       await h.store.updateIfAttributeAbsent({ id: 'n1' }, 'Memo', { memo: '追記' });
       const input = (h.send.mock.calls[1][0] as UpdateCommand).input;
       expect(input.ConditionExpression).toBe(
-        'attribute_exists(#pk) AND attribute_not_exists(#absentAttribute)'
+        'attribute_exists(#pk) AND attribute_not_exists(#absent0) AND attribute_not_exists(#absent1)'
       );
       expect(input.ExpressionAttributeNames).toMatchObject({
         '#pk': 'PK',
-        '#absentAttribute': 'Memo',
+        '#absent0': 'Memo',
+        '#absent1': 'memo',
       });
       expect(input.ReturnValues).toBe('ALL_NEW');
       expect(input.ReturnValuesOnConditionCheckFailure).toBe('ALL_OLD');
+    });
+
+    it('updateIfAttributeAbsent は旧名を持たない属性なら新名だけを条件にする', async () => {
+      await h.store.create(note);
+      await h.store.updateIfAttributeAbsent({ id: 'n1' }, 'Extra', { memo: '追記' });
+      const input = (h.send.mock.calls[1][0] as UpdateCommand).input;
+      expect(input.ConditionExpression).toBe(
+        'attribute_exists(#pk) AND attribute_not_exists(#absent0)'
+      );
     });
 
     it('updateIfAttributeAbsent は設定済みのとき強い整合性の GetCommand で既存を読み直す', async () => {
@@ -278,7 +288,7 @@ describe('DynamoDBEntityStore', () => {
       const error = await store.createIfAbsent(note).catch((e: unknown) => e);
       expect(error).toBeInstanceOf(DatabaseError);
       expect((error as DatabaseError).message).toContain(
-        ENTITY_STORE_ERROR_MESSAGES.CREATE_CONFLICT_ITEM_MISSING
+        `${ENTITY_STORE_ERROR_MESSAGES.CREATE_CONFLICT_ITEM_MISSING}: Note NOTE#n1#META`
       );
       expect((error as DatabaseError).cause).toBeInstanceOf(EntityAlreadyExistsError);
     });

@@ -39,6 +39,7 @@ import {
   getPartitionKeyName,
   planUpdate,
   prepareWriteItem,
+  resolveAbsentAttributeNames,
   resolveKeys,
 } from './entity-store-support.js';
 
@@ -99,6 +100,8 @@ export class DynamoDBEntityStore<TEntity, TKey> implements EntityStore<TEntity, 
   ): Promise<CreateIfAbsentResult<TEntity>> {
     const { keys, item } = prepareWriteItem(this.mapper, input, this.now());
     return createOrReadExisting(
+      this.mapper.entityType,
+      keys,
       async () => {
         await this.putIfAbsent(keys, item, {});
         return convertToEntity(this.mapper, item);
@@ -151,12 +154,18 @@ export class DynamoDBEntityStore<TEntity, TKey> implements EntityStore<TEntity, 
     changes: EntityPatch<TEntity>
   ): Promise<UpdateIfAttributeAbsentResult<TEntity>> {
     const { keys, fields } = planUpdate(this.mapper, key, changes);
+    // 新名と旧名のどれかが設定済みなら書かない。プレースホルダは update 式の #n* と衝突しない名前にする
+    const absentNames = resolveAbsentAttributeNames(this.mapper, attributeName);
+    const absentPlaceholders = absentNames.map((name, index) => [`#absent${index}`, name] as const);
     try {
       const entity = await this.sendUpdate(keys, fields, {
-        ConditionExpression: 'attribute_exists(#pk) AND attribute_not_exists(#absentAttribute)',
+        ConditionExpression: [
+          'attribute_exists(#pk)',
+          ...absentPlaceholders.map(([placeholder]) => `attribute_not_exists(${placeholder})`),
+        ].join(' AND '),
         ExpressionAttributeNames: {
           '#pk': getPartitionKeyName(keys),
-          '#absentAttribute': attributeName,
+          ...Object.fromEntries(absentPlaceholders),
         },
         ReturnValuesOnConditionCheckFailure: 'ALL_OLD',
       });
@@ -165,7 +174,8 @@ export class DynamoDBEntityStore<TEntity, TKey> implements EntityStore<TEntity, 
       if (!isConditionalCheckFailed(error)) {
         throw toDatabaseError(error);
       }
-      // 旧 Item が付かなければ不在、付けば属性が設定済み
+      // 旧 Item が付かなければ不在、付けば属性が設定済み。
+      // 読み直しで消えていた場合も、対象が無いという通常の不在と同じ状態のため EntityNotFoundError にする
       const oldItem = (error as { Item?: Record<string, unknown> }).Item;
       const missing = new EntityNotFoundError(this.mapper.entityType, describeKey(keys));
       if (!oldItem || Object.keys(oldItem).length === 0) {
