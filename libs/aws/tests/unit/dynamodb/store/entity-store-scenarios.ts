@@ -133,8 +133,8 @@ export function defineNoteScenarios(create: () => Harness<Note, { id: string }>)
     expect(h.peek(noteKeys)).toMatchObject({ UpdatedAt: NOW });
   });
 
-  it('入力型: updatedAt の指定と put の createdAt 欠落は型エラーになる', async () => {
-    // 実行時の結果ではなく、型チェックで弾かれることを確かめる
+  it('入力型: updatedAt の指定と put の createdAt 欠落を型で拒否する (tsc で検査する)', async () => {
+    // ts-jest は isolatedModules のため型を検査しない。ここは tsc とエディタで検査される型の表明として置く
     const typeChecks = async (): Promise<void> => {
       // @ts-expect-error create の入力に updatedAt は渡せない
       await h.store.create({ ...note, updatedAt: 1 });
