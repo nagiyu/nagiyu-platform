@@ -11,11 +11,9 @@ import { LifecycleMapper } from '../mappers/lifecycle.mapper.js';
 import type { LifecycleRepository } from './lifecycle.repository.interface.js';
 
 export class InMemoryLifecycleRepository implements LifecycleRepository {
-  private readonly nowMs: () => number;
   private readonly entityStore: EntityStore<LifecycleEntity, LifecycleKey>;
 
   constructor(store: InMemorySingleTableStore, nowMs: () => number = () => Date.now()) {
-    this.nowMs = nowMs;
     this.entityStore = new InMemoryEntityStore(store, new LifecycleMapper(), { now: nowMs });
   }
 
@@ -27,7 +25,6 @@ export class InMemoryLifecycleRepository implements LifecycleRepository {
     input: CreateLifecycleInput,
     updates: UpdateLifecycleInput = {}
   ): Promise<LifecycleEntity> {
-    const now = this.nowMs();
     const existing = await this.get({ userId: input.userId, characterId: input.characterId });
     return this.entityStore.put({
       userId: input.userId,
@@ -37,8 +34,7 @@ export class InMemoryLifecycleRepository implements LifecycleRepository {
       ...(existing?.userActivityProfile !== undefined && {
         userActivityProfile: existing.userActivityProfile,
       }),
-      createdAt: existing?.createdAt ?? now,
-      updatedAt: now,
+      createdAt: existing?.createdAt,
     });
   }
 
@@ -46,7 +42,6 @@ export class InMemoryLifecycleRepository implements LifecycleRepository {
     key: LifecycleKey,
     profile: UserActivityProfile
   ): Promise<LifecycleEntity> {
-    const now = this.nowMs();
     const existing = await this.get(key);
     return this.entityStore.put({
       userId: key.userId,
@@ -54,8 +49,7 @@ export class InMemoryLifecycleRepository implements LifecycleRepository {
       bedtime: existing?.bedtime ?? LIFECYCLE_DEFAULT_BEDTIME,
       wakeUpTime: existing?.wakeUpTime ?? LIFECYCLE_DEFAULT_WAKE_UP_TIME,
       userActivityProfile: profile,
-      createdAt: existing?.createdAt ?? now,
-      updatedAt: now,
+      createdAt: existing?.createdAt,
     });
   }
 
@@ -63,7 +57,6 @@ export class InMemoryLifecycleRepository implements LifecycleRepository {
     key: LifecycleKey,
     schedule: { bedtime: string; wakeUpTime: string }
   ): Promise<LifecycleEntity> {
-    const now = this.nowMs();
     const existing = await this.get(key);
     return this.entityStore.put({
       userId: key.userId,
@@ -73,8 +66,7 @@ export class InMemoryLifecycleRepository implements LifecycleRepository {
       ...(existing?.userActivityProfile !== undefined && {
         userActivityProfile: existing.userActivityProfile,
       }),
-      createdAt: existing?.createdAt ?? now,
-      updatedAt: now,
+      createdAt: existing?.createdAt,
     });
   }
 }

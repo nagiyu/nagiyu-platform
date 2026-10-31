@@ -151,15 +151,9 @@ export class InMemoryDailySummaryRepository implements DailySummaryRepository {
    * サマリーを保存（既存の場合は上書き）
    *
    * 上書きしても作成日時は最初の値を保つため、先に既存を読んで引き継ぐ。
-   * updatedAt は store が書き込み時に現在時刻で上書きする。
    */
   public async upsert(input: CreateDailySummaryInput): Promise<DailySummaryEntity> {
     const existing = await this.entityStore.get({ tickerId: input.tickerId, date: input.date });
-    const now = Date.now();
-    return this.entityStore.put({
-      ...input,
-      createdAt: existing?.createdAt ?? now,
-      updatedAt: now,
-    });
+    return this.entityStore.put({ ...input, createdAt: existing?.createdAt });
   }
 }

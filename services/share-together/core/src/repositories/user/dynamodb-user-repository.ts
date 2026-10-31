@@ -76,9 +76,7 @@ export class DynamoDBUserRepository implements UserRepository {
   }
 
   public async create(input: CreateUserInput): Promise<User> {
-    const now = Date.now();
-    // updatedAt は store が書き込み時に現在時刻で上書きする。Entity 型上は必須のため値だけ渡す。
-    return this.entityStore.create({ ...input, createdAt: now, updatedAt: now });
+    return this.entityStore.create(input);
   }
 
   public async update(userId: string, updates: UpdateUserInput): Promise<User> {

@@ -11,19 +11,16 @@ import type { NotificationEventRepository } from './notification-event.repositor
 export class InMemoryNotificationEventRepository implements NotificationEventRepository {
   private readonly mapper: NotificationEventMapper;
   private readonly store: InMemorySingleTableStore;
-  private readonly nowMs: () => number;
   private readonly entityStore: EntityStore<NotificationEventEntity, NotificationEventKey>;
 
   constructor(store: InMemorySingleTableStore, nowMs: () => number = () => Date.now()) {
     this.store = store;
-    this.nowMs = nowMs;
     this.mapper = new NotificationEventMapper();
     this.entityStore = new InMemoryEntityStore(store, this.mapper, { now: nowMs });
   }
 
   public async put(input: CreateNotificationEventInput): Promise<NotificationEventEntity> {
-    const now = this.nowMs();
-    return this.entityStore.put({ ...input, createdAt: now, updatedAt: now });
+    return this.entityStore.put({ ...input, createdAt: undefined });
   }
 
   public async listByUser(userId: string, limit = 100): Promise<NotificationEventEntity[]> {

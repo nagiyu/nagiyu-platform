@@ -35,11 +35,10 @@ describe('InMemoryEntityStore', () => {
   it('InMemorySingleTableStore の get(pk, sk) からも同じ Item が見える', async () => {
     const inner = new InMemorySingleTableStore();
     const store = new InMemoryEntityStore(inner, noteMapper);
-    const note: Note = {
+    const note = {
       id: 'n1',
       title: '題名',
       createdAt: 1_700_000_000_000,
-      updatedAt: 1_700_000_100_000,
     };
     await store.create(note);
     expect(inner.get('NOTE#n1', 'META')).toMatchObject({ Title: '題名' });
@@ -52,7 +51,6 @@ describe('InMemoryEntityStore', () => {
       id: 'n1',
       title: 't',
       createdAt: 1_700_000_000_000,
-      updatedAt: 1_700_000_100_000,
     });
     const before = Date.now();
     const updated = await store.update({ id: 'n1' }, {});

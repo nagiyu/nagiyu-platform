@@ -39,7 +39,6 @@ export class InMemorySafetyEventRepository implements SafetyEventRepository {
       ...input,
       eventId: input.eventId ?? this.ulidFactory(now),
       createdAt: now,
-      updatedAt: now,
     });
   }
 

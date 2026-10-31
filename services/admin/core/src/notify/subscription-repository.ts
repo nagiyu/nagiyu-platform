@@ -8,6 +8,7 @@ import {
   queryAllItems,
   registerDynamoRepositories,
   scanAllItems,
+  type EntityPutInput,
   type EntityStore,
 } from '@nagiyu/aws';
 import {
@@ -46,14 +47,14 @@ export interface PushSubscriptionRepository {
   deleteByEndpoint(endpoint: string): Promise<number>;
 }
 
-async function buildRecord(input: SavePushSubscriptionInput): Promise<PushSubscriptionRecord> {
-  const now = Date.now();
+async function buildRecord(
+  input: SavePushSubscriptionInput
+): Promise<EntityPutInput<PushSubscriptionRecord>> {
   return {
     subscriptionId: await createSubscriptionId(input.subscription.endpoint),
     userId: input.userId,
     subscription: input.subscription,
-    createdAt: now,
-    updatedAt: now,
+    createdAt: undefined,
   };
 }
 

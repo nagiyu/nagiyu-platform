@@ -1,5 +1,24 @@
 import type { EntityPatch } from '../mapper/entity-mapper.interface.js';
 
+/**
+ * create に渡す入力。`updatedAt` は store が書き込み時に決めるため持たない。
+ *
+ * Entity に `createdAt` があるときだけ省略可能な `createdAt` を受け取り、
+ * 省略した場合は store が `UpdatedAt` と同じ現在時刻で埋める。
+ */
+export type EntityCreateInput<TEntity> = Omit<TEntity, 'createdAt' | 'updatedAt'> &
+  ('createdAt' extends keyof TEntity ? { createdAt?: TEntity['createdAt'] } : unknown);
+
+/**
+ * put に渡す入力。`updatedAt` は store が書き込み時に決めるため持たない。
+ *
+ * Entity に `createdAt` があるときは、キーの書き忘れを型エラーにするため `createdAt` を必須にする。
+ * put は Item 全体の置き換えで、書き忘れると既存の `CreatedAt` が黙って消えるため。
+ * 既存を引き継ぐなら `existing?.createdAt` を渡し、`undefined` なら store が現在時刻で埋める。
+ */
+export type EntityPutInput<TEntity> = Omit<TEntity, 'createdAt' | 'updatedAt'> &
+  ('createdAt' extends keyof TEntity ? { createdAt: TEntity['createdAt'] | undefined } : unknown);
+
 /** get のオプション */
 export interface EntityReadOptions {
   /** 強い整合性で読む。DynamoDB 版は ConsistentRead に渡し、InMemory 版は無視する */
@@ -34,20 +53,20 @@ export interface EntityStore<TEntity, TKey> {
 
   /**
    * 新規作成する。実際に書いた Item を Entity に変換して返す。
-   * `UpdatedAt` は store が現在時刻で設定する (`CreatedAt` は Entity の値のまま)。
+   * `UpdatedAt` は store が現在時刻で設定する。`createdAt` を省略すると同じ時刻で埋める。
    *
    * @throws EntityAlreadyExistsError 既に存在するとき
    */
-  create(entity: TEntity): Promise<TEntity>;
+  create(input: EntityCreateInput<TEntity>): Promise<TEntity>;
 
   /**
    * 無ければ作り、あれば置き換える。実際に書いた Item を Entity に変換して返す。
-   * `UpdatedAt` は store が現在時刻で設定する (`CreatedAt` は Entity の値のまま)。
+   * `UpdatedAt` は store が現在時刻で設定する。`createdAt` が `undefined` なら同じ時刻で埋める。
    *
    * @throws EntityNotFoundError `expectedUpdatedAt` を指定して既存がないとき
    * @throws OptimisticLockError `expectedUpdatedAt` を指定して一致しないとき
    */
-  put(entity: TEntity, options?: EntityWriteOptions): Promise<TEntity>;
+  put(input: EntityPutInput<TEntity>, options?: EntityWriteOptions): Promise<TEntity>;
 
   /**
    * Entity の部分 (camelCase) で更新し、更新後の Entity を返す。
