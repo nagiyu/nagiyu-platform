@@ -32,8 +32,7 @@ export class DynamoDBNoteRepository implements NoteRepository {
   }
 
   public async put(input: CreateNoteInput): Promise<NoteEntity> {
-    const now = this.nowMs();
-    return this.entityStore.put({ ...input, createdAt: now, updatedAt: now });
+    return this.entityStore.put({ ...input, createdAt: undefined });
   }
 
   public async list(userId: string, characterId: string, limit = 100): Promise<NoteEntity[]> {

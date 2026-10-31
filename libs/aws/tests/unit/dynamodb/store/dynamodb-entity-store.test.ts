@@ -49,11 +49,10 @@ describe('DynamoDBEntityStore', () => {
   });
 
   describe('送信するコマンド', () => {
-    const note: Note = {
+    const note = {
       id: 'n1',
       title: '題名',
       createdAt: 1_700_000_000_000,
-      updatedAt: 1_700_000_100_000,
     };
     let h: ReturnType<typeof createHarness<Note, { id: string }>>;
     beforeEach(() => {
@@ -153,11 +152,10 @@ describe('DynamoDBEntityStore', () => {
   });
 
   describe('エラー変換', () => {
-    const note: Note = {
+    const note = {
       id: 'n1',
       title: '題名',
       createdAt: 1_700_000_000_000,
-      updatedAt: 1_700_000_100_000,
     };
     const failing = (error: unknown): DynamoDBEntityStore<Note, { id: string }> =>
       new DynamoDBEntityStore(
@@ -239,7 +237,6 @@ describe('DynamoDBEntityStore', () => {
       id: 'n1',
       title: 't',
       createdAt: 1_700_000_000_000,
-      updatedAt: 1_700_000_100_000,
     });
     const before = Date.now();
     const updated = await store.update({ id: 'n1' }, {});

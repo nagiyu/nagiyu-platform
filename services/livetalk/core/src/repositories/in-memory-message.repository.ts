@@ -37,7 +37,6 @@ export class InMemoryMessageRepository implements MessageRepository {
       ...input,
       messageId: input.messageId ?? this.ulidFactory(now),
       createdAt: now,
-      updatedAt: now,
       expiresAt: now + MESSAGE_TTL_SECONDS * 1000,
     });
   }

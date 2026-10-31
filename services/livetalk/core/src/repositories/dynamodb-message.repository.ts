@@ -46,7 +46,6 @@ export class DynamoDBMessageRepository implements MessageRepository {
       ...input,
       messageId: input.messageId ?? this.ulidFactory(now),
       createdAt: now,
-      updatedAt: now,
       // 90 日後に DynamoDB が自動削除する
       expiresAt: now + MESSAGE_TTL_SECONDS * 1000,
     });

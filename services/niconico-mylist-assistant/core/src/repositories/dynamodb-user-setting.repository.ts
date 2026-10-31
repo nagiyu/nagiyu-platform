@@ -136,25 +136,17 @@ export class DynamoDBUserSettingRepository implements UserSettingRepository {
    * 新しいユーザー設定を作成
    */
   public async create(input: CreateUserSettingInput): Promise<UserSettingEntity> {
-    const now = Date.now();
-    // updatedAt は store が書き込み時に現在時刻で上書きする。Entity 型上は必須のため値だけ渡す。
-    return this.entityStore.create({ ...input, createdAt: now, updatedAt: now });
+    return this.entityStore.create(input);
   }
 
   /**
    * ユーザー設定を作成または更新（upsert）
    */
   public async upsert(input: CreateUserSettingInput): Promise<UserSettingEntity> {
-    const now = Date.now();
-
     // 既存レコードの createdAt を保つため先に読む
     const existing = await this.getById(input.userId, input.videoId);
 
-    return this.entityStore.put({
-      ...input,
-      createdAt: existing?.createdAt ?? now,
-      updatedAt: now,
-    });
+    return this.entityStore.put({ ...input, createdAt: existing?.createdAt });
   }
 
   /**

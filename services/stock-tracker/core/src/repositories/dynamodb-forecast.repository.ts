@@ -67,10 +67,8 @@ export class DynamoDBForecastRepository implements ForecastRepository {
    * Forecast を新規作成する。既に存在する場合は書き込まず、既存のアイテムを返す
    */
   public async createIfAbsent(input: CreateForecastInput): Promise<CreateForecastResult> {
-    const now = Date.now();
     try {
-      // updatedAt は store が書き込み時に現在時刻で上書きする。Entity 型上は必須のため値だけ渡す。
-      const item = await this.entityStore.create({ ...input, createdAt: now, updatedAt: now });
+      const item = await this.entityStore.create(input);
       return { item, created: true };
     } catch (error) {
       if (error instanceof EntityAlreadyExistsError) {

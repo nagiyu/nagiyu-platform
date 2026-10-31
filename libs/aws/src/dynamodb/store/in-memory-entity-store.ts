@@ -7,7 +7,12 @@ import type {
   EntityMapper,
   EntityPatch,
 } from '../mapper/entity-mapper.interface.js';
-import type { EntityStore, EntityWriteOptions } from './entity-store.interface.js';
+import type {
+  EntityCreateInput,
+  EntityPutInput,
+  EntityStore,
+  EntityWriteOptions,
+} from './entity-store.interface.js';
 import {
   UPDATED_AT_ATTRIBUTE,
   convertToEntity,
@@ -19,7 +24,7 @@ import {
 
 /** InMemoryEntityStore のオプション */
 export interface InMemoryEntityStoreOptions {
-  /** 現在時刻 (ミリ秒) の供給元。UpdatedAt に使う */
+  /** 現在時刻 (ミリ秒) の供給元。UpdatedAt と、省略された createdAt の値に使う */
   now?: () => number;
 }
 
@@ -48,8 +53,8 @@ export class InMemoryEntityStore<TEntity, TKey> implements EntityStore<TEntity, 
     return item ? convertToEntity(this.mapper, item) : null;
   }
 
-  public async create(entity: TEntity): Promise<TEntity> {
-    const { keys, item } = prepareWriteItem(this.mapper, entity, this.now());
+  public async create(input: EntityCreateInput<TEntity>): Promise<TEntity> {
+    const { keys, item } = prepareWriteItem(this.mapper, input, this.now());
     if (this.store.getByKey(keys)) {
       throw new EntityAlreadyExistsError(this.mapper.entityType, describeKey(keys));
     }
@@ -57,8 +62,11 @@ export class InMemoryEntityStore<TEntity, TKey> implements EntityStore<TEntity, 
     return convertToEntity(this.mapper, item);
   }
 
-  public async put(entity: TEntity, options: EntityWriteOptions = {}): Promise<TEntity> {
-    const { keys, item } = prepareWriteItem(this.mapper, entity, this.now());
+  public async put(
+    input: EntityPutInput<TEntity>,
+    options: EntityWriteOptions = {}
+  ): Promise<TEntity> {
+    const { keys, item } = prepareWriteItem(this.mapper, input, this.now());
     this.assertLock(keys, options);
     this.store.putByKey(keys, item);
     return convertToEntity(this.mapper, item);

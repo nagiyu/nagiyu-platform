@@ -16,6 +16,8 @@ import {
 import { buildUpdateExpression } from '../helpers.js';
 import type { DynamoDBKey, EntityMapper, EntityPatch } from '../mapper/entity-mapper.interface.js';
 import type {
+  EntityCreateInput,
+  EntityPutInput,
   EntityReadOptions,
   EntityStore,
   EntityWriteOptions,
@@ -33,7 +35,7 @@ import {
 
 /** DynamoDBEntityStore のオプション */
 export interface DynamoDBEntityStoreOptions {
-  /** 現在時刻 (ミリ秒) の供給元。update の UpdatedAt に使う。テストで差し替える */
+  /** 現在時刻 (ミリ秒) の供給元。UpdatedAt と、省略された createdAt の値に使う。テストで差し替える */
   now?: () => number;
 }
 
@@ -41,7 +43,8 @@ export interface DynamoDBEntityStoreOptions {
  * DynamoDB 上の EntityStore 実装。
  *
  * `UpdatedAt` は create / put / update のすべてで store が `now()` で設定する。
- * `CreatedAt` などその他のタイムスタンプは `toItem` の結果のまま書く。
+ * create / put は `now()` を 1 回だけ読み、省略された `createdAt` にも同じ値を使う。
+ * 指定された `createdAt` とその他のタイムスタンプは `toItem` の結果のまま書く。
  */
 export class DynamoDBEntityStore<TEntity, TKey> implements EntityStore<TEntity, TKey> {
   private readonly docClient: DynamoDBDocumentClient;
@@ -80,8 +83,8 @@ export class DynamoDBEntityStore<TEntity, TKey> implements EntityStore<TEntity, 
     }
   }
 
-  public async create(entity: TEntity): Promise<TEntity> {
-    const { keys, item } = prepareWriteItem(this.mapper, entity, this.now());
+  public async create(input: EntityCreateInput<TEntity>): Promise<TEntity> {
+    const { keys, item } = prepareWriteItem(this.mapper, input, this.now());
     try {
       await this.docClient.send(
         new PutCommand({
@@ -100,8 +103,11 @@ export class DynamoDBEntityStore<TEntity, TKey> implements EntityStore<TEntity, 
     return convertToEntity(this.mapper, item);
   }
 
-  public async put(entity: TEntity, options: EntityWriteOptions = {}): Promise<TEntity> {
-    const { keys, item } = prepareWriteItem(this.mapper, entity, this.now());
+  public async put(
+    input: EntityPutInput<TEntity>,
+    options: EntityWriteOptions = {}
+  ): Promise<TEntity> {
+    const { keys, item } = prepareWriteItem(this.mapper, input, this.now());
     try {
       await this.docClient.send(
         new PutCommand({

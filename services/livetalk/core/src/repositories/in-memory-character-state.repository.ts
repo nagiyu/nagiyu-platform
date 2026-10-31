@@ -1,4 +1,9 @@
-import { InMemoryEntityStore, type EntityStore, type InMemorySingleTableStore } from '@nagiyu/aws';
+import {
+  InMemoryEntityStore,
+  type EntityPutInput,
+  type EntityStore,
+  type InMemorySingleTableStore,
+} from '@nagiyu/aws';
 import { updateAffectionLevel } from '../affection/calculator.js';
 import type {
   CharacterStateEntity,
@@ -26,19 +31,17 @@ export class InMemoryCharacterStateRepository implements CharacterStateRepositor
     input: CreateCharacterStateInput,
     updates: UpdateCharacterStateInput = {}
   ): Promise<CharacterStateEntity> {
-    const now = this.nowMs();
     const existing = await this.getById({
       userId: input.userId,
       characterId: input.characterId,
     });
-    const merged: CharacterStateEntity = {
+    const merged: EntityPutInput<CharacterStateEntity> = {
       userId: input.userId,
       characterId: input.characterId,
       lastInteractionAt: updates.lastInteractionAt ?? input.lastInteractionAt,
       affectionLevel:
         updates.affectionLevel ?? input.affectionLevel ?? existing?.affectionLevel ?? 0,
-      createdAt: existing?.createdAt ?? now,
-      updatedAt: now,
+      createdAt: existing?.createdAt,
     };
     return this.entityStore.put(merged);
   }

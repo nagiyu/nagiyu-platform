@@ -63,7 +63,6 @@ export class InMemoryTopicRepository implements TopicRepository {
     input: CreateTopicInput,
     opts: { expectedUpdatedAt?: number } = {}
   ): Promise<TopicEntity> {
-    const now = this.nowMs();
     const key: TopicKey = {
       userId: input.userId,
       characterId: input.characterId,
@@ -72,7 +71,7 @@ export class InMemoryTopicRepository implements TopicRepository {
 
     if (opts.expectedUpdatedAt === undefined) {
       try {
-        return await this.topicStore.create({ ...input, createdAt: now, updatedAt: now });
+        return await this.topicStore.create(input);
       } catch (error) {
         // 新規作成の衝突も呼び出し側が楽観ロック競合として扱えるよう、同じエラーに揃える
         if (error instanceof EntityAlreadyExistsError) {
@@ -84,7 +83,7 @@ export class InMemoryTopicRepository implements TopicRepository {
 
     const existing = await this.getTopic(key);
     return this.topicStore.put(
-      { ...input, createdAt: existing?.createdAt ?? now, updatedAt: now },
+      { ...input, createdAt: existing?.createdAt },
       { expectedUpdatedAt: opts.expectedUpdatedAt }
     );
   }

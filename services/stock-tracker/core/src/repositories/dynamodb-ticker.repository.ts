@@ -135,9 +135,7 @@ export class DynamoDBTickerRepository implements TickerRepository {
    * 新しいティッカーを作成
    */
   public async create(input: CreateTickerInput): Promise<TickerEntity> {
-    const now = Date.now();
-    // updatedAt は store が書き込み時に現在時刻で上書きする。Entity 型上は必須のため値だけ渡す。
-    return this.entityStore.create({ ...input, createdAt: now, updatedAt: now });
+    return this.entityStore.create(input);
   }
 
   /**
