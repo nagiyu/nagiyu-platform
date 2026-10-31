@@ -4,6 +4,10 @@
  * Repository の生成を環境変数によって切り替える Factory パターン実装。
  * `@nagiyu/aws` の `registerDynamoRepositories` を使用し、
  * 4 リポジトリと共有 InMemorySingleTableStore を一括管理する。
+ *
+ * `keyPrefix` を指定して instance を globalThis に保持する。Next.js の dev モードは
+ * モジュールが別バンドルとして再評価されうるため、モジュール内の変数だけで保持すると
+ * registry が作り直され、InMemory のデータが共有されなくなる。
  */
 
 import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
@@ -53,6 +57,7 @@ const repositoryRegistry = registerDynamoRepositories<
     },
   },
   {
+    keyPrefix: 'niconico-mylist-assistant',
     createSharedStore: () => new InMemorySingleTableStore(),
   }
 );
