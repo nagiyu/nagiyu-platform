@@ -1,9 +1,8 @@
 import { NextResponse } from 'next/server';
 import { withAuth } from '@nagiyu/nextjs';
-import { DEFAULT_CHARACTER_ID } from '@nagiyu/livetalk-core';
+import { DEFAULT_CHARACTER_ID, createTopicRepository } from '@nagiyu/livetalk-core';
 import { getSession } from '@/lib/server/session';
 import { withApiErrorReporting } from '@/lib/server/api-error-reporting';
-import { getTopicRepository } from '@/lib/server/repositories';
 import { sortSelfFacts, toSelfFactListItem } from '@/lib/memory/serializer';
 import { hasCharacter } from '@/lib/characters/registry';
 import { MEMORY_ERROR_MESSAGES } from './constants';
@@ -34,7 +33,7 @@ export const GET = withApiErrorReporting(
     }
 
     const userId = session.user.id;
-    const topicRepository = getTopicRepository();
+    const topicRepository = createTopicRepository();
 
     const topicHeaders = await topicRepository.listTopicHeaders(userId, characterId);
 

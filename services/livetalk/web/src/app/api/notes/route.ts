@@ -1,9 +1,8 @@
 import { NextResponse } from 'next/server';
 import { withAuth } from '@nagiyu/nextjs';
-import { DEFAULT_CHARACTER_ID } from '@nagiyu/livetalk-core';
+import { DEFAULT_CHARACTER_ID, createNoteRepository } from '@nagiyu/livetalk-core';
 import { getSession } from '@/lib/server/session';
 import { withApiErrorReporting } from '@/lib/server/api-error-reporting';
-import { getNoteRepository } from '@/lib/server/repositories';
 import { sortNotes, toNoteListItem } from '@/lib/notes/serializer';
 import { hasCharacter } from '@/lib/characters/registry';
 import { NOTE_ERROR_MESSAGES } from './constants';
@@ -30,7 +29,7 @@ export const GET = withApiErrorReporting(
     }
 
     const userId = session.user.id;
-    const repo = getNoteRepository();
+    const repo = createNoteRepository();
 
     const items = await repo.listAll(userId, characterId);
     const notes = sortNotes(items.map(toNoteListItem));

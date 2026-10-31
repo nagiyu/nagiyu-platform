@@ -3,7 +3,7 @@ import { withAuth } from '@nagiyu/nextjs';
 import type { TopicBundle } from '@nagiyu/livetalk-core';
 import { getSession } from '@/lib/server/session';
 import { errorReporter, withApiErrorReporting } from '@/lib/server/api-error-reporting';
-import { getNoteRepository, getTopicRepository } from '@/lib/server/repositories';
+import { createNoteRepository, createTopicRepository } from '@nagiyu/livetalk-core';
 import { decodeNoteId } from '@/lib/notes/note-id';
 import { toNoteDetail } from '@/lib/notes/serializer';
 import { NOTE_ERROR_MESSAGES } from '../constants';
@@ -34,7 +34,7 @@ export const GET = withApiErrorReporting(
         );
       }
 
-      const note = await getNoteRepository().get(key);
+      const note = await createNoteRepository().get(key);
       if (!note) {
         return NextResponse.json(
           { error: 'NOT_FOUND', message: NOTE_ERROR_MESSAGES.NOT_FOUND },
@@ -44,7 +44,7 @@ export const GET = withApiErrorReporting(
 
       let bundle: TopicBundle | null = null;
       try {
-        bundle = await getTopicRepository().getTopicBundle({
+        bundle = await createTopicRepository().getTopicBundle({
           userId: key.userId,
           characterId: key.characterId,
           topicId: note.topicId,

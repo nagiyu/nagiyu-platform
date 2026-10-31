@@ -7,14 +7,14 @@
 import { createPushSubscribeRoute } from '@nagiyu/nextjs';
 import { getSession } from '@/lib/server/session';
 import { errorReporter } from '@/lib/server/api-error-reporting';
-import { getPushSubscriptionRepository } from '@/lib/server/repositories';
+import { createPushSubscriptionRepository } from '@nagiyu/livetalk-core';
 
 export const POST = createPushSubscribeRoute({
   getSession,
   requiredPermission: 'livetalk:chat',
   onError: errorReporter.onError('Web API: Push 購読登録エラー'),
   onSubscribe: async ({ session, subscription, subscriptionId }) => {
-    await getPushSubscriptionRepository().put({
+    await createPushSubscriptionRepository().put({
       userId: session.user.id,
       subscriptionId,
       endpoint: subscription.endpoint,

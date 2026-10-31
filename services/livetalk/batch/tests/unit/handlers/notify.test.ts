@@ -11,12 +11,12 @@ jest.mock('../../../../../../libs/aws/src/error-events/report.js', () => ({
 }));
 
 jest.mock('@nagiyu/livetalk-core', () => ({
-  DynamoDBProfileRepository: jest.fn(),
-  DynamoDBLifecycleRepository: jest.fn(),
-  DynamoDBMessageRepository: jest.fn(),
-  DynamoDBNotificationEventRepository: jest.fn(),
-  DynamoDBPushSubscriptionRepository: jest.fn(),
-  DynamoDBTopicRepository: jest.fn(),
+  createProfileRepository: jest.fn(),
+  createLifecycleRepository: jest.fn(),
+  createMessageRepository: jest.fn(),
+  createNotificationEventRepository: jest.fn(),
+  createPushSubscriptionRepository: jest.fn(),
+  createTopicRepository: jest.fn(),
   createLLMClient: jest.fn(() => ({})),
   defaultUlidFactory: jest.fn(),
 }));
