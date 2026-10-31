@@ -1,13 +1,8 @@
-import { DynamoDBJobRepository } from '@nagiyu/quick-clip-core';
+import { createJobRepository } from '@nagiyu/quick-clip-core';
 import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import { NextResponse } from 'next/server';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
-import {
-  getBucketName,
-  getDynamoDBDocumentClient,
-  getS3Client,
-  getTableName,
-} from '@/lib/server/aws';
+import { getBucketName, getS3Client } from '@/lib/server/aws';
 import { withApiErrorReporting } from '@/lib/api-error-reporting';
 import { JobDomainService } from '@/lib/server/domain-services';
 import type { TranscriptSegment } from '@/types/quick-clip';
@@ -43,9 +38,7 @@ export const GET = withApiErrorReporting(
   ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
   async (_request: Request, { params }: RouteParams): Promise<NextResponse> => {
     const { jobId } = await params;
-    const jobService = new JobDomainService(
-      new DynamoDBJobRepository(getDynamoDBDocumentClient(), getTableName())
-    );
+    const jobService = new JobDomainService(createJobRepository());
     const job = await jobService.getJob(jobId);
     if (!job) {
       return NextResponse.json(

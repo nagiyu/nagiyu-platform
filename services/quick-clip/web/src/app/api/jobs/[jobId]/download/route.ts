@@ -1,16 +1,14 @@
 import { DeleteObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
 import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import { createPresignedDownloadUrl } from '@nagiyu/aws';
-import { DynamoDBHighlightRepository } from '@nagiyu/quick-clip-core';
+import { createHighlightRepository } from '@nagiyu/quick-clip-core';
 import { NextResponse } from 'next/server';
 import { InvokeCommand } from '@aws-sdk/client-lambda';
 import { errorReporter, withApiErrorReporting } from '@/lib/api-error-reporting';
 import { DOMAIN_ERROR_MESSAGES, HighlightDomainService } from '@/lib/server/domain-services';
 import {
   getZipGeneratorFunctionName,
-  getDynamoDBDocumentClient,
   getLambdaClient,
-  getTableName,
   getS3Client,
   getBucketName,
 } from '@/lib/server/aws';
@@ -78,9 +76,7 @@ export const POST = withApiErrorReporting(
   async (_request: Request, { params }: RouteParams): Promise<NextResponse> => {
     try {
       const { jobId } = await params;
-      const highlightService = new HighlightDomainService(
-        new DynamoDBHighlightRepository(getDynamoDBDocumentClient(), getTableName())
-      );
+      const highlightService = new HighlightDomainService(createHighlightRepository());
       const highlights = await highlightService.getHighlights(jobId);
       if (highlights.length === 0) {
         return NextResponse.json(

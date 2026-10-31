@@ -1,4 +1,4 @@
-import { DynamoDBJobRepository } from '@nagiyu/quick-clip-core';
+import { createJobRepository } from '@nagiyu/quick-clip-core';
 import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import type { EmotionFilter } from '@nagiyu/quick-clip-core';
 import { CreateMultipartUploadCommand, UploadPartCommand } from '@aws-sdk/client-s3';
@@ -6,12 +6,7 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { createPresignedUploadUrl } from '@nagiyu/aws';
 import { readJsonObjectBody } from '@nagiyu/nextjs';
 import { NextResponse } from 'next/server';
-import {
-  getBucketName,
-  getDynamoDBDocumentClient,
-  getS3Client,
-  getTableName,
-} from '@/lib/server/aws';
+import { getBucketName, getS3Client } from '@/lib/server/aws';
 import { withApiErrorReporting } from '@/lib/api-error-reporting';
 import { VALID_EMOTION_FILTERS } from '@/lib/server/emotion-filter';
 import { JobDomainService } from '@/lib/server/domain-services';
@@ -116,9 +111,7 @@ export const POST = withApiErrorReporting(
       );
     }
 
-    const jobService = new JobDomainService(
-      new DynamoDBJobRepository(getDynamoDBDocumentClient(), getTableName())
-    );
+    const jobService = new JobDomainService(createJobRepository());
     const job = await jobService.createJob({
       originalFileName: normalizedFileName,
       fileSize: body.fileSize,

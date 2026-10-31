@@ -6,11 +6,7 @@ import { reportErrorEvent } from '@nagiyu/aws';
 import { errorReporter } from '@/lib/api-error-reporting';
 import { PATCH } from '@/app/api/jobs/[jobId]/highlights/[highlightId]/route';
 import type { HighlightRepository } from '@nagiyu/quick-clip-core';
-import {
-  getDynamoDBDocumentClient,
-  getClipRegenerateFunctionName,
-  getLambdaClient,
-} from '@/lib/server/aws';
+import { getClipRegenerateFunctionName, getLambdaClient } from '@/lib/server/aws';
 import { InvokeCommand } from '@aws-sdk/client-lambda';
 
 const mockUpdate = jest.fn();
@@ -19,7 +15,7 @@ const mockLambdaSend = jest.fn();
 
 jest.mock('@nagiyu/quick-clip-core', () => ({
   ...jest.requireActual('@nagiyu/quick-clip-core'),
-  DynamoDBHighlightRepository: jest.fn().mockImplementation(
+  createHighlightRepository: jest.fn().mockImplementation(
     () =>
       ({
         getByJobId: jest.fn(),
@@ -52,8 +48,6 @@ jest.mock('@/lib/api-error-reporting', () => ({
 }));
 
 jest.mock('@/lib/server/aws', () => ({
-  getDynamoDBDocumentClient: jest.fn(() => ({})),
-  getTableName: jest.fn(() => 'test-table'),
   getClipRegenerateFunctionName: jest.fn(() => 'clip-regenerate'),
   getLambdaClient: jest.fn(() => ({ send: jest.fn() })),
 }));
@@ -63,9 +57,6 @@ jest.mock('@aws-sdk/client-lambda', () => ({
 }));
 
 describe('PATCH /api/jobs/[jobId]/highlights/[highlightId]', () => {
-  const mockedGetDynamoDBDocumentClient = getDynamoDBDocumentClient as jest.MockedFunction<
-    typeof getDynamoDBDocumentClient
-  >;
   const mockedGetLambdaClient = getLambdaClient as jest.MockedFunction<typeof getLambdaClient>;
   const mockedGetClipRegenerateFunctionName = getClipRegenerateFunctionName as jest.MockedFunction<
     typeof getClipRegenerateFunctionName
@@ -75,9 +66,6 @@ describe('PATCH /api/jobs/[jobId]/highlights/[highlightId]', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockedGetDynamoDBDocumentClient.mockReturnValue(
-      {} as ReturnType<typeof getDynamoDBDocumentClient>
-    );
     mockedGetLambdaClient.mockReturnValue({
       send: mockLambdaSend,
     } as unknown as ReturnType<typeof getLambdaClient>);

@@ -13,8 +13,7 @@ import type { EmotionFilter, EmotionHighlightScore } from './highlight-extractor
 import { FfmpegVideoAnalyzer } from './ffmpeg-video-analyzer.js';
 import { MotionHighlightService } from './motion-highlight.service.js';
 import { VolumeHighlightService } from './volume-highlight.service.js';
-import { DynamoDBHighlightRepository } from '../repositories/dynamodb-highlight.repository.js';
-import { DynamoDBJobRepository } from '../repositories/dynamodb-job.repository.js';
+import { createHighlightRepository, createJobRepository } from '../repositories/factory.js';
 import { createOpenAIClient } from './openai-client.js';
 import { TranscriptionService } from './transcription.service.js';
 import type { TranscriptSegment } from './transcription.service.js';
@@ -132,7 +131,7 @@ const persistHighlights = async (
   awsRegion: string
 ): Promise<void> => {
   const docClient = getDynamoDBDocumentClient(awsRegion);
-  const repo = new DynamoDBHighlightRepository(docClient, tableName);
+  const repo = createHighlightRepository(docClient, tableName);
   await repo.createMany(
     highlights.map((highlight) => ({
       ...highlight,
@@ -348,7 +347,7 @@ const updateBatchStage = async (
   awsRegion: string
 ): Promise<void> => {
   const docClient = getDynamoDBDocumentClient(awsRegion);
-  const jobRepo = new DynamoDBJobRepository(docClient, tableName);
+  const jobRepo = createJobRepository(docClient, tableName);
   const service = new JobService(jobRepo);
   await service.updateBatchStage(jobId, batchStage);
 };
@@ -360,7 +359,7 @@ const updateAnalysisProgress = async (
   awsRegion: string
 ): Promise<void> => {
   const docClient = getDynamoDBDocumentClient(awsRegion);
-  const jobRepo = new DynamoDBJobRepository(docClient, tableName);
+  const jobRepo = createJobRepository(docClient, tableName);
   const service = new JobService(jobRepo);
   await service.updateAnalysisProgress(jobId, progress);
 };
@@ -372,7 +371,7 @@ const updateErrorMessage = async (
   awsRegion: string
 ): Promise<void> => {
   const docClient = getDynamoDBDocumentClient(awsRegion);
-  const jobRepo = new DynamoDBJobRepository(docClient, tableName);
+  const jobRepo = createJobRepository(docClient, tableName);
   const service = new JobService(jobRepo);
   await service.updateErrorMessage(jobId, errorMessage);
 };
@@ -383,7 +382,7 @@ const getJobExpiresAt = async (
   awsRegion: string
 ): Promise<number> => {
   const docClient = getDynamoDBDocumentClient(awsRegion);
-  const jobRepo = new DynamoDBJobRepository(docClient, tableName);
+  const jobRepo = createJobRepository(docClient, tableName);
   const service = new JobService(jobRepo);
   const job = await service.getJob(jobId);
   if (!job) {
