@@ -52,9 +52,7 @@ export class DynamoDBTodoRepository implements TodoRepository {
   }
 
   public async create(input: CreateTodoItemInput): Promise<TodoItem> {
-    const now = Date.now();
-    // updatedAt は store が書き込み時に現在時刻で上書きする。Entity 型上は必須のため値だけ渡す。
-    return this.store.create({ ...input, createdAt: now, updatedAt: now });
+    return this.store.create(input);
   }
 
   public async update(

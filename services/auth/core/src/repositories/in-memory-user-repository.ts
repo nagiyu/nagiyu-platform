@@ -60,8 +60,6 @@ export class InMemoryUserRepository implements UserRepository {
       );
     }
 
-    const now = Date.now();
-    // updatedAt は store が書き込み時に現在時刻で上書きする。Entity 型上は必須のため値だけ渡す。
     return this.entityStore.create({
       userId: randomUUID(),
       googleId: input.googleId,
@@ -69,8 +67,6 @@ export class InMemoryUserRepository implements UserRepository {
       name: input.name,
       ...(input.picture !== undefined ? { picture: input.picture } : {}),
       roles: [],
-      createdAt: now,
-      updatedAt: now,
     });
   }
 

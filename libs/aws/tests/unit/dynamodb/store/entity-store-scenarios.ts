@@ -13,14 +13,17 @@ import type {
   DynamoDBAttributes,
   DynamoDBKey,
 } from '../../../../src/dynamodb/mapper/entity-mapper.interface.js';
-import type { EntityStore } from '../../../../src/dynamodb/store/entity-store.interface.js';
+import type {
+  EntityCreateInput,
+  EntityPutInput,
+  EntityStore,
+} from '../../../../src/dynamodb/store/entity-store.interface.js';
 import type { EntityMapper } from '../../../../src/dynamodb/mapper/entity-mapper.interface.js';
 import { noteMapper } from './entity-store-fixtures.js';
 import type { Note, Profile } from './entity-store-fixtures.js';
 
 export const NOW = 5_000_000_000_000;
 const CREATED = 1_700_000_000_000;
-const UPDATED = 1_700_000_100_000;
 
 export interface Harness<TEntity, TKey> {
   store: EntityStore<TEntity, TKey>;
@@ -29,16 +32,20 @@ export interface Harness<TEntity, TKey> {
 }
 
 const noteKeys = { PK: 'NOTE#n1', SK: 'META' };
-const note: Note = {
+/** 呼び出し側が渡す入力。updatedAt は持たない */
+const note = {
   id: 'n1',
   title: '題名',
   memo: 'メモ',
   createdAt: CREATED,
-  updatedAt: UPDATED,
 };
 
 /** store が書いた後の姿 (UpdatedAt は now) */
 const stored: Note = { ...note, updatedAt: NOW };
+
+/** createdAt を省略したときの、store が書いた後の姿 (createdAt も now) */
+const storedWithoutCreatedAt: Note = { ...stored, createdAt: NOW };
+const { createdAt: _createdAt, ...noteWithoutCreatedAt } = note;
 
 export function defineNoteScenarios(create: () => Harness<Note, { id: string }>): void {
   let h: Harness<Note, { id: string }>;
@@ -91,19 +98,57 @@ export function defineNoteScenarios(create: () => Harness<Note, { id: string }>)
     expect((await h.store.get({ id: 'n1' }))?.title).toBe('上書き');
   });
 
-  it('create / put: UpdatedAt は store が now で設定し、CreatedAt は Entity のまま', async () => {
+  it('create / put: UpdatedAt は store が now で設定し、指定した createdAt はそのまま書く', async () => {
     await h.store.create(note);
     expect(h.peek(noteKeys)).toMatchObject({ CreatedAt: CREATED, UpdatedAt: NOW });
-    await h.store.put({ ...note, updatedAt: 1 });
+    await h.store.put(note);
     expect(h.peek(noteKeys)).toMatchObject({ CreatedAt: CREATED, UpdatedAt: NOW });
+  });
+
+  it('create: createdAt を省略すると CreatedAt と UpdatedAt を同じ now で書く', async () => {
+    await expect(h.store.create(noteWithoutCreatedAt)).resolves.toEqual(storedWithoutCreatedAt);
+    expect(h.peek(noteKeys)).toMatchObject({ CreatedAt: NOW, UpdatedAt: NOW });
+  });
+
+  it('put: createdAt が undefined なら CreatedAt と UpdatedAt を同じ now で書く', async () => {
+    await expect(h.store.put({ ...note, createdAt: undefined })).resolves.toEqual(
+      storedWithoutCreatedAt
+    );
+    expect(h.peek(noteKeys)).toMatchObject({ CreatedAt: NOW, UpdatedAt: NOW });
+  });
+
+  it('put: 既存の createdAt を引き継げる', async () => {
+    await h.store.create(note);
+    const existing = await h.store.get({ id: 'n1' });
+    await h.store.put({ ...note, title: '上書き', createdAt: existing?.createdAt });
+    expect(h.peek(noteKeys)).toMatchObject({ CreatedAt: CREATED, Title: '上書き' });
+  });
+
+  it('create / put: 呼び出し側が updatedAt を渡しても無視して now で上書きする', async () => {
+    // 型では渡せないため、型を崩して JS 呼び出しや spread 経由の混入を再現する
+    const withUpdatedAt = { ...note, updatedAt: 1 } as unknown as EntityCreateInput<Note>;
+    await expect(h.store.create(withUpdatedAt)).resolves.toEqual(stored);
+    expect(h.peek(noteKeys)).toMatchObject({ UpdatedAt: NOW });
+    await h.store.put({ ...withUpdatedAt, createdAt: CREATED } as EntityPutInput<Note>);
+    expect(h.peek(noteKeys)).toMatchObject({ UpdatedAt: NOW });
+  });
+
+  it('入力型: updatedAt の指定と put の createdAt 欠落は型エラーになる', async () => {
+    // 実行時の結果ではなく、型チェックで弾かれることを確かめる
+    const typeChecks = async (): Promise<void> => {
+      // @ts-expect-error create の入力に updatedAt は渡せない
+      await h.store.create({ ...note, updatedAt: 1 });
+      // @ts-expect-error put の入力に updatedAt は渡せない
+      await h.store.put({ ...note, updatedAt: 1 });
+      // @ts-expect-error put は createdAt のキーを省略できない
+      await h.store.put(noteWithoutCreatedAt);
+    };
+    expect(typeChecks).toBeInstanceOf(Function);
   });
 
   it('put: expectedUpdatedAt が一致すれば書ける', async () => {
     await h.store.create(note);
-    await h.store.put(
-      { ...note, title: '更新', updatedAt: UPDATED + 1 },
-      { expectedUpdatedAt: NOW }
-    );
+    await h.store.put({ ...note, title: '更新' }, { expectedUpdatedAt: NOW });
     expect((await h.store.get({ id: 'n1' }))?.title).toBe('更新');
   });
 
@@ -215,12 +260,19 @@ export function defineProfileScenarios(create: () => Harness<Profile, { userId: 
     h = create();
   });
 
-  const profile: Profile = { userId: 'u1', name: '太郎', updatedAt: CREATED };
+  // createdAt を持たない Entity。入力は createdAt も updatedAt も要らない
+  const profile = { userId: 'u1', name: '太郎' };
 
   it('単一キーで create / get / update / delete できる', async () => {
     await h.store.create(profile);
     await expect(h.store.create(profile)).rejects.toBeInstanceOf(EntityAlreadyExistsError);
     await expect(h.store.get({ userId: 'u1' })).resolves.toEqual({ ...profile, updatedAt: NOW });
+    await expect(h.store.put({ ...profile, name: '次郎' })).resolves.toEqual({
+      ...profile,
+      name: '次郎',
+      updatedAt: NOW,
+    });
+    await h.store.put(profile);
 
     const updated = await h.store.update({ userId: 'u1' }, { name: '花子' });
     expect(updated).toEqual({ userId: 'u1', name: '花子', updatedAt: NOW });

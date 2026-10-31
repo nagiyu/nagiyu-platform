@@ -11,6 +11,7 @@ import type {
   EntityMapper,
   EntityPatch,
 } from '../mapper/entity-mapper.interface.js';
+import type { EntityCreateInput, EntityPutInput } from './entity-store.interface.js';
 
 /** 更新日時の属性名 */
 export const UPDATED_AT_ATTRIBUTE = 'UpdatedAt';
@@ -66,7 +67,11 @@ export function resolveKeys<TEntity, TKey>(
 }
 
 /**
- * create / put で書く Item を用意する。`UpdatedAt` は store が now で上書きする。
+ * create / put で書く Item を用意する。
+ *
+ * 時刻は呼び出し側が 1 回だけ読んだ `now` を使い、`createdAt` の省略時の値と `UpdatedAt` の両方を同じ値にする。
+ * `updatedAt` は呼び出し側の指定を無視し、必ず `now` で上書きする。
+ * Entity に無いフィールドが乗っても、mapper の toItem が属性を個別に書くため Item には漏れない。
  *
  * toItem がキー属性を欠く、または buildKeys と値が食い違うと、DynamoDB は ValidationException で
  * 拒否する。InMemory 版でも同じ結果になるよう、DatabaseError で両実装に同じ失敗をさせる。
@@ -74,9 +79,12 @@ export function resolveKeys<TEntity, TKey>(
  */
 export function prepareWriteItem<TEntity, TKey>(
   mapper: EntityMapper<TEntity, TKey>,
-  entity: TEntity,
+  input: EntityCreateInput<TEntity> | EntityPutInput<TEntity>,
   now: number
 ): { keys: DynamoDBKey; item: DynamoDBAttributes } {
+  // Entity に createdAt が無い型では、足した値は toItem が読まない限り Item に出ない
+  const createdAt = (input as { createdAt?: unknown }).createdAt ?? now;
+  const entity = { ...input, createdAt, updatedAt: now } as unknown as TEntity;
   const keys = runMapper(
     () => mapper.buildKeys(mapper.getKey(entity)),
     ENTITY_STORE_ERROR_MESSAGES.MAPPER_FAILED

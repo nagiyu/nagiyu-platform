@@ -12,19 +12,16 @@ import type { StudyTopicRepository } from './study-topic.repository.interface.js
 export class InMemoryStudyTopicRepository implements StudyTopicRepository {
   private readonly mapper: StudyTopicMapper;
   private readonly store: InMemorySingleTableStore;
-  private readonly nowMs: () => number;
   private readonly entityStore: EntityStore<StudyTopicEntity, StudyTopicKey>;
 
   constructor(store: InMemorySingleTableStore, nowMs: () => number = () => Date.now()) {
     this.store = store;
-    this.nowMs = nowMs;
     this.mapper = new StudyTopicMapper();
     this.entityStore = new InMemoryEntityStore(store, this.mapper, { now: nowMs });
   }
 
   public async put(input: CreateStudyTopicInput): Promise<StudyTopicEntity> {
-    const now = this.nowMs();
-    return this.entityStore.put({ ...input, createdAt: now, updatedAt: now });
+    return this.entityStore.put({ ...input, createdAt: undefined });
   }
 
   public async listByStatus(

@@ -11,18 +11,15 @@ import type { PushSubscriptionRepository } from './push-subscription.repository.
 export class InMemoryPushSubscriptionRepository implements PushSubscriptionRepository {
   private readonly mapper = new PushSubscriptionMapper();
   private readonly store: InMemorySingleTableStore;
-  private readonly nowMs: () => number;
   private readonly entityStore: EntityStore<PushSubscriptionEntity, PushSubscriptionKey>;
 
   constructor(store: InMemorySingleTableStore, nowMs: () => number = () => Date.now()) {
     this.store = store;
-    this.nowMs = nowMs;
     this.entityStore = new InMemoryEntityStore(store, this.mapper, { now: nowMs });
   }
 
   public async put(input: CreatePushSubscriptionInput): Promise<PushSubscriptionEntity> {
-    const now = this.nowMs();
-    return this.entityStore.put({ ...input, createdAt: now, updatedAt: now });
+    return this.entityStore.put({ ...input, createdAt: undefined });
   }
 
   public async get(key: PushSubscriptionKey): Promise<PushSubscriptionEntity | null> {

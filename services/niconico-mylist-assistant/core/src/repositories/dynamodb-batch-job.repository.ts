@@ -38,9 +38,7 @@ export class DynamoDBBatchJobRepository implements BatchJobRepository {
    * 新しいバッチジョブを作成
    */
   public async create(input: CreateBatchJobInput): Promise<BatchJobEntity> {
-    const now = Date.now();
-    // updatedAt は store が書き込み時に現在時刻で上書きする。Entity 型上は必須のため値だけ渡す。
-    return this.entityStore.create({ ...input, createdAt: now, updatedAt: now });
+    return this.entityStore.create(input);
   }
 
   /**

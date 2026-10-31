@@ -1,5 +1,5 @@
 import { type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
-import { DynamoDBEntityStore, type EntityStore } from '@nagiyu/aws';
+import { DynamoDBEntityStore, type EntityPutInput, type EntityStore } from '@nagiyu/aws';
 import { updateAffectionLevel } from '../affection/calculator.js';
 import type {
   CharacterStateEntity,
@@ -33,19 +33,17 @@ export class DynamoDBCharacterStateRepository implements CharacterStateRepositor
     input: CreateCharacterStateInput,
     updates: UpdateCharacterStateInput = {}
   ): Promise<CharacterStateEntity> {
-    const now = this.nowMs();
     const existing = await this.getById({
       userId: input.userId,
       characterId: input.characterId,
     });
-    const merged: CharacterStateEntity = {
+    const merged: EntityPutInput<CharacterStateEntity> = {
       userId: input.userId,
       characterId: input.characterId,
       lastInteractionAt: updates.lastInteractionAt ?? input.lastInteractionAt,
       affectionLevel:
         updates.affectionLevel ?? input.affectionLevel ?? existing?.affectionLevel ?? 0,
-      createdAt: existing?.createdAt ?? now,
-      updatedAt: now,
+      createdAt: existing?.createdAt,
     };
     return this.entityStore.put(merged);
   }

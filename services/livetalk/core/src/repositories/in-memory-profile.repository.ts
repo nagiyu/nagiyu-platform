@@ -1,4 +1,9 @@
-import { InMemoryEntityStore, type EntityStore, type InMemorySingleTableStore } from '@nagiyu/aws';
+import {
+  InMemoryEntityStore,
+  type EntityPutInput,
+  type EntityStore,
+  type InMemorySingleTableStore,
+} from '@nagiyu/aws';
 import type {
   CreateProfileInput,
   ProfileEntity,
@@ -49,11 +54,10 @@ export class InMemoryProfileRepository implements ProfileRepository {
     const now = this.nowMs();
     const existing = await this.getById({ userId: input.userId });
 
-    const merged: ProfileEntity = {
+    const merged: EntityPutInput<ProfileEntity> = {
       userId: input.userId,
       lastActiveAt: updates.lastActiveAt ?? input.lastActiveAt ?? now,
-      createdAt: existing?.createdAt ?? now,
-      updatedAt: now,
+      createdAt: existing?.createdAt,
       ...(updates.consents !== undefined
         ? { consents: { ...existing?.consents, ...updates.consents } }
         : existing?.consents !== undefined

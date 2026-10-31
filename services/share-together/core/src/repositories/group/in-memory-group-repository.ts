@@ -35,9 +35,7 @@ export class InMemoryGroupRepository implements GroupRepository {
   }
 
   public async create(input: CreateGroupInput): Promise<Group> {
-    const now = Date.now();
-    // updatedAt は store が書き込み時に現在時刻で上書きする。Entity 型上は必須のため値だけ渡す。
-    return this.entityStore.create({ ...input, createdAt: now, updatedAt: now });
+    return this.entityStore.create(input);
   }
 
   public async update(groupId: string, updates: UpdateGroupInput): Promise<Group> {

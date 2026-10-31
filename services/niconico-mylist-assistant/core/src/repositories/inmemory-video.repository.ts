@@ -68,7 +68,7 @@ export class InMemoryVideoRepository implements VideoRepository {
    * 新しい動画を作成
    */
   public async create(input: CreateVideoInput): Promise<VideoEntity> {
-    return this.entityStore.create({ ...input, createdAt: Date.now() });
+    return this.entityStore.create(input);
   }
 
   /**

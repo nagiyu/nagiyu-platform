@@ -74,8 +74,8 @@ export function defineUserRepositoryContract(
         roles: [],
       });
       expect(typeof created.createdAt).toBe('number');
-      // createdAt は呼び出し側、updatedAt は store が別に採時するため同一とは限らない
-      expect(created.updatedAt).toBeGreaterThanOrEqual(created.createdAt);
+      // store が 1 回読んだ時刻を createdAt と updatedAt の両方に使う
+      expect(created.updatedAt).toBe(created.createdAt);
       expect(created.lastLoginAt).toBeUndefined();
 
       expect(await repository.getUserById(created.userId)).toEqual(created);

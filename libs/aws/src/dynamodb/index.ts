@@ -69,6 +69,8 @@ export {
 // EntityStore (CRUD の骨格)
 export type {
   EntityStore,
+  EntityCreateInput,
+  EntityPutInput,
   EntityReadOptions,
   EntityWriteOptions,
 } from './store/entity-store.interface.js';

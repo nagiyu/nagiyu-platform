@@ -140,8 +140,8 @@ export function defineMembershipRepositoryContract(
 
         expect(created).toMatchObject(input);
         expect(typeof created.createdAt).toBe('number');
-        // createdAt はリポジトリが、updatedAt は store が別々に現在時刻を読むため、一致は保証されない
-        expect(created.updatedAt).toBeGreaterThanOrEqual(created.createdAt);
+        // store が 1 回読んだ時刻を createdAt と updatedAt の両方に使う
+        expect(created.updatedAt).toBe(created.createdAt);
         expect(await repository.getById('group-1', 'user-1')).toEqual(created);
       });
 
