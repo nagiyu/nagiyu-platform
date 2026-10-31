@@ -3,7 +3,7 @@ import { HeadObjectCommand } from '@aws-sdk/client-s3';
 import { SubmitJobCommand } from '@aws-sdk/client-batch';
 import { getAwsClients } from '@nagiyu/aws';
 import {
-  DynamoDBJobRepository,
+  createJobRepository,
   type JobStatus,
   selectJobDefinition,
   toBatchEnvironment,
@@ -54,7 +54,7 @@ export const POST = withApiErrorReporting(
     const { docClient, s3Client, batchClient } = getAwsClients(AWS_REGION);
 
     // 1. ジョブの存在確認
-    const job = await new DynamoDBJobRepository(docClient, DYNAMODB_TABLE_NAME).getById(jobId);
+    const job = await createJobRepository(docClient, DYNAMODB_TABLE_NAME).getById(jobId);
 
     if (!job) {
       return NextResponse.json(

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
 import {
   validateFile,
-  DynamoDBJobRepository,
+  createJobRepository,
   JOB_EXPIRATION_SECONDS,
   type Job,
   type CodecType,
@@ -138,7 +138,7 @@ export const POST = withApiErrorReporting(
       expiresAt: now + JOB_EXPIRATION_SECONDS * 1000,
     };
 
-    await new DynamoDBJobRepository(docClient, DYNAMODB_TABLE_NAME).create(job);
+    await createJobRepository(docClient, DYNAMODB_TABLE_NAME).create(job);
 
     // S3 Presigned URLの生成
     const uploadUrl = await createPresignedUploadUrl(
