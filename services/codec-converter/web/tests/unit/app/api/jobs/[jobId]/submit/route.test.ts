@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { SubmitJobCommand } from '@aws-sdk/client-batch';
 import { getAwsClients, reportErrorEvent } from '@nagiyu/aws';
 import { errorReporter } from '@/lib/api-error-reporting';
-import { selectJobDefinition } from '@nagiyu/codec-converter-core';
+import { resetInMemoryRepositories, selectJobDefinition } from '@nagiyu/codec-converter-core';
 import { POST } from '@/app/api/jobs/[jobId]/submit/route';
 
 jest.mock('@nagiyu/aws', () => ({
@@ -57,12 +57,14 @@ describe('POST /api/jobs/[jobId]/submit', () => {
   const batchSend = jest.fn();
   beforeEach(() => {
     jest.clearAllMocks();
+    resetInMemoryRepositories();
     (['error', 'warn', 'log'] as const).forEach((method) =>
       jest.spyOn(console, method).mockImplementation(() => {})
     );
     jest.replaceProperty(process, 'env', {
       ...process.env,
       BATCH_JOB_DEFINITION_PREFIX: 'codec',
+      DYNAMODB_TABLE_NAME: 'test-table',
     });
     mockedGetAwsClients.mockReturnValue({
       docClient: { send: dynamoSend },
