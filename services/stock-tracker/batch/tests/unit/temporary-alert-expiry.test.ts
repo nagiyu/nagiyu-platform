@@ -2,8 +2,12 @@ import { handler } from '../../src/temporary-alert-expiry.js';
 import type { ScheduledEvent } from '@nagiyu/aws';
 import * as awsClients from '@nagiyu/aws';
 import { logger } from '@nagiyu/common';
-import type { ExchangeRepository, TemporaryAlertCandidate } from '@nagiyu/stock-tracker-core';
-import { DynamoDBAlertRepository, DynamoDBExchangeRepository } from '@nagiyu/stock-tracker-core';
+import type {
+  AlertRepository,
+  ExchangeRepository,
+  TemporaryAlertCandidate,
+} from '@nagiyu/stock-tracker-core';
+import { createAlertRepository, createExchangeRepository } from '@nagiyu/stock-tracker-core';
 import * as tradingHoursChecker from '@nagiyu/stock-tracker-core';
 import type { ExchangeEntity } from '@nagiyu/stock-tracker-core';
 
@@ -33,8 +37,8 @@ jest.mock('@nagiyu/aws', () => {
 });
 jest.mock('@nagiyu/stock-tracker-core', () => ({
   ...jest.requireActual('@nagiyu/stock-tracker-core'),
-  DynamoDBAlertRepository: jest.fn(),
-  DynamoDBExchangeRepository: jest.fn(),
+  createAlertRepository: jest.fn(),
+  createExchangeRepository: jest.fn(),
   isTradingHours: jest.fn(),
   getLastTradingDate: jest.fn(),
 }));
@@ -65,7 +69,7 @@ function buildCandidate(overrides: Partial<TemporaryAlertCandidate> = {}): Tempo
 }
 
 describe('temporary alert expiry batch handler', () => {
-  let mockAlertRepo: jest.Mocked<DynamoDBAlertRepository>;
+  let mockAlertRepo: jest.Mocked<AlertRepository>;
   let mockExchangeRepo: jest.Mocked<ExchangeRepository>;
   let mockEvent: ScheduledEvent;
 
@@ -84,7 +88,7 @@ describe('temporary alert expiry batch handler', () => {
       update: jest.fn(),
       delete: jest.fn(),
       markTemporaryAsExpired: jest.fn(),
-    } as unknown as jest.Mocked<DynamoDBAlertRepository>;
+    } as unknown as jest.Mocked<AlertRepository>;
 
     mockExchangeRepo = {
       getById: jest.fn(),
@@ -95,8 +99,8 @@ describe('temporary alert expiry batch handler', () => {
       delete: jest.fn(),
     };
 
-    (DynamoDBAlertRepository as jest.Mock).mockImplementation(() => mockAlertRepo);
-    (DynamoDBExchangeRepository as jest.Mock).mockImplementation(() => mockExchangeRepo);
+    (createAlertRepository as jest.Mock).mockImplementation(() => mockAlertRepo);
+    (createExchangeRepository as jest.Mock).mockImplementation(() => mockExchangeRepo);
 
     mockEvent = {
       version: '0',

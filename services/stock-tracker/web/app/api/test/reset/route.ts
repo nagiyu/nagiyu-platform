@@ -27,7 +27,7 @@ import {
   createTickerRepository,
   createHoldingRepository,
   createAlertRepository,
-} from '../../../../lib/repository-factory';
+} from '@nagiyu/stock-tracker-core';
 
 /**
  * エラーメッセージ定数

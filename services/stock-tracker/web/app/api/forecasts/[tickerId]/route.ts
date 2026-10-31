@@ -8,7 +8,7 @@ import {
   createForecastRepository,
   createModelSnapshotRepository,
   createTickerRepository,
-} from '../../../../lib/repository-factory';
+} from '@nagiyu/stock-tracker-core';
 import { isValidDateFormat } from '../../../../lib/forecast/date';
 import { buildForecastDetail } from '../../../../lib/forecast/forecast-detail';
 

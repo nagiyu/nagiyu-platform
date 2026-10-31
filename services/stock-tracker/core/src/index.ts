@@ -173,3 +173,6 @@ export type { HoldingRepository as IHoldingRepository } from './repositories/hol
 export { DynamoDBAlertRepository } from './repositories/dynamodb-alert.repository.js';
 export { DynamoDBTickerRepository } from './repositories/dynamodb-ticker.repository.js';
 export { DynamoDBHoldingRepository } from './repositories/dynamodb-holding.repository.js';
+
+// Repository Factory（リポジトリの生成口。web / batch は実装クラスを直接 new せずここを使う）
+export * from './repositories/factory.js';

@@ -10,11 +10,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import { EntityNotFoundError } from '@nagiyu/aws';
-import { validateTickerUpdateData } from '@nagiyu/stock-tracker-core';
+import { validateTickerUpdateData, createTickerRepository } from '@nagiyu/stock-tracker-core';
 import { withAuth, readJsonObjectBody } from '@nagiyu/nextjs';
 import { getSession } from '../../../../lib/auth';
 import { withApiErrorReporting } from '../../../../lib/api-error-reporting';
-import { createTickerRepository } from '../../../../lib/repository-factory';
 
 /**
  * エラーメッセージ定数

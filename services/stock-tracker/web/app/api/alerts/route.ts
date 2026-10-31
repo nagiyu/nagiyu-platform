@@ -8,18 +8,19 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { validateAlert, calculateTemporaryExpireDate } from '@nagiyu/stock-tracker-core';
+import {
+  validateAlert,
+  calculateTemporaryExpireDate,
+  createAlertRepository,
+  createTickerRepository,
+  createExchangeRepository,
+} from '@nagiyu/stock-tracker-core';
 import {
   withAuth,
   parsePagination,
   validatePushSubscription,
   readJsonObjectBody,
 } from '@nagiyu/nextjs';
-import {
-  createAlertRepository,
-  createTickerRepository,
-  createExchangeRepository,
-} from '../../../lib/repository-factory';
 import { getSession } from '../../../lib/auth';
 import { withApiErrorReporting } from '../../../lib/api-error-reporting';
 import { parseAlertConditionList } from '../../../lib/alert-condition';

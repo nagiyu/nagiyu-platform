@@ -1,7 +1,7 @@
 /**
  * Repository Factory Unit Tests
  *
- * 環境変数に基づいたリポジトリファクトリーのテスト
+ * 環境変数と明示引数に基づいたリポジトリ生成口のテスト
  */
 
 import {
@@ -15,7 +15,7 @@ import {
   createModelSnapshotRepository,
   createPerformanceDailyRepository,
   clearMemoryStore,
-} from '../../../lib/repository-factory';
+} from '../../../src/repositories/factory';
 import * as aws from '@nagiyu/aws';
 import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 
@@ -270,6 +270,41 @@ describe('Repository Factory', () => {
       expect(() => createDailySummaryRepository()).toThrow(
         '環境変数 DYNAMODB_TABLE_NAME が設定されていません'
       );
+    });
+  });
+
+  describe('docClient / tableName を明示で渡す', () => {
+    beforeEach(() => {
+      process.env.USE_IN_MEMORY_DB = 'false';
+      delete process.env.DYNAMODB_TABLE_NAME;
+    });
+
+    it('環境変数が無くても明示した docClient と tableName で DynamoDB 実装を返す', () => {
+      const docClient = { send: jest.fn() } as unknown as DynamoDBDocumentClient;
+
+      const repo = createAlertRepository(docClient, 'explicit-table');
+
+      expect(repo.constructor.name).toBe('DynamoDBAlertRepository');
+      expect(mockedAws.getTableName).not.toHaveBeenCalled();
+    });
+
+    it('全リポジトリで明示引数を受け取れる', () => {
+      const docClient = { send: jest.fn() } as unknown as DynamoDBDocumentClient;
+      const creators = [
+        createAlertRepository,
+        createHoldingRepository,
+        createTickerRepository,
+        createExchangeRepository,
+        createDailySummaryRepository,
+        createForecastRepository,
+        createMarketForecastRepository,
+        createModelSnapshotRepository,
+        createPerformanceDailyRepository,
+      ];
+
+      for (const create of creators) {
+        expect(create(docClient, 'explicit-table').constructor.name).toMatch(/^DynamoDB/);
+      }
     });
   });
 });

@@ -8,10 +8,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { withAuth } from '@nagiyu/nextjs';
-import {
-  createAlertRepository,
-  createTickerRepository,
-} from '../../../../../lib/repository-factory';
+import { createAlertRepository, createTickerRepository } from '@nagiyu/stock-tracker-core';
 import { getSession } from '../../../../../lib/auth';
 import { withApiErrorReporting } from '../../../../../lib/api-error-reporting';
 import { MAX_ALERTS_PER_USER } from '../../../../../lib/constants';

@@ -7,7 +7,7 @@
 import { logger } from '@nagiyu/common';
 import { createScheduledHandler, getDynamoDBDocumentClient, getTableName } from '@nagiyu/aws';
 import {
-  DynamoDBAlertRepository,
+  createAlertRepository,
   type AlertEntity,
   type UnreadableAlertItem,
 } from '@nagiyu/stock-tracker-core';
@@ -82,7 +82,7 @@ export const handler = createScheduledHandler(
     // 全アラートを、読めないアイテムも含めて取得する。
     // 頻度ごとの取得は読めないアイテムを捨てるため、endpoint や鍵が空のように
     // 保存データが壊れたアラートが、点検の対象から消えてしまう。
-    const alertRepo = new DynamoDBAlertRepository(docClient, tableName);
+    const alertRepo = createAlertRepository(docClient, tableName);
     const { alerts, unreadable } = await alertRepo.getAllForSubscriptionAudit();
     stats.totalAlerts = alerts.length + unreadable.length;
 

@@ -1,7 +1,8 @@
 import { NextRequest } from 'next/server';
 import { POST } from '../../../../app/api/alerts/route';
 
-jest.mock('../../../../lib/repository-factory', () => ({
+jest.mock('@nagiyu/stock-tracker-core', () => ({
+  ...jest.requireActual('@nagiyu/stock-tracker-core'),
   createAlertRepository: jest.fn(),
   createTickerRepository: jest.fn(),
   createExchangeRepository: jest.fn(),

@@ -8,14 +8,15 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { validateAlert, calculateTemporaryExpireDate } from '@nagiyu/stock-tracker-core';
-import { EntityNotFoundError } from '@nagiyu/aws';
-import { withAuth, readJsonObjectBody } from '@nagiyu/nextjs';
 import {
+  validateAlert,
+  calculateTemporaryExpireDate,
   createAlertRepository,
   createTickerRepository,
   createExchangeRepository,
-} from '../../../../lib/repository-factory';
+} from '@nagiyu/stock-tracker-core';
+import { EntityNotFoundError } from '@nagiyu/aws';
+import { withAuth, readJsonObjectBody } from '@nagiyu/nextjs';
 import { getSession } from '../../../../lib/auth';
 import { withApiErrorReporting } from '../../../../lib/api-error-reporting';
 import { parseAlertConditionList } from '../../../../lib/alert-condition';

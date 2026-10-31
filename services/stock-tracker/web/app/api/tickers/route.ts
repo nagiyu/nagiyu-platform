@@ -12,11 +12,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import { EntityAlreadyExistsError } from '@nagiyu/aws';
-import { validateTickerCreateData, type TickerEntity } from '@nagiyu/stock-tracker-core';
+import {
+  validateTickerCreateData,
+  type TickerEntity,
+  createTickerRepository,
+  createExchangeRepository,
+} from '@nagiyu/stock-tracker-core';
 import { withAuth, readJsonObjectBody } from '@nagiyu/nextjs';
 import { getSession } from '../../../lib/auth';
 import { withApiErrorReporting } from '../../../lib/api-error-reporting';
-import { createTickerRepository, createExchangeRepository } from '../../../lib/repository-factory';
 
 /**
  * エラーメッセージ定数

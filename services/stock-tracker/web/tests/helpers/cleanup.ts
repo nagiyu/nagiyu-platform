@@ -20,7 +20,7 @@
  * ```
  */
 
-import { clearMemoryStore } from '../../lib/repository-factory';
+import { clearMemoryStore } from '@nagiyu/stock-tracker-core';
 
 /**
  * 全リポジトリのシングルトンインスタンスをクリアンアップ
