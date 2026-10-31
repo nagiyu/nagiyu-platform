@@ -3,14 +3,7 @@
  *
  * InMemorySingleTableStoreを使用したMarketForecastRepositoryの実装
  */
-import {
-  DatabaseError,
-  EntityAlreadyExistsError,
-  EntityNotFoundError,
-  InMemoryEntityStore,
-  type EntityStore,
-  type InMemorySingleTableStore,
-} from '@nagiyu/aws';
+import { InMemoryEntityStore, type EntityStore, type InMemorySingleTableStore } from '@nagiyu/aws';
 import type {
   AppendMarketForecastOutcomeResult,
   CreateMarketForecastResult,
@@ -33,8 +26,7 @@ import {
 /**
  * InMemory MarketForecast Repository
  *
- * 単一アイテムの作成・取得は EntityStore に任せ、条件付きの Outcome 追記と
- * 市場の期間クエリだけを自前で持つ。
+ * 単一アイテムの作成・取得・Outcome 追記は EntityStore に任せ、市場の期間クエリだけを自前で持つ。
  * テスト環境で使用
  */
 export class InMemoryMarketForecastRepository implements MarketForecastRepository {
@@ -53,49 +45,24 @@ export class InMemoryMarketForecastRepository implements MarketForecastRepositor
   public async createIfAbsent(
     input: CreateMarketForecastInput
   ): Promise<CreateMarketForecastResult> {
-    try {
-      const item = await this.entityStore.create(input);
-      return { item, created: true };
-    } catch (error) {
-      if (error instanceof EntityAlreadyExistsError) {
-        const existing = await this.entityStore.get({ market: input.market, date: input.date });
-        if (!existing) {
-          throw new DatabaseError(
-            'MarketForecast の作成に失敗しましたが、既存アイテムが見つかりません',
-            error
-          );
-        }
-        return { item: existing, created: false };
-      }
-      throw error;
-    }
+    const { entity, created } = await this.entityStore.createIfAbsent(input);
+    return { item: entity, created };
   }
 
   /**
    * 既存 MarketForecast に採点結果（Outcome）を条件付きで追記する
    * (アイテムが存在し、かつ Outcome が未設定のときだけ書く)
-   *
-   * 存在と Outcome の有無は、Entity に変換せず保存された Item で判定する。DynamoDB 版は
-   * 条件式で判定し、読めないアイテムでも Outcome が無ければ書き込んだあとで変換に失敗するため、
-   * InMemory 版もその順序に揃える。
    */
   public async appendOutcome(
     key: MarketForecastKey,
     outcome: MarketOutcome
   ): Promise<AppendMarketForecastOutcomeResult> {
-    const stored = this.store.getByKey(this.mapper.buildKeys(key));
-
-    if (!stored) {
-      throw new EntityNotFoundError(this.mapper.entityType, `${key.market}#${key.date}`);
-    }
-    if (stored[MARKET_FORECAST_OUTCOME_ATTRIBUTE] !== undefined) {
-      return { item: this.mapper.toEntity(stored), updated: false };
-    }
-
-    const updated = await this.entityStore.update(key, {
-      outcome: this.mapper.toOutcomeAttribute(outcome),
-    });
-    return { item: updated, updated: true };
+    const { entity, updated } = await this.entityStore.updateIfAttributeAbsent(
+      key,
+      MARKET_FORECAST_OUTCOME_ATTRIBUTE,
+      { outcome: this.mapper.toOutcomeAttribute(outcome) }
+    );
+    return { item: entity, updated };
   }
 
   /**

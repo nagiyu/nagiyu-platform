@@ -3,18 +3,8 @@
  *
  * DynamoDBを使用したMarketForecastRepositoryの実装
  */
-import { UpdateCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
-import {
-  DatabaseError,
-  DynamoDBEntityStore,
-  EntityAlreadyExistsError,
-  EntityNotFoundError,
-  buildUpdateExpression,
-  isConditionalCheckFailed,
-  queryAllItems,
-  toDatabaseError,
-  type EntityStore,
-} from '@nagiyu/aws';
+import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBEntityStore, queryAllItems, toDatabaseError, type EntityStore } from '@nagiyu/aws';
 import type {
   AppendMarketForecastOutcomeResult,
   CreateMarketForecastResult,
@@ -37,8 +27,7 @@ import {
 /**
  * DynamoDB MarketForecast Repository
  *
- * 単一アイテムの作成・取得は EntityStore に任せ、条件付きの Outcome 追記と
- * 市場の期間 Query だけを自前で持つ
+ * 単一アイテムの作成・取得・Outcome 追記は EntityStore に任せ、市場の期間 Query だけを自前で持つ
  */
 export class DynamoDBMarketForecastRepository implements MarketForecastRepository {
   private readonly docClient: DynamoDBDocumentClient;
@@ -58,79 +47,24 @@ export class DynamoDBMarketForecastRepository implements MarketForecastRepositor
   public async createIfAbsent(
     input: CreateMarketForecastInput
   ): Promise<CreateMarketForecastResult> {
-    try {
-      const item = await this.entityStore.create(input);
-      return { item, created: true };
-    } catch (error) {
-      if (error instanceof EntityAlreadyExistsError) {
-        const existing = await this.entityStore.get({ market: input.market, date: input.date });
-        if (!existing) {
-          throw new DatabaseError(
-            'MarketForecast の作成に失敗しましたが、既存アイテムが見つかりません',
-            error
-          );
-        }
-        return { item: existing, created: false };
-      }
-      throw error;
-    }
+    const { entity, created } = await this.entityStore.createIfAbsent(input);
+    return { item: entity, created };
   }
 
   /**
    * 既存 MarketForecast に採点結果（Outcome）を条件付きで追記する
    * (アイテムが存在し、かつ Outcome が未設定のときだけ書く)
-   *
-   * 「Outcome が未設定」の条件は EntityStore の update では表せないため自前で書く。
-   * 属性の変換は Mapper の `toUpdateAttributes` に任せ、updatedAt は他の書き込みと同じく現在時刻で書く。
    */
   public async appendOutcome(
     key: MarketForecastKey,
     outcome: MarketOutcome
   ): Promise<AppendMarketForecastOutcomeResult> {
-    try {
-      const keys = this.mapper.buildKeys(key);
-      const attributes = this.mapper.toUpdateAttributes({
-        outcome: this.mapper.toOutcomeAttribute(outcome),
-      });
-      const parts = buildUpdateExpression(attributes, {
-        timestamp: { attributeName: 'UpdatedAt', value: Date.now() },
-      });
-      if (!parts) {
-        // timestamp を渡しているため到達しない。型の絞り込みのために明示する
-        throw new DatabaseError('Outcome の更新式を組み立てられませんでした');
-      }
-
-      const result = await this.docClient.send(
-        new UpdateCommand({
-          TableName: this.tableName,
-          Key: keys,
-          UpdateExpression: parts.UpdateExpression,
-          ConditionExpression: 'attribute_exists(#pk) AND attribute_not_exists(#outcome)',
-          ExpressionAttributeNames: {
-            ...parts.ExpressionAttributeNames,
-            '#pk': Object.keys(keys)[0],
-            '#outcome': MARKET_FORECAST_OUTCOME_ATTRIBUTE,
-          },
-          ExpressionAttributeValues: parts.ExpressionAttributeValues,
-          ReturnValues: 'ALL_NEW',
-        })
-      );
-
-      if (!result.Attributes) {
-        throw new DatabaseError('Outcome の追記後のデータを取得できませんでした');
-      }
-      return { item: this.mapper.toEntity(result.Attributes), updated: true };
-    } catch (error) {
-      if (isConditionalCheckFailed(error)) {
-        const existing = await this.entityStore.get(key);
-        if (!existing) {
-          throw new EntityNotFoundError(this.mapper.entityType, `${key.market}#${key.date}`);
-        }
-        // 既存アイテムはあるが条件不成立 → 既に Outcome がある (冪等な再実行)
-        return { item: existing, updated: false };
-      }
-      throw toDatabaseError(error);
-    }
+    const { entity, updated } = await this.entityStore.updateIfAttributeAbsent(
+      key,
+      MARKET_FORECAST_OUTCOME_ATTRIBUTE,
+      { outcome: this.mapper.toOutcomeAttribute(outcome) }
+    );
+    return { item: entity, updated };
   }
 
   /**

@@ -1,4 +1,4 @@
-import { EntityAlreadyExistsError, EntityNotFoundError, OptimisticLockError } from '../errors.js';
+import { EntityNotFoundError, OptimisticLockError } from '../errors.js';
 import { REMOVE_ATTRIBUTE } from '../helpers.js';
 import type { InMemorySingleTableStore } from '../in-memory/single-table-store.js';
 import type {
@@ -8,17 +8,23 @@ import type {
   EntityPatch,
 } from '../mapper/entity-mapper.interface.js';
 import type {
+  CreateIfAbsentResult,
   EntityCreateInput,
+  EntityCreateOptions,
   EntityPutInput,
   EntityStore,
   EntityWriteOptions,
+  UpdateIfAttributeAbsentResult,
 } from './entity-store.interface.js';
 import {
   UPDATED_AT_ATTRIBUTE,
   convertToEntity,
+  createConflictError,
+  createOrReadExisting,
   describeKey,
   planUpdate,
   prepareWriteItem,
+  resolveAbsentAttributeNames,
   resolveKeys,
 } from './entity-store-support.js';
 
@@ -53,13 +59,27 @@ export class InMemoryEntityStore<TEntity, TKey> implements EntityStore<TEntity, 
     return item ? convertToEntity(this.mapper, item) : null;
   }
 
-  public async create(input: EntityCreateInput<TEntity>): Promise<TEntity> {
+  public async create(
+    input: EntityCreateInput<TEntity>,
+    options: EntityCreateOptions = {}
+  ): Promise<TEntity> {
     const { keys, item } = prepareWriteItem(this.mapper, input, this.now());
-    if (this.store.getByKey(keys)) {
-      throw new EntityAlreadyExistsError(this.mapper.entityType, describeKey(keys));
-    }
-    this.store.putByKey(keys, item);
-    return convertToEntity(this.mapper, item);
+    return this.insertIfAbsent(keys, item, options);
+  }
+
+  public async createIfAbsent(
+    input: EntityCreateInput<TEntity>
+  ): Promise<CreateIfAbsentResult<TEntity>> {
+    const { keys, item } = prepareWriteItem(this.mapper, input, this.now());
+    return createOrReadExisting(
+      this.mapper.entityType,
+      keys,
+      async () => this.insertIfAbsent(keys, item, {}),
+      async () => {
+        const existing = this.store.getByKey(keys);
+        return existing ? convertToEntity(this.mapper, existing) : null;
+      }
+    );
   }
 
   public async put(
@@ -78,20 +98,28 @@ export class InMemoryEntityStore<TEntity, TKey> implements EntityStore<TEntity, 
     options: EntityWriteOptions = {}
   ): Promise<TEntity> {
     const { keys, fields } = planUpdate(this.mapper, key, changes);
-    const existing = this.assertLock(keys, options, true);
+    const existing = this.assertLock(keys, options, true) as DynamoDBAttributes;
+    return this.applyUpdate(keys, existing, fields);
+  }
 
-    const updated: DynamoDBAttributes = { ...existing };
-    for (const [name, value] of Object.entries(fields)) {
-      if (value === REMOVE_ATTRIBUTE) {
-        delete updated[name];
-      } else {
-        updated[name] = value;
-      }
+  public async updateIfAttributeAbsent(
+    key: TKey,
+    attributeName: string,
+    changes: EntityPatch<TEntity>
+  ): Promise<UpdateIfAttributeAbsentResult<TEntity>> {
+    const { keys, fields } = planUpdate(this.mapper, key, changes);
+    // DynamoDB の条件式は保存 Item の属性の有無を見る。Entity に変換した後のフィールドでは、
+    // mapper が読まない属性や変換で値が変わる属性を取り違えるため、変換前の保存 Item で判定する
+    const existing = this.store.getByKey(keys);
+    if (!existing) {
+      throw new EntityNotFoundError(this.mapper.entityType, describeKey(keys));
     }
-    updated[UPDATED_AT_ATTRIBUTE] = this.now();
-
-    this.store.putByKey(keys, updated);
-    return convertToEntity(this.mapper, updated);
+    // null (DynamoDB の NULL 型) も設定済みとして扱う。DynamoDB の attribute_not_exists と同じ
+    const absentNames = resolveAbsentAttributeNames(this.mapper, attributeName);
+    if (absentNames.some((name) => existing[name] !== undefined)) {
+      return { entity: convertToEntity(this.mapper, existing), updated: false };
+    }
+    return { entity: this.applyUpdate(keys, existing, fields), updated: true };
   }
 
   public async delete(key: TKey): Promise<void> {
@@ -104,6 +132,39 @@ export class InMemoryEntityStore<TEntity, TKey> implements EntityStore<TEntity, 
 
   public async deleteIfExists(key: TKey): Promise<void> {
     this.store.deleteByKey(resolveKeys(this.mapper, key));
+  }
+
+  /** 無いときだけ書く。既にあれば `options` に応じたエラーを投げる */
+  private insertIfAbsent(
+    keys: DynamoDBKey,
+    item: DynamoDBAttributes,
+    options: EntityCreateOptions
+  ): TEntity {
+    if (this.store.getByKey(keys)) {
+      throw createConflictError(this.mapper.entityType, keys, options);
+    }
+    this.store.putByKey(keys, item);
+    return convertToEntity(this.mapper, item);
+  }
+
+  /** 既存 Item に更新内容と UpdatedAt を反映して保存し、Entity にして返す */
+  private applyUpdate(
+    keys: DynamoDBKey,
+    existing: DynamoDBAttributes,
+    fields: Record<string, unknown>
+  ): TEntity {
+    const updated: DynamoDBAttributes = { ...existing };
+    for (const [name, value] of Object.entries(fields)) {
+      if (value === REMOVE_ATTRIBUTE) {
+        delete updated[name];
+      } else {
+        updated[name] = value;
+      }
+    }
+    updated[UPDATED_AT_ATTRIBUTE] = this.now();
+
+    this.store.putByKey(keys, updated);
+    return convertToEntity(this.mapper, updated);
   }
 
   /**

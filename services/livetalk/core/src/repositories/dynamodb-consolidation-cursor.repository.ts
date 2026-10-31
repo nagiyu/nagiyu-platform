@@ -1,10 +1,5 @@
 import { type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
-import {
-  DynamoDBEntityStore,
-  EntityAlreadyExistsError,
-  OptimisticLockError,
-  type EntityStore,
-} from '@nagiyu/aws';
+import { DynamoDBEntityStore, type EntityStore } from '@nagiyu/aws';
 import type {
   ConsolidationCursorEntity,
   ConsolidationCursorKey,
@@ -44,17 +39,7 @@ export class DynamoDBConsolidationCursorRepository implements ConsolidationCurso
       return this.entityStore.put(entity, { expectedUpdatedAt: opts.expectedUpdatedAt });
     }
 
-    try {
-      return await this.entityStore.create(entity);
-    } catch (error) {
-      // 新規作成の衝突も呼び出し側が楽観ロック競合として扱えるよう、同じエラーに揃える
-      if (error instanceof EntityAlreadyExistsError) {
-        throw new OptimisticLockError(
-          'ConsolidationCursor',
-          `${entity.userId}#${entity.characterId}`
-        );
-      }
-      throw error;
-    }
+    // 新規作成の衝突も呼び出し側が楽観ロック競合として扱えるよう、同じエラーに揃える
+    return this.entityStore.create(entity, { conflictAsOptimisticLock: true });
   }
 }

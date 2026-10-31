@@ -79,7 +79,9 @@ describe('DynamoDBTopicRepository', () => {
         throw conditionalFailure(false);
       });
 
-      await expect(repo.putTopic(baseTopicInput)).rejects.toBeInstanceOf(OptimisticLockError);
+      const promise = repo.putTopic(baseTopicInput);
+      await expect(promise).rejects.toBeInstanceOf(OptimisticLockError);
+      await expect(promise).rejects.toThrow('Topic=');
     });
 
     it('更新は既存を読んで createdAt を維持し、expectedUpdatedAt を条件に Put する', async () => {
