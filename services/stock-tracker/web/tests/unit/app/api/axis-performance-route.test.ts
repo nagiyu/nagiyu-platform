@@ -4,7 +4,7 @@ import { GET } from '../../../../app/api/axis-performance/route';
 import {
   createModelSnapshotRepository,
   createPerformanceDailyRepository,
-} from '../../../../lib/repository-factory';
+} from '@nagiyu/stock-tracker-core';
 import { performanceDaily, snapshot } from '../../lib/forecast/fixtures';
 
 jest.mock('@nagiyu/aws', () => ({
@@ -12,7 +12,8 @@ jest.mock('@nagiyu/aws', () => ({
   reportErrorEvent: jest.fn().mockResolvedValue(null),
 }));
 
-jest.mock('../../../../lib/repository-factory', () => ({
+jest.mock('@nagiyu/stock-tracker-core', () => ({
+  ...jest.requireActual('@nagiyu/stock-tracker-core'),
   createModelSnapshotRepository: jest.fn(),
   createPerformanceDailyRepository: jest.fn(),
 }));

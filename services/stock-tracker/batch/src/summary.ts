@@ -14,11 +14,11 @@ import {
 import type { HandlerResponse, ScheduledEvent } from '@nagiyu/aws';
 import { errorReporter } from './lib/error-reporter.js';
 import {
-  DynamoDBDailySummaryRepository,
-  DynamoDBExchangeRepository,
+  createDailySummaryRepository,
+  createExchangeRepository,
   PatternAnalyzer,
   PATTERN_REGISTRY,
-  DynamoDBTickerRepository,
+  createTickerRepository,
   formatDateInTimezone,
   getChartData,
   getLastTradingDate,
@@ -362,10 +362,10 @@ async function runSummaryBatch(
   } else {
     const docClient = getDynamoDBDocumentClient();
     const tableName = getTableName();
-    const dailySummaryRepository = new DynamoDBDailySummaryRepository(docClient, tableName);
+    const dailySummaryRepository = createDailySummaryRepository(docClient, tableName);
     resolvedDependencies = {
-      exchangeRepository: new DynamoDBExchangeRepository(docClient, tableName),
-      tickerRepository: new DynamoDBTickerRepository(docClient, tableName),
+      exchangeRepository: createExchangeRepository(docClient, tableName),
+      tickerRepository: createTickerRepository(docClient, tableName),
       dailySummaryRepository,
       getChartDataFn: dependencies?.getChartDataFn ?? getChartData,
       nowFn: dependencies?.nowFn ?? Date.now,

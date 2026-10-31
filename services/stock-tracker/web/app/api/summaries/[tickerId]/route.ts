@@ -8,7 +8,7 @@ import {
   createForecastRepository,
   createHoldingRepository,
   createTickerRepository,
-} from '../../../../lib/repository-factory';
+} from '@nagiyu/stock-tracker-core';
 import { MAX_ALERTS_PER_USER } from '../../../../lib/constants';
 import { toTickerForecastSummary } from '../../../../lib/forecast/ticker-forecast';
 import { toPatternSummary } from '../../../../lib/summary/pattern-summary';

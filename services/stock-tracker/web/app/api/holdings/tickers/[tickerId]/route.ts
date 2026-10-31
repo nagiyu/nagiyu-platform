@@ -8,10 +8,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { withAuth } from '@nagiyu/nextjs';
-import {
-  createHoldingRepository,
-  createTickerRepository,
-} from '../../../../../lib/repository-factory';
+import { createHoldingRepository, createTickerRepository } from '@nagiyu/stock-tracker-core';
 import { getSession } from '../../../../../lib/auth';
 import { withApiErrorReporting } from '../../../../../lib/api-error-reporting';
 import type { HoldingEntity } from '@nagiyu/stock-tracker-core';

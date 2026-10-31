@@ -11,7 +11,7 @@ import {
   createMarketForecastRepository,
   createPerformanceDailyRepository,
   createTickerRepository,
-} from '../../../../../lib/repository-factory';
+} from '@nagiyu/stock-tracker-core';
 
 jest.mock('@nagiyu/aws', () => ({
   ...jest.requireActual('@nagiyu/aws'),
@@ -26,7 +26,8 @@ jest.mock('../../../../../lib/api-error-reporting', () => ({
   },
 }));
 
-jest.mock('../../../../../lib/repository-factory', () => ({
+jest.mock('@nagiyu/stock-tracker-core', () => ({
+  ...jest.requireActual('@nagiyu/stock-tracker-core'),
   createDailySummaryRepository: jest.fn(),
   createExchangeRepository: jest.fn(),
   createAlertRepository: jest.fn(),

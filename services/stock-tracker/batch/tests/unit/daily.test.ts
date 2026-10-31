@@ -10,7 +10,7 @@ import type { ScheduledEvent } from '@nagiyu/aws';
 import * as awsClients from '@nagiyu/aws';
 import { QueryCommand, ScanCommand } from '@aws-sdk/lib-dynamodb';
 import { logger } from '@nagiyu/common';
-import { AlertMapper } from '@nagiyu/stock-tracker-core';
+import { AlertMapper, clearMemoryStore } from '@nagiyu/stock-tracker-core';
 import type { AlertEntity } from '@nagiyu/stock-tracker-core';
 
 // モックの設定
@@ -86,6 +86,8 @@ describe('daily batch handler', () => {
   beforeEach(() => {
     // モックのリセット
     jest.clearAllMocks();
+    // 生成口はシングルトンで docClient を保持するため、テストごとのモックに差し替わるよう捨てる
+    clearMemoryStore();
 
     // Mock DynamoDB Document Client
     mockDocClient = {

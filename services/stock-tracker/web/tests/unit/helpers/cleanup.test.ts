@@ -10,7 +10,7 @@ import {
   createHoldingRepository,
   createTickerRepository,
   createExchangeRepository,
-} from '../../../lib/repository-factory';
+} from '@nagiyu/stock-tracker-core';
 
 describe('Cleanup Helper', () => {
   const originalEnv = process.env;

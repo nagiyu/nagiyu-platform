@@ -11,8 +11,8 @@ import * as awsClients from '@nagiyu/aws';
 import type { InMemoryErrorEventWriter } from '@nagiyu/aws';
 import * as webPushClient from '../../src/lib/web-push-client.js';
 import { sendWebPushNotification, getVapidConfig } from '@nagiyu/common/push';
-import type { ExchangeRepository } from '@nagiyu/stock-tracker-core';
-import { DynamoDBAlertRepository, DynamoDBExchangeRepository } from '@nagiyu/stock-tracker-core';
+import type { AlertRepository, ExchangeRepository } from '@nagiyu/stock-tracker-core';
+import { createAlertRepository, createExchangeRepository } from '@nagiyu/stock-tracker-core';
 import * as alertEvaluator from '@nagiyu/stock-tracker-core';
 import * as tradingHoursChecker from '@nagiyu/stock-tracker-core';
 import type { AlertEntity, ExchangeEntity } from '@nagiyu/stock-tracker-core';
@@ -52,8 +52,8 @@ jest.mock('@nagiyu/common/push', () => ({
 }));
 jest.mock('@nagiyu/stock-tracker-core', () => ({
   ...jest.requireActual('@nagiyu/stock-tracker-core'),
-  DynamoDBAlertRepository: jest.fn(),
-  DynamoDBExchangeRepository: jest.fn(),
+  createAlertRepository: jest.fn(),
+  createExchangeRepository: jest.fn(),
   evaluateAlert: jest.fn(),
   isTradingHours: jest.fn(),
   TradingViewSession: jest.fn().mockImplementation(() => mockSession),
@@ -104,7 +104,7 @@ function getReportedEvents() {
 
 describe('minute batch handler', () => {
   let mockDocClient: unknown;
-  let mockAlertRepo: jest.Mocked<DynamoDBAlertRepository>;
+  let mockAlertRepo: jest.Mocked<AlertRepository>;
   let mockExchangeRepo: jest.Mocked<ExchangeRepository>;
   let mockEvent: ScheduledEvent;
   let exitSpy: jest.SpyInstance;
@@ -138,7 +138,7 @@ describe('minute batch handler', () => {
       create: jest.fn(),
       update: jest.fn(),
       delete: jest.fn(),
-    } as unknown as jest.Mocked<DynamoDBAlertRepository>;
+    } as unknown as jest.Mocked<AlertRepository>;
 
     mockExchangeRepo = {
       getById: jest.fn(),
@@ -149,8 +149,8 @@ describe('minute batch handler', () => {
       delete: jest.fn(),
     };
 
-    (DynamoDBAlertRepository as jest.Mock).mockImplementation(() => mockAlertRepo);
-    (DynamoDBExchangeRepository as jest.Mock).mockImplementation(() => mockExchangeRepo);
+    (createAlertRepository as jest.Mock).mockImplementation(() => mockAlertRepo);
+    (createExchangeRepository as jest.Mock).mockImplementation(() => mockExchangeRepo);
 
     // Mock event
     mockEvent = {
