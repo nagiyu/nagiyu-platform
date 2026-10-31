@@ -1,13 +1,13 @@
 import { type ListRepository, TodoService } from '@nagiyu/share-together-core';
 import { withApiErrorReporting } from '@/lib/api-error-reporting';
 import { NextResponse } from 'next/server';
+import { EntityNotFoundError } from '@nagiyu/aws';
+import { InvalidInputError } from '@nagiyu/common';
 import { readJsonObjectBody } from '@nagiyu/nextjs';
 import type { TodoResponse } from '@/types';
 import { getAuthorizedGroupContext } from '@/lib/api/authorization';
-import { ERROR_MESSAGES } from '@/lib/constants/errors';
 import { createListRepository, createTodoRepository } from '@nagiyu/share-together-core';
 import { createValidationErrorResponse, createNotFoundErrorResponse } from '@/lib/api/responses';
-import { isValidationError, isNotFoundError } from '@/lib/api/validation';
 
 interface TodoRouteParams {
   groupId: string;
@@ -18,16 +18,6 @@ interface TodoRouteParams {
 interface RouteParams {
   params: Promise<TodoRouteParams>;
 }
-
-const VALIDATION_ERROR_MESSAGES: Set<string> = new Set([
-  ERROR_MESSAGES.USER_ID_REQUIRED,
-  ERROR_MESSAGES.LIST_ID_REQUIRED,
-  ERROR_MESSAGES.TODO_ID_REQUIRED,
-  ERROR_MESSAGES.TODO_TITLE_INVALID,
-  ERROR_MESSAGES.UPDATE_FIELDS_REQUIRED,
-]);
-
-const NOT_FOUND_ERROR_MESSAGES: Set<string> = new Set([ERROR_MESSAGES.TODO_NOT_FOUND]);
 
 function parseUpdateBody(
   body: Record<string, unknown>
@@ -115,10 +105,10 @@ export const PUT = withApiErrorReporting(
       const response: TodoResponse = { data: todo };
       return NextResponse.json(response);
     } catch (error) {
-      if (isValidationError(error, VALIDATION_ERROR_MESSAGES)) {
+      if (error instanceof InvalidInputError) {
         return createValidationErrorResponse();
       }
-      if (isNotFoundError(error, NOT_FOUND_ERROR_MESSAGES)) {
+      if (error instanceof EntityNotFoundError) {
         return createNotFoundErrorResponse();
       }
 
@@ -150,10 +140,10 @@ export const DELETE = withApiErrorReporting(
       );
       return new NextResponse(null, { status: 204 });
     } catch (error) {
-      if (isValidationError(error, VALIDATION_ERROR_MESSAGES)) {
+      if (error instanceof InvalidInputError) {
         return createValidationErrorResponse();
       }
-      if (isNotFoundError(error, NOT_FOUND_ERROR_MESSAGES)) {
+      if (error instanceof EntityNotFoundError) {
         return createNotFoundErrorResponse();
       }
 

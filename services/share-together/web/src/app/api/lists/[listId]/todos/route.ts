@@ -4,31 +4,16 @@ import { NextResponse } from 'next/server';
 import { readJsonObjectBody } from '@nagiyu/nextjs';
 import type { TodoResponse, TodosResponse } from '@/types';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
-import { getDynamoDBDocumentClient } from '@nagiyu/aws';
+import { EntityNotFoundError, getDynamoDBDocumentClient } from '@nagiyu/aws';
+import { InvalidInputError } from '@nagiyu/common';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 import { createListRepository, createTodoRepository } from '@nagiyu/share-together-core';
 import { createValidationErrorResponse, createNotFoundErrorResponse } from '@/lib/api/responses';
-import { isNonEmptyString, isValidationError, isNotFoundError } from '@/lib/api/validation';
+import { isNonEmptyString } from '@/lib/api/validation';
 
 interface RouteContext {
   params: Promise<{ listId: string }>;
 }
-
-export const SERVICE_ERROR_MESSAGES = {
-  LIST_ID_REQUIRED: 'リストIDは必須です',
-  PERSONAL_LIST_NOT_FOUND: '個人リストが見つかりません',
-  TITLE_INVALID: 'ToDoのタイトルは1〜200文字で入力してください',
-} as const;
-
-const VALIDATION_ERROR_MESSAGES: Set<string> = new Set([
-  ERROR_MESSAGES.USER_ID_REQUIRED,
-  SERVICE_ERROR_MESSAGES.LIST_ID_REQUIRED,
-  SERVICE_ERROR_MESSAGES.TITLE_INVALID,
-]);
-
-const NOT_FOUND_ERROR_MESSAGES: Set<string> = new Set([
-  SERVICE_ERROR_MESSAGES.PERSONAL_LIST_NOT_FOUND,
-]);
 
 function createServices(): { listService: ListService; todoService: TodoService } {
   const tableName = process.env.DYNAMODB_TABLE_NAME;
@@ -78,11 +63,11 @@ export const GET = withApiErrorReporting(
 
       return NextResponse.json(response);
     } catch (error) {
-      if (isValidationError(error, VALIDATION_ERROR_MESSAGES)) {
+      if (error instanceof InvalidInputError) {
         return createValidationErrorResponse();
       }
 
-      if (isNotFoundError(error, NOT_FOUND_ERROR_MESSAGES)) {
+      if (error instanceof EntityNotFoundError) {
         return createNotFoundErrorResponse();
       }
 
@@ -129,11 +114,11 @@ export const POST = withApiErrorReporting(
 
       return NextResponse.json(response, { status: 201 });
     } catch (error) {
-      if (isValidationError(error, VALIDATION_ERROR_MESSAGES)) {
+      if (error instanceof InvalidInputError) {
         return createValidationErrorResponse();
       }
 
-      if (isNotFoundError(error, NOT_FOUND_ERROR_MESSAGES)) {
+      if (error instanceof EntityNotFoundError) {
         return createNotFoundErrorResponse();
       }
 

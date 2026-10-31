@@ -1,3 +1,7 @@
+/**
+ * @jest-environment node
+ */
+
 jest.mock('next/server', () => ({
   NextResponse: {
     json: (body: unknown, init?: { status?: number }) => ({
@@ -12,21 +16,30 @@ jest.mock('@/lib/auth/session', () => ({
 }));
 
 jest.mock('@nagiyu/aws', () => ({
+  ...jest.requireActual('@nagiyu/aws'),
   getDynamoDBDocumentClient: jest.fn(),
+  reportErrorEvent: jest.fn().mockResolvedValue(null),
 }));
 
 jest.mock('@nagiyu/share-together-core', () => ({
+  LIST_ERROR_MESSAGES: jest.requireActual<typeof import('@nagiyu/share-together-core')>(
+    '@nagiyu/share-together-core'
+  ).LIST_ERROR_MESSAGES,
   DynamoDBListRepository: jest.fn(),
   createListRepository: jest.fn(),
   createTodoRepository: jest.fn(),
   ListService: jest.fn(),
 }));
 
-import { DynamoDBListRepository, ListService } from '@nagiyu/share-together-core';
+import {
+  DynamoDBListRepository,
+  LIST_ERROR_MESSAGES,
+  ListService,
+} from '@nagiyu/share-together-core';
+import { InvalidInputError } from '@nagiyu/common';
 import { GET, POST } from '@/app/api/lists/route';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
 import { getDynamoDBDocumentClient } from '@nagiyu/aws';
-import { ERROR_MESSAGES } from '@/lib/constants/errors';
 
 const mockGetSessionOrUnauthorized = getSessionOrUnauthorized as jest.MockedFunction<
   typeof getSessionOrUnauthorized
@@ -82,6 +95,8 @@ describe('/api/lists route handlers', () => {
   afterEach(() => {
     delete process.env.DYNAMODB_TABLE_NAME;
     jest.clearAllMocks();
+    // 500 の経路で黙らせた console.error を、後続のテストへ持ち越さない
+    jest.restoreAllMocks();
   });
 
   it('GET: 未認証の場合は401レスポンスを返す', async () => {
@@ -179,15 +194,44 @@ describe('/api/lists route handlers', () => {
     expect(mockCreatePersonalList).not.toHaveBeenCalled();
   });
 
-  it('POST: リスト名バリデーションエラー時は400を返す', async () => {
+  it('POST: InvalidInputError の場合は400を返す', async () => {
     mockGetSessionOrUnauthorized.mockResolvedValue({
       user: {
         id: 'user-1',
       },
     } as SessionOrUnauthorized);
-    mockCreatePersonalList.mockRejectedValue(new Error(ERROR_MESSAGES.LIST_NAME_INVALID));
+    mockCreatePersonalList.mockRejectedValue(
+      new InvalidInputError('リスト名は1〜100文字で入力してください')
+    );
 
     const response = await POST(createRequest({ name: '不正' }));
+
+    expect(response.status).toBe(400);
+  });
+
+  it('POST: 検証エラーと同じ文言でも素の Error は400にせず500を返す', async () => {
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    mockGetSessionOrUnauthorized.mockResolvedValue({
+      user: {
+        id: 'user-1',
+      },
+    } as SessionOrUnauthorized);
+    mockCreatePersonalList.mockRejectedValue(new Error('リスト名は1〜100文字で入力してください'));
+
+    const response = await POST(createRequest({ name: '不正' }));
+
+    expect(response.status).toBe(500);
+  });
+
+  it('GET: InvalidInputError の場合は400を返す', async () => {
+    mockGetSessionOrUnauthorized.mockResolvedValue({
+      user: {
+        id: 'user-1',
+      },
+    } as SessionOrUnauthorized);
+    mockGetPersonalListsByUserId.mockRejectedValue(new InvalidInputError('ユーザーIDは必須です'));
+
+    const response = await GET();
 
     expect(response.status).toBe(400);
   });
@@ -199,7 +243,7 @@ describe('/api/lists route handlers', () => {
       },
     } as SessionOrUnauthorized);
     mockCreatePersonalList.mockRejectedValue(
-      new Error(ERROR_MESSAGES.PERSONAL_LIST_LIMIT_EXCEEDED)
+      new Error(LIST_ERROR_MESSAGES.PERSONAL_LIST_LIMIT_EXCEEDED)
     );
 
     const response = await POST(createRequest({ name: '追加リスト' }));
@@ -207,7 +251,7 @@ describe('/api/lists route handlers', () => {
     expect(response.status).toBe(409);
     await expect(response.json()).resolves.toEqual({
       error: 'PERSONAL_LIST_LIMIT_EXCEEDED',
-      message: ERROR_MESSAGES.PERSONAL_LIST_LIMIT_EXCEEDED,
+      message: '個人リストは100件まで作成できます',
     });
   });
 
