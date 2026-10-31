@@ -144,9 +144,13 @@ GSI を使う一覧などの独自のクエリは、各 Repository が DocumentC
 
 ### 7. `UpdatedAt` は EntityStore が書く
 
-**決定**: create / put / update のいずれでも、`UpdatedAt` は EntityStore が現在時刻で設定する。`CreatedAt` は Entity の値を使う。
+**決定**: create / put / update のいずれでも、`UpdatedAt` は EntityStore が現在時刻で設定する。create / put の入力は `updatedAt` を持たない。`createdAt` を省いたときは、EntityStore が `UpdatedAt` と同じ時刻で埋める。
 
-**理由**: 呼び出し側が `UpdatedAt` を進め忘れると、楽観ロックの比較値が変わらず、並行する書き込みが両方通って更新が失われる。書き込みのたびに必ず変わる値は、書き込む側が管理する。
+- create は `createdAt` を省略できる。
+- put は `createdAt` のキーを必須にし、値は `undefined` でもよい (`undefined` なら現在時刻で埋める)。既存の値を引き継ぐときは、呼び出し側が読んで渡す。
+- 同じ時刻を ID や有効期限にも使う呼び出しは、その値と揃えるため `createdAt` を明示して渡す。
+
+**理由**: 呼び出し側が `UpdatedAt` を進め忘れると、楽観ロックの比較値が変わらず、並行する書き込みが両方通って更新が失われる。書き込みのたびに必ず変わる値は、書き込む側が管理する。`createdAt` も同じ時計で埋めると、呼び出し側と EntityStore で時刻の出どころが分かれない。put だけキーを必須にするのは、put がアイテム全体の置き換えで、`createdAt` を書き忘れると既存の値が黙って消えるため。キーの書き忘れを型エラーにして、引き継ぐか作り直すかを呼び出し側に書かせる。
 
 ### 8. 楽観ロックは `UpdatedAt` の一致で判定する
 
