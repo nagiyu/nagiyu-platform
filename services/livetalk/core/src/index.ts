@@ -430,3 +430,21 @@ export {
   TOPIC_RECALL_RELATED_THRESHOLD,
   TOPIC_RECALL_RELATED_MAX,
 } from './constants.js';
+
+// Repository factory (registry 経由。web / batch はここから生成する)
+export {
+  createAccountDeletionRepository,
+  createChatGuardRepository,
+  createMessageRepository,
+  createProfileRepository,
+  createCharacterStateRepository,
+  createLifecycleRepository,
+  createStudyTopicRepository,
+  createNoteRepository,
+  createPushSubscriptionRepository,
+  createNotificationEventRepository,
+  createTopicRepository,
+  createConsolidationCursorRepository,
+  createWebRawRepository,
+  resetRepositoryFactories,
+} from './repositories/factory.js';

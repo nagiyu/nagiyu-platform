@@ -4,11 +4,11 @@
 import { GET } from '@/app/api/status/route';
 import { getSession } from '@/lib/server/session';
 import {
-  getLifecycleRepository,
-  getNotificationEventRepository,
-  getStudyTopicRepository,
-  getMessageRepository,
-} from '@/lib/server/repositories';
+  createLifecycleRepository,
+  createNotificationEventRepository,
+  createStudyTopicRepository,
+  createMessageRepository,
+} from '@nagiyu/livetalk-core';
 import type {
   LifecycleRepository,
   NotificationEventRepository,
@@ -20,24 +20,27 @@ jest.mock('@/lib/server/session', () => ({
   getSession: jest.fn(),
 }));
 
-jest.mock('@/lib/server/repositories', () => ({
-  getLifecycleRepository: jest.fn(),
-  getNotificationEventRepository: jest.fn(),
-  getStudyTopicRepository: jest.fn(),
-  getMessageRepository: jest.fn(),
+jest.mock('@nagiyu/livetalk-core', () => ({
+  ...jest.requireActual('@nagiyu/livetalk-core'),
+  createLifecycleRepository: jest.fn(),
+  createNotificationEventRepository: jest.fn(),
+  createStudyTopicRepository: jest.fn(),
+  createMessageRepository: jest.fn(),
 }));
 
 const mockGetSession = getSession as jest.MockedFunction<typeof getSession>;
-const mockGetLifecycleRepo = getLifecycleRepository as jest.MockedFunction<
-  typeof getLifecycleRepository
+const mockGetLifecycleRepo = createLifecycleRepository as jest.MockedFunction<
+  typeof createLifecycleRepository
 >;
-const mockGetNotifEventRepo = getNotificationEventRepository as jest.MockedFunction<
-  typeof getNotificationEventRepository
+const mockGetNotifEventRepo = createNotificationEventRepository as jest.MockedFunction<
+  typeof createNotificationEventRepository
 >;
-const mockGetStudyTopicRepo = getStudyTopicRepository as jest.MockedFunction<
-  typeof getStudyTopicRepository
+const mockGetStudyTopicRepo = createStudyTopicRepository as jest.MockedFunction<
+  typeof createStudyTopicRepository
 >;
-const mockGetMessageRepo = getMessageRepository as jest.MockedFunction<typeof getMessageRepository>;
+const mockGetMessageRepo = createMessageRepository as jest.MockedFunction<
+  typeof createMessageRepository
+>;
 
 const livetalkUserSession = {
   user: {

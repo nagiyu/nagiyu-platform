@@ -1,7 +1,6 @@
-import { TopicRetriever } from '@nagiyu/livetalk-core';
+import { TopicRetriever, createTopicRepository } from '@nagiyu/livetalk-core';
 import type { ITopicRetriever } from '@nagiyu/livetalk-core';
 import { getEmbeddingClient } from './embedding';
-import { getTopicRepository } from './repositories';
 
 /**
  * Topic retriever（関連度 only の想起、リブトーク知識再設計 P2 / #3698）のシングルトン。
@@ -11,7 +10,7 @@ let cachedRetriever: ITopicRetriever | null = null;
 
 export function getTopicRetriever(): ITopicRetriever {
   if (!cachedRetriever) {
-    cachedRetriever = new TopicRetriever(getTopicRepository(), getEmbeddingClient());
+    cachedRetriever = new TopicRetriever(createTopicRepository(), getEmbeddingClient());
   }
   return cachedRetriever;
 }

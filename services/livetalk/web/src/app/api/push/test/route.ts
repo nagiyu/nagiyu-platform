@@ -14,13 +14,14 @@ import { NextResponse } from 'next/server';
 import { readJsonObjectBody, withAuth } from '@nagiyu/nextjs';
 import { logger, toErrorMessage } from '@nagiyu/common';
 import { sendWebPushNotifications, getVapidConfig } from '@nagiyu/common/push';
-import { defaultUlidFactory, NOTIFICATION_EVENT_TTL_SECONDS } from '@nagiyu/livetalk-core';
+import {
+  defaultUlidFactory,
+  NOTIFICATION_EVENT_TTL_SECONDS,
+  createPushSubscriptionRepository,
+  createNotificationEventRepository,
+} from '@nagiyu/livetalk-core';
 import { getSession } from '@/lib/server/session';
 import { errorReporter, withApiErrorReporting } from '@/lib/server/api-error-reporting';
-import {
-  getPushSubscriptionRepository,
-  getNotificationEventRepository,
-} from '@/lib/server/repositories';
 import { hasCharacter, getCharacterDefinition } from '@/lib/characters/registry';
 
 /**
@@ -73,7 +74,7 @@ export const POST = withApiErrorReporting(
     const bodyText = `【テスト送信】${def.displayName}からのテスト通知です`;
 
     // プッシュサブスクリプションを取得する
-    const subscriptions = await getPushSubscriptionRepository().listByUser(userId);
+    const subscriptions = await createPushSubscriptionRepository().listByUser(userId);
 
     // サブスクリプションが 0 件の場合は送信せずに返す
     if (subscriptions.length === 0) {
@@ -92,7 +93,7 @@ export const POST = withApiErrorReporting(
     };
 
     // 各サブスクリプションへ送信する（失敗はログのみで継続・無効サブスクは削除）
-    const pushSubscriptionRepo = getPushSubscriptionRepository();
+    const pushSubscriptionRepo = createPushSubscriptionRepository();
     const result = await sendWebPushNotifications(
       subscriptions,
       (sub) => ({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dhKey, auth: sub.authKey } }),
@@ -134,7 +135,7 @@ export const POST = withApiErrorReporting(
 
     // 1 件以上送信成功した場合、NotificationEvent を記録する（first-word/pending 検証のため）
     if (sentCount > 0) {
-      await getNotificationEventRepository().put({
+      await createNotificationEventRepository().put({
         userId,
         notifId: defaultUlidFactory(),
         characterId,

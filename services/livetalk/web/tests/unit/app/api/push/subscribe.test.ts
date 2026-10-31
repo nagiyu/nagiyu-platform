@@ -4,7 +4,7 @@
 import { NextRequest } from 'next/server';
 import { POST } from '@/app/api/push/subscribe/route';
 import { getSession } from '@/lib/server/session';
-import { getPushSubscriptionRepository } from '@/lib/server/repositories';
+import { createPushSubscriptionRepository } from '@nagiyu/livetalk-core';
 import { errorReporter } from '@/lib/server/api-error-reporting';
 
 jest.mock('@/lib/server/session', () => ({
@@ -25,13 +25,14 @@ const onErrorMock = errorReporter.onError as jest.Mock;
 const onErrorTitle = onErrorMock.mock.calls[0][0] as string;
 const onErrorHandler = onErrorMock.mock.results[0].value as jest.Mock;
 
-jest.mock('@/lib/server/repositories', () => ({
-  getPushSubscriptionRepository: jest.fn(),
+jest.mock('@nagiyu/livetalk-core', () => ({
+  ...jest.requireActual('@nagiyu/livetalk-core'),
+  createPushSubscriptionRepository: jest.fn(),
 }));
 
 const mockGetSession = getSession as jest.MockedFunction<typeof getSession>;
-const mockGetRepo = getPushSubscriptionRepository as jest.MockedFunction<
-  typeof getPushSubscriptionRepository
+const mockGetRepo = createPushSubscriptionRepository as jest.MockedFunction<
+  typeof createPushSubscriptionRepository
 >;
 
 const validSubscription = {

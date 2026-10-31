@@ -3,7 +3,7 @@
  */
 import { GET } from '@/app/api/lifecycle/route';
 import { getSession } from '@/lib/server/session';
-import { getLifecycleRepository } from '@/lib/server/repositories';
+import { createLifecycleRepository } from '@nagiyu/livetalk-core';
 import type { LifecycleEntity, LifecycleRepository } from '@nagiyu/livetalk-core';
 import { errorReporter } from '@/lib/server/api-error-reporting';
 
@@ -11,11 +11,13 @@ jest.mock('@/lib/server/session', () => ({
   getSession: jest.fn(),
 }));
 
-jest.mock('@/lib/server/repositories', () => ({
-  getLifecycleRepository: jest.fn(),
+jest.mock('@nagiyu/livetalk-core', () => ({
+  ...jest.requireActual('@nagiyu/livetalk-core'),
+  createLifecycleRepository: jest.fn(),
 }));
 
 jest.mock('@nagiyu/aws', () => ({
+  ...jest.requireActual('@nagiyu/aws'),
   reportErrorEvent: jest.fn().mockResolvedValue(null),
   createErrorReporter: jest.fn(() => ({ report: jest.fn(), onError: jest.fn(() => jest.fn()) })),
 }));
@@ -29,8 +31,8 @@ jest.mock('@/lib/server/api-error-reporting', () => ({
 }));
 
 const mockGetSession = getSession as jest.MockedFunction<typeof getSession>;
-const mockGetLifecycleRepo = getLifecycleRepository as jest.MockedFunction<
-  typeof getLifecycleRepository
+const mockGetLifecycleRepo = createLifecycleRepository as jest.MockedFunction<
+  typeof createLifecycleRepository
 >;
 
 const validSession = {

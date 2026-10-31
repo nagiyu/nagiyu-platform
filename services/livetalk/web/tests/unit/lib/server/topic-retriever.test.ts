@@ -7,8 +7,9 @@ jest.mock('@/lib/server/embedding', () => ({
   getEmbeddingClient: jest.fn().mockReturnValue({ embed: jest.fn() }),
 }));
 
-jest.mock('@/lib/server/repositories', () => ({
-  getTopicRepository: jest.fn().mockReturnValue({}),
+jest.mock('@nagiyu/livetalk-core', () => ({
+  ...jest.requireActual('@nagiyu/livetalk-core'),
+  createTopicRepository: jest.fn().mockReturnValue({}),
 }));
 
 describe('lib/server/topic-retriever', () => {

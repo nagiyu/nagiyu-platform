@@ -3,15 +3,18 @@
  */
 import { GET } from '@/app/api/notes/route';
 import { getSession } from '@/lib/server/session';
-import { getNoteRepository } from '@/lib/server/repositories';
+import { createNoteRepository } from '@nagiyu/livetalk-core';
 import type { NoteEntity, NoteRepository } from '@nagiyu/livetalk-core';
 import { decodeNoteId } from '@/lib/notes/note-id';
 
 jest.mock('@/lib/server/session', () => ({ getSession: jest.fn() }));
-jest.mock('@/lib/server/repositories', () => ({ getNoteRepository: jest.fn() }));
+jest.mock('@nagiyu/livetalk-core', () => ({
+  ...jest.requireActual('@nagiyu/livetalk-core'),
+  createNoteRepository: jest.fn(),
+}));
 
 const mockGetSession = getSession as jest.MockedFunction<typeof getSession>;
-const mockGetRepo = getNoteRepository as jest.MockedFunction<typeof getNoteRepository>;
+const mockGetRepo = createNoteRepository as jest.MockedFunction<typeof createNoteRepository>;
 
 const session = {
   user: {

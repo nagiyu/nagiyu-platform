@@ -26,14 +26,12 @@ import {
   type MessageEntity,
   type NotificationEventEntity,
   type SafetyEventSummary,
+  createLifecycleRepository,
+  createNotificationEventRepository,
+  createStudyTopicRepository,
+  createMessageRepository,
 } from '@nagiyu/livetalk-core';
 import { getSession } from '@/lib/server/session';
-import {
-  getLifecycleRepository,
-  getNotificationEventRepository,
-  getStudyTopicRepository,
-  getMessageRepository,
-} from '@/lib/server/repositories';
 import { getSafetyEventRepository } from '@/lib/server/safety';
 import {
   hasCharacter,
@@ -105,10 +103,10 @@ export default async function StatusPage({ searchParams }: StatusPageProps) {
 
   const [lifecycle, notificationEvents, allMessages, studyPending, recentSafetyEvents] =
     await Promise.all([
-      getLifecycleRepository().get({ userId, characterId }),
-      getNotificationEventRepository().listByUser(userId, 10),
-      getMessageRepository().listSince(userId, characterId, 0),
-      getStudyTopicRepository().listByStatus(userId, characterId, 'pending'),
+      createLifecycleRepository().get({ userId, characterId }),
+      createNotificationEventRepository().listByUser(userId, 10),
+      createMessageRepository().listSince(userId, characterId, 0),
+      createStudyTopicRepository().listByStatus(userId, characterId, 'pending'),
       getSafetyEventRepository().listRecent(SAFETY_REVIEW_DEFAULT_LIMIT),
     ]);
 

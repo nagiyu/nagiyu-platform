@@ -7,12 +7,12 @@ import {
   type ScheduledEvent,
 } from '@nagiyu/aws';
 import {
-  DynamoDBLifecycleRepository,
-  DynamoDBMessageRepository,
-  DynamoDBNotificationEventRepository,
-  DynamoDBProfileRepository,
-  DynamoDBPushSubscriptionRepository,
-  DynamoDBTopicRepository,
+  createLifecycleRepository,
+  createMessageRepository,
+  createNotificationEventRepository,
+  createProfileRepository,
+  createPushSubscriptionRepository,
+  createTopicRepository,
   createLLMClient,
   defaultUlidFactory,
 } from '@nagiyu/livetalk-core';
@@ -27,12 +27,12 @@ export const handler = createScheduledHandler<ScheduledEvent, HandlerResponse>(
     const tableName = getTableName();
     const apiKey = process.env.OPENAI_API_KEY ?? '';
 
-    const profileRepo = new DynamoDBProfileRepository(docClient, tableName);
-    const lifecycleRepo = new DynamoDBLifecycleRepository(docClient, tableName);
-    const messageRepo = new DynamoDBMessageRepository(docClient, tableName);
-    const topicRepo = new DynamoDBTopicRepository(docClient, tableName);
-    const pushSubscriptionRepo = new DynamoDBPushSubscriptionRepository(docClient, tableName);
-    const notifEventRepo = new DynamoDBNotificationEventRepository(docClient, tableName);
+    const profileRepo = createProfileRepository(docClient, tableName);
+    const lifecycleRepo = createLifecycleRepository(docClient, tableName);
+    const messageRepo = createMessageRepository(docClient, tableName);
+    const topicRepo = createTopicRepository(docClient, tableName);
+    const pushSubscriptionRepo = createPushSubscriptionRepository(docClient, tableName);
+    const notifEventRepo = createNotificationEventRepository(docClient, tableName);
     const llmClient = createLLMClient({ openai: { apiKey } });
 
     const result = await notifyAllUsers({

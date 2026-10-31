@@ -5,10 +5,10 @@ import {
   LIFECYCLE_DEFAULT_BEDTIME,
   LIFECYCLE_DEFAULT_WAKE_UP_TIME,
   resolveLifecycleState,
+  createLifecycleRepository,
 } from '@nagiyu/livetalk-core';
 import { getSession } from '@/lib/server/session';
 import { errorReporter, withApiErrorReporting } from '@/lib/server/api-error-reporting';
-import { getLifecycleRepository } from '@/lib/server/repositories';
 import { hasCharacter } from '@/lib/characters/registry';
 
 /**
@@ -37,7 +37,7 @@ export const GET = withApiErrorReporting(
     const characterId = queriedId && hasCharacter(queriedId) ? queriedId : DEFAULT_CHARACTER_ID;
 
     try {
-      const lifecycle = await getLifecycleRepository().get({
+      const lifecycle = await createLifecycleRepository().get({
         userId,
         characterId,
       });
