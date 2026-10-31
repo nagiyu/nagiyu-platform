@@ -14,10 +14,6 @@ import type {
 } from '../entities/exchange.entity.js';
 import { ExchangeMapper } from '../mappers/exchange.mapper.js';
 
-// store既定のqueryByAttribute limit（100件）で打ち切られると全取引所を取得できなくなるため、
-// cursorループにより全件集約する (ページサイズ自体は任意)。
-const FULL_SCAN_PAGE_SIZE = 100;
-
 /**
  * InMemory Exchange Repository
  *
@@ -45,29 +41,13 @@ export class InMemoryExchangeRepository implements ExchangeRepository {
    * 全取引所を取得
    *
    * `Type`属性の一致でScanを近似する（GSIを介さない）ため、返却順序は保証しない。
-   * store既定のqueryByAttribute limit（100件）による打ち切りを避けるため、
-   * cursorループで全件集約する。
    */
   public async getAll(): Promise<ExchangeEntity[]> {
-    const items: ExchangeEntity[] = [];
-    let cursor: string | undefined;
-
-    do {
-      const page = this.store.queryByAttribute(
-        {
-          attributeName: 'Type',
-          attributeValue: this.mapper.entityType,
-        },
-        {
-          limit: FULL_SCAN_PAGE_SIZE,
-          cursor,
-        }
-      );
-      items.push(...page.items.map((item) => this.mapper.toEntity(item)));
-      cursor = page.nextCursor;
-    } while (cursor);
-
-    return items;
+    const items = this.store.queryAllByAttribute({
+      attributeName: 'Type',
+      attributeValue: this.mapper.entityType,
+    });
+    return items.map((item) => this.mapper.toEntity(item));
   }
 
   /**

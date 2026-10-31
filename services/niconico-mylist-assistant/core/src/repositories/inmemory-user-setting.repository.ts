@@ -85,17 +85,9 @@ export class InMemoryUserSettingRepository implements UserSettingRepository {
     const offset = options?.offset || 0;
 
     // インメモリストアから全件取得してフィルタリング
-    const allSettings: UserSettingEntity[] = [];
-    let cursor: string | undefined;
-
-    do {
-      const result = await this.getByUserId(userId, {
-        limit: 100,
-        cursor,
-      });
-      allSettings.push(...result.items);
-      cursor = result.nextCursor;
-    } while (cursor);
+    const allSettings = this.store
+      .queryAll({ pk: `USER#${userId}`, sk: { operator: 'begins_with', value: 'VIDEO#' } })
+      .map((item) => this.mapper.toEntity(item));
 
     // フィルタリング適用
     let filteredSettings = allSettings;

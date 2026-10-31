@@ -8,7 +8,6 @@ import {
   queryAllItems,
   registerDynamoRepositories,
   scanAllItems,
-  type DynamoDBAttributes,
   type EntityStore,
 } from '@nagiyu/aws';
 import {
@@ -29,9 +28,6 @@ const ERROR_MESSAGES = {
 
 /** ログに出す読めなかった Item の最大件数。多数壊れていてもログを肥大させない */
 const MAX_LOGGED_UNREADABLE = 10;
-
-/** InMemory のページ走査で 1 回に読む件数。ストアの既定に依存しないよう明示する */
-const IN_MEMORY_PAGE_SIZE = 100;
 
 export type SavePushSubscriptionInput = {
   userId: string;
@@ -140,13 +136,7 @@ export class InMemoryPushSubscriptionRepository implements PushSubscriptionRepos
   }
 
   public async findAll(): Promise<PushSubscriptionRecord[]> {
-    const items: DynamoDBAttributes[] = [];
-    let cursor: string | undefined;
-    do {
-      const page = this.store.scan({ limit: IN_MEMORY_PAGE_SIZE, cursor });
-      items.push(...page.items.filter((item) => item.Type === SUBSCRIPTION_ENTITY_TYPE));
-      cursor = page.nextCursor;
-    } while (cursor);
+    const items = this.store.scanAll().filter((item) => item.Type === SUBSCRIPTION_ENTITY_TYPE);
 
     const { records, unreadable } = this.mapper.splitReadable(items);
     logUnreadable(unreadable);
@@ -155,16 +145,11 @@ export class InMemoryPushSubscriptionRepository implements PushSubscriptionRepos
 
   public async deleteByEndpoint(endpoint: string): Promise<number> {
     const gsi2Pk = buildEndpointGsi2Pk(endpoint);
-    const items: DynamoDBAttributes[] = [];
-    let cursor: string | undefined;
-    do {
-      const page = this.store.queryByAttribute(
-        { attributeName: 'GSI2PK', attributeValue: gsi2Pk, gsiSortKeyAttributeName: 'GSI1SK' },
-        { limit: IN_MEMORY_PAGE_SIZE, cursor }
-      );
-      items.push(...page.items);
-      cursor = page.nextCursor;
-    } while (cursor);
+    const items = this.store.queryAllByAttribute({
+      attributeName: 'GSI2PK',
+      attributeValue: gsi2Pk,
+      gsiSortKeyAttributeName: 'GSI1SK',
+    });
 
     await Promise.all(
       items.map((item) => this.entityStore.deleteIfExists(this.mapper.keyFromItem(item)))

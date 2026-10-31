@@ -23,11 +23,10 @@ export class InMemoryHighlightRepository implements HighlightRepository {
   }
 
   public async getByJobId(jobId: string): Promise<Highlight[]> {
-    // DynamoDB 版は全ページを辿るため、ここもページ上限なしで全件を取る
-    const { items } = this.store.query(
-      { pk: buildHighlightPk(jobId), sk: { operator: 'begins_with', value: HIGHLIGHT_SK_PREFIX } },
-      { limit: Number.MAX_SAFE_INTEGER }
-    );
+    const items = this.store.queryAll({
+      pk: buildHighlightPk(jobId),
+      sk: { operator: 'begins_with', value: HIGHLIGHT_SK_PREFIX },
+    });
     return items.map((item) => this.mapper.toEntity(item)).sort((a, b) => a.order - b.order);
   }
 

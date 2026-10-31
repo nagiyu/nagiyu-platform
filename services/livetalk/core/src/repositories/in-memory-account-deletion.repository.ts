@@ -67,19 +67,10 @@ export class InMemoryAccountDeletionRepository implements AccountDeletionReposit
   }
 
   /**
-   * PK 配下の全アイテムをカーソルループで取得する。
+   * PK 配下の全アイテムを取得する。
    */
   private async queryAll(pk: string): Promise<DynamoDBAttributes[]> {
-    const items: DynamoDBAttributes[] = [];
-    let cursor: string | undefined;
-
-    do {
-      const result = this.store.query({ pk }, cursor ? { cursor } : undefined);
-      items.push(...result.items);
-      cursor = result.nextCursor;
-    } while (cursor !== undefined);
-
-    return items;
+    return this.store.queryAll({ pk });
   }
 
   /**
