@@ -118,6 +118,8 @@ describe('/api/lists/[listId] route handlers', () => {
   afterEach(() => {
     delete process.env.DYNAMODB_TABLE_NAME;
     jest.clearAllMocks();
+    // 500 の経路で黙らせた console.error を、後続のテストへ持ち越さない
+    jest.restoreAllMocks();
   });
 
   it('GET: 個人リストを返す', async () => {

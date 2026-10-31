@@ -95,6 +95,8 @@ describe('/api/lists route handlers', () => {
   afterEach(() => {
     delete process.env.DYNAMODB_TABLE_NAME;
     jest.clearAllMocks();
+    // 500 の経路で黙らせた console.error を、後続のテストへ持ち越さない
+    jest.restoreAllMocks();
   });
 
   it('GET: 未認証の場合は401レスポンスを返す', async () => {

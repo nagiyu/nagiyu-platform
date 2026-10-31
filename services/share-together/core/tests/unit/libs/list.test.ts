@@ -136,7 +136,7 @@ describe('ListService', () => {
     const action = listService.getPersonalListById('user-1', 'list-404');
 
     await expect(action).rejects.toBeInstanceOf(EntityNotFoundError);
-    await expect(action).rejects.toThrow('PersonalList=USER#user-1#PLIST#list-404');
+    await expect(action).rejects.toThrow('PersonalList=list-404');
   });
 
   it('デフォルトリストは削除できない', async () => {

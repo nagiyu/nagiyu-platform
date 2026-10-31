@@ -2,10 +2,6 @@ import { EntityNotFoundError } from '@nagiyu/aws';
 import { InvalidInputError } from '@nagiyu/common';
 import type { ListRepository } from '../repositories/list/list-repository.interface.js';
 import type { TodoRepository } from '../repositories/todo/todo-repository.interface.js';
-import {
-  PERSONAL_LIST_SK_PREFIX,
-  buildPersonalListPk,
-} from '../repositories/list/personal-list-mapper.js';
 import type { PersonalList } from '../types/index.js';
 
 /**
@@ -46,7 +42,7 @@ export class ListService {
 
     const list = await this.listRepository.getPersonalListById(userId, listId);
     if (!list) {
-      throw this.personalListNotFound(userId, listId);
+      throw new EntityNotFoundError('PersonalList', listId);
     }
 
     return list;
@@ -91,7 +87,7 @@ export class ListService {
 
     const targetList = await this.listRepository.getPersonalListById(userId, listId);
     if (!targetList) {
-      throw this.personalListNotFound(userId, listId);
+      throw new EntityNotFoundError('PersonalList', listId);
     }
 
     if (targetList.isDefault) {
@@ -115,16 +111,5 @@ export class ListService {
       throw new InvalidInputError(LIST_ERROR_MESSAGES.LIST_NAME_INVALID);
     }
     return normalizedName;
-  }
-
-  /**
-   * リポジトリが対象なしで投げるものと同じ形のエラーにする。
-   * 識別子はリポジトリ内部のキーの並び (PK#SK) に合わせる。
-   */
-  private personalListNotFound(userId: string, listId: string): EntityNotFoundError {
-    return new EntityNotFoundError(
-      'PersonalList',
-      `${buildPersonalListPk(userId)}#${PERSONAL_LIST_SK_PREFIX}${listId}`
-    );
   }
 }
