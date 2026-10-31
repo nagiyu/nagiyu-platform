@@ -3,13 +3,7 @@
  *
  * InMemorySingleTableStoreを使用したModelSnapshotRepositoryの実装
  */
-import {
-  DatabaseError,
-  EntityAlreadyExistsError,
-  InMemoryEntityStore,
-  type EntityStore,
-  type InMemorySingleTableStore,
-} from '@nagiyu/aws';
+import { InMemoryEntityStore, type EntityStore, type InMemorySingleTableStore } from '@nagiyu/aws';
 import type {
   CreateModelSnapshotResult,
   ModelSnapshotRepository,
@@ -42,21 +36,8 @@ export class InMemoryModelSnapshotRepository implements ModelSnapshotRepository 
    * ModelSnapshot を新規作成する。既に存在する場合は書き込まず、既存のアイテムを返す
    */
   public async createIfAbsent(item: ModelSnapshotItem): Promise<CreateModelSnapshotResult> {
-    try {
-      return { item: await this.entityStore.create(item), created: true };
-    } catch (error) {
-      if (error instanceof EntityAlreadyExistsError) {
-        const existing = await this.entityStore.get(this.mapper.getKey(item));
-        if (!existing) {
-          throw new DatabaseError(
-            'ModelSnapshot の作成に失敗しましたが、既存アイテムが見つかりません',
-            error
-          );
-        }
-        return { item: existing, created: false };
-      }
-      throw error;
-    }
+    const { entity, created } = await this.entityStore.createIfAbsent(item);
+    return { item: entity, created };
   }
 
   /**
