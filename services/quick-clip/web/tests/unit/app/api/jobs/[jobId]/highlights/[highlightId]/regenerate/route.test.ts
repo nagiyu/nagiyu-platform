@@ -5,7 +5,7 @@
 import { reportErrorEvent } from '@nagiyu/aws';
 import { POST } from '@/app/api/jobs/[jobId]/highlights/[highlightId]/regenerate/route';
 import type { HighlightRepository } from '@nagiyu/quick-clip-core';
-import { getDynamoDBDocumentClient, getLambdaClient } from '@/lib/server/aws';
+import { getLambdaClient } from '@/lib/server/aws';
 
 const mockGetById = jest.fn();
 const mockUpdate = jest.fn();
@@ -13,7 +13,7 @@ const lambdaSend = jest.fn();
 
 jest.mock('@nagiyu/quick-clip-core', () => ({
   ...jest.requireActual('@nagiyu/quick-clip-core'),
-  DynamoDBHighlightRepository: jest.fn().mockImplementation(
+  createHighlightRepository: jest.fn().mockImplementation(
     () =>
       ({
         getByJobId: jest.fn(),
@@ -38,25 +38,17 @@ jest.mock('@nagiyu/aws', () => ({
 }));
 
 jest.mock('@/lib/server/aws', () => ({
-  getDynamoDBDocumentClient: jest.fn(() => ({})),
   getLambdaClient: jest.fn(() => ({
     send: lambdaSend,
   })),
   getClipRegenerateFunctionName: jest.fn(() => 'clip-regenerate'),
-  getTableName: jest.fn(() => 'test-table'),
 }));
 
 describe('POST /api/jobs/[jobId]/highlights/[highlightId]/regenerate', () => {
-  const mockedGetDynamoDBDocumentClient = getDynamoDBDocumentClient as jest.MockedFunction<
-    typeof getDynamoDBDocumentClient
-  >;
   const mockedGetLambdaClient = getLambdaClient as jest.MockedFunction<typeof getLambdaClient>;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockedGetDynamoDBDocumentClient.mockReturnValue(
-      {} as ReturnType<typeof getDynamoDBDocumentClient>
-    );
     mockedGetLambdaClient.mockReturnValue({
       send: lambdaSend.mockResolvedValue({}),
     } as unknown as ReturnType<typeof getLambdaClient>);

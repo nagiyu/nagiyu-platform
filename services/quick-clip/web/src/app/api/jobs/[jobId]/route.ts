@@ -1,8 +1,8 @@
-import { DynamoDBJobRepository } from '@nagiyu/quick-clip-core';
+import { createJobRepository } from '@nagiyu/quick-clip-core';
 import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import { DescribeJobsCommand } from '@aws-sdk/client-batch';
 import { NextResponse } from 'next/server';
-import { getBatchClient, getDynamoDBDocumentClient, getTableName } from '@/lib/server/aws';
+import { getBatchClient } from '@/lib/server/aws';
 import { JobDomainService } from '@/lib/server/domain-services';
 import type { JobStatus } from '@/types/quick-clip';
 
@@ -36,9 +36,7 @@ function mapBatchStatus(batchStatus: string): JobStatus {
 export async function GET(_request: Request, { params }: RouteParams): Promise<NextResponse> {
   try {
     const { jobId } = await params;
-    const jobService = new JobDomainService(
-      new DynamoDBJobRepository(getDynamoDBDocumentClient(), getTableName())
-    );
+    const jobService = new JobDomainService(createJobRepository());
     const job = await jobService.getJob(jobId);
 
     if (!job) {

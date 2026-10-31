@@ -4,7 +4,7 @@
 
 import { GET } from '@/app/api/jobs/[jobId]/route';
 import type { JobRepository } from '@nagiyu/quick-clip-core';
-import { getBatchClient, getDynamoDBDocumentClient } from '@/lib/server/aws';
+import { getBatchClient } from '@/lib/server/aws';
 
 jest.mock('next/server', () => ({
   NextResponse: {
@@ -17,15 +17,13 @@ jest.mock('next/server', () => ({
 
 jest.mock('@/lib/server/aws', () => ({
   getBatchClient: jest.fn(),
-  getDynamoDBDocumentClient: jest.fn(() => ({})),
-  getTableName: jest.fn(() => 'test-table'),
 }));
 
 const mockGetJob = jest.fn();
 
 jest.mock('@nagiyu/quick-clip-core', () => ({
   ...jest.requireActual('@nagiyu/quick-clip-core'),
-  DynamoDBJobRepository: jest.fn().mockImplementation(
+  createJobRepository: jest.fn().mockImplementation(
     () =>
       ({
         create: jest.fn(),
@@ -36,17 +34,11 @@ jest.mock('@nagiyu/quick-clip-core', () => ({
 }));
 
 describe('GET /api/jobs/[jobId]', () => {
-  const mockedGetDynamoDBDocumentClient = getDynamoDBDocumentClient as jest.MockedFunction<
-    typeof getDynamoDBDocumentClient
-  >;
   const mockedGetBatchClient = getBatchClient as jest.MockedFunction<typeof getBatchClient>;
   const batchSend = jest.fn();
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockedGetDynamoDBDocumentClient.mockReturnValue(
-      {} as ReturnType<typeof getDynamoDBDocumentClient>
-    );
     mockedGetBatchClient.mockReturnValue({
       send: batchSend,
     } as unknown as ReturnType<typeof getBatchClient>);
