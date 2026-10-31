@@ -3,7 +3,13 @@
  * 両実装で式の組み立てやエラー変換がずれないよう一箇所に置く。
  */
 
-import { DatabaseError, InvalidEntityDataError, RepositoryError } from '../errors.js';
+import {
+  DatabaseError,
+  EntityAlreadyExistsError,
+  InvalidEntityDataError,
+  OptimisticLockError,
+  RepositoryError,
+} from '../errors.js';
 import { REMOVE_ATTRIBUTE } from '../helpers.js';
 import type {
   DynamoDBAttributes,
@@ -11,7 +17,12 @@ import type {
   EntityMapper,
   EntityPatch,
 } from '../mapper/entity-mapper.interface.js';
-import type { EntityCreateInput, EntityPutInput } from './entity-store.interface.js';
+import type {
+  CreateIfAbsentResult,
+  EntityCreateInput,
+  EntityCreateOptions,
+  EntityPutInput,
+} from './entity-store.interface.js';
 
 /** 更新日時の属性名 */
 export const UPDATED_AT_ATTRIBUTE = 'UpdatedAt';
@@ -22,6 +33,7 @@ export const ENTITY_STORE_ERROR_MESSAGES = {
   MAPPER_FAILED: 'mapper の処理に失敗しました',
   KEY_ATTRIBUTE_UPDATE: 'キー属性は更新できません',
   ITEM_KEY_MISMATCH: 'Item のキー属性が buildKeys の結果と一致しません',
+  CREATE_CONFLICT_ITEM_MISSING: '作成が衝突しましたが、既存のデータが見つかりません',
 } as const;
 
 /** パーティションキーの属性名。キー属性の先頭を使う規約 */
@@ -144,4 +156,46 @@ export function planUpdate<TEntity, TKey>(
     }
   }
   return { keys, fields };
+}
+
+/**
+ * create の衝突で投げるエラーを選ぶ。
+ * `conflictAsOptimisticLock` のときは新しいエラー型を増やさず、更新の衝突と同じ `OptimisticLockError` にする。
+ */
+export function createConflictError(
+  entityType: string,
+  keys: DynamoDBKey,
+  options: EntityCreateOptions
+): EntityAlreadyExistsError | OptimisticLockError {
+  const identifier = describeKey(keys);
+  return options.conflictAsOptimisticLock
+    ? new OptimisticLockError(entityType, identifier)
+    : new EntityAlreadyExistsError(entityType, identifier);
+}
+
+/**
+ * createIfAbsent の流れ。作成に失敗したら既存を読み直して返す。
+ *
+ * 読み直しは書き込み直後の衝突相手を確実に拾うため、呼び出し側が強い整合性で読む。
+ * 衝突と読み直しの間に削除された場合は、作成も既存の取得もできていないため DatabaseError にする。
+ *
+ * @param insert - 無いときだけ書く。既にあれば EntityAlreadyExistsError を投げる
+ * @param readExisting - 既存を読む
+ */
+export async function createOrReadExisting<TEntity>(
+  insert: () => Promise<TEntity>,
+  readExisting: () => Promise<TEntity | null>
+): Promise<CreateIfAbsentResult<TEntity>> {
+  try {
+    return { entity: await insert(), created: true };
+  } catch (error) {
+    if (!(error instanceof EntityAlreadyExistsError)) {
+      throw error;
+    }
+    const existing = await readExisting();
+    if (!existing) {
+      throw new DatabaseError(ENTITY_STORE_ERROR_MESSAGES.CREATE_CONFLICT_ITEM_MISSING, error);
+    }
+    return { entity: existing, created: false };
+  }
 }

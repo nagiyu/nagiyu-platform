@@ -1,8 +1,10 @@
 import { ConditionalCheckFailedException } from '@aws-sdk/client-dynamodb';
 import { UpdateCommand, PutCommand, DeleteCommand, GetCommand } from '@aws-sdk/lib-dynamodb';
 import { DynamoDBEntityStore } from '../../../../src/dynamodb/store/dynamodb-entity-store.js';
+import { ENTITY_STORE_ERROR_MESSAGES } from '../../../../src/dynamodb/store/entity-store-support.js';
 import {
   DatabaseError,
+  EntityAlreadyExistsError,
   EntityNotFoundError,
   InvalidEntityDataError,
   OptimisticLockError,
@@ -79,6 +81,57 @@ describe('DynamoDBEntityStore', () => {
       expect(command.input.ConditionExpression).toBe('attribute_not_exists(#pk)');
       expect(command.input.ExpressionAttributeNames).toEqual({ '#pk': 'PK' });
       expect(command.input.Item).toMatchObject({ CreatedAt: 1_700_000_000_000, UpdatedAt: NOW });
+    });
+
+    it('createIfAbsent は新規なら PutCommand 1 回だけで、読み直さない', async () => {
+      await h.store.createIfAbsent(note);
+      expect(h.send).toHaveBeenCalledTimes(1);
+      const command = h.send.mock.calls[0][0] as PutCommand;
+      expect(command.input.ConditionExpression).toBe('attribute_not_exists(#pk)');
+    });
+
+    it('createIfAbsent は衝突したら強い整合性の GetCommand で既存を読み直す', async () => {
+      await h.store.create(note);
+      await h.store.createIfAbsent({ ...note, title: '別' });
+      expect(h.send).toHaveBeenCalledTimes(3);
+      const command = h.send.mock.calls[2][0] as GetCommand;
+      expect(command).toBeInstanceOf(GetCommand);
+      expect(command.input).toEqual({
+        TableName: 'test-table',
+        Key: { PK: 'NOTE#n1', SK: 'META' },
+        ConsistentRead: true,
+      });
+    });
+
+    it('create は conflictAsOptimisticLock でも同じ条件式を送る', async () => {
+      await h.store.create(note, { conflictAsOptimisticLock: true });
+      const input = (h.send.mock.calls[0][0] as PutCommand).input;
+      expect(input.ConditionExpression).toBe('attribute_not_exists(#pk)');
+      expect(input.ExpressionAttributeNames).toEqual({ '#pk': 'PK' });
+    });
+
+    it('updateIfAttributeAbsent は存在と属性の不在を条件にし、失敗時に旧 Item を要求する', async () => {
+      await h.store.create(note);
+      await h.store.updateIfAttributeAbsent({ id: 'n1' }, 'Memo', { memo: '追記' });
+      const input = (h.send.mock.calls[1][0] as UpdateCommand).input;
+      expect(input.ConditionExpression).toBe(
+        'attribute_exists(#pk) AND attribute_not_exists(#absentAttribute)'
+      );
+      expect(input.ExpressionAttributeNames).toMatchObject({
+        '#pk': 'PK',
+        '#absentAttribute': 'Memo',
+      });
+      expect(input.ReturnValues).toBe('ALL_NEW');
+      expect(input.ReturnValuesOnConditionCheckFailure).toBe('ALL_OLD');
+    });
+
+    it('updateIfAttributeAbsent は設定済みのとき強い整合性の GetCommand で既存を読み直す', async () => {
+      await h.store.create({ ...note, memo: '既存' });
+      await h.store.updateIfAttributeAbsent({ id: 'n1' }, 'Memo', { memo: '追記' });
+      expect(h.send).toHaveBeenCalledTimes(3);
+      const command = h.send.mock.calls[2][0] as GetCommand;
+      expect(command).toBeInstanceOf(GetCommand);
+      expect(command.input.ConsistentRead).toBe(true);
     });
 
     it('put は条件なし。expectedUpdatedAt があれば存在と UpdatedAt 一致を条件にする', async () => {
@@ -198,6 +251,71 @@ describe('DynamoDBEntityStore', () => {
       await expect(withoutItem.update({ id: 'n1' }, {})).rejects.toBeInstanceOf(
         EntityNotFoundError
       );
+    });
+
+    it('createIfAbsent / updateIfAttributeAbsent も SDK 例外は DatabaseError に正規化する', async () => {
+      const store = failing(new Error('boom'));
+      await expect(store.createIfAbsent(note)).rejects.toBeInstanceOf(DatabaseError);
+      await expect(
+        store.updateIfAttributeAbsent({ id: 'n1' }, 'Memo', { memo: 'x' })
+      ).rejects.toBeInstanceOf(DatabaseError);
+    });
+
+    it('create の衝突は、conflictAsOptimisticLock の有無でエラー型が変わる', async () => {
+      const store = failing(new ConditionalCheckFailedException({ message: 'x', $metadata: {} }));
+      await expect(store.create(note)).rejects.toBeInstanceOf(EntityAlreadyExistsError);
+      await expect(store.create(note, { conflictAsOptimisticLock: true })).rejects.toBeInstanceOf(
+        OptimisticLockError
+      );
+    });
+
+    it('createIfAbsent: 衝突したのに読み直しで見つからなければ cause 付きの DatabaseError', async () => {
+      const send = jest
+        .fn()
+        .mockRejectedValueOnce(new ConditionalCheckFailedException({ message: 'x', $metadata: {} }))
+        .mockResolvedValueOnce({});
+      const store = new DynamoDBEntityStore({ send } as never, 'test-table', noteMapper);
+      const error = await store.createIfAbsent(note).catch((e: unknown) => e);
+      expect(error).toBeInstanceOf(DatabaseError);
+      expect((error as DatabaseError).message).toContain(
+        ENTITY_STORE_ERROR_MESSAGES.CREATE_CONFLICT_ITEM_MISSING
+      );
+      expect((error as DatabaseError).cause).toBeInstanceOf(EntityAlreadyExistsError);
+    });
+
+    it('updateIfAttributeAbsent: 条件失敗に旧 Item がなければ EntityNotFoundError', async () => {
+      const store = failing(new ConditionalCheckFailedException({ message: 'x', $metadata: {} }));
+      await expect(
+        store.updateIfAttributeAbsent({ id: 'n1' }, 'Memo', { memo: 'x' })
+      ).rejects.toBeInstanceOf(EntityNotFoundError);
+    });
+
+    it('updateIfAttributeAbsent: 設定済みの失敗後、読み直しで見つからなければ EntityNotFoundError', async () => {
+      const send = jest
+        .fn()
+        .mockRejectedValueOnce(
+          new ConditionalCheckFailedException({
+            message: 'x',
+            $metadata: {},
+            Item: { PK: { S: 'NOTE#n1' } },
+          })
+        )
+        .mockResolvedValueOnce({});
+      const store = new DynamoDBEntityStore({ send } as never, 'test-table', noteMapper);
+      await expect(
+        store.updateIfAttributeAbsent({ id: 'n1' }, 'Memo', { memo: 'x' })
+      ).rejects.toBeInstanceOf(EntityNotFoundError);
+    });
+
+    it('updateIfAttributeAbsent: 結果に Attributes がなければ InvalidEntityDataError', async () => {
+      const store = new DynamoDBEntityStore(
+        { send: jest.fn().mockResolvedValue({}) } as never,
+        'test-table',
+        noteMapper
+      );
+      await expect(
+        store.updateIfAttributeAbsent({ id: 'n1' }, 'Memo', { memo: 'x' })
+      ).rejects.toBeInstanceOf(InvalidEntityDataError);
     });
 
     it('RepositoryError はそのまま通す', async () => {

@@ -70,9 +70,12 @@ export {
 export type {
   EntityStore,
   EntityCreateInput,
+  EntityCreateOptions,
   EntityPutInput,
   EntityReadOptions,
   EntityWriteOptions,
+  CreateIfAbsentResult,
+  UpdateIfAttributeAbsentResult,
 } from './store/entity-store.interface.js';
 export {
   DynamoDBEntityStore,
