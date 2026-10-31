@@ -1,4 +1,4 @@
-import { EntityNotFoundError } from '@nagiyu/aws';
+import { InvalidInputError } from '@nagiyu/common';
 import type { TodoRepository } from '../repositories/todo/todo-repository.interface.js';
 import type { TodoItem, UpdateTodoItemInput } from '../types/index.js';
 
@@ -8,7 +8,6 @@ const ERROR_MESSAGES = {
   USER_ID_REQUIRED: 'ユーザーIDは必須です',
   TITLE_INVALID: 'ToDoのタイトルは1〜200文字で入力してください',
   UPDATE_FIELDS_REQUIRED: '更新するフィールドが指定されていません',
-  TODO_NOT_FOUND: 'ToDoが見つかりません',
 } as const;
 
 export interface UpdateTodoInput {
@@ -55,7 +54,7 @@ export class TodoService {
     const hasTitleUpdate = updates.title !== undefined;
     const hasCompletedUpdate = updates.isCompleted !== undefined;
     if (!hasTitleUpdate && !hasCompletedUpdate) {
-      throw new Error(ERROR_MESSAGES.UPDATE_FIELDS_REQUIRED);
+      throw new InvalidInputError(ERROR_MESSAGES.UPDATE_FIELDS_REQUIRED);
     }
 
     const repositoryUpdates: UpdateTodoItemInput = {};
@@ -67,43 +66,27 @@ export class TodoService {
       repositoryUpdates.completedBy = updates.isCompleted ? userId : null;
     }
 
-    try {
-      return await this.todoRepository.update(listId, todoId, repositoryUpdates);
-    } catch (error) {
-      this.rethrowTodoNotFoundError(error);
-      throw error;
-    }
+    return this.todoRepository.update(listId, todoId, repositoryUpdates);
   }
 
   public async deleteTodo(listId: string, todoId: string): Promise<void> {
     this.assertRequiredValue(listId, ERROR_MESSAGES.LIST_ID_REQUIRED);
     this.assertRequiredValue(todoId, ERROR_MESSAGES.TODO_ID_REQUIRED);
 
-    try {
-      await this.todoRepository.delete(listId, todoId);
-    } catch (error) {
-      this.rethrowTodoNotFoundError(error);
-      throw error;
-    }
+    await this.todoRepository.delete(listId, todoId);
   }
 
   private assertRequiredValue(value: string, errorMessage: string): void {
     if (value.trim().length === 0) {
-      throw new Error(errorMessage);
+      throw new InvalidInputError(errorMessage);
     }
   }
 
   private normalizeTitle(title: string): string {
     const normalizedTitle = title.trim();
     if (normalizedTitle.length < 1 || normalizedTitle.length > 200) {
-      throw new Error(ERROR_MESSAGES.TITLE_INVALID);
+      throw new InvalidInputError(ERROR_MESSAGES.TITLE_INVALID);
     }
     return normalizedTitle;
-  }
-
-  private rethrowTodoNotFoundError(error: unknown): void {
-    if (error instanceof EntityNotFoundError) {
-      throw new Error(ERROR_MESSAGES.TODO_NOT_FOUND);
-    }
   }
 }

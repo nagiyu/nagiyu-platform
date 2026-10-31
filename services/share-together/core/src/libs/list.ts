@@ -1,14 +1,24 @@
 import { EntityNotFoundError } from '@nagiyu/aws';
+import { InvalidInputError } from '@nagiyu/common';
 import type { ListRepository } from '../repositories/list/list-repository.interface.js';
 import type { TodoRepository } from '../repositories/todo/todo-repository.interface.js';
+import {
+  PERSONAL_LIST_SK_PREFIX,
+  buildPersonalListPk,
+} from '../repositories/list/personal-list-mapper.js';
 import type { PersonalList } from '../types/index.js';
 
-const ERROR_MESSAGES = {
+/**
+ * ListService が投げるエラーの文言。
+ *
+ * 上限超過とデフォルトリストの削除は、呼び出し側が専用のコードで返し分けるため
+ * InvalidInputError にせず、この文言で照合できるよう公開する。
+ */
+export const LIST_ERROR_MESSAGES = {
   USER_ID_REQUIRED: 'ユーザーIDは必須です',
   LIST_ID_REQUIRED: 'リストIDは必須です',
   LIST_NAME_INVALID: 'リスト名は1〜100文字で入力してください',
   PERSONAL_LIST_LIMIT_EXCEEDED: '個人リストは100件まで作成できます',
-  PERSONAL_LIST_NOT_FOUND: '個人リストが見つかりません',
   DEFAULT_LIST_NOT_DELETABLE: 'デフォルトリストは削除できません',
 } as const;
 
@@ -26,17 +36,17 @@ export class ListService {
   }
 
   public async getPersonalListsByUserId(userId: string): Promise<PersonalList[]> {
-    this.assertRequiredValue(userId, ERROR_MESSAGES.USER_ID_REQUIRED);
+    this.assertRequiredValue(userId, LIST_ERROR_MESSAGES.USER_ID_REQUIRED);
     return this.listRepository.getPersonalListsByUserId(userId);
   }
 
   public async getPersonalListById(userId: string, listId: string): Promise<PersonalList> {
-    this.assertRequiredValue(userId, ERROR_MESSAGES.USER_ID_REQUIRED);
-    this.assertRequiredValue(listId, ERROR_MESSAGES.LIST_ID_REQUIRED);
+    this.assertRequiredValue(userId, LIST_ERROR_MESSAGES.USER_ID_REQUIRED);
+    this.assertRequiredValue(listId, LIST_ERROR_MESSAGES.LIST_ID_REQUIRED);
 
     const list = await this.listRepository.getPersonalListById(userId, listId);
     if (!list) {
-      throw new Error(ERROR_MESSAGES.PERSONAL_LIST_NOT_FOUND);
+      throw this.personalListNotFound(userId, listId);
     }
 
     return list;
@@ -47,12 +57,12 @@ export class ListService {
     name: string,
     isDefault = false
   ): Promise<PersonalList> {
-    this.assertRequiredValue(userId, ERROR_MESSAGES.USER_ID_REQUIRED);
+    this.assertRequiredValue(userId, LIST_ERROR_MESSAGES.USER_ID_REQUIRED);
     const normalizedName = this.normalizeListName(name);
     const existingLists = await this.listRepository.getPersonalListsByUserId(userId);
 
     if (existingLists.length >= 100) {
-      throw new Error(ERROR_MESSAGES.PERSONAL_LIST_LIMIT_EXCEEDED);
+      throw new Error(LIST_ERROR_MESSAGES.PERSONAL_LIST_LIMIT_EXCEEDED);
     }
 
     return this.listRepository.createPersonalList({
@@ -68,58 +78,53 @@ export class ListService {
     listId: string,
     name: string
   ): Promise<PersonalList> {
-    this.assertRequiredValue(userId, ERROR_MESSAGES.USER_ID_REQUIRED);
-    this.assertRequiredValue(listId, ERROR_MESSAGES.LIST_ID_REQUIRED);
+    this.assertRequiredValue(userId, LIST_ERROR_MESSAGES.USER_ID_REQUIRED);
+    this.assertRequiredValue(listId, LIST_ERROR_MESSAGES.LIST_ID_REQUIRED);
     const normalizedName = this.normalizeListName(name);
 
-    try {
-      return await this.listRepository.updatePersonalList(userId, listId, { name: normalizedName });
-    } catch (error) {
-      this.rethrowPersonalListNotFoundError(error);
-      throw error;
-    }
+    return this.listRepository.updatePersonalList(userId, listId, { name: normalizedName });
   }
 
   public async deletePersonalList(userId: string, listId: string): Promise<void> {
-    this.assertRequiredValue(userId, ERROR_MESSAGES.USER_ID_REQUIRED);
-    this.assertRequiredValue(listId, ERROR_MESSAGES.LIST_ID_REQUIRED);
+    this.assertRequiredValue(userId, LIST_ERROR_MESSAGES.USER_ID_REQUIRED);
+    this.assertRequiredValue(listId, LIST_ERROR_MESSAGES.LIST_ID_REQUIRED);
 
     const targetList = await this.listRepository.getPersonalListById(userId, listId);
     if (!targetList) {
-      throw new Error(ERROR_MESSAGES.PERSONAL_LIST_NOT_FOUND);
+      throw this.personalListNotFound(userId, listId);
     }
 
     if (targetList.isDefault) {
-      throw new Error(ERROR_MESSAGES.DEFAULT_LIST_NOT_DELETABLE);
+      throw new Error(LIST_ERROR_MESSAGES.DEFAULT_LIST_NOT_DELETABLE);
     }
 
-    try {
-      // リスト削除後に ToDo 削除が失敗すると参照元のない ToDo が残るため、ToDo を先に削除する
-      await this.todoRepository.deleteByListId(listId);
-      await this.listRepository.deletePersonalList(userId, listId);
-    } catch (error) {
-      this.rethrowPersonalListNotFoundError(error);
-      throw error;
-    }
+    // リスト削除後に ToDo 削除が失敗すると参照元のない ToDo が残るため、ToDo を先に削除する
+    await this.todoRepository.deleteByListId(listId);
+    await this.listRepository.deletePersonalList(userId, listId);
   }
 
   private assertRequiredValue(value: string, errorMessage: string): void {
     if (value.trim().length === 0) {
-      throw new Error(errorMessage);
+      throw new InvalidInputError(errorMessage);
     }
   }
 
   private normalizeListName(name: string): string {
     const normalizedName = name.trim();
     if (normalizedName.length < 1 || normalizedName.length > 100) {
-      throw new Error(ERROR_MESSAGES.LIST_NAME_INVALID);
+      throw new InvalidInputError(LIST_ERROR_MESSAGES.LIST_NAME_INVALID);
     }
     return normalizedName;
   }
 
-  private rethrowPersonalListNotFoundError(error: unknown): void {
-    if (error instanceof EntityNotFoundError) {
-      throw new Error(ERROR_MESSAGES.PERSONAL_LIST_NOT_FOUND);
-    }
+  /**
+   * リポジトリが対象なしで投げるものと同じ形のエラーにする。
+   * 識別子はリポジトリ内部のキーの並び (PK#SK) に合わせる。
+   */
+  private personalListNotFound(userId: string, listId: string): EntityNotFoundError {
+    return new EntityNotFoundError(
+      'PersonalList',
+      `${buildPersonalListPk(userId)}#${PERSONAL_LIST_SK_PREFIX}${listId}`
+    );
   }
 }

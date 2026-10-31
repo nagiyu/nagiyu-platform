@@ -1,3 +1,7 @@
+/**
+ * @jest-environment node
+ */
+
 jest.mock('next/server', () => ({
   NextResponse: {
     json: (body: unknown, init?: { status?: number }) => ({
@@ -12,7 +16,9 @@ jest.mock('@/lib/auth/session', () => ({
 }));
 
 jest.mock('@nagiyu/aws', () => ({
+  ...jest.requireActual('@nagiyu/aws'),
   getDynamoDBDocumentClient: jest.fn(),
+  reportErrorEvent: jest.fn().mockResolvedValue(null),
 }));
 
 jest.mock('@nagiyu/share-together-core', () => ({
@@ -30,9 +36,10 @@ import {
   ListService,
   TodoService,
 } from '@nagiyu/share-together-core';
-import { GET, POST, SERVICE_ERROR_MESSAGES } from '@/app/api/lists/[listId]/todos/route';
+import { GET, POST } from '@/app/api/lists/[listId]/todos/route';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
-import { getDynamoDBDocumentClient } from '@nagiyu/aws';
+import { EntityNotFoundError, getDynamoDBDocumentClient } from '@nagiyu/aws';
+import { InvalidInputError } from '@nagiyu/common';
 
 const mockGetSessionOrUnauthorized = getSessionOrUnauthorized as jest.MockedFunction<
   typeof getSessionOrUnauthorized
@@ -185,7 +192,7 @@ describe('/api/lists/[listId]/todos route handlers', () => {
       },
     } as SessionOrUnauthorized);
     mockGetPersonalListById.mockRejectedValue(
-      new Error(SERVICE_ERROR_MESSAGES.PERSONAL_LIST_NOT_FOUND)
+      new EntityNotFoundError('PersonalList', 'USER#user-1#PLIST#list-unknown')
     );
 
     const response = await GET({} as Request, createContext('list-unknown'));
@@ -195,6 +202,74 @@ describe('/api/lists/[listId]/todos route handlers', () => {
       error: 'NOT_FOUND',
       message: '対象のデータが見つかりません',
     });
+  });
+
+  it('GET: InvalidInputError の場合は400を返す', async () => {
+    mockGetSessionOrUnauthorized.mockResolvedValue({
+      user: { id: 'user-1' },
+    } as SessionOrUnauthorized);
+    mockGetPersonalListById.mockResolvedValue({});
+    mockGetTodosByListId.mockRejectedValue(new InvalidInputError('リストIDは必須です'));
+
+    const response = await GET({} as Request, createContext('list-1'));
+
+    expect(response.status).toBe(400);
+  });
+
+  it('GET: 不在や検証エラーと同じ文言でも素の Error は400/404にせず500を返す', async () => {
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    mockGetSessionOrUnauthorized.mockResolvedValue({
+      user: { id: 'user-1' },
+    } as SessionOrUnauthorized);
+    mockGetPersonalListById.mockRejectedValue(new Error('個人リストが見つかりません'));
+    const notFoundResponse = await GET({} as Request, createContext('list-1'));
+    mockGetPersonalListById.mockResolvedValue({});
+    mockGetTodosByListId.mockRejectedValue(new Error('リストIDは必須です'));
+    const validationResponse = await GET({} as Request, createContext('list-1'));
+
+    expect(notFoundResponse.status).toBe(500);
+    expect(validationResponse.status).toBe(500);
+  });
+
+  it('POST: ToDo タイトルが不正で InvalidInputError の場合は400を返す', async () => {
+    mockGetSessionOrUnauthorized.mockResolvedValue({
+      user: { id: 'user-1' },
+    } as SessionOrUnauthorized);
+    mockGetPersonalListById.mockResolvedValue({});
+    mockCreateTodo.mockRejectedValue(
+      new InvalidInputError('ToDoのタイトルは1〜200文字で入力してください')
+    );
+
+    const response = await POST(createRequest({ title: '不正' }), createContext('list-1'));
+
+    expect(response.status).toBe(400);
+  });
+
+  it('POST: 指定した個人リストが見つからない場合は404を返す', async () => {
+    mockGetSessionOrUnauthorized.mockResolvedValue({
+      user: { id: 'user-1' },
+    } as SessionOrUnauthorized);
+    mockGetPersonalListById.mockRejectedValue(
+      new EntityNotFoundError('PersonalList', 'USER#user-1#PLIST#list-unknown')
+    );
+
+    const response = await POST(createRequest({ title: '牛乳' }), createContext('list-unknown'));
+
+    expect(response.status).toBe(404);
+    expect(mockCreateTodo).not.toHaveBeenCalled();
+  });
+
+  it('POST: 検証エラーと同じ文言でも素の Error は400にせず500を返す', async () => {
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    mockGetSessionOrUnauthorized.mockResolvedValue({
+      user: { id: 'user-1' },
+    } as SessionOrUnauthorized);
+    mockGetPersonalListById.mockResolvedValue({});
+    mockCreateTodo.mockRejectedValue(new Error('ToDoのタイトルは1〜200文字で入力してください'));
+
+    const response = await POST(createRequest({ title: '不正' }), createContext('list-1'));
+
+    expect(response.status).toBe(500);
   });
 
   it('POST: ToDoを作成して返す', async () => {

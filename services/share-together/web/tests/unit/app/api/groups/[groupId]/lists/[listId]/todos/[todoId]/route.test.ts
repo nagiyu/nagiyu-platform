@@ -1,3 +1,7 @@
+/**
+ * @jest-environment node
+ */
+
 const mockNextResponseJson = jest.fn((body: unknown, init?: { status?: number }) => ({
   status: init?.status ?? 200,
   json: async () => body,
@@ -24,7 +28,9 @@ jest.mock('@/lib/auth/session', () => ({
 }));
 
 jest.mock('@nagiyu/aws', () => ({
+  ...jest.requireActual('@nagiyu/aws'),
   getDynamoDBDocumentClient: jest.fn(),
+  reportErrorEvent: jest.fn().mockResolvedValue(null),
 }));
 
 jest.mock('@nagiyu/share-together-core', () => ({
@@ -45,8 +51,8 @@ import {
 } from '@nagiyu/share-together-core';
 import { DELETE, PUT } from '@/app/api/groups/[groupId]/lists/[listId]/todos/[todoId]/route';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
-import { getDynamoDBDocumentClient } from '@nagiyu/aws';
-import { ERROR_MESSAGES } from '@/lib/constants/errors';
+import { EntityNotFoundError, getDynamoDBDocumentClient } from '@nagiyu/aws';
+import { InvalidInputError } from '@nagiyu/common';
 
 const mockGetSessionOrUnauthorized = getSessionOrUnauthorized as jest.MockedFunction<
   typeof getSessionOrUnauthorized
@@ -269,7 +275,7 @@ describe('/api/groups/[groupId]/lists/[listId]/todos/[todoId] route', () => {
       createdAt: 1767225600000,
       updatedAt: 1767225600000,
     });
-    mockDeleteTodo.mockRejectedValue(new Error(ERROR_MESSAGES.TODO_NOT_FOUND));
+    mockDeleteTodo.mockRejectedValue(new EntityNotFoundError('TodoItem', 'TODO#list-1#todo-1'));
 
     const response = await DELETE({} as Request, createContext());
 
@@ -277,6 +283,85 @@ describe('/api/groups/[groupId]/lists/[listId]/todos/[todoId] route', () => {
     await expect(response.json()).resolves.toEqual({
       error: 'NOT_FOUND',
       message: '対象のデータが見つかりません',
+    });
+  });
+
+  describe('エラーの振り分け', () => {
+    beforeEach(() => {
+      mockGetSessionOrUnauthorized.mockResolvedValue({
+        user: { id: 'user-1' },
+      } as SessionOrErrorResponse);
+      mockGetMembershipById.mockResolvedValue({
+        groupId: 'group-1',
+        userId: 'user-1',
+        status: 'ACCEPTED',
+      });
+      mockGetGroupListById.mockResolvedValue({
+        listId: 'list-1',
+        groupId: 'group-1',
+        name: '共有リスト',
+        createdBy: 'user-1',
+        createdAt: 1767225600000,
+        updatedAt: 1767225600000,
+      });
+    });
+
+    it('PUT: InvalidInputError の場合は400を返す', async () => {
+      mockUpdateTodo.mockRejectedValue(
+        new InvalidInputError('ToDoのタイトルは1〜200文字で入力してください')
+      );
+
+      const response = await PUT(
+        { json: async () => ({ title: '更新後' }) } as Request,
+        createContext()
+      );
+
+      expect(response.status).toBe(400);
+    });
+
+    it('PUT: EntityNotFoundError の場合は404を返す', async () => {
+      mockUpdateTodo.mockRejectedValue(new EntityNotFoundError('TodoItem', 'TODO#list-1#todo-1'));
+
+      const response = await PUT(
+        { json: async () => ({ title: '更新後' }) } as Request,
+        createContext()
+      );
+
+      expect(response.status).toBe(404);
+    });
+
+    it('PUT: 不在や検証エラーと同じ文言でも素の Error は400/404にせず500を返す', async () => {
+      jest.spyOn(console, 'error').mockImplementation(() => undefined);
+      mockUpdateTodo.mockRejectedValue(new Error('ToDoが見つかりません'));
+      const notFoundResponse = await PUT(
+        { json: async () => ({ title: '更新後' }) } as Request,
+        createContext()
+      );
+      mockUpdateTodo.mockRejectedValue(new Error('更新するフィールドが指定されていません'));
+      const validationResponse = await PUT(
+        { json: async () => ({ title: '更新後' }) } as Request,
+        createContext()
+      );
+
+      expect(notFoundResponse.status).toBe(500);
+      expect(validationResponse.status).toBe(500);
+    });
+
+    it('DELETE: InvalidInputError の場合は400を返す', async () => {
+      mockDeleteTodo.mockRejectedValue(new InvalidInputError('ToDo IDは必須です'));
+
+      const response = await DELETE({} as Request, createContext());
+
+      expect(response.status).toBe(400);
+    });
+
+    it('DELETE: 不在と同じ文言でも素の Error は404にせず500を返す', async () => {
+      jest.spyOn(console, 'error').mockImplementation(() => undefined);
+      mockDeleteTodo.mockRejectedValue(new Error('ToDoが見つかりません'));
+
+      const response = await DELETE({} as Request, createContext());
+
+      expect(response.status).toBe(500);
     });
   });
 

@@ -1,3 +1,7 @@
+/**
+ * @jest-environment node
+ */
+
 jest.mock('next/server', () => {
   class MockNextResponse {
     public status: number;
@@ -29,7 +33,9 @@ jest.mock('@/lib/auth/session', () => ({
 }));
 
 jest.mock('@nagiyu/aws', () => ({
+  ...jest.requireActual('@nagiyu/aws'),
   getDynamoDBDocumentClient: jest.fn(),
+  reportErrorEvent: jest.fn().mockResolvedValue(null),
 }));
 
 jest.mock('@nagiyu/share-together-core', () => ({
@@ -42,7 +48,8 @@ jest.mock('@nagiyu/share-together-core', () => ({
 
 import { DELETE, PUT } from '@/app/api/lists/[listId]/todos/[todoId]/route';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
-import { getDynamoDBDocumentClient } from '@nagiyu/aws';
+import { EntityNotFoundError, getDynamoDBDocumentClient } from '@nagiyu/aws';
+import { InvalidInputError } from '@nagiyu/common';
 import {
   DynamoDBListRepository,
   DynamoDBTodoRepository,
@@ -185,7 +192,9 @@ describe('/api/lists/[listId]/todos/[todoId] route handlers', () => {
         id: 'user-1',
       },
     } as SessionOrUnauthorized);
-    mockUpdateTodo.mockRejectedValue(new Error('更新するフィールドが指定されていません'));
+    mockUpdateTodo.mockRejectedValue(
+      new InvalidInputError('更新するフィールドが指定されていません')
+    );
 
     const response = await PUT(createRequest({}), createContext());
 
@@ -198,11 +207,27 @@ describe('/api/lists/[listId]/todos/[todoId] route handlers', () => {
         id: 'user-1',
       },
     } as SessionOrUnauthorized);
-    mockUpdateTodo.mockRejectedValue(new Error('ToDoが見つかりません'));
+    mockUpdateTodo.mockRejectedValue(new EntityNotFoundError('TodoItem', 'TODO#list-1#todo-1'));
 
     const response = await PUT(createRequest({ isCompleted: true }), createContext());
 
     expect(response.status).toBe(404);
+  });
+
+  it('PUT: 不在や検証エラーと同じ文言でも素の Error は400/404にせず500を返す', async () => {
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    mockGetSessionOrUnauthorized.mockResolvedValue({
+      user: {
+        id: 'user-1',
+      },
+    } as SessionOrUnauthorized);
+    mockUpdateTodo.mockRejectedValue(new Error('ToDoが見つかりません'));
+    const notFoundResponse = await PUT(createRequest({ isCompleted: true }), createContext());
+    mockUpdateTodo.mockRejectedValue(new Error('更新するフィールドが指定されていません'));
+    const validationResponse = await PUT(createRequest({ isCompleted: true }), createContext());
+
+    expect(notFoundResponse.status).toBe(500);
+    expect(validationResponse.status).toBe(500);
   });
 
   it('PUT: アクセス権限がない個人リストの場合は403を返す', async () => {
@@ -244,11 +269,38 @@ describe('/api/lists/[listId]/todos/[todoId] route handlers', () => {
         id: 'user-1',
       },
     } as SessionOrUnauthorized);
-    mockDeleteTodo.mockRejectedValue(new Error('ToDoが見つかりません'));
+    mockDeleteTodo.mockRejectedValue(new EntityNotFoundError('TodoItem', 'TODO#list-1#todo-1'));
 
     const response = await DELETE({} as Request, createContext());
 
     expect(response.status).toBe(404);
+  });
+
+  it('DELETE: InvalidInputError の場合は400を返す', async () => {
+    mockGetSessionOrUnauthorized.mockResolvedValue({
+      user: {
+        id: 'user-1',
+      },
+    } as SessionOrUnauthorized);
+    mockDeleteTodo.mockRejectedValue(new InvalidInputError('ToDo IDは必須です'));
+
+    const response = await DELETE({} as Request, createContext());
+
+    expect(response.status).toBe(400);
+  });
+
+  it('DELETE: 不在と同じ文言でも素の Error は404にせず500を返す', async () => {
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    mockGetSessionOrUnauthorized.mockResolvedValue({
+      user: {
+        id: 'user-1',
+      },
+    } as SessionOrUnauthorized);
+    mockDeleteTodo.mockRejectedValue(new Error('ToDoが見つかりません'));
+
+    const response = await DELETE({} as Request, createContext());
+
+    expect(response.status).toBe(500);
   });
 
   it('DELETE: アクセス権限がない個人リストの場合は403を返す', async () => {
