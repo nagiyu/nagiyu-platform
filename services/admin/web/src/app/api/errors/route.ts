@@ -89,7 +89,7 @@ export const GET = withApiErrorReporting(
       if (error instanceof PaginationValidationError) {
         return createErrorResponse(400, 'INVALID_REQUEST', error.message);
       }
-      // 文言の部分一致では DynamoDB 由来など別の例外まで 400 にしてしまうため、型で判定する
+      // cursor などの語を含む DynamoDB 由来の例外を 400 にしないよう、文言ではなく型で判定する
       if (error instanceof InvalidInputError) {
         return createErrorResponse(400, 'INVALID_REQUEST', ERROR_MESSAGES.INVALID_REQUEST);
       }
