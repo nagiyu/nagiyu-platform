@@ -7,3 +7,4 @@
 export type { ValidationResult } from './types.js';
 export { isNonEmptyString, isValidNumber, isValidTimestamp } from './helpers.js';
 export { requireEnv } from './require-env.js';
+export { InvalidInputError } from './invalid-input-error.js';

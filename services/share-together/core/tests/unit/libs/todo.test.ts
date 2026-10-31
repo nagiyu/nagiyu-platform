@@ -1,4 +1,5 @@
 import { EntityNotFoundError } from '@nagiyu/aws';
+import { InvalidInputError } from '@nagiyu/common';
 import { TodoService } from '../../../src/libs/todo.js';
 import type { TodoRepository } from '../../../src/repositories/todo/todo-repository.interface.js';
 import type { TodoItem } from '../../../src/types/index.js';
@@ -42,28 +43,32 @@ describe('TodoService', () => {
     });
   });
 
-  it('ToDoタイトルが空文字の場合はバリデーションエラーになる', async () => {
-    await expect(todoService.createTodo('list-1', '   ', 'user-1')).rejects.toThrow(
-      'ToDoのタイトルは1〜200文字で入力してください'
-    );
+  it('ToDoタイトルが空文字の場合は InvalidInputError になる', async () => {
+    const action = todoService.createTodo('list-1', '   ', 'user-1');
+
+    await expect(action).rejects.toBeInstanceOf(InvalidInputError);
+    await expect(action).rejects.toThrow('ToDoのタイトルは1〜200文字で入力してください');
     expect(todoRepository.create).not.toHaveBeenCalled();
   });
 
   it('ToDo一覧取得時にリストIDが空白の場合はバリデーションエラーになる', async () => {
     const action = todoService.getTodosByListId('   ');
 
+    await expect(action).rejects.toBeInstanceOf(InvalidInputError);
     await expect(action).rejects.toThrow('リストIDは必須です');
   });
 
   it('ToDo作成時にユーザーIDが空白の場合はバリデーションエラーになる', async () => {
     const action = todoService.createTodo('list-1', '有効なタイトル', '   ');
 
+    await expect(action).rejects.toBeInstanceOf(InvalidInputError);
     await expect(action).rejects.toThrow('ユーザーIDは必須です');
   });
 
   it('ToDo更新時にToDo IDが空白の場合はバリデーションエラーになる', async () => {
     const action = todoService.updateTodo('list-1', '   ', { title: '更新後' }, 'user-1');
 
+    await expect(action).rejects.toBeInstanceOf(InvalidInputError);
     await expect(action).rejects.toThrow('ToDo IDは必須です');
   });
 
@@ -109,26 +114,29 @@ describe('TodoService', () => {
   });
 
   it('ToDo更新時に更新項目がない場合はエラーになる', async () => {
-    await expect(todoService.updateTodo('list-1', 'todo-1', {}, 'user-1')).rejects.toThrow(
-      '更新するフィールドが指定されていません'
-    );
+    const action = todoService.updateTodo('list-1', 'todo-1', {}, 'user-1');
+
+    await expect(action).rejects.toBeInstanceOf(InvalidInputError);
+    await expect(action).rejects.toThrow('更新するフィールドが指定されていません');
     expect(todoRepository.update).not.toHaveBeenCalled();
   });
 
-  it('存在しないToDo更新エラーを統一メッセージに変換する', async () => {
-    todoRepository.update.mockRejectedValue(new EntityNotFoundError('TodoItem', 'list-1/todo-404'));
+  it('存在しないToDo更新の EntityNotFoundError はそのまま送出する', async () => {
+    const notFound = new EntityNotFoundError('TodoItem', 'list-1/todo-404');
+    todoRepository.update.mockRejectedValue(notFound);
 
     await expect(
       todoService.updateTodo('list-1', 'todo-404', { title: '更新後' }, 'user-1')
-    ).rejects.toThrow('ToDoが見つかりません');
+    ).rejects.toBe(notFound);
   });
 
-  it('メッセージが同じでも EntityNotFoundError 以外は変換しない', async () => {
-    todoRepository.update.mockRejectedValue(new Error('指定されたToDoは存在しません'));
+  it('リポジトリの素の Error は InvalidInputError にも EntityNotFoundError にもしない', async () => {
+    todoRepository.update.mockRejectedValue(new Error('ToDoが見つかりません'));
+    const action = todoService.updateTodo('list-1', 'todo-404', { title: '更新後' }, 'user-1');
 
-    await expect(
-      todoService.updateTodo('list-1', 'todo-404', { title: '更新後' }, 'user-1')
-    ).rejects.toThrow('指定されたToDoは存在しません');
+    await expect(action).rejects.toThrow('ToDoが見つかりません');
+    await expect(action).rejects.not.toBeInstanceOf(EntityNotFoundError);
+    await expect(action).rejects.not.toBeInstanceOf(InvalidInputError);
   });
 
   it('存在しないToDo以外の更新エラーはそのまま送出する', async () => {
@@ -138,12 +146,11 @@ describe('TodoService', () => {
     await expect(action).rejects.toThrow('更新に失敗しました');
   });
 
-  it('存在しないToDo削除エラーを統一メッセージに変換する', async () => {
-    todoRepository.delete.mockRejectedValue(new EntityNotFoundError('TodoItem', 'list-1/todo-404'));
+  it('存在しないToDo削除の EntityNotFoundError はそのまま送出する', async () => {
+    const notFound = new EntityNotFoundError('TodoItem', 'list-1/todo-404');
+    todoRepository.delete.mockRejectedValue(notFound);
 
-    await expect(todoService.deleteTodo('list-1', 'todo-404')).rejects.toThrow(
-      'ToDoが見つかりません'
-    );
+    await expect(todoService.deleteTodo('list-1', 'todo-404')).rejects.toBe(notFound);
   });
 
   it('存在しないToDo以外の削除エラーはそのまま送出する', async () => {

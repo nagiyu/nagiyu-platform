@@ -1,19 +1,15 @@
-import { ListService } from '@nagiyu/share-together-core';
+import { LIST_ERROR_MESSAGES, ListService } from '@nagiyu/share-together-core';
 import { withApiErrorReporting } from '@/lib/api-error-reporting';
 import { NextResponse } from 'next/server';
 import { readJsonObjectBody } from '@nagiyu/nextjs';
 import type { PersonalListResponse, PersonalListsResponse } from '@/types';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
 import { getDynamoDBDocumentClient } from '@nagiyu/aws';
+import { InvalidInputError } from '@nagiyu/common';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 import { createListRepository, createTodoRepository } from '@nagiyu/share-together-core';
 import { createValidationErrorResponse, createConflictErrorResponse } from '@/lib/api/responses';
-import { isNonEmptyString, isValidationError } from '@/lib/api/validation';
-
-const VALIDATION_ERROR_MESSAGES: Set<string> = new Set([
-  ERROR_MESSAGES.USER_ID_REQUIRED,
-  ERROR_MESSAGES.LIST_NAME_INVALID,
-]);
+import { isNonEmptyString } from '@/lib/api/validation';
 
 function createListService(): ListService {
   const tableName = process.env.DYNAMODB_TABLE_NAME;
@@ -52,7 +48,7 @@ export const GET = withApiErrorReporting(
 
       return NextResponse.json(response);
     } catch (error) {
-      if (isValidationError(error, VALIDATION_ERROR_MESSAGES)) {
+      if (error instanceof InvalidInputError) {
         return createValidationErrorResponse();
       }
 
@@ -92,10 +88,13 @@ export const POST = withApiErrorReporting(
 
       return NextResponse.json(response, { status: 201 });
     } catch (error) {
-      if (isValidationError(error, VALIDATION_ERROR_MESSAGES)) {
+      if (error instanceof InvalidInputError) {
         return createValidationErrorResponse();
       }
-      if (error instanceof Error && error.message === ERROR_MESSAGES.PERSONAL_LIST_LIMIT_EXCEEDED) {
+      if (
+        error instanceof Error &&
+        error.message === LIST_ERROR_MESSAGES.PERSONAL_LIST_LIMIT_EXCEEDED
+      ) {
         return createConflictErrorResponse('PERSONAL_LIST_LIMIT_EXCEEDED', error.message);
       }
 
