@@ -490,6 +490,30 @@ throw new Error(ERROR_MESSAGES.EMPTY_INPUT);
 **理由**: メッセージの一元管理、変更の容易性
 **違反時の影響**: メッセージの不一致、メンテナンス性の低下
 
+#### MUST: 呼び出し側の誤りと対象の不在は、例外のクラスで表し、クラスで振り分ける
+
+- 呼び出し側が渡した値が規則に合わないときは `@nagiyu/common` の `InvalidInputError`、対象が無いときは `@nagiyu/aws` の `EntityNotFoundError` を投げる
+- 受け手 (API ルートなど) は `instanceof` で 400 / 404 に振り分け、例外の文言で照合しない
+- 専用のコードで返し分けたい業務上のエラー (上限超過など) は、汎用の 400 に吸われないよう `InvalidInputError` にしない。投げる側が文言の定数を export し、受け手はその定数と照合する (写しを持たない)
+
+```typescript
+// ❌ NG: 投げる側の文言を写して照合する
+if (error instanceof Error && error.message === 'リストIDは必須です') {
+  return createValidationErrorResponse();
+}
+
+// ✅ OK: クラスで振り分ける
+if (error instanceof InvalidInputError) {
+  return createValidationErrorResponse();
+}
+if (error instanceof EntityNotFoundError) {
+  return createNotFoundErrorResponse();
+}
+```
+
+**理由**: 文言で照合すると、投げる側の文言を変えたときに 400 / 404 のはずの応答が黙って 500 になり、障害として報告される。部分一致では、同じ語を含む別の例外 (DynamoDB 由来など) を利用者の誤りと取り違える
+**違反時の影響**: 文言の変更による応答の静かな変化、障害の取り違え
+
 #### MUST: エラーの報告は、例外を最後に受け止める層だけが行う
 
 - Web API はルート入口のラッパー (`@nagiyu/nextjs` の `createApiErrorReporting`)、Lambda / Batch は `withErrorReporting` が報告する
