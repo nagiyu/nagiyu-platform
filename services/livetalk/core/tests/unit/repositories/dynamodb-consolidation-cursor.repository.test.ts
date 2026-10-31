@@ -101,9 +101,14 @@ describe('DynamoDBConsolidationCursorRepository', () => {
       const repo = makeRepo(async () => {
         throw error;
       });
-      await expect(
-        repo.put({ userId: 'u1', characterId: 'hiyori', msgCursor: 100, webrawCursor: 50 })
-      ).rejects.toBeInstanceOf(OptimisticLockError);
+      const promise = repo.put({
+        userId: 'u1',
+        characterId: 'hiyori',
+        msgCursor: 100,
+        webrawCursor: 50,
+      });
+      await expect(promise).rejects.toBeInstanceOf(OptimisticLockError);
+      await expect(promise).rejects.toThrow('ConsolidationCursor=');
     });
 
     it('更新で UpdatedAt が一致しなければ OptimisticLockError を投げる', async () => {

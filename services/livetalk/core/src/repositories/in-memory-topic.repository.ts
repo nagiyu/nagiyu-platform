@@ -1,9 +1,7 @@
 import { logger } from '@nagiyu/common';
 import {
-  EntityAlreadyExistsError,
   EntityNotFoundError,
   InMemoryEntityStore,
-  OptimisticLockError,
   type DynamoDBAttributes,
   type EntityStore,
   type InMemorySingleTableStore,
@@ -70,15 +68,8 @@ export class InMemoryTopicRepository implements TopicRepository {
     };
 
     if (opts.expectedUpdatedAt === undefined) {
-      try {
-        return await this.topicStore.create(input);
-      } catch (error) {
-        // 新規作成の衝突も呼び出し側が楽観ロック競合として扱えるよう、同じエラーに揃える
-        if (error instanceof EntityAlreadyExistsError) {
-          throw new OptimisticLockError('Topic', `${key.userId}#${key.characterId}#${key.topicId}`);
-        }
-        throw error;
-      }
+      // 新規作成の衝突も呼び出し側が楽観ロック競合として扱えるよう、同じエラーに揃える
+      return this.topicStore.create(input, { conflictAsOptimisticLock: true });
     }
 
     const existing = await this.getTopic(key);
