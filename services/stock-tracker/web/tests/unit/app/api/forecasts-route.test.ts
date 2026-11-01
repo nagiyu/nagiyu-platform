@@ -6,7 +6,7 @@ import {
   createForecastRepository,
   createModelSnapshotRepository,
   createTickerRepository,
-} from '../../../../lib/repository-factory';
+} from '@nagiyu/stock-tracker-core';
 import { forecastEntity, probabilityRecord, snapshot } from '../../lib/forecast/fixtures';
 
 jest.mock('@nagiyu/aws', () => ({
@@ -14,7 +14,8 @@ jest.mock('@nagiyu/aws', () => ({
   reportErrorEvent: jest.fn().mockResolvedValue(null),
 }));
 
-jest.mock('../../../../lib/repository-factory', () => ({
+jest.mock('@nagiyu/stock-tracker-core', () => ({
+  ...jest.requireActual('@nagiyu/stock-tracker-core'),
   createDailySummaryRepository: jest.fn(),
   createForecastRepository: jest.fn(),
   createModelSnapshotRepository: jest.fn(),

@@ -20,7 +20,7 @@ const mockGetSignedUrl = jest.fn();
 
 jest.mock('@nagiyu/quick-clip-core', () => ({
   ...jest.requireActual('@nagiyu/quick-clip-core'),
-  DynamoDBHighlightRepository: jest.fn().mockImplementation(
+  createHighlightRepository: jest.fn().mockImplementation(
     () =>
       ({
         getByJobId: mockGetByJobId,
@@ -47,8 +47,6 @@ jest.mock('@/lib/server/aws', () => ({
   getLambdaClient: jest.fn(),
   getS3Client: jest.fn(),
   getZipGeneratorFunctionName: jest.fn(() => 'zip-generator'),
-  getDynamoDBDocumentClient: jest.fn(() => ({})),
-  getTableName: jest.fn(() => 'test-table'),
   getBucketName: jest.fn(() => 'test-bucket'),
 }));
 

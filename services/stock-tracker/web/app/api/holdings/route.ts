@@ -10,9 +10,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import { EntityAlreadyExistsError } from '@nagiyu/aws';
-import { validateHolding } from '@nagiyu/stock-tracker-core';
+import {
+  validateHolding,
+  createHoldingRepository,
+  createTickerRepository,
+} from '@nagiyu/stock-tracker-core';
 import { withAuth, parsePagination, readJsonObjectBody } from '@nagiyu/nextjs';
-import { createHoldingRepository, createTickerRepository } from '../../../lib/repository-factory';
 import { getSession } from '../../../lib/auth';
 import { withApiErrorReporting, errorReporter } from '../../../lib/api-error-reporting';
 import { isOptionalString } from '../../../lib/request-guards';

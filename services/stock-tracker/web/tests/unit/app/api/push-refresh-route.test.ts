@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import * as awsModule from '@nagiyu/aws';
 import { POST } from '../../../../app/api/push/refresh/route';
-import { createAlertRepository } from '../../../../lib/repository-factory';
+import { createAlertRepository } from '@nagiyu/stock-tracker-core';
 import { getSession } from '../../../../lib/auth';
 import { MALFORMED_BODY_CASES } from './invalidBodyCases';
 
@@ -10,7 +10,8 @@ jest.mock('@nagiyu/aws', () => ({
   reportErrorEvent: jest.fn().mockResolvedValue(null),
 }));
 
-jest.mock('../../../../lib/repository-factory', () => ({
+jest.mock('@nagiyu/stock-tracker-core', () => ({
+  ...jest.requireActual('@nagiyu/stock-tracker-core'),
   createAlertRepository: jest.fn(),
 }));
 

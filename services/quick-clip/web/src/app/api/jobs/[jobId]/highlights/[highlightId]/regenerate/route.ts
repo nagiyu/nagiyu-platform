@@ -1,12 +1,7 @@
-import { DynamoDBHighlightRepository } from '@nagiyu/quick-clip-core';
+import { createHighlightRepository } from '@nagiyu/quick-clip-core';
 import { NextResponse } from 'next/server';
 import { InvokeCommand } from '@aws-sdk/client-lambda';
-import {
-  getClipRegenerateFunctionName,
-  getDynamoDBDocumentClient,
-  getLambdaClient,
-  getTableName,
-} from '@/lib/server/aws';
+import { getClipRegenerateFunctionName, getLambdaClient } from '@/lib/server/aws';
 import { withApiErrorReporting } from '@/lib/api-error-reporting';
 import { DOMAIN_ERROR_MESSAGES, HighlightDomainService } from '@/lib/server/domain-services';
 
@@ -28,7 +23,7 @@ export const POST = withApiErrorReporting(
   ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
   async (_request: Request, { params }: RouteParams): Promise<NextResponse> => {
     const { jobId, highlightId } = await params;
-    const repository = new DynamoDBHighlightRepository(getDynamoDBDocumentClient(), getTableName());
+    const repository = createHighlightRepository();
     const highlightService = new HighlightDomainService(repository);
 
     try {

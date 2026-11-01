@@ -14,10 +14,9 @@
  */
 import { NextResponse } from 'next/server';
 import { withAuth } from '@nagiyu/nextjs';
-import { getAllCharacterIds } from '@nagiyu/livetalk-core';
+import { getAllCharacterIds, createNotificationEventRepository } from '@nagiyu/livetalk-core';
 import { getSession } from '@/lib/server/session';
 import { withApiErrorReporting } from '@/lib/server/api-error-reporting';
-import { getNotificationEventRepository } from '@/lib/server/repositories';
 
 /**
  * 未消化通知の集約結果の型。
@@ -35,7 +34,7 @@ export const GET = withApiErrorReporting(
   'Web API: 未消化通知取得エラー',
   withAuth(getSession, 'livetalk:chat', async (session) => {
     const userId = session.user.id;
-    const repo = getNotificationEventRepository();
+    const repo = createNotificationEventRepository();
     const characterIds = getAllCharacterIds();
 
     const events = await repo.listLatestUnconsumedByCharacter(userId, characterIds);

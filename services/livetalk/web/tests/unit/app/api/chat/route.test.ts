@@ -6,7 +6,6 @@ import { CHAT_ERROR_MESSAGES, CHAT_MAX_TEXT_LENGTH } from '@/app/api/chat/consta
 import { getSession } from '@/lib/server/session';
 import { getLLMClient } from '@/lib/server/llm';
 import { getVoiceClient } from '@/lib/server/voice';
-import { getMessageRepository, getChatGuardRepository } from '@/lib/server/repositories';
 import { DatabaseError } from '@nagiyu/aws';
 import { errorReporter } from '@/lib/server/api-error-reporting';
 
@@ -24,15 +23,6 @@ jest.mock('@/lib/server/api-error-reporting', () => ({
 }));
 jest.mock('@/lib/server/llm', () => ({ getLLMClient: jest.fn() }));
 jest.mock('@/lib/server/voice', () => ({ getVoiceClient: jest.fn() }));
-jest.mock('@/lib/server/repositories', () => ({
-  getMessageRepository: jest.fn(),
-  getCharacterStateRepository: jest.fn().mockReturnValue({}),
-  getLifecycleRepository: jest.fn().mockReturnValue({}),
-  getStudyTopicRepository: jest.fn().mockReturnValue({}),
-  getNoteRepository: jest.fn().mockReturnValue({}),
-  getConsolidationCursorRepository: jest.fn().mockReturnValue({}),
-  getChatGuardRepository: jest.fn(),
-}));
 jest.mock('@/lib/server/safety', () => ({
   getSafetyEventRepository: jest.fn().mockReturnValue({}),
   getModerationClient: jest.fn().mockReturnValue({}),
@@ -45,13 +35,24 @@ jest.mock('@/lib/server/topic-retriever', () => ({
 jest.mock('@nagiyu/livetalk-core', () => ({
   ...jest.requireActual('@nagiyu/livetalk-core'),
   runChatUseCase: jest.fn(),
+  createMessageRepository: jest.fn(),
+  createCharacterStateRepository: jest.fn().mockReturnValue({}),
+  createLifecycleRepository: jest.fn().mockReturnValue({}),
+  createStudyTopicRepository: jest.fn().mockReturnValue({}),
+  createNoteRepository: jest.fn().mockReturnValue({}),
+  createConsolidationCursorRepository: jest.fn().mockReturnValue({}),
+  createChatGuardRepository: jest.fn(),
 }));
 
-import { runChatUseCase } from '@nagiyu/livetalk-core';
+import {
+  runChatUseCase,
+  createMessageRepository,
+  createChatGuardRepository,
+} from '@nagiyu/livetalk-core';
 
 const mockGetSession = getSession as jest.MockedFunction<typeof getSession>;
 const mockRunChatUseCase = runChatUseCase as jest.Mock;
-const mockGetChatGuardRepository = getChatGuardRepository as jest.Mock;
+const mockGetChatGuardRepository = createChatGuardRepository as jest.Mock;
 
 /** デフォルトのガードモック（全て通過させる） */
 const makeDefaultGuardMock = () => ({
@@ -94,7 +95,7 @@ describe('POST /api/chat', () => {
     });
     (getLLMClient as jest.Mock).mockReturnValue({});
     (getVoiceClient as jest.Mock).mockReturnValue({});
-    (getMessageRepository as jest.Mock).mockReturnValue({});
+    (createMessageRepository as jest.Mock).mockReturnValue({});
     mockGetChatGuardRepository.mockReturnValue(makeDefaultGuardMock());
   });
 

@@ -26,7 +26,6 @@ const config: Config = {
   modulePathIgnorePatterns: ['<rootDir>/../../../package.json'],
   coverageDirectory: 'coverage',
   collectCoverageFrom: [
-    'lib/repository-factory.ts',
     'lib/api-error-reporting.ts',
     'lib/percentage-helper.ts',
     'lib/home-query.ts',

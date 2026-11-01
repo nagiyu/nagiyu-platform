@@ -4,14 +4,17 @@
 import { GET } from '@/app/api/messages/route';
 import { MESSAGES_ERROR_MESSAGES } from '@/app/api/messages/constants';
 import { getSession } from '@/lib/server/session';
-import { getMessageRepository } from '@/lib/server/repositories';
+import { createMessageRepository } from '@nagiyu/livetalk-core';
 import type { MessageRepository } from '@nagiyu/livetalk-core';
 
 jest.mock('@/lib/server/session', () => ({ getSession: jest.fn() }));
-jest.mock('@/lib/server/repositories', () => ({ getMessageRepository: jest.fn() }));
+jest.mock('@nagiyu/livetalk-core', () => ({
+  ...jest.requireActual('@nagiyu/livetalk-core'),
+  createMessageRepository: jest.fn(),
+}));
 
 const mockGetSession = getSession as jest.MockedFunction<typeof getSession>;
-const mockGetRepo = getMessageRepository as jest.MockedFunction<typeof getMessageRepository>;
+const mockGetRepo = createMessageRepository as jest.MockedFunction<typeof createMessageRepository>;
 
 const validSession = {
   user: {

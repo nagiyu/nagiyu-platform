@@ -1,9 +1,10 @@
 import { NextRequest } from 'next/server';
 import { GET } from '../../../../app/api/alerts/route';
-import { createAlertRepository, createTickerRepository } from '../../../../lib/repository-factory';
+import { createAlertRepository, createTickerRepository } from '@nagiyu/stock-tracker-core';
 import * as awsModule from '@nagiyu/aws';
 
-jest.mock('../../../../lib/repository-factory', () => ({
+jest.mock('@nagiyu/stock-tracker-core', () => ({
+  ...jest.requireActual('@nagiyu/stock-tracker-core'),
   createAlertRepository: jest.fn(),
   createTickerRepository: jest.fn(),
   createExchangeRepository: jest.fn(),

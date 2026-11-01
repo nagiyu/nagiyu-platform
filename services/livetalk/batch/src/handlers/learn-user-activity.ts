@@ -7,10 +7,9 @@ import {
   type ScheduledEvent,
 } from '@nagiyu/aws';
 import {
-  DynamoDBLifecycleRepository,
-  DynamoDBMessageRepository,
-  DynamoDBProfileRepository,
-  defaultUlidFactory,
+  createLifecycleRepository,
+  createMessageRepository,
+  createProfileRepository,
 } from '@nagiyu/livetalk-core';
 import { learnAllUserActivities } from '../usecases/learn-user-activity.usecase.js';
 
@@ -26,9 +25,9 @@ export const handler = createScheduledHandler<ScheduledEvent, HandlerResponse>(
     const docClient = getDynamoDBDocumentClient();
     const tableName = getTableName();
 
-    const messageRepo = new DynamoDBMessageRepository(docClient, tableName, defaultUlidFactory);
-    const lifecycleRepo = new DynamoDBLifecycleRepository(docClient, tableName);
-    const profileRepo = new DynamoDBProfileRepository(docClient, tableName);
+    const messageRepo = createMessageRepository(docClient, tableName);
+    const lifecycleRepo = createLifecycleRepository(docClient, tableName);
+    const profileRepo = createProfileRepository(docClient, tableName);
 
     const result = await learnAllUserActivities({
       profileRepo,

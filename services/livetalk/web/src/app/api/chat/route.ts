@@ -7,21 +7,19 @@ import {
   DEFAULT_CHARACTER_ID,
   defaultUlidFactory,
   runChatUseCase,
+  createCharacterStateRepository,
+  createChatGuardRepository,
+  createConsolidationCursorRepository,
+  createLifecycleRepository,
+  createMessageRepository,
+  createNoteRepository,
+  createStudyTopicRepository,
 } from '@nagiyu/livetalk-core';
 import { getCharacterDefinition, hasCharacter } from '@/lib/characters/registry';
 import { getSession } from '@/lib/server/session';
 import { errorReporter, withApiErrorReporting } from '@/lib/server/api-error-reporting';
 import { getLLMClient } from '@/lib/server/llm';
 import { getVoiceClient } from '@/lib/server/voice';
-import {
-  getCharacterStateRepository,
-  getChatGuardRepository,
-  getConsolidationCursorRepository,
-  getLifecycleRepository,
-  getMessageRepository,
-  getNoteRepository,
-  getStudyTopicRepository,
-} from '@/lib/server/repositories';
 import { getModerationClient, getSafetyEventRepository } from '@/lib/server/safety';
 import { getTopicRetriever } from '@/lib/server/topic-retriever';
 import { CHAT_ERROR_MESSAGES, CHAT_MAX_TEXT_LENGTH } from './constants';
@@ -113,7 +111,7 @@ export const POST = withApiErrorReporting(
     }
 
     const userId = session.user.id;
-    const chatGuardRepository = getChatGuardRepository();
+    const chatGuardRepository = createChatGuardRepository();
     const nowMs = Date.now();
 
     // ---- ガード 1: in-flight ロック取得 ----
@@ -222,15 +220,15 @@ export const POST = withApiErrorReporting(
             character: getCharacterDefinition(characterId),
             llmClient: getLLMClient(),
             voiceClient: getVoiceClient(),
-            messageRepository: getMessageRepository(),
+            messageRepository: createMessageRepository(),
             safetyEventRepository: getSafetyEventRepository(),
             moderationClient: getModerationClient(),
             topicRetriever: getTopicRetriever(),
-            characterStateRepository: getCharacterStateRepository(),
-            lifecycleRepository: getLifecycleRepository(),
-            studyTopicRepository: getStudyTopicRepository(),
-            noteRepository: getNoteRepository(),
-            consolidationCursorRepository: getConsolidationCursorRepository(),
+            characterStateRepository: createCharacterStateRepository(),
+            lifecycleRepository: createLifecycleRepository(),
+            studyTopicRepository: createStudyTopicRepository(),
+            noteRepository: createNoteRepository(),
+            consolidationCursorRepository: createConsolidationCursorRepository(),
           });
 
           for await (const event of eventGenerator) {

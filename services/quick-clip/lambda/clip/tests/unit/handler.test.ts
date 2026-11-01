@@ -36,9 +36,7 @@ jest.mock('@aws-sdk/lib-dynamodb', () => ({
 }));
 
 jest.mock('@nagiyu/quick-clip-core', () => ({
-  DynamoDBHighlightRepository: class DynamoDBHighlightRepository {
-    public readonly update = mockUpdate;
-  },
+  createHighlightRepository: jest.fn(() => ({ update: mockUpdate })),
 }));
 
 jest.mock('@nagiyu/aws', () => ({

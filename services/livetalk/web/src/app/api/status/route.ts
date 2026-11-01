@@ -31,15 +31,13 @@ import {
   computeIntensityFactor,
   type MessageEntity,
   type NotificationEventEntity,
+  createLifecycleRepository,
+  createNotificationEventRepository,
+  createStudyTopicRepository,
+  createMessageRepository,
 } from '@nagiyu/livetalk-core';
 import { getSession } from '@/lib/server/session';
 import { withApiErrorReporting } from '@/lib/server/api-error-reporting';
-import {
-  getLifecycleRepository,
-  getNotificationEventRepository,
-  getStudyTopicRepository,
-  getMessageRepository,
-} from '@/lib/server/repositories';
 import { STATUS_ERROR_MESSAGES } from './constants';
 import { hasCharacter } from '@/lib/characters/registry';
 
@@ -82,10 +80,10 @@ export const GET = withApiErrorReporting(
     const now = new Date();
 
     const [lifecycle, notificationEvents, allMessages, studyPending] = await Promise.all([
-      getLifecycleRepository().get({ userId, characterId }),
-      getNotificationEventRepository().listByUser(userId, 10),
-      getMessageRepository().listSince(userId, characterId, 0),
-      getStudyTopicRepository().listByStatus(userId, characterId, 'pending'),
+      createLifecycleRepository().get({ userId, characterId }),
+      createNotificationEventRepository().listByUser(userId, 10),
+      createMessageRepository().listSince(userId, characterId, 0),
+      createStudyTopicRepository().listByStatus(userId, characterId, 'pending'),
     ]);
 
     const bedtime = lifecycle?.bedtime ?? LIFECYCLE_DEFAULT_BEDTIME;

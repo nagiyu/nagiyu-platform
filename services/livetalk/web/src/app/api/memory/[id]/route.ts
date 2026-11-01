@@ -1,10 +1,9 @@
 import { NextResponse } from 'next/server';
 import { EntityNotFoundError } from '@nagiyu/aws';
 import { withAuth } from '@nagiyu/nextjs';
-import { forgetSelfFact } from '@nagiyu/livetalk-core';
+import { forgetSelfFact, createTopicRepository } from '@nagiyu/livetalk-core';
 import { getSession } from '@/lib/server/session';
 import { withApiErrorReporting } from '@/lib/server/api-error-reporting';
-import { getTopicRepository } from '@/lib/server/repositories';
 import { getLLMClient } from '@/lib/server/llm';
 import { decodeSelfFactId } from '@/lib/memory/memory-id';
 import { MEMORY_ERROR_MESSAGES } from '../constants';
@@ -38,7 +37,7 @@ export const DELETE = withApiErrorReporting(
 
       try {
         await forgetSelfFact(key, {
-          topicRepository: getTopicRepository(),
+          topicRepository: createTopicRepository(),
           llmClient: getLLMClient(),
         });
       } catch (error) {

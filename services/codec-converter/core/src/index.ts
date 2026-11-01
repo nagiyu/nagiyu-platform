@@ -46,3 +46,4 @@ export type {
 } from './repositories/job.repository.interface.js';
 export { DynamoDBJobRepository } from './repositories/dynamodb-job.repository.js';
 export { InMemoryJobRepository } from './repositories/in-memory-job.repository.js';
+export { createJobRepository, resetInMemoryRepositories } from './repositories/factory.js';

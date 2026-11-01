@@ -16,7 +16,7 @@ import { NextResponse } from 'next/server';
 import { withAuth } from '@nagiyu/nextjs';
 import { getSession } from '@/lib/server/session';
 import { withApiErrorReporting } from '@/lib/server/api-error-reporting';
-import { getNotificationEventRepository } from '@/lib/server/repositories';
+import { createNotificationEventRepository } from '@nagiyu/livetalk-core';
 
 export const GET = withApiErrorReporting(
   'Web API: 第一声取得エラー',
@@ -30,7 +30,7 @@ export const GET = withApiErrorReporting(
     }
 
     const userId = session.user.id;
-    const repo = getNotificationEventRepository();
+    const repo = createNotificationEventRepository();
     const events = await repo.listByUser(userId, 20);
 
     // 指定キャラクターの未消化最新を返す

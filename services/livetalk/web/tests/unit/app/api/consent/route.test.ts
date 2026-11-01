@@ -4,19 +4,22 @@
 import { GET, POST } from '@/app/api/consent/route';
 import { CONSENT_ERROR_MESSAGES } from '@/app/api/consent/constants';
 import { getSession } from '@/lib/server/session';
-import { getProfileRepository } from '@/lib/server/repositories';
+import { createProfileRepository } from '@nagiyu/livetalk-core';
 import type { ProfileRepository } from '@nagiyu/livetalk-core';
 
 jest.mock('@/lib/server/session', () => ({
   getSession: jest.fn(),
 }));
 
-jest.mock('@/lib/server/repositories', () => ({
-  getProfileRepository: jest.fn(),
+jest.mock('@nagiyu/livetalk-core', () => ({
+  ...jest.requireActual('@nagiyu/livetalk-core'),
+  createProfileRepository: jest.fn(),
 }));
 
 const mockGetSession = getSession as jest.MockedFunction<typeof getSession>;
-const mockGetProfileRepo = getProfileRepository as jest.MockedFunction<typeof getProfileRepository>;
+const mockGetProfileRepo = createProfileRepository as jest.MockedFunction<
+  typeof createProfileRepository
+>;
 
 const validSession = {
   user: {

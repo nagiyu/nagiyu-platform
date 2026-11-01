@@ -3,7 +3,7 @@
  */
 import { GET } from '@/app/api/notes/[id]/route';
 import { getSession } from '@/lib/server/session';
-import { getNoteRepository, getTopicRepository } from '@/lib/server/repositories';
+import { createNoteRepository, createTopicRepository } from '@nagiyu/livetalk-core';
 import { reportErrorEvent } from '@nagiyu/aws';
 import { errorReporter } from '@/lib/server/api-error-reporting';
 import type {
@@ -16,11 +16,13 @@ import { encodeNoteId } from '@/lib/notes/note-id';
 import { NOTE_ERROR_MESSAGES } from '@/app/api/notes/constants';
 
 jest.mock('@/lib/server/session', () => ({ getSession: jest.fn() }));
-jest.mock('@/lib/server/repositories', () => ({
-  getNoteRepository: jest.fn(),
-  getTopicRepository: jest.fn(),
+jest.mock('@nagiyu/livetalk-core', () => ({
+  ...jest.requireActual('@nagiyu/livetalk-core'),
+  createNoteRepository: jest.fn(),
+  createTopicRepository: jest.fn(),
 }));
 jest.mock('@nagiyu/aws', () => ({
+  ...jest.requireActual('@nagiyu/aws'),
   reportErrorEvent: jest.fn().mockResolvedValue(null),
   createErrorReporter: jest.fn(() => ({ report: jest.fn(), onError: jest.fn(() => jest.fn()) })),
 }));
@@ -36,8 +38,8 @@ jest.mock('@/lib/server/api-error-reporting', () => ({
 const mockReportErrorEvent = reportErrorEvent as jest.MockedFunction<typeof reportErrorEvent>;
 
 const mockGetSession = getSession as jest.MockedFunction<typeof getSession>;
-const mockGetRepo = getNoteRepository as jest.MockedFunction<typeof getNoteRepository>;
-const mockGetTopicRepo = getTopicRepository as jest.MockedFunction<typeof getTopicRepository>;
+const mockGetRepo = createNoteRepository as jest.MockedFunction<typeof createNoteRepository>;
+const mockGetTopicRepo = createTopicRepository as jest.MockedFunction<typeof createTopicRepository>;
 
 const session = {
   user: {

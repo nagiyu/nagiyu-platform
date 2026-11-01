@@ -8,15 +8,14 @@ import {
   type ScheduledEvent,
 } from '@nagiyu/aws';
 import {
-  DynamoDBTopicRepository,
-  DynamoDBMessageRepository,
-  DynamoDBWebRawRepository,
-  DynamoDBConsolidationCursorRepository,
-  DynamoDBProfileRepository,
-  DynamoDBNoteRepository,
+  createTopicRepository,
+  createMessageRepository,
+  createWebRawRepository,
+  createConsolidationCursorRepository,
+  createProfileRepository,
+  createNoteRepository,
   OpenAIClient,
   OpenAIEmbeddingClient,
-  defaultUlidFactory,
 } from '@nagiyu/livetalk-core';
 import { consolidateAllConversations } from '../usecases/consolidate-conversations.usecase.js';
 
@@ -33,12 +32,12 @@ export const handler = createScheduledHandler<ScheduledEvent, HandlerResponse>(
     const tableName = getTableName();
     const apiKey = process.env.OPENAI_API_KEY ?? '';
 
-    const topicRepo = new DynamoDBTopicRepository(docClient, tableName, defaultUlidFactory);
-    const messageRepo = new DynamoDBMessageRepository(docClient, tableName, defaultUlidFactory);
-    const webRawRepo = new DynamoDBWebRawRepository(docClient, tableName, defaultUlidFactory);
-    const cursorRepo = new DynamoDBConsolidationCursorRepository(docClient, tableName);
-    const profileRepo = new DynamoDBProfileRepository(docClient, tableName);
-    const noteRepo = new DynamoDBNoteRepository(docClient, tableName);
+    const topicRepo = createTopicRepository(docClient, tableName);
+    const messageRepo = createMessageRepository(docClient, tableName);
+    const webRawRepo = createWebRawRepository(docClient, tableName);
+    const cursorRepo = createConsolidationCursorRepository(docClient, tableName);
+    const profileRepo = createProfileRepository(docClient, tableName);
+    const noteRepo = createNoteRepository(docClient, tableName);
     const llmClient = new OpenAIClient({ apiKey });
     const embeddingClient = new OpenAIEmbeddingClient({ apiKey });
 

@@ -5,7 +5,7 @@ import { createWriteStream, createReadStream, promises as fs } from 'fs';
 import { pipeline } from 'stream/promises';
 import { Readable } from 'stream';
 import {
-  DynamoDBJobRepository,
+  createJobRepository,
   readBatchJobInput,
   type CodecType,
 } from '@nagiyu/codec-converter-core';
@@ -174,7 +174,7 @@ export async function updateJobStatus(
 ): Promise<void> {
   try {
     // 空文字は未指定として扱い、保存しない
-    await new DynamoDBJobRepository(dynamodbClient, tableName).updateStatus(jobId, {
+    await createJobRepository(dynamodbClient, tableName).updateStatus(jobId, {
       status,
       outputFile: outputFile || undefined,
       errorMessage: errorMessage || undefined,

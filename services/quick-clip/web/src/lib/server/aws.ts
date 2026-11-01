@@ -1,12 +1,6 @@
-export {
-  getDynamoDBDocumentClient,
-  getS3Client,
-  getBatchClient,
-  getLambdaClient,
-} from '@nagiyu/aws';
+export { getS3Client, getBatchClient, getLambdaClient } from '@nagiyu/aws';
 
 const ERROR_MESSAGES = {
-  MISSING_DYNAMODB_TABLE_NAME: '環境変数 DYNAMODB_TABLE_NAME が設定されていません',
   MISSING_S3_BUCKET: '環境変数 S3_BUCKET が設定されていません',
   MISSING_BATCH_JOB_QUEUE_ARN: '環境変数 BATCH_JOB_QUEUE_ARN が設定されていません',
   MISSING_BATCH_JOB_DEFINITION_PREFIX: '環境変数 BATCH_JOB_DEFINITION_PREFIX が設定されていません',
@@ -22,9 +16,6 @@ const getRequiredEnv = (value: string | undefined, errorMessage: string): string
   }
   return normalized;
 };
-
-export const getTableName = (): string =>
-  getRequiredEnv(process.env.DYNAMODB_TABLE_NAME, ERROR_MESSAGES.MISSING_DYNAMODB_TABLE_NAME);
 
 export const getBucketName = (): string =>
   getRequiredEnv(process.env.S3_BUCKET, ERROR_MESSAGES.MISSING_S3_BUCKET);

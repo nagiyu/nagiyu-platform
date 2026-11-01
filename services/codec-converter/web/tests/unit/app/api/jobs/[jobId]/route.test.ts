@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { GetCommand } from '@aws-sdk/lib-dynamodb';
 import { getAwsClients, createPresignedDownloadUrl, reportErrorEvent } from '@nagiyu/aws';
+import { resetInMemoryRepositories } from '@nagiyu/codec-converter-core';
 import { GET } from '@/app/api/jobs/[jobId]/route';
 
 jest.mock('@nagiyu/aws', () => ({
@@ -59,6 +60,8 @@ describe('GET /api/jobs/[jobId]', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.replaceProperty(process, 'env', { ...process.env, DYNAMODB_TABLE_NAME: 'test-table' });
+    resetInMemoryRepositories();
     mockedReportErrorEvent.mockResolvedValue(undefined as never);
     consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
     mockedGetAwsClients.mockReturnValue({
@@ -69,6 +72,7 @@ describe('GET /api/jobs/[jobId]', () => {
 
   afterEach(() => {
     consoleErrorSpy.mockRestore();
+    jest.restoreAllMocks();
   });
 
   it('ジョブが存在しない場合は 404 を返す', async () => {

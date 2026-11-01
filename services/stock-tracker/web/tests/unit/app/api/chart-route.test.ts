@@ -18,6 +18,7 @@ jest.mock('../../../../lib/api-error-reporting', () => ({
 
 jest.mock('@nagiyu/stock-tracker-core', () => ({
   getChartData: jest.fn(),
+  createHoldingRepository: jest.fn(),
   SUPPORTED_TIMEFRAMES: ['60', 'D'],
   TRADINGVIEW_ERROR_MESSAGES: {
     TIMEOUT: 'timeout',
@@ -35,14 +36,9 @@ jest.mock('../../../../lib/auth', () => ({
   getSession: jest.fn(),
 }));
 
-jest.mock('../../../../lib/repository-factory', () => ({
-  createHoldingRepository: jest.fn(),
-}));
-
-import { getChartData } from '@nagiyu/stock-tracker-core';
+import { getChartData, createHoldingRepository } from '@nagiyu/stock-tracker-core';
 import { getAuthError } from '@nagiyu/nextjs';
 import { getSession } from '../../../../lib/auth';
-import { createHoldingRepository } from '../../../../lib/repository-factory';
 
 const mockedGetChartData = getChartData as jest.MockedFunction<typeof getChartData>;
 const mockedGetAuthError = getAuthError as jest.MockedFunction<typeof getAuthError>;

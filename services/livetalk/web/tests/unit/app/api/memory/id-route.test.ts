@@ -4,25 +4,26 @@
 import { EntityNotFoundError } from '@nagiyu/aws';
 import { DELETE } from '@/app/api/memory/[id]/route';
 import { getSession } from '@/lib/server/session';
-import { getTopicRepository } from '@/lib/server/repositories';
 import { getLLMClient } from '@/lib/server/llm';
 import { encodeSelfFactId } from '@/lib/memory/memory-id';
 import { MEMORY_ERROR_MESSAGES } from '@/app/api/memory/constants';
 
 jest.mock('@/lib/server/session', () => ({ getSession: jest.fn() }));
-jest.mock('@/lib/server/repositories', () => ({ getTopicRepository: jest.fn() }));
 jest.mock('@/lib/server/llm', () => ({ getLLMClient: jest.fn() }));
 
 // forgetSelfFact をモック化して usecase の内部挙動を切り離す
 jest.mock('@nagiyu/livetalk-core', () => ({
   ...jest.requireActual('@nagiyu/livetalk-core'),
   forgetSelfFact: jest.fn(),
+  createTopicRepository: jest.fn(),
 }));
 
-import { forgetSelfFact } from '@nagiyu/livetalk-core';
+import { forgetSelfFact, createTopicRepository } from '@nagiyu/livetalk-core';
 
 const mockGetSession = getSession as jest.MockedFunction<typeof getSession>;
-const mockGetTopicRepository = getTopicRepository as jest.MockedFunction<typeof getTopicRepository>;
+const mockGetTopicRepository = createTopicRepository as jest.MockedFunction<
+  typeof createTopicRepository
+>;
 const mockGetLLMClient = getLLMClient as jest.MockedFunction<typeof getLLMClient>;
 const mockForgetSelfFact = forgetSelfFact as jest.Mock;
 

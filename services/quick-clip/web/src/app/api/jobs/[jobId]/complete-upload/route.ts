@@ -1,15 +1,10 @@
-import { DynamoDBJobRepository } from '@nagiyu/quick-clip-core';
+import { createJobRepository } from '@nagiyu/quick-clip-core';
 import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import { readJsonObjectBody } from '@nagiyu/nextjs';
 import type { EmotionFilter } from '@nagiyu/quick-clip-core';
 import { CompleteMultipartUploadCommand } from '@aws-sdk/client-s3';
 import { NextResponse } from 'next/server';
-import {
-  getBucketName,
-  getDynamoDBDocumentClient,
-  getS3Client,
-  getTableName,
-} from '@/lib/server/aws';
+import { getBucketName, getS3Client } from '@/lib/server/aws';
 import { withApiErrorReporting } from '@/lib/api-error-reporting';
 import { VALID_EMOTION_FILTERS } from '@/lib/server/emotion-filter';
 import { JobDomainService } from '@/lib/server/domain-services';
@@ -84,9 +79,7 @@ export const POST = withApiErrorReporting(
 
     const body = bodyResult.body;
 
-    const jobService = new JobDomainService(
-      new DynamoDBJobRepository(getDynamoDBDocumentClient(), getTableName())
-    );
+    const jobService = new JobDomainService(createJobRepository());
     const job = await jobService.getJob(jobId);
     if (!job) {
       return NextResponse.json(

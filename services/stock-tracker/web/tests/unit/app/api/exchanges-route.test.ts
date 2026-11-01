@@ -1,10 +1,11 @@
 import { GET, POST } from '../../../../app/api/exchanges/route';
 import { GET as GET_BY_ID, PUT, DELETE } from '../../../../app/api/exchanges/[id]/route';
-import { createExchangeRepository } from '../../../../lib/repository-factory';
+import { createExchangeRepository } from '@nagiyu/stock-tracker-core';
 import * as awsModule from '@nagiyu/aws';
 import { MALFORMED_BODY_CASES } from './invalidBodyCases';
 
-jest.mock('../../../../lib/repository-factory', () => ({
+jest.mock('@nagiyu/stock-tracker-core', () => ({
+  ...jest.requireActual('@nagiyu/stock-tracker-core'),
   createExchangeRepository: jest.fn(),
 }));
 
