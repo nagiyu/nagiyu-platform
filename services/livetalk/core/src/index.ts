@@ -446,5 +446,6 @@ export {
   createTopicRepository,
   createConsolidationCursorRepository,
   createWebRawRepository,
+  createSafetyEventRepository,
   resetRepositoryFactories,
 } from './repositories/factory.js';
