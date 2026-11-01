@@ -11,20 +11,21 @@
  */
 import { GET } from '@/app/api/push/pending/route';
 import { getSession } from '@/lib/server/session';
-import { getNotificationEventRepository } from '@/lib/server/repositories';
+import { createNotificationEventRepository } from '@nagiyu/livetalk-core';
 import type { NotificationEventEntity, NotificationEventRepository } from '@nagiyu/livetalk-core';
 
 jest.mock('@/lib/server/session', () => ({
   getSession: jest.fn(),
 }));
 
-jest.mock('@/lib/server/repositories', () => ({
-  getNotificationEventRepository: jest.fn(),
+jest.mock('@nagiyu/livetalk-core', () => ({
+  ...jest.requireActual('@nagiyu/livetalk-core'),
+  createNotificationEventRepository: jest.fn(),
 }));
 
 const mockGetSession = getSession as jest.MockedFunction<typeof getSession>;
-const mockGetNotificationEventRepo = getNotificationEventRepository as jest.MockedFunction<
-  typeof getNotificationEventRepository
+const mockGetNotificationEventRepo = createNotificationEventRepository as jest.MockedFunction<
+  typeof createNotificationEventRepository
 >;
 
 /** テスト用有効セッション */

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { withAuth } from '@nagiyu/nextjs';
 import { getSession } from '@/lib/server/session';
 import { withApiErrorReporting } from '@/lib/server/api-error-reporting';
-import { getAccountDeletionRepository } from '@/lib/server/repositories';
+import { createAccountDeletionRepository } from '@nagiyu/livetalk-core';
 import { ACCOUNT_ERROR_MESSAGES } from './constants';
 
 /**
@@ -20,7 +20,7 @@ export const DELETE = withApiErrorReporting(
   withAuth(getSession, 'livetalk:chat', async (session) => {
     const userId = session.user.id;
 
-    const result = await getAccountDeletionRepository().deleteAccount(userId);
+    const result = await createAccountDeletionRepository().deleteAccount(userId);
     console.log('[DELETE /api/account] アカウントを削除しました', {
       deletedCount: result.deletedCount,
       anonymizedCount: result.anonymizedCount,

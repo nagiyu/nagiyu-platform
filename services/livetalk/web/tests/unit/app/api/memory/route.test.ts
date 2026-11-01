@@ -3,15 +3,20 @@
  */
 import { GET } from '@/app/api/memory/route';
 import { getSession } from '@/lib/server/session';
-import { getTopicRepository } from '@/lib/server/repositories';
+import { createTopicRepository } from '@nagiyu/livetalk-core';
 import type { SelfFactEntity, TopicEntity, TopicRepository } from '@nagiyu/livetalk-core';
 import { decodeSelfFactId } from '@/lib/memory/memory-id';
 
 jest.mock('@/lib/server/session', () => ({ getSession: jest.fn() }));
-jest.mock('@/lib/server/repositories', () => ({ getTopicRepository: jest.fn() }));
+jest.mock('@nagiyu/livetalk-core', () => ({
+  ...jest.requireActual('@nagiyu/livetalk-core'),
+  createTopicRepository: jest.fn(),
+}));
 
 const mockGetSession = getSession as jest.MockedFunction<typeof getSession>;
-const mockGetTopicRepository = getTopicRepository as jest.MockedFunction<typeof getTopicRepository>;
+const mockGetTopicRepository = createTopicRepository as jest.MockedFunction<
+  typeof createTopicRepository
+>;
 
 const session = {
   user: {

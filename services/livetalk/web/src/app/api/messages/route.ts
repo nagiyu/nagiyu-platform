@@ -1,9 +1,8 @@
 import { NextResponse } from 'next/server';
 import { withAuth } from '@nagiyu/nextjs';
-import { DEFAULT_CHARACTER_ID } from '@nagiyu/livetalk-core';
+import { DEFAULT_CHARACTER_ID, createMessageRepository } from '@nagiyu/livetalk-core';
 import { getSession } from '@/lib/server/session';
 import { withApiErrorReporting } from '@/lib/server/api-error-reporting';
-import { getMessageRepository } from '@/lib/server/repositories';
 import {
   MESSAGES_ERROR_MESSAGES,
   MESSAGES_MAX_TOKEN_LIMIT,
@@ -45,7 +44,7 @@ export const GET = withApiErrorReporting(
       tokenLimit = parsed;
     }
 
-    const result = await getMessageRepository().getRecentByTokenBudget({
+    const result = await createMessageRepository().getRecentByTokenBudget({
       userId: session.user.id,
       characterId,
       tokenLimit,

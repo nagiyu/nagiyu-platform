@@ -8,11 +8,11 @@ import {
   type ScheduledEvent,
 } from '@nagiyu/aws';
 import {
-  DynamoDBTopicRepository,
-  DynamoDBWebRawRepository,
-  DynamoDBStudyTopicRepository,
-  DynamoDBLifecycleRepository,
-  DynamoDBProfileRepository,
+  createTopicRepository,
+  createWebRawRepository,
+  createStudyTopicRepository,
+  createLifecycleRepository,
+  createProfileRepository,
   OpenAIResearchClient,
   OpenAIClient,
   LLMWebFactChangeDetector,
@@ -29,11 +29,11 @@ export const handler = createScheduledHandler<ScheduledEvent, HandlerResponse>(
     const tableName = getTableName();
     const apiKey = process.env.OPENAI_API_KEY ?? '';
 
-    const topicRepo = new DynamoDBTopicRepository(docClient, tableName, defaultUlidFactory);
-    const webRawRepo = new DynamoDBWebRawRepository(docClient, tableName, defaultUlidFactory);
-    const studyTopicRepo = new DynamoDBStudyTopicRepository(docClient, tableName);
-    const lifecycleRepo = new DynamoDBLifecycleRepository(docClient, tableName);
-    const profileRepo = new DynamoDBProfileRepository(docClient, tableName);
+    const topicRepo = createTopicRepository(docClient, tableName);
+    const webRawRepo = createWebRawRepository(docClient, tableName);
+    const studyTopicRepo = createStudyTopicRepository(docClient, tableName);
+    const lifecycleRepo = createLifecycleRepository(docClient, tableName);
+    const profileRepo = createProfileRepository(docClient, tableName);
     const researchClient = new OpenAIResearchClient({ apiKey });
     const llmClient = new OpenAIClient({ apiKey });
     const changeDetector = new LLMWebFactChangeDetector(llmClient);

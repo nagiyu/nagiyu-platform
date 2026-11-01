@@ -4,10 +4,10 @@ import {
   isConsentValid,
   LIVETALK_TERMS_VERSION,
   LIVETALK_PRIVACY_VERSION,
+  createProfileRepository,
 } from '@nagiyu/livetalk-core';
 import { getSession } from '@/lib/server/session';
 import { withApiErrorReporting } from '@/lib/server/api-error-reporting';
-import { getProfileRepository } from '@/lib/server/repositories';
 import { CONSENT_ERROR_MESSAGES } from './constants';
 
 interface ConsentRequest {
@@ -37,7 +37,7 @@ export const GET = withApiErrorReporting(
   withAuth(getSession, 'livetalk:chat', async (session) => {
     const userId = session.user.id;
 
-    const profile = await getProfileRepository().getById({ userId });
+    const profile = await createProfileRepository().getById({ userId });
     const consented = isConsentValid(profile?.consents, {
       termsVersion: LIVETALK_TERMS_VERSION,
       privacyVersion: LIVETALK_PRIVACY_VERSION,
@@ -84,7 +84,7 @@ export const POST = withApiErrorReporting(
     const now = Date.now();
     const userId = session.user.id;
 
-    await getProfileRepository().upsert(
+    await createProfileRepository().upsert(
       { userId },
       {
         lastActiveAt: now,

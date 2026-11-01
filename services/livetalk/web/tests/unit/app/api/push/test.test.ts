@@ -17,9 +17,9 @@ import { errorReporter } from '@/lib/server/api-error-reporting';
 import { POST } from '@/app/api/push/test/route';
 import { getSession } from '@/lib/server/session';
 import {
-  getPushSubscriptionRepository,
-  getNotificationEventRepository,
-} from '@/lib/server/repositories';
+  createPushSubscriptionRepository,
+  createNotificationEventRepository,
+} from '@nagiyu/livetalk-core';
 import { sendWebPushNotification } from '@nagiyu/common/push';
 import { hasCharacter, getCharacterDefinition } from '@/lib/characters/registry';
 import type {
@@ -32,11 +32,6 @@ import type {
 
 jest.mock('@/lib/server/session', () => ({
   getSession: jest.fn(),
-}));
-
-jest.mock('@/lib/server/repositories', () => ({
-  getPushSubscriptionRepository: jest.fn(),
-  getNotificationEventRepository: jest.fn(),
 }));
 
 jest.mock('@nagiyu/aws', () => ({
@@ -87,8 +82,10 @@ jest.mock('@/lib/characters/registry', () => ({
   getCharacterDefinition: jest.fn(),
 }));
 
-// livetalk-core の defaultUlidFactory と NOTIFICATION_EVENT_TTL_SECONDS をモック化する
+// livetalk-core のリポジトリ生成口、defaultUlidFactory、NOTIFICATION_EVENT_TTL_SECONDS をモック化する
 jest.mock('@nagiyu/livetalk-core', () => ({
+  createPushSubscriptionRepository: jest.fn(),
+  createNotificationEventRepository: jest.fn(),
   defaultUlidFactory: jest.fn(() => 'test-ulid'),
   NOTIFICATION_EVENT_TTL_SECONDS: 2592000,
 }));
@@ -96,11 +93,11 @@ jest.mock('@nagiyu/livetalk-core', () => ({
 // ---- 型付きモック変数 ---------------------------------------------------
 
 const mockGetSession = getSession as jest.MockedFunction<typeof getSession>;
-const mockGetPushSubscriptionRepo = getPushSubscriptionRepository as jest.MockedFunction<
-  typeof getPushSubscriptionRepository
+const mockGetPushSubscriptionRepo = createPushSubscriptionRepository as jest.MockedFunction<
+  typeof createPushSubscriptionRepository
 >;
-const mockGetNotifEventRepo = getNotificationEventRepository as jest.MockedFunction<
-  typeof getNotificationEventRepository
+const mockGetNotifEventRepo = createNotificationEventRepository as jest.MockedFunction<
+  typeof createNotificationEventRepository
 >;
 const mockSendWebPushNotification = sendWebPushNotification as jest.MockedFunction<
   typeof sendWebPushNotification

@@ -10,7 +10,7 @@ import { EntityNotFoundError } from '@nagiyu/aws';
 import { readJsonObjectBody, withAuth } from '@nagiyu/nextjs';
 import { getSession } from '@/lib/server/session';
 import { withApiErrorReporting } from '@/lib/server/api-error-reporting';
-import { getNotificationEventRepository } from '@/lib/server/repositories';
+import { createNotificationEventRepository } from '@nagiyu/livetalk-core';
 
 const ERROR_MESSAGES = {
   MISSING_NOTIF_ID: 'notifId が必要です',
@@ -32,7 +32,7 @@ export const PATCH = withApiErrorReporting(
 
     const userId = session.user.id;
 
-    const repo = getNotificationEventRepository();
+    const repo = createNotificationEventRepository();
     try {
       await repo.markConsumed({ userId, notifId }, Date.now());
     } catch (error) {
