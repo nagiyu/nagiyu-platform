@@ -17,13 +17,6 @@ describe('lib/server/safety', () => {
     else process.env.OPENAI_API_KEY = originalKey;
   });
 
-  it('getSafetyEventRepository は InMemory 実装を返す', async () => {
-    process.env.USE_IN_MEMORY_DB = 'true';
-    const mod = await import('@/lib/server/safety');
-    const repo = mod.getSafetyEventRepository();
-    expect(repo).toBeDefined();
-  });
-
   it('getModerationClient: USE_IN_MEMORY_DB=true なら NoOpModerationClient を返す', async () => {
     process.env.USE_IN_MEMORY_DB = 'true';
     delete process.env.OPENAI_API_KEY;

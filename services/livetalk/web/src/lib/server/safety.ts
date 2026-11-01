@@ -1,40 +1,18 @@
 /**
- * セーフティ機能の DI ファクトリ（Web 層 / Phase 2d / Issue #3250）。
+ * セーフティ機能のうち、環境で実装が切り替わるモデレーションクライアントの生成口。
  *
- * - 本番 / dev: OpenAI Moderation API クライアント + DynamoDB SafetyEventRepository
- * - テスト・ローカル: NoOpModerationClient + InMemorySafetyEventRepository
+ * - 本番 / dev: OpenAI Moderation API クライアント
+ * - テスト・ローカル: NoOpModerationClient
+ *
+ * SafetyEvent のリポジトリは、ほかのリポジトリと共有の InMemory ストアを使うため、
+ * ここでは持たず `@nagiyu/livetalk-core` の `createSafetyEventRepository` から得る。
  */
 
-import { InMemorySingleTableStore, registerDynamoRepositories } from '@nagiyu/aws';
-import type { SafetyEventRepository } from '@nagiyu/livetalk-core';
 import {
-  DynamoDBSafetyEventRepository,
-  InMemorySafetyEventRepository,
   NoOpModerationClient,
   OpenAIModerationClient,
   type IModerationClient,
 } from '@nagiyu/livetalk-core';
-
-const registry = registerDynamoRepositories<
-  { safetyEvent: SafetyEventRepository },
-  InMemorySingleTableStore
->(
-  {
-    safetyEvent: {
-      createInMemoryRepository: (store) => new InMemorySafetyEventRepository(store),
-      createDynamoDBRepository: ({ docClient, tableName }) =>
-        new DynamoDBSafetyEventRepository(docClient, tableName),
-    },
-  },
-  {
-    keyPrefix: 'livetalk',
-    createSharedStore: () => new InMemorySingleTableStore(),
-  }
-);
-
-export function getSafetyEventRepository(): SafetyEventRepository {
-  return registry.safetyEvent.createRepository();
-}
 
 let _moderationClient: IModerationClient | null = null;
 
@@ -58,8 +36,10 @@ export function getModerationClient(): IModerationClient {
   return _moderationClient;
 }
 
-/** テスト用：モジュールレベルのキャッシュをリセットする */
+/**
+ * テスト用：モデレーションクライアントのキャッシュをリセットする。
+ * リポジトリのリセットは core の `resetRepositoryFactories` が担う。
+ */
 export function resetSafetyForTesting(): void {
-  registry.resetAll();
   _moderationClient = null;
 }
