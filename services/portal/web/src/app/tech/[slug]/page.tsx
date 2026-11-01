@@ -27,6 +27,10 @@ type Params = {
   params: Promise<{ slug: string }>;
 };
 
+// Next.js はページ内で投げた notFound() をサーバーで描かず、中身の無いエラー用の外枠を返す。
+// ビルド時に無い slug はルートに一致させず、ルート直下の存在しない URL と同じ経路で 404 画面を返す。
+export const dynamicParams = false;
+
 export async function generateStaticParams() {
   const articles = getAllArticles();
   return articles.map((article) => ({ slug: article.slug }));
