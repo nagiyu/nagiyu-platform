@@ -6,6 +6,7 @@ import {
   createVideoRepository,
   createUserSettingRepository,
   createBatchJobRepository,
+  createNiconicoCredentialRepository,
   resetRepositoryFactories,
 } from '../../../src/repositories/factory';
 import { InMemoryVideoRepository } from '../../../src/repositories/inmemory-video.repository';
@@ -108,6 +109,42 @@ describe('Repository Factory', () => {
       expect(createVideoRepository()).not.toBe(videoBefore);
       expect(createUserSettingRepository()).not.toBe(userSettingBefore);
       expect(createBatchJobRepository()).not.toBe(batchJobBefore);
+    });
+  });
+
+  describe('keyPrefix による globalThis での保持', () => {
+    type GlobalWithInstances = typeof globalThis & {
+      __repositoryFactoryInstances__?: Map<string, unknown>;
+    };
+    const getGlobalStore = () => (globalThis as GlobalWithInstances).__repositoryFactoryInstances__;
+
+    it('各 factory の instance が niconico-mylist-assistant.<名前> のキーで保持される', () => {
+      process.env.USE_IN_MEMORY_DB = 'true';
+
+      const video = createVideoRepository();
+      const userSetting = createUserSettingRepository();
+      const batchJob = createBatchJobRepository();
+      const niconicoCredential = createNiconicoCredentialRepository();
+
+      const globalStore = getGlobalStore();
+      expect(globalStore?.get('niconico-mylist-assistant.video')).toBe(video);
+      expect(globalStore?.get('niconico-mylist-assistant.userSetting')).toBe(userSetting);
+      expect(globalStore?.get('niconico-mylist-assistant.batchJob')).toBe(batchJob);
+      expect(globalStore?.get('niconico-mylist-assistant.niconicoCredential')).toBe(
+        niconicoCredential
+      );
+    });
+
+    it('resetRepositoryFactories で globalThis のキーも破棄される', () => {
+      process.env.USE_IN_MEMORY_DB = 'true';
+      createVideoRepository();
+      createNiconicoCredentialRepository();
+
+      resetRepositoryFactories();
+
+      const globalStore = getGlobalStore();
+      expect(globalStore?.has('niconico-mylist-assistant.video')).toBe(false);
+      expect(globalStore?.has('niconico-mylist-assistant.niconicoCredential')).toBe(false);
     });
   });
 });
