@@ -39,7 +39,7 @@ E2E テストで実際の DynamoDB に接続せずに動作確認したい。一
 
 **決定**
 
-環境変数 `USE_IN_MEMORY_REPOSITORY` により DynamoDB 実装とインメモリ実装を切り替える Repository Factory パターンを採用する。
+環境変数 `USE_IN_MEMORY_DB` により DynamoDB 実装とインメモリ実装を切り替える Repository Factory パターンを採用する。
 
 **根拠・トレードオフ**
 

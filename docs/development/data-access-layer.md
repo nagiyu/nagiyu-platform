@@ -199,6 +199,18 @@ update の変更の扱いは、次の 3 点を全 Mapper で揃える。
 
 **トレードオフ**: ストアの初期化を共通化する必要がある。
 
+### リポジトリはサービスの core にある生成の口から得る
+
+**決定**: 各サービスの core に、`@nagiyu/aws` の `registerDynamoRepositories` でリポジトリを登録した生成の口 (`createXxxRepository()`) を置く。web・batch・Lambda は DynamoDB 実装や InMemory 実装を直接 new せず、この口から得る。registry にはサービス ID を keyPrefix として付ける。
+
+**理由**:
+
+- 実装の選択 (`USE_IN_MEMORY_DB` による切り替え、共有ストアの受け渡し) を 1 か所に集めるためである。呼び出し側が DynamoDB 実装を直接 new すると、そのサービスは InMemory に切り替えられない。
+- 生成の口を web に置くと、batch や Lambda から使えず、そちらで直接 new することになる。core なら web・batch・Lambda のどれからも同じ口を使える。
+- Next.js の dev ではモジュールが評価し直されることがあり、モジュール内の変数だけで保持すると registry が作り直されて InMemory のデータが失われる。keyPrefix を付けると、インスタンスを globalThis に保持する。
+
+**トレードオフ**: リポジトリはシングルトンになり、初めに渡した docClient と tableName を使い続ける。テストで docClient を差し替えるときは、各 core の reset 関数で破棄する必要がある。
+
 ### ページネーションは不透明トークンにする
 
 **決定**: ページネーションのカーソルは、JSON 文字列を Base64 エンコードした不透明トークンにする。
