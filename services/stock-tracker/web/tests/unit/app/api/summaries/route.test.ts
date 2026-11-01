@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import * as awsModule from '@nagiyu/aws';
+import { errorReporter } from '../../../../../lib/api-error-reporting';
 import { GET } from '../../../../../app/api/summaries/route';
 import {
   createAlertRepository,
@@ -10,14 +11,23 @@ import {
   createMarketForecastRepository,
   createPerformanceDailyRepository,
   createTickerRepository,
-} from '../../../../../lib/repository-factory';
+} from '@nagiyu/stock-tracker-core';
 
 jest.mock('@nagiyu/aws', () => ({
   ...jest.requireActual('@nagiyu/aws'),
   reportErrorEvent: jest.fn().mockResolvedValue(null),
 }));
 
-jest.mock('../../../../../lib/repository-factory', () => ({
+jest.mock('../../../../../lib/api-error-reporting', () => ({
+  ...jest.requireActual('../../../../../lib/api-error-reporting'),
+  errorReporter: {
+    report: jest.fn().mockResolvedValue(null),
+    onError: jest.fn(() => jest.fn()),
+  },
+}));
+
+jest.mock('@nagiyu/stock-tracker-core', () => ({
+  ...jest.requireActual('@nagiyu/stock-tracker-core'),
   createDailySummaryRepository: jest.fn(),
   createExchangeRepository: jest.fn(),
   createAlertRepository: jest.fn(),
@@ -539,13 +549,9 @@ describe('GET /api/summaries', () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(awsModule.reportErrorEvent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        serviceId: 'stock-tracker',
-        severity: 'error',
-        title: 'Web API: サマリーの保有株式取得エラー',
-        message: 'holding db error',
-      })
+    expect(errorReporter.report).toHaveBeenCalledWith(
+      'Web API: サマリーの保有株式取得エラー',
+      expect.objectContaining({ message: 'holding db error' })
     );
     expect(body.exchanges[0].summaries[0]).toEqual(
       expect.objectContaining({
@@ -664,13 +670,9 @@ describe('GET /api/summaries', () => {
 
       expect(response.status).toBe(200);
       expect(body.exchanges[0].summaries[0].forecast).toBeNull();
-      expect(awsModule.reportErrorEvent).toHaveBeenCalledWith(
-        expect.objectContaining({
-          serviceId: 'stock-tracker',
-          severity: 'error',
-          title: 'Web API: サマリーの確度取得エラー',
-          message: 'forecast db error',
-        })
+      expect(errorReporter.report).toHaveBeenCalledWith(
+        'Web API: サマリーの確度取得エラー',
+        expect.objectContaining({ message: 'forecast db error' })
       );
     });
 
@@ -692,13 +694,9 @@ describe('GET /api/summaries', () => {
         { market: 'JP', date: null, forecast: null },
         { market: 'US', date: null, forecast: null },
       ]);
-      expect(awsModule.reportErrorEvent).toHaveBeenCalledWith(
-        expect.objectContaining({
-          serviceId: 'stock-tracker',
-          severity: 'error',
-          title: 'Web API: サマリーの市場の荒れ予報取得エラー',
-          message: 'market db error',
-        })
+      expect(errorReporter.report).toHaveBeenCalledWith(
+        'Web API: サマリーの市場の荒れ予報取得エラー',
+        expect.objectContaining({ message: 'market db error' })
       );
     });
   });

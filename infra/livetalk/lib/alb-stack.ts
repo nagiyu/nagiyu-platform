@@ -47,10 +47,7 @@ export class LiveTalkAlbStack extends cdk.Stack {
     const vpc = ec2.Vpc.fromVpcAttributes(this, 'ImportedVpc', {
       vpcId,
       availabilityZones: ['us-east-1a', 'us-east-1b'],
-      publicSubnetIds: [
-        cdk.Fn.select(0, publicSubnetIds),
-        cdk.Fn.select(1, publicSubnetIds),
-      ],
+      publicSubnetIds: [cdk.Fn.select(0, publicSubnetIds), cdk.Fn.select(1, publicSubnetIds)],
     });
 
     this.albSecurityGroup = new ec2.SecurityGroup(this, 'AlbSecurityGroup', {

@@ -5,6 +5,7 @@
 import { InMemorySingleTableStore } from '@nagiyu/aws';
 import * as awsModule from '@nagiyu/aws';
 import {
+  clearMemoryStore,
   DynamoDBExchangeRepository,
   InMemoryDailySummaryRepository,
   InMemoryExchangeRepository,
@@ -34,6 +35,10 @@ describe('summary batch handler', () => {
 
   beforeEach(() => {
     jest.spyOn(awsModule, 'reportErrorEvent').mockResolvedValue(null);
+    // レポーターは実物を通し、書き込み先の in-memory ライターで報告内容を確かめる
+    process.env.USE_IN_MEMORY_DB = 'true';
+    process.env.ERROR_EVENTS_TABLE_NAME = 'test-error-events';
+    awsModule.resetErrorEventWriter();
     mockLambdaSend.mockReset().mockResolvedValue({});
 
     const store = new InMemorySingleTableStore();
@@ -55,6 +60,9 @@ describe('summary batch handler', () => {
   });
 
   afterEach(() => {
+    delete process.env.USE_IN_MEMORY_DB;
+    delete process.env.ERROR_EVENTS_TABLE_NAME;
+    awsModule.resetErrorEventWriter();
     jest.restoreAllMocks();
   });
 
@@ -249,8 +257,25 @@ describe('summary batch handler', () => {
           reason: 'TradingView API Error',
         })
       );
-      expect(awsModule.reportErrorEvent).toHaveBeenCalledWith(
-        expect.objectContaining({ serviceId: 'stock-tracker', severity: 'warning' })
+      const reported = (
+        awsModule.createErrorEventWriter() as awsModule.InMemoryErrorEventWriter
+      ).getRecords();
+      expect(reported).toEqual([
+        expect.objectContaining({
+          serviceId: 'stock-tracker',
+          severity: 'warning',
+          title: 'サマリーバッチ: ティッカー日足データ取得失敗',
+          message: 'TradingView API Error',
+        }),
+      ]);
+      expect(JSON.parse(reported[0].context)).toEqual(
+        expect.objectContaining({
+          exchangeId: 'NASDAQ',
+          tickerId: 'NSDQ:AAPL',
+          errorName: 'Error',
+          errorMessage: 'TradingView API Error',
+          errorStack: expect.stringContaining('TradingView API Error'),
+        })
       );
 
       const summary = await dailySummaryRepository.getByTickerAndDate('NSDQ:AAPL', '2026-02-26');
@@ -1203,6 +1228,8 @@ describe('summary batch handler', () => {
 
   describe('DynamoDB 初期化分岐', () => {
     it('dependencies を省略した場合、DynamoDB から初期化する', async () => {
+      // 生成口はシングルトンのため、他のテストで作られたインスタンスを持ち越さない
+      clearMemoryStore();
       jest.spyOn(awsModule, 'getDynamoDBDocumentClient').mockReturnValue({} as never);
       jest.spyOn(awsModule, 'getTableName').mockReturnValue('test-table');
       jest.spyOn(DynamoDBExchangeRepository.prototype, 'getAll').mockResolvedValue([]);

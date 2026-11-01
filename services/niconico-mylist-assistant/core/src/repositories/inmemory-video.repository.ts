@@ -4,12 +4,7 @@
  * テスト用のインメモリ実装
  */
 
-import {
-  InMemoryEntityStore,
-  type DynamoDBItem,
-  type EntityStore,
-  type InMemorySingleTableStore,
-} from '@nagiyu/aws';
+import { InMemoryEntityStore, type EntityStore, type InMemorySingleTableStore } from '@nagiyu/aws';
 import type { VideoRepository } from './video.repository.interface.js';
 import type { VideoEntity, VideoKey, CreateVideoInput } from '../entities/video.entity.js';
 import { VideoMapper } from '../mappers/video.mapper.js';
@@ -33,22 +28,15 @@ export class InMemoryVideoRepository implements VideoRepository {
    * 全動画を取得
    */
   public async listAll(): Promise<VideoEntity[]> {
-    const items: DynamoDBItem[] = [];
-    let cursor: string | undefined;
-
-    do {
-      const result = this.store.scan({ limit: 100, cursor });
-      items.push(
-        ...result.items.filter(
-          (item) =>
-            typeof item.PK === 'string' &&
-            typeof item.SK === 'string' &&
-            item.PK.startsWith('VIDEO#') &&
-            item.SK.startsWith('VIDEO#')
-        )
+    const items = this.store
+      .scanAll()
+      .filter(
+        (item) =>
+          typeof item.PK === 'string' &&
+          typeof item.SK === 'string' &&
+          item.PK.startsWith('VIDEO#') &&
+          item.SK.startsWith('VIDEO#')
       );
-      cursor = result.nextCursor;
-    } while (cursor);
 
     return items.map((item) => this.mapper.toEntity(item));
   }
@@ -80,7 +68,7 @@ export class InMemoryVideoRepository implements VideoRepository {
    * 新しい動画を作成
    */
   public async create(input: CreateVideoInput): Promise<VideoEntity> {
-    return this.entityStore.create({ ...input, createdAt: Date.now() });
+    return this.entityStore.create(input);
   }
 
   /**

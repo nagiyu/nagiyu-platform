@@ -10,15 +10,15 @@ import {
   getDynamoDBDocumentClient,
   getLambdaClient,
   getTableName,
-  reportErrorEvent,
 } from '@nagiyu/aws';
 import type { HandlerResponse, ScheduledEvent } from '@nagiyu/aws';
+import { errorReporter } from './lib/error-reporter.js';
 import {
-  DynamoDBDailySummaryRepository,
-  DynamoDBExchangeRepository,
+  createDailySummaryRepository,
+  createExchangeRepository,
   PatternAnalyzer,
   PATTERN_REGISTRY,
-  DynamoDBTickerRepository,
+  createTickerRepository,
   formatDateInTimezone,
   getChartData,
   getLastTradingDate,
@@ -305,16 +305,9 @@ async function processExchange(
           executionTime: new Date(now).toISOString(),
           reason: errorMessage,
         });
-        await reportErrorEvent({
-          serviceId: 'stock-tracker',
+        await errorReporter.report('サマリーバッチ: ティッカー日足データ取得失敗', error, {
           severity: 'warning',
-          title: 'サマリーバッチ: ティッカー日足データ取得失敗',
-          message: errorMessage,
-          context: {
-            exchangeId: exchange.exchangeId,
-            tickerId: ticker.tickerId,
-            errorStack: error instanceof Error ? error.stack : undefined,
-          },
+          context: { exchangeId: exchange.exchangeId, tickerId: ticker.tickerId },
         });
         stats.errors++;
       } finally {
@@ -327,15 +320,8 @@ async function processExchange(
       exchangeId: exchange.exchangeId,
       error: errorMessage,
     });
-    await reportErrorEvent({
-      serviceId: 'stock-tracker',
-      severity: 'error',
-      title: 'サマリーバッチ: 取引所サマリー処理失敗',
-      message: errorMessage,
-      context: {
-        exchangeId: exchange.exchangeId,
-        errorStack: error instanceof Error ? error.stack : undefined,
-      },
+    await errorReporter.report('サマリーバッチ: 取引所サマリー処理失敗', error, {
+      context: { exchangeId: exchange.exchangeId },
     });
     stats.errors++;
   } finally {
@@ -376,10 +362,10 @@ async function runSummaryBatch(
   } else {
     const docClient = getDynamoDBDocumentClient();
     const tableName = getTableName();
-    const dailySummaryRepository = new DynamoDBDailySummaryRepository(docClient, tableName);
+    const dailySummaryRepository = createDailySummaryRepository(docClient, tableName);
     resolvedDependencies = {
-      exchangeRepository: new DynamoDBExchangeRepository(docClient, tableName),
-      tickerRepository: new DynamoDBTickerRepository(docClient, tableName),
+      exchangeRepository: createExchangeRepository(docClient, tableName),
+      tickerRepository: createTickerRepository(docClient, tableName),
       dailySummaryRepository,
       getChartDataFn: dependencies?.getChartDataFn ?? getChartData,
       nowFn: dependencies?.nowFn ?? Date.now,

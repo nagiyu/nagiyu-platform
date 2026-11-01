@@ -38,17 +38,19 @@ https://reports.nagiyu.com/portal/pr-123/9876543210/chromium-mobile/
 
 ## PR コメントとの連携
 
-各サービスの `*-verify.yml` の `report` ジョブが、PR コメントテーブルに **Report 列** を追加する形でリンクを貼る。
+各 verify の `report` ジョブが呼ぶ共通の報告 action が、PR コメントテーブルに **Report 列** を追加する形でリンクを貼る。
 
 ```
 | Job | Status | Report |
 |-----|--------|--------|
-| E2E Tests (chromium-mobile) | ✅ success | [📊 View](https://reports.nagiyu.com/...) |
-| E2E Tests (chromium-desktop) | ⏭️ skipped | - |
+| E2E / E2E Tests (chromium-mobile) | ✅ success | [📊 View](https://reports.nagiyu.com/...) |
+| E2E / E2E Tests (webkit-mobile) | ❌ failure | [📊 View](https://reports.nagiyu.com/...) |
 ```
 
+- リンク先のデバイスは、ジョブ名の括弧の中のデバイス名から決める
 - `success` または `failure` のときだけリンクを表示
 - `skipped` / `cancelled` では `-`
+- Fast (develop 以外へのPR) では chromium-mobile のジョブしか作られないので、行も 1 つだけになる
 
 ## 失敗時の見方
 
@@ -71,7 +73,7 @@ dev アカウントの分離方針（[AWS アカウント構成](../infra/aws-ac
 | prod | `nagiyu-e2e-reports` | `https://reports.nagiyu.com` |
 | dev | `nagiyu-e2e-reports-dev` | `https://reports.dev.nagiyu.com` |
 
-各サービスの `*-verify.yml` はリポジトリ変数 `E2E_REPORTS_BUCKET` / `E2E_REPORTS_BASE_URL` を参照する。変数が未設定の場合は prod の値（`nagiyu-e2e-reports` / `https://reports.nagiyu.com`）にフォールバックする。
+E2E の再利用ワークフロー (アップロード先) と各 verify の報告 (リンク先) は、リポジトリ変数 `E2E_REPORTS_BUCKET` / `E2E_REPORTS_BASE_URL` を参照する。変数が未設定の場合は prod の値（`nagiyu-e2e-reports` / `https://reports.nagiyu.com`）にフォールバックする。
 
 - CloudFront Distribution（OAC 経由で S3 を参照）
 - Route53 ALIAS レコード（`reports.nagiyu.com` / `reports.dev.nagiyu.com` → 各アカウントの CloudFront）
@@ -80,7 +82,7 @@ dev アカウントの分離方針（[AWS アカウント構成](../infra/aws-ac
 
 ## アップロードフロー
 
-各サービスの `*-verify.yml` の E2E ジョブ末尾で以下を実行。AWS 認証は GitHub OIDC + AssumeRole
+E2E の再利用ワークフローの末尾で、デバイスごとに以下を実行。AWS 認証は GitHub OIDC + AssumeRole
 （`pull_request` 用ロール）を使う。設計は [IAM 詳細](../infra/shared/iam.md) を参照。
 
 ```yaml
@@ -94,8 +96,8 @@ dev アカウントの分離方針（[AWS アカウント構成](../infra/aws-ac
 - name: Upload Playwright HTML report
   if: always()
   run: |
-    aws s3 sync services/{service}/web/playwright-report/ \
-      "s3://${{ vars.E2E_REPORTS_BUCKET || 'nagiyu-e2e-reports' }}/{service}/pr-${{ github.event.pull_request.number }}/${{ github.run_id }}/{project}/" \
+    aws s3 sync {web-dir}/playwright-report/ \
+      "s3://${{ vars.E2E_REPORTS_BUCKET || 'nagiyu-e2e-reports' }}/{report-key}/pr-${{ github.event.pull_request.number }}/${{ github.run_id }}/{project}/" \
       --delete --no-progress
 ```
 

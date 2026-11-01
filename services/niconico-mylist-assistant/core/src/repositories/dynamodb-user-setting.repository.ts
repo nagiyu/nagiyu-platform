@@ -4,12 +4,11 @@
  * DynamoDBを使用したUserSettingRepositoryの実装
  */
 
-import { QueryCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import {
   DynamoDBEntityStore,
   toDatabaseError,
-  encodeCursor,
-  decodeCursor,
+  queryPage,
   type EntityStore,
   type PaginationOptions,
   type PaginatedResult,
@@ -55,30 +54,25 @@ export class DynamoDBUserSettingRepository implements UserSettingRepository {
     options?: PaginationOptions
   ): Promise<PaginatedResult<UserSettingEntity>> {
     try {
-      const limit = options?.limit || 100;
-      const exclusiveStartKey = decodeCursor(options?.cursor);
-
-      const result = await this.docClient.send(
-        new QueryCommand({
+      const page = await queryPage(
+        this.docClient,
+        {
           TableName: this.tableName,
           KeyConditionExpression: 'PK = :pk AND begins_with(SK, :sk)',
           ExpressionAttributeValues: {
             ':pk': `USER#${userId}`,
             ':sk': 'VIDEO#',
           },
-          Limit: limit,
-          ExclusiveStartKey: exclusiveStartKey,
-        })
+        },
+        { limit: options?.limit || 100, cursor: options?.cursor }
       );
 
-      const items = (result.Items || []).map((item) => this.mapper.toEntity(item));
-
-      const nextCursor = encodeCursor(result.LastEvaluatedKey);
+      const items = page.items.map((item) => this.mapper.toEntity(item));
 
       return {
         items,
-        nextCursor,
-        count: result.Count,
+        nextCursor: page.nextCursor,
+        count: page.count,
       };
     } catch (error) {
       throw toDatabaseError(error);
@@ -142,25 +136,17 @@ export class DynamoDBUserSettingRepository implements UserSettingRepository {
    * 新しいユーザー設定を作成
    */
   public async create(input: CreateUserSettingInput): Promise<UserSettingEntity> {
-    const now = Date.now();
-    // updatedAt は store が書き込み時に現在時刻で上書きする。Entity 型上は必須のため値だけ渡す。
-    return this.entityStore.create({ ...input, createdAt: now, updatedAt: now });
+    return this.entityStore.create(input);
   }
 
   /**
    * ユーザー設定を作成または更新（upsert）
    */
   public async upsert(input: CreateUserSettingInput): Promise<UserSettingEntity> {
-    const now = Date.now();
-
     // 既存レコードの createdAt を保つため先に読む
     const existing = await this.getById(input.userId, input.videoId);
 
-    return this.entityStore.put({
-      ...input,
-      createdAt: existing?.createdAt ?? now,
-      updatedAt: now,
-    });
+    return this.entityStore.put({ ...input, createdAt: existing?.createdAt });
   }
 
   /**

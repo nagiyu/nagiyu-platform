@@ -1,5 +1,6 @@
 import { PutCommand } from '@aws-sdk/lib-dynamodb';
 import { getAwsClients, reportErrorEvent, createPresignedUploadUrl } from '@nagiyu/aws';
+import { resetInMemoryRepositories } from '@nagiyu/codec-converter-core';
 import { POST } from '@/app/api/jobs/route';
 
 jest.mock('uuid', () => ({
@@ -48,6 +49,8 @@ describe('POST /api/jobs', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.replaceProperty(process, 'env', { ...process.env, DYNAMODB_TABLE_NAME: 'test-table' });
+    resetInMemoryRepositories();
     jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate'] }).setSystemTime(NOW);
     consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
     mockedGetAwsClients.mockReturnValue({
@@ -62,6 +65,7 @@ describe('POST /api/jobs', () => {
   afterEach(() => {
     jest.useRealTimers();
     consoleErrorSpy.mockRestore();
+    jest.restoreAllMocks();
   });
 
   it('ジョブを作成し、Presigned URL を 201 で返す', async () => {

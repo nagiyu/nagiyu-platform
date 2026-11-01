@@ -5,11 +5,11 @@ import {
   type ExchangeEntity,
   DEFAULT_PRICE_SOURCE,
   type PriceSource,
+  createExchangeRepository,
 } from '@nagiyu/stock-tracker-core';
 import { withAuth, readJsonObjectBody } from '@nagiyu/nextjs';
 import { getSession } from '../../../lib/auth';
 import { withApiErrorReporting } from '../../../lib/api-error-reporting';
-import { createExchangeRepository } from '../../../lib/repository-factory';
 import {
   isExchangeMarket,
   isOptionalString,

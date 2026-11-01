@@ -3,6 +3,7 @@
  */
 
 import { reportErrorEvent } from '@nagiyu/aws';
+import { errorReporter } from '@/lib/api-error-reporting';
 
 const mockUpsertUser = jest.fn();
 
@@ -14,6 +15,10 @@ const capturedCallbacks: { jwt?: JwtCallback } = {};
 
 jest.mock('@nagiyu/aws', () => ({
   reportErrorEvent: jest.fn().mockResolvedValue(null),
+}));
+
+jest.mock('@/lib/api-error-reporting', () => ({
+  errorReporter: { report: jest.fn().mockResolvedValue(null), onError: jest.fn(() => jest.fn()) },
 }));
 
 jest.mock('@nagiyu/nextjs', () => ({
@@ -124,14 +129,11 @@ describe('jwt コールバック', () => {
       })
     ).rejects.toThrow(dbError);
 
-    expect(reportErrorEvent).toHaveBeenCalledTimes(1);
-    expect(reportErrorEvent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        serviceId: 'auth',
-        severity: 'error',
-        message: 'DynamoDB タイムアウト',
-        context: expect.objectContaining({ step: 'loginUserLookup' }),
-      })
+    expect(errorReporter.report).toHaveBeenCalledTimes(1);
+    expect(errorReporter.report).toHaveBeenCalledWith(
+      'jwt コールバック: ログイン時のユーザー情報取得に失敗しました',
+      dbError,
+      { context: { step: 'loginUserLookup' } }
     );
   });
 });
@@ -231,8 +233,9 @@ describe('signIn コールバック', () => {
     expect(JSON.stringify(call.context)).not.toContain('@example.com');
   });
 
-  it('upsertUser エラー時は reportErrorEvent を呼び false を返す', async () => {
-    mockUpsertUser.mockRejectedValueOnce(new Error('DynamoDB error'));
+  it('upsertUser エラー時は errorReporter.report を呼び false を返す', async () => {
+    const upsertError = new Error('DynamoDB error');
+    mockUpsertUser.mockRejectedValueOnce(upsertError);
 
     const result = await signIn({
       user: { email: 'test@example.com', name: 'Test' },
@@ -240,17 +243,14 @@ describe('signIn コールバック', () => {
     });
 
     expect(result).toBe(false);
-    expect(reportErrorEvent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        serviceId: 'auth',
-        severity: 'error',
-        title: 'signIn: ユーザー upsert エラー',
-        message: 'DynamoDB error',
-      })
+    // メールアドレスや Google ID を context に載せない
+    expect(errorReporter.report).toHaveBeenCalledWith(
+      'signIn: ユーザー upsert エラー',
+      upsertError,
+      {
+        context: { step: 'upsertUser' },
+      }
     );
-    const call = (reportErrorEvent as jest.Mock).mock.calls[0][0];
-    expect(JSON.stringify(call.context)).not.toContain('google-secret-id');
-    expect(JSON.stringify(call.context)).not.toContain('@example.com');
   });
 
   it('upsertUser が Error 以外をスローした場合も false を返す', async () => {
@@ -262,11 +262,10 @@ describe('signIn コールバック', () => {
     });
 
     expect(result).toBe(false);
-    expect(reportErrorEvent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        message: 'string error from db',
-        context: expect.objectContaining({ errorStack: undefined }),
-      })
+    expect(errorReporter.report).toHaveBeenCalledWith(
+      'signIn: ユーザー upsert エラー',
+      'string error from db',
+      { context: { step: 'upsertUser' } }
     );
   });
 
@@ -278,5 +277,6 @@ describe('signIn コールバック', () => {
 
     expect(result).toBe(true);
     expect(reportErrorEvent).not.toHaveBeenCalled();
+    expect(errorReporter.report).not.toHaveBeenCalled();
   });
 });

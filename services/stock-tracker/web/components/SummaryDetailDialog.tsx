@@ -26,7 +26,7 @@ import AxisBreakdownTable from './AxisBreakdownTable';
 import ForecastLabelChip from './ForecastLabelChip';
 import StockChart from './StockChart';
 import { useSession } from 'next-auth/react';
-import { hasUserPermission } from '@nagiyu/common';
+import { formatJstDateTime, hasUserPermission } from '@nagiyu/common';
 import type { TickerSummary } from '@/types/stock';
 import type { AlertMode } from '@/types/alert';
 import type { ForecastDetailResponse, QuestionDetail } from '@/types/forecast';
@@ -395,7 +395,9 @@ export default function SummaryDetailDialog({
                       <TableCell component="th" scope="row" sx={{ color: 'text.secondary' }}>
                         更新日時
                       </TableCell>
-                      <TableCell>{new Date(summary.updatedAt).toLocaleString('ja-JP')}</TableCell>
+                      <TableCell>
+                        {formatJstDateTime(new Date(summary.updatedAt), { seconds: true })}
+                      </TableCell>
                     </TableRow>
                   </TableBody>
                 </Table>

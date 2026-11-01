@@ -5,16 +5,12 @@
  */
 
 import { logger, runSettledWithConcurrency, sleep, toErrorMessage } from '@nagiyu/common';
-import {
-  createScheduledHandler,
-  getDynamoDBDocumentClient,
-  getTableName,
-  reportErrorEvent,
-} from '@nagiyu/aws';
+import { createScheduledHandler, getDynamoDBDocumentClient, getTableName } from '@nagiyu/aws';
 import { sendWebPushNotification, getVapidConfig } from '@nagiyu/common/push';
 import { createAlertNotificationPayload } from './lib/web-push-client.js';
+import { errorReporter } from './lib/error-reporter.js';
 import type { ExchangeRepository } from '@nagiyu/stock-tracker-core';
-import { DynamoDBAlertRepository, DynamoDBExchangeRepository } from '@nagiyu/stock-tracker-core';
+import { createAlertRepository, createExchangeRepository } from '@nagiyu/stock-tracker-core';
 import { evaluateAlert } from '@nagiyu/stock-tracker-core';
 import { isTradingHours } from '@nagiyu/stock-tracker-core';
 import {
@@ -190,16 +186,9 @@ async function processAlert(
       userId: alert.userId,
       error: errorMessage,
     });
-    await reportErrorEvent({
-      serviceId: 'stock-tracker',
+    await errorReporter.report('分次バッチ: アラート処理エラー', error, {
       severity: 'warning',
-      title: '分次バッチ: アラート処理エラー',
-      message: errorMessage,
-      context: {
-        alertId: alert.alertId,
-        userId: alert.userId,
-        errorStack: error instanceof Error ? error.stack : undefined,
-      },
+      context: { alertId: alert.alertId, userId: alert.userId },
     });
     stats.errors++;
     return false;
@@ -261,8 +250,8 @@ export const handler = createScheduledHandler(
       // DynamoDB クライアントとリポジトリの初期化
       const docClient = getDynamoDBDocumentClient();
       const tableName = getTableName();
-      const alertRepo = new DynamoDBAlertRepository(docClient, tableName);
-      const exchangeRepo = new DynamoDBExchangeRepository(docClient, tableName);
+      const alertRepo = createAlertRepository(docClient, tableName);
+      const exchangeRepo = createExchangeRepository(docClient, tableName);
 
       // 1. GSI2 で MINUTE_LEVEL アラート一覧を取得（全件、内部でページを辿り切る）
       const alerts = await alertRepo.getByFrequency('MINUTE_LEVEL');

@@ -3,8 +3,20 @@ import userEvent from '@testing-library/user-event';
 import { axe } from 'jest-axe';
 import Header from '../../../../src/components/layout/Header';
 import type { NavigationItem } from '../../../../src/components/layout/Header';
+import { usePathname } from 'next/navigation';
+
+// 副作用のある usePathname だけを差し替え、現在項目の判定は実物を使う
+jest.mock('next/navigation', () => ({
+  usePathname: jest.fn(),
+}));
+
+const mockUsePathname = usePathname as jest.Mock;
 
 describe('Header', () => {
+  beforeEach(() => {
+    mockUsePathname.mockReturnValue(null);
+  });
+
   describe('レンダリング', () => {
     it('デフォルトpropsで正しくレンダリングされる', () => {
       render(<Header />);
@@ -228,6 +240,103 @@ describe('Header', () => {
       // Drawer 内のすべてのリンクが表示されている
       const links = within(navBox).getAllByRole('link');
       expect(links.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('現在のページの表示', () => {
+    const items: NavigationItem[] = [
+      { label: 'ホーム', href: '/' },
+      { label: '技術記事', href: '/tech' },
+      {
+        label: '管理',
+        href: '#',
+        children: [
+          { label: 'ユーザー', href: '/admin/users' },
+          { label: '設定', href: '/admin/settings' },
+        ],
+      },
+    ];
+
+    it('パスに一致するデスクトップのリンクだけに aria-current が付き、太字になる', () => {
+      mockUsePathname.mockReturnValue('/tech/some-article');
+      render(<Header navigationItems={items} />);
+
+      const tech = screen.getByRole('link', { name: '技術記事' });
+      expect(tech).toHaveAttribute('aria-current', 'page');
+      expect(tech).toHaveStyle({ fontWeight: '700' });
+      expect(screen.getByRole('link', { name: 'ホーム' })).not.toHaveAttribute('aria-current');
+    });
+
+    it('pathname が null のとき、どの項目にも aria-current が付かない', () => {
+      render(<Header navigationItems={items} />);
+
+      expect(document.querySelector('[aria-current]')).toBeNull();
+    });
+
+    it('ドロップダウンの子が現在のとき、子に selected と aria-current が付き、親には下線と太字だけが付く', async () => {
+      mockUsePathname.mockReturnValue('/admin/users');
+      const user = userEvent.setup();
+      render(<Header navigationItems={items} />);
+
+      const parent = screen.getByRole('button', { name: '管理 メニュー' });
+      expect(parent).not.toHaveAttribute('aria-current');
+      expect(parent).toHaveStyle({ fontWeight: '700' });
+
+      await user.click(parent);
+      const current = screen.getByRole('menuitem', { name: 'ユーザー' });
+      expect(current).toHaveAttribute('aria-current', 'page');
+      expect(current).toHaveClass('Mui-selected');
+      const other = screen.getByRole('menuitem', { name: '設定' });
+      expect(other).not.toHaveAttribute('aria-current');
+      expect(other).not.toHaveClass('Mui-selected');
+    });
+
+    it('子が現在でないとき、親ボタンは強調されない', () => {
+      mockUsePathname.mockReturnValue('/tech');
+      render(<Header navigationItems={items} />);
+
+      expect(screen.getByRole('button', { name: '管理 メニュー' })).not.toHaveStyle({
+        fontWeight: '700',
+      });
+    });
+
+    it('ドロワーのリンク項目に selected と aria-current が付く', async () => {
+      mockUsePathname.mockReturnValue('/tech');
+      const user = userEvent.setup();
+      render(<Header navigationItems={items} />);
+
+      await user.click(screen.getByLabelText('メニューを開く'));
+      const nav = screen.getByRole('navigation', { name: 'ナビゲーションメニュー' });
+      const tech = within(nav).getByRole('link', { name: '技術記事' });
+      expect(tech).toHaveAttribute('aria-current', 'page');
+      expect(tech).toHaveClass('Mui-selected');
+      expect(within(nav).getByRole('link', { name: 'ホーム' })).not.toHaveAttribute('aria-current');
+    });
+
+    it('ドロワーの子が現在のとき、親は初期状態で開き、親に aria-current は付かない', async () => {
+      mockUsePathname.mockReturnValue('/admin/settings');
+      const user = userEvent.setup();
+      render(<Header navigationItems={items} />);
+
+      await user.click(screen.getByLabelText('メニューを開く'));
+      const nav = screen.getByRole('navigation', { name: 'ナビゲーションメニュー' });
+      const child = within(nav).getByRole('link', { name: '設定' });
+      expect(child).toHaveAttribute('aria-current', 'page');
+      expect(child).toHaveClass('Mui-selected');
+      expect(within(nav).getByRole('link', { name: 'ユーザー' })).not.toHaveAttribute(
+        'aria-current'
+      );
+      expect(within(nav).getByRole('button', { name: /管理/ })).not.toHaveAttribute('aria-current');
+    });
+
+    it('ドロワーの子が現在でないとき、親は閉じたまま', async () => {
+      mockUsePathname.mockReturnValue('/tech');
+      const user = userEvent.setup();
+      render(<Header navigationItems={items} />);
+
+      await user.click(screen.getByLabelText('メニューを開く'));
+      const nav = screen.getByRole('navigation', { name: 'ナビゲーションメニュー' });
+      expect(within(nav).queryByRole('link', { name: '設定' })).not.toBeInTheDocument();
     });
   });
 

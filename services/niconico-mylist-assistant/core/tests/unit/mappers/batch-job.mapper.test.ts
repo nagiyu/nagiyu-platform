@@ -256,6 +256,8 @@ describe('BatchJobMapper', () => {
       ['配列', []],
       ['keys がない', { endpoint: 'https://push.example.com/abc' }],
       ['keys が配列', { endpoint: 'https://push.example.com/abc', keys: [] }],
+      ['keys が null', { endpoint: 'https://push.example.com/abc', keys: null }],
+      ['keys が文字列', { endpoint: 'https://push.example.com/abc', keys: 'x' }],
       ['endpoint がない', { keys: { p256dh: 'a', auth: 'b' } }],
       ['p256dh がない', { endpoint: 'https://push.example.com/abc', keys: { auth: 'b' } }],
       ['auth がない', { endpoint: 'https://push.example.com/abc', keys: { p256dh: 'a' } }],

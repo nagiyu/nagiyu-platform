@@ -27,6 +27,8 @@ export {
   validateNumberField,
   validateEnumField,
   validateBooleanField,
+  validateObjectField,
+  validateArrayField,
   validateTimestampField,
   readAttribute,
   readTimestamp,
@@ -67,8 +69,13 @@ export {
 // EntityStore (CRUD の骨格)
 export type {
   EntityStore,
+  EntityCreateInput,
+  EntityCreateOptions,
+  EntityPutInput,
   EntityReadOptions,
   EntityWriteOptions,
+  CreateIfAbsentResult,
+  UpdateIfAttributeAbsentResult,
 } from './store/entity-store.interface.js';
 export {
   DynamoDBEntityStore,
@@ -88,7 +95,14 @@ export {
 } from './in-memory/single-table-store.js';
 
 // ページネーション
-export { queryPages, queryAllItems, scanAllItems } from './pagination.js';
+export {
+  queryPages,
+  queryAllItems,
+  scanAllItems,
+  queryPage,
+  scanPage,
+  type PageRequest,
+} from './pagination.js';
 
 // バッチ処理
 export {

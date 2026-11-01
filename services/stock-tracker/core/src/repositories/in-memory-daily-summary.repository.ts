@@ -7,7 +7,6 @@
 import {
   InMemoryEntityStore,
   type AttributeQueryCondition,
-  type DynamoDBAttributes,
   type EntityStore,
   type InMemorySingleTableStore,
 } from '@nagiyu/aws';
@@ -23,11 +22,6 @@ import {
   buildExchangeSummaryGsi4DatePrefix,
   buildExchangeSummaryGsi4DateUpperBound,
 } from '../mappers/exchange-summary-index.js';
-
-// store既定のqueryByAttribute limit (100件) で打ち切られると、GSI4SK昇順の先頭ページ
-// (最古側) だけが返り「最新日」の算出などが壊れるため、cursorループにより全件集約する
-// (ページサイズ自体は任意)。
-const GSI4_FULL_AGGREGATION_PAGE_SIZE = 100;
 
 /**
  * InMemory Daily Summary Repository
@@ -61,7 +55,7 @@ export class InMemoryDailySummaryRepository implements DailySummaryRepository {
    * GSI4（ExchangeSummaryIndex）をqueryByAttributeでシミュレートする。GSI4SK
    * （`DATE#{Date}#{TickerID}`）昇順ソートで、インタフェース契約のDate昇順・
    * 同日内TickerID昇順を実現する。store既定limit（100件）による打ち切りを避けるため、
-   * queryAllByGsi4のcursorループで全件を集約してから最新日を判定する（date省略時）。
+   * queryAllByGsi4で全件を取得してから最新日を判定する（date省略時）。
    */
   public async getByExchange(exchangeId: string, date?: string): Promise<DailySummaryEntity[]> {
     const summaries = this.queryAllByGsi4({
@@ -130,7 +124,7 @@ export class InMemoryDailySummaryRepository implements DailySummaryRepository {
     fromDate: string,
     toDate: string
   ): Promise<DailySummaryForecastFields[]> {
-    const items = this.queryRawByGsi4({
+    const items = this.store.queryAllByAttribute({
       attributeName: 'GSI4PK',
       attributeValue: buildDailySummaryGsi4Pk(exchangeId),
       sk: {
@@ -146,48 +140,20 @@ export class InMemoryDailySummaryRepository implements DailySummaryRepository {
   }
 
   /**
-   * GSI4条件に一致する全アイテムをcursorループで集約し、Entityへ変換して返す。
-   * store既定limit（100件）による打ち切りを避けるため、getByExchange /
-   * getByExchangeAndDateRangeはこのヘルパーを経由する。
+   * GSI4条件に一致する全アイテムを取得し、Entityへ変換して返す。
+   * getByExchange / getByExchangeAndDateRangeはこのヘルパーを経由する。
    */
   private queryAllByGsi4(condition: AttributeQueryCondition): DailySummaryEntity[] {
-    return this.queryRawByGsi4(condition).map((item) => this.mapper.toEntity(item));
-  }
-
-  /**
-   * GSI4条件に一致する全アイテム (生の Item のまま) をcursorループで集約する。
-   * Entity への変換方法が呼び出し側で異なる（`toEntity` / `toForecastFields`）ため、
-   * 変換前の生アイテム集約だけをここに切り出す。
-   */
-  private queryRawByGsi4(condition: AttributeQueryCondition): DynamoDBAttributes[] {
-    const items: DynamoDBAttributes[] = [];
-    let cursor: string | undefined;
-
-    do {
-      const page = this.store.queryByAttribute(condition, {
-        limit: GSI4_FULL_AGGREGATION_PAGE_SIZE,
-        cursor,
-      });
-      items.push(...page.items);
-      cursor = page.nextCursor;
-    } while (cursor);
-
-    return items;
+    return this.store.queryAllByAttribute(condition).map((item) => this.mapper.toEntity(item));
   }
 
   /**
    * サマリーを保存（既存の場合は上書き）
    *
    * 上書きしても作成日時は最初の値を保つため、先に既存を読んで引き継ぐ。
-   * updatedAt は store が書き込み時に現在時刻で上書きする。
    */
   public async upsert(input: CreateDailySummaryInput): Promise<DailySummaryEntity> {
     const existing = await this.entityStore.get({ tickerId: input.tickerId, date: input.date });
-    const now = Date.now();
-    return this.entityStore.put({
-      ...input,
-      createdAt: existing?.createdAt ?? now,
-      updatedAt: now,
-    });
+    return this.entityStore.put({ ...input, createdAt: existing?.createdAt });
   }
 }

@@ -59,18 +59,15 @@ jest.mock('node:child_process', () => ({
   spawn: mockSpawn,
 }));
 
-jest.mock('../../../src/repositories/dynamodb-job.repository.js', () => ({
-  DynamoDBJobRepository: jest.fn().mockImplementation(() => ({
+jest.mock('../../../src/repositories/factory.js', () => ({
+  createJobRepository: jest.fn().mockImplementation(() => ({
     getById: jest.fn(),
     create: jest.fn(),
     updateBatchJobId: jest.fn(),
     updateBatchStage: jest.fn(),
     updateErrorMessage: jest.fn(),
   })),
-}));
-
-jest.mock('../../../src/repositories/dynamodb-highlight.repository.js', () => ({
-  DynamoDBHighlightRepository: jest.fn().mockImplementation(() => ({
+  createHighlightRepository: jest.fn().mockImplementation(() => ({
     createMany: mockCreateMany,
   })),
 }));
@@ -124,18 +121,12 @@ jest.mock('../../../src/libs/emotion-highlight.service.js', () => ({
   })),
 }));
 
-jest.mock('@nagiyu/aws', () => ({
-  ...jest.requireActual('@nagiyu/aws'),
-  reportErrorEvent: jest.fn().mockResolvedValue(null),
-}));
-
-import { reportErrorEvent } from '@nagiyu/aws';
+import { createErrorEventWriter, resetErrorEventWriter } from '@nagiyu/aws';
+import type { InMemoryErrorEventWriter } from '@nagiyu/aws';
 import {
   runQuickClipBatch,
   type QuickClipBatchRunInput,
 } from '../../../src/libs/quick-clip-batch-runner.js';
-
-const reportErrorEventMock = reportErrorEvent as jest.MockedFunction<typeof reportErrorEvent>;
 
 const input: QuickClipBatchRunInput = {
   command: 'extract',
@@ -148,9 +139,20 @@ const input: QuickClipBatchRunInput = {
 const JOB_EXPIRES_AT = 1234567890;
 
 describe('runQuickClipBatch', () => {
+  afterEach(() => {
+    delete process.env.USE_IN_MEMORY_DB;
+    delete process.env.ERROR_EVENTS_TABLE_NAME;
+    resetErrorEventWriter();
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
     jest.useRealTimers();
+
+    // レポーターは実物を通し、書き込み先の in-memory ライターで報告内容を確かめる
+    process.env.USE_IN_MEMORY_DB = 'true';
+    process.env.ERROR_EVENTS_TABLE_NAME = 'test-error-events';
+    resetErrorEventWriter();
 
     mockMkdir.mockResolvedValue(undefined);
     mockStat.mockResolvedValue({ size: 10 * 1024 * 1024 });
@@ -226,14 +228,22 @@ describe('runQuickClipBatch', () => {
       'job-1',
       'アップロード済みの動画ファイルが見つかりません: uploads/job-1/input.mp4'
     );
-    expect(reportErrorEventMock).toHaveBeenCalledWith(
+    const reported = (createErrorEventWriter() as InMemoryErrorEventWriter).getRecords();
+    expect(reported).toEqual([
       expect.objectContaining({
         serviceId: 'quick-clip',
         severity: 'error',
+        title: 'QuickClip 抽出処理が失敗しました',
         message: 'アップロード済みの動画ファイルが見つかりません: uploads/job-1/input.mp4',
-        context: expect.objectContaining({ jobId: 'job-1', command: 'extract' }),
-      })
-    );
+      }),
+    ]);
+    expect(JSON.parse(reported[0].context)).toEqual({
+      jobId: 'job-1',
+      command: 'extract',
+      errorName: 'Error',
+      errorMessage: 'アップロード済みの動画ファイルが見つかりません: uploads/job-1/input.mp4',
+      errorStack: expect.any(String),
+    });
   });
 
   it('extract コマンドで生成する見どころは clipStatus を GENERATED で保存する', async () => {
@@ -405,14 +415,21 @@ describe('runQuickClipBatch', () => {
     const inputWithKey: QuickClipBatchRunInput = { ...input, openAiApiKey: 'sk-test-key' };
     await expect(runQuickClipBatch(inputWithKey)).resolves.toBeUndefined();
 
-    expect(reportErrorEventMock).toHaveBeenCalledWith(
+    const reported = (createErrorEventWriter() as InMemoryErrorEventWriter).getRecords();
+    expect(reported).toEqual([
       expect.objectContaining({
         serviceId: 'quick-clip',
         severity: 'warning',
         message: 'emotion api failed',
-        context: expect.objectContaining({ jobId: 'job-1', stage: 'emotionScoring' }),
-      })
-    );
+      }),
+    ]);
+    expect(JSON.parse(reported[0].context)).toEqual({
+      jobId: 'job-1',
+      stage: 'emotionScoring',
+      errorName: 'Error',
+      errorMessage: 'emotion api failed',
+      errorStack: expect.stringContaining('emotion api failed'),
+    });
     expect(mockUpdateErrorMessage).not.toHaveBeenCalled();
   });
 

@@ -8,6 +8,9 @@ const config: Config = {
   moduleNameMapper: {
     // @nagiyu/ui の CSS Modules import をスタブ化（クラス名そのものを返す）
     '\\.module\\.css$': 'identity-obj-proxy',
+    // tokens.css / base.css は CSS Modules ではないため別途スタブ化（global-error が参照する）
+    '^@nagiyu/ui/tokens\\.css$': 'identity-obj-proxy',
+    '^@nagiyu/ui/base\\.css$': 'identity-obj-proxy',
     '^@/(.*)$': '<rootDir>/$1',
     '^@nagiyu/stock-tracker-core$': '<rootDir>/../core/src/index.ts',
     '^@nagiyu/aws$': '<rootDir>/../../../libs/aws/src/index.ts',
@@ -23,7 +26,6 @@ const config: Config = {
   modulePathIgnorePatterns: ['<rootDir>/../../../package.json'],
   coverageDirectory: 'coverage',
   collectCoverageFrom: [
-    'lib/repository-factory.ts',
     'lib/api-error-reporting.ts',
     'lib/percentage-helper.ts',
     'lib/home-query.ts',

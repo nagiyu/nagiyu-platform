@@ -6,10 +6,9 @@ import {
   type Job,
   type JobStatus,
   type CodecType,
-  formatDateTime,
   formatJobId,
 } from '@nagiyu/codec-converter-core';
-import { formatFileSize } from '@nagiyu/common';
+import { formatFileSize, formatJstDateTime } from '@nagiyu/common';
 import { Container, Typography, Card, CardContent, Stack, Box } from '@mui/material';
 import { Button, Chip, ErrorAlert } from '@nagiyu/ui';
 import RefreshIcon from '@mui/icons-material/Refresh';
@@ -276,7 +275,9 @@ export default function JobDetailsPage({ params }: JobDetailsPageProps) {
               <Typography component="span" sx={{ fontWeight: 'bold', mr: 1, whiteSpace: 'nowrap' }}>
                 作成日時:
               </Typography>
-              <Typography component="span">{formatDateTime(job.createdAt)}</Typography>
+              <Typography component="span">
+                {formatJstDateTime(job.createdAt, { seconds: true })}
+              </Typography>
             </Box>
           </Stack>
         </CardContent>

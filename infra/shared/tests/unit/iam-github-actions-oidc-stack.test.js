@@ -3,9 +3,7 @@ const { Template, Match } = require('aws-cdk-lib/assertions');
 const iam = require('aws-cdk-lib/aws-iam');
 
 require('ts-node/register/transpile-only');
-const {
-  IamGitHubActionsOidcStack,
-} = require('../../lib/iam/iam-github-actions-oidc-stack');
+const { IamGitHubActionsOidcStack } = require('../../lib/iam/iam-github-actions-oidc-stack');
 
 describe('IamGitHubActionsOidcStack', () => {
   const ALL_ROLE_IDS = ['DevRole', 'ProdRole', 'PrRole'];
@@ -141,7 +139,8 @@ describe('IamGitHubActionsOidcStack', () => {
             Condition: {
               StringEquals: {
                 'token.actions.githubusercontent.com:aud': 'sts.amazonaws.com',
-                'token.actions.githubusercontent.com:sub': 'repo:nagiyu/nagiyu-platform:pull_request',
+                'token.actions.githubusercontent.com:sub':
+                  'repo:nagiyu/nagiyu-platform:pull_request',
               },
             },
           }),
@@ -197,7 +196,7 @@ describe('IamGitHubActionsOidcStack', () => {
     );
   });
 
-  it('prod スコープ相当（roleIds: [\'ProdRole\']）では ProdRole のみを作成する', () => {
+  it("prod スコープ相当（roleIds: ['ProdRole']）では ProdRole のみを作成する", () => {
     const template = createTemplate({ roleIds: ['ProdRole'] });
 
     template.resourceCountIs('AWS::IAM::Role', 1);

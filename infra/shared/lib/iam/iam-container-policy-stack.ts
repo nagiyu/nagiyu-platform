@@ -17,116 +17,115 @@ export class IamContainerPolicyStack extends cdk.Stack {
       managedPolicyName: 'nagiyu-deploy-policy-container',
       description: 'nagiyu コンテナデプロイ権限（ECR, ECS, Batch）',
       statements: [
-          // ECR Operations
-          new iam.PolicyStatement({
-            sid: 'ECROperations',
-            effect: iam.Effect.ALLOW,
-            actions: [
-              // Authentication
-              'ecr:GetAuthorizationToken',
-              // Repository management
-              'ecr:CreateRepository',
-              'ecr:DeleteRepository',
-              'ecr:DescribeRepositories',
-              'ecr:TagResource',
-              'ecr:UntagResource',
-              'ecr:ListTagsForResource',
-              // Image operations
-              'ecr:BatchCheckLayerAvailability',
-              'ecr:BatchGetImage',
-              'ecr:GetDownloadUrlForLayer',
-              'ecr:PutImage',
-              'ecr:InitiateLayerUpload',
-              'ecr:UploadLayerPart',
-              'ecr:CompleteLayerUpload',
-              'ecr:ListImages',
-              'ecr:DescribeImages',
-              // Repository policy
-              'ecr:GetRepositoryPolicy',
-              'ecr:SetRepositoryPolicy',
-              'ecr:DeleteRepositoryPolicy',
-              // Lifecycle policy
-              'ecr:PutLifecyclePolicy',
-              'ecr:GetLifecyclePolicy',
-              'ecr:DeleteLifecyclePolicy',
-            ],
-            resources: ['*'],
-          }),
-          // ECR Public Pull
-          // ベースイメージ (public.ecr.aws) を認証付きで pull するために必要。
-          // 匿名 pull は送信元 IP 単位のクォータで、共有 IP の runner では枠を消費されるため。
-          new iam.PolicyStatement({
-            sid: 'ECRPublicPull',
-            effect: iam.Effect.ALLOW,
-            actions: ['ecr-public:GetAuthorizationToken', 'sts:GetServiceBearerToken'],
-            resources: ['*'],
-          }),
-          // ECS Operations
-          new iam.PolicyStatement({
-            sid: 'ECSOperations',
-            effect: iam.Effect.ALLOW,
-            actions: [
-              // Cluster
-              'ecs:CreateCluster',
-              'ecs:DeleteCluster',
-              'ecs:DescribeClusters',
-              'ecs:ListClusters',
-              'ecs:PutClusterCapacityProviders',
-              // Task Definition
-              'ecs:RegisterTaskDefinition',
-              'ecs:DeregisterTaskDefinition',
-              'ecs:DescribeTaskDefinition',
-              'ecs:ListTaskDefinitions',
-              'ecs:ListTaskDefinitionFamilies',
-              // Service
-              'ecs:CreateService',
-              'ecs:UpdateService',
-              'ecs:DeleteService',
-              'ecs:DescribeServices',
-              'ecs:ListServices',
-              // Task
-              'ecs:RunTask',
-              'ecs:StopTask',
-              'ecs:DescribeTasks',
-              'ecs:ListTasks',
-              // Container Instance
-              'ecs:DescribeContainerInstances',
-              'ecs:ListContainerInstances',
-              // Tags
-              'ecs:TagResource',
-              'ecs:UntagResource',
-              'ecs:ListTagsForResource',
-            ],
-            resources: ['*'],
-          }),
-          // Batch Operations
-          new iam.PolicyStatement({
-            sid: 'BatchOperations',
-            effect: iam.Effect.ALLOW,
-            actions: [
-              // Compute Environment
-              'batch:CreateComputeEnvironment',
-              'batch:DeleteComputeEnvironment',
-              'batch:UpdateComputeEnvironment',
-              'batch:DescribeComputeEnvironments',
-              // Job Queue
-              'batch:CreateJobQueue',
-              'batch:DeleteJobQueue',
-              'batch:UpdateJobQueue',
-              'batch:DescribeJobQueues',
-              // Job Definition
-              'batch:RegisterJobDefinition',
-              'batch:DeregisterJobDefinition',
-              'batch:DescribeJobDefinitions',
-              // Tags
-              'batch:TagResource',
-              'batch:UntagResource',
-            ],
-            resources: ['*'],
-          }),
-        ],
-      }
-    );
+        // ECR Operations
+        new iam.PolicyStatement({
+          sid: 'ECROperations',
+          effect: iam.Effect.ALLOW,
+          actions: [
+            // Authentication
+            'ecr:GetAuthorizationToken',
+            // Repository management
+            'ecr:CreateRepository',
+            'ecr:DeleteRepository',
+            'ecr:DescribeRepositories',
+            'ecr:TagResource',
+            'ecr:UntagResource',
+            'ecr:ListTagsForResource',
+            // Image operations
+            'ecr:BatchCheckLayerAvailability',
+            'ecr:BatchGetImage',
+            'ecr:GetDownloadUrlForLayer',
+            'ecr:PutImage',
+            'ecr:InitiateLayerUpload',
+            'ecr:UploadLayerPart',
+            'ecr:CompleteLayerUpload',
+            'ecr:ListImages',
+            'ecr:DescribeImages',
+            // Repository policy
+            'ecr:GetRepositoryPolicy',
+            'ecr:SetRepositoryPolicy',
+            'ecr:DeleteRepositoryPolicy',
+            // Lifecycle policy
+            'ecr:PutLifecyclePolicy',
+            'ecr:GetLifecyclePolicy',
+            'ecr:DeleteLifecyclePolicy',
+          ],
+          resources: ['*'],
+        }),
+        // ECR Public Pull
+        // ベースイメージ (public.ecr.aws) を認証付きで pull するために必要。
+        // 匿名 pull は送信元 IP 単位のクォータで、共有 IP の runner では枠を消費されるため。
+        new iam.PolicyStatement({
+          sid: 'ECRPublicPull',
+          effect: iam.Effect.ALLOW,
+          actions: ['ecr-public:GetAuthorizationToken', 'sts:GetServiceBearerToken'],
+          resources: ['*'],
+        }),
+        // ECS Operations
+        new iam.PolicyStatement({
+          sid: 'ECSOperations',
+          effect: iam.Effect.ALLOW,
+          actions: [
+            // Cluster
+            'ecs:CreateCluster',
+            'ecs:DeleteCluster',
+            'ecs:DescribeClusters',
+            'ecs:ListClusters',
+            'ecs:PutClusterCapacityProviders',
+            // Task Definition
+            'ecs:RegisterTaskDefinition',
+            'ecs:DeregisterTaskDefinition',
+            'ecs:DescribeTaskDefinition',
+            'ecs:ListTaskDefinitions',
+            'ecs:ListTaskDefinitionFamilies',
+            // Service
+            'ecs:CreateService',
+            'ecs:UpdateService',
+            'ecs:DeleteService',
+            'ecs:DescribeServices',
+            'ecs:ListServices',
+            // Task
+            'ecs:RunTask',
+            'ecs:StopTask',
+            'ecs:DescribeTasks',
+            'ecs:ListTasks',
+            // Container Instance
+            'ecs:DescribeContainerInstances',
+            'ecs:ListContainerInstances',
+            // Tags
+            'ecs:TagResource',
+            'ecs:UntagResource',
+            'ecs:ListTagsForResource',
+          ],
+          resources: ['*'],
+        }),
+        // Batch Operations
+        new iam.PolicyStatement({
+          sid: 'BatchOperations',
+          effect: iam.Effect.ALLOW,
+          actions: [
+            // Compute Environment
+            'batch:CreateComputeEnvironment',
+            'batch:DeleteComputeEnvironment',
+            'batch:UpdateComputeEnvironment',
+            'batch:DescribeComputeEnvironments',
+            // Job Queue
+            'batch:CreateJobQueue',
+            'batch:DeleteJobQueue',
+            'batch:UpdateJobQueue',
+            'batch:DescribeJobQueues',
+            // Job Definition
+            'batch:RegisterJobDefinition',
+            'batch:DeregisterJobDefinition',
+            'batch:DescribeJobDefinitions',
+            // Tags
+            'batch:TagResource',
+            'batch:UntagResource',
+          ],
+          resources: ['*'],
+        }),
+      ],
+    });
 
     new cdk.CfnOutput(this, 'ContainerPolicyArnExport', {
       value: this.policy.managedPolicyArn,

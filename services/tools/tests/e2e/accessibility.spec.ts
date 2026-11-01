@@ -155,7 +155,7 @@ test.describe('Accessibility Tests - Transit Converter @a11y', () => {
   test('should have accessible buttons with ARIA labels', async ({ page }) => {
     // All main buttons should have proper aria-label
     const readButton = page.getByRole('button', {
-      name: 'クリップボードから乗り換え案内テキストを読み取る',
+      name: 'クリップボードから読み取り (乗り換え案内テキスト)',
     });
     await expect(readButton).toHaveAttribute('aria-label');
 

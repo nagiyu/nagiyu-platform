@@ -4,7 +4,7 @@
  * DynamoDBMarketForecastRepositoryのユニットテスト
  *
  * 単一アイテムの作成・取得の振る舞い (条件式・エラー変換など) は EntityStore の責務のため、
- * ここでは createIfAbsent の「既存を返す」扱い、条件付きの Outcome 追記、市場の期間 Query だけを検証する。
+ * ここでは createIfAbsent / appendOutcome が EntityStore の結果を詰め替えること、エラーを伝播すること、市場の期間 Query だけを検証する。
  */
 import {
   GetCommand,
@@ -48,6 +48,11 @@ function conditionalCheckFailed(): Error {
   const error = new Error('The conditional request failed');
   error.name = 'ConditionalCheckFailedException';
   return error;
+}
+
+/** 旧 Item が付いた条件失敗。EntityStore は旧 Item の有無で「不在」と「属性が設定済み」を見分ける */
+function conditionalCheckFailedWithOldItem(): Error {
+  return Object.assign(conditionalCheckFailed(), { Item: { PK: { S: 'dummy' } } });
 }
 
 describe('DynamoDBMarketForecastRepository', () => {
@@ -160,12 +165,12 @@ describe('DynamoDBMarketForecastRepository', () => {
       expect(command.input).toMatchObject({
         TableName: TABLE_NAME,
         Key: { PK: 'MARKETFORECAST#US', SK: 'DATE#2026-02-27' },
-        ConditionExpression: 'attribute_exists(#pk) AND attribute_not_exists(#outcome)',
+        ConditionExpression: 'attribute_exists(#pk) AND attribute_not_exists(#absent0)',
         ReturnValues: 'ALL_NEW',
       });
       expect(command.input.ExpressionAttributeNames).toMatchObject({
         '#pk': 'PK',
-        '#outcome': 'Outcome',
+        '#absent0': 'Outcome',
       });
     });
 
@@ -191,11 +196,17 @@ describe('DynamoDBMarketForecastRepository', () => {
     });
 
     it('既に Outcome がある場合は書き込まず updated:false で既存のアイテムを返す', async () => {
-      mockDocClient.send.mockRejectedValueOnce(conditionalCheckFailed()).mockResolvedValueOnce({
-        Item: buildItem({
-          Outcome: { nextDate: '2026-02-28', hit: { MKT: false }, evaluatedAt: 1_699_000_000_000 },
-        }),
-      });
+      mockDocClient.send
+        .mockRejectedValueOnce(conditionalCheckFailedWithOldItem())
+        .mockResolvedValueOnce({
+          Item: buildItem({
+            Outcome: {
+              nextDate: '2026-02-28',
+              hit: { MKT: false },
+              evaluatedAt: 1_699_000_000_000,
+            },
+          }),
+        });
 
       const result = await repository.appendOutcome(KEY, outcome);
 
@@ -205,19 +216,11 @@ describe('DynamoDBMarketForecastRepository', () => {
     });
 
     it('対象 MarketForecast が存在しない場合は EntityNotFoundError をスローする', async () => {
-      mockDocClient.send
-        .mockRejectedValueOnce(conditionalCheckFailed())
-        .mockResolvedValueOnce({ Item: undefined });
+      mockDocClient.send.mockRejectedValueOnce(conditionalCheckFailed());
 
       await expect(
         repository.appendOutcome({ market: 'JP', date: '2026-02-27' }, outcome)
       ).rejects.toBeInstanceOf(EntityNotFoundError);
-    });
-
-    it('追記後のアイテムが返らないときは DatabaseError をスローする', async () => {
-      mockDocClient.send.mockResolvedValueOnce({});
-
-      await expect(repository.appendOutcome(KEY, outcome)).rejects.toThrow(DatabaseError);
     });
 
     it('追記後のアイテムが読めないときは InvalidEntityDataError をスローする', async () => {

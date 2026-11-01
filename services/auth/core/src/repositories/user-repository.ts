@@ -1,3 +1,4 @@
+import type { PaginatedResult, PaginationOptions } from '@nagiyu/aws';
 import type { User } from '@nagiyu/common';
 
 /**
@@ -25,15 +26,6 @@ export type UpdateUserInput = {
 };
 
 /**
- * `listUsers` の結果。
- */
-export type ListUsersResult = {
-  users: User[];
-  /** 次ページ取得用のキー（最終ページなら undefined） */
-  lastEvaluatedKey?: Record<string, unknown>;
-};
-
-/**
  * ユーザーリポジトリのインターフェース。
  *
  * DynamoDB / InMemory 双方の実装が `@nagiyu/aws` の `registerDynamoRepositories`
@@ -44,7 +36,7 @@ export type ListUsersResult = {
 export interface UserRepository {
   getUserByGoogleId(googleId: string): Promise<User | null>;
   getUserById(userId: string): Promise<User | null>;
-  listUsers(limit?: number, lastEvaluatedKey?: Record<string, unknown>): Promise<ListUsersResult>;
+  listUsers(options?: PaginationOptions): Promise<PaginatedResult<User>>;
   upsertUser(input: UpsertUserInput): Promise<User>;
   updateUser(userId: string, input: UpdateUserInput): Promise<User>;
   deleteUser(userId: string): Promise<void>;

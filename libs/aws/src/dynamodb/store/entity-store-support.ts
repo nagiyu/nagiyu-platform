@@ -3,7 +3,13 @@
  * 両実装で式の組み立てやエラー変換がずれないよう一箇所に置く。
  */
 
-import { DatabaseError, InvalidEntityDataError, RepositoryError } from '../errors.js';
+import {
+  DatabaseError,
+  EntityAlreadyExistsError,
+  InvalidEntityDataError,
+  OptimisticLockError,
+  RepositoryError,
+} from '../errors.js';
 import { REMOVE_ATTRIBUTE } from '../helpers.js';
 import type {
   DynamoDBAttributes,
@@ -11,6 +17,12 @@ import type {
   EntityMapper,
   EntityPatch,
 } from '../mapper/entity-mapper.interface.js';
+import type {
+  CreateIfAbsentResult,
+  EntityCreateInput,
+  EntityCreateOptions,
+  EntityPutInput,
+} from './entity-store.interface.js';
 
 /** 更新日時の属性名 */
 export const UPDATED_AT_ATTRIBUTE = 'UpdatedAt';
@@ -21,6 +33,7 @@ export const ENTITY_STORE_ERROR_MESSAGES = {
   MAPPER_FAILED: 'mapper の処理に失敗しました',
   KEY_ATTRIBUTE_UPDATE: 'キー属性は更新できません',
   ITEM_KEY_MISMATCH: 'Item のキー属性が buildKeys の結果と一致しません',
+  CREATE_CONFLICT_ITEM_MISSING: '作成が衝突しましたが、既存のデータが見つかりません',
 } as const;
 
 /** パーティションキーの属性名。キー属性の先頭を使う規約 */
@@ -66,7 +79,11 @@ export function resolveKeys<TEntity, TKey>(
 }
 
 /**
- * create / put で書く Item を用意する。`UpdatedAt` は store が now で上書きする。
+ * create / put で書く Item を用意する。
+ *
+ * 時刻は呼び出し側が 1 回だけ読んだ `now` を使い、`createdAt` の省略時の値と `UpdatedAt` の両方を同じ値にする。
+ * `updatedAt` は呼び出し側の指定を無視し、必ず `now` で上書きする。
+ * Entity に無いフィールドが乗っても、mapper の toItem が属性を個別に書くため Item には漏れない。
  *
  * toItem がキー属性を欠く、または buildKeys と値が食い違うと、DynamoDB は ValidationException で
  * 拒否する。InMemory 版でも同じ結果になるよう、DatabaseError で両実装に同じ失敗をさせる。
@@ -74,9 +91,12 @@ export function resolveKeys<TEntity, TKey>(
  */
 export function prepareWriteItem<TEntity, TKey>(
   mapper: EntityMapper<TEntity, TKey>,
-  entity: TEntity,
+  input: EntityCreateInput<TEntity> | EntityPutInput<TEntity>,
   now: number
 ): { keys: DynamoDBKey; item: DynamoDBAttributes } {
+  // Entity に createdAt が無い型では、足した値は toItem が読まない限り Item に出ない
+  const createdAt = (input as { createdAt?: unknown }).createdAt ?? now;
+  const entity = { ...input, createdAt, updatedAt: now } as unknown as TEntity;
   const keys = runMapper(
     () => mapper.buildKeys(mapper.getKey(entity)),
     ENTITY_STORE_ERROR_MESSAGES.MAPPER_FAILED
@@ -136,4 +156,69 @@ export function planUpdate<TEntity, TKey>(
     }
   }
   return { keys, fields };
+}
+
+/**
+ * create の衝突で投げるエラーを選ぶ。
+ * `conflictAsOptimisticLock` のときは新しいエラー型を増やさず、更新の衝突と同じ `OptimisticLockError` にする。
+ */
+export function createConflictError(
+  entityType: string,
+  keys: DynamoDBKey,
+  options: EntityCreateOptions
+): EntityAlreadyExistsError | OptimisticLockError {
+  const identifier = describeKey(keys);
+  return options.conflictAsOptimisticLock
+    ? new OptimisticLockError(entityType, identifier)
+    : new EntityAlreadyExistsError(entityType, identifier);
+}
+
+/**
+ * updateIfAttributeAbsent が「未設定」を確かめる属性名の一覧を返す。
+ *
+ * 旧形式の Item を一括移行せず mapper が読むときに旧名も受け付ける運用のため、
+ * 新名だけを見ると旧名で値が残った Item を未設定と誤判定する。その場合、新名を書いたうえで
+ * planUpdate が旧名を REMOVE し、既存の値を消してしまう。新名と旧名のすべてが未設定のときだけ
+ * 更新するよう、判定対象を新名と旧名にそろえる。
+ */
+export function resolveAbsentAttributeNames<TEntity, TKey>(
+  mapper: EntityMapper<TEntity, TKey>,
+  attributeName: string
+): string[] {
+  return [...new Set([attributeName, ...(mapper.legacyAttributeNames?.[attributeName] ?? [])])];
+}
+
+/**
+ * createIfAbsent の流れ。作成に失敗したら既存を読み直して返す。
+ *
+ * 読み直しは書き込み直後の衝突相手を確実に拾うため、呼び出し側が強い整合性で読む。
+ * 衝突と読み直しの間に削除された場合は、作成も既存の取得もできていないため結果を返せず、
+ * 対象が無いという通常の不在とも違う異常として DatabaseError にする。
+ *
+ * @param entityType - エラーメッセージ用の Entity 種別
+ * @param keys - エラーメッセージ用のキー
+ * @param insert - 無いときだけ書く。既にあれば EntityAlreadyExistsError を投げる
+ * @param readExisting - 既存を読む
+ */
+export async function createOrReadExisting<TEntity>(
+  entityType: string,
+  keys: DynamoDBKey,
+  insert: () => Promise<TEntity>,
+  readExisting: () => Promise<TEntity | null>
+): Promise<CreateIfAbsentResult<TEntity>> {
+  try {
+    return { entity: await insert(), created: true };
+  } catch (error) {
+    if (!(error instanceof EntityAlreadyExistsError)) {
+      throw error;
+    }
+    const existing = await readExisting();
+    if (!existing) {
+      throw new DatabaseError(
+        `${ENTITY_STORE_ERROR_MESSAGES.CREATE_CONFLICT_ITEM_MISSING}: ${entityType} ${describeKey(keys)}`,
+        error
+      );
+    }
+    return { entity: existing, created: false };
+  }
 }

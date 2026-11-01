@@ -1,4 +1,4 @@
-import { reportErrorEvent, getDynamoDBDocumentClient, getS3Client } from '@nagiyu/aws';
+import { createErrorReporter, getDynamoDBDocumentClient, getS3Client } from '@nagiyu/aws';
 import { GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import { randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
@@ -13,8 +13,7 @@ import type { EmotionFilter, EmotionHighlightScore } from './highlight-extractor
 import { FfmpegVideoAnalyzer } from './ffmpeg-video-analyzer.js';
 import { MotionHighlightService } from './motion-highlight.service.js';
 import { VolumeHighlightService } from './volume-highlight.service.js';
-import { DynamoDBHighlightRepository } from '../repositories/dynamodb-highlight.repository.js';
-import { DynamoDBJobRepository } from '../repositories/dynamodb-job.repository.js';
+import { createHighlightRepository, createJobRepository } from '../repositories/factory.js';
 import { createOpenAIClient } from './openai-client.js';
 import { TranscriptionService } from './transcription.service.js';
 import type { TranscriptSegment } from './transcription.service.js';
@@ -44,6 +43,8 @@ const ERROR_MESSAGES = {
     `アップロード済みの動画ファイルが見つかりません: ${sourceVideoKey}`,
   CLIP_SPLIT_FAILED: 'クリップ分割に失敗しました',
 } as const;
+
+const errorReporter = createErrorReporter({ serviceId: 'quick-clip' });
 
 const VIDEO_INPUT_PATH = (jobId: string): string => `/tmp/quick-clip/${jobId}/input.mp4`;
 const SOURCE_VIDEO_KEY = (jobId: string): string => `uploads/${jobId}/input.mp4`;
@@ -130,7 +131,7 @@ const persistHighlights = async (
   awsRegion: string
 ): Promise<void> => {
   const docClient = getDynamoDBDocumentClient(awsRegion);
-  const repo = new DynamoDBHighlightRepository(docClient, tableName);
+  const repo = createHighlightRepository(docClient, tableName);
   await repo.createMany(
     highlights.map((highlight) => ({
       ...highlight,
@@ -311,16 +312,9 @@ const buildHighlights = async (
       console.warn('[buildHighlights] 感情分析をスキップします:', error);
       progress.emotionScoring = { status: 'failed' };
       await updateAnalysisProgress(jobId, { ...progress }, tableName, awsRegion);
-      await reportErrorEvent({
-        serviceId: 'quick-clip',
+      await errorReporter.report('QuickClip 感情分析に失敗しスキップしました', error, {
         severity: 'warning',
-        title: 'QuickClip 感情分析に失敗しスキップしました',
-        message: toErrorMessage(error),
-        context: {
-          jobId,
-          stage: 'emotionScoring',
-          errorStack: error instanceof Error ? error.stack : undefined,
-        },
+        context: { jobId, stage: 'emotionScoring' },
       });
     }
   }
@@ -353,7 +347,7 @@ const updateBatchStage = async (
   awsRegion: string
 ): Promise<void> => {
   const docClient = getDynamoDBDocumentClient(awsRegion);
-  const jobRepo = new DynamoDBJobRepository(docClient, tableName);
+  const jobRepo = createJobRepository(docClient, tableName);
   const service = new JobService(jobRepo);
   await service.updateBatchStage(jobId, batchStage);
 };
@@ -365,7 +359,7 @@ const updateAnalysisProgress = async (
   awsRegion: string
 ): Promise<void> => {
   const docClient = getDynamoDBDocumentClient(awsRegion);
-  const jobRepo = new DynamoDBJobRepository(docClient, tableName);
+  const jobRepo = createJobRepository(docClient, tableName);
   const service = new JobService(jobRepo);
   await service.updateAnalysisProgress(jobId, progress);
 };
@@ -377,7 +371,7 @@ const updateErrorMessage = async (
   awsRegion: string
 ): Promise<void> => {
   const docClient = getDynamoDBDocumentClient(awsRegion);
-  const jobRepo = new DynamoDBJobRepository(docClient, tableName);
+  const jobRepo = createJobRepository(docClient, tableName);
   const service = new JobService(jobRepo);
   await service.updateErrorMessage(jobId, errorMessage);
 };
@@ -388,7 +382,7 @@ const getJobExpiresAt = async (
   awsRegion: string
 ): Promise<number> => {
   const docClient = getDynamoDBDocumentClient(awsRegion);
-  const jobRepo = new DynamoDBJobRepository(docClient, tableName);
+  const jobRepo = createJobRepository(docClient, tableName);
   const service = new JobService(jobRepo);
   const job = await service.getJob(jobId);
   if (!job) {
@@ -455,16 +449,8 @@ export const runQuickClipBatch = async (env: QuickClipBatchRunInput): Promise<vo
   } catch (error) {
     const message = toErrorMessage(error);
     await updateErrorMessage(env.jobId, message, env.tableName, env.awsRegion);
-    await reportErrorEvent({
-      serviceId: 'quick-clip',
-      severity: 'error',
-      title: 'QuickClip 抽出処理が失敗しました',
-      message,
-      context: {
-        jobId: env.jobId,
-        command: env.command,
-        errorStack: error instanceof Error ? error.stack : undefined,
-      },
+    await errorReporter.report('QuickClip 抽出処理が失敗しました', error, {
+      context: { jobId: env.jobId, command: env.command },
     });
     throw error;
   }

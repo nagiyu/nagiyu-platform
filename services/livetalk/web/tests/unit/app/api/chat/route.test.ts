@@ -6,27 +6,24 @@ import { CHAT_ERROR_MESSAGES, CHAT_MAX_TEXT_LENGTH } from '@/app/api/chat/consta
 import { getSession } from '@/lib/server/session';
 import { getLLMClient } from '@/lib/server/llm';
 import { getVoiceClient } from '@/lib/server/voice';
-import { getMessageRepository, getChatGuardRepository } from '@/lib/server/repositories';
-import { DatabaseError, reportErrorEvent } from '@nagiyu/aws';
+import { DatabaseError } from '@nagiyu/aws';
+import { errorReporter } from '@/lib/server/api-error-reporting';
 
 jest.mock('@/lib/server/session', () => ({ getSession: jest.fn() }));
 jest.mock('@nagiyu/aws', () => ({
   ...jest.requireActual('@nagiyu/aws'),
   reportErrorEvent: jest.fn().mockResolvedValue(null),
 }));
+jest.mock('@/lib/server/api-error-reporting', () => ({
+  ...jest.requireActual('@/lib/server/api-error-reporting'),
+  errorReporter: {
+    report: jest.fn().mockResolvedValue(null),
+    onError: jest.fn(() => jest.fn()),
+  },
+}));
 jest.mock('@/lib/server/llm', () => ({ getLLMClient: jest.fn() }));
 jest.mock('@/lib/server/voice', () => ({ getVoiceClient: jest.fn() }));
-jest.mock('@/lib/server/repositories', () => ({
-  getMessageRepository: jest.fn(),
-  getCharacterStateRepository: jest.fn().mockReturnValue({}),
-  getLifecycleRepository: jest.fn().mockReturnValue({}),
-  getStudyTopicRepository: jest.fn().mockReturnValue({}),
-  getNoteRepository: jest.fn().mockReturnValue({}),
-  getConsolidationCursorRepository: jest.fn().mockReturnValue({}),
-  getChatGuardRepository: jest.fn(),
-}));
 jest.mock('@/lib/server/safety', () => ({
-  getSafetyEventRepository: jest.fn().mockReturnValue({}),
   getModerationClient: jest.fn().mockReturnValue({}),
 }));
 jest.mock('@/lib/server/topic-retriever', () => ({
@@ -37,13 +34,25 @@ jest.mock('@/lib/server/topic-retriever', () => ({
 jest.mock('@nagiyu/livetalk-core', () => ({
   ...jest.requireActual('@nagiyu/livetalk-core'),
   runChatUseCase: jest.fn(),
+  createMessageRepository: jest.fn(),
+  createCharacterStateRepository: jest.fn().mockReturnValue({}),
+  createLifecycleRepository: jest.fn().mockReturnValue({}),
+  createStudyTopicRepository: jest.fn().mockReturnValue({}),
+  createNoteRepository: jest.fn().mockReturnValue({}),
+  createConsolidationCursorRepository: jest.fn().mockReturnValue({}),
+  createSafetyEventRepository: jest.fn().mockReturnValue({}),
+  createChatGuardRepository: jest.fn(),
 }));
 
-import { runChatUseCase } from '@nagiyu/livetalk-core';
+import {
+  runChatUseCase,
+  createMessageRepository,
+  createChatGuardRepository,
+} from '@nagiyu/livetalk-core';
 
 const mockGetSession = getSession as jest.MockedFunction<typeof getSession>;
 const mockRunChatUseCase = runChatUseCase as jest.Mock;
-const mockGetChatGuardRepository = getChatGuardRepository as jest.Mock;
+const mockGetChatGuardRepository = createChatGuardRepository as jest.Mock;
 
 /** デフォルトのガードモック（全て通過させる） */
 const makeDefaultGuardMock = () => ({
@@ -86,7 +95,7 @@ describe('POST /api/chat', () => {
     });
     (getLLMClient as jest.Mock).mockReturnValue({});
     (getVoiceClient as jest.Mock).mockReturnValue({});
-    (getMessageRepository as jest.Mock).mockReturnValue({});
+    (createMessageRepository as jest.Mock).mockReturnValue({});
     mockGetChatGuardRepository.mockReturnValue(makeDefaultGuardMock());
   });
 
@@ -210,12 +219,9 @@ describe('POST /api/chat', () => {
       expect(res.status).toBe(200);
       const events = await readNDJSONStream(res);
       expect(events[0]).toMatchObject({ type: 'error' });
-      expect(reportErrorEvent).toHaveBeenCalledWith(
-        expect.objectContaining({
-          serviceId: 'livetalk',
-          title: 'Web API: チャットのストリーミングエラー',
-          message: 'usecase error',
-        })
+      expect(errorReporter.report).toHaveBeenCalledWith(
+        'Web API: チャットのストリーミングエラー',
+        expect.objectContaining({ message: 'usecase error' })
       );
     });
 
@@ -410,8 +416,9 @@ describe('POST /api/chat', () => {
       // フェイルオープン: 障害でもリクエストを通す
       expect(res.status).toBe(200);
       expect(mockRunChatUseCase).toHaveBeenCalled();
-      expect(reportErrorEvent).toHaveBeenCalledWith(
-        expect.objectContaining({ title: 'Web API: チャットのロック取得エラー (バイパス)' })
+      expect(errorReporter.report).toHaveBeenCalledWith(
+        'Web API: チャットのロック取得エラー (バイパス)',
+        expect.any(DatabaseError)
       );
     });
 
@@ -438,10 +445,9 @@ describe('POST /api/chat', () => {
       // フェイルオープン: 障害でもリクエストを通す
       expect(res.status).toBe(200);
       expect(mockRunChatUseCase).toHaveBeenCalled();
-      expect(reportErrorEvent).toHaveBeenCalledWith(
-        expect.objectContaining({
-          title: 'Web API: チャットのレートリミット確認エラー (バイパス)',
-        })
+      expect(errorReporter.report).toHaveBeenCalledWith(
+        'Web API: チャットのレートリミット確認エラー (バイパス)',
+        expect.any(DatabaseError)
       );
     });
 

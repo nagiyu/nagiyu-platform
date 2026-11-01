@@ -8,7 +8,7 @@
 import { redirect } from 'next/navigation';
 import { Box, Container, Divider, Typography } from '@mui/material';
 import { AccessDeniedView, Chip } from '@nagiyu/ui';
-import { hasPermission } from '@nagiyu/common';
+import { formatJstDateTime, hasPermission } from '@nagiyu/common';
 import {
   DEFAULT_CHARACTER_ID,
   LIFECYCLE_DEFAULT_BEDTIME,
@@ -26,15 +26,13 @@ import {
   type MessageEntity,
   type NotificationEventEntity,
   type SafetyEventSummary,
+  createLifecycleRepository,
+  createNotificationEventRepository,
+  createSafetyEventRepository,
+  createStudyTopicRepository,
+  createMessageRepository,
 } from '@nagiyu/livetalk-core';
 import { getSession } from '@/lib/server/session';
-import {
-  getLifecycleRepository,
-  getNotificationEventRepository,
-  getStudyTopicRepository,
-  getMessageRepository,
-} from '@/lib/server/repositories';
-import { getSafetyEventRepository } from '@/lib/server/safety';
 import {
   hasCharacter,
   getRegisteredCharacterIds,
@@ -42,12 +40,6 @@ import {
 } from '@/lib/characters/registry';
 import StatusCharacterSwitcher from '@/components/StatusCharacterSwitcher';
 import StatusTestPush from '@/components/StatusTestPush';
-
-const JST = 'Asia/Tokyo';
-
-function formatJst(ms: number): string {
-  return new Date(ms).toLocaleString('ja-JP', { timeZone: JST });
-}
 
 function computeNextEarliestAt(
   userMessages: Pick<MessageEntity, 'createdAt'>[],
@@ -111,11 +103,11 @@ export default async function StatusPage({ searchParams }: StatusPageProps) {
 
   const [lifecycle, notificationEvents, allMessages, studyPending, recentSafetyEvents] =
     await Promise.all([
-      getLifecycleRepository().get({ userId, characterId }),
-      getNotificationEventRepository().listByUser(userId, 10),
-      getMessageRepository().listSince(userId, characterId, 0),
-      getStudyTopicRepository().listByStatus(userId, characterId, 'pending'),
-      getSafetyEventRepository().listRecent(SAFETY_REVIEW_DEFAULT_LIMIT),
+      createLifecycleRepository().get({ userId, characterId }),
+      createNotificationEventRepository().listByUser(userId, 10),
+      createMessageRepository().listSince(userId, characterId, 0),
+      createStudyTopicRepository().listByStatus(userId, characterId, 'pending'),
+      createSafetyEventRepository().listRecent(SAFETY_REVIEW_DEFAULT_LIMIT),
     ]);
 
   const bedtime = lifecycle?.bedtime ?? LIFECYCLE_DEFAULT_BEDTIME;
@@ -221,7 +213,8 @@ export default async function StatusPage({ searchParams }: StatusPageProps) {
           </Box>
           {nextEarliestAt !== undefined && (
             <Typography variant="body2" color="text.secondary">
-              インターバル解除予測: {formatJst(nextEarliestAt)}（活動窓・睡眠帯は別途）
+              インターバル解除予測: {formatJstDateTime(nextEarliestAt, { seconds: true })}
+              （活動窓・睡眠帯は別途）
             </Typography>
           )}
         </Box>
@@ -245,8 +238,10 @@ export default async function StatusPage({ searchParams }: StatusPageProps) {
               sx={{ mb: 1, pl: 1, borderLeft: '2px solid', borderColor: 'divider' }}
             >
               <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
-                {formatJst(e.createdAt)} | {e.kind} |{' '}
-                {e.consumedAt ? `消化済み ${formatJst(e.consumedAt)}` : '未消化'}
+                {formatJstDateTime(e.createdAt, { seconds: true })} | {e.kind} |{' '}
+                {e.consumedAt
+                  ? `消化済み ${formatJstDateTime(e.consumedAt, { seconds: true })}`
+                  : '未消化'}
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
                 {e.body.slice(0, 100)}
@@ -307,8 +302,8 @@ export default async function StatusPage({ searchParams }: StatusPageProps) {
                 sx={{ mb: 1, pl: 1, borderLeft: '2px solid', borderColor: 'divider' }}
               >
                 <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
-                  {formatJst(e.createdAt)} | {SAFETY_TRIGGER_LABELS[e.trigger] ?? e.trigger} |
-                  キャラ: {characterDisplay}
+                  {formatJstDateTime(e.createdAt, { seconds: true })} |{' '}
+                  {SAFETY_TRIGGER_LABELS[e.trigger] ?? e.trigger} | キャラ: {characterDisplay}
                 </Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
                   {e.detectedPattern}

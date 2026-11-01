@@ -1,13 +1,22 @@
 import { NextRequest } from 'next/server';
 import { SubmitJobCommand } from '@aws-sdk/client-batch';
 import { getAwsClients, reportErrorEvent } from '@nagiyu/aws';
-import { selectJobDefinition } from '@nagiyu/codec-converter-core';
+import { errorReporter } from '@/lib/api-error-reporting';
+import { resetInMemoryRepositories, selectJobDefinition } from '@nagiyu/codec-converter-core';
 import { POST } from '@/app/api/jobs/[jobId]/submit/route';
 
 jest.mock('@nagiyu/aws', () => ({
   ...jest.requireActual('@nagiyu/aws'),
   getAwsClients: jest.fn(),
   reportErrorEvent: jest.fn(),
+}));
+
+jest.mock('@/lib/api-error-reporting', () => ({
+  ...jest.requireActual('@/lib/api-error-reporting'),
+  errorReporter: {
+    report: jest.fn().mockResolvedValue(null),
+    onError: jest.fn(() => jest.fn()),
+  },
 }));
 
 jest.mock('@nagiyu/codec-converter-core', () => ({
@@ -48,12 +57,14 @@ describe('POST /api/jobs/[jobId]/submit', () => {
   const batchSend = jest.fn();
   beforeEach(() => {
     jest.clearAllMocks();
+    resetInMemoryRepositories();
     (['error', 'warn', 'log'] as const).forEach((method) =>
       jest.spyOn(console, method).mockImplementation(() => {})
     );
     jest.replaceProperty(process, 'env', {
       ...process.env,
       BATCH_JOB_DEFINITION_PREFIX: 'codec',
+      DYNAMODB_TABLE_NAME: 'test-table',
     });
     mockedGetAwsClients.mockReturnValue({
       docClient: { send: dynamoSend },
@@ -92,15 +103,16 @@ describe('POST /api/jobs/[jobId]/submit', () => {
   });
 
   it('入力ファイルが S3 にない場合は 404 を返しエラーイベントを送る', async () => {
-    s3Send.mockRejectedValue(new Error('NotFound'));
+    const s3Error = new Error('NotFound');
+    s3Send.mockRejectedValue(s3Error);
 
     const response = await callPost();
 
     expect(response.status).toBe(404);
     expect((await response.json()).error).toBe('FILE_NOT_FOUND');
-    expect(mockedReportErrorEvent).toHaveBeenCalledWith(
-      expect.objectContaining({ serviceId: 'codec-converter', message: 'NotFound' })
-    );
+    expect(errorReporter.report).toHaveBeenCalledWith('入力ファイルがS3に存在しません', s3Error, {
+      context: { jobId: 'job-1', s3Key: 'inputs/job-1.mp4' },
+    });
     expect(batchSend).not.toHaveBeenCalled();
   });
 
@@ -122,8 +134,9 @@ describe('POST /api/jobs/[jobId]/submit', () => {
   });
 
   it('ジョブ定義の選択に失敗した場合は medium で投入する', async () => {
+    const selectError = new Error('選択できません');
     mockedSelectJobDefinition.mockImplementation(() => {
-      throw new Error('選択できません');
+      throw selectError;
     });
 
     const response = await callPost();
@@ -133,18 +146,17 @@ describe('POST /api/jobs/[jobId]/submit', () => {
       'codec-medium'
     );
     // 処理を続行するため上に例外が届かない。その場で報告されること
-    expect(mockedReportErrorEvent).toHaveBeenCalledTimes(1);
-    expect(mockedReportErrorEvent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        serviceId: 'codec-converter',
-        message: '選択できません',
-        context: expect.objectContaining({ jobId: 'job-1' }),
-      })
+    expect(errorReporter.report).toHaveBeenCalledTimes(1);
+    expect(errorReporter.report).toHaveBeenCalledWith(
+      'ジョブ定義の選択に失敗したため medium で続行します',
+      selectError,
+      { context: { jobId: 'job-1', fileSize: 1024, outputCodec: 'h264' } }
     );
   });
 
   it('ジョブ定義が原因で投入に失敗した場合は medium で再投入する', async () => {
-    batchSend.mockRejectedValueOnce(new Error('JobDefinition not found'));
+    const submitError = new Error('JobDefinition not found');
+    batchSend.mockRejectedValueOnce(submitError);
 
     const response = await callPost();
 
@@ -155,13 +167,11 @@ describe('POST /api/jobs/[jobId]/submit', () => {
     expect(fallbackCommand.input.containerOverrides?.environment).toEqual(
       (batchSend.mock.calls[0][0] as SubmitJobCommand).input.containerOverrides?.environment
     );
-    expect(mockedReportErrorEvent).toHaveBeenCalledTimes(1);
-    expect(mockedReportErrorEvent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        serviceId: 'codec-converter',
-        message: 'JobDefinition not found',
-        context: expect.objectContaining({ jobId: 'job-1' }),
-      })
+    expect(errorReporter.report).toHaveBeenCalledTimes(1);
+    expect(errorReporter.report).toHaveBeenCalledWith(
+      'ジョブ定義でのBatchジョブ投入に失敗したため medium で再投入します',
+      submitError,
+      { context: { jobId: 'job-1', jobDefinitionName: 'codec-small' } }
     );
   });
 

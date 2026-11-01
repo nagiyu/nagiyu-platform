@@ -19,6 +19,9 @@ on:
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/root-deploy.yml'
+      - '.github/actions/update-lambda-image/**'
+      - '.github/actions/health-check/**'
+      - '.github/actions/push-ecr-image/**'
   workflow_dispatch:
     inputs:
       environment:
@@ -143,28 +146,17 @@ jobs:
           echo "repository-uri=$REPOSITORY_URI" >> "$GITHUB_OUTPUT"
           echo "ECR Repository: $REPOSITORY_URI"
 
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Build Docker image
-        uses: ./.github/actions/build-docker-image
+      - name: Build and push Docker image
+        id: build-image
+        uses: ./.github/actions/push-ecr-image
         with:
+          repository-uri: ${{ steps.get-ecr.outputs.repository-uri }}
           dockerfile: services/portal/web/Dockerfile
-          image-tag: ${{ steps.get-ecr.outputs.repository-uri }}:latest
           build-args: |
             APP_VERSION=${{ steps.get-version.outputs.app-version }}
             NAGIYU_ENV=${{ needs.infrastructure-ecr.outputs.environment }}
-
-      - name: Push Docker image
-        id: build-image
-        env:
-          REPOSITORY_URI: ${{ steps.get-ecr.outputs.repository-uri }}
-          IMAGE_TAG: latest
-        run: |
-          docker push "$REPOSITORY_URI:$IMAGE_TAG"
-
-          echo "image-uri=$REPOSITORY_URI:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+          tags: |
+            latest
 
   infrastructure-app:
     name: Deploy Application Infrastructure
@@ -207,7 +199,8 @@ jobs:
 
           echo "Lambda and CloudFront deployed (environment: $ENVIRONMENT)"
 
-      - name: Update Lambda function with latest image (dev)
+      - name: Resolve Lambda image URI (dev)
+        id: resolve-image
         if: needs.build.outputs.environment == 'dev'
         env:
           ENVIRONMENT: ${{ needs.build.outputs.environment }}
@@ -216,23 +209,17 @@ jobs:
           ECR_REGISTRY="${ACCOUNT_ID}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com"
           IMAGE_URI="${ECR_REGISTRY}/nagiyu-portal-ecr-${ENVIRONMENT}:latest"
 
-          aws lambda update-function-code \
-            --function-name "nagiyu-portal-lambda-${ENVIRONMENT}" \
-            --image-uri "$IMAGE_URI" \
-            --region "${{ env.AWS_REGION }}"
+          echo "image-uri=$IMAGE_URI" >> "$GITHUB_OUTPUT"
+          echo "Lambda image URI: $IMAGE_URI"
 
-          echo "Lambda function updated with latest image."
-
-      - name: Wait for Lambda update to complete (dev)
+      - name: Update Lambda function with latest image (dev)
         if: needs.build.outputs.environment == 'dev'
-        env:
-          ENVIRONMENT: ${{ needs.build.outputs.environment }}
-        run: |
-          aws lambda wait function-updated \
-            --function-name "nagiyu-portal-lambda-${ENVIRONMENT}" \
-            --region "${{ env.AWS_REGION }}"
-
-          echo "Lambda function update complete."
+        uses: ./.github/actions/update-lambda-image
+        with:
+          function-names: |
+            nagiyu-portal-lambda-${{ needs.build.outputs.environment }}
+          image-uri: ${{ steps.resolve-image.outputs.image-uri }}
+          region: ${{ env.AWS_REGION }}
 
       # Prod 環境: ECS Cluster + ALB + ECS Service + CloudFront スタック
       - name: Deploy ECS Cluster, ALB, ECS Service and CloudFront Stacks (prod)
@@ -284,15 +271,18 @@ jobs:
     environment: ${{ needs.build.outputs.environment }}
 
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Verify deployment
+      - name: Get CloudFront URL
+        id: get-cloudfront-url
         env:
-          ENVIRONMENT: ${{ needs.build.outputs.environment }}
           STACK_SUFFIX: ${{ needs.build.outputs.stack-suffix }}
         run: |
           STACK_NAME="NagiyuRootCloudFront${STACK_SUFFIX}"
@@ -303,20 +293,20 @@ jobs:
             --output text \
             --region "${{ env.AWS_REGION }}")
 
-          if [ -z "$CF_DOMAIN" ]; then
-            echo "Warning: Failed to get CloudFront domain from CDK stack."
+          # ドメインが空のまま https:// だけが渡ると URL の欠落をヘルスチェックが検出できないため、空のときは空のまま渡す
+          if [ -n "$CF_DOMAIN" ]; then
+            BASE_URL="https://${CF_DOMAIN}"
           else
-            echo "CloudFront Domain: $CF_DOMAIN"
-
-            HTTP_CODE=$(curl -f -s -o /dev/null -w "%{http_code}" "https://${CF_DOMAIN}/api/health" || echo "000")
-            echo "Health check response: $HTTP_CODE"
-
-            if [ "$HTTP_CODE" == "200" ]; then
-              echo "Health check passed successfully!"
-            else
-              echo "Warning: Health check returned $HTTP_CODE"
-            fi
+            BASE_URL=""
           fi
+
+          echo "base-url=$BASE_URL" >> "$GITHUB_OUTPUT"
+          echo "CloudFront URL: $BASE_URL"
+
+      - name: Verify deployment
+        uses: ./.github/actions/health-check
+        with:
+          base-url: ${{ steps.get-cloudfront-url.outputs.base-url }}
 
       - name: Display deployment summary
         env:

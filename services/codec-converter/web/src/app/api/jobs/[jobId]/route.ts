@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAwsClients, createPresignedDownloadUrl } from '@nagiyu/aws';
-import { DynamoDBJobRepository, type Job } from '@nagiyu/codec-converter-core';
+import { createJobRepository, type Job } from '@nagiyu/codec-converter-core';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 import { withApiErrorReporting } from '@/lib/api-error-reporting';
 
@@ -39,7 +39,7 @@ export const GET = withApiErrorReporting(
     const { DYNAMODB_TABLE_NAME, S3_BUCKET, AWS_REGION } = getEnvVars();
     const { docClient, s3Client } = getAwsClients(AWS_REGION);
 
-    const job = await new DynamoDBJobRepository(docClient, DYNAMODB_TABLE_NAME).getById(jobId);
+    const job = await createJobRepository(docClient, DYNAMODB_TABLE_NAME).getById(jobId);
 
     if (!job) {
       return NextResponse.json(

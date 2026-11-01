@@ -15,10 +15,7 @@ export interface AxisPerformanceQuery {
 }
 
 export type AxisPerformanceQueryError =
-  | 'INVALID_QUESTION'
-  | 'INVALID_PERIOD'
-  | 'INVALID_MARKET'
-  | 'MARKET_ALL_NOT_ALLOWED';
+  'INVALID_QUESTION' | 'INVALID_PERIOD' | 'INVALID_MARKET' | 'MARKET_ALL_NOT_ALLOWED';
 
 const QUESTIONS: readonly ForecastQuestion[] = ['DIR', 'VOL', 'MKT'];
 const PERIODS: readonly AxisPerformancePeriod[] = ['30d', '90d', 'all'];

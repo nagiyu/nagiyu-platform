@@ -3,11 +3,18 @@
  */
 
 import { NextResponse } from 'next/server';
-import { withApiErrorReporting } from '../../../src/lib/api-error-reporting';
+import {
+  createErrorEventWriter,
+  resetErrorEventWriter,
+  type InMemoryErrorEventWriter,
+} from '@nagiyu/aws';
+import type { ErrorEvent } from '@nagiyu/common';
+import { errorReporter, withApiErrorReporting } from '../../../src/lib/api-error-reporting';
 
 const mockReportErrorEvent = jest.fn();
 
 jest.mock('@nagiyu/aws', () => ({
+  ...jest.requireActual('@nagiyu/aws'),
   reportErrorEvent: (...args: unknown[]) => mockReportErrorEvent(...args),
 }));
 
@@ -86,5 +93,56 @@ describe('withApiErrorReporting', () => {
     await handler();
 
     expect(console.error).toHaveBeenCalledWith('Web API: テストエラー', expect.any(Error));
+  });
+});
+
+describe('errorReporter', () => {
+  const TABLE_NAME = 'test-error-events';
+
+  beforeEach(() => {
+    process.env.USE_IN_MEMORY_DB = 'true';
+    process.env.ERROR_EVENTS_TABLE_NAME = TABLE_NAME;
+    resetErrorEventWriter();
+  });
+
+  afterEach(() => {
+    delete process.env.USE_IN_MEMORY_DB;
+    delete process.env.ERROR_EVENTS_TABLE_NAME;
+    resetErrorEventWriter();
+  });
+
+  function getRecords(): readonly ErrorEvent[] {
+    return (createErrorEventWriter() as InMemoryErrorEventWriter).getRecords();
+  }
+
+  it('auth として報告し、context に例外の情報と追加の context を載せる', async () => {
+    const error = new TypeError('bad value');
+
+    await errorReporter.report('Web API: テスト', error, { context: { step: 'sample' } });
+
+    const [event] = getRecords();
+    expect(event).toMatchObject({
+      serviceId: 'auth',
+      severity: 'error',
+      title: 'Web API: テスト',
+      message: 'bad value',
+    });
+    expect(JSON.parse(event.context)).toEqual({
+      step: 'sample',
+      errorName: 'TypeError',
+      errorMessage: 'bad value',
+      errorStack: error.stack,
+    });
+  });
+
+  it('message と severity を上書きできる', async () => {
+    await errorReporter.report('Web API: テスト', new Error('raw'), {
+      message: '固定の文言',
+      severity: 'warning',
+    });
+
+    expect(getRecords()).toEqual([
+      expect.objectContaining({ severity: 'warning', message: '固定の文言' }),
+    ]);
   });
 });

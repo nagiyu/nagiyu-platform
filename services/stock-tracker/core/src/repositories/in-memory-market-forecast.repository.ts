@@ -3,15 +3,7 @@
  *
  * InMemorySingleTableStoreを使用したMarketForecastRepositoryの実装
  */
-import {
-  DatabaseError,
-  EntityAlreadyExistsError,
-  EntityNotFoundError,
-  InMemoryEntityStore,
-  type DynamoDBAttributes,
-  type EntityStore,
-  type InMemorySingleTableStore,
-} from '@nagiyu/aws';
+import { InMemoryEntityStore, type EntityStore, type InMemorySingleTableStore } from '@nagiyu/aws';
 import type {
   AppendMarketForecastOutcomeResult,
   CreateMarketForecastResult,
@@ -31,15 +23,10 @@ import {
   buildMarketForecastSkUpperBound,
 } from '../mappers/market-forecast.mapper.js';
 
-// ベーステーブル PK（MARKETFORECAST#{Market}）の全件集約で store 既定の query limit（100件）
-// による打ち切りを避けるため、cursorループで全件集約する。
-const FULL_AGGREGATION_PAGE_SIZE = 100;
-
 /**
  * InMemory MarketForecast Repository
  *
- * 単一アイテムの作成・取得は EntityStore に任せ、条件付きの Outcome 追記と
- * 市場の期間クエリだけを自前で持つ。
+ * 単一アイテムの作成・取得・Outcome 追記は EntityStore に任せ、市場の期間クエリだけを自前で持つ。
  * テスト環境で使用
  */
 export class InMemoryMarketForecastRepository implements MarketForecastRepository {
@@ -58,51 +45,24 @@ export class InMemoryMarketForecastRepository implements MarketForecastRepositor
   public async createIfAbsent(
     input: CreateMarketForecastInput
   ): Promise<CreateMarketForecastResult> {
-    const now = Date.now();
-    try {
-      // updatedAt は store が書き込み時に現在時刻で上書きする。Entity 型上は必須のため値だけ渡す。
-      const item = await this.entityStore.create({ ...input, createdAt: now, updatedAt: now });
-      return { item, created: true };
-    } catch (error) {
-      if (error instanceof EntityAlreadyExistsError) {
-        const existing = await this.entityStore.get({ market: input.market, date: input.date });
-        if (!existing) {
-          throw new DatabaseError(
-            'MarketForecast の作成に失敗しましたが、既存アイテムが見つかりません',
-            error
-          );
-        }
-        return { item: existing, created: false };
-      }
-      throw error;
-    }
+    const { entity, created } = await this.entityStore.createIfAbsent(input);
+    return { item: entity, created };
   }
 
   /**
    * 既存 MarketForecast に採点結果（Outcome）を条件付きで追記する
    * (アイテムが存在し、かつ Outcome が未設定のときだけ書く)
-   *
-   * 存在と Outcome の有無は、Entity に変換せず保存された Item で判定する。DynamoDB 版は
-   * 条件式で判定し、読めないアイテムでも Outcome が無ければ書き込んだあとで変換に失敗するため、
-   * InMemory 版もその順序に揃える。
    */
   public async appendOutcome(
     key: MarketForecastKey,
     outcome: MarketOutcome
   ): Promise<AppendMarketForecastOutcomeResult> {
-    const stored = this.store.getByKey(this.mapper.buildKeys(key));
-
-    if (!stored) {
-      throw new EntityNotFoundError(this.mapper.entityType, `${key.market}#${key.date}`);
-    }
-    if (stored[MARKET_FORECAST_OUTCOME_ATTRIBUTE] !== undefined) {
-      return { item: this.mapper.toEntity(stored), updated: false };
-    }
-
-    const updated = await this.entityStore.update(key, {
-      outcome: this.mapper.toOutcomeAttribute(outcome),
-    });
-    return { item: updated, updated: true };
+    const { entity, updated } = await this.entityStore.updateIfAttributeAbsent(
+      key,
+      MARKET_FORECAST_OUTCOME_ATTRIBUTE,
+      { outcome: this.mapper.toOutcomeAttribute(outcome) }
+    );
+    return { item: entity, updated };
   }
 
   /**
@@ -123,19 +83,9 @@ export class InMemoryMarketForecastRepository implements MarketForecastRepositor
     fromDate?: string,
     toDate?: string
   ): Promise<MarketSample[]> {
-    const items: DynamoDBAttributes[] = [];
-    let cursor: string | undefined;
     const pk = buildMarketForecastPk(market);
     const sk = buildSkCondition(fromDate, toDate);
-
-    do {
-      const page = this.store.query(
-        { pk, ...(sk ? { sk } : {}) },
-        { limit: FULL_AGGREGATION_PAGE_SIZE, cursor }
-      );
-      items.push(...page.items);
-      cursor = page.nextCursor;
-    } while (cursor);
+    const items = this.store.queryAll({ pk, ...(sk ? { sk } : {}) });
 
     return items.map((item) => this.mapper.toSample(item));
   }

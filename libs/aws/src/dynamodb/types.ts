@@ -63,6 +63,11 @@ export interface PaginatedResult<T> {
    * 「`nextCursor`が有る＝次ページに必ず1件以上ある」という前提には依存しないこと。
    */
   nextCursor?: string;
-  /** 総件数（取得可能な場合） */
+  /**
+   * このページで返したアイテムの件数（`items.length` と一致する）。
+   *
+   * 総件数ではない。実DynamoDBは追加の走査なしに総件数を出せないため、
+   * 実装間で値がそろうようページ単位の件数に統一している。
+   */
   count?: number;
 }

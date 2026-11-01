@@ -11,13 +11,7 @@ import styles from './Link.module.css';
  * - `inherit`: 親の文字色を継承（フッター・ヘッダー等のコンテクストで使う）
  */
 export type LinkColor =
-  | 'primary'
-  | 'secondary'
-  | 'danger'
-  | 'success'
-  | 'warning'
-  | 'neutral'
-  | 'inherit';
+  'primary' | 'secondary' | 'danger' | 'success' | 'warning' | 'neutral' | 'inherit';
 
 /**
  * Link の下線の表示方法。

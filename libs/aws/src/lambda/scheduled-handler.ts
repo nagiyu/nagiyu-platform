@@ -1,4 +1,4 @@
-import { logger, toErrorMessage } from '@nagiyu/common';
+import { buildErrorContext, logger, toErrorMessage } from '@nagiyu/common';
 import { reportErrorEvent } from '../error-events/report.js';
 
 /** EventBridge のスケジュールルールから Lambda に渡されるイベント */
@@ -120,9 +120,7 @@ export function createScheduledHandler<TEvent = ScheduledEvent, TResult = Handle
         context: {
           ...context,
           ...override?.context,
-          errorName: error instanceof Error ? error.name : typeof error,
-          errorMessage: toErrorMessage(error),
-          errorStack: error instanceof Error ? error.stack : undefined,
+          ...buildErrorContext(error),
         },
       });
       throw error;

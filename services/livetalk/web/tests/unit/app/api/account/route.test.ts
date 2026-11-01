@@ -3,19 +3,26 @@
  */
 import { DELETE } from '@/app/api/account/route';
 import { getSession } from '@/lib/server/session';
-import { getAccountDeletionRepository } from '@/lib/server/repositories';
+import { createAccountDeletionRepository } from '@nagiyu/livetalk-core';
 import type { AccountDeletionRepository } from '@nagiyu/livetalk-core';
 import { ACCOUNT_ERROR_MESSAGES } from '@/app/api/account/constants';
 import { reportErrorEvent } from '@nagiyu/aws';
 
 jest.mock('@/lib/server/session', () => ({ getSession: jest.fn() }));
-jest.mock('@/lib/server/repositories', () => ({ getAccountDeletionRepository: jest.fn() }));
-jest.mock('@nagiyu/aws', () => ({ reportErrorEvent: jest.fn().mockResolvedValue(null) }));
+jest.mock('@nagiyu/livetalk-core', () => ({
+  ...jest.requireActual('@nagiyu/livetalk-core'),
+  createAccountDeletionRepository: jest.fn(),
+}));
+jest.mock('@nagiyu/aws', () => ({
+  ...jest.requireActual('@nagiyu/aws'),
+  reportErrorEvent: jest.fn().mockResolvedValue(null),
+  createErrorReporter: jest.fn(() => ({ report: jest.fn(), onError: jest.fn(() => jest.fn()) })),
+}));
 
 const mockReportErrorEvent = reportErrorEvent as jest.MockedFunction<typeof reportErrorEvent>;
 const mockGetSession = getSession as jest.MockedFunction<typeof getSession>;
-const mockGetRepo = getAccountDeletionRepository as jest.MockedFunction<
-  typeof getAccountDeletionRepository
+const mockGetRepo = createAccountDeletionRepository as jest.MockedFunction<
+  typeof createAccountDeletionRepository
 >;
 
 const session = {

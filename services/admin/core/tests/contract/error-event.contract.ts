@@ -8,7 +8,7 @@
 
 import { EntityAlreadyExistsError } from '@nagiyu/aws';
 import type { ErrorEventWriter } from '@nagiyu/aws';
-import type { ErrorEvent } from '@nagiyu/common';
+import { InvalidInputError, type ErrorEvent } from '@nagiyu/common';
 import type { ErrorEventReader } from '../../src/errors/reader.js';
 
 /** 書き込み・参照・生の Item 操作をまとめた、テスト対象実装の組 */
@@ -239,9 +239,10 @@ export function defineErrorEventContract(label: string, hooks: ErrorEventContrac
       });
 
       it('from が to より後なら例外', async () => {
-        await expect(
-          fixture.reader.list({ from: '2026-05-31T00:00:00Z', to: '2026-05-01T00:00:00Z' })
-        ).rejects.toThrow('from は to よりも前の時刻');
+        const range = { from: '2026-05-31T00:00:00Z', to: '2026-05-01T00:00:00Z' };
+
+        await expect(fixture.reader.list(range)).rejects.toThrow(InvalidInputError);
+        await expect(fixture.reader.list(range)).rejects.toThrow('from は to よりも前の時刻');
       });
 
       it('limit と cursor で全件を重複なく順に辿れる', async () => {

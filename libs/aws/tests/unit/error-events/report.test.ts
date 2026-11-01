@@ -313,56 +313,96 @@ describe('createErrorReporter', () => {
     loggerErrorSpy.mockRestore();
   });
 
-  it('デフォルト serviceId が使われる', async () => {
+  it('固定した serviceId・既定の severity・source で報告する', async () => {
     const reporter = createErrorReporter({ serviceId: 'stock-tracker' });
-    const event = await reporter.report({
+    const event = await reporter.report('タイトル', new Error('失敗'));
+
+    expect(event).toMatchObject({
+      serviceId: 'stock-tracker',
       severity: 'error',
-      title: 'テスト',
-      message: 'メッセージ',
+      source: 'application',
+      title: 'タイトル',
+      message: '失敗',
     });
-
-    expect(event?.serviceId).toBe('stock-tracker');
   });
 
-  it('呼び出し側で serviceId をオーバーライドできる', async () => {
-    const reporter = createErrorReporter({ serviceId: 'default-service' });
-    const event = await reporter.report({
-      serviceId: 'override-service',
-      severity: 'warning',
-      title: 'テスト',
-      message: 'メッセージ',
-    });
-
-    expect(event?.serviceId).toBe('override-service');
-  });
-
-  it('source デフォルトは application', async () => {
+  it('context に例外の errorName / errorMessage / errorStack を入れる', async () => {
+    const error = new TypeError('型が違います');
     const reporter = createErrorReporter({ serviceId: 'stock-tracker' });
-    const event = await reporter.report({
-      severity: 'info',
-      title: 'テスト',
-      message: 'メッセージ',
+    const event = await reporter.report('タイトル', error);
+
+    expect(JSON.parse(event?.context ?? '{}')).toEqual({
+      errorName: 'TypeError',
+      errorMessage: '型が違います',
+      errorStack: error.stack,
+    });
+  });
+
+  it('Error 以外の例外でも報告でき、errorStack を含めない', async () => {
+    const reporter = createErrorReporter({ serviceId: 'stock-tracker' });
+    const event = await reporter.report('タイトル', 'oops');
+
+    expect(event?.message).toBe('oops');
+    expect(JSON.parse(event?.context ?? '{}')).toEqual({
+      errorName: 'string',
+      errorMessage: 'oops',
+    });
+  });
+
+  it('options で severity・message・context を指定できる', async () => {
+    const reporter = createErrorReporter({ serviceId: 'stock-tracker' });
+    const event = await reporter.report('タイトル', new Error('失敗'), {
+      severity: 'warning',
+      message: '指定メッセージ',
+      context: { market: 'US' },
     });
 
-    expect(event?.source).toBe('application');
+    expect(event?.severity).toBe('warning');
+    expect(event?.message).toBe('指定メッセージ');
+    expect(JSON.parse(event?.context ?? '{}')).toMatchObject({
+      market: 'US',
+      errorMessage: '失敗',
+    });
+  });
+
+  it('context の同名キーは例外から組み立てた項目が優先される', async () => {
+    const reporter = createErrorReporter({ serviceId: 'stock-tracker' });
+    const event = await reporter.report('タイトル', new Error('実際の失敗'), {
+      context: { errorMessage: '呼び出し側の値' },
+    });
+
+    expect(JSON.parse(event?.context ?? '{}').errorMessage).toBe('実際の失敗');
+  });
+
+  it('onError は report(title, error) と同じ内容を報告する', async () => {
+    const reporter = createErrorReporter({ serviceId: 'stock-tracker' });
+    await reporter.onError('Push 購読の登録に失敗しました')(new Error('失敗'));
+
+    const records = getInMemoryWriter().getRecords();
+    expect(records).toHaveLength(1);
+    expect(records[0]).toMatchObject({
+      serviceId: 'stock-tracker',
+      severity: 'error',
+      title: 'Push 購読の登録に失敗しました',
+      message: '失敗',
+    });
   });
 
   it('複数回呼び出せる', async () => {
     const reporter = createErrorReporter({ serviceId: 'codec-converter' });
-    await reporter.report({ severity: 'error', title: '1回目', message: 'msg' });
-    await reporter.report({ severity: 'warning', title: '2回目', message: 'msg' });
+    await reporter.report('1回目', new Error('a'));
+    await reporter.report('2回目', new Error('b'), { severity: 'warning' });
 
-    const writer = getInMemoryWriter();
-    expect(writer.getRecords()).toHaveLength(2);
+    expect(getInMemoryWriter().getRecords()).toHaveLength(2);
   });
 
-  it('書き込み失敗時は null を返す', async () => {
+  it('書き込み失敗時は null を返し、onError も例外を投げない', async () => {
     const writer = getInMemoryWriter();
-    jest.spyOn(writer, 'put').mockRejectedValueOnce(new Error('書き込み失敗'));
+    jest.spyOn(writer, 'put').mockRejectedValue(new Error('書き込み失敗'));
 
     const reporter = createErrorReporter({ serviceId: 'stock-tracker' });
-    const result = await reporter.report({ severity: 'error', title: 'テスト', message: 'msg' });
 
-    expect(result).toBeNull();
+    await expect(reporter.report('タイトル', new Error('x'))).resolves.toBeNull();
+    await expect(reporter.onError('タイトル')(new Error('x'))).resolves.toBeUndefined();
   });
 });

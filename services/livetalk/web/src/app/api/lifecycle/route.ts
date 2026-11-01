@@ -5,10 +5,10 @@ import {
   LIFECYCLE_DEFAULT_BEDTIME,
   LIFECYCLE_DEFAULT_WAKE_UP_TIME,
   resolveLifecycleState,
+  createLifecycleRepository,
 } from '@nagiyu/livetalk-core';
 import { getSession } from '@/lib/server/session';
-import { reportSwallowedError, withApiErrorReporting } from '@/lib/server/api-error-reporting';
-import { getLifecycleRepository } from '@/lib/server/repositories';
+import { errorReporter, withApiErrorReporting } from '@/lib/server/api-error-reporting';
 import { hasCharacter } from '@/lib/characters/registry';
 
 /**
@@ -37,7 +37,7 @@ export const GET = withApiErrorReporting(
     const characterId = queriedId && hasCharacter(queriedId) ? queriedId : DEFAULT_CHARACTER_ID;
 
     try {
-      const lifecycle = await getLifecycleRepository().get({
+      const lifecycle = await createLifecycleRepository().get({
         userId,
         characterId,
       });
@@ -50,7 +50,9 @@ export const GET = withApiErrorReporting(
     } catch (error) {
       // fail-safe: 演出のための情報なので UI を止めず awake を返す
       console.error('[GET /api/lifecycle] 生活サイクル状態の取得に失敗しました', error);
-      await reportSwallowedError('Web API: 生活サイクル状態取得エラー', error, { characterId });
+      await errorReporter.report('Web API: 生活サイクル状態取得エラー', error, {
+        context: { characterId },
+      });
       return NextResponse.json({ state: 'awake' });
     }
   })

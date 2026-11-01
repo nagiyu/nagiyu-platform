@@ -13,14 +13,20 @@ import type {
   DynamoDBAttributes,
   DynamoDBKey,
 } from '../../../../src/dynamodb/mapper/entity-mapper.interface.js';
-import type { EntityStore } from '../../../../src/dynamodb/store/entity-store.interface.js';
+import type {
+  EntityCreateInput,
+  EntityPutInput,
+  EntityStore,
+} from '../../../../src/dynamodb/store/entity-store.interface.js';
 import type { EntityMapper } from '../../../../src/dynamodb/mapper/entity-mapper.interface.js';
 import { noteMapper } from './entity-store-fixtures.js';
 import type { Note, Profile } from './entity-store-fixtures.js';
 
 export const NOW = 5_000_000_000_000;
 const CREATED = 1_700_000_000_000;
-const UPDATED = 1_700_000_100_000;
+/** NOW より前の UpdatedAt / CreatedAt。秒と解釈されない大きさにする */
+const OLD_UPDATED = 1_650_000_000_000;
+const OLD_CREATED = 1_600_000_000_000;
 
 export interface Harness<TEntity, TKey> {
   store: EntityStore<TEntity, TKey>;
@@ -29,16 +35,20 @@ export interface Harness<TEntity, TKey> {
 }
 
 const noteKeys = { PK: 'NOTE#n1', SK: 'META' };
-const note: Note = {
+/** 呼び出し側が渡す入力。updatedAt は持たない */
+const note = {
   id: 'n1',
   title: '題名',
   memo: 'メモ',
   createdAt: CREATED,
-  updatedAt: UPDATED,
 };
 
 /** store が書いた後の姿 (UpdatedAt は now) */
 const stored: Note = { ...note, updatedAt: NOW };
+
+/** createdAt を省略したときの、store が書いた後の姿 (createdAt も now) */
+const storedWithoutCreatedAt: Note = { ...stored, createdAt: NOW };
+const { createdAt: _createdAt, ...noteWithoutCreatedAt } = note;
 
 export function defineNoteScenarios(create: () => Harness<Note, { id: string }>): void {
   let h: Harness<Note, { id: string }>;
@@ -61,6 +71,191 @@ export function defineNoteScenarios(create: () => Harness<Note, { id: string }>)
       EntityAlreadyExistsError
     );
     expect((await h.store.get({ id: 'n1' }))?.title).toBe('題名');
+  });
+
+  it('create: conflictAsOptimisticLock が true なら、既存があるとき OptimisticLockError', async () => {
+    await h.store.create(note);
+    await expect(
+      h.store.create({ ...note, title: '別' }, { conflictAsOptimisticLock: true })
+    ).rejects.toBeInstanceOf(OptimisticLockError);
+    expect((await h.store.get({ id: 'n1' }))?.title).toBe('題名');
+  });
+
+  it('create: conflictAsOptimisticLock が false / 省略なら EntityAlreadyExistsError のまま', async () => {
+    await h.store.create(note);
+    await expect(h.store.create(note, { conflictAsOptimisticLock: false })).rejects.toBeInstanceOf(
+      EntityAlreadyExistsError
+    );
+    await expect(h.store.create(note, {})).rejects.toBeInstanceOf(EntityAlreadyExistsError);
+  });
+
+  it('create: conflictAsOptimisticLock を指定しても、無ければ作れる', async () => {
+    await expect(h.store.create(note, { conflictAsOptimisticLock: true })).resolves.toEqual(stored);
+  });
+
+  it('createIfAbsent: 無ければ作って created: true で書いた値を返す', async () => {
+    await expect(h.store.createIfAbsent(note)).resolves.toEqual({
+      entity: stored,
+      created: true,
+    });
+    expect(h.peek(noteKeys)).toMatchObject({ Title: '題名', CreatedAt: CREATED, UpdatedAt: NOW });
+  });
+
+  it('createIfAbsent: createdAt を省略すると CreatedAt と UpdatedAt を同じ now で書く', async () => {
+    await expect(h.store.createIfAbsent(noteWithoutCreatedAt)).resolves.toEqual({
+      entity: storedWithoutCreatedAt,
+      created: true,
+    });
+  });
+
+  it('createIfAbsent: 既にあれば書かずに既存を created: false で返す', async () => {
+    h.seed(noteKeys, {
+      ...noteKeys,
+      Id: 'n1',
+      Title: '既存',
+      CreatedAt: OLD_CREATED,
+      UpdatedAt: OLD_UPDATED,
+    });
+    await expect(h.store.createIfAbsent({ ...note, title: '別' })).resolves.toEqual({
+      entity: {
+        id: 'n1',
+        title: '既存',
+        memo: undefined,
+        createdAt: OLD_CREATED,
+        updatedAt: OLD_UPDATED,
+      },
+      created: false,
+    });
+    expect(h.peek(noteKeys)).toMatchObject({ Title: '既存', UpdatedAt: OLD_UPDATED });
+  });
+
+  it('createIfAbsent: 2 回目は 1 回目の値を返す', async () => {
+    await h.store.createIfAbsent(note);
+    await expect(h.store.createIfAbsent({ ...note, title: '別' })).resolves.toEqual({
+      entity: stored,
+      created: false,
+    });
+  });
+
+  it('updateIfAttributeAbsent: 属性が未設定なら更新して updated: true と更新後の値を返す', async () => {
+    h.seed(noteKeys, {
+      ...noteKeys,
+      Id: 'n1',
+      Title: '題名',
+      CreatedAt: CREATED,
+      UpdatedAt: OLD_UPDATED,
+    });
+    await expect(
+      h.store.updateIfAttributeAbsent({ id: 'n1' }, 'Memo', { memo: '追記' })
+    ).resolves.toEqual({
+      entity: { id: 'n1', title: '題名', memo: '追記', createdAt: CREATED, updatedAt: NOW },
+      updated: true,
+    });
+    expect(h.peek(noteKeys)).toMatchObject({ Memo: '追記', UpdatedAt: NOW, CreatedAt: CREATED });
+  });
+
+  it('updateIfAttributeAbsent: 属性が設定済みなら書かずに既存を updated: false で返す (UpdatedAt も変えない)', async () => {
+    h.seed(noteKeys, {
+      ...noteKeys,
+      Id: 'n1',
+      Title: '題名',
+      Memo: '既存メモ',
+      CreatedAt: CREATED,
+      UpdatedAt: OLD_UPDATED,
+    });
+    await expect(
+      h.store.updateIfAttributeAbsent({ id: 'n1' }, 'Memo', { memo: '上書きしたい', title: '別' })
+    ).resolves.toEqual({
+      entity: {
+        id: 'n1',
+        title: '題名',
+        memo: '既存メモ',
+        createdAt: CREATED,
+        updatedAt: OLD_UPDATED,
+      },
+      updated: false,
+    });
+    expect(h.peek(noteKeys)).toMatchObject({
+      Title: '題名',
+      Memo: '既存メモ',
+      UpdatedAt: OLD_UPDATED,
+    });
+  });
+
+  it('updateIfAttributeAbsent: 旧名だけに値がある Item は設定済みとして書かず、Item も変えない', async () => {
+    const seeded = {
+      ...noteKeys,
+      Id: 'n1',
+      Title: '題名',
+      memo: '旧名のメモ',
+      CreatedAt: CREATED,
+      UpdatedAt: OLD_UPDATED,
+    };
+    h.seed(noteKeys, { ...seeded });
+    await expect(
+      h.store.updateIfAttributeAbsent({ id: 'n1' }, 'Memo', { memo: '上書きしたい' })
+    ).resolves.toEqual({
+      entity: {
+        id: 'n1',
+        title: '題名',
+        memo: '旧名のメモ',
+        createdAt: CREATED,
+        updatedAt: OLD_UPDATED,
+      },
+      updated: false,
+    });
+    expect(h.peek(noteKeys)).toEqual(seeded);
+  });
+
+  it('updateIfAttributeAbsent: 判定する属性が null (NULL 型) で保存されていれば設定済みとして書かない', async () => {
+    const seeded = {
+      ...noteKeys,
+      Id: 'n1',
+      Title: '題名',
+      Memo: null,
+      CreatedAt: CREATED,
+      UpdatedAt: OLD_UPDATED,
+    };
+    h.seed(noteKeys, { ...seeded });
+    const result = await h.store.updateIfAttributeAbsent({ id: 'n1' }, 'Memo', { memo: '追記' });
+    expect(result.updated).toBe(false);
+    expect(h.peek(noteKeys)).toEqual(seeded);
+  });
+
+  it('updateIfAttributeAbsent: 存在しなければ EntityNotFoundError (ストアに作らない)', async () => {
+    await expect(
+      h.store.updateIfAttributeAbsent({ id: 'n1' }, 'Memo', { memo: 'x' })
+    ).rejects.toBeInstanceOf(EntityNotFoundError);
+    expect(h.peek(noteKeys)).toBeUndefined();
+  });
+
+  it('updateIfAttributeAbsent: 判定する属性と更新する属性は別でもよい', async () => {
+    h.seed(noteKeys, {
+      ...noteKeys,
+      Id: 'n1',
+      Title: '題名',
+      CreatedAt: CREATED,
+      UpdatedAt: OLD_UPDATED,
+    });
+    const result = await h.store.updateIfAttributeAbsent({ id: 'n1' }, 'Memo', { title: '新題名' });
+    expect(result.updated).toBe(true);
+    expect(h.peek(noteKeys)).toMatchObject({ Title: '新題名' });
+    expect(h.peek(noteKeys)).not.toHaveProperty('Memo');
+  });
+
+  it('updateIfAttributeAbsent: 更新するとき、update と同じく新名を書く属性の旧名を REMOVE する', async () => {
+    h.seed(noteKeys, {
+      ...noteKeys,
+      Id: 'n1',
+      title: '旧題名',
+      createdAt: OLD_CREATED,
+      updatedAt: OLD_UPDATED,
+    });
+    await h.store.updateIfAttributeAbsent({ id: 'n1' }, 'Memo', { memo: '追記', title: '新題名' });
+    const item = h.peek(noteKeys);
+    expect(item).toMatchObject({ Title: '新題名', Memo: '追記', UpdatedAt: NOW });
+    expect(item).not.toHaveProperty('title');
+    expect(item).not.toHaveProperty('updatedAt');
   });
 
   it('get: 読めないデータは InvalidEntityDataError', async () => {
@@ -91,19 +286,57 @@ export function defineNoteScenarios(create: () => Harness<Note, { id: string }>)
     expect((await h.store.get({ id: 'n1' }))?.title).toBe('上書き');
   });
 
-  it('create / put: UpdatedAt は store が now で設定し、CreatedAt は Entity のまま', async () => {
+  it('create / put: UpdatedAt は store が now で設定し、指定した createdAt はそのまま書く', async () => {
     await h.store.create(note);
     expect(h.peek(noteKeys)).toMatchObject({ CreatedAt: CREATED, UpdatedAt: NOW });
-    await h.store.put({ ...note, updatedAt: 1 });
+    await h.store.put(note);
     expect(h.peek(noteKeys)).toMatchObject({ CreatedAt: CREATED, UpdatedAt: NOW });
+  });
+
+  it('create: createdAt を省略すると CreatedAt と UpdatedAt を同じ now で書く', async () => {
+    await expect(h.store.create(noteWithoutCreatedAt)).resolves.toEqual(storedWithoutCreatedAt);
+    expect(h.peek(noteKeys)).toMatchObject({ CreatedAt: NOW, UpdatedAt: NOW });
+  });
+
+  it('put: createdAt が undefined なら CreatedAt と UpdatedAt を同じ now で書く', async () => {
+    await expect(h.store.put({ ...note, createdAt: undefined })).resolves.toEqual(
+      storedWithoutCreatedAt
+    );
+    expect(h.peek(noteKeys)).toMatchObject({ CreatedAt: NOW, UpdatedAt: NOW });
+  });
+
+  it('put: 既存の createdAt を引き継げる', async () => {
+    await h.store.create(note);
+    const existing = await h.store.get({ id: 'n1' });
+    await h.store.put({ ...note, title: '上書き', createdAt: existing?.createdAt });
+    expect(h.peek(noteKeys)).toMatchObject({ CreatedAt: CREATED, Title: '上書き' });
+  });
+
+  it('create / put: 呼び出し側が updatedAt を渡しても無視して now で上書きする', async () => {
+    // 型では渡せないため、型を崩して JS 呼び出しや spread 経由の混入を再現する
+    const withUpdatedAt = { ...note, updatedAt: 1 } as unknown as EntityCreateInput<Note>;
+    await expect(h.store.create(withUpdatedAt)).resolves.toEqual(stored);
+    expect(h.peek(noteKeys)).toMatchObject({ UpdatedAt: NOW });
+    await h.store.put({ ...withUpdatedAt, createdAt: CREATED } as EntityPutInput<Note>);
+    expect(h.peek(noteKeys)).toMatchObject({ UpdatedAt: NOW });
+  });
+
+  it('入力型: updatedAt の指定と put の createdAt 欠落を型で拒否する (tsc で検査する)', async () => {
+    // ts-jest は isolatedModules のため型を検査しない。ここは tsc とエディタで検査される型の表明として置く
+    const typeChecks = async (): Promise<void> => {
+      // @ts-expect-error create の入力に updatedAt は渡せない
+      await h.store.create({ ...note, updatedAt: 1 });
+      // @ts-expect-error put の入力に updatedAt は渡せない
+      await h.store.put({ ...note, updatedAt: 1 });
+      // @ts-expect-error put は createdAt のキーを省略できない
+      await h.store.put(noteWithoutCreatedAt);
+    };
+    expect(typeChecks).toBeInstanceOf(Function);
   });
 
   it('put: expectedUpdatedAt が一致すれば書ける', async () => {
     await h.store.create(note);
-    await h.store.put(
-      { ...note, title: '更新', updatedAt: UPDATED + 1 },
-      { expectedUpdatedAt: NOW }
-    );
+    await h.store.put({ ...note, title: '更新' }, { expectedUpdatedAt: NOW });
     expect((await h.store.get({ id: 'n1' }))?.title).toBe('更新');
   });
 
@@ -215,15 +448,33 @@ export function defineProfileScenarios(create: () => Harness<Profile, { userId: 
     h = create();
   });
 
-  const profile: Profile = { userId: 'u1', name: '太郎', updatedAt: CREATED };
+  // createdAt を持たない Entity。入力は createdAt も updatedAt も要らない
+  const profile = { userId: 'u1', name: '太郎' };
 
   it('単一キーで create / get / update / delete できる', async () => {
     await h.store.create(profile);
     await expect(h.store.create(profile)).rejects.toBeInstanceOf(EntityAlreadyExistsError);
     await expect(h.store.get({ userId: 'u1' })).resolves.toEqual({ ...profile, updatedAt: NOW });
+    await expect(h.store.put({ ...profile, name: '次郎' })).resolves.toEqual({
+      ...profile,
+      name: '次郎',
+      updatedAt: NOW,
+    });
+    await h.store.put(profile);
 
     const updated = await h.store.update({ userId: 'u1' }, { name: '花子' });
     expect(updated).toEqual({ userId: 'u1', name: '花子', updatedAt: NOW });
+
+    await expect(h.store.createIfAbsent(profile)).resolves.toEqual({
+      entity: { ...profile, name: '花子', updatedAt: NOW },
+      created: false,
+    });
+    await expect(
+      h.store.updateIfAttributeAbsent({ userId: 'u1' }, 'Name', { name: '三郎' })
+    ).resolves.toMatchObject({ entity: { name: '花子' }, updated: false });
+    await expect(
+      h.store.create(profile, { conflictAsOptimisticLock: true })
+    ).rejects.toBeInstanceOf(OptimisticLockError);
 
     await h.store.delete({ userId: 'u1' });
     await expect(h.store.get({ userId: 'u1' })).resolves.toBeNull();
@@ -241,6 +492,15 @@ export function defineMapperGuardScenarios(
     await expect(h.store.update({ id: 'n1' }, { title: 'x' })).rejects.toBeInstanceOf(
       InvalidEntityDataError
     );
+    expect(h.peek(noteKeys)).toMatchObject({ SK: 'META' });
+  });
+
+  it('updateIfAttributeAbsent: toUpdateAttributes がキー属性を返したら InvalidEntityDataError', async () => {
+    const h = create({ ...noteMapper, toUpdateAttributes: () => ({ SK: 'OTHER' }) });
+    await h.store.create(note);
+    await expect(
+      h.store.updateIfAttributeAbsent({ id: 'n1' }, 'Memo', { title: 'x' })
+    ).rejects.toBeInstanceOf(InvalidEntityDataError);
     expect(h.peek(noteKeys)).toMatchObject({ SK: 'META' });
   });
 

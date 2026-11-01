@@ -1,12 +1,12 @@
-import { reportErrorEvent } from '@nagiyu/aws';
-import { toErrorMessage } from '@nagiyu/common';
+import { createErrorReporter, reportErrorEvent } from '@nagiyu/aws';
 import { createApiErrorReporting, createErrorResponse } from '@nagiyu/nextjs';
 
 const SERVICE_ID = 'admin';
 
-const ERROR_MESSAGES = {
-  REPORT_FAILED: '[createRouteErrorReporter] エラー報告に失敗しました',
-} as const;
+/**
+ * lib のルートファクトリが自前で 500 を返すため、ラッパーでは拾えない例外を onError から報告する。
+ */
+export const errorReporter = createErrorReporter({ serviceId: SERVICE_ID });
 
 /**
  * ルートハンドラを包み、想定外の例外を報告して 500 を返す。
@@ -27,25 +27,4 @@ export function withApiErrorReporting<Args extends unknown[], R extends Response
       return createErrorResponse(500, 'INTERNAL_ERROR', internalErrorMessage);
     },
   })(title, handler);
-}
-
-/**
- * lib のルートファクトリが自前で 500 を返すため、ラッパーでは拾えない例外を報告する onError を作る。
- *
- * 報告の失敗でレスポンスを失わないよう、例外は握って console.error に留める。
- */
-export function createRouteErrorReporter(title: string) {
-  return async (error: unknown): Promise<void> => {
-    try {
-      await reportErrorEvent({
-        serviceId: SERVICE_ID,
-        severity: 'error',
-        title,
-        message: toErrorMessage(error),
-        context: { errorStack: error instanceof Error ? error.stack : undefined },
-      });
-    } catch (reportError) {
-      console.error(ERROR_MESSAGES.REPORT_FAILED, reportError);
-    }
-  };
 }

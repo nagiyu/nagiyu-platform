@@ -4,15 +4,6 @@ import {
   type ExchangeEntity,
   type ForecastEntity,
   type TickerEntity,
-} from '@nagiyu/stock-tracker-core';
-import type { ErrorResponse } from '@nagiyu/common';
-import { withAuth } from '@nagiyu/nextjs';
-import { getSession } from '../../../lib/auth';
-import {
-  createInternalErrorReporting,
-  reportSwallowedError,
-} from '../../../lib/api-error-reporting';
-import {
   createAlertRepository,
   createDailySummaryRepository,
   createExchangeRepository,
@@ -21,7 +12,11 @@ import {
   createMarketForecastRepository,
   createPerformanceDailyRepository,
   createTickerRepository,
-} from '../../../lib/repository-factory';
+} from '@nagiyu/stock-tracker-core';
+import type { ErrorResponse } from '@nagiyu/common';
+import { withAuth } from '@nagiyu/nextjs';
+import { getSession } from '../../../lib/auth';
+import { createInternalErrorReporting, errorReporter } from '../../../lib/api-error-reporting';
 import { isValidDateFormat } from '../../../lib/forecast/date';
 import { buildMarketForecasts } from '../../../lib/forecast/market-forecast';
 import { toPatternSummary } from '../../../lib/summary/pattern-summary';
@@ -164,7 +159,7 @@ async function fetchHoldingMap(userId: string): Promise<Map<string, HoldingSumma
     );
   } catch (error) {
     console.error(ERROR_MESSAGES.FETCH_HOLDINGS_FAILED, error);
-    await reportSwallowedError(REPORT_TITLES.FETCH_HOLDINGS_FAILED, error);
+    await errorReporter.report(REPORT_TITLES.FETCH_HOLDINGS_FAILED, error);
     return new Map<string, HoldingSummaryResponse>();
   }
 }
@@ -194,7 +189,7 @@ async function fetchAlertCountMap(userId: string): Promise<Map<string, TickerAle
     return alertCountMap;
   } catch (error) {
     console.error(ERROR_MESSAGES.FETCH_ALERTS_FAILED, error);
-    await reportSwallowedError(REPORT_TITLES.FETCH_ALERTS_FAILED, error);
+    await errorReporter.report(REPORT_TITLES.FETCH_ALERTS_FAILED, error);
     return new Map<string, TickerAlertCountResponse>();
   }
 }
@@ -215,7 +210,7 @@ async function fetchForecastMap(
     return indexForecastsByTicker(forecasts);
   } catch (error) {
     console.error(ERROR_MESSAGES.FETCH_FORECASTS_FAILED, error);
-    await reportSwallowedError(REPORT_TITLES.FETCH_FORECASTS_FAILED, error);
+    await errorReporter.report(REPORT_TITLES.FETCH_FORECASTS_FAILED, error);
     return new Map<string, ForecastEntity>();
   }
 }
@@ -239,7 +234,7 @@ async function fetchMarketForecasts(
     );
   } catch (error) {
     console.error(ERROR_MESSAGES.FETCH_MARKET_FORECASTS_FAILED, error);
-    await reportSwallowedError(REPORT_TITLES.FETCH_MARKET_FORECASTS_FAILED, error);
+    await errorReporter.report(REPORT_TITLES.FETCH_MARKET_FORECASTS_FAILED, error);
     return (['JP', 'US'] as const).map((market) => ({ market, date: null, forecast: null }));
   }
 }

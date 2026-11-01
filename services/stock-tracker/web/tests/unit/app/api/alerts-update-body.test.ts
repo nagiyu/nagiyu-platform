@@ -4,10 +4,11 @@ import {
   createAlertRepository,
   createExchangeRepository,
   createTickerRepository,
-} from '../../../../lib/repository-factory';
+} from '@nagiyu/stock-tracker-core';
 import { MALFORMED_BODY_CASES } from './invalidBodyCases';
 
-jest.mock('../../../../lib/repository-factory', () => ({
+jest.mock('@nagiyu/stock-tracker-core', () => ({
+  ...jest.requireActual('@nagiyu/stock-tracker-core'),
   createAlertRepository: jest.fn(),
   createTickerRepository: jest.fn(),
   createExchangeRepository: jest.fn(),

@@ -20,17 +20,17 @@ import {
   getDynamoDBDocumentClient,
   getTableName,
   createScheduledHandler,
-  reportErrorEvent,
   ScheduledHandlerError,
 } from '@nagiyu/aws';
 import type { HandlerResponse, ScheduledEvent } from '@nagiyu/aws';
+import { errorReporter } from './lib/error-reporter.js';
 import {
-  DynamoDBDailySummaryRepository,
-  DynamoDBExchangeRepository,
-  DynamoDBForecastRepository,
-  DynamoDBMarketForecastRepository,
-  DynamoDBModelSnapshotRepository,
-  DynamoDBPerformanceDailyRepository,
+  createDailySummaryRepository,
+  createExchangeRepository,
+  createForecastRepository,
+  createMarketForecastRepository,
+  createModelSnapshotRepository,
+  createPerformanceDailyRepository,
   FORECAST_MODEL_VERSION,
   QUESTIONS,
   buildObservationCalendar,
@@ -853,13 +853,7 @@ async function handleScheduled(
     } catch (error) {
       const errorMessage = toErrorMessage(error);
       logger.error('市場の確度算出バッチでエラーが発生しました', { market, error: errorMessage });
-      await reportErrorEvent({
-        serviceId: 'stock-tracker',
-        severity: 'error',
-        title: '確度算出バッチ: 市場処理失敗',
-        message: errorMessage,
-        context: { market, errorStack: error instanceof Error ? error.stack : undefined },
-      });
+      await errorReporter.report('確度算出バッチ: 市場処理失敗', error, { context: { market } });
       stats.errors++;
       failedMarkets.push(market);
     }
@@ -1040,16 +1034,8 @@ async function handleReplay(
         date: step.date,
         error: errorMessage,
       });
-      await reportErrorEvent({
-        serviceId: 'stock-tracker',
-        severity: 'error',
-        title: '確度算出バッチ（リプレイ）: ステップ処理失敗',
-        message: errorMessage,
-        context: {
-          market: step.market,
-          date: step.date,
-          errorStack: error instanceof Error ? error.stack : undefined,
-        },
+      await errorReporter.report('確度算出バッチ（リプレイ）: ステップ処理失敗', error, {
+        context: { market: step.market, date: step.date },
       });
       stats.errors++;
       break;
@@ -1110,12 +1096,12 @@ function resolveDependencies(dependencies?: Partial<HandlerDependencies>): Handl
   const docClient = getDynamoDBDocumentClient();
   const tableName = getTableName();
   return {
-    exchangeRepository: new DynamoDBExchangeRepository(docClient, tableName),
-    dailySummaryRepository: new DynamoDBDailySummaryRepository(docClient, tableName),
-    forecastRepository: new DynamoDBForecastRepository(docClient, tableName),
-    marketForecastRepository: new DynamoDBMarketForecastRepository(docClient, tableName),
-    modelSnapshotRepository: new DynamoDBModelSnapshotRepository(docClient, tableName),
-    performanceDailyRepository: new DynamoDBPerformanceDailyRepository(docClient, tableName),
+    exchangeRepository: createExchangeRepository(docClient, tableName),
+    dailySummaryRepository: createDailySummaryRepository(docClient, tableName),
+    forecastRepository: createForecastRepository(docClient, tableName),
+    marketForecastRepository: createMarketForecastRepository(docClient, tableName),
+    modelSnapshotRepository: createModelSnapshotRepository(docClient, tableName),
+    performanceDailyRepository: createPerformanceDailyRepository(docClient, tableName),
     nowFn: dependencies?.nowFn ?? Date.now,
   };
 }

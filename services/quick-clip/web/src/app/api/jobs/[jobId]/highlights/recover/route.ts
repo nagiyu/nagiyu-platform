@@ -1,7 +1,6 @@
-import { DynamoDBHighlightRepository, DynamoDBJobRepository } from '@nagiyu/quick-clip-core';
+import { createHighlightRepository, createJobRepository } from '@nagiyu/quick-clip-core';
 import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import { NextResponse } from 'next/server';
-import { getDynamoDBDocumentClient, getTableName } from '@/lib/server/aws';
 import { withApiErrorReporting } from '@/lib/api-error-reporting';
 import { HighlightDomainService, JobDomainService } from '@/lib/server/domain-services';
 import { findStuckGeneratingHighlights } from '@/lib/server/highlight-recovery';
@@ -22,9 +21,7 @@ export const POST = withApiErrorReporting(
   ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
   async (_request: Request, { params }: RouteParams): Promise<NextResponse> => {
     const { jobId } = await params;
-    const jobService = new JobDomainService(
-      new DynamoDBJobRepository(getDynamoDBDocumentClient(), getTableName())
-    );
+    const jobService = new JobDomainService(createJobRepository());
     const job = await jobService.getJob(jobId);
     if (!job) {
       return NextResponse.json(
@@ -36,9 +33,7 @@ export const POST = withApiErrorReporting(
       );
     }
 
-    const highlightService = new HighlightDomainService(
-      new DynamoDBHighlightRepository(getDynamoDBDocumentClient(), getTableName())
-    );
+    const highlightService = new HighlightDomainService(createHighlightRepository());
     const highlights = await highlightService.getHighlights(jobId);
     const stuckHighlights = findStuckGeneratingHighlights(highlights, Date.now());
 

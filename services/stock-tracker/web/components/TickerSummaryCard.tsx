@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Box, Card, CardContent, CircularProgress, Grid, Typography } from '@mui/material';
 import { Button } from '@nagiyu/ui';
+import { formatJstDateTime } from '@nagiyu/common';
 import type { TickerSummary } from '@/types/stock';
 import SummaryDetailDialog from './SummaryDetailDialog';
 import ForecastLabelChip from './ForecastLabelChip';
@@ -107,7 +108,7 @@ export default function TickerSummaryCard({
             </Grid>
             <Grid size={12}>
               <Typography variant="caption" color="text.secondary">
-                更新: {new Date(summary.updatedAt).toLocaleString('ja-JP')}
+                更新: {formatJstDateTime(new Date(summary.updatedAt), { seconds: true })}
               </Typography>
             </Grid>
             <Grid size={12}>

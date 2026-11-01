@@ -37,7 +37,6 @@ export class InMemoryMessageRepository implements MessageRepository {
       ...input,
       messageId: input.messageId ?? this.ulidFactory(now),
       createdAt: now,
-      updatedAt: now,
       expiresAt: now + MESSAGE_TTL_SECONDS * 1000,
     });
   }
@@ -54,10 +53,7 @@ export class InMemoryMessageRepository implements MessageRepository {
     const pk = buildUserPK(userId);
     const prefix = buildMessageSKPrefix(characterId);
 
-    const { items } = this.store.query(
-      { pk, sk: { operator: 'begins_with', value: prefix } },
-      { limit: Number.MAX_SAFE_INTEGER }
-    );
+    const items = this.store.queryAll({ pk, sk: { operator: 'begins_with', value: prefix } });
 
     const filtered = sinceMs > 0 ? items.filter((i) => (i.CreatedAt as number) > sinceMs) : items;
     const sorted = [...filtered].sort((a, b) => (a.SK < b.SK ? -1 : a.SK > b.SK ? 1 : 0));
@@ -75,13 +71,10 @@ export class InMemoryMessageRepository implements MessageRepository {
     const prefix = buildMessageSKPrefix(options.characterId);
 
     // InMemorySingleTableStore.query は SK 昇順しか返さないので、自分で降順に並べ替える。
-    const { items } = this.store.query(
-      {
-        pk,
-        sk: { operator: 'begins_with', value: prefix },
-      },
-      { limit: Number.MAX_SAFE_INTEGER }
-    );
+    const items = this.store.queryAll({
+      pk,
+      sk: { operator: 'begins_with', value: prefix },
+    });
     const descSorted = [...items].sort((a, b) => (a.SK < b.SK ? 1 : a.SK > b.SK ? -1 : 0));
 
     const collected: MessageEntity[] = [];

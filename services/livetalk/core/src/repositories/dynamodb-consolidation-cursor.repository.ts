@@ -1,10 +1,5 @@
 import { type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
-import {
-  DynamoDBEntityStore,
-  EntityAlreadyExistsError,
-  OptimisticLockError,
-  type EntityStore,
-} from '@nagiyu/aws';
+import { DynamoDBEntityStore, type EntityStore } from '@nagiyu/aws';
 import type {
   ConsolidationCursorEntity,
   ConsolidationCursorKey,
@@ -17,7 +12,6 @@ import type { ConsolidationCursorRepository } from './consolidation-cursor.repos
  * 集約（consolidation）カーソルリポジトリの DynamoDB 実装。
  */
 export class DynamoDBConsolidationCursorRepository implements ConsolidationCursorRepository {
-  private readonly nowMs: () => number;
   private readonly entityStore: EntityStore<ConsolidationCursorEntity, ConsolidationCursorKey>;
 
   constructor(
@@ -25,7 +19,6 @@ export class DynamoDBConsolidationCursorRepository implements ConsolidationCurso
     tableName: string,
     nowMs: () => number = () => Date.now()
   ) {
-    this.nowMs = nowMs;
     this.entityStore = new DynamoDBEntityStore(
       docClient,
       tableName,
@@ -42,23 +35,11 @@ export class DynamoDBConsolidationCursorRepository implements ConsolidationCurso
     entity: PutConsolidationCursorInput,
     opts: { expectedUpdatedAt?: number } = {}
   ): Promise<ConsolidationCursorEntity> {
-    const merged: ConsolidationCursorEntity = { ...entity, updatedAt: this.nowMs() };
-
     if (opts.expectedUpdatedAt !== undefined) {
-      return this.entityStore.put(merged, { expectedUpdatedAt: opts.expectedUpdatedAt });
+      return this.entityStore.put(entity, { expectedUpdatedAt: opts.expectedUpdatedAt });
     }
 
-    try {
-      return await this.entityStore.create(merged);
-    } catch (error) {
-      // 新規作成の衝突も呼び出し側が楽観ロック競合として扱えるよう、同じエラーに揃える
-      if (error instanceof EntityAlreadyExistsError) {
-        throw new OptimisticLockError(
-          'ConsolidationCursor',
-          `${entity.userId}#${entity.characterId}`
-        );
-      }
-      throw error;
-    }
+    // 新規作成の衝突も呼び出し側が楽観ロック競合として扱えるよう、同じエラーに揃える
+    return this.entityStore.create(entity, { conflictAsOptimisticLock: true });
   }
 }

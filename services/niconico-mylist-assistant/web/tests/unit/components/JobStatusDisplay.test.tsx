@@ -5,6 +5,11 @@
  * 一時的な失敗からの復帰・回復しない失敗での停止・取得前の表示を検証する。
  */
 
+// モック: niconico-mylist-assistant-core は DB 層を含み jsdom で読み込めないため、使う値だけ差し替える。正規表現は本物と同じ定義を使う
+jest.mock('@nagiyu/niconico-mylist-assistant-core', () => ({
+  TWO_FACTOR_AUTH_CODE_REGEX: /^\d{6}$/,
+}));
+
 import React from 'react';
 import { render, screen, act } from '@testing-library/react';
 import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
@@ -244,6 +249,54 @@ describe('JobStatusDisplay - 完了時のコールバック', () => {
     expect(onError).toHaveBeenCalledWith('ジョブが失敗しました');
     expect(onComplete).not.toHaveBeenCalled();
     expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('JobStatusDisplay - コールバックの変更', () => {
+  it('親の再描画でコールバックが変わっても、取得とポーリングをやり直さない', async () => {
+    mockFetch.mockResolvedValue(statusResponse('RUNNING'));
+
+    const { rerender } = render(
+      <JobStatusDisplay jobId="job-1" onComplete={() => {}} onError={() => {}} />
+    );
+    await flush();
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+
+    // 描画のたびに新しい関数が渡されても、追加の取得は起きない
+    rerender(<JobStatusDisplay jobId="job-1" onComplete={() => {}} onError={() => {}} />);
+    rerender(<JobStatusDisplay jobId="job-1" onComplete={() => {}} onError={() => {}} />);
+    await flush();
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+
+    await advancePolling();
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('最後に渡されたコールバックが完了時に呼ばれる', async () => {
+    const first = jest.fn();
+    const latest = jest.fn();
+    mockFetch.mockResolvedValueOnce(statusResponse('RUNNING'));
+    mockFetch.mockResolvedValue(statusResponse('SUCCEEDED', RESULT));
+
+    const { rerender } = render(<JobStatusDisplay jobId="job-1" onComplete={first} />);
+    await flush();
+    rerender(<JobStatusDisplay jobId="job-1" onComplete={latest} />);
+    await advancePolling();
+
+    expect(first).not.toHaveBeenCalled();
+    expect(latest).toHaveBeenCalledWith(RESULT);
+  });
+
+  it('jobId が変わると新しいジョブを取得し直す', async () => {
+    mockFetch.mockResolvedValue(statusResponse('RUNNING'));
+
+    const { rerender } = render(<JobStatusDisplay jobId="job-1" />);
+    await flush();
+    rerender(<JobStatusDisplay jobId="job-2" />);
+    await flush();
+
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    expect(mockFetch).toHaveBeenLastCalledWith('/api/batch/status/job-2');
   });
 });
 

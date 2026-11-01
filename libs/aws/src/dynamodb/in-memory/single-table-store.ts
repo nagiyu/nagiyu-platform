@@ -146,6 +146,9 @@ export class InMemorySingleTableStore {
   /**
    * クエリ操作（PK/SK によるクエリ）
    *
+   * limit 省略時は 100 件で切る。DynamoDB 側の `queryPage` に当たるページ単位の口であり、
+   * 全件が要るときは `queryAll` を使う。
+   *
    * @param condition - クエリ条件
    * @param options - ページネーションオプション
    * @returns ページネーション結果
@@ -154,49 +157,28 @@ export class InMemorySingleTableStore {
     condition: QueryCondition,
     options?: PaginationOptions
   ): PaginatedResult<DynamoDBItem> {
-    const { pk, sk } = condition;
-    const limit = options?.limit || 100;
+    return this.paginate(this.filterAndSortByKey(condition), options);
+  }
 
-    // 全アイテムをフィルタリング
-    let items = Array.from(this.store.values()).filter((item) => item.PK === pk);
-
-    // SK条件でフィルタリング
-    if (sk) {
-      items = this.filterBySortKey(items, sk.operator, sk.value);
-    }
-
-    // 実DynamoDBのQueryはソートキー昇順で返すため、挿入順（Map反復順）に依存しないよう安定ソートする
-    items = this.sortBySortKey(items, 'SK');
-
-    // カーソルからの開始位置を特定
-    let startIndex = 0;
-    if (options?.cursor) {
-      const cursorData = this.decodeCursor(options.cursor);
-      startIndex = cursorData.index || 0;
-    }
-
-    // ページネーション
-    const paginatedItems = items.slice(startIndex, startIndex + limit);
-    // 実DynamoDBは「Limit件評価した時点」でLastEvaluatedKeyを返す（返却件数ではない。
-    // FilterExpression併用時はFilter後に残り0件でも、Limit件評価してさえいればLEKが付く）。
-    // このquery()自体はFilterExpression相当を持たないため評価件数=返却件数（paginatedItems）
-    // だが、呼び出し側（例: 一時アラート候補取得のTemporary/TTLフィルタ）がこの結果に対して
-    // 事後フィルタを重ねるケースを想定し、「limitちょうど評価できたか」をhasMoreの基準にする
-    // （残り件数=startIndex + limit < items.lengthでは判定しない）。
-    // これにより「ちょうどlimit件で終わる」ケースでも実DynamoDBと同じくnextCursorが付き、
-    // 呼び出し側は次のQueryで空ページを受け取ってから走査完了を知る（実DynamoDBと同じ挙動）。
-    const hasMore = paginatedItems.length > 0 && paginatedItems.length === limit;
-    const nextCursor = hasMore ? this.encodeCursor({ index: startIndex + limit }) : undefined;
-
-    return {
-      items: paginatedItems,
-      nextCursor,
-      count: items.length,
-    };
+  /**
+   * クエリ条件に一致する全アイテムをページで切らずに返す。
+   *
+   * DynamoDB 側の `queryAllItems` に当たる。`query` は limit 省略時に 100 件で切るため、
+   * 件数が 100 を超えうる取得で `query` を使うと取りこぼす。全件が要るときはこちらを使う。
+   * フィルタとソート順は `query` と同じ。
+   *
+   * @param condition - クエリ条件
+   * @returns 条件に一致する全アイテム (ソートキー昇順)
+   */
+  public queryAll(condition: QueryCondition): DynamoDBItem[] {
+    return this.filterAndSortByKey(condition);
   }
 
   /**
    * 属性によるクエリ操作（GSI をシミュレート）
+   *
+   * limit 省略時は 100 件で切る。ページ単位の口であり、全件が要るときは
+   * `queryAllByAttribute` を使う。
    *
    * @param condition - クエリ条件
    * @param options - ページネーションオプション
@@ -206,76 +188,52 @@ export class InMemorySingleTableStore {
     condition: AttributeQueryCondition,
     options?: PaginationOptions
   ): PaginatedResult<DynamoDBItem> {
-    const { attributeName, attributeValue, sk, gsiSortKeyAttributeName } = condition;
-    const limit = options?.limit || 100;
-
-    // 全アイテムをフィルタリング
-    let items = Array.from(this.store.values()).filter(
-      (item) => item[attributeName] === attributeValue
-    );
-
-    // SK条件でフィルタリング
-    if (sk) {
-      items = this.filterBySortKey(items, sk.operator, sk.value, sk.attributeName);
-    }
-
-    // 実DynamoDBのGSI Queryはソートキー（GSIのSK属性）昇順で返すため、挿入順に依存しないよう安定ソートする。
-    // sk条件があればそのattributeNameを、無ければ呼び出し元が明示したGSIソートキー属性
-    // （gsiSortKeyAttributeName）を、それも無ければ従来どおりベーステーブルの'SK'を使う。
-    items = this.sortBySortKey(items, sk?.attributeName ?? gsiSortKeyAttributeName ?? 'SK');
-
-    // カーソルからの開始位置を特定
-    let startIndex = 0;
-    if (options?.cursor) {
-      const cursorData = this.decodeCursor(options.cursor);
-      startIndex = cursorData.index || 0;
-    }
-
-    // ページネーション
-    const paginatedItems = items.slice(startIndex, startIndex + limit);
-    // 実DynamoDBは「Limit件評価した時点」でLastEvaluatedKeyを返す（残り0件でも）。
-    // query()と同じ理由で「limitちょうど評価できたか」をhasMoreの基準にする（詳細はquery()参照）。
-    const hasMore = paginatedItems.length > 0 && paginatedItems.length === limit;
-    const nextCursor = hasMore ? this.encodeCursor({ index: startIndex + limit }) : undefined;
-
+    const page = this.paginate(this.filterAndSortByAttribute(condition), options);
     return {
+      ...page,
       // 射影は返却するページのアイテムに対してのみ適用する（フィルタ・ソート・ページネーションは
       // フルアイテムに対して行い、実DynamoDBのQueryと同様に射影は結果の見え方だけを絞る）
-      items: paginatedItems.map((item) => this.applyProjection(item, condition.projection)),
-      nextCursor,
-      count: items.length,
+      items: page.items.map((item) => this.applyProjection(item, condition.projection)),
     };
+  }
+
+  /**
+   * 属性によるクエリ条件に一致する全アイテムをページで切らずに返す（GSI をシミュレート）。
+   *
+   * DynamoDB 側の `queryAllItems` に当たる。`queryByAttribute` は limit 省略時に 100 件で切るため、
+   * 全件が要るときはこちらを使う。フィルタ・ソート順・射影は `queryByAttribute` と同じ。
+   *
+   * @param condition - クエリ条件
+   * @returns 条件に一致する全アイテム (GSI のソートキー昇順)
+   */
+  public queryAllByAttribute(condition: AttributeQueryCondition): DynamoDBItem[] {
+    return this.filterAndSortByAttribute(condition).map((item) =>
+      this.applyProjection(item, condition.projection)
+    );
   }
 
   /**
    * スキャン操作（全件取得）
    *
+   * limit 省略時は 100 件で切る。ページ単位の口であり、全件が要るときは `scanAll` を使う。
+   *
    * @param options - ページネーションオプション
    * @returns ページネーション結果
    */
   public scan(options?: PaginationOptions): PaginatedResult<DynamoDBItem> {
-    const limit = options?.limit || 100;
-    const items = Array.from(this.store.values());
+    return this.paginate(Array.from(this.store.values()), options);
+  }
 
-    // カーソルからの開始位置を特定
-    let startIndex = 0;
-    if (options?.cursor) {
-      const cursorData = this.decodeCursor(options.cursor);
-      startIndex = cursorData.index || 0;
-    }
-
-    // ページネーション
-    const paginatedItems = items.slice(startIndex, startIndex + limit);
-    // 実DynamoDBは「Limit件評価した時点」でLastEvaluatedKeyを返す（残り0件でも）。
-    // query()と同じ理由で「limitちょうど評価できたか」をhasMoreの基準にする（詳細はquery()参照）。
-    const hasMore = paginatedItems.length > 0 && paginatedItems.length === limit;
-    const nextCursor = hasMore ? this.encodeCursor({ index: startIndex + limit }) : undefined;
-
-    return {
-      items: paginatedItems,
-      nextCursor,
-      count: items.length,
-    };
+  /**
+   * ストア内の全アイテムをページで切らずに返す（挿入順）。
+   *
+   * DynamoDB 側の `scanAllItems` に当たる。`scan` は limit 省略時に 100 件で切るため、
+   * 全件が要るときはこちらを使う。
+   *
+   * @returns ストア内の全アイテム
+   */
+  public scanAll(): DynamoDBItem[] {
+    return Array.from(this.store.values());
   }
 
   /**
@@ -387,6 +345,78 @@ export class InMemorySingleTableStore {
     }
 
     return projected as DynamoDBItem;
+  }
+
+  /**
+   * PK/SK 条件でフィルタし、ソートキー昇順に並べる（`query` と `queryAll` で共有）
+   */
+  private filterAndSortByKey(condition: QueryCondition): DynamoDBItem[] {
+    const { pk, sk } = condition;
+
+    let items = Array.from(this.store.values()).filter((item) => item.PK === pk);
+
+    if (sk) {
+      items = this.filterBySortKey(items, sk.operator, sk.value);
+    }
+
+    // 実DynamoDBのQueryはソートキー昇順で返すため、挿入順（Map反復順）に依存しないよう安定ソートする
+    return this.sortBySortKey(items, 'SK');
+  }
+
+  /**
+   * 属性条件でフィルタし、GSI のソートキー昇順に並べる（`queryByAttribute` と `queryAllByAttribute` で共有）。
+   * 射影は適用しない（ページ切りの後に呼び出し側が適用する）。
+   */
+  private filterAndSortByAttribute(condition: AttributeQueryCondition): DynamoDBItem[] {
+    const { attributeName, attributeValue, sk, gsiSortKeyAttributeName } = condition;
+
+    let items = Array.from(this.store.values()).filter(
+      (item) => item[attributeName] === attributeValue
+    );
+
+    if (sk) {
+      items = this.filterBySortKey(items, sk.operator, sk.value, sk.attributeName);
+    }
+
+    // 実DynamoDBのGSI Queryはソートキー（GSIのSK属性）昇順で返すため、挿入順に依存しないよう安定ソートする。
+    // sk条件があればそのattributeNameを、無ければ呼び出し元が明示したGSIソートキー属性
+    // （gsiSortKeyAttributeName）を、それも無ければ従来どおりベーステーブルの'SK'を使う。
+    return this.sortBySortKey(items, sk?.attributeName ?? gsiSortKeyAttributeName ?? 'SK');
+  }
+
+  /**
+   * フィルタ・ソート済みのアイテムをカーソルと limit で切り出す（`query` / `queryByAttribute` / `scan` で共有）
+   */
+  private paginate(
+    items: DynamoDBItem[],
+    options?: PaginationOptions
+  ): PaginatedResult<DynamoDBItem> {
+    const limit = options?.limit || 100;
+
+    // カーソルからの開始位置を特定
+    let startIndex = 0;
+    if (options?.cursor) {
+      const cursorData = this.decodeCursor(options.cursor);
+      startIndex = cursorData.index || 0;
+    }
+
+    const paginatedItems = items.slice(startIndex, startIndex + limit);
+    // 実DynamoDBは「Limit件評価した時点」でLastEvaluatedKeyを返す（返却件数ではない。
+    // FilterExpression併用時はFilter後に残り0件でも、Limit件評価してさえいればLEKが付く）。
+    // このストア自体はFilterExpression相当を持たないため評価件数=返却件数（paginatedItems）
+    // だが、呼び出し側（例: 一時アラート候補取得のTemporary/TTLフィルタ）がこの結果に対して
+    // 事後フィルタを重ねるケースを想定し、「limitちょうど評価できたか」をhasMoreの基準にする
+    // （残り件数=startIndex + limit < items.lengthでは判定しない）。
+    // これにより「ちょうどlimit件で終わる」ケースでも実DynamoDBと同じくnextCursorが付き、
+    // 呼び出し側は次のQueryで空ページを受け取ってから走査完了を知る（実DynamoDBと同じ挙動）。
+    const hasMore = paginatedItems.length > 0 && paginatedItems.length === limit;
+    const nextCursor = hasMore ? this.encodeCursor({ index: startIndex + limit }) : undefined;
+
+    return {
+      items: paginatedItems,
+      nextCursor,
+      count: paginatedItems.length,
+    };
   }
 
   /**

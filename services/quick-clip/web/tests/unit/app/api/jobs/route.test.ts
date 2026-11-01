@@ -1,7 +1,11 @@
+/**
+ * @jest-environment node
+ */
+
 import { reportErrorEvent } from '@nagiyu/aws';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import type { JobRepository } from '@nagiyu/quick-clip-core';
-import { DynamoDBJobRepository } from '@nagiyu/quick-clip-core';
+import { createJobRepository } from '@nagiyu/quick-clip-core';
 import { getBatchClient, getS3Client } from '@/lib/server/aws';
 import { POST } from '@/app/api/jobs/route';
 
@@ -28,14 +32,12 @@ jest.mock('@/lib/server/aws', () => ({
   getBatchJobDefinitionPrefix: jest.fn(() => 'nagiyu-quick-clip-dev'),
   getBatchJobQueueArn: jest.fn(() => 'arn:aws:batch:us-east-1:123456789012:job-queue/quick-clip'),
   getBucketName: jest.fn(() => 'test-bucket'),
-  getDynamoDBDocumentClient: jest.fn(() => ({})),
   getS3Client: jest.fn(() => ({})),
-  getTableName: jest.fn(() => 'test-table'),
 }));
 
 jest.mock('@nagiyu/quick-clip-core', () => ({
   ...jest.requireActual('@nagiyu/quick-clip-core'),
-  DynamoDBJobRepository: jest.fn().mockImplementation(
+  createJobRepository: jest.fn().mockImplementation(
     () =>
       ({
         create: jest.fn(async (job) => job),
@@ -481,7 +483,7 @@ describe('POST /api/jobs', () => {
         error: 'INVALID_REQUEST',
         message: 'リクエストが不正です',
       });
-      expect(DynamoDBJobRepository).not.toHaveBeenCalled();
+      expect(createJobRepository).not.toHaveBeenCalled();
       expect(mockedGetSignedUrl).not.toHaveBeenCalled();
       expect(s3Send).not.toHaveBeenCalled();
       expect(batchSend).not.toHaveBeenCalled();

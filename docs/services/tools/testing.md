@@ -316,16 +316,10 @@ npm run test:e2e:headed
 
 GitHub Actions で自動実行されます:
 
-**Fast CI** (`.github/workflows/tools-verify-fast.yml`):
+`.github/workflows/tools-verify.yml` の 1 本で、PR の向き先によって Fast / Full を出し分ける:
 
-- トリガー: `integration/**` ブランチへのPR
-- テスト: ユニットテスト + E2E (chromium-mobile のみ)
-
-**Full CI** (`.github/workflows/tools-verify-full.yml`):
-
-- トリガー: `develop` ブランチへのPR
-- テスト: ユニットテスト + カバレッジチェック + E2E (全デバイス)
-- カバレッジ: 80%未満で失敗
+- **Fast**: `integration/**` 向け。E2E は chromium-mobile のみで、カバレッジ検査は行わない
+- **Full**: `develop` 向け。E2E は全デバイス、カバレッジ検査 (80%未満で失敗) を行う
 
 ---
 
@@ -333,23 +327,22 @@ GitHub Actions で自動実行されます:
 
 ### 7.1 ワークフロー構成
 
-| ワークフロー           | トリガー               | 実行内容                                       |
-| ---------------------- | ---------------------- | ---------------------------------------------- |
-| tools-verify-fast      | PR to `integration/**` | ビルド、ユニット、E2E (chromium-mobile)        |
-| tools-verify-full      | PR to `develop`        | ビルド、ユニット、カバレッジ、E2E (全デバイス) |
-| tools-deploy           | Push to `develop` or `master` | デプロイ（テストは verify で完了済み）         |
+| ワークフロー | トリガー                           | 実行内容                                                                                                                       |
+| ------------ | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| tools-verify | PR to `integration/**` / `develop` | Fast (integration 向け): ビルド、ユニット、E2E (chromium-mobile) / Full (develop 向け): 上記に加えカバレッジ、E2E (全デバイス) |
+| tools-deploy | Push to `develop` or `master`      | デプロイ（テストは verify で完了済み）                                                                                         |
 
 ### 7.2 ブランチ保護ルール
 
 #### `integration/**` ブランチ
 
 - ✅ PR 必須（直接プッシュ禁止）
-- ✅ `tools-verify-fast` ワークフローの成功が必須
+- ✅ `tools-verify` ワークフローの成功が必須
 
 #### `develop` ブランチ
 
 - ✅ PR 必須（直接プッシュ禁止）
-- ✅ `tools-verify-full` ワークフローの成功が必須
+- ✅ `tools-verify` ワークフローの成功が必須
 - ✅ カバレッジ 80%以上の確保（Jest の `coverageThreshold` により自動チェック）
 
 #### `master` ブランチ

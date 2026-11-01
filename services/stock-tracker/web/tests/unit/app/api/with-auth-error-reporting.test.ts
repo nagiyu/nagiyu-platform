@@ -12,7 +12,8 @@ jest.mock('../../../../lib/auth', () => ({
   getSession: jest.fn(),
 }));
 
-jest.mock('../../../../lib/repository-factory', () => ({
+jest.mock('@nagiyu/stock-tracker-core', () => ({
+  ...jest.requireActual('@nagiyu/stock-tracker-core'),
   createTickerRepository: jest.fn(),
   createExchangeRepository: jest.fn(),
 }));

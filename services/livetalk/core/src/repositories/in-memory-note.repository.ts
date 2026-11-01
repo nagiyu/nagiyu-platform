@@ -17,16 +17,15 @@ export class InMemoryNoteRepository implements NoteRepository {
   }
 
   public async put(input: CreateNoteInput): Promise<NoteEntity> {
-    const now = this.nowMs();
-    return this.entityStore.put({ ...input, createdAt: now, updatedAt: now });
+    return this.entityStore.put({ ...input, createdAt: undefined });
   }
 
   public async list(userId: string, characterId: string, limit = 100): Promise<NoteEntity[]> {
     const pk = buildUserPK(userId);
     const prefix = buildNoteSKPrefix(characterId);
-    // InMemorySingleTableStore は挿入順で返すため、全件取得して CreatedAt 降順に並べてから limit を適用する。
-    const result = this.store.query({ pk, sk: { operator: 'begins_with', value: prefix } });
-    return result.items
+    // ストアはソートキー昇順で返すため、全件取得して CreatedAt 降順に並べてから limit を適用する。
+    const items = this.store.queryAll({ pk, sk: { operator: 'begins_with', value: prefix } });
+    return items
       .map((item) => this.mapper.toEntity(item))
       .sort((a, b) => b.createdAt - a.createdAt)
       .slice(0, limit);
@@ -35,12 +34,8 @@ export class InMemoryNoteRepository implements NoteRepository {
   public async listAll(userId: string, characterId: string): Promise<NoteEntity[]> {
     const pk = buildUserPK(userId);
     const prefix = buildNoteSKPrefix(characterId);
-    // limit を指定しないとデフォルト 100 件で打ち切られるため、十分大きな値を渡す
-    const result = this.store.query(
-      { pk, sk: { operator: 'begins_with', value: prefix } },
-      { limit: Number.MAX_SAFE_INTEGER }
-    );
-    return result.items
+    const items = this.store.queryAll({ pk, sk: { operator: 'begins_with', value: prefix } });
+    return items
       .map((item) => this.mapper.toEntity(item))
       .sort((a, b) => b.createdAt - a.createdAt);
   }

@@ -53,9 +53,7 @@ export class DynamoDBListRepository implements ListRepository {
   }
 
   public async createPersonalList(input: CreatePersonalListInput): Promise<PersonalList> {
-    const now = Date.now();
-    // updatedAt は store が書き込み時に現在時刻で上書きする。Entity 型上は必須のため値だけ渡す。
-    return this.personalStore.create({ ...input, createdAt: now, updatedAt: now });
+    return this.personalStore.create(input);
   }
 
   public async updatePersonalList(
@@ -80,8 +78,7 @@ export class DynamoDBListRepository implements ListRepository {
   }
 
   public async createGroupList(input: CreateGroupListInput): Promise<GroupList> {
-    const now = Date.now();
-    return this.groupStore.create({ ...input, createdAt: now, updatedAt: now });
+    return this.groupStore.create(input);
   }
 
   public async updateGroupList(

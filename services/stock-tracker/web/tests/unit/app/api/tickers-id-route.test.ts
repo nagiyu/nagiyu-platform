@@ -1,10 +1,11 @@
 import { NextRequest } from 'next/server';
 import { PUT, DELETE } from '../../../../app/api/tickers/[id]/route';
-import { createTickerRepository } from '../../../../lib/repository-factory';
+import { createTickerRepository } from '@nagiyu/stock-tracker-core';
 import * as awsModule from '@nagiyu/aws';
 import { MALFORMED_BODY_CASES } from './invalidBodyCases';
 
-jest.mock('../../../../lib/repository-factory', () => ({
+jest.mock('@nagiyu/stock-tracker-core', () => ({
+  ...jest.requireActual('@nagiyu/stock-tracker-core'),
   createTickerRepository: jest.fn(),
 }));
 

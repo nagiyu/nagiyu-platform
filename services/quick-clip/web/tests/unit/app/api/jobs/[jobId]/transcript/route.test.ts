@@ -1,7 +1,11 @@
+/**
+ * @jest-environment node
+ */
+
 import { reportErrorEvent } from '@nagiyu/aws';
 import { GET } from '@/app/api/jobs/[jobId]/transcript/route';
 import type { JobRepository } from '@nagiyu/quick-clip-core';
-import { getDynamoDBDocumentClient, getS3Client } from '@/lib/server/aws';
+import { getS3Client } from '@/lib/server/aws';
 
 jest.mock('next/server', () => ({
   NextResponse: {
@@ -18,10 +22,8 @@ jest.mock('@nagiyu/aws', () => ({
 }));
 
 jest.mock('@/lib/server/aws', () => ({
-  getDynamoDBDocumentClient: jest.fn(() => ({})),
   getS3Client: jest.fn(() => ({})),
   getBucketName: jest.fn(() => 'test-bucket'),
-  getTableName: jest.fn(() => 'test-table'),
 }));
 
 const mockS3Send = jest.fn();
@@ -32,7 +34,7 @@ jest.mock('@aws-sdk/client-s3', () => ({
 const mockGetJob = jest.fn();
 jest.mock('@nagiyu/quick-clip-core', () => ({
   ...jest.requireActual('@nagiyu/quick-clip-core'),
-  DynamoDBJobRepository: jest.fn().mockImplementation(
+  createJobRepository: jest.fn().mockImplementation(
     () =>
       ({
         create: jest.fn(),
@@ -43,16 +45,10 @@ jest.mock('@nagiyu/quick-clip-core', () => ({
 }));
 
 describe('GET /api/jobs/[jobId]/transcript', () => {
-  const mockedGetDynamoDBDocumentClient = getDynamoDBDocumentClient as jest.MockedFunction<
-    typeof getDynamoDBDocumentClient
-  >;
   const mockedGetS3Client = getS3Client as jest.MockedFunction<typeof getS3Client>;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockedGetDynamoDBDocumentClient.mockReturnValue(
-      {} as ReturnType<typeof getDynamoDBDocumentClient>
-    );
     mockedGetS3Client.mockReturnValue({
       send: mockS3Send,
     } as unknown as ReturnType<typeof getS3Client>);

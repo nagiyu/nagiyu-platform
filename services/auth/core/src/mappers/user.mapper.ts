@@ -5,13 +5,13 @@
  */
 
 import {
-  InvalidEntityDataError,
   immutablePatchValue,
   optionalPatchValue,
   readAttribute,
   readOptionalTimestamp,
   readTimestamp,
   requiredPatchValue,
+  validateArrayField,
   validateStringField,
   type DynamoDBAttributes,
   type DynamoDBKey,
@@ -22,10 +22,6 @@ import type { User } from '@nagiyu/common';
 
 /** ユーザーのビジネスキー */
 export type UserKey = { userId: string };
-
-const ERROR_MESSAGES = {
-  ROLES_INVALID: 'フィールド "Roles" が不正です: 文字列の配列である必要があります',
-} as const;
 
 /**
  * 保存属性の旧名。
@@ -122,7 +118,9 @@ export class UserMapper implements EntityMapper<User, UserKey> {
       googleId: validateStringField(item.googleId, 'googleId'),
       email: validateStringField(this.read(item, 'Email'), 'Email'),
       name: validateStringField(this.read(item, 'Name'), 'Name'),
-      roles: this.validateRoles(this.read(item, 'Roles')),
+      roles: validateArrayField(this.read(item, 'Roles'), 'Roles', {
+        isElement: (v): v is string => typeof v === 'string',
+      }),
       createdAt: readTimestamp(item, 'CreatedAt', LEGACY_ATTRIBUTE_NAMES.CreatedAt),
       updatedAt: readTimestamp(item, 'UpdatedAt', LEGACY_ATTRIBUTE_NAMES.UpdatedAt),
     };
@@ -145,12 +143,5 @@ export class UserMapper implements EntityMapper<User, UserKey> {
 
   private read(item: DynamoDBAttributes, name: keyof typeof LEGACY_ATTRIBUTE_NAMES): unknown {
     return readAttribute(item, name, LEGACY_ATTRIBUTE_NAMES[name]);
-  }
-
-  private validateRoles(value: unknown): string[] {
-    if (!Array.isArray(value) || value.some((role) => typeof role !== 'string')) {
-      throw new InvalidEntityDataError(ERROR_MESSAGES.ROLES_INVALID);
-    }
-    return value as string[];
   }
 }

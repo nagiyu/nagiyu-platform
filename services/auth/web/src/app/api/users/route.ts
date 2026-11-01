@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createUserRepository } from '@nagiyu/auth-core';
 import { COMMON_ERROR_MESSAGES, hasPermission } from '@nagiyu/common';
-import { decodeCursor, encodeCursor } from '@nagiyu/aws';
 import { PaginationValidationError, parsePagination } from '@nagiyu/nextjs';
 import { getSession } from '@/lib/auth/session';
 import { withApiErrorReporting } from '@/lib/api-error-reporting';
@@ -49,14 +48,14 @@ export const GET = withApiErrorReporting(
       const { limit, cursor } = parsePagination(req);
 
       // ユーザー一覧を取得
-      const result = await repo.listUsers(limit, decodeCursor(cursor));
+      const result = await repo.listUsers({ limit, cursor });
 
       // レスポンスを返す
       return NextResponse.json({
-        users: result.users,
+        users: result.items,
         pagination: {
-          count: result.users.length,
-          lastKey: encodeCursor(result.lastEvaluatedKey),
+          count: result.items.length,
+          lastKey: result.nextCursor,
         },
       });
     } catch (error) {

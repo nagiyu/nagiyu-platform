@@ -3,7 +3,6 @@ export type {
   UpsertUserInput,
   UpdateUserInput,
   CreateUserInput,
-  ListUsersResult,
 } from './user-repository';
 export { InMemoryUserRepository } from './in-memory-user-repository';
 export { DynamoDBUserRepository } from './dynamodb-user-repository';

@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState, type ChangeEvent, type DragEvent, type FormEvent } from 'react';
-import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
+import { COMMON_ERROR_MESSAGES, formatFileSize } from '@nagiyu/common';
 import { useRouter } from 'next/navigation';
 import { Alert, Box, Container, LinearProgress, Paper, Typography } from '@mui/material';
 import { Button, ErrorAlert } from '@nagiyu/ui';
@@ -353,7 +353,9 @@ export default function Home() {
 
           {file && (
             <Box sx={{ mb: 2 }}>
-              <Typography variant="body2">選択中: {file.name}</Typography>
+              <Typography variant="body2">
+                選択中: {file.name} ({formatFileSize(file.size)})
+              </Typography>
             </Box>
           )}
 

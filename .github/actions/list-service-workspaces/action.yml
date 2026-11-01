@@ -1,0 +1,38 @@
+name: List Service Workspaces
+description: ディレクトリ配下のワークスペースを導き、検査の要否 (lint / format / test / coverage / contract) を出力する
+
+inputs:
+  dirs:
+    description: 対象のディレクトリ (空白または改行区切り。例 "services/quick-clip infra/quick-clip")
+    required: true
+  coverage-exclude:
+    description: カバレッジ検査から外すワークスペース名 (空白区切り)
+    required: false
+    default: ''
+
+outputs:
+  workspaces:
+    description: '[{name, location, lint, format, test, coverage, contract}] の JSON'
+    value: ${{ steps.list.outputs.workspaces }}
+  contract-workspaces:
+    description: 契約テストを持つワークスペース名の JSON 配列
+    value: ${{ steps.list.outputs.contract-workspaces }}
+  has-contract:
+    description: "契約テストを持つワークスペースがあれば 'true'"
+    value: ${{ steps.list.outputs.has-contract }}
+  prebuild:
+    description: テストの前にビルドが要るワークスペース名 (空白区切り)
+    value: ${{ steps.list.outputs.prebuild }}
+
+runs:
+  using: composite
+  steps:
+    - name: List workspaces
+      id: list
+      shell: bash
+      env:
+        # 入力をシェルのコマンド文字列へ直接埋め込むとインジェクションになるため、env 経由で渡す
+        LIST_DIRS: ${{ inputs.dirs }}
+        LIST_COVERAGE_EXCLUDE: ${{ inputs.coverage-exclude }}
+        LIST_ACTION_PATH: ${{ github.action_path }}
+      run: node "$LIST_ACTION_PATH/list.js"

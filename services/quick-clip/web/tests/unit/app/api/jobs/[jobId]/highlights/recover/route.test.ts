@@ -1,7 +1,10 @@
+/**
+ * @jest-environment node
+ */
+
 import { reportErrorEvent } from '@nagiyu/aws';
 import { POST } from '@/app/api/jobs/[jobId]/highlights/recover/route';
 import type { HighlightRepository, JobRepository } from '@nagiyu/quick-clip-core';
-import { getDynamoDBDocumentClient } from '@/lib/server/aws';
 import { CLIP_GENERATING_STALE_MS } from '@/lib/server/highlight-recovery';
 
 jest.mock('next/server', () => ({
@@ -18,10 +21,7 @@ jest.mock('@nagiyu/aws', () => ({
   reportErrorEvent: jest.fn().mockResolvedValue(null),
 }));
 
-jest.mock('@/lib/server/aws', () => ({
-  getDynamoDBDocumentClient: jest.fn(() => ({})),
-  getTableName: jest.fn(() => 'test-table'),
-}));
+jest.mock('@/lib/server/aws', () => ({}));
 
 const mockGetJob = jest.fn();
 const mockGetHighlights = jest.fn();
@@ -29,7 +29,7 @@ const mockGetHighlightById = jest.fn();
 const mockUpdateHighlight = jest.fn();
 jest.mock('@nagiyu/quick-clip-core', () => ({
   ...jest.requireActual('@nagiyu/quick-clip-core'),
-  DynamoDBJobRepository: jest.fn().mockImplementation(
+  createJobRepository: jest.fn().mockImplementation(
     () =>
       ({
         create: jest.fn(),
@@ -37,7 +37,7 @@ jest.mock('@nagiyu/quick-clip-core', () => ({
         updateBatchJobId: jest.fn(),
       }) as unknown as JobRepository
   ),
-  DynamoDBHighlightRepository: jest.fn().mockImplementation(
+  createHighlightRepository: jest.fn().mockImplementation(
     () =>
       ({
         getByJobId: mockGetHighlights,
@@ -62,16 +62,10 @@ const buildHighlight = (highlightId: string, overrides: Record<string, unknown> 
 });
 
 describe('POST /api/jobs/[jobId]/highlights/recover', () => {
-  const mockedGetDynamoDBDocumentClient = getDynamoDBDocumentClient as jest.MockedFunction<
-    typeof getDynamoDBDocumentClient
-  >;
   let nowSpy: jest.SpyInstance;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockedGetDynamoDBDocumentClient.mockReturnValue(
-      {} as ReturnType<typeof getDynamoDBDocumentClient>
-    );
     mockGetJob.mockResolvedValue({ jobId: 'job-1' });
     mockGetHighlightById.mockImplementation(async (_jobId: string, highlightId: string) =>
       buildHighlight(highlightId)

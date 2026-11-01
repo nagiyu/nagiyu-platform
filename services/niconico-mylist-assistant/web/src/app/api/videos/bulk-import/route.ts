@@ -6,12 +6,11 @@ import {
   upsertUserVideoSetting,
   BulkImportResponse,
 } from '@nagiyu/niconico-mylist-assistant-core';
-import { EntityAlreadyExistsError, reportErrorEvent } from '@nagiyu/aws';
-import { toErrorMessage } from '@nagiyu/common';
+import { EntityAlreadyExistsError } from '@nagiyu/aws';
 import { readJsonObjectBody } from '@nagiyu/nextjs';
 import { getSession } from '@/lib/auth/session';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
-import { createWithApiErrorReportingBody } from '@/lib/api-error-reporting';
+import { createWithApiErrorReportingBody, errorReporter } from '@/lib/api-error-reporting';
 
 /**
  * 動画 ID (英字接頭辞 + 数字) の形式かを判定する
@@ -138,17 +137,8 @@ export const POST = withApiErrorReporting(
     });
     await Promise.all(
       saveFailures.map(({ videoId, reason }) =>
-        reportErrorEvent({
-          serviceId: 'niconico-mylist-assistant',
-          severity: 'error',
-          title: 'Web API: 動画一括登録の保存エラー',
-          message: toErrorMessage(reason),
-          context: {
-            userId: session.user.id,
-            videoId,
-            errorName: reason instanceof Error ? reason.name : typeof reason,
-            errorStack: reason instanceof Error ? reason.stack : undefined,
-          },
+        errorReporter.report('Web API: 動画一括登録の保存エラー', reason, {
+          context: { userId: session.user.id, videoId },
         })
       )
     );

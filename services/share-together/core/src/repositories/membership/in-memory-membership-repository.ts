@@ -48,9 +48,7 @@ export class InMemoryMembershipRepository implements MembershipRepository {
   }
 
   public async create(input: CreateGroupMembershipInput): Promise<GroupMembership> {
-    const now = Date.now();
-    // updatedAt は store が書き込み時に現在時刻で上書きする。Entity 型上は必須のため値だけ渡す。
-    return this.store.create({ ...input, createdAt: now, updatedAt: now });
+    return this.store.create(input);
   }
 
   public async update(
@@ -72,23 +70,19 @@ export class InMemoryMembershipRepository implements MembershipRepository {
   }
 
   private queryByGroupId(groupId: string): Record<string, unknown>[] {
-    // 既定の件数上限で打ち切られないよう、実 DynamoDB の全ページ取得に合わせて上限を外す
-    const { items } = this.tableStore.query(
-      { pk: buildMembershipPk(groupId), sk: { operator: 'begins_with', value: MEMBER_SK_PREFIX } },
-      { limit: Number.MAX_SAFE_INTEGER }
-    );
+    const items = this.tableStore.queryAll({
+      pk: buildMembershipPk(groupId),
+      sk: { operator: 'begins_with', value: MEMBER_SK_PREFIX },
+    });
     return items;
   }
 
   private queryByUserId(userId: string): Record<string, unknown>[] {
-    const { items } = this.tableStore.queryByAttribute(
-      {
-        attributeName: 'GSI1PK',
-        attributeValue: buildMembershipGsi1Pk(userId),
-        gsiSortKeyAttributeName: 'GSI1SK',
-      },
-      { limit: Number.MAX_SAFE_INTEGER }
-    );
+    const items = this.tableStore.queryAllByAttribute({
+      attributeName: 'GSI1PK',
+      attributeValue: buildMembershipGsi1Pk(userId),
+      gsiSortKeyAttributeName: 'GSI1SK',
+    });
     return items;
   }
 }

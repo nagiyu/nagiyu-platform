@@ -1,3 +1,7 @@
+/**
+ * @jest-environment node
+ */
+
 jest.mock('next/server', () => ({
   NextResponse: {
     json: (body: unknown, init?: { status?: number }) => ({

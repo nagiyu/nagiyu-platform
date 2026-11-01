@@ -12,19 +12,16 @@ import type { StudyTopicRepository } from './study-topic.repository.interface.js
 export class InMemoryStudyTopicRepository implements StudyTopicRepository {
   private readonly mapper: StudyTopicMapper;
   private readonly store: InMemorySingleTableStore;
-  private readonly nowMs: () => number;
   private readonly entityStore: EntityStore<StudyTopicEntity, StudyTopicKey>;
 
   constructor(store: InMemorySingleTableStore, nowMs: () => number = () => Date.now()) {
     this.store = store;
-    this.nowMs = nowMs;
     this.mapper = new StudyTopicMapper();
     this.entityStore = new InMemoryEntityStore(store, this.mapper, { now: nowMs });
   }
 
   public async put(input: CreateStudyTopicInput): Promise<StudyTopicEntity> {
-    const now = this.nowMs();
-    return this.entityStore.put({ ...input, createdAt: now, updatedAt: now });
+    return this.entityStore.put({ ...input, createdAt: undefined });
   }
 
   public async listByStatus(
@@ -34,8 +31,8 @@ export class InMemoryStudyTopicRepository implements StudyTopicRepository {
   ): Promise<StudyTopicEntity[]> {
     const pk = buildUserPK(userId);
     const prefix = buildStudyTopicSKPrefix(characterId);
-    const result = this.store.query({ pk, sk: { operator: 'begins_with', value: prefix } });
-    const items = result.items
+    const items = this.store
+      .queryAll({ pk, sk: { operator: 'begins_with', value: prefix } })
       .map((item) => this.mapper.toEntity(item))
       .filter((e) => status === undefined || e.status === status)
       .sort((a, b) => b.priority - a.priority || a.createdAt - b.createdAt);

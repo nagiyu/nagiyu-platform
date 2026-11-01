@@ -13,13 +13,13 @@
  *   - 無効サブスク（false 戻り）→ delete される
  */
 import { logger } from '@nagiyu/common';
-import { reportErrorEvent } from '@nagiyu/aws';
+import { errorReporter } from '@/lib/server/api-error-reporting';
 import { POST } from '@/app/api/push/test/route';
 import { getSession } from '@/lib/server/session';
 import {
-  getPushSubscriptionRepository,
-  getNotificationEventRepository,
-} from '@/lib/server/repositories';
+  createPushSubscriptionRepository,
+  createNotificationEventRepository,
+} from '@nagiyu/livetalk-core';
 import { sendWebPushNotification } from '@nagiyu/common/push';
 import { hasCharacter, getCharacterDefinition } from '@/lib/characters/registry';
 import type {
@@ -34,12 +34,18 @@ jest.mock('@/lib/server/session', () => ({
   getSession: jest.fn(),
 }));
 
-jest.mock('@/lib/server/repositories', () => ({
-  getPushSubscriptionRepository: jest.fn(),
-  getNotificationEventRepository: jest.fn(),
+jest.mock('@nagiyu/aws', () => ({
+  reportErrorEvent: jest.fn().mockResolvedValue(null),
+  createErrorReporter: jest.fn(() => ({ report: jest.fn(), onError: jest.fn(() => jest.fn()) })),
 }));
 
-jest.mock('@nagiyu/aws', () => ({ reportErrorEvent: jest.fn().mockResolvedValue(null) }));
+jest.mock('@/lib/server/api-error-reporting', () => ({
+  ...jest.requireActual('@/lib/server/api-error-reporting'),
+  errorReporter: {
+    report: jest.fn().mockResolvedValue(null),
+    onError: jest.fn(() => jest.fn()),
+  },
+}));
 
 jest.mock('@nagiyu/common/push', () => ({
   sendWebPushNotification: jest.fn(),
@@ -76,8 +82,10 @@ jest.mock('@/lib/characters/registry', () => ({
   getCharacterDefinition: jest.fn(),
 }));
 
-// livetalk-core の defaultUlidFactory と NOTIFICATION_EVENT_TTL_SECONDS をモック化する
+// livetalk-core のリポジトリ生成口、defaultUlidFactory、NOTIFICATION_EVENT_TTL_SECONDS をモック化する
 jest.mock('@nagiyu/livetalk-core', () => ({
+  createPushSubscriptionRepository: jest.fn(),
+  createNotificationEventRepository: jest.fn(),
   defaultUlidFactory: jest.fn(() => 'test-ulid'),
   NOTIFICATION_EVENT_TTL_SECONDS: 2592000,
 }));
@@ -85,11 +93,11 @@ jest.mock('@nagiyu/livetalk-core', () => ({
 // ---- 型付きモック変数 ---------------------------------------------------
 
 const mockGetSession = getSession as jest.MockedFunction<typeof getSession>;
-const mockGetPushSubscriptionRepo = getPushSubscriptionRepository as jest.MockedFunction<
-  typeof getPushSubscriptionRepository
+const mockGetPushSubscriptionRepo = createPushSubscriptionRepository as jest.MockedFunction<
+  typeof createPushSubscriptionRepository
 >;
-const mockGetNotifEventRepo = getNotificationEventRepository as jest.MockedFunction<
-  typeof getNotificationEventRepository
+const mockGetNotifEventRepo = createNotificationEventRepository as jest.MockedFunction<
+  typeof createNotificationEventRepository
 >;
 const mockSendWebPushNotification = sendWebPushNotification as jest.MockedFunction<
   typeof sendWebPushNotification
@@ -451,13 +459,13 @@ describe('POST /api/push/test', () => {
           '[POST /api/push/test] 無効なサブスクリプションの削除失敗（継続）',
           expect.objectContaining({ subscriptionId: 'sub-invalid', error: 'delete failed' })
         );
-        expect(reportErrorEvent).toHaveBeenCalledWith(
-          expect.objectContaining({
-            serviceId: 'livetalk',
+        expect(errorReporter.report).toHaveBeenCalledWith(
+          'Web API: 無効なサブスクリプションの削除エラー',
+          expect.objectContaining({ message: 'delete failed' }),
+          {
+            context: { characterId: 'hiyori', subscriptionId: 'sub-invalid' },
             severity: 'warning',
-            title: 'Web API: 無効なサブスクリプションの削除エラー',
-            message: 'delete failed',
-          })
+          }
         );
       } finally {
         warnSpy.mockRestore();

@@ -490,11 +490,35 @@ throw new Error(ERROR_MESSAGES.EMPTY_INPUT);
 **理由**: メッセージの一元管理、変更の容易性
 **違反時の影響**: メッセージの不一致、メンテナンス性の低下
 
+#### MUST: 呼び出し側の誤りと対象の不在は、例外のクラスで表し、クラスで振り分ける
+
+- 呼び出し側が渡した値が規則に合わないときは `@nagiyu/common` の `InvalidInputError`、対象が無いときは `@nagiyu/aws` の `EntityNotFoundError` を投げる
+- 受け手 (API ルートなど) は `instanceof` で 400 / 404 に振り分け、例外の文言で照合しない
+- 専用のコードで返し分けたい業務上のエラー (上限超過など) は、汎用の 400 に吸われないよう `InvalidInputError` にしない。投げる側が文言の定数を export し、受け手はその定数と照合する (写しを持たない)
+
+```typescript
+// ❌ NG: 投げる側の文言を写して照合する
+if (error instanceof Error && error.message === 'リストIDは必須です') {
+  return createValidationErrorResponse();
+}
+
+// ✅ OK: クラスで振り分ける
+if (error instanceof InvalidInputError) {
+  return createValidationErrorResponse();
+}
+if (error instanceof EntityNotFoundError) {
+  return createNotFoundErrorResponse();
+}
+```
+
+**理由**: 文言で照合すると、投げる側の文言を変えたときに 400 / 404 のはずの応答が黙って 500 になり、障害として報告される。部分一致では、同じ語を含む別の例外 (DynamoDB 由来など) を利用者の誤りと取り違える
+**違反時の影響**: 文言の変更による応答の静かな変化、障害の取り違え
+
 #### MUST: エラーの報告は、例外を最後に受け止める層だけが行う
 
 - Web API はルート入口のラッパー (`@nagiyu/nextjs` の `createApiErrorReporting`)、Lambda / Batch は `withErrorReporting` が報告する
 - core・リポジトリは報告せず throw する
-- 例外を握りつぶして処理を続ける箇所は、上に届かないためその場で報告する
+- 例外を握りつぶして処理を続ける箇所は、上に届かないためその場で報告する。報告には `@nagiyu/aws` の `createErrorReporter` を使い、context の例外の項目を手書きしない (Admin でどの報告も同じ項目で調べられるようにするため)
 
 ```typescript
 // ❌ NG: 報告して再 throw すると、入口でも報告されて二重になる
@@ -908,33 +932,24 @@ it('should calculate total', () => {
   run: npm run synth --workspace @nagiyu/infra -- <StackName>
 ```
 
-#### MUST: 品質チェックを実施
+#### MUST: 品質チェックとテストは再利用ワークフローで実施
+
+lint、format、ユニットテスト、カバレッジ (Full Verification のみ)、契約テストは、`{target}-verify.yml` に手で並べず、再利用ワークフロー (`reusable-service-verify.yml`) を `dirs` を渡して呼ぶ。
 
 ```yaml
-- name: Run lint
-  run: npm run lint --workspace <service-name>
-
-- name: Check formatting
-  run: npm run format:check --workspace <service-name>
+verify:
+  name: Verify
+  uses: ./.github/workflows/reusable-service-verify.yml
+  with:
+    dirs: services/<service> infra/<service>
+  permissions:
+    contents: read
 ```
 
-#### MUST: テストを実施
+- 対象は `dirs` 配下のワークスペースで、かける検査は各ワークスペースの npm scripts (`lint` / `format:check` / `test` / `test:coverage` / `test:contract`) の有無で決まる。パッケージを足したときは、検査したいものの scripts を用意する (詳細は [テスト戦略](./testing.md) の「新しいサービスやパッケージを足すとき」を参照)
+- **理由**: 検査の対象をワークフローごとに手で並べると、並べ忘れたパッケージが検査から漏れる
 
-**ユニットテスト**:
-
-```yaml
-- name: Run tests
-  run: npm run test --workspace <service-name>
-```
-
-**カバレッジチェック (Full Verification のみ)**:
-
-```yaml
-- name: Run tests with coverage
-  run: npm run test:coverage --workspace <service-name>
-```
-
-**E2Eテスト**:
+#### MUST: E2E テストを実施
 
 - Fast: chromium-mobile のみ
 - Full: chromium-desktop、chromium-mobile、webkit-mobile
@@ -947,14 +962,26 @@ it('should calculate total', () => {
 - 表形式で各ジョブの結果を表示
 - ワークフロー実行へのリンクを含める
 
+報告は共通の報告 action (`report-verify-results`) を呼んで行い、ワークフローごとにスクリプトを書かない。スクリプトをコピーすると、修正が一部のワークフローにしか入らなくなるため。action は同じ run のジョブ一覧から表を作るので、ジョブ一覧を読む `actions: read` の権限が要る。`needs` には全ジョブを並べる (結果を渡すためではなく、終了を待つため)。
+
 ```yaml
 report:
   name: Report Results to PR
+  runs-on: ubuntu-latest
   if: always()
-  needs: [nextjs-build, docker-build, test, coverage, e2e-test, lint, format-check]
+  needs: [verify, nextjs-build, docker-build, e2e]
   permissions:
     contents: read
     pull-requests: write
+    actions: read
+  steps:
+    - uses: actions/checkout@v4
+      with:
+        sparse-checkout: .github/actions
+    - uses: ./.github/actions/report-verify-results
+      with:
+        display-name: ${{ env.SERVICE_DISPLAY_NAME }}
+        fast-full: 'true'
 ```
 
 #### MUST: 失敗時のアーティファクトを保存
@@ -966,15 +993,7 @@ E2Eテスト失敗時:
 - Playwright レポート
 - 保持期間: 30日
 
-```yaml
-- name: Upload test results
-  uses: actions/upload-artifact@v4
-  if: always()
-  with:
-    name: playwright-report
-    path: services/<service>/playwright-report/
-    retention-days: 30
-```
+E2E の再利用ワークフローが、デバイスごとに Playwright レポートとテスト結果を artifact に保存する。サービス側で書き足す必要はない。
 
 #### SHOULD: CI最適化設定
 
@@ -995,25 +1014,25 @@ E2Eテスト失敗時:
 name: Hoge Verify
 ```
 
-#### MUST: ファイル名は {target}-verify.yml または {target}-verify-fast.yml / {target}-verify-full.yml
+#### MUST: ファイル名は {target}-verify.yml
 
 ```
 .github/workflows/
-├── tools-verify-fast.yml
-├── tools-verify-full.yml
+├── tools-verify.yml
 ├── common-verify.yml
 └── browser-verify.yml
 ```
 
-#### MUST: E2E テストを持つサービスでは 2 段階のワークフローを作成
+#### MUST: E2E テストを持つサービスでも、Fast / Full を 1 本のワークフローで出し分ける
 
-- `*-verify-fast.yml`: integration/\*\* ブランチ用
-- `*-verify-full.yml`: develop ブランチ用
+- `*-verify.yml` 1 本で、PR の向き先 (`github.base_ref`) によって Fast / Full を切り替える
+- integration/\*\* 向けは Fast (E2E は chromium-mobile のみ、カバレッジ検査なし)
+- develop 向けは Full (E2E は全デバイス、カバレッジ検査あり)
 
 #### MUST: Verify ワークフローは PR をトリガーとし、パスフィルターを設定
 
 ```yaml
-# *-verify-fast.yml / *-verify-full.yml
+# *-verify.yml
 on:
   pull_request:
     branches:
@@ -1029,7 +1048,7 @@ on:
       - '.github/actions/**' # 共有 composite action
       - 'package.json'
       - 'package-lock.json'
-      - '.github/workflows/<service>-verify-*.yml'
+      - '.github/workflows/<service>-verify.yml'
 ```
 
 **理由**:

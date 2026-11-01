@@ -15,6 +15,9 @@ on:
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/auth-deploy.yml'
+      - '.github/actions/update-lambda-image/**'
+      - '.github/actions/health-check/**'
+      - '.github/actions/push-ecr-image/**'
   workflow_dispatch:
     inputs:
       environment:
@@ -164,30 +167,16 @@ jobs:
           echo "repository-uri=$REPOSITORY_URI" >> "$GITHUB_OUTPUT"
           echo "ECR Repository: $REPOSITORY_URI"
 
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Build Docker image
-        uses: ./.github/actions/build-docker-image
-        with:
-          dockerfile: services/auth/web/Dockerfile
-          image-tag: ${{ steps.get-ecr.outputs.repository-uri }}:${{ github.sha }}
-          build-args: APP_VERSION=${{ steps.get-version.outputs.app-version }}
-
-      - name: Push Docker image
+      - name: Build and push Docker image
         id: build-image
-        env:
-          REPOSITORY_URI: ${{ steps.get-ecr.outputs.repository-uri }}
-          IMAGE_TAG: ${{ github.sha }}
-        run: |
-          docker push "$REPOSITORY_URI:$IMAGE_TAG"
-
-          # Also tag as latest
-          docker tag "$REPOSITORY_URI:$IMAGE_TAG" "$REPOSITORY_URI:latest"
-          docker push "$REPOSITORY_URI:latest"
-
-          echo "image-uri=$REPOSITORY_URI:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+        uses: ./.github/actions/push-ecr-image
+        with:
+          repository-uri: ${{ steps.get-ecr.outputs.repository-uri }}
+          dockerfile: services/auth/web/Dockerfile
+          build-args: APP_VERSION=${{ steps.get-version.outputs.app-version }}
+          tags: |
+            ${{ github.sha }}
+            latest
 
   deploy:
     name: Deploy to AWS Lambda
@@ -273,25 +262,12 @@ jobs:
           echo "Lambda Function: $FUNCTION_NAME"
 
       - name: Update Lambda function code
-        env:
-          IMAGE_URI: ${{ needs.build.outputs.image-uri }}
-          FUNCTION_NAME: ${{ steps.get-lambda.outputs.function-name }}
-        run: |
-          echo "Updating Lambda function with new image: $IMAGE_URI"
-          aws lambda update-function-code \
-            --function-name "$FUNCTION_NAME" \
-            --image-uri "$IMAGE_URI" \
-            --region "${{ env.AWS_REGION }}"
-
-      - name: Wait for Lambda update to complete
-        env:
-          FUNCTION_NAME: ${{ steps.get-lambda.outputs.function-name }}
-        run: |
-          echo "Waiting for Lambda update to complete..."
-          aws lambda wait function-updated \
-            --function-name "$FUNCTION_NAME" \
-            --region "${{ env.AWS_REGION }}"
-          echo "Lambda update completed successfully"
+        uses: ./.github/actions/update-lambda-image
+        with:
+          function-names: |
+            ${{ steps.get-lambda.outputs.function-name }}
+          image-uri: ${{ needs.build.outputs.image-uri }}
+          region: ${{ env.AWS_REGION }}
 
       - name: Get Lambda Function URL
         id: get-lambda-url
@@ -300,7 +276,7 @@ jobs:
         run: |
           FUNCTION_URL=$(aws cloudformation describe-stacks \
             --stack-name "NagiyuAuthLambda$(echo $ENVIRONMENT | sed 's/\(.\)/\U\1/')" \
-            --query "Stacks[0].Outputs[?OutputKey=='LambdaFunctionUrl'].OutputValue" \
+            --query "Stacks[0].Outputs[?OutputKey=='FunctionUrl'].OutputValue" \
             --output text \
             --region "${{ env.AWS_REGION }}" 2>/dev/null || echo "")
 
@@ -308,22 +284,9 @@ jobs:
           echo "Lambda Function URL: $FUNCTION_URL"
 
       - name: Invoke Lambda health check
-        env:
-          FUNCTION_URL: ${{ steps.get-lambda-url.outputs.function-url }}
-        run: |
-          if [ -n "$FUNCTION_URL" ]; then
-            echo "Invoking Lambda health check..."
-            HTTP_CODE=$(curl -f -s -o /dev/null -w "%{http_code}" "${FUNCTION_URL}api/health" || echo "000")
-            echo "Health check response: $HTTP_CODE"
-            
-            if [ "$HTTP_CODE" != "200" ]; then
-              echo "Warning: Health check returned $HTTP_CODE (Lambda may be cold starting)"
-            else
-              echo "Health check passed successfully!"
-            fi
-          else
-            echo "Skipping health check: Function URL not available"
-          fi
+        uses: ./.github/actions/health-check
+        with:
+          base-url: ${{ steps.get-lambda-url.outputs.function-url }}
 
   cloudfront-invalidation:
     name: CloudFront Invalidation

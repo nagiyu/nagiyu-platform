@@ -4,22 +4,35 @@
 import { NextRequest } from 'next/server';
 import { POST } from '@/app/api/push/subscribe/route';
 import { getSession } from '@/lib/server/session';
-import { getPushSubscriptionRepository } from '@/lib/server/repositories';
-import { reportErrorEvent } from '@nagiyu/aws';
+import { createPushSubscriptionRepository } from '@nagiyu/livetalk-core';
+import { errorReporter } from '@/lib/server/api-error-reporting';
 
 jest.mock('@/lib/server/session', () => ({
   getSession: jest.fn(),
 }));
 
-jest.mock('@nagiyu/aws', () => ({ reportErrorEvent: jest.fn().mockResolvedValue(null) }));
+jest.mock('@/lib/server/api-error-reporting', () => ({
+  errorReporter: {
+    report: jest.fn(),
+    onError: jest.fn(() => jest.fn()),
+  },
+}));
+/**
+ * ルート読み込み時に onError へ渡された報告関数を控える。
+ * beforeEach のモックのリセットで呼び出し履歴が消えるため、ここで取り出しておく。
+ */
+const onErrorMock = errorReporter.onError as jest.Mock;
+const onErrorTitle = onErrorMock.mock.calls[0][0] as string;
+const onErrorHandler = onErrorMock.mock.results[0].value as jest.Mock;
 
-jest.mock('@/lib/server/repositories', () => ({
-  getPushSubscriptionRepository: jest.fn(),
+jest.mock('@nagiyu/livetalk-core', () => ({
+  ...jest.requireActual('@nagiyu/livetalk-core'),
+  createPushSubscriptionRepository: jest.fn(),
 }));
 
 const mockGetSession = getSession as jest.MockedFunction<typeof getSession>;
-const mockGetRepo = getPushSubscriptionRepository as jest.MockedFunction<
-  typeof getPushSubscriptionRepository
+const mockGetRepo = createPushSubscriptionRepository as jest.MockedFunction<
+  typeof createPushSubscriptionRepository
 >;
 
 const validSubscription = {
@@ -95,13 +108,8 @@ describe('POST /api/push/subscribe', () => {
     const res = await POST(createRequest({ subscription: validSubscription }));
 
     expect(res.status).toBe(500);
-    expect(reportErrorEvent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        serviceId: 'livetalk',
-        title: 'Web API: Push 購読登録エラー',
-        message: 'db down',
-      })
-    );
+    expect(onErrorTitle).toBe('Web API: Push 購読登録エラー');
+    expect(onErrorHandler).toHaveBeenCalledWith(expect.objectContaining({ message: 'db down' }));
     jest.restoreAllMocks();
   });
 });

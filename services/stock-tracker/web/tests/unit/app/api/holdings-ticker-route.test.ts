@@ -1,11 +1,9 @@
 import { NextRequest } from 'next/server';
 import { GET } from '../../../../app/api/holdings/tickers/[tickerId]/route';
-import {
-  createHoldingRepository,
-  createTickerRepository,
-} from '../../../../lib/repository-factory';
+import { createHoldingRepository, createTickerRepository } from '@nagiyu/stock-tracker-core';
 
-jest.mock('../../../../lib/repository-factory', () => ({
+jest.mock('@nagiyu/stock-tracker-core', () => ({
+  ...jest.requireActual('@nagiyu/stock-tracker-core'),
   createHoldingRepository: jest.fn(),
   createTickerRepository: jest.fn(),
 }));

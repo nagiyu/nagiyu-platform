@@ -49,7 +49,7 @@
 - `Header` / `Footer` / `AppLayout` / `ServiceLayout`
 - `AppThemeProvider`
 - `SessionProviderWrapper` / `SessionHeader`（`next-auth` に依存するため、barrel ではなく subpath `@nagiyu/ui/session-provider` で提供 → 後述）
-- `ErrorBoundary` / `ErrorAlert`
+- `ErrorAlert`
 - `LoadingState`
 - `PrivacyPolicyDialog` / `TermsOfServiceDialog` / `ConfirmDialog`
 - `LegalSections`

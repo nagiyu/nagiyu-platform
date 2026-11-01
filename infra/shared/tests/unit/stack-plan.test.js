@@ -99,4 +99,3 @@ describe('getClaudeInvokableFunctionNames', () => {
     expect(getClaudeInvokableFunctionNames('dev')).toEqual(CLAUDE_INVOKABLE_FUNCTION_NAMES_DEV);
   });
 });
-

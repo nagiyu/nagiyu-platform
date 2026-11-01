@@ -19,7 +19,7 @@ import {
 } from '@mui/material';
 import { Button, ErrorAlert, Select } from '@nagiyu/ui';
 import { useSession } from 'next-auth/react';
-import { hasUserPermission } from '@nagiyu/common';
+import { formatJstDateTime, hasUserPermission } from '@nagiyu/common';
 import type { SummariesResponse, TickerSummary } from '@/types/stock';
 import SummaryDetailDialog from '../../components/SummaryDetailDialog';
 import ForecastCell from '../../components/ForecastCell';
@@ -63,7 +63,7 @@ const formatLatestUpdatedAt = (summaries: TickerSummary[]): string => {
     return currentMax;
   }, null);
 
-  return latest === null ? '-' : new Date(latest).toLocaleString('ja-JP');
+  return latest === null ? '-' : formatJstDateTime(latest, { seconds: true });
 };
 
 const formatAlertCount = (enabledCount: number, disabledCount: number): string => {

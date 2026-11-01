@@ -2,15 +2,21 @@
  * @jest-environment node
  */
 import { NextResponse } from 'next/server';
-import { reportErrorEvent } from '@nagiyu/aws';
 import {
-  createPushRouteErrorReporter,
+  createErrorEventWriter,
+  reportErrorEvent,
+  resetErrorEventWriter,
+  type InMemoryErrorEventWriter,
+} from '@nagiyu/aws';
+import type { ErrorEvent } from '@nagiyu/common';
+import {
   DEFAULT_API_FAILURE_BODY,
-  reportSwallowedError,
+  errorReporter,
   withApiErrorReporting,
 } from '@/lib/server/api-error-reporting';
 
 jest.mock('@nagiyu/aws', () => ({
+  ...jest.requireActual('@nagiyu/aws'),
   reportErrorEvent: jest.fn().mockResolvedValue(null),
 }));
 
@@ -107,60 +113,68 @@ describe('withApiErrorReporting', () => {
   });
 });
 
-describe('reportSwallowedError', () => {
-  it('例外の内容と文脈を指定の重大度で報告する', async () => {
-    await reportSwallowedError(
-      'Web API: 握りつぶし',
-      new Error('oops'),
-      { characterId: 'hiyori' },
-      'warning'
-    );
+describe('errorReporter', () => {
+  const TABLE_NAME = 'test-error-events';
 
-    expect(mockReportErrorEvent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        serviceId: 'livetalk',
-        severity: 'warning',
-        title: 'Web API: 握りつぶし',
-        message: 'oops',
-        context: expect.objectContaining({
-          characterId: 'hiyori',
-          errorName: 'Error',
-          errorMessage: 'oops',
-        }),
-      })
-    );
+  beforeEach(() => {
+    process.env.USE_IN_MEMORY_DB = 'true';
+    process.env.ERROR_EVENTS_TABLE_NAME = TABLE_NAME;
+    resetErrorEventWriter();
+  });
+
+  afterEach(() => {
+    delete process.env.USE_IN_MEMORY_DB;
+    delete process.env.ERROR_EVENTS_TABLE_NAME;
+    resetErrorEventWriter();
+  });
+
+  function getRecords(): readonly ErrorEvent[] {
+    return (createErrorEventWriter() as InMemoryErrorEventWriter).getRecords();
+  }
+
+  it('livetalk として報告し、context に例外の情報と追加の context を載せる', async () => {
+    const error = new TypeError('oops');
+
+    await errorReporter.report('Web API: 握りつぶし', error, {
+      context: { characterId: 'hiyori' },
+      severity: 'warning',
+    });
+
+    const [event] = getRecords();
+    expect(event).toMatchObject({
+      serviceId: 'livetalk',
+      severity: 'warning',
+      title: 'Web API: 握りつぶし',
+      message: 'oops',
+    });
+    expect(JSON.parse(event.context)).toEqual({
+      characterId: 'hiyori',
+      errorName: 'TypeError',
+      errorMessage: 'oops',
+      errorStack: error.stack,
+    });
   });
 
   it('既定の重大度は error で、Error 以外の値も報告できる', async () => {
-    await reportSwallowedError('Web API: 握りつぶし', 'plain string');
+    await errorReporter.report('Web API: 握りつぶし', 'plain string');
 
-    expect(mockReportErrorEvent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        severity: 'error',
-        context: expect.objectContaining({ errorName: 'string', errorStack: undefined }),
-      })
-    );
+    const [event] = getRecords();
+    expect(event.severity).toBe('error');
+    expect(JSON.parse(event.context)).toEqual({
+      errorName: 'string',
+      errorMessage: 'plain string',
+    });
   });
 
-  it('報告に失敗しても例外を投げない', async () => {
-    mockReportErrorEvent.mockRejectedValueOnce(new Error('report failed'));
+  it('onError は渡したタイトルで報告する', async () => {
+    await errorReporter.onError('Web API: Push テスト')(new Error('push failed'));
 
-    await expect(
-      reportSwallowedError('Web API: 握りつぶし', new Error('oops'))
-    ).resolves.toBeUndefined();
-  });
-});
-
-describe('createPushRouteErrorReporter', () => {
-  it('指定した title で報告する関数を返す', async () => {
-    await createPushRouteErrorReporter('Web API: Push テスト')(new Error('push failed'));
-
-    expect(mockReportErrorEvent).toHaveBeenCalledWith(
+    expect(getRecords()).toEqual([
       expect.objectContaining({
         serviceId: 'livetalk',
         title: 'Web API: Push テスト',
         message: 'push failed',
-      })
-    );
+      }),
+    ]);
   });
 });

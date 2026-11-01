@@ -12,7 +12,7 @@ import {
   createPresignedDownloadUrl,
 } from '@nagiyu/aws';
 import { requireEnv } from '@nagiyu/common';
-import { DynamoDBHighlightRepository } from '@nagiyu/quick-clip-core';
+import { createHighlightRepository } from '@nagiyu/quick-clip-core';
 
 const ERROR_MESSAGES = {
   INVALID_INPUT: '入力値が不正です',
@@ -133,7 +133,7 @@ const updateClipStatus = async (
   event: ClipRegenerateEvent,
   clipStatus: 'GENERATED' | 'FAILED'
 ): Promise<void> => {
-  const repository = new DynamoDBHighlightRepository(docClient, tableName);
+  const repository = createHighlightRepository(docClient, tableName);
   await repository.update(event.jobId, event.highlightId, {
     clipStatus,
   });

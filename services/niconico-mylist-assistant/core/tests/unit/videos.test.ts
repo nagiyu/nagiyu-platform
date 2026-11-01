@@ -28,7 +28,7 @@ import {
   deleteUserVideoSetting,
   deleteVideoBasicInfo,
 } from '../../src/db/videos';
-import { reportErrorEvent } from '@nagiyu/aws';
+import { decodeCursor, encodeCursor, reportErrorEvent } from '@nagiyu/aws';
 import { parseUpdateExpression } from '../helpers/update-expression.js';
 import type {
   CreateVideoBasicInfoInput,
@@ -536,9 +536,22 @@ describe('videos', () => {
 
         const result = await listUserVideoSettings('user123', { limit: 50 });
 
-        expect(result.lastEvaluatedKey).toEqual(lastKey);
+        expect(decodeCursor(result.nextCursor)).toEqual(lastKey);
         const call = ddbMock.call(0);
         expect(call.args[0].input.Limit).toBe(50);
+      });
+
+      it('cursor を次ページの開始位置として渡す', async () => {
+        const startKey = { PK: 'USER#user123', SK: 'VIDEO#sm100' };
+        ddbMock.on(QueryCommand).resolves({ Items: [] });
+
+        const result = await listUserVideoSettings('user123', {
+          cursor: encodeCursor(startKey),
+        });
+
+        expect(result.nextCursor).toBeUndefined();
+        const call = ddbMock.call(0);
+        expect(call.args[0].input.ExclusiveStartKey).toEqual(startKey);
       });
     });
 

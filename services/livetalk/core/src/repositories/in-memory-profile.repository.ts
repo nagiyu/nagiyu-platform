@@ -1,4 +1,9 @@
-import { InMemoryEntityStore, type EntityStore, type InMemorySingleTableStore } from '@nagiyu/aws';
+import {
+  InMemoryEntityStore,
+  type EntityPutInput,
+  type EntityStore,
+  type InMemorySingleTableStore,
+} from '@nagiyu/aws';
 import type {
   CreateProfileInput,
   ProfileEntity,
@@ -25,29 +30,20 @@ export class InMemoryProfileRepository implements ProfileRepository {
   }
 
   public async listAllUserIds(): Promise<string[]> {
+    const items = this.store.queryAllByAttribute({
+      attributeName: 'GSI1PK',
+      attributeValue: buildProfileGSI1PK(),
+      projection: PROFILE_GSI_PROJECTION,
+      // sk 条件を指定しないため、実 DynamoDB の GSI1 Query と同様に GSI1SK 昇順で返すよう明示する
+      // (listAllUserIds は順序を約束しないため呼び出し側の挙動には影響しない)
+      gsiSortKeyAttributeName: 'GSI1SK',
+    });
     const userIds: string[] = [];
-    let cursor: string | undefined;
-
-    do {
-      const result = this.store.queryByAttribute(
-        {
-          attributeName: 'GSI1PK',
-          attributeValue: buildProfileGSI1PK(),
-          projection: PROFILE_GSI_PROJECTION,
-          // sk 条件を指定しないため、実 DynamoDB の GSI1 Query と同様に GSI1SK 昇順で返すよう明示する
-          // (listAllUserIds は順序を約束しないため呼び出し側の挙動には影響しない)
-          gsiSortKeyAttributeName: 'GSI1SK',
-        },
-        cursor ? { cursor } : undefined
-      );
-      for (const item of result.items) {
-        if (typeof item.GSI1SK === 'string' && item.GSI1SK) {
-          userIds.push(item.GSI1SK);
-        }
+    for (const item of items) {
+      if (typeof item.GSI1SK === 'string' && item.GSI1SK) {
+        userIds.push(item.GSI1SK);
       }
-      cursor = result.nextCursor;
-    } while (cursor !== undefined);
-
+    }
     return userIds;
   }
 
@@ -58,11 +54,10 @@ export class InMemoryProfileRepository implements ProfileRepository {
     const now = this.nowMs();
     const existing = await this.getById({ userId: input.userId });
 
-    const merged: ProfileEntity = {
+    const merged: EntityPutInput<ProfileEntity> = {
       userId: input.userId,
       lastActiveAt: updates.lastActiveAt ?? input.lastActiveAt ?? now,
-      createdAt: existing?.createdAt ?? now,
-      updatedAt: now,
+      createdAt: existing?.createdAt,
       ...(updates.consents !== undefined
         ? { consents: { ...existing?.consents, ...updates.consents } }
         : existing?.consents !== undefined

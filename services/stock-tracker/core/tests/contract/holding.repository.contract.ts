@@ -7,10 +7,9 @@
  * 形骸化テストは書かない。CRUDの往復のように一連の手順を検証する場合も、
  * 分岐のない一本道のフローとして記述する。
  *
- * `PaginatedResult.count` は契約対象外（#3802で別途検討）。型定義上は「総件数」だが、
- * getByUserIdではInMemoryが総件数・DynamoDBがページ件数を返すなど実装間で
- * セマンティクスが食い違っている。共有型の意味を決め直す話のため、この契約テストの
- * 範囲では揃えず・assertもしない（検証し忘れではなく意図的な対象外）。
+ * `PaginatedResult.count` は「そのページで返したアイテムの件数」（総件数ではない）。
+ * getByUserId で limit により切れるケースでも `count === items.length` になることを
+ * 契約として検証する。
  */
 
 import type { HoldingRepository } from '../../src/repositories/holding.repository.interface.js';
@@ -125,11 +124,23 @@ export function defineHoldingRepositoryContract(
 
       do {
         const page = await repository.getByUserId('user-page', { limit: 2, cursor });
+        expect(page.count).toBe(page.items.length);
         collected.push(...page.items.map((item) => item.tickerId));
         cursor = page.nextCursor;
       } while (cursor);
 
       expect(collected).toEqual(['A', 'B', 'C', 'D', 'E']);
+    });
+
+    it('getByUserIdのcountはlimitで切れたページでも返したitemsの件数になる（総件数ではない）', async () => {
+      for (const tickerId of ['A', 'B', 'C', 'D', 'E']) {
+        await repository.create(buildHoldingInput({ userId: 'user-count', tickerId }));
+      }
+
+      const page = await repository.getByUserId('user-count', { limit: 2 });
+
+      expect(page.items).toHaveLength(2);
+      expect(page.count).toBe(2);
     });
 
     it('getByUserIdはoptions未指定時、既定で50件に制限される（実DynamoDB実装の既定limit=50との乖離防止）', async () => {

@@ -1,4 +1,9 @@
+/**
+ * @jest-environment node
+ */
+
 import { reportErrorEvent } from '@nagiyu/aws';
+import { errorReporter } from '@/lib/api-error-reporting';
 import type { HighlightRepository } from '@nagiyu/quick-clip-core';
 import { getLambdaClient, getS3Client } from '@/lib/server/aws';
 import { GET, POST } from '@/app/api/jobs/[jobId]/download/route';
@@ -15,7 +20,7 @@ const mockGetSignedUrl = jest.fn();
 
 jest.mock('@nagiyu/quick-clip-core', () => ({
   ...jest.requireActual('@nagiyu/quick-clip-core'),
-  DynamoDBHighlightRepository: jest.fn().mockImplementation(
+  createHighlightRepository: jest.fn().mockImplementation(
     () =>
       ({
         getByJobId: mockGetByJobId,
@@ -30,12 +35,18 @@ jest.mock('@nagiyu/aws', () => ({
   reportErrorEvent: jest.fn().mockResolvedValue(null),
 }));
 
+jest.mock('@/lib/api-error-reporting', () => ({
+  ...jest.requireActual('@/lib/api-error-reporting'),
+  errorReporter: {
+    report: jest.fn().mockResolvedValue(null),
+    onError: jest.fn(() => jest.fn()),
+  },
+}));
+
 jest.mock('@/lib/server/aws', () => ({
   getLambdaClient: jest.fn(),
   getS3Client: jest.fn(),
   getZipGeneratorFunctionName: jest.fn(() => 'zip-generator'),
-  getDynamoDBDocumentClient: jest.fn(() => ({})),
-  getTableName: jest.fn(() => 'test-table'),
   getBucketName: jest.fn(() => 'test-bucket'),
 }));
 
@@ -145,7 +156,7 @@ describe('POST /api/jobs/[jobId]/download', () => {
 
   const mockRequest = {} as Request;
 
-  it('正常系: zip-generator Lambda を非同期 Invoke して202を返す', async () => {
+  it('異常系: 採用された見どころに FAILED があれば 409 を返し、Lambda を呼ばない', async () => {
     mockGetByJobId.mockResolvedValue([
       {
         highlightId: 'h1',
@@ -164,6 +175,68 @@ describe('POST /api/jobs/[jobId]/download', () => {
         endSec: 40,
         status: 'accepted',
         clipStatus: 'FAILED',
+      },
+    ]);
+
+    const response = await POST(mockRequest, {
+      params: Promise.resolve({ jobId: 'job-1' }),
+    });
+    const body = (await response.json()) as { error: string };
+
+    expect(response.status).toBe(409);
+    expect(body.error).toBe('CLIP_GENERATION_FAILED');
+    expect(lambdaSend).not.toHaveBeenCalled();
+    expect(s3Send).not.toHaveBeenCalled();
+  });
+
+  it('正常系: 採用されていない見どころが FAILED でも 202 を返す', async () => {
+    mockGetByJobId.mockResolvedValue([
+      {
+        highlightId: 'h1',
+        jobId: 'job-1',
+        order: 1,
+        startSec: 10,
+        endSec: 20,
+        status: 'accepted',
+        clipStatus: 'GENERATED',
+      },
+      {
+        highlightId: 'h2',
+        jobId: 'job-1',
+        order: 2,
+        startSec: 30,
+        endSec: 40,
+        status: 'rejected',
+        clipStatus: 'FAILED',
+      },
+    ]);
+
+    const response = await POST(mockRequest, {
+      params: Promise.resolve({ jobId: 'job-1' }),
+    });
+
+    expect(response.status).toBe(202);
+  });
+
+  it('正常系: zip-generator Lambda を非同期 Invoke して202を返す', async () => {
+    mockGetByJobId.mockResolvedValue([
+      {
+        highlightId: 'h1',
+        jobId: 'job-1',
+        order: 1,
+        startSec: 10,
+        endSec: 20,
+        status: 'accepted',
+        clipStatus: 'GENERATED',
+      },
+      {
+        highlightId: 'h2',
+        jobId: 'job-1',
+        order: 2,
+        startSec: 30,
+        endSec: 40,
+        status: 'accepted',
+        clipStatus: 'GENERATED',
       },
     ]);
 
@@ -195,7 +268,7 @@ describe('POST /api/jobs/[jobId]/download', () => {
         startSec: 30,
         endSec: 40,
         status: 'accepted',
-        clipStatus: 'FAILED',
+        clipStatus: 'GENERATED',
       },
     ]);
 
@@ -251,7 +324,8 @@ describe('POST /api/jobs/[jobId]/download', () => {
         clipStatus: 'GENERATED',
       },
     ]);
-    s3Send.mockRejectedValue(new Error('AccessDenied'));
+    const deleteError = new Error('AccessDenied');
+    s3Send.mockRejectedValue(deleteError);
 
     const response = await POST(mockRequest, {
       params: Promise.resolve({ jobId: 'job-1' }),
@@ -261,13 +335,10 @@ describe('POST /api/jobs/[jobId]/download', () => {
     expect(response.status).toBe(202);
     expect(body).toEqual({ status: 'PROCESSING' });
     expect(lambdaSend).toHaveBeenCalledTimes(1);
-    expect(reportErrorEvent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        serviceId: 'quick-clip',
-        severity: 'warning',
-        title: 'Web API: 旧 ZIP 削除エラー',
-      })
-    );
+    expect(errorReporter.report).toHaveBeenCalledWith('Web API: 旧 ZIP 削除エラー', deleteError, {
+      context: { jobId: 'job-1' },
+      severity: 'warning',
+    });
   });
 
   it('異常系: Lambda の Invoke に失敗した場合は500を返し報告する', async () => {

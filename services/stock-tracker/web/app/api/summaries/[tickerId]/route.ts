@@ -1,17 +1,14 @@
 import { NextResponse } from 'next/server';
 import { withAuth } from '@nagiyu/nextjs';
 import { getSession } from '../../../../lib/auth';
-import {
-  createInternalErrorReporting,
-  reportSwallowedError,
-} from '../../../../lib/api-error-reporting';
+import { createInternalErrorReporting, errorReporter } from '../../../../lib/api-error-reporting';
 import {
   createAlertRepository,
   createDailySummaryRepository,
   createForecastRepository,
   createHoldingRepository,
   createTickerRepository,
-} from '../../../../lib/repository-factory';
+} from '@nagiyu/stock-tracker-core';
 import { MAX_ALERTS_PER_USER } from '../../../../lib/constants';
 import { toTickerForecastSummary } from '../../../../lib/forecast/ticker-forecast';
 import { toPatternSummary } from '../../../../lib/summary/pattern-summary';
@@ -38,7 +35,9 @@ async function fetchForecastSummary(tickerId: string, date: string) {
     );
   } catch (error) {
     console.error(ERROR_MESSAGES.FETCH_FORECAST_FAILED, error);
-    await reportSwallowedError(REPORT_TITLES.FETCH_FORECAST_FAILED, error, { tickerId });
+    await errorReporter.report(REPORT_TITLES.FETCH_FORECAST_FAILED, error, {
+      context: { tickerId },
+    });
     return null;
   }
 }

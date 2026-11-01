@@ -11,26 +11,24 @@ import type { NotificationEventRepository } from './notification-event.repositor
 export class InMemoryNotificationEventRepository implements NotificationEventRepository {
   private readonly mapper: NotificationEventMapper;
   private readonly store: InMemorySingleTableStore;
-  private readonly nowMs: () => number;
   private readonly entityStore: EntityStore<NotificationEventEntity, NotificationEventKey>;
 
   constructor(store: InMemorySingleTableStore, nowMs: () => number = () => Date.now()) {
     this.store = store;
-    this.nowMs = nowMs;
     this.mapper = new NotificationEventMapper();
     this.entityStore = new InMemoryEntityStore(store, this.mapper, { now: nowMs });
   }
 
   public async put(input: CreateNotificationEventInput): Promise<NotificationEventEntity> {
-    const now = this.nowMs();
-    return this.entityStore.put({ ...input, createdAt: now, updatedAt: now });
+    return this.entityStore.put({ ...input, createdAt: undefined });
   }
 
   public async listByUser(userId: string, limit = 100): Promise<NotificationEventEntity[]> {
     const pk = buildUserPK(userId);
     const prefix = buildNotifSKPrefix();
-    const result = this.store.query({ pk, sk: { operator: 'begins_with', value: prefix } });
-    return result.items
+    // 全件取得して CreatedAt 降順に並べてから limit を適用する (最新のものを落とさないため)
+    const items = this.store.queryAll({ pk, sk: { operator: 'begins_with', value: prefix } });
+    return items
       .map((item) => this.mapper.toEntity(item))
       .sort((a, b) => b.createdAt - a.createdAt)
       .slice(0, limit);
@@ -44,12 +42,8 @@ export class InMemoryNotificationEventRepository implements NotificationEventRep
 
     const pk = buildUserPK(userId);
     const prefix = buildNotifSKPrefix();
-    // limit を指定しないとデフォルト 100 件で打ち切られるため、十分大きな値を渡す
-    const result = this.store.query(
-      { pk, sk: { operator: 'begins_with', value: prefix } },
-      { limit: Number.MAX_SAFE_INTEGER }
-    );
-    const sorted = result.items
+    const items = this.store.queryAll({ pk, sk: { operator: 'begins_with', value: prefix } });
+    const sorted = items
       .map((item) => this.mapper.toEntity(item))
       .sort((a, b) => b.createdAt - a.createdAt);
 

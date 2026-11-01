@@ -19,6 +19,8 @@ on:
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/auth-verify-app.yml'
+      - '.github/workflows/reusable-service-verify.yml'
+      - '.github/workflows/reusable-e2e.yml'
 
 permissions:
   contents: read
@@ -29,369 +31,30 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  lint:
-    name: Lint Code
-    runs-on: ubuntu-latest
+  verify:
+    name: Verify
+    uses: ./.github/workflows/reusable-service-verify.yml
+    with:
+      dirs: services/auth
+    permissions:
+      contents: read
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js and install dependencies
-        uses: ./.github/actions/setup-node
-        with:
-          node-version: '24'
-          cache-dependency-path: './package-lock.json'
-
-      - name: Run lint
-        run: |
-          npm run lint --workspace @nagiyu/auth-core
-          npm run lint --workspace @nagiyu/auth-web
-
-  format-check:
-    name: Format Check
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js and install dependencies
-        uses: ./.github/actions/setup-node
-        with:
-          node-version: '24'
-          cache-dependency-path: './package-lock.json'
-
-      - name: Check formatting
-        run: |
-          npm run format:check --workspace @nagiyu/auth-core
-          npm run format:check --workspace @nagiyu/auth-web
-
-  unit-test:
-    name: Run Unit Tests
-    runs-on: ubuntu-latest
-    needs: [build]
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js and install dependencies
-        uses: ./.github/actions/setup-node
-        with:
-          node-version: '24'
-          cache-dependency-path: './package-lock.json'
-
-      - name: Build shared libraries
-        run: npm run build:libs
-
-      - name: Run unit tests (auth-core)
-        run: npm run test --workspace @nagiyu/auth-core
-
-      - name: Run unit tests (auth-web)
-        run: npm run test --workspace @nagiyu/auth-web
-
-  contract-test:
-    name: Run Contract Tests (DynamoDB Local)
-    runs-on: ubuntu-latest
-    needs: [build]
-
-    services:
-      dynamodb-local:
-        image: amazon/dynamodb-local
-        ports:
-          - 8000:8000
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js and install dependencies
-        uses: ./.github/actions/setup-node
-        with:
-          node-version: '24'
-          cache-dependency-path: './package-lock.json'
-
-      - name: Build shared libraries
-        run: npm run build:libs
-
-      - name: Wait for DynamoDB Local
-        run: |
-          for i in $(seq 1 30); do
-            curl -s http://localhost:8000 >/dev/null 2>&1 && break
-            sleep 1
-          done
-
-      - name: Run contract tests
-        env:
-          DYNAMODB_ENDPOINT: http://localhost:8000
-          AWS_REGION: us-east-1
-          AWS_ACCESS_KEY_ID: test
-          AWS_SECRET_ACCESS_KEY: test
-        run: npm run test:contract --workspace @nagiyu/auth-core
-
-  # TODO: Uncomment when coverage check is implemented
-  # coverage:
-  #   name: Test Coverage Check
-  #   runs-on: ubuntu-latest
-  #
-  #   steps:
-  #     - name: Checkout code
-  #       uses: actions/checkout@v4
-  #
-  #     - name: Setup Node.js
-  #       uses: actions/setup-node@v4
-  #       with:
-  #         node-version: '24'
-  #         cache: 'npm'
-  #         cache-dependency-path: './package-lock.json'
-  #
-  #     - name: Install dependencies
-  #       run: npm ci
-  #
-  #     - name: Build shared libraries
-  #       run: |
-  #         npm run build --workspace @nagiyu/common
-  #         npm run build --workspace @nagiyu/browser
-  #         npm run build --workspace @nagiyu/ui
-  #
-  #     - name: Run tests with coverage
-  #       run: npm run test -- --coverage
-  #       working-directory: ./services/auth
-  #
-  #     - name: Upload coverage report
-  #       uses: actions/upload-artifact@v4
-  #       if: always()
-  #       with:
-  #         name: coverage-report
-  #         path: services/auth/coverage/
-  #         retention-days: 30
-
-  e2e-test-chromium-mobile:
-    name: Run E2E Tests (chromium-mobile)
-    # Playwright 1.60.0 は Ubuntu 26.04 (ubuntu-latest) に対応しておらず、ブラウザを入れられないため固定する。
-    runs-on: ubuntu-24.04
-    needs: [unit-test]
-
+  e2e:
+    name: E2E
+    uses: ./.github/workflows/reusable-e2e.yml
+    with:
+      workspace: '@nagiyu/auth-web'
+      shared-workspaces: '@nagiyu/auth-core'
+      web-dir: services/auth/web
+      report-key: auth-app
+      full: ${{ github.base_ref == 'develop' }}
     permissions:
       id-token: write
       contents: read
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js and install dependencies
-        uses: ./.github/actions/setup-node
-        with:
-          node-version: '24'
-          cache-dependency-path: './package-lock.json'
-
-      - name: Build shared libraries
-        run: npm run build:libs
-
-      - name: Build auth-core
-        run: npm run build --workspace @nagiyu/auth-core
-
-      - name: Build web application
-        run: npm run build --workspace @nagiyu/auth-web
-
-      - name: Install Playwright Browsers
-        run: npx playwright install --with-deps chromium
-        working-directory: ./services/auth/web
-
-      - name: Run Playwright tests (chromium-mobile)
-        env:
-          CI: true
-        run: |
-          npm run test:e2e --workspace @nagiyu/auth-web -- --project=chromium-mobile
-          if [ $? -ne 0 ]; then
-            echo "E2E tests failed"
-            exit 1
-          fi
-
-      - name: Upload test results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: ${{ env.SERVICE_ID }}-playwright-report-full-chromium-mobile
-          path: services/auth/web/playwright-report/
-          retention-days: 30
-
-      - name: Upload test artifacts
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: ${{ env.SERVICE_ID }}-test-results-full-chromium-mobile
-          path: services/auth/web/test-results/
-          retention-days: 30
-
-      - name: Configure AWS credentials for report upload
-        if: always()
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ vars.AWS_PR_ROLE_ARN }}
-          aws-region: us-east-1
-
-      - name: Upload Playwright HTML report to E2E reports
-        if: always()
-        run: |
-          aws s3 sync services/auth/web/playwright-report/ \
-            "s3://${{ vars.E2E_REPORTS_BUCKET || 'nagiyu-e2e-reports' }}/auth-app/pr-${{ github.event.pull_request.number }}/${{ github.run_id }}/chromium-mobile/" \
-            --delete --no-progress
-
-  e2e-test-chromium-desktop:
-    name: Run E2E Tests (chromium-desktop)
-    # Playwright 1.60.0 は Ubuntu 26.04 (ubuntu-latest) に対応しておらず、ブラウザを入れられないため固定する。
-    runs-on: ubuntu-24.04
-    needs: [unit-test]
-    if: github.base_ref == 'develop'
-
-    permissions:
-      id-token: write
-      contents: read
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js and install dependencies
-        uses: ./.github/actions/setup-node
-        with:
-          node-version: '24'
-          cache-dependency-path: './package-lock.json'
-
-      - name: Build shared libraries
-        run: npm run build:libs
-
-      - name: Build auth-core
-        run: npm run build --workspace @nagiyu/auth-core
-
-      - name: Build web application
-        run: npm run build --workspace @nagiyu/auth-web
-
-      - name: Install Playwright Browsers
-        run: npx playwright install --with-deps chromium
-        working-directory: ./services/auth/web
-
-      - name: Run Playwright tests (chromium-desktop)
-        env:
-          CI: true
-        run: |
-          npm run test:e2e --workspace @nagiyu/auth-web -- --project=chromium-desktop
-          if [ $? -ne 0 ]; then
-            echo "E2E tests failed"
-            exit 1
-          fi
-
-      - name: Upload test results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: ${{ env.SERVICE_ID }}-playwright-report-full-chromium-desktop
-          path: services/auth/web/playwright-report/
-          retention-days: 30
-
-      - name: Upload test artifacts
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: ${{ env.SERVICE_ID }}-test-results-full-chromium-desktop
-          path: services/auth/web/test-results/
-          retention-days: 30
-
-      - name: Configure AWS credentials for report upload
-        if: always()
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ vars.AWS_PR_ROLE_ARN }}
-          aws-region: us-east-1
-
-      - name: Upload Playwright HTML report to E2E reports
-        if: always()
-        run: |
-          aws s3 sync services/auth/web/playwright-report/ \
-            "s3://${{ vars.E2E_REPORTS_BUCKET || 'nagiyu-e2e-reports' }}/auth-app/pr-${{ github.event.pull_request.number }}/${{ github.run_id }}/chromium-desktop/" \
-            --delete --no-progress
-
-  e2e-test-webkit-mobile:
-    name: Run E2E Tests (webkit-mobile)
-    # Playwright 1.60.0 は Ubuntu 26.04 (ubuntu-latest) に対応しておらず、ブラウザを入れられないため固定する。
-    runs-on: ubuntu-24.04
-    needs: [unit-test]
-    if: github.base_ref == 'develop'
-
-    permissions:
-      id-token: write
-      contents: read
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js and install dependencies
-        uses: ./.github/actions/setup-node
-        with:
-          node-version: '24'
-          cache-dependency-path: './package-lock.json'
-
-      - name: Build shared libraries
-        run: npm run build:libs
-
-      - name: Build auth-core
-        run: npm run build --workspace @nagiyu/auth-core
-
-      - name: Build web application
-        run: npm run build --workspace @nagiyu/auth-web
-
-      - name: Install Playwright Browsers
-        run: npx playwright install --with-deps webkit
-        working-directory: ./services/auth/web
-
-      - name: Run Playwright tests (webkit-mobile)
-        env:
-          CI: true
-        run: |
-          npm run test:e2e --workspace @nagiyu/auth-web -- --project=webkit-mobile
-          if [ $? -ne 0 ]; then
-            echo "E2E tests failed"
-            exit 1
-          fi
-
-      - name: Upload test results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: ${{ env.SERVICE_ID }}-playwright-report-full-webkit-mobile
-          path: services/auth/web/playwright-report/
-          retention-days: 30
-
-      - name: Upload test artifacts
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: ${{ env.SERVICE_ID }}-test-results-full-webkit-mobile
-          path: services/auth/web/test-results/
-          retention-days: 30
-
-      - name: Configure AWS credentials for report upload
-        if: always()
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ vars.AWS_PR_ROLE_ARN }}
-          aws-region: us-east-1
-
-      - name: Upload Playwright HTML report to E2E reports
-        if: always()
-        run: |
-          aws s3 sync services/auth/web/playwright-report/ \
-            "s3://${{ vars.E2E_REPORTS_BUCKET || 'nagiyu-e2e-reports' }}/auth-app/pr-${{ github.event.pull_request.number }}/${{ github.run_id }}/webkit-mobile/" \
-            --delete --no-progress
 
   build:
     name: Next.js Build Verification
     runs-on: ubuntu-latest
-    needs: [lint, format-check]
 
     steps:
       - name: Checkout code
@@ -440,87 +103,23 @@ jobs:
     name: Report Results to PR
     runs-on: ubuntu-latest
     if: always()
-    needs:
-      [
-        lint,
-        format-check,
-        unit-test,
-        contract-test,
-        e2e-test-chromium-mobile,
-        e2e-test-chromium-desktop,
-        e2e-test-webkit-mobile,
-        build,
-        docker-build,
-      ]
-    # TODO: Add coverage to needs when implemented
-    # needs: [lint, format-check, unit-test, coverage, e2e-test, build, docker-build]
+    needs: [verify, e2e, build, docker-build]
 
     permissions:
       contents: read
       pull-requests: write
+      actions: read
 
     steps:
-      - name: Create PR Comment
-        uses: actions/github-script@v7
+      - name: Checkout actions
+        uses: actions/checkout@v4
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const results = {
-              'Lint': '${{ needs.lint.result }}',
-              'Format Check': '${{ needs.format-check.result }}',
-              'Unit Tests': '${{ needs.unit-test.result }}',
-              'Contract Tests': '${{ needs.contract-test.result }}',
-              // TODO: Uncomment when coverage check is implemented
-              // 'Coverage Check': '${{ needs.coverage.result }}',
-              'E2E Tests (chromium-mobile)': '${{ needs.e2e-test-chromium-mobile.result }}',
-              'E2E Tests (chromium-desktop)': '${{ needs.e2e-test-chromium-desktop.result }}',
-              'E2E Tests (webkit-mobile)': '${{ needs.e2e-test-webkit-mobile.result }}',
-              'Next.js Build': '${{ needs.build.result }}',
-              'Docker Build': '${{ needs.docker-build.result }}'
-            };
+          sparse-checkout: .github/actions
 
-            const statusEmoji = {
-              'success': '✅',
-              'failure': '❌',
-              'cancelled': '⚠️',
-              'skipped': '⏭️'
-            };
-
-            const reportBaseUrl = `${{ vars.E2E_REPORTS_BASE_URL || 'https://reports.nagiyu.com' }}/auth-app/pr-${context.issue.number}/${context.runId}`;
-            const reportProjects = {
-              'E2E Tests (chromium-mobile)': 'chromium-mobile',
-              'E2E Tests (chromium-desktop)': 'chromium-desktop',
-              'E2E Tests (webkit-mobile)': 'webkit-mobile',
-            };
-
-            const allSuccess = Object.values(results).every(r => r === 'success' || r === 'skipped');
-            const isFull = github.base_ref === 'develop';
-            const header = allSuccess
-              ? (isFull ? '## ✅ [${{ env.SERVICE_DISPLAY_NAME }}] Full Verification Passed' : '## ✅ [${{ env.SERVICE_DISPLAY_NAME }}] Fast Verification Passed')
-              : (isFull ? '## ❌ [${{ env.SERVICE_DISPLAY_NAME }}] Full Verification Failed' : '## ❌ [${{ env.SERVICE_DISPLAY_NAME }}] Fast Verification Failed');
-
-            let body = `${header}\n\n`;
-            body += isFull
-              ? '**Full Verification (All devices)**\n\n'
-              : '**Fast Verification (E2E: chromium-mobile only)**\n\n';
-            body += '| Job | Status | Report |\n';
-            body += '|-----|--------|--------|\n';
-
-            for (const [job, result] of Object.entries(results)) {
-              const emoji = statusEmoji[result] || '❓';
-              const project = reportProjects[job];
-              const reportLink = (project && (result === 'success' || result === 'failure'))
-                ? `[📊 View](${reportBaseUrl}/${project}/)`
-                : '-';
-              body += `| ${job} | ${emoji} ${result} | ${reportLink} |\n`;
-            }
-
-            body += `\n_E2E HTML reports are retained for 3 days. Re-run CI to regenerate._\n`;
-            body += `\n[View workflow run](${context.payload.repository.html_url}/actions/runs/${context.runId})`;
-
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: body
-            });
+      - name: Report results to PR
+        uses: ./.github/actions/report-verify-results
+        with:
+          display-name: ${{ env.SERVICE_DISPLAY_NAME }}
+          fast-full: 'true'
+          e2e-report-key: auth-app
+          reports-base-url: ${{ vars.E2E_REPORTS_BASE_URL || 'https://reports.nagiyu.com' }}

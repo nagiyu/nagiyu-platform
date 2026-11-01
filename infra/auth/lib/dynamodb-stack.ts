@@ -26,10 +26,7 @@ export class DynamoDBStack extends cdk.Stack {
         pointInTimeRecoveryEnabled: true,
       },
       encryption: dynamodb.TableEncryption.AWS_MANAGED,
-      removalPolicy:
-        environment === 'prod'
-          ? cdk.RemovalPolicy.RETAIN
-          : cdk.RemovalPolicy.DESTROY,
+      removalPolicy: environment === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
     });
 
     // GSI: googleId-index

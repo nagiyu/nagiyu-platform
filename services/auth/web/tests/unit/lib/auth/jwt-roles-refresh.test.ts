@@ -11,7 +11,7 @@
  *   - DB エラー時に例外を投げず token をそのまま返す
  */
 
-import { reportErrorEvent } from '@nagiyu/aws';
+import { errorReporter } from '@/lib/api-error-reporting';
 
 type AnyAsyncFn = (...args: unknown[]) => Promise<Record<string, unknown>>;
 
@@ -21,6 +21,10 @@ const mockUpdateLastLogin = jest.fn();
 
 jest.mock('@nagiyu/aws', () => ({
   reportErrorEvent: jest.fn().mockResolvedValue(null),
+}));
+
+jest.mock('@/lib/api-error-reporting', () => ({
+  errorReporter: { report: jest.fn().mockResolvedValue(null), onError: jest.fn(() => jest.fn()) },
 }));
 
 jest.mock('@nagiyu/nextjs', () => ({
@@ -63,7 +67,6 @@ describe('jwt コールバック - rolesRefreshedAt', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    (reportErrorEvent as jest.Mock).mockResolvedValue(null);
     mockGetUserByGoogleId.mockResolvedValue(null);
     mockUpdateLastLogin.mockResolvedValue(undefined);
   });
@@ -272,7 +275,7 @@ describe('jwt コールバック - rolesRefreshedAt', () => {
       expect(result).toMatchObject({ googleId: 'google-err', roles: ['safe-role'] });
     });
 
-    it('DB エラー時は reportErrorEvent が呼ばれる', async () => {
+    it('DB エラー時は errorReporter.report が呼ばれる', async () => {
       const oldTimestamp = Date.now() - TTL_MS - 1000;
       const dbError = new Error('DynamoDB タイムアウト');
       mockGetUserByGoogleId.mockRejectedValueOnce(dbError);
@@ -291,11 +294,13 @@ describe('jwt コールバック - rolesRefreshedAt', () => {
 
       await capturedCallbacks.jwt!({ token });
 
-      expect(reportErrorEvent).toHaveBeenCalledWith(
-        expect.objectContaining({
-          serviceId: 'auth',
-          severity: 'error',
-        })
+      expect(errorReporter.report).toHaveBeenCalledWith(
+        'jwt コールバック: DB からのロール再取得に失敗しました',
+        dbError,
+        {
+          context: { step: 'rolesRefresh' },
+          message: 'jwt コールバック: DB からのロール再取得に失敗しました。',
+        }
       );
     });
 

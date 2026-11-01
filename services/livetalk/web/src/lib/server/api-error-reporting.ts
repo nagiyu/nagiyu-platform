@@ -4,14 +4,19 @@
  * 例外を最後に受け止めるのはルート入口なので、報告はここに集約する。
  */
 import { NextResponse } from 'next/server';
-import { ERROR_CODES, toErrorMessage, type ErrorSeverity } from '@nagiyu/common';
-import { reportErrorEvent } from '@nagiyu/aws';
+import { ERROR_CODES } from '@nagiyu/common';
+import { createErrorReporter, reportErrorEvent } from '@nagiyu/aws';
 import { createApiErrorReporting } from '@nagiyu/nextjs';
 
 const SERVICE_ID = 'livetalk';
 
+/**
+ * 例外を握って処理を続ける箇所と、Push 系ルートのファクトリが 500 を返す直前に、その場で報告する。
+ * ファクトリは例外を自分で握って 500 にするため、ラッパーでは報告できない。
+ */
+export const errorReporter = createErrorReporter({ serviceId: SERVICE_ID });
+
 const API_ERROR_REPORTING_MESSAGES = {
-  REPORT_FAILED: '[reportSwallowedError] エラー報告に失敗しました',
   AUTH_PROCESSING_FAILED: '認証処理に失敗しました',
 } as const;
 
@@ -53,40 +58,4 @@ export function withApiErrorReporting<Args extends unknown[], R extends Response
     },
   });
   return wrap(title, handler);
-}
-
-/**
- * Push 系ルートのファクトリが 500 を返す直前に呼ぶ報告関数を作る。
- * ファクトリは例外を自分で握って 500 にするため、ラッパーでは報告できない。
- */
-export function createPushRouteErrorReporter(title: string): (error: unknown) => Promise<void> {
-  return (error) => reportSwallowedError(title, error);
-}
-
-/**
- * 例外を握って処理を続ける箇所から、その場で報告する。
- * 報告の失敗で本来の処理を止めないよう、reportErrorEvent の失敗は握る。
- */
-export async function reportSwallowedError(
-  title: string,
-  error: unknown,
-  context: Record<string, unknown> = {},
-  severity: ErrorSeverity = 'error'
-): Promise<void> {
-  try {
-    await reportErrorEvent({
-      serviceId: SERVICE_ID,
-      severity,
-      title,
-      message: toErrorMessage(error),
-      context: {
-        ...context,
-        errorName: error instanceof Error ? error.name : typeof error,
-        errorMessage: toErrorMessage(error),
-        errorStack: error instanceof Error ? error.stack : undefined,
-      },
-    });
-  } catch (reportError) {
-    console.error(API_ERROR_REPORTING_MESSAGES.REPORT_FAILED, reportError);
-  }
 }

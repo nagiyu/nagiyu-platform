@@ -1,11 +1,12 @@
+/**
+ * @jest-environment node
+ */
+
 import { reportErrorEvent } from '@nagiyu/aws';
+import { errorReporter } from '@/lib/api-error-reporting';
 import { PATCH } from '@/app/api/jobs/[jobId]/highlights/[highlightId]/route';
 import type { HighlightRepository } from '@nagiyu/quick-clip-core';
-import {
-  getDynamoDBDocumentClient,
-  getClipRegenerateFunctionName,
-  getLambdaClient,
-} from '@/lib/server/aws';
+import { getClipRegenerateFunctionName, getLambdaClient } from '@/lib/server/aws';
 import { InvokeCommand } from '@aws-sdk/client-lambda';
 
 const mockUpdate = jest.fn();
@@ -14,7 +15,7 @@ const mockLambdaSend = jest.fn();
 
 jest.mock('@nagiyu/quick-clip-core', () => ({
   ...jest.requireActual('@nagiyu/quick-clip-core'),
-  DynamoDBHighlightRepository: jest.fn().mockImplementation(
+  createHighlightRepository: jest.fn().mockImplementation(
     () =>
       ({
         getByJobId: jest.fn(),
@@ -38,9 +39,15 @@ jest.mock('@nagiyu/aws', () => ({
   reportErrorEvent: jest.fn().mockResolvedValue(null),
 }));
 
+jest.mock('@/lib/api-error-reporting', () => ({
+  ...jest.requireActual('@/lib/api-error-reporting'),
+  errorReporter: {
+    report: jest.fn().mockResolvedValue(null),
+    onError: jest.fn(() => jest.fn()),
+  },
+}));
+
 jest.mock('@/lib/server/aws', () => ({
-  getDynamoDBDocumentClient: jest.fn(() => ({})),
-  getTableName: jest.fn(() => 'test-table'),
   getClipRegenerateFunctionName: jest.fn(() => 'clip-regenerate'),
   getLambdaClient: jest.fn(() => ({ send: jest.fn() })),
 }));
@@ -50,9 +57,6 @@ jest.mock('@aws-sdk/client-lambda', () => ({
 }));
 
 describe('PATCH /api/jobs/[jobId]/highlights/[highlightId]', () => {
-  const mockedGetDynamoDBDocumentClient = getDynamoDBDocumentClient as jest.MockedFunction<
-    typeof getDynamoDBDocumentClient
-  >;
   const mockedGetLambdaClient = getLambdaClient as jest.MockedFunction<typeof getLambdaClient>;
   const mockedGetClipRegenerateFunctionName = getClipRegenerateFunctionName as jest.MockedFunction<
     typeof getClipRegenerateFunctionName
@@ -62,9 +66,6 @@ describe('PATCH /api/jobs/[jobId]/highlights/[highlightId]', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockedGetDynamoDBDocumentClient.mockReturnValue(
-      {} as ReturnType<typeof getDynamoDBDocumentClient>
-    );
     mockedGetLambdaClient.mockReturnValue({
       send: mockLambdaSend,
     } as unknown as ReturnType<typeof getLambdaClient>);
@@ -305,7 +306,8 @@ describe('PATCH /api/jobs/[jobId]/highlights/[highlightId]', () => {
     mockUpdate
       .mockResolvedValueOnce({ ...base, startSec: 11, endSec: 21, clipStatus: 'GENERATING' })
       .mockResolvedValueOnce({ ...base, startSec: 11, endSec: 21, clipStatus: 'FAILED' });
-    mockLambdaSend.mockRejectedValueOnce(new Error('invoke failed'));
+    const invokeError = new Error('invoke failed');
+    mockLambdaSend.mockRejectedValueOnce(invokeError);
 
     const request = createRequest({ startSec: 11, endSec: 21 });
 
@@ -322,12 +324,10 @@ describe('PATCH /api/jobs/[jobId]/highlights/[highlightId]', () => {
       '[PATCH /api/jobs/[jobId]/highlights/[highlightId]] クリップ再生成の起動に失敗しました',
       expect.objectContaining({ jobId: 'job-1', highlightId: 'h1', error: expect.any(Error) })
     );
-    expect(reportErrorEvent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        serviceId: 'quick-clip',
-        severity: 'error',
-        title: 'Web API: クリップ再生成起動エラー',
-      })
+    expect(errorReporter.report).toHaveBeenCalledWith(
+      'Web API: クリップ再生成起動エラー',
+      invokeError,
+      { context: { jobId: 'job-1', highlightId: 'h1' } }
     );
   });
 

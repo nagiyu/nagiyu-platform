@@ -1,10 +1,4 @@
-import {
-  EntityAlreadyExistsError,
-  InMemoryEntityStore,
-  OptimisticLockError,
-  type EntityStore,
-  type InMemorySingleTableStore,
-} from '@nagiyu/aws';
+import { InMemoryEntityStore, type EntityStore, type InMemorySingleTableStore } from '@nagiyu/aws';
 import type {
   ConsolidationCursorEntity,
   ConsolidationCursorKey,
@@ -14,11 +8,9 @@ import { ConsolidationCursorMapper } from '../mappers/consolidation-cursor.mappe
 import type { ConsolidationCursorRepository } from './consolidation-cursor.repository.interface.js';
 
 export class InMemoryConsolidationCursorRepository implements ConsolidationCursorRepository {
-  private readonly nowMs: () => number;
   private readonly entityStore: EntityStore<ConsolidationCursorEntity, ConsolidationCursorKey>;
 
   constructor(store: InMemorySingleTableStore, nowMs: () => number = () => Date.now()) {
-    this.nowMs = nowMs;
     this.entityStore = new InMemoryEntityStore(store, new ConsolidationCursorMapper(), {
       now: nowMs,
     });
@@ -32,23 +24,11 @@ export class InMemoryConsolidationCursorRepository implements ConsolidationCurso
     entity: PutConsolidationCursorInput,
     opts: { expectedUpdatedAt?: number } = {}
   ): Promise<ConsolidationCursorEntity> {
-    const merged: ConsolidationCursorEntity = { ...entity, updatedAt: this.nowMs() };
-
     if (opts.expectedUpdatedAt !== undefined) {
-      return this.entityStore.put(merged, { expectedUpdatedAt: opts.expectedUpdatedAt });
+      return this.entityStore.put(entity, { expectedUpdatedAt: opts.expectedUpdatedAt });
     }
 
-    try {
-      return await this.entityStore.create(merged);
-    } catch (error) {
-      // 新規作成の衝突も呼び出し側が楽観ロック競合として扱えるよう、同じエラーに揃える
-      if (error instanceof EntityAlreadyExistsError) {
-        throw new OptimisticLockError(
-          'ConsolidationCursor',
-          `${entity.userId}#${entity.characterId}`
-        );
-      }
-      throw error;
-    }
+    // 新規作成の衝突も呼び出し側が楽観ロック競合として扱えるよう、同じエラーに揃える
+    return this.entityStore.create(entity, { conflictAsOptimisticLock: true });
   }
 }

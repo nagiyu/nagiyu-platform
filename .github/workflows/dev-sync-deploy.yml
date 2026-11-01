@@ -13,6 +13,8 @@ on:
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/dev-sync-deploy.yml'
+      - '.github/actions/update-lambda-image/**'
+      - '.github/actions/push-ecr-image/**'
   workflow_dispatch:
     inputs:
       environment:
@@ -122,29 +124,16 @@ jobs:
           echo "repository-uri=$REPOSITORY_URI" >> "$GITHUB_OUTPUT"
           echo "ECR リポジトリ (Batch): $REPOSITORY_URI"
 
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Build Batch Docker image
-        uses: ./.github/actions/build-docker-image
-        with:
-          dockerfile: services/dev-sync/batch/Dockerfile
-          image-tag: ${{ steps.get-ecr.outputs.repository-uri }}:${{ github.sha }}
-
-      - name: Push Batch Docker image
+      - name: Build and push Batch Docker image
         id: build-image
-        env:
-          REPOSITORY_URI: ${{ steps.get-ecr.outputs.repository-uri }}
-          IMAGE_TAG: ${{ github.sha }}
-        run: |
-          docker push "$REPOSITORY_URI:$IMAGE_TAG"
-
-          # CDK 側は tagOrDigest: 'latest' を参照するため latest もタグ付けして push
-          docker tag "$REPOSITORY_URI:$IMAGE_TAG" "$REPOSITORY_URI:latest"
-          docker push "$REPOSITORY_URI:latest"
-
-          echo "image-uri=$REPOSITORY_URI:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+        uses: ./.github/actions/push-ecr-image
+        with:
+          repository-uri: ${{ steps.get-ecr.outputs.repository-uri }}
+          dockerfile: services/dev-sync/batch/Dockerfile
+          # CDK 側が tagOrDigest: 'latest' を参照するため、latest も push する
+          tags: |
+            ${{ github.sha }}
+            latest
 
   deploy-main:
     name: Deploy Main Stack
@@ -185,30 +174,24 @@ jobs:
             --context env="$ENVIRONMENT" \
             --require-approval never
 
-      - name: Update Lambda function with latest image
+      - name: Resolve Lambda image URI
+        id: resolve-image
         env:
           ENVIRONMENT: ${{ needs.deploy-ecr.outputs.environment }}
         run: |
-          FUNCTION_NAME="nagiyu-dev-sync-$ENVIRONMENT"
           ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
           IMAGE_URI="$ACCOUNT_ID.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/nagiyu-dev-sync-ecr-$ENVIRONMENT:latest"
 
-          echo "Lambda 関数を最新イメージで更新します: $FUNCTION_NAME"
-          aws lambda update-function-code \
-            --function-name "$FUNCTION_NAME" \
-            --image-uri "$IMAGE_URI" \
-            --region "${{ env.AWS_REGION }}"
+          echo "image-uri=$IMAGE_URI" >> "$GITHUB_OUTPUT"
+          echo "Lambda image URI: $IMAGE_URI"
 
-      - name: Wait for Lambda update to complete
-        env:
-          ENVIRONMENT: ${{ needs.deploy-ecr.outputs.environment }}
-        run: |
-          FUNCTION_NAME="nagiyu-dev-sync-$ENVIRONMENT"
-          echo "Lambda 更新の完了を待機します..."
-          aws lambda wait function-updated \
-            --function-name "$FUNCTION_NAME" \
-            --region "${{ env.AWS_REGION }}"
-          echo "Lambda 更新が正常に完了しました"
+      - name: Update Lambda function with latest image
+        uses: ./.github/actions/update-lambda-image
+        with:
+          function-names: |
+            nagiyu-dev-sync-${{ needs.deploy-ecr.outputs.environment }}
+          image-uri: ${{ steps.resolve-image.outputs.image-uri }}
+          region: ${{ env.AWS_REGION }}
 
   summary:
     name: Deployment Summary

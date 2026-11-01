@@ -6,8 +6,11 @@
   "scripts": {
     "build": "tsc",
     "test": "jest",
+    "test:coverage": "jest --coverage",
     "lint": "eslint 'bin/**/*.ts' 'lib/**/*.ts' 'libs/**/*.ts'",
     "watch": "tsc -w",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "cdk": "cdk",
     "bootstrap": "cdk bootstrap",
     "synth": "cdk synth",

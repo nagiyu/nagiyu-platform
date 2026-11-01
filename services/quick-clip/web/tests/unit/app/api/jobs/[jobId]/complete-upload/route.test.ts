@@ -1,3 +1,7 @@
+/**
+ * @jest-environment node
+ */
+
 import { reportErrorEvent } from '@nagiyu/aws';
 import type { JobRepository } from '@nagiyu/quick-clip-core';
 import { getBatchClient, getS3Client } from '@/lib/server/aws';
@@ -8,7 +12,7 @@ const mockUpdateBatchJobId = jest.fn();
 
 jest.mock('@nagiyu/quick-clip-core', () => ({
   ...jest.requireActual('@nagiyu/quick-clip-core'),
-  DynamoDBJobRepository: jest.fn().mockImplementation(
+  createJobRepository: jest.fn().mockImplementation(
     () =>
       ({
         create: jest.fn(),
@@ -28,9 +32,7 @@ jest.mock('@/lib/server/aws', () => ({
   getBatchJobDefinitionPrefix: jest.fn(() => 'nagiyu-quick-clip-dev'),
   getBatchJobQueueArn: jest.fn(() => 'arn:aws:batch:us-east-1:123456789012:job-queue/quick-clip'),
   getBucketName: jest.fn(() => 'test-bucket'),
-  getDynamoDBDocumentClient: jest.fn(() => ({})),
   getS3Client: jest.fn(),
-  getTableName: jest.fn(() => 'test-table'),
 }));
 
 jest.mock('next/server', () => ({

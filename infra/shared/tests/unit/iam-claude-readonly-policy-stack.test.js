@@ -2,9 +2,7 @@ const cdk = require('aws-cdk-lib');
 const { Template, Match } = require('aws-cdk-lib/assertions');
 
 require('ts-node/register/transpile-only');
-const {
-  IamClaudeReadonlyPolicyStack,
-} = require('../../lib/iam/iam-claude-readonly-policy-stack');
+const { IamClaudeReadonlyPolicyStack } = require('../../lib/iam/iam-claude-readonly-policy-stack');
 
 describe('IamClaudeReadonlyPolicyStack', () => {
   const createTemplate = () => {

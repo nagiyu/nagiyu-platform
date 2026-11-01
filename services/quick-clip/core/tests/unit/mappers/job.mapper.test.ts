@@ -159,6 +159,7 @@ describe('JobMapper', () => {
       ['ErrorMessage', 1],
       ['AnalysisProgress', 'x'],
       ['AnalysisProgress', ['x']],
+      ['AnalysisProgress', null],
     ])('%s が不正なら InvalidEntityDataError にする (%p)', (field, value) => {
       expect(() => mapper.toEntity(buildItem({ [field]: value }))).toThrow(InvalidEntityDataError);
     });

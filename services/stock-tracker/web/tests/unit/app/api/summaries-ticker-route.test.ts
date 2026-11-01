@@ -1,19 +1,29 @@
 import { GET } from '../../../../app/api/summaries/[tickerId]/route';
 import * as awsModule from '@nagiyu/aws';
+import { errorReporter } from '../../../../lib/api-error-reporting';
 import {
   createAlertRepository,
   createDailySummaryRepository,
   createForecastRepository,
   createHoldingRepository,
   createTickerRepository,
-} from '../../../../lib/repository-factory';
+} from '@nagiyu/stock-tracker-core';
 
 jest.mock('@nagiyu/aws', () => ({
   ...jest.requireActual('@nagiyu/aws'),
   reportErrorEvent: jest.fn().mockResolvedValue(null),
 }));
 
-jest.mock('../../../../lib/repository-factory', () => ({
+jest.mock('../../../../lib/api-error-reporting', () => ({
+  ...jest.requireActual('../../../../lib/api-error-reporting'),
+  errorReporter: {
+    report: jest.fn().mockResolvedValue(null),
+    onError: jest.fn(() => jest.fn()),
+  },
+}));
+
+jest.mock('@nagiyu/stock-tracker-core', () => ({
+  ...jest.requireActual('@nagiyu/stock-tracker-core'),
   createDailySummaryRepository: jest.fn(),
   createAlertRepository: jest.fn(),
   createHoldingRepository: jest.fn(),
@@ -167,13 +177,10 @@ describe('GET /api/summaries/[tickerId]', () => {
 
     expect(response.status).toBe(200);
     expect(body.forecast).toBeNull();
-    expect(awsModule.reportErrorEvent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        serviceId: 'stock-tracker',
-        severity: 'error',
-        title: 'Web API: サマリーの確度取得エラー',
-        message: 'forecast db error',
-      })
+    expect(errorReporter.report).toHaveBeenCalledWith(
+      'Web API: サマリーの確度取得エラー',
+      expect.objectContaining({ message: 'forecast db error' }),
+      { context: { tickerId: 'NASDAQ:NVDA' } }
     );
   });
 

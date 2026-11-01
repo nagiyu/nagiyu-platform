@@ -1,3 +1,7 @@
+/**
+ * @jest-environment node
+ */
+
 import type { NoteKey } from '@nagiyu/livetalk-core';
 import { decodeNoteId, encodeNoteId } from '@/lib/notes/note-id';
 

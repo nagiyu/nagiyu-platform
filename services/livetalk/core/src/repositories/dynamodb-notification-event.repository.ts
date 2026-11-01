@@ -13,7 +13,6 @@ export class DynamoDBNotificationEventRepository implements NotificationEventRep
   private readonly mapper: NotificationEventMapper;
   private readonly docClient: DynamoDBDocumentClient;
   private readonly tableName: string;
-  private readonly nowMs: () => number;
   private readonly entityStore: EntityStore<NotificationEventEntity, NotificationEventKey>;
 
   constructor(
@@ -23,14 +22,12 @@ export class DynamoDBNotificationEventRepository implements NotificationEventRep
   ) {
     this.docClient = docClient;
     this.tableName = tableName;
-    this.nowMs = nowMs;
     this.mapper = new NotificationEventMapper();
     this.entityStore = new DynamoDBEntityStore(docClient, tableName, this.mapper, { now: nowMs });
   }
 
   public async put(input: CreateNotificationEventInput): Promise<NotificationEventEntity> {
-    const now = this.nowMs();
-    return this.entityStore.put({ ...input, createdAt: now, updatedAt: now });
+    return this.entityStore.put({ ...input, createdAt: undefined });
   }
 
   public async listByUser(userId: string, limit = 100): Promise<NotificationEventEntity[]> {

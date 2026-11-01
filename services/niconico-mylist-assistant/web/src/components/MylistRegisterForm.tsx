@@ -12,8 +12,8 @@ import {
 } from '@/types/mylist';
 import { getPushSubscription } from '@nagiyu/browser';
 import { extractErrorMessage } from '@nagiyu/common';
-import { validateMaxCountInput } from '@/lib/mylist-register-validation';
-import { ERROR_MESSAGES } from '@/lib/constants/errors';
+import { validateMaxCountInput, validateMylistName } from '@/lib/mylist-register-validation';
+import { ERROR_MESSAGES, VALIDATION_LIMITS } from '@/lib/constants/errors';
 import NiconicoSessionManager from './NiconicoSessionManager';
 
 interface MylistRegisterFormProps {
@@ -80,8 +80,12 @@ export default function MylistRegisterForm({ onSuccess }: MylistRegisterFormProp
 
     try {
       // バリデーション
-      if (!formData.mylistName.trim()) {
-        setError('マイリスト名を入力してください');
+      const mylistNameResult = validateMylistName(
+        formData.mylistName,
+        ERROR_MESSAGES.MYLIST_NAME_INPUT_REQUIRED
+      );
+      if (!mylistNameResult.valid) {
+        setError(mylistNameResult.message);
         setLoading(false);
         return;
       }
@@ -98,7 +102,7 @@ export default function MylistRegisterForm({ onSuccess }: MylistRegisterFormProp
         maxCount: maxCountResult.value,
         favoriteOnly: formData.favoriteOnly,
         excludeSkip: formData.excludeSkip,
-        mylistName: formData.mylistName,
+        mylistName: mylistNameResult.value,
       };
 
       // 既存の Push サブスクリプションをバッチジョブに紐付ける
@@ -234,7 +238,8 @@ export default function MylistRegisterForm({ onSuccess }: MylistRegisterFormProp
               }
               fullWidth
               required
-              helperText="ニコニコ動画に作成されるマイリストの名前"
+              maxLength={VALIDATION_LIMITS.MYLIST_NAME_MAX_LENGTH}
+              helperText={`ニコニコ動画に作成されるマイリストの名前（${VALIDATION_LIMITS.MYLIST_NAME_MAX_LENGTH} 文字以内）`}
             />
 
             {/* 実行ボタン */}

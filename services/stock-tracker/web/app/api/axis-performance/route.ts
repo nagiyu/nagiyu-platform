@@ -6,7 +6,7 @@ import { createInternalErrorReporting } from '../../../lib/api-error-reporting';
 import {
   createModelSnapshotRepository,
   createPerformanceDailyRepository,
-} from '../../../lib/repository-factory';
+} from '@nagiyu/stock-tracker-core';
 import { EARLIEST_DATE, LATEST_DATE } from '../../../lib/forecast/constants';
 import { buildAxisPerformance, pickLatestSnapshot } from '../../../lib/forecast/axis-performance';
 import {

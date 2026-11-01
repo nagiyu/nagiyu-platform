@@ -33,9 +33,7 @@ export class InMemoryTodoRepository implements TodoRepository {
   }
 
   public async create(input: CreateTodoItemInput): Promise<TodoItem> {
-    const now = Date.now();
-    // updatedAt は store が書き込み時に現在時刻で上書きする。Entity 型上は必須のため値だけ渡す。
-    return this.store.create({ ...input, createdAt: now, updatedAt: now });
+    return this.store.create(input);
   }
 
   public async update(
@@ -57,11 +55,10 @@ export class InMemoryTodoRepository implements TodoRepository {
   }
 
   private queryByListId(listId: string): Record<string, unknown>[] {
-    // 既定の件数上限で打ち切られないよう、実 DynamoDB の全ページ取得に合わせて上限を外す
-    const { items } = this.tableStore.query(
-      { pk: buildTodoPk(listId), sk: { operator: 'begins_with', value: TODO_SK_PREFIX } },
-      { limit: Number.MAX_SAFE_INTEGER }
-    );
+    const items = this.tableStore.queryAll({
+      pk: buildTodoPk(listId),
+      sk: { operator: 'begins_with', value: TODO_SK_PREFIX },
+    });
     return items;
   }
 }

@@ -13,7 +13,6 @@ export class DynamoDBPushSubscriptionRepository implements PushSubscriptionRepos
   private readonly mapper = new PushSubscriptionMapper();
   private readonly docClient: DynamoDBDocumentClient;
   private readonly tableName: string;
-  private readonly nowMs: () => number;
   private readonly entityStore: EntityStore<PushSubscriptionEntity, PushSubscriptionKey>;
 
   constructor(
@@ -23,13 +22,11 @@ export class DynamoDBPushSubscriptionRepository implements PushSubscriptionRepos
   ) {
     this.docClient = docClient;
     this.tableName = tableName;
-    this.nowMs = nowMs;
     this.entityStore = new DynamoDBEntityStore(docClient, tableName, this.mapper, { now: nowMs });
   }
 
   public async put(input: CreatePushSubscriptionInput): Promise<PushSubscriptionEntity> {
-    const now = this.nowMs();
-    return this.entityStore.put({ ...input, createdAt: now, updatedAt: now });
+    return this.entityStore.put({ ...input, createdAt: undefined });
   }
 
   public async get(key: PushSubscriptionKey): Promise<PushSubscriptionEntity | null> {

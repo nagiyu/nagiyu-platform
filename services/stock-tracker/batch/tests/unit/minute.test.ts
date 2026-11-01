@@ -8,10 +8,11 @@
 import { handler } from '../../src/minute.js';
 import type { ScheduledEvent } from '@nagiyu/aws';
 import * as awsClients from '@nagiyu/aws';
+import type { InMemoryErrorEventWriter } from '@nagiyu/aws';
 import * as webPushClient from '../../src/lib/web-push-client.js';
 import { sendWebPushNotification, getVapidConfig } from '@nagiyu/common/push';
-import type { ExchangeRepository } from '@nagiyu/stock-tracker-core';
-import { DynamoDBAlertRepository, DynamoDBExchangeRepository } from '@nagiyu/stock-tracker-core';
+import type { AlertRepository, ExchangeRepository } from '@nagiyu/stock-tracker-core';
+import { createAlertRepository, createExchangeRepository } from '@nagiyu/stock-tracker-core';
 import * as alertEvaluator from '@nagiyu/stock-tracker-core';
 import * as tradingHoursChecker from '@nagiyu/stock-tracker-core';
 import type { AlertEntity, ExchangeEntity } from '@nagiyu/stock-tracker-core';
@@ -38,6 +39,10 @@ jest.mock('@nagiyu/aws', () => {
     ...jest.createMockFromModule('@nagiyu/aws'),
     createScheduledHandler: actual.createScheduledHandler,
     reportErrorEvent: actual.reportErrorEvent,
+    // レポーターは実物を通し、書き込み先の in-memory ライターで報告内容を確かめる
+    createErrorReporter: actual.createErrorReporter,
+    createErrorEventWriter: actual.createErrorEventWriter,
+    resetErrorEventWriter: actual.resetErrorEventWriter,
   };
 });
 jest.mock('../../src/lib/web-push-client.js');
@@ -47,8 +52,8 @@ jest.mock('@nagiyu/common/push', () => ({
 }));
 jest.mock('@nagiyu/stock-tracker-core', () => ({
   ...jest.requireActual('@nagiyu/stock-tracker-core'),
-  DynamoDBAlertRepository: jest.fn(),
-  DynamoDBExchangeRepository: jest.fn(),
+  createAlertRepository: jest.fn(),
+  createExchangeRepository: jest.fn(),
   evaluateAlert: jest.fn(),
   isTradingHours: jest.fn(),
   TradingViewSession: jest.fn().mockImplementation(() => mockSession),
@@ -92,9 +97,14 @@ const mockExchange: ExchangeEntity = {
   updatedAt: Date.now(),
 };
 
+/** レポーターが書き込んだ ErrorEvent を取り出す */
+function getReportedEvents() {
+  return (awsClients.createErrorEventWriter() as InMemoryErrorEventWriter).getRecords();
+}
+
 describe('minute batch handler', () => {
   let mockDocClient: unknown;
-  let mockAlertRepo: jest.Mocked<DynamoDBAlertRepository>;
+  let mockAlertRepo: jest.Mocked<AlertRepository>;
   let mockExchangeRepo: jest.Mocked<ExchangeRepository>;
   let mockEvent: ScheduledEvent;
   let exitSpy: jest.SpyInstance;
@@ -128,7 +138,7 @@ describe('minute batch handler', () => {
       create: jest.fn(),
       update: jest.fn(),
       delete: jest.fn(),
-    } as unknown as jest.Mocked<DynamoDBAlertRepository>;
+    } as unknown as jest.Mocked<AlertRepository>;
 
     mockExchangeRepo = {
       getById: jest.fn(),
@@ -139,8 +149,8 @@ describe('minute batch handler', () => {
       delete: jest.fn(),
     };
 
-    (DynamoDBAlertRepository as jest.Mock).mockImplementation(() => mockAlertRepo);
-    (DynamoDBExchangeRepository as jest.Mock).mockImplementation(() => mockExchangeRepo);
+    (createAlertRepository as jest.Mock).mockImplementation(() => mockAlertRepo);
+    (createExchangeRepository as jest.Mock).mockImplementation(() => mockExchangeRepo);
 
     // Mock event
     mockEvent = {
@@ -156,11 +166,17 @@ describe('minute batch handler', () => {
     };
 
     // Mock environment variables
+    process.env.USE_IN_MEMORY_DB = 'true';
+    process.env.ERROR_EVENTS_TABLE_NAME = 'test-error-events';
+    awsClients.resetErrorEventWriter();
     process.env.VAPID_PUBLIC_KEY = 'test-public-key';
     process.env.VAPID_PRIVATE_KEY = 'test-private-key';
   });
 
   afterEach(() => {
+    delete process.env.USE_IN_MEMORY_DB;
+    delete process.env.ERROR_EVENTS_TABLE_NAME;
+    awsClients.resetErrorEventWriter();
     delete process.env.VAPID_PUBLIC_KEY;
     delete process.env.VAPID_PRIVATE_KEY;
     exitSpy.mockRestore();
@@ -471,10 +487,21 @@ describe('minute batch handler', () => {
       // Assert
       expect(response.statusCode).toBe(200); // バッチ全体は成功
       expect(sendWebPushNotification).not.toHaveBeenCalled();
-      expect(awsClients.reportErrorEvent).toHaveBeenCalledWith(
+      expect(getReportedEvents()).toEqual([
         expect.objectContaining({
           serviceId: 'stock-tracker',
           severity: 'warning',
+          title: '分次バッチ: アラート処理エラー',
+        }),
+      ]);
+      const [reported] = getReportedEvents();
+      expect(JSON.parse(reported.context)).toEqual(
+        expect.objectContaining({
+          alertId: 'alert-1',
+          userId: 'user-1',
+          errorName: 'Error',
+          errorMessage: expect.any(String),
+          errorStack: expect.stringContaining('Error'),
         })
       );
 
@@ -1094,12 +1121,13 @@ describe('minute batch handler', () => {
       // Assert
       expect(response.statusCode).toBe(200); // バッチ全体は成功
       expect(sendWebPushNotification).not.toHaveBeenCalled();
-      expect(awsClients.reportErrorEvent).toHaveBeenCalledWith(
+      expect(getReportedEvents()).toEqual([
         expect.objectContaining({
           serviceId: 'stock-tracker',
           severity: 'warning',
-        })
-      );
+          title: '分次バッチ: アラート処理エラー',
+        }),
+      ]);
 
       const body = JSON.parse(response.body);
       expect(body.statistics.errors).toBe(1);

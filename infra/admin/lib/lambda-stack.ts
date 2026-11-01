@@ -11,7 +11,7 @@ export interface LambdaStackProps extends cdk.StackProps {
    *
    * Lambda環境変数 APP_VERSION に設定されます。
    * 省略時のデフォルト値: '1.0.0'
-   * 
+   *
    * GitHub Actionsでは package.json から自動的に抽出され、
    * process.env.APP_VERSION 経由で渡されます。
    */

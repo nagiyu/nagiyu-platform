@@ -6,10 +6,7 @@ require('ts-node/register/transpile-only');
 const { IamClaudeAccessStack } = require('../../lib/iam/iam-claude-access-stack');
 const { ACCOUNT_IDS } = require('../../lib/account-scope');
 
-const DEV_INVOKABLE_FUNCTION_NAMES = [
-  'nagiyu-portal-lambda-dev',
-  'nagiyu-tools-lambda-dev',
-];
+const DEV_INVOKABLE_FUNCTION_NAMES = ['nagiyu-portal-lambda-dev', 'nagiyu-tools-lambda-dev'];
 
 describe('IamClaudeAccessStack', () => {
   const createTemplate = (accountScope, overrides = {}) => {
@@ -33,16 +30,19 @@ describe('IamClaudeAccessStack', () => {
   };
 
   describe('共通（dev/prod 両方）', () => {
-    it.each(['dev', 'prod'])('%s: nagiyu-claude ロールを作成し readonly ポリシーを付与する', (accountScope) => {
-      const template = createTemplate(accountScope);
+    it.each(['dev', 'prod'])(
+      '%s: nagiyu-claude ロールを作成し readonly ポリシーを付与する',
+      (accountScope) => {
+        const template = createTemplate(accountScope);
 
-      template.hasResourceProperties('AWS::IAM::Role', {
-        RoleName: 'nagiyu-claude',
-        ManagedPolicyArns: Match.arrayWith([
-          'arn:aws:iam::123456789012:policy/dummy-readonly-policy',
-        ]),
-      });
-    });
+        template.hasResourceProperties('AWS::IAM::Role', {
+          RoleName: 'nagiyu-claude',
+          ManagedPolicyArns: Match.arrayWith([
+            'arn:aws:iam::123456789012:policy/dummy-readonly-policy',
+          ]),
+        });
+      }
+    );
 
     it.each(['dev', 'prod'])(
       '%s: 信頼ポリシーは prod アカウントプリンシパル + nagiyu-claude-key への PrincipalArn 条件のみ',
@@ -188,8 +188,9 @@ describe('IamClaudeAccessStack', () => {
       const template = createTemplate('prod');
       const policies = template.findResources('AWS::IAM::Policy');
 
-      const userPolicies = Object.values(policies).filter((policy) =>
-        (Array.isArray(policy.Properties.Users) ? policy.Properties.Users : []).length > 0
+      const userPolicies = Object.values(policies).filter(
+        (policy) =>
+          (Array.isArray(policy.Properties.Users) ? policy.Properties.Users : []).length > 0
       );
       expect(userPolicies).toHaveLength(1);
 

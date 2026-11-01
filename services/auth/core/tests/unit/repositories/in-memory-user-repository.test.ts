@@ -74,7 +74,7 @@ describe('InMemoryUserRepository', () => {
     expect(store.size()).toBe(1);
   });
 
-  it('listUsers は limit と lastEvaluatedKey でページングする', async () => {
+  it('listUsers は limit と cursor でページングする', async () => {
     for (const suffix of ['1', '2', '3']) {
       await repository.upsertUser({
         googleId: `google-${suffix}`,
@@ -83,13 +83,13 @@ describe('InMemoryUserRepository', () => {
       });
     }
 
-    const first = await repository.listUsers(2);
-    expect(first.users).toHaveLength(2);
-    expect(first.lastEvaluatedKey).toBeDefined();
+    const first = await repository.listUsers({ limit: 2 });
+    expect(first.items).toHaveLength(2);
+    expect(first.nextCursor).toBeDefined();
 
-    const second = await repository.listUsers(2, first.lastEvaluatedKey);
-    expect(second.users).toHaveLength(1);
-    expect(second.lastEvaluatedKey).toBeUndefined();
+    const second = await repository.listUsers({ limit: 2, cursor: first.nextCursor });
+    expect(second.items).toHaveLength(1);
+    expect(second.nextCursor).toBeUndefined();
   });
 
   it('listUsers は引数を省略すると全件を返す', async () => {
@@ -97,8 +97,8 @@ describe('InMemoryUserRepository', () => {
 
     const result = await repository.listUsers();
 
-    expect(result.users).toHaveLength(1);
-    expect(result.lastEvaluatedKey).toBeUndefined();
+    expect(result.items).toHaveLength(1);
+    expect(result.nextCursor).toBeUndefined();
   });
 
   it('assignRoles と updateLastLogin で更新できる', async () => {

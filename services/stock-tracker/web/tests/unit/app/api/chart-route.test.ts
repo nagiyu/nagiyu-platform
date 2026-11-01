@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import * as awsModule from '@nagiyu/aws';
+import { errorReporter } from '../../../../lib/api-error-reporting';
 import { GET } from '../../../../app/api/chart/[tickerId]/route';
 
 jest.mock('@nagiyu/aws', () => ({
@@ -7,8 +8,17 @@ jest.mock('@nagiyu/aws', () => ({
   reportErrorEvent: jest.fn().mockResolvedValue(null),
 }));
 
+jest.mock('../../../../lib/api-error-reporting', () => ({
+  ...jest.requireActual('../../../../lib/api-error-reporting'),
+  errorReporter: {
+    report: jest.fn().mockResolvedValue(null),
+    onError: jest.fn(() => jest.fn()),
+  },
+}));
+
 jest.mock('@nagiyu/stock-tracker-core', () => ({
   getChartData: jest.fn(),
+  createHoldingRepository: jest.fn(),
   SUPPORTED_TIMEFRAMES: ['60', 'D'],
   TRADINGVIEW_ERROR_MESSAGES: {
     TIMEOUT: 'timeout',
@@ -26,14 +36,9 @@ jest.mock('../../../../lib/auth', () => ({
   getSession: jest.fn(),
 }));
 
-jest.mock('../../../../lib/repository-factory', () => ({
-  createHoldingRepository: jest.fn(),
-}));
-
-import { getChartData } from '@nagiyu/stock-tracker-core';
+import { getChartData, createHoldingRepository } from '@nagiyu/stock-tracker-core';
 import { getAuthError } from '@nagiyu/nextjs';
 import { getSession } from '../../../../lib/auth';
-import { createHoldingRepository } from '../../../../lib/repository-factory';
 
 const mockedGetChartData = getChartData as jest.MockedFunction<typeof getChartData>;
 const mockedGetAuthError = getAuthError as jest.MockedFunction<typeof getAuthError>;
@@ -112,13 +117,10 @@ describe('/api/chart/[tickerId] GET', () => {
     expect(body.data).toHaveLength(1);
     expect(body.holdingAveragePrice).toBeUndefined();
     expect(consoleErrorSpy).toHaveBeenCalled();
-    expect(awsModule.reportErrorEvent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        serviceId: 'stock-tracker',
-        severity: 'error',
-        title: 'Web API: チャートの保有情報取得エラー',
-        message: 'holding failed',
-      })
+    expect(errorReporter.report).toHaveBeenCalledWith(
+      'Web API: チャートの保有情報取得エラー',
+      expect.objectContaining({ message: 'holding failed' }),
+      { context: { tickerId: 'NSDQ:NVDA' } }
     );
     consoleErrorSpy.mockRestore();
   });

@@ -4,12 +4,11 @@
  * DynamoDBを使用したHoldingRepositoryの実装
  */
 
-import { QueryCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import {
   DynamoDBEntityStore,
   toDatabaseError,
-  encodeCursor,
-  decodeCursor,
+  queryPage,
   type EntityStore,
   type PaginationOptions,
   type PaginatedResult,
@@ -59,11 +58,9 @@ export class DynamoDBHoldingRepository implements HoldingRepository {
     options?: PaginationOptions
   ): Promise<PaginatedResult<HoldingEntity>> {
     try {
-      const limit = options?.limit || 50;
-      const exclusiveStartKey = decodeCursor(options?.cursor);
-
-      const result = await this.docClient.send(
-        new QueryCommand({
+      const page = await queryPage(
+        this.docClient,
+        {
           TableName: this.tableName,
           IndexName: 'UserIndex',
           KeyConditionExpression: '#gsi1pk = :userId AND begins_with(#gsi1sk, :prefix)',
@@ -75,18 +72,16 @@ export class DynamoDBHoldingRepository implements HoldingRepository {
             ':userId': buildHoldingGsi1Pk(userId),
             ':prefix': HOLDING_GSI1_SK_PREFIX,
           },
-          Limit: limit,
-          ExclusiveStartKey: exclusiveStartKey,
-        })
+        },
+        { limit: options?.limit || 50, cursor: options?.cursor }
       );
 
-      const items = (result.Items || []).map((item) => this.mapper.toEntity(item));
-      const nextCursor = encodeCursor(result.LastEvaluatedKey);
+      const items = page.items.map((item) => this.mapper.toEntity(item));
 
       return {
         items,
-        nextCursor,
-        count: result.Count,
+        nextCursor: page.nextCursor,
+        count: page.count,
       };
     } catch (error) {
       throw toDatabaseError(error);
@@ -97,9 +92,7 @@ export class DynamoDBHoldingRepository implements HoldingRepository {
    * 新しい保有株式を作成
    */
   public async create(input: CreateHoldingInput): Promise<HoldingEntity> {
-    const now = Date.now();
-    // updatedAt は store が書き込み時に現在時刻で上書きする。Entity 型上は必須のため値だけ渡す。
-    return this.entityStore.create({ ...input, createdAt: now, updatedAt: now });
+    return this.entityStore.create(input);
   }
 
   /**

@@ -21,7 +21,7 @@ export {
 } from './validation.js';
 
 // Format utilities
-export { formatDateTime, formatJobId } from './format.js';
+export { formatJobId } from './format.js';
 
 // Resource selector
 export type { JobDefinitionSize } from './resource-selector.js';
@@ -46,3 +46,4 @@ export type {
 } from './repositories/job.repository.interface.js';
 export { DynamoDBJobRepository } from './repositories/dynamodb-job.repository.js';
 export { InMemoryJobRepository } from './repositories/in-memory-job.repository.js';
+export { createJobRepository, resetInMemoryRepositories } from './repositories/factory.js';

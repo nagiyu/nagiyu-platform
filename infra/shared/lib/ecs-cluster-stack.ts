@@ -36,15 +36,11 @@ export class EcsSharedClusterStack extends cdk.Stack {
       ],
     });
 
-    new ecs.CfnClusterCapacityProviderAssociations(
-      this,
-      'SharedClusterCapacityProviders',
-      {
-        cluster: cfnCluster.ref,
-        capacityProviders: ['FARGATE', 'FARGATE_SPOT'],
-        defaultCapacityProviderStrategy: [],
-      }
-    );
+    new ecs.CfnClusterCapacityProviderAssociations(this, 'SharedClusterCapacityProviders', {
+      cluster: cfnCluster.ref,
+      capacityProviders: ['FARGATE', 'FARGATE_SPOT'],
+      defaultCapacityProviderStrategy: [],
+    });
 
     this.clusterName = clusterName;
     this.clusterArn = cfnCluster.attrArn;

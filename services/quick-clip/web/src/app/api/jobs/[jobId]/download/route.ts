@@ -1,16 +1,14 @@
 import { DeleteObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
-import { COMMON_ERROR_MESSAGES, toErrorMessage } from '@nagiyu/common';
-import { createPresignedDownloadUrl, reportErrorEvent } from '@nagiyu/aws';
-import { DynamoDBHighlightRepository } from '@nagiyu/quick-clip-core';
+import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
+import { createPresignedDownloadUrl } from '@nagiyu/aws';
+import { createHighlightRepository } from '@nagiyu/quick-clip-core';
 import { NextResponse } from 'next/server';
 import { InvokeCommand } from '@aws-sdk/client-lambda';
-import { SERVICE_ID, withApiErrorReporting } from '@/lib/api-error-reporting';
+import { errorReporter, withApiErrorReporting } from '@/lib/api-error-reporting';
 import { DOMAIN_ERROR_MESSAGES, HighlightDomainService } from '@/lib/server/domain-services';
 import {
   getZipGeneratorFunctionName,
-  getDynamoDBDocumentClient,
   getLambdaClient,
-  getTableName,
   getS3Client,
   getBucketName,
 } from '@/lib/server/aws';
@@ -19,6 +17,8 @@ const ERROR_MESSAGES = {
   JOB_NOT_FOUND: COMMON_ERROR_MESSAGES.JOB_NOT_FOUND,
   NO_ACCEPTED_HIGHLIGHTS: '採用された見どころがありません',
   CLIP_GENERATION_INCOMPLETE: '採用された見どころのクリップ生成が完了していません',
+  CLIP_GENERATION_FAILED:
+    '採用された見どころに生成に失敗したクリップがあります。リトライするか、採用を外してください',
   INTERNAL_SERVER_ERROR: 'ダウンロードの準備に失敗しました',
 } as const;
 
@@ -76,9 +76,7 @@ export const POST = withApiErrorReporting(
   async (_request: Request, { params }: RouteParams): Promise<NextResponse> => {
     try {
       const { jobId } = await params;
-      const highlightService = new HighlightDomainService(
-        new DynamoDBHighlightRepository(getDynamoDBDocumentClient(), getTableName())
-      );
+      const highlightService = new HighlightDomainService(createHighlightRepository());
       const highlights = await highlightService.getHighlights(jobId);
       if (highlights.length === 0) {
         return NextResponse.json(
@@ -98,6 +96,19 @@ export const POST = withApiErrorReporting(
             message: ERROR_MESSAGES.NO_ACCEPTED_HIGHLIGHTS,
           },
           { status: 400 }
+        );
+      }
+      // ZIP 生成は失敗したクリップの動画を読めないため、作り始める前に断る
+      const hasFailedAcceptedHighlights = acceptedHighlights.some(
+        (highlight) => highlight.clipStatus === 'FAILED'
+      );
+      if (hasFailedAcceptedHighlights) {
+        return NextResponse.json(
+          {
+            error: 'CLIP_GENERATION_FAILED',
+            message: ERROR_MESSAGES.CLIP_GENERATION_FAILED,
+          },
+          { status: 409 }
         );
       }
       const hasIncompleteAcceptedHighlights = acceptedHighlights.some(
@@ -132,16 +143,9 @@ export const POST = withApiErrorReporting(
             deleteError
           );
           // 失敗しても ZIP の再生成を続けるため、例外が上に届かない。ここで報告する
-          await reportErrorEvent({
-            serviceId: SERVICE_ID,
+          await errorReporter.report('Web API: 旧 ZIP 削除エラー', deleteError, {
+            context: { jobId },
             severity: 'warning',
-            title: 'Web API: 旧 ZIP 削除エラー',
-            message: toErrorMessage(deleteError),
-            context: {
-              jobId,
-              errorName: deleteError instanceof Error ? deleteError.name : typeof deleteError,
-              errorStack: deleteError instanceof Error ? deleteError.stack : undefined,
-            },
           });
         }
       }

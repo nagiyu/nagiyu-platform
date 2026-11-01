@@ -15,6 +15,9 @@ on:
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/share-together-deploy.yml'
+      - '.github/actions/update-lambda-image/**'
+      - '.github/actions/health-check/**'
+      - '.github/actions/push-ecr-image/**'
   workflow_dispatch:
     inputs:
       environment:
@@ -139,25 +142,15 @@ jobs:
 
           echo "repository-uri=$REPOSITORY_URI" >> "$GITHUB_OUTPUT"
 
-      - name: Login to Amazon ECR
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Build Docker image
-        uses: ./.github/actions/build-docker-image
-        with:
-          dockerfile: services/share-together/web/Dockerfile
-          image-tag: ${{ steps.get-ecr.outputs.repository-uri }}:latest
-          build-args: APP_VERSION=${{ steps.get-version.outputs.app-version }}
-
-      - name: Push Docker image
+      - name: Build and push Docker image
         id: build-image
-        env:
-          REPOSITORY_URI: ${{ steps.get-ecr.outputs.repository-uri }}
-          IMAGE_TAG: latest
-        run: |
-          docker push "$REPOSITORY_URI:$IMAGE_TAG"
-
-          echo "image-uri=$REPOSITORY_URI:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+        uses: ./.github/actions/push-ecr-image
+        with:
+          repository-uri: ${{ steps.get-ecr.outputs.repository-uri }}
+          dockerfile: services/share-together/web/Dockerfile
+          build-args: APP_VERSION=${{ steps.get-version.outputs.app-version }}
+          tags: |
+            latest
 
   infrastructure-app:
     name: Deploy Application Infrastructure
@@ -208,7 +201,8 @@ jobs:
             --context nextAuthSecret="$SECRET_VALUE" \
             --require-approval never
 
-      - name: Update Lambda function with latest image
+      - name: Resolve Lambda image URI
+        id: resolve-image
         env:
           ENVIRONMENT: ${{ needs.build.outputs.environment }}
         run: |
@@ -216,15 +210,32 @@ jobs:
           ECR_REGISTRY="${ACCOUNT_ID}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com"
           IMAGE_URI="${ECR_REGISTRY}/nagiyu-share-together-ecr-${ENVIRONMENT}:latest"
 
-          aws lambda update-function-code \
-            --function-name "nagiyu-share-together-lambda-${ENVIRONMENT}" \
-            --image-uri "$IMAGE_URI" \
-            --region "${{ env.AWS_REGION }}"
+          echo "image-uri=$IMAGE_URI" >> "$GITHUB_OUTPUT"
+          echo "Lambda image URI: $IMAGE_URI"
 
-      - name: Wait for Lambda update to complete
+      - name: Update Lambda function with latest image
+        uses: ./.github/actions/update-lambda-image
+        with:
+          function-names: |
+            nagiyu-share-together-lambda-${{ needs.build.outputs.environment }}
+          image-uri: ${{ steps.resolve-image.outputs.image-uri }}
+          region: ${{ env.AWS_REGION }}
+
+      - name: Get Lambda Function URL
+        id: get-lambda-url
         env:
-          ENVIRONMENT: ${{ needs.build.outputs.environment }}
+          STACK_SUFFIX: ${{ needs.build.outputs.stack-suffix }}
         run: |
-          aws lambda wait function-updated \
-            --function-name "nagiyu-share-together-lambda-${ENVIRONMENT}" \
-            --region "${{ env.AWS_REGION }}"
+          FUNCTION_URL=$(aws cloudformation describe-stacks \
+            --stack-name "NagiyuShareTogetherLambda${STACK_SUFFIX}" \
+            --query "Stacks[0].Outputs[?OutputKey=='FunctionUrl'].OutputValue" \
+            --output text \
+            --region "${{ env.AWS_REGION }}")
+
+          echo "function-url=$FUNCTION_URL" >> "$GITHUB_OUTPUT"
+          echo "Function URL: $FUNCTION_URL"
+
+      - name: Verify deployment
+        uses: ./.github/actions/health-check
+        with:
+          base-url: ${{ steps.get-lambda-url.outputs.function-url }}

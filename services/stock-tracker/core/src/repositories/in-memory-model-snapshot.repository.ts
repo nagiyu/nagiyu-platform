@@ -3,14 +3,7 @@
  *
  * InMemorySingleTableStoreを使用したModelSnapshotRepositoryの実装
  */
-import {
-  DatabaseError,
-  EntityAlreadyExistsError,
-  InMemoryEntityStore,
-  type DynamoDBAttributes,
-  type EntityStore,
-  type InMemorySingleTableStore,
-} from '@nagiyu/aws';
+import { InMemoryEntityStore, type EntityStore, type InMemorySingleTableStore } from '@nagiyu/aws';
 import type {
   CreateModelSnapshotResult,
   ModelSnapshotRepository,
@@ -22,10 +15,6 @@ import {
   buildModelSnapshotPk,
   buildModelSnapshotSk,
 } from '../mappers/model-snapshot.mapper.js';
-
-// ベーステーブル PK（MODEL#{Question}#{Market}）の全件集約で store 既定の query limit（100件）
-// による打ち切りを避けるため、他リポジトリと同じ流儀でcursorループを使う。
-const FULL_AGGREGATION_PAGE_SIZE = 100;
 
 /**
  * InMemory ModelSnapshot Repository
@@ -47,21 +36,8 @@ export class InMemoryModelSnapshotRepository implements ModelSnapshotRepository 
    * ModelSnapshot を新規作成する。既に存在する場合は書き込まず、既存のアイテムを返す
    */
   public async createIfAbsent(item: ModelSnapshotItem): Promise<CreateModelSnapshotResult> {
-    try {
-      return { item: await this.entityStore.create(item), created: true };
-    } catch (error) {
-      if (error instanceof EntityAlreadyExistsError) {
-        const existing = await this.entityStore.get(this.mapper.getKey(item));
-        if (!existing) {
-          throw new DatabaseError(
-            'ModelSnapshot の作成に失敗しましたが、既存アイテムが見つかりません',
-            error
-          );
-        }
-        return { item: existing, created: false };
-      }
-      throw error;
-    }
+    const { entity, created } = await this.entityStore.createIfAbsent(item);
+    return { item: entity, created };
   }
 
   /**
@@ -86,20 +62,10 @@ export class InMemoryModelSnapshotRepository implements ModelSnapshotRepository 
     market: Market,
     date: string
   ): Promise<ModelSnapshotItem | null> {
-    const items: DynamoDBAttributes[] = [];
-    let cursor: string | undefined;
-
-    do {
-      const page = this.store.query(
-        {
-          pk: buildModelSnapshotPk(question, market),
-          sk: { operator: 'lt', value: buildModelSnapshotSk(date) },
-        },
-        { limit: FULL_AGGREGATION_PAGE_SIZE, cursor }
-      );
-      items.push(...page.items);
-      cursor = page.nextCursor;
-    } while (cursor);
+    const items = this.store.queryAll({
+      pk: buildModelSnapshotPk(question, market),
+      sk: { operator: 'lt', value: buildModelSnapshotSk(date) },
+    });
 
     if (items.length === 0) {
       return null;

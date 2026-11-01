@@ -4,9 +4,6 @@
  * InMemorySingleTableStoreを使用したForecastRepositoryの実装
  */
 import {
-  DatabaseError,
-  EntityAlreadyExistsError,
-  EntityNotFoundError,
   InMemoryEntityStore,
   type DynamoDBAttributes,
   type EntityStore,
@@ -33,15 +30,10 @@ import {
   buildExchangeSummaryGsi4DateUpperBound,
 } from '../mappers/exchange-summary-index.js';
 
-// GSI4 の全件集約（getByExchangeAndDate・サンプル読み出し）で store 既定の queryByAttribute
-// limit (100件) による打ち切りを避けるため、cursorループで全件集約する。
-const GSI4_FULL_AGGREGATION_PAGE_SIZE = 100;
-
 /**
  * InMemory Forecast Repository
  *
- * 単一アイテムの作成・取得は EntityStore に任せ、条件付きの Outcome 追記と
- * GSI4 の近似クエリだけを自前で持つ。
+ * 単一アイテムの作成・取得・Outcome 追記は EntityStore に任せ、GSI4 の近似クエリだけを自前で持つ。
  * テスト環境で使用
  */
 export class InMemoryForecastRepository implements ForecastRepository {
@@ -58,54 +50,24 @@ export class InMemoryForecastRepository implements ForecastRepository {
    * Forecast を新規作成する。既に存在する場合は書き込まず、既存のアイテムを返す
    */
   public async createIfAbsent(input: CreateForecastInput): Promise<CreateForecastResult> {
-    const now = Date.now();
-    try {
-      // updatedAt は store が書き込み時に現在時刻で上書きする。Entity 型上は必須のため値だけ渡す。
-      const item = await this.entityStore.create({ ...input, createdAt: now, updatedAt: now });
-      return { item, created: true };
-    } catch (error) {
-      if (error instanceof EntityAlreadyExistsError) {
-        const existing = await this.entityStore.get({
-          tickerId: input.tickerId,
-          date: input.date,
-        });
-        if (!existing) {
-          throw new DatabaseError(
-            'Forecast の作成に失敗しましたが、既存アイテムが見つかりません',
-            error
-          );
-        }
-        return { item: existing, created: false };
-      }
-      throw error;
-    }
+    const { entity, created } = await this.entityStore.createIfAbsent(input);
+    return { item: entity, created };
   }
 
   /**
    * 既存 Forecast に採点結果（Outcome）を条件付きで追記する
    * (アイテムが存在し、かつ Outcome が未設定のときだけ書く)
-   *
-   * 存在と Outcome の有無は、Entity に変換せず保存された Item で判定する。DynamoDB 版は
-   * 条件式で判定し、読めないアイテムでも Outcome が無ければ書き込んだあとで変換に失敗するため、
-   * InMemory 版もその順序に揃える。
    */
   public async appendOutcome(
     key: ForecastKey,
     outcome: TickerOutcome
   ): Promise<AppendForecastOutcomeResult> {
-    const stored = this.store.getByKey(this.mapper.buildKeys(key));
-
-    if (!stored) {
-      throw new EntityNotFoundError(this.mapper.entityType, `${key.tickerId}#${key.date}`);
-    }
-    if (stored[FORECAST_OUTCOME_ATTRIBUTE] !== undefined) {
-      return { item: this.mapper.toEntity(stored), updated: false };
-    }
-
-    const updated = await this.entityStore.update(key, {
-      outcome: this.mapper.toOutcomeAttribute(outcome),
-    });
-    return { item: updated, updated: true };
+    const { entity, updated } = await this.entityStore.updateIfAttributeAbsent(
+      key,
+      FORECAST_OUTCOME_ATTRIBUTE,
+      { outcome: this.mapper.toOutcomeAttribute(outcome) }
+    );
+    return { item: entity, updated };
   }
 
   /**
@@ -140,7 +102,7 @@ export class InMemoryForecastRepository implements ForecastRepository {
   }
 
   /**
-   * GSI4（`FORECAST#{ExchangeID}` パーティション）の全件を cursor ループで集約する。
+   * GSI4（`FORECAST#{ExchangeID}` パーティション）の全件を取得する。
    * `datePrefix` を渡すと begins_with、`fromDate`/`toDate` を渡すと between/以上 で絞り込む
    * （いずれも省略時はパーティション全件）。
    */
@@ -150,25 +112,14 @@ export class InMemoryForecastRepository implements ForecastRepository {
     fromDate?: string,
     toDate?: string
   ): DynamoDBAttributes[] {
-    const items: DynamoDBAttributes[] = [];
-    let cursor: string | undefined;
     const sk = buildSkCondition(datePrefix, fromDate, toDate);
 
-    do {
-      const page = this.store.queryByAttribute(
-        {
-          attributeName: 'GSI4PK',
-          attributeValue: buildForecastGsi4Pk(exchangeId),
-          gsiSortKeyAttributeName: 'GSI4SK',
-          ...(sk ? { sk } : {}),
-        },
-        { limit: GSI4_FULL_AGGREGATION_PAGE_SIZE, cursor }
-      );
-      items.push(...page.items);
-      cursor = page.nextCursor;
-    } while (cursor);
-
-    return items;
+    return this.store.queryAllByAttribute({
+      attributeName: 'GSI4PK',
+      attributeValue: buildForecastGsi4Pk(exchangeId),
+      gsiSortKeyAttributeName: 'GSI4SK',
+      ...(sk ? { sk } : {}),
+    });
   }
 }
 

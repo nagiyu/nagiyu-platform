@@ -1,5 +1,13 @@
 import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
-import { queryPages, queryAllItems, scanAllItems } from '../../../src/dynamodb/pagination.js';
+import {
+  queryPages,
+  queryAllItems,
+  scanAllItems,
+  queryPage,
+  scanPage,
+} from '../../../src/dynamodb/pagination.js';
+import { encodeCursor, decodeCursor } from '../../../src/dynamodb/cursor.js';
+import { QueryCommand, ScanCommand } from '@aws-sdk/lib-dynamodb';
 
 const item = (n: number) => ({ PK: `P#${n}`, SK: `S#${n}`, Type: 'T', CreatedAt: n, UpdatedAt: n });
 
@@ -111,6 +119,93 @@ describe('pagination', () => {
       const error = new Error('失敗');
       send.mockRejectedValueOnce(error);
       await expect(scanAllItems(docClient, { TableName: 't' })).rejects.toBe(error);
+    });
+  });
+
+  describe.each([
+    ['queryPage', queryPage, QueryCommand],
+    ['scanPage', scanPage, ScanCommand],
+  ] as const)('%s', (_name, fn, CommandClass) => {
+    const input = { TableName: 't' };
+
+    it('対応するコマンドで Limit を付けて送り、cursor が無ければ ExclusiveStartKey キーを含めない', async () => {
+      send.mockResolvedValueOnce({ Items: [item(1)] });
+
+      await fn(docClient, input, { limit: 30 });
+
+      const sent = send.mock.calls[0][0];
+      expect(sent).toBeInstanceOf(CommandClass);
+      expect(sent.input).toStrictEqual({ TableName: 't', Limit: 30 });
+      expect('ExclusiveStartKey' in sent.input).toBe(false);
+    });
+
+    it('呼び出し側の input を書き換えない', async () => {
+      send.mockResolvedValueOnce({ Items: [] });
+      const original = { TableName: 't' };
+
+      await fn(docClient, original, { limit: 10, cursor: encodeCursor({ PK: 'a', SK: 'b' }) });
+
+      expect(original).toStrictEqual({ TableName: 't' });
+    });
+
+    it('cursor を decode して ExclusiveStartKey に入れる', async () => {
+      const key = { PK: 'P#1', SK: 'S#1' };
+      send.mockResolvedValueOnce({ Items: [] });
+
+      await fn(docClient, input, { limit: 10, cursor: encodeCursor(key) });
+
+      expect(send.mock.calls[0][0].input.ExclusiveStartKey).toEqual(key);
+    });
+
+    it('不正な cursor は先頭から取得する', async () => {
+      send.mockResolvedValueOnce({ Items: [] });
+
+      await fn(docClient, input, { limit: 10, cursor: '%%%不正%%%' });
+
+      expect('ExclusiveStartKey' in send.mock.calls[0][0].input).toBe(false);
+    });
+
+    it('LastEvaluatedKey があれば nextCursor に encode し、decode すると元のキーに戻る', async () => {
+      const key = { PK: 'P#9', SK: 'S#9' };
+      send.mockResolvedValueOnce({ Items: [item(1)], LastEvaluatedKey: key });
+
+      const result = await fn(docClient, input, { limit: 1 });
+
+      expect(result.nextCursor).toBeDefined();
+      expect(decodeCursor(result.nextCursor)).toEqual(key);
+    });
+
+    it('LastEvaluatedKey が無ければ nextCursor は undefined', async () => {
+      send.mockResolvedValueOnce({ Items: [item(1)] });
+
+      const result = await fn(docClient, input, { limit: 10 });
+
+      expect(result.nextCursor).toBeUndefined();
+    });
+
+    it('Items が無い応答は空配列で返す', async () => {
+      send.mockResolvedValueOnce({});
+
+      const result = await fn(docClient, input, { limit: 10 });
+
+      expect(result.items).toEqual([]);
+      expect(result.count).toBe(0);
+    });
+
+    it('count は応答の Count ではなく返した items の件数になる', async () => {
+      send.mockResolvedValueOnce({ Items: [item(1), item(2)], Count: 99 });
+
+      const result = await fn(docClient, input, { limit: 10 });
+
+      expect(result.items).toEqual([item(1), item(2)]);
+      expect(result.count).toBe(2);
+    });
+
+    it('send の例外を同一インスタンスのまま伝播する', async () => {
+      const error = new Error('失敗');
+      send.mockRejectedValueOnce(error);
+
+      await expect(fn(docClient, input, { limit: 10 })).rejects.toBe(error);
     });
   });
 });

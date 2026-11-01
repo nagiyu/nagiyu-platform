@@ -31,11 +31,21 @@ jest.mock('@nagiyu/niconico-mylist-assistant-core', () => ({
 jest.mock('@nagiyu/aws', () => ({
   EntityAlreadyExistsError: jest.requireActual('@nagiyu/aws').EntityAlreadyExistsError,
   reportErrorEvent: jest.fn(),
+  createErrorReporter: jest.fn(() => ({ report: jest.fn(), onError: jest.fn(() => jest.fn()) })),
+}));
+
+jest.mock('@/lib/api-error-reporting', () => ({
+  ...jest.requireActual('@/lib/api-error-reporting'),
+  errorReporter: {
+    report: jest.fn().mockResolvedValue(null),
+    onError: jest.fn(() => jest.fn()),
+  },
 }));
 
 import { NextRequest } from 'next/server';
 import { POST } from '../../../../../../src/app/api/videos/bulk-import/route';
 import { EntityAlreadyExistsError, reportErrorEvent } from '@nagiyu/aws';
+import { errorReporter } from '@/lib/api-error-reporting';
 import { getSession } from '../../../../../../src/lib/auth/session';
 import {
   getVideoInfoBatch,
@@ -342,14 +352,11 @@ describe('POST /api/videos/bulk-import', () => {
     const json = await response.json();
     expect(json.success).toBe(1);
     expect(json.failed).toBe(1);
-    expect(reportErrorEvent).toHaveBeenCalledTimes(1);
-    expect(reportErrorEvent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        serviceId: 'niconico-mylist-assistant',
-        title: 'Web API: 動画一括登録の保存エラー',
-        message: 'DB 書き込み失敗',
-        context: expect.objectContaining({ userId: 'user123', videoId: 'sm2' }),
-      })
+    expect(errorReporter.report).toHaveBeenCalledTimes(1);
+    expect(errorReporter.report).toHaveBeenCalledWith(
+      'Web API: 動画一括登録の保存エラー',
+      expect.objectContaining({ message: 'DB 書き込み失敗' }),
+      { context: { userId: 'user123', videoId: 'sm2' } }
     );
   });
 

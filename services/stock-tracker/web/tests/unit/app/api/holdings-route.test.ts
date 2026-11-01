@@ -1,10 +1,8 @@
 import { NextRequest } from 'next/server';
 import * as awsModule from '@nagiyu/aws';
+import { errorReporter } from '../../../../lib/api-error-reporting';
 import { GET, POST } from '../../../../app/api/holdings/route';
-import {
-  createHoldingRepository,
-  createTickerRepository,
-} from '../../../../lib/repository-factory';
+import { createHoldingRepository, createTickerRepository } from '@nagiyu/stock-tracker-core';
 import { MALFORMED_BODY_CASES } from './invalidBodyCases';
 
 jest.mock('@nagiyu/aws', () => ({
@@ -12,7 +10,16 @@ jest.mock('@nagiyu/aws', () => ({
   reportErrorEvent: jest.fn().mockResolvedValue(null),
 }));
 
-jest.mock('../../../../lib/repository-factory', () => ({
+jest.mock('../../../../lib/api-error-reporting', () => ({
+  ...jest.requireActual('../../../../lib/api-error-reporting'),
+  errorReporter: {
+    report: jest.fn().mockResolvedValue(null),
+    onError: jest.fn(() => jest.fn()),
+  },
+}));
+
+jest.mock('@nagiyu/stock-tracker-core', () => ({
+  ...jest.requireActual('@nagiyu/stock-tracker-core'),
   createHoldingRepository: jest.fn(),
   createTickerRepository: jest.fn(),
 }));
@@ -66,13 +73,10 @@ describe('GET /api/holdings', () => {
 
     expect(response.status).toBe(200);
     expect(body.holdings[0]).toEqual(expect.objectContaining({ symbol: 'AAPL', name: '' }));
-    expect(awsModule.reportErrorEvent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        serviceId: 'stock-tracker',
-        severity: 'error',
-        title: 'Web API: 保有株式一覧の銘柄情報取得エラー',
-        message: 'ticker db error',
-      })
+    expect(errorReporter.report).toHaveBeenCalledWith(
+      'Web API: 保有株式一覧の銘柄情報取得エラー',
+      expect.objectContaining({ message: 'ticker db error' }),
+      { context: { tickerId: expect.any(String) } }
     );
   });
 

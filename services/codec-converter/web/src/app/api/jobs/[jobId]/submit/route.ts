@@ -1,16 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { HeadObjectCommand } from '@aws-sdk/client-s3';
 import { SubmitJobCommand } from '@aws-sdk/client-batch';
-import { getAwsClients, reportErrorEvent } from '@nagiyu/aws';
+import { getAwsClients } from '@nagiyu/aws';
 import {
-  DynamoDBJobRepository,
+  createJobRepository,
   type JobStatus,
   selectJobDefinition,
   toBatchEnvironment,
 } from '@nagiyu/codec-converter-core';
 import { toErrorMessage } from '@nagiyu/common';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
-import { withApiErrorReporting } from '@/lib/api-error-reporting';
+import { errorReporter, withApiErrorReporting } from '@/lib/api-error-reporting';
 
 /**
  * 環境変数を取得
@@ -54,7 +54,7 @@ export const POST = withApiErrorReporting(
     const { docClient, s3Client, batchClient } = getAwsClients(AWS_REGION);
 
     // 1. ジョブの存在確認
-    const job = await new DynamoDBJobRepository(docClient, DYNAMODB_TABLE_NAME).getById(jobId);
+    const job = await createJobRepository(docClient, DYNAMODB_TABLE_NAME).getById(jobId);
 
     if (!job) {
       return NextResponse.json(
@@ -86,18 +86,9 @@ export const POST = withApiErrorReporting(
         })
       );
     } catch (error) {
-      const errorMessage = toErrorMessage(error);
       console.error('Input file not found in S3:', error);
-      await reportErrorEvent({
-        serviceId: 'codec-converter',
-        severity: 'error',
-        title: '入力ファイルがS3に存在しません',
-        message: errorMessage,
-        context: {
-          jobId,
-          s3Key: job.inputFile,
-          errorStack: error instanceof Error ? error.stack : undefined,
-        },
+      await errorReporter.report('入力ファイルがS3に存在しません', error, {
+        context: { jobId, s3Key: job.inputFile },
       });
       return NextResponse.json(
         {
@@ -118,17 +109,8 @@ export const POST = withApiErrorReporting(
     } catch (error) {
       // 続行できるので例外は上に届かない。ここで報告しないと不具合に気づけない
       console.error('Failed to select job definition, falling back to medium:', error);
-      await reportErrorEvent({
-        serviceId: 'codec-converter',
-        severity: 'error',
-        title: 'ジョブ定義の選択に失敗したため medium で続行します',
-        message: toErrorMessage(error),
-        context: {
-          jobId,
-          fileSize: job.fileSize,
-          outputCodec: job.outputCodec,
-          errorStack: error instanceof Error ? error.stack : undefined,
-        },
+      await errorReporter.report('ジョブ定義の選択に失敗したため medium で続行します', error, {
+        context: { jobId, fileSize: job.fileSize, outputCodec: job.outputCodec },
       });
       jobDefinitionSize = 'medium';
     }
@@ -164,17 +146,11 @@ export const POST = withApiErrorReporting(
           error
         );
         // フォールバックで続行できるので例外は上に届かない。ここで報告しないと不具合に気づけない
-        await reportErrorEvent({
-          serviceId: 'codec-converter',
-          severity: 'error',
-          title: 'ジョブ定義でのBatchジョブ投入に失敗したため medium で再投入します',
-          message: errorMessage,
-          context: {
-            jobId,
-            jobDefinitionName,
-            errorStack: error instanceof Error ? error.stack : undefined,
-          },
-        });
+        await errorReporter.report(
+          'ジョブ定義でのBatchジョブ投入に失敗したため medium で再投入します',
+          error,
+          { context: { jobId, jobDefinitionName } }
+        );
         const fallbackJobDefinitionName = `${BATCH_JOB_DEFINITION_PREFIX}-medium`;
         await batchClient.send(
           new SubmitJobCommand({

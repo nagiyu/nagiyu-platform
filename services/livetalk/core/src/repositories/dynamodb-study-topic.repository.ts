@@ -14,7 +14,6 @@ export class DynamoDBStudyTopicRepository implements StudyTopicRepository {
   private readonly mapper: StudyTopicMapper;
   private readonly docClient: DynamoDBDocumentClient;
   private readonly tableName: string;
-  private readonly nowMs: () => number;
   private readonly entityStore: EntityStore<StudyTopicEntity, StudyTopicKey>;
 
   constructor(
@@ -24,14 +23,12 @@ export class DynamoDBStudyTopicRepository implements StudyTopicRepository {
   ) {
     this.docClient = docClient;
     this.tableName = tableName;
-    this.nowMs = nowMs;
     this.mapper = new StudyTopicMapper();
     this.entityStore = new DynamoDBEntityStore(docClient, tableName, this.mapper, { now: nowMs });
   }
 
   public async put(input: CreateStudyTopicInput): Promise<StudyTopicEntity> {
-    const now = this.nowMs();
-    return this.entityStore.put({ ...input, createdAt: now, updatedAt: now });
+    return this.entityStore.put({ ...input, createdAt: undefined });
   }
 
   public async listByStatus(
