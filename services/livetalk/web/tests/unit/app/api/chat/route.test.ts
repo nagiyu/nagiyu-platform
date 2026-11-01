@@ -24,7 +24,6 @@ jest.mock('@/lib/server/api-error-reporting', () => ({
 jest.mock('@/lib/server/llm', () => ({ getLLMClient: jest.fn() }));
 jest.mock('@/lib/server/voice', () => ({ getVoiceClient: jest.fn() }));
 jest.mock('@/lib/server/safety', () => ({
-  getSafetyEventRepository: jest.fn().mockReturnValue({}),
   getModerationClient: jest.fn().mockReturnValue({}),
 }));
 jest.mock('@/lib/server/topic-retriever', () => ({
@@ -41,6 +40,7 @@ jest.mock('@nagiyu/livetalk-core', () => ({
   createStudyTopicRepository: jest.fn().mockReturnValue({}),
   createNoteRepository: jest.fn().mockReturnValue({}),
   createConsolidationCursorRepository: jest.fn().mockReturnValue({}),
+  createSafetyEventRepository: jest.fn().mockReturnValue({}),
   createChatGuardRepository: jest.fn(),
 }));
 

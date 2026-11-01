@@ -9,14 +9,17 @@ import {
   createNotificationEventRepository,
   createProfileRepository,
   createPushSubscriptionRepository,
+  createSafetyEventRepository,
   createStudyTopicRepository,
   createTopicRepository,
   createWebRawRepository,
   resetRepositoryFactories,
 } from '../../../src/repositories/factory.js';
 import { DynamoDBMessageRepository } from '../../../src/repositories/dynamodb-message.repository.js';
+import { DynamoDBSafetyEventRepository } from '../../../src/repositories/dynamodb-safety-event.repository.js';
 import { DynamoDBWebRawRepository } from '../../../src/repositories/dynamodb-webraw.repository.js';
 import { InMemoryMessageRepository } from '../../../src/repositories/in-memory-message.repository.js';
+import { InMemorySafetyEventRepository } from '../../../src/repositories/in-memory-safety-event.repository.js';
 import { InMemoryWebRawRepository } from '../../../src/repositories/in-memory-webraw.repository.js';
 
 describe('repositories/factory', () => {
@@ -45,6 +48,10 @@ describe('repositories/factory', () => {
     const webRaw = createWebRawRepository();
     expect(webRaw).toBeInstanceOf(InMemoryWebRawRepository);
     expect(createWebRawRepository()).toBe(webRaw);
+
+    const safetyEvent = createSafetyEventRepository();
+    expect(safetyEvent).toBeInstanceOf(InMemorySafetyEventRepository);
+    expect(createSafetyEventRepository()).toBe(safetyEvent);
 
     const factories = [
       createAccountDeletionRepository,
@@ -148,6 +155,9 @@ describe('repositories/factory', () => {
     expect(createWebRawRepository(docClient, 'nagiyu-livetalk-test')).toBeInstanceOf(
       DynamoDBWebRawRepository
     );
+    expect(createSafetyEventRepository(docClient, 'nagiyu-livetalk-test')).toBeInstanceOf(
+      DynamoDBSafetyEventRepository
+    );
   });
 
   it('DynamoDB モード（USE_IN_MEMORY_DB 未設定 + テーブル名を環境変数で指定）でも生成できる', () => {
@@ -167,6 +177,7 @@ describe('repositories/factory', () => {
     expect(() => createChatGuardRepository()).not.toThrow();
     expect(() => createConsolidationCursorRepository()).not.toThrow();
     expect(() => createWebRawRepository()).not.toThrow();
+    expect(() => createSafetyEventRepository()).not.toThrow();
   });
 
   it('InMemory 実装ではアカウント削除がチャットガードのカウンタとロックも消す（共有 store 検証）', async () => {
@@ -209,5 +220,29 @@ describe('repositories/factory', () => {
     const facts = await repo.listSelfFacts('u1', 'hiyori', topic.topicId);
     expect(facts).toHaveLength(1);
     expect(facts[0].text).toBe('カレーが好き');
+  });
+
+  it('InMemory 実装ではアカウント削除が SafetyEvent を匿名化する（共有 store 検証）', async () => {
+    process.env.USE_IN_MEMORY_DB = 'true';
+    const safetyEvents = createSafetyEventRepository();
+    const created = await safetyEvents.create({
+      userId: 'u1',
+      characterId: 'hiyori',
+      trigger: 'input_keyword',
+      detectedPattern: 'self_harm: テスト',
+      inputText: '入力',
+      responseText: '応答',
+    });
+
+    const result = await createAccountDeletionRepository().deleteAccount('u1');
+
+    expect(result.anonymizedCount).toBe(1);
+    expect(await safetyEvents.getById({ userId: 'u1', eventId: created.eventId })).toBeNull();
+
+    // 匿名化後も横断一覧に残り、元ユーザーの識別子は付かない
+    const recent = await safetyEvents.listRecent(10);
+    expect(recent).toHaveLength(1);
+    expect(recent[0].eventId).toBe(created.eventId);
+    expect(recent[0].userId).toMatch(/^ANON#/);
   });
 });

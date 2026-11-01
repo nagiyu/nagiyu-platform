@@ -50,6 +50,9 @@ import { InMemoryConsolidationCursorRepository } from './in-memory-consolidation
 import type { WebRawRepository } from './webraw.repository.interface.js';
 import { DynamoDBWebRawRepository } from './dynamodb-webraw.repository.js';
 import { InMemoryWebRawRepository } from './in-memory-webraw.repository.js';
+import type { SafetyEventRepository } from './safety-event.repository.interface.js';
+import { DynamoDBSafetyEventRepository } from './dynamodb-safety-event.repository.js';
+import { InMemorySafetyEventRepository } from './in-memory-safety-event.repository.js';
 
 const repositoryRegistry = registerDynamoRepositories<
   {
@@ -66,6 +69,7 @@ const repositoryRegistry = registerDynamoRepositories<
     topic: TopicRepository;
     consolidationCursor: ConsolidationCursorRepository;
     webRaw: WebRawRepository;
+    safetyEvent: SafetyEventRepository;
   },
   InMemorySingleTableStore
 >(
@@ -134,6 +138,11 @@ const repositoryRegistry = registerDynamoRepositories<
       createInMemoryRepository: (store) => new InMemoryWebRawRepository(store),
       createDynamoDBRepository: ({ docClient, tableName }) =>
         new DynamoDBWebRawRepository(docClient, tableName),
+    },
+    safetyEvent: {
+      createInMemoryRepository: (store) => new InMemorySafetyEventRepository(store),
+      createDynamoDBRepository: ({ docClient, tableName }) =>
+        new DynamoDBSafetyEventRepository(docClient, tableName),
     },
   },
   {
@@ -239,4 +248,11 @@ export function createWebRawRepository(
   tableName?: string
 ): WebRawRepository {
   return repositoryRegistry.webRaw.createRepository(docClient, tableName);
+}
+
+export function createSafetyEventRepository(
+  docClient?: DynamoDBDocumentClient,
+  tableName?: string
+): SafetyEventRepository {
+  return repositoryRegistry.safetyEvent.createRepository(docClient, tableName);
 }
