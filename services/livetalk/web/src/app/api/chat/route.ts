@@ -13,6 +13,7 @@ import {
   createLifecycleRepository,
   createMessageRepository,
   createNoteRepository,
+  createSafetyEventRepository,
   createStudyTopicRepository,
 } from '@nagiyu/livetalk-core';
 import { getCharacterDefinition, hasCharacter } from '@/lib/characters/registry';
@@ -20,7 +21,7 @@ import { getSession } from '@/lib/server/session';
 import { errorReporter, withApiErrorReporting } from '@/lib/server/api-error-reporting';
 import { getLLMClient } from '@/lib/server/llm';
 import { getVoiceClient } from '@/lib/server/voice';
-import { getModerationClient, getSafetyEventRepository } from '@/lib/server/safety';
+import { getModerationClient } from '@/lib/server/safety';
 import { getTopicRetriever } from '@/lib/server/topic-retriever';
 import { CHAT_ERROR_MESSAGES, CHAT_MAX_TEXT_LENGTH } from './constants';
 
@@ -221,7 +222,7 @@ export const POST = withApiErrorReporting(
             llmClient: getLLMClient(),
             voiceClient: getVoiceClient(),
             messageRepository: createMessageRepository(),
-            safetyEventRepository: getSafetyEventRepository(),
+            safetyEventRepository: createSafetyEventRepository(),
             moderationClient: getModerationClient(),
             topicRetriever: getTopicRetriever(),
             characterStateRepository: createCharacterStateRepository(),

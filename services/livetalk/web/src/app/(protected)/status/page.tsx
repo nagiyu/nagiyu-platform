@@ -28,11 +28,11 @@ import {
   type SafetyEventSummary,
   createLifecycleRepository,
   createNotificationEventRepository,
+  createSafetyEventRepository,
   createStudyTopicRepository,
   createMessageRepository,
 } from '@nagiyu/livetalk-core';
 import { getSession } from '@/lib/server/session';
-import { getSafetyEventRepository } from '@/lib/server/safety';
 import {
   hasCharacter,
   getRegisteredCharacterIds,
@@ -107,7 +107,7 @@ export default async function StatusPage({ searchParams }: StatusPageProps) {
       createNotificationEventRepository().listByUser(userId, 10),
       createMessageRepository().listSince(userId, characterId, 0),
       createStudyTopicRepository().listByStatus(userId, characterId, 'pending'),
-      getSafetyEventRepository().listRecent(SAFETY_REVIEW_DEFAULT_LIMIT),
+      createSafetyEventRepository().listRecent(SAFETY_REVIEW_DEFAULT_LIMIT),
     ]);
 
   const bedtime = lifecycle?.bedtime ?? LIFECYCLE_DEFAULT_BEDTIME;
