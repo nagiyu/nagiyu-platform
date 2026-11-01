@@ -1,9 +1,10 @@
 import { NextRequest } from 'next/server';
 import { EntityNotFoundError } from '@nagiyu/aws';
 import { DELETE, PUT } from '../../../../app/api/alerts/[id]/route';
-import { createAlertRepository, createTickerRepository } from '../../../../lib/repository-factory';
+import { createAlertRepository, createTickerRepository } from '@nagiyu/stock-tracker-core';
 
-jest.mock('../../../../lib/repository-factory', () => ({
+jest.mock('@nagiyu/stock-tracker-core', () => ({
+  ...jest.requireActual('@nagiyu/stock-tracker-core'),
   createAlertRepository: jest.fn(),
   createTickerRepository: jest.fn(),
   createExchangeRepository: jest.fn(),

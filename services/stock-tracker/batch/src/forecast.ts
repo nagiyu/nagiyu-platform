@@ -25,12 +25,12 @@ import {
 import type { HandlerResponse, ScheduledEvent } from '@nagiyu/aws';
 import { errorReporter } from './lib/error-reporter.js';
 import {
-  DynamoDBDailySummaryRepository,
-  DynamoDBExchangeRepository,
-  DynamoDBForecastRepository,
-  DynamoDBMarketForecastRepository,
-  DynamoDBModelSnapshotRepository,
-  DynamoDBPerformanceDailyRepository,
+  createDailySummaryRepository,
+  createExchangeRepository,
+  createForecastRepository,
+  createMarketForecastRepository,
+  createModelSnapshotRepository,
+  createPerformanceDailyRepository,
   FORECAST_MODEL_VERSION,
   QUESTIONS,
   buildObservationCalendar,
@@ -1096,12 +1096,12 @@ function resolveDependencies(dependencies?: Partial<HandlerDependencies>): Handl
   const docClient = getDynamoDBDocumentClient();
   const tableName = getTableName();
   return {
-    exchangeRepository: new DynamoDBExchangeRepository(docClient, tableName),
-    dailySummaryRepository: new DynamoDBDailySummaryRepository(docClient, tableName),
-    forecastRepository: new DynamoDBForecastRepository(docClient, tableName),
-    marketForecastRepository: new DynamoDBMarketForecastRepository(docClient, tableName),
-    modelSnapshotRepository: new DynamoDBModelSnapshotRepository(docClient, tableName),
-    performanceDailyRepository: new DynamoDBPerformanceDailyRepository(docClient, tableName),
+    exchangeRepository: createExchangeRepository(docClient, tableName),
+    dailySummaryRepository: createDailySummaryRepository(docClient, tableName),
+    forecastRepository: createForecastRepository(docClient, tableName),
+    marketForecastRepository: createMarketForecastRepository(docClient, tableName),
+    modelSnapshotRepository: createModelSnapshotRepository(docClient, tableName),
+    performanceDailyRepository: createPerformanceDailyRepository(docClient, tableName),
     nowFn: dependencies?.nowFn ?? Date.now,
   };
 }

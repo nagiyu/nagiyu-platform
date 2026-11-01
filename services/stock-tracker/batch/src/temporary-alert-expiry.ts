@@ -15,8 +15,8 @@ import type {
   TemporaryAlertCandidate,
 } from '@nagiyu/stock-tracker-core';
 import {
-  DynamoDBAlertRepository,
-  DynamoDBExchangeRepository,
+  createAlertRepository,
+  createExchangeRepository,
   getLastTradingDate,
   isTradingHours,
 } from '@nagiyu/stock-tracker-core';
@@ -157,8 +157,8 @@ export const handler = createScheduledHandler(
 
     const docClient = getDynamoDBDocumentClient();
     const tableName = getTableName();
-    const alertRepo = new DynamoDBAlertRepository(docClient, tableName);
-    const exchangeRepo = new DynamoDBExchangeRepository(docClient, tableName);
+    const alertRepo = createAlertRepository(docClient, tableName);
+    const exchangeRepo = createExchangeRepository(docClient, tableName);
 
     const minuteCandidates = await getAllTemporaryCandidatesByFrequency(alertRepo, 'MINUTE_LEVEL');
     const hourlyCandidates = await getAllTemporaryCandidatesByFrequency(alertRepo, 'HOURLY_LEVEL');

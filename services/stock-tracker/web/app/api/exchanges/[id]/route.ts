@@ -1,11 +1,14 @@
 import { NextResponse } from 'next/server';
 import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import { EntityNotFoundError } from '@nagiyu/aws';
-import { validateExchange, type UpdateExchangeInput } from '@nagiyu/stock-tracker-core';
+import {
+  validateExchange,
+  type UpdateExchangeInput,
+  createExchangeRepository,
+} from '@nagiyu/stock-tracker-core';
 import { withAuth, readJsonObjectBody } from '@nagiyu/nextjs';
 import { getSession } from '../../../../lib/auth';
 import { withApiErrorReporting } from '../../../../lib/api-error-reporting';
-import { createExchangeRepository } from '../../../../lib/repository-factory';
 import {
   isExchangeMarket,
   isOptionalString,

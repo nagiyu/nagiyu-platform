@@ -5,6 +5,7 @@
 import { InMemorySingleTableStore } from '@nagiyu/aws';
 import * as awsModule from '@nagiyu/aws';
 import {
+  clearMemoryStore,
   DynamoDBExchangeRepository,
   InMemoryDailySummaryRepository,
   InMemoryExchangeRepository,
@@ -1227,6 +1228,8 @@ describe('summary batch handler', () => {
 
   describe('DynamoDB 初期化分岐', () => {
     it('dependencies を省略した場合、DynamoDB から初期化する', async () => {
+      // 生成口はシングルトンのため、他のテストで作られたインスタンスを持ち越さない
+      clearMemoryStore();
       jest.spyOn(awsModule, 'getDynamoDBDocumentClient').mockReturnValue({} as never);
       jest.spyOn(awsModule, 'getTableName').mockReturnValue('test-table');
       jest.spyOn(DynamoDBExchangeRepository.prototype, 'getAll').mockResolvedValue([]);

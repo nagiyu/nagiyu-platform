@@ -5,9 +5,10 @@ import {
   createTickerRepository,
   createHoldingRepository,
   createAlertRepository,
-} from '../../../../lib/repository-factory';
+} from '@nagiyu/stock-tracker-core';
 
-jest.mock('../../../../lib/repository-factory', () => ({
+jest.mock('@nagiyu/stock-tracker-core', () => ({
+  ...jest.requireActual('@nagiyu/stock-tracker-core'),
   clearMemoryStore: jest.fn(),
   createExchangeRepository: jest.fn(),
   createTickerRepository: jest.fn(),

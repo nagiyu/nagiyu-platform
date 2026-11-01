@@ -11,7 +11,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthError, validatePushSubscription, readJsonObjectBody } from '@nagiyu/nextjs';
-import { createAlertRepository } from '../../../../lib/repository-factory';
+import { createAlertRepository } from '@nagiyu/stock-tracker-core';
 import { getSession } from '../../../../lib/auth';
 import { createInternalErrorReporting } from '../../../../lib/api-error-reporting';
 import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';

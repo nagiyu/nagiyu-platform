@@ -1,13 +1,11 @@
 import { NextRequest } from 'next/server';
 import { GET, POST } from '../../../../app/api/tickers/route';
-import {
-  createExchangeRepository,
-  createTickerRepository,
-} from '../../../../lib/repository-factory';
+import { createExchangeRepository, createTickerRepository } from '@nagiyu/stock-tracker-core';
 import { EntityAlreadyExistsError } from '@nagiyu/aws';
 import { MALFORMED_BODY_CASES } from './invalidBodyCases';
 
-jest.mock('../../../../lib/repository-factory', () => ({
+jest.mock('@nagiyu/stock-tracker-core', () => ({
+  ...jest.requireActual('@nagiyu/stock-tracker-core'),
   createTickerRepository: jest.fn(),
   createExchangeRepository: jest.fn(),
 }));

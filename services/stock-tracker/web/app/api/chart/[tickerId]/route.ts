@@ -12,10 +12,10 @@ import {
   getChartData,
   SUPPORTED_TIMEFRAMES,
   TRADINGVIEW_ERROR_MESSAGES,
+  createHoldingRepository,
 } from '@nagiyu/stock-tracker-core';
 import type { ChartData, ChartDataPoint } from '@nagiyu/stock-tracker-core';
 import { getAuthError } from '@nagiyu/nextjs';
-import { createHoldingRepository } from '../../../../lib/repository-factory';
 import { getSession } from '../../../../lib/auth';
 import { createInternalErrorReporting, errorReporter } from '../../../../lib/api-error-reporting';
 
