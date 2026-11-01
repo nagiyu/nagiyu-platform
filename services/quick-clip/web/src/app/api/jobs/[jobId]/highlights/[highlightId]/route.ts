@@ -1,13 +1,8 @@
-import { DynamoDBHighlightRepository } from '@nagiyu/quick-clip-core';
+import { createHighlightRepository } from '@nagiyu/quick-clip-core';
 import { readJsonObjectBody } from '@nagiyu/nextjs';
 import { NextResponse } from 'next/server';
 import { InvokeCommand } from '@aws-sdk/client-lambda';
-import {
-  getDynamoDBDocumentClient,
-  getClipRegenerateFunctionName,
-  getLambdaClient,
-  getTableName,
-} from '@/lib/server/aws';
+import { getClipRegenerateFunctionName, getLambdaClient } from '@/lib/server/aws';
 import { errorReporter, withApiErrorReporting } from '@/lib/api-error-reporting';
 import {
   DOMAIN_ERROR_MESSAGES,
@@ -89,9 +84,7 @@ export const PATCH = withApiErrorReporting(
   ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
   async (request: Request, { params }: RouteParams): Promise<NextResponse> => {
     const { jobId, highlightId } = await params;
-    const highlightService = new HighlightDomainService(
-      new DynamoDBHighlightRepository(getDynamoDBDocumentClient(), getTableName())
-    );
+    const highlightService = new HighlightDomainService(createHighlightRepository());
 
     const bodyResult = await readJsonObjectBody(request);
     const body = bodyResult.ok ? parseUpdateRequest(bodyResult.body) : null;

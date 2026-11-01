@@ -59,18 +59,15 @@ jest.mock('node:child_process', () => ({
   spawn: mockSpawn,
 }));
 
-jest.mock('../../../src/repositories/dynamodb-job.repository.js', () => ({
-  DynamoDBJobRepository: jest.fn().mockImplementation(() => ({
+jest.mock('../../../src/repositories/factory.js', () => ({
+  createJobRepository: jest.fn().mockImplementation(() => ({
     getById: jest.fn(),
     create: jest.fn(),
     updateBatchJobId: jest.fn(),
     updateBatchStage: jest.fn(),
     updateErrorMessage: jest.fn(),
   })),
-}));
-
-jest.mock('../../../src/repositories/dynamodb-highlight.repository.js', () => ({
-  DynamoDBHighlightRepository: jest.fn().mockImplementation(() => ({
+  createHighlightRepository: jest.fn().mockImplementation(() => ({
     createMany: mockCreateMany,
   })),
 }));

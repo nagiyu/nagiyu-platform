@@ -54,6 +54,11 @@ export { DynamoDBJobRepository } from './repositories/dynamodb-job.repository.js
 export { DynamoDBHighlightRepository } from './repositories/dynamodb-highlight.repository.js';
 export { InMemoryJobRepository } from './repositories/in-memory-job.repository.js';
 export { InMemoryHighlightRepository } from './repositories/in-memory-highlight.repository.js';
+export {
+  createJobRepository,
+  createHighlightRepository,
+  resetInMemoryRepositories,
+} from './repositories/factory.js';
 export { createOpenAIClient } from './libs/openai-client.js';
 export { TranscriptionService } from './libs/transcription.service.js';
 export type { TranscriptSegment } from './libs/transcription.service.js';

@@ -5,7 +5,7 @@
 import { reportErrorEvent } from '@nagiyu/aws';
 import { GET } from '@/app/api/jobs/[jobId]/highlights/route';
 import type { HighlightRepository, JobRepository } from '@nagiyu/quick-clip-core';
-import { getDynamoDBDocumentClient, getS3Client } from '@/lib/server/aws';
+import { getS3Client } from '@/lib/server/aws';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 jest.mock('next/server', () => ({
@@ -23,10 +23,8 @@ jest.mock('@nagiyu/aws', () => ({
 }));
 
 jest.mock('@/lib/server/aws', () => ({
-  getDynamoDBDocumentClient: jest.fn(() => ({})),
   getS3Client: jest.fn(() => ({})),
   getBucketName: jest.fn(() => 'test-bucket'),
-  getTableName: jest.fn(() => 'test-table'),
 }));
 
 jest.mock('@aws-sdk/s3-request-presigner', () => ({
@@ -37,7 +35,7 @@ const mockGetJob = jest.fn();
 const mockGetHighlights = jest.fn();
 jest.mock('@nagiyu/quick-clip-core', () => ({
   ...jest.requireActual('@nagiyu/quick-clip-core'),
-  DynamoDBJobRepository: jest.fn().mockImplementation(
+  createJobRepository: jest.fn().mockImplementation(
     () =>
       ({
         create: jest.fn(),
@@ -45,7 +43,7 @@ jest.mock('@nagiyu/quick-clip-core', () => ({
         updateBatchJobId: jest.fn(),
       }) as unknown as JobRepository
   ),
-  DynamoDBHighlightRepository: jest.fn().mockImplementation(
+  createHighlightRepository: jest.fn().mockImplementation(
     () =>
       ({
         getByJobId: mockGetHighlights,
@@ -54,17 +52,11 @@ jest.mock('@nagiyu/quick-clip-core', () => ({
 }));
 
 describe('GET /api/jobs/[jobId]/highlights', () => {
-  const mockedGetDynamoDBDocumentClient = getDynamoDBDocumentClient as jest.MockedFunction<
-    typeof getDynamoDBDocumentClient
-  >;
   const mockedGetS3Client = getS3Client as jest.MockedFunction<typeof getS3Client>;
   const mockedGetSignedUrl = getSignedUrl as jest.MockedFunction<typeof getSignedUrl>;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockedGetDynamoDBDocumentClient.mockReturnValue(
-      {} as ReturnType<typeof getDynamoDBDocumentClient>
-    );
     mockedGetS3Client.mockReturnValue({} as ReturnType<typeof getS3Client>);
     mockedGetSignedUrl.mockResolvedValue('https://example.com/highlight.mp4');
   });
