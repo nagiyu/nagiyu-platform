@@ -61,9 +61,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TITLE: ${{ steps.scope.outputs.title }}
         run: |
-          # ラベル・Assignee・マイルストーンは付けない (人が付ける)
+          # Assignee・マイルストーンは付けない (人が付ける)
           gh issue create \
             --title "$TITLE" \
+            --label "stock-tracker" \
             --body-file "$RUNNER_TEMP/inspection-body.md"
 
       - name: Summary
