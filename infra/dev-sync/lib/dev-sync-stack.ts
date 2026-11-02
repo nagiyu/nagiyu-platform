@@ -2,10 +2,9 @@ import * as cdk from 'aws-cdk-lib';
 import * as ecr from 'aws-cdk-lib/aws-ecr';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
-import * as logs from 'aws-cdk-lib/aws-logs';
 import * as scheduler from 'aws-cdk-lib/aws-scheduler';
 import { Construct } from 'constructs';
-import { grantErrorEventsWrite } from '@nagiyu/infra-common';
+import { createEcrImageFunction } from '@nagiyu/infra-common';
 import type { ManifestEntry } from './manifest';
 
 /**
@@ -112,11 +111,6 @@ export class DevSyncStack extends cdk.Stack {
       })
     );
 
-    // 失敗時のエラーイベントを自アカウントの共有 error-events テーブルへ書き込めるようにする。
-    // テーブルは同一アカウント・同一環境の共有スタックが管理するため、他サービスと同じく
-    // cross-stack import 経由で ARN を解決する。
-    grantErrorEventsWrite(this, executionRole, environment);
-
     // マニフェストのエントリごとに dest 側の IAM ポリシーを付与（最小権限）
     // dest テーブルは PutItem 付与済みかどうかをキャッシュ
     const processedDestsPut = new Set<string>();
@@ -155,24 +149,24 @@ export class DevSyncStack extends cdk.Stack {
     // ─────────────────────────────────────────
     // Lambda 関数（Docker イメージ）
     // ─────────────────────────────────────────
-    this.syncFunction = new lambda.Function(this, 'SyncFunction', {
+    // 失敗時のエラーイベントは、共通部品が自アカウントの共有 error-events テーブルへ
+    // 書き込めるように実行ロールへ権限を付与する。
+    this.syncFunction = createEcrImageFunction(this, 'SyncFunction', {
       functionName: `nagiyu-dev-sync-${environment}`,
-      runtime: lambda.Runtime.FROM_IMAGE,
-      handler: lambda.Handler.FROM_IMAGE,
-      code: lambda.Code.fromEcrImage(repository, {
-        tagOrDigest: 'latest',
-        cmd: ['services/dev-sync/batch/dist/src/sync-handler.handler'],
-      }),
+      serviceName: 'dev-sync',
+      deployEnvironment: environment,
+      repository,
+      cmd: ['services/dev-sync/batch/dist/src/sync-handler.handler'],
       role: executionRole,
       memorySize: 256,
       timeout: cdk.Duration.minutes(15),
       environment: {
         NODE_ENV: environment,
         SOURCE_READER_ROLE_ARN: SOURCE_READER_ROLE_ARN,
-        ERROR_EVENTS_TABLE_NAME: `nagiyu-error-events-${environment}`,
       },
-      tracing: lambda.Tracing.ACTIVE,
-      logRetention: logs.RetentionDays.ONE_MONTH,
+      // CloudFormation 管理外の同名ロググループが既にあり、LogGroup を作ると名前が衝突するため
+      // 既存のものを引き継ぐ。この関数が既存だから付けているもので、新しい関数では付けない。
+      adoptExistingLogGroup: true,
       description: 'prod → dev DynamoDB 汎用同期 Lambda（dev-sync）',
     });
 
@@ -227,12 +221,8 @@ export class DevSyncStack extends cdk.Stack {
     });
 
     // ─────────────────────────────────────────
-    // タグ・Outputs
+    // Outputs
     // ─────────────────────────────────────────
-    cdk.Tags.of(this.syncFunction).add('Application', 'nagiyu');
-    cdk.Tags.of(this.syncFunction).add('Service', 'dev-sync');
-    cdk.Tags.of(this.syncFunction).add('Environment', environment);
-
     new cdk.CfnOutput(this, 'SyncFunctionArn', {
       value: this.syncFunction.functionArn,
       description: 'dev-sync Lambda Function ARN',
