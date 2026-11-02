@@ -5,14 +5,13 @@ import * as events from 'aws-cdk-lib/aws-events';
 import * as targets from 'aws-cdk-lib/aws-events-targets';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
-import * as logs from 'aws-cdk-lib/aws-logs';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
 import { Construct } from 'constructs';
 import {
+  createEcrImageFunction,
   getDynamoDBTableArn,
   getDynamoDBTableName,
   getEcrRepositoryName,
-  grantErrorEventsWrite,
 } from '@nagiyu/infra-common';
 import type { Environment } from '@nagiyu/infra-common';
 
@@ -87,17 +86,14 @@ export class LiveTalkBatchStack extends cdk.Stack {
     });
     dynamoTable.grantReadWriteData(learnActivityRole);
     learnActivityDlq.grantSendMessages(learnActivityRole);
-    grantErrorEventsWrite(this, learnActivityRole, environment);
 
     // 学習バッチ Lambda
-    this.learnActivityFunction = new lambda.Function(this, 'LearnActivityFunction', {
+    this.learnActivityFunction = createEcrImageFunction(this, 'LearnActivityFunction', {
       functionName: `nagiyu-livetalk-batch-learn-user-activity-${environment}`,
-      runtime: lambda.Runtime.FROM_IMAGE,
-      code: lambda.Code.fromEcrImage(batchRepository, {
-        tagOrDigest: 'latest',
-        cmd: ['services/livetalk/batch/dist/src/handlers/learn-user-activity.handler'],
-      }),
-      handler: lambda.Handler.FROM_IMAGE,
+      serviceName: 'livetalk',
+      deployEnvironment: environment,
+      repository: batchRepository,
+      cmd: ['services/livetalk/batch/dist/src/handlers/learn-user-activity.handler'],
       role: learnActivityRole,
       memorySize: 512,
       timeout: cdk.Duration.minutes(15),
@@ -105,12 +101,12 @@ export class LiveTalkBatchStack extends cdk.Stack {
         NODE_ENV: environment,
         LIVETALK_ENV: environment,
         DYNAMODB_TABLE_NAME: dynamoTableName,
-        ERROR_EVENTS_TABLE_NAME: `nagiyu-error-events-${environment}`,
         TZ: 'Asia/Tokyo',
       },
       deadLetterQueue: learnActivityDlq,
-      tracing: lambda.Tracing.ACTIVE,
-      logRetention: logs.RetentionDays.ONE_MONTH,
+      // CloudFormation 管理外の同名ロググループが既にあり、LogGroup を作ると名前が衝突するため
+      // 既存のものを引き継ぐ。この関数が既存だから付けているもので、新しい関数では付けない。
+      adoptExistingLogGroup: true,
     });
 
     // EventBridge: 週次 JST 日曜 03:00（= UTC 土曜 18:00）
@@ -149,17 +145,14 @@ export class LiveTalkBatchStack extends cdk.Stack {
     });
     dynamoTable.grantReadWriteData(notifyRole);
     notifyDlq.grantSendMessages(notifyRole);
-    grantErrorEventsWrite(this, notifyRole, environment);
 
     // 通知バッチ Lambda
-    const notifyFunction = new lambda.Function(this, 'NotifyFunction', {
+    const notifyFunction = createEcrImageFunction(this, 'NotifyFunction', {
       functionName: `nagiyu-livetalk-batch-notify-${environment}`,
-      runtime: lambda.Runtime.FROM_IMAGE,
-      code: lambda.Code.fromEcrImage(batchRepository, {
-        tagOrDigest: 'latest',
-        cmd: ['services/livetalk/batch/dist/src/handlers/notify.handler'],
-      }),
-      handler: lambda.Handler.FROM_IMAGE,
+      serviceName: 'livetalk',
+      deployEnvironment: environment,
+      repository: batchRepository,
+      cmd: ['services/livetalk/batch/dist/src/handlers/notify.handler'],
       role: notifyRole,
       memorySize: 512,
       timeout: cdk.Duration.minutes(15),
@@ -170,12 +163,12 @@ export class LiveTalkBatchStack extends cdk.Stack {
         OPENAI_API_KEY: openAiApiKey,
         VAPID_PUBLIC_KEY: vapidPublicKey,
         VAPID_PRIVATE_KEY: vapidPrivateKey,
-        ERROR_EVENTS_TABLE_NAME: `nagiyu-error-events-${environment}`,
         TZ: 'Asia/Tokyo',
       },
       deadLetterQueue: notifyDlq,
-      tracing: lambda.Tracing.ACTIVE,
-      logRetention: logs.RetentionDays.ONE_MONTH,
+      // CloudFormation 管理外の同名ロググループが既にあり、LogGroup を作ると名前が衝突するため
+      // 既存のものを引き継ぐ。この関数が既存だから付けているもので、新しい関数では付けない。
+      adoptExistingLogGroup: true,
     });
 
     // EventBridge: 毎時 30 分に実行（consolidate=15分・acquire=45分と衝突回避。毎時 0 分は旧
@@ -218,17 +211,14 @@ export class LiveTalkBatchStack extends cdk.Stack {
     });
     dynamoTable.grantReadWriteData(consolidateRole);
     consolidateDlq.grantSendMessages(consolidateRole);
-    grantErrorEventsWrite(this, consolidateRole, environment);
 
     // 集約バッチ Lambda
-    const consolidateFunction = new lambda.Function(this, 'ConsolidateFunction', {
+    const consolidateFunction = createEcrImageFunction(this, 'ConsolidateFunction', {
       functionName: `nagiyu-livetalk-batch-consolidate-${environment}`,
-      runtime: lambda.Runtime.FROM_IMAGE,
-      code: lambda.Code.fromEcrImage(batchRepository, {
-        tagOrDigest: 'latest',
-        cmd: ['services/livetalk/batch/dist/src/handlers/consolidate-conversations.handler'],
-      }),
-      handler: lambda.Handler.FROM_IMAGE,
+      serviceName: 'livetalk',
+      deployEnvironment: environment,
+      repository: batchRepository,
+      cmd: ['services/livetalk/batch/dist/src/handlers/consolidate-conversations.handler'],
       role: consolidateRole,
       memorySize: 512,
       timeout: cdk.Duration.minutes(15),
@@ -237,12 +227,12 @@ export class LiveTalkBatchStack extends cdk.Stack {
         LIVETALK_ENV: environment,
         DYNAMODB_TABLE_NAME: dynamoTableName,
         OPENAI_API_KEY: openAiApiKey,
-        ERROR_EVENTS_TABLE_NAME: `nagiyu-error-events-${environment}`,
         TZ: 'Asia/Tokyo',
       },
       deadLetterQueue: consolidateDlq,
-      tracing: lambda.Tracing.ACTIVE,
-      logRetention: logs.RetentionDays.ONE_MONTH,
+      // CloudFormation 管理外の同名ロググループが既にあり、LogGroup を作ると名前が衝突するため
+      // 既存のものを引き継ぐ。この関数が既存だから付けているもので、新しい関数では付けない。
+      adoptExistingLogGroup: true,
     });
 
     // EventBridge: 毎時 15 分に実行（notify=30分・acquire=45分と衝突回避）
@@ -288,17 +278,14 @@ export class LiveTalkBatchStack extends cdk.Stack {
     });
     dynamoTable.grantReadWriteData(acquireRole);
     acquireDlq.grantSendMessages(acquireRole);
-    grantErrorEventsWrite(this, acquireRole, environment);
 
     // acquire バッチ Lambda
-    const acquireFunction = new lambda.Function(this, 'AcquireFunction', {
+    const acquireFunction = createEcrImageFunction(this, 'AcquireFunction', {
       functionName: `nagiyu-livetalk-batch-acquire-${environment}`,
-      runtime: lambda.Runtime.FROM_IMAGE,
-      code: lambda.Code.fromEcrImage(batchRepository, {
-        tagOrDigest: 'latest',
-        cmd: ['services/livetalk/batch/dist/src/handlers/acquire.handler'],
-      }),
-      handler: lambda.Handler.FROM_IMAGE,
+      serviceName: 'livetalk',
+      deployEnvironment: environment,
+      repository: batchRepository,
+      cmd: ['services/livetalk/batch/dist/src/handlers/acquire.handler'],
       role: acquireRole,
       memorySize: 512,
       timeout: cdk.Duration.minutes(15),
@@ -307,12 +294,12 @@ export class LiveTalkBatchStack extends cdk.Stack {
         LIVETALK_ENV: environment,
         DYNAMODB_TABLE_NAME: dynamoTableName,
         OPENAI_API_KEY: openAiApiKey,
-        ERROR_EVENTS_TABLE_NAME: `nagiyu-error-events-${environment}`,
         TZ: 'Asia/Tokyo',
       },
       deadLetterQueue: acquireDlq,
-      tracing: lambda.Tracing.ACTIVE,
-      logRetention: logs.RetentionDays.ONE_MONTH,
+      // CloudFormation 管理外の同名ロググループが既にあり、LogGroup を作ると名前が衝突するため
+      // 既存のものを引き継ぐ。この関数が既存だから付けているもので、新しい関数では付けない。
+      adoptExistingLogGroup: true,
     });
 
     // EventBridge: 毎時 45 分に実行（consolidate=15分・notify=30分と衝突回避）

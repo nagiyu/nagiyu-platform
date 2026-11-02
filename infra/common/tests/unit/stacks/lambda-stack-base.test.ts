@@ -258,4 +258,112 @@ describe('LambdaStackBase', () => {
       });
     });
   });
+
+  describe('ログと X-Ray', () => {
+    it('既定で CloudFormation 管理の LogGroup を保持期間 30 日で作り、X-Ray を有効にする', () => {
+      // Arrange & Act
+      const stack = new LambdaStackBase(app, 'TestLambdaStack', {
+        serviceName: 'tools',
+        environment: 'dev',
+        ecrRepositoryName: 'nagiyu-tools-ecr-dev',
+      });
+
+      // Assert
+      const template = Template.fromStack(stack);
+      template.resourceCountIs('AWS::Logs::LogGroup', 1);
+      template.hasResourceProperties('AWS::Logs::LogGroup', {
+        LogGroupName: '/aws/lambda/nagiyu-tools-lambda-dev',
+        RetentionInDays: 30,
+      });
+      template.resourceCountIs('Custom::LogRetention', 0);
+      template.hasResourceProperties('AWS::Lambda::Function', {
+        TracingConfig: { Mode: 'Active' },
+        LoggingConfig: { LogGroup: { Ref: Match.stringLikeRegexp('^FunctionLogGroup') } },
+      });
+    });
+
+    it('関数名を変えると、ロググループ名もその関数名に従う', () => {
+      // Arrange & Act
+      const stack = new LambdaStackBase(app, 'TestLambdaStack', {
+        serviceName: 'tools',
+        environment: 'prod',
+        ecrRepositoryName: 'nagiyu-tools-ecr-prod',
+        lambdaConfig: { functionName: 'custom-function-name' },
+      });
+
+      // Assert
+      Template.fromStack(stack).hasResourceProperties('AWS::Logs::LogGroup', {
+        LogGroupName: '/aws/lambda/custom-function-name',
+      });
+    });
+
+    it('既存ロググループの引き継ぎ指定では LogGroup を作らず、LogRetention で保持期間を設定する', () => {
+      // Arrange & Act
+      const stack = new LambdaStackBase(app, 'TestLambdaStack', {
+        serviceName: 'tools',
+        environment: 'dev',
+        ecrRepositoryName: 'nagiyu-tools-ecr-dev',
+        lambdaConfig: { adoptExistingLogGroup: true },
+      });
+
+      // Assert
+      const template = Template.fromStack(stack);
+      template.resourceCountIs('AWS::Logs::LogGroup', 0);
+      template.hasResourceProperties('Custom::LogRetention', { RetentionInDays: 30 });
+      template.hasResourceProperties('AWS::Lambda::Function', {
+        TracingConfig: { Mode: 'Active' },
+      });
+    });
+
+    it('error-events の環境変数と権限を既定で足さない', () => {
+      // Arrange & Act
+      const stack = new LambdaStackBase(app, 'TestLambdaStack', {
+        serviceName: 'tools',
+        environment: 'dev',
+        ecrRepositoryName: 'nagiyu-tools-ecr-dev',
+      });
+
+      // Assert
+      expect(JSON.stringify(Template.fromStack(stack).toJSON())).not.toContain('error-events');
+    });
+  });
+
+  describe('論理 ID の互換性', () => {
+    // 既存スタックの関数・ロールは名前固定で、論理 ID が変わると置き換えに失敗する。
+    // 引き継ぎ指定の有無でも変わってはならない。
+    const collectIds = (adopt: boolean, logicalId?: string): Record<string, string[]> => {
+      const s = new LambdaStackBase(new cdk.App(), 'TestLambdaStack', {
+        serviceName: 'tools',
+        environment: 'dev',
+        ecrRepositoryName: 'nagiyu-tools-ecr-dev',
+        lambdaConfig: { adoptExistingLogGroup: adopt, logicalId },
+      });
+      const t = Template.fromStack(s);
+      const withoutLogRetention = (ids: string[]): string[] =>
+        ids.filter((id) => !id.startsWith('LogRetention'));
+      return {
+        functions: withoutLogRetention(Object.keys(t.findResources('AWS::Lambda::Function'))),
+        roles: withoutLogRetention(Object.keys(t.findResources('AWS::IAM::Role'))),
+        urls: Object.keys(t.findResources('AWS::Lambda::Url')),
+      };
+    };
+
+    it('関数の論理 ID は既定で Function、ロールは LambdaExecutionRole から始まる', () => {
+      const ids = collectIds(false);
+
+      expect(ids.functions).toEqual([expect.stringMatching(/^Function[0-9A-F]{8}$/)]);
+      expect(ids.roles).toEqual([expect.stringMatching(/^LambdaExecutionRole[0-9A-F]{8}$/)]);
+    });
+
+    it('logicalId の指定が関数の論理 ID になる', () => {
+      const ids = collectIds(false, 'WebFunction');
+
+      expect(ids.functions).toEqual([expect.stringMatching(/^WebFunction[0-9A-F]{8}$/)]);
+    });
+
+    it('引き継ぎ指定の有無で、関数・ロール・Function URL の論理 ID が変わらない', () => {
+      expect(collectIds(true)).toEqual(collectIds(false));
+      expect(collectIds(true, 'WebFunction')).toEqual(collectIds(false, 'WebFunction'));
+    });
+  });
 });

@@ -3,9 +3,8 @@ import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as ecr from 'aws-cdk-lib/aws-ecr';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
-import * as logs from 'aws-cdk-lib/aws-logs';
 import { Construct } from 'constructs';
-import { grantErrorEventsWrite, getServiceUrl } from '@nagiyu/infra-common';
+import { createEcrImageFunction, getServiceUrl } from '@nagiyu/infra-common';
 import { WebRuntimePolicy } from './policies/web-runtime-policy';
 
 export interface LambdaStackProps extends cdk.StackProps {
@@ -84,17 +83,17 @@ export class LambdaStack extends cdk.Stack {
         this.webRuntimePolicy,
       ],
     });
-    grantErrorEventsWrite(this, webExecutionRole, environment as 'dev' | 'prod');
 
     // Web Lambda Function の作成
-    this.webFunction = new lambda.Function(this, 'WebFunction', {
+    this.webFunction = createEcrImageFunction(this, 'WebFunction', {
       functionName: `nagiyu-niconico-mylist-assistant-web-${environment}`,
-      runtime: lambda.Runtime.FROM_IMAGE,
-      code: lambda.Code.fromEcrImage(webRepository, {
-        tagOrDigest: 'latest',
-      }),
-      handler: lambda.Handler.FROM_IMAGE,
+      serviceName: 'niconico-mylist-assistant',
+      deployEnvironment: environment as 'dev' | 'prod',
+      repository: webRepository,
       role: webExecutionRole,
+      // CloudFormation 管理外の同名ロググループが既にあり、LogGroup を作ると名前が衝突するため
+      // 既存のものを引き継ぐ。この関数が既存だから付けているもので、新しい関数では付けない。
+      adoptExistingLogGroup: true,
       memorySize: 1024,
       timeout: cdk.Duration.seconds(30),
       environment: {
@@ -115,10 +114,7 @@ export class LambdaStack extends cdk.Stack {
         AWS_REGION_FOR_SDK: this.region,
         VAPID_PUBLIC_KEY: vapidPublicKey,
         VAPID_PRIVATE_KEY: vapidPrivateKey,
-        ERROR_EVENTS_TABLE_NAME: `nagiyu-error-events-${environment}`,
       },
-      tracing: lambda.Tracing.ACTIVE, // X-Ray トレーシング有効化
-      logRetention: logs.RetentionDays.ONE_MONTH, // CloudWatch Logs 保持期間: 30日
     });
 
     // Function URL の作成（Lambda Web Adapter 用）
@@ -132,10 +128,7 @@ export class LambdaStack extends cdk.Stack {
       },
     });
 
-    // タグの追加
-    cdk.Tags.of(this.webFunction).add('Application', 'nagiyu');
-    cdk.Tags.of(this.webFunction).add('Service', 'niconico-mylist-assistant');
-    cdk.Tags.of(this.webFunction).add('Environment', environment);
+    // 共通部品が付けるタグ (Application / Service / Environment) に無いもの
     cdk.Tags.of(this.webFunction).add('Temp', 'Temp');
 
     // CloudFormation Outputs

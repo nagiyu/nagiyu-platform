@@ -51,4 +51,17 @@ export interface LambdaConfig {
    * 予約済み同時実行数
    */
   reservedConcurrentExecutions?: number;
+
+  /**
+   * 既存のロググループを引き継ぐ。
+   *
+   * true のときは CloudFormation 管理の LogGroup を作らず、CDK の LogRetention
+   * カスタムリソースで既存ロググループの保持期間だけを設定する。
+   *
+   * @deprecated 既存ロググループを引き継ぐ関数専用。新しく作る関数では付けない。
+   * dev / prod には CloudFormation 管理外の同名ロググループが既にあり、LogGroup を
+   * 作ると名前が衝突してデプロイが失敗するため、既存の関数だけがこの指定で回避している。
+   * 新しい関数にはロググループが無いので、既定の LogGroup 作成で足りる。
+   */
+  adoptExistingLogGroup?: boolean;
 }

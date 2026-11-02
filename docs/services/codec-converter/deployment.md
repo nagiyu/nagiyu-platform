@@ -177,8 +177,8 @@ Lambda と Batch Worker には以下の環境変数が自動設定されます:
 
 **Lambda ログ**:
 
-- ロググループ: `/aws/lambda/codec-converter-{env}`
-- 保持期間: 7日
+- ロググループ: `/aws/lambda/nagiyu-codec-converter-{env}`
+- 保持期間: 30日
 
 **Batch Worker ログ**:
 
