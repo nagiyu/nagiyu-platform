@@ -5,10 +5,11 @@
 // 起動: node admin-fake-ddb.js (環境変数 FAKE_DDB_PORT、既定 18201。127.0.0.1 だけで待ち受ける)
 // 接続: admin の web を AWS_ENDPOINT_URL_DYNAMODB=http://127.0.0.1:<ポート> で起動し、
 //       AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY にはダミーの値を入れる。
-// 対応 API: PutItem / DeleteItem / Scan / Query (キー条件は =, <, <=, >, >=, BETWEEN, begins_with。
+// 対応 API: PutItem / GetItem / DeleteItem / Scan / Query (キー条件は =, <, <=, >, >=, BETWEEN, begins_with。
 //           GSI は AllByOccurredAt だけ。FilterExpression は評価しない)
 // 管理用エンドポイント:
 //   POST /__seed  {table, items}  AttributeValue 形式の items を追加する (admin-seed.js が使う)
+//   POST /__reset                 全テーブルを空にする
 //   GET  /__dump                  全テーブルの中身
 //   GET  /__log                   受けたリクエストの記録
 const http = require('http');
@@ -62,6 +63,10 @@ function handle(target, body) {
       if (i >= 0) arr[i] = body.Item; else arr.push(body.Item);
       return {};
     }
+    case 'GetItem': {
+      const it = getTable(t).find((x) => S(x.PK) === S(body.Key.PK) && S(x.SK) === S(body.Key.SK));
+      return it ? { Item: it } : {};
+    }
     case 'DeleteItem': {
       const arr = getTable(t);
       const i = arr.findIndex((x) => S(x.PK) === S(body.Key.PK) && S(x.SK) === S(body.Key.SK));
@@ -105,6 +110,7 @@ http.createServer((req, res) => {
       res.end(JSON.stringify({ ok: true, count: getTable(table).length }));
       return;
     }
+    if (req.url.startsWith('/__reset')) { tables.clear(); res.end('{"ok":true}'); return; }
     if (req.url.startsWith('/__dump')) { res.end(JSON.stringify(Object.fromEntries(tables))); return; }
     if (req.url.startsWith('/__log')) { res.end(JSON.stringify(log)); return; }
     const target = (req.headers['x-amz-target'] || '').split('.').pop();

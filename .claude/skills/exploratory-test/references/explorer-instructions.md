@@ -47,6 +47,7 @@
 - `@nagiyu/ui` の TextField と Select は素の HTML (native select、補足文は `aria-describedby`)。MUI のセレクタは効かない。
 - Playwright の `fill()` は数十万文字で 30 秒のタイムアウトになる。巨大な入力は value setter と input イベントで流す。
 - クリップボードを使う機能は、context の permissions で許可する。
+- `goto` の `waitUntil: 'networkidle'` は使わない。dev の HMR の接続が張られたままで、1 ページ数十秒かかる。`load` のあとに少し待つ形が速い。
 - Web Push の購読が必要な機能は、VAPID 鍵がダミーなので、既存 E2E のモックの方法を探して使う。
 - 既存 E2E (`tests/e2e/`) の fixtures と helpers に、seed やモックの方法が書いてあることが多い。最初に読むと早い。
 - `next dev` は `next-env.d.ts` を書き換えることがある。気にしなくてよい (後で親が片付ける)。
