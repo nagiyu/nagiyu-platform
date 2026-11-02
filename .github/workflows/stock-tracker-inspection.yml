@@ -50,13 +50,37 @@ jobs:
           echo "include_mkt=$INCLUDE_MKT" >> "$GITHUB_OUTPUT"
           echo "title=$TITLE" >> "$GITHUB_OUTPUT"
 
+      - name: Check existing open stock-tracker-inspection issue
+        id: duplicate_check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          OPEN_ISSUES_JSON=$(gh issue list \
+            --label "stock-tracker-inspection" \
+            --state open \
+            --limit 1 \
+            --json number,url)
+
+          ISSUE_NUMBER=$(echo "$OPEN_ISSUES_JSON" | jq -r '.[0]? | .number // empty')
+          ISSUE_URL=$(echo "$OPEN_ISSUES_JSON" | jq -r '.[0]? | .url // empty')
+
+          if [ -n "$ISSUE_NUMBER" ]; then
+            echo "should_create=false" >> "$GITHUB_OUTPUT"
+            echo "open_issue_number=$ISSUE_NUMBER" >> "$GITHUB_OUTPUT"
+            echo "open_issue_url=$ISSUE_URL" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_create=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Prepare issue body from template
+        if: steps.duplicate_check.outputs.should_create == 'true'
         env:
           INCLUDE_MKT: ${{ steps.scope.outputs.include_mkt }}
         run: |
           .github/workflows/scripts/prepare-stock-tracker-inspection-issue.sh > "$RUNNER_TEMP/inspection-body.md"
 
       - name: Create inspection issue
+        if: steps.duplicate_check.outputs.should_create == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           TITLE: ${{ steps.scope.outputs.title }}
@@ -64,10 +88,11 @@ jobs:
           # Assignee・マイルストーンは付けない (人が付ける)
           gh issue create \
             --title "$TITLE" \
-            --label "stock-tracker" \
+            --label "stock-tracker,stock-tracker-inspection" \
             --body-file "$RUNNER_TEMP/inspection-body.md"
 
-      - name: Summary
+      - name: Summary (created)
+        if: steps.duplicate_check.outputs.should_create == 'true'
         env:
           TITLE: ${{ steps.scope.outputs.title }}
           INCLUDE_MKT: ${{ steps.scope.outputs.include_mkt }}
@@ -76,3 +101,16 @@ jobs:
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "**タイトル**: $TITLE" >> "$GITHUB_STEP_SUMMARY"
           echo "**Q-MKT を含む**: $INCLUDE_MKT" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Summary (skipped)
+        if: steps.duplicate_check.outputs.should_create != 'true'
+        run: |
+          echo "⏭️ 既存の stock-tracker-inspection ラベル付きオープン Issue が存在するため、新規作成をスキップしました" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          if [ -n "${{ steps.duplicate_check.outputs.open_issue_number }}" ] && [ -n "${{ steps.duplicate_check.outputs.open_issue_url }}" ]; then
+            echo "**既存Issue**: #${{ steps.duplicate_check.outputs.open_issue_number }} (${{ steps.duplicate_check.outputs.open_issue_url }})" >> "$GITHUB_STEP_SUMMARY"
+          elif [ -n "${{ steps.duplicate_check.outputs.open_issue_number }}" ]; then
+            echo "**既存Issue**: #${{ steps.duplicate_check.outputs.open_issue_number }}" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "**既存Issue**: 取得できませんでした" >> "$GITHUB_STEP_SUMMARY"
+          fi
