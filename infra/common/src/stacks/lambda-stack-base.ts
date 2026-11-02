@@ -7,6 +7,7 @@ import { LambdaConfig } from '../types/lambda-config';
 import { Environment } from '../types/environment';
 import { getLambdaFunctionName } from '../utils/naming';
 import { DEFAULT_LAMBDA_CONFIG, mergeConfig } from '../constants/defaults';
+import { createEcrImageFunction } from '../functions/ecr-image-function';
 
 /**
  * LambdaStackBase のプロパティ
@@ -59,6 +60,7 @@ export interface LambdaStackBaseProps extends cdk.StackProps {
  * - Lambda 関数の作成
  * - ECR イメージからのデプロイ
  * - 実行ロールの作成
+ * - ログ (保持期間 30 日) と X-Ray の既定設定
  * - 環境変数の設定
  * - Function URL の作成（オプション）
  * - CloudFormation Outputs
@@ -169,20 +171,22 @@ export class LambdaStackBase extends cdk.Stack {
     const logicalId = lambdaConfig?.logicalId || 'Function';
 
     // Lambda 関数の作成
-    this.lambdaFunction = new lambda.Function(this, logicalId, {
+    // error-events の環境変数と権限は、ここでは付与しない。使うサービスが自前で付与しており、
+    // 既定で足すと、使わないサービス (tools / portal など) の権限と環境変数が増えるため。
+    this.lambdaFunction = createEcrImageFunction(this, logicalId, {
       functionName,
-      runtime: lambda.Runtime.FROM_IMAGE,
-      handler: lambda.Handler.FROM_IMAGE,
-      code: lambda.Code.fromEcrImage(repository, {
-        tagOrDigest: 'latest',
-      }),
+      serviceName,
+      deployEnvironment: environment,
+      repository,
+      role: this.executionRole,
       memorySize: config.memorySize,
       timeout: cdk.Duration.seconds(config.timeout),
       architecture,
-      role: this.executionRole,
       environment: lambdaConfig?.environment,
       reservedConcurrentExecutions: lambdaConfig?.reservedConcurrentExecutions,
       description: `${serviceName} Service Lambda function for ${environment} environment`,
+      enableErrorEvents: false,
+      adoptExistingLogGroup: lambdaConfig?.adoptExistingLogGroup,
     });
 
     // Function URL の作成
@@ -205,11 +209,6 @@ export class LambdaStackBase extends cdk.Stack {
         functionUrlAuthType: lambda.FunctionUrlAuthType.NONE,
       });
     }
-
-    // タグの追加
-    cdk.Tags.of(this.lambdaFunction).add('Application', 'nagiyu');
-    cdk.Tags.of(this.lambdaFunction).add('Service', serviceName);
-    cdk.Tags.of(this.lambdaFunction).add('Environment', environment);
 
     // CloudFormation Outputs
     new cdk.CfnOutput(this, 'FunctionName', {

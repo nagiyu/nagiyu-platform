@@ -205,7 +205,7 @@ graph TD
 | Lambda 関数        | Next.js アプリケーションの実行環境                    | メモリ: 1024 MB, タイムアウト: 30秒, コンテナイメージ起動 |
 | CloudFront         | グローバル配信、HTTPS 強制                            | Lambda Function URL をオリジンとして設定                    |
 | ECR リポジトリ     | Docker イメージ保存                                   | イメージタグ: `admin-{env}:latest`                          |
-| CloudWatch Logs    | Lambda 実行ログ                                       | ロググループ: `/aws/lambda/admin-{env}`, 保持期間: 7日      |
+| CloudWatch Logs    | Lambda 実行ログ                                       | ロググループ: `/aws/lambda/nagiyu-admin-lambda-{env}`, 保持期間: 30日 |
 | Lambda Function URL| Lambda への直接アクセス URL                           | 認証: なし（CloudFront 経由のアクセスを前提）                |
 
 ### 5.3 ネットワーク設計
