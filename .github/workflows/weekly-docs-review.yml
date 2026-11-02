@@ -1,9 +1,6 @@
 name: Weekly Documentation Review
 
 on:
-  schedule:
-    # 毎週月曜日 9:00 JST (0:00 UTC)
-    - cron: '0 0 * * 1'
   workflow_dispatch: # 手動実行も可能
 
 permissions:
