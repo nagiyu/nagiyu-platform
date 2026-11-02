@@ -76,6 +76,9 @@ export class LambdaStack extends LambdaStackBase {
       serviceName: 'admin',
       environment: environment as 'dev' | 'prod',
       lambdaConfig: {
+        // CloudFormation 管理外の同名ロググループが既にあり、LogGroup を作ると名前が衝突するため
+        // 既存のものを引き継ぐ。この関数が既存だから付けているもので、新しい関数では付けない。
+        adoptExistingLogGroup: true,
         memorySize: 512,
         timeout: 30,
         environment: {
