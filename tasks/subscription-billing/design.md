@@ -173,7 +173,7 @@ Stripe の顧客の対応は P2 で決める。
 - **同期の中身**: 顧客の契約を Stripe から一覧し、`active` / `trialing` / `past_due` の契約の品目ごとに、商品の Feature の `lookup_key` を有料ロールとして得る。期限は品目の請求期間の終わり + 3 日。
     - 得たロールに有効な Stripe 由来の権利があれば期限と参照を更新し、なければ作る。得たロールにない有効な Stripe 由来の権利は取り消す。
     - `lookup_key` が有料ロールでないものは無視してログに残す。
-    - 書き込みは P1 の `updateRolesAndGrants` (楽観ロックとやり直しつき) を使う。
+    - 書き込みは、Stripe を読む前に読んだユーザーの `UpdatedAt` を条件にする。競合したらユーザーと Stripe の両方を読み直してやり直す。Stripe を読んでいる間に別の通知が新しい状態を書いたとき、古い読み取りで上書きしないため。
 - **鍵の受け渡し**: 秘密情報 `nagiyu-auth-stripe-{env}` (`{"secretKey":"...","webhookSecret":"..."}`) は CDK で作り、初期値は PLACEHOLDER にする。人が値を書き換える。既存の秘密情報のスタックには足さず、専用のスタック (`NagiyuAuthStripeSecrets{Env}`) に置く。dev で develop の版をデプロイしても、develop の版に無いスタックには触れないため、秘密情報と入れた値が消えない。デプロイは既存の秘密情報と同じく、値を読んで CDK の context → Lambda の環境変数で渡す。鍵が空か PLACEHOLDER のままなら、課金の API は使えない旨を返す (本番の鍵を入れるまでの本番もこの状態)。
 
 ### プランの画面 (SCR-001、P2 で決めたこと)
