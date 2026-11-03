@@ -2,6 +2,7 @@ import type { RoleGrant } from '@nagiyu/common';
 import {
   buildPlanCards,
   formatPlanDate,
+  formatPlanDescription,
   formatPriceLabel,
   type BuildPlanCardsInput,
 } from '../../../src/lib/plans';
@@ -81,6 +82,28 @@ describe('formatPlanDate', () => {
   });
 });
 
+describe('formatPlanDescription', () => {
+  it('商品の説明を返し、前後の空白は落とす', () => {
+    expect(formatPlanDescription({ ...MONTHLY, product: { description: ' 説明です ' } })).toBe(
+      '説明です'
+    );
+  });
+
+  it('空・空白だけ・無い・展開されていない・削除済みの商品は null', () => {
+    expect(formatPlanDescription({ ...MONTHLY, product: { description: '' } })).toBeNull();
+    expect(formatPlanDescription({ ...MONTHLY, product: { description: '  ' } })).toBeNull();
+    expect(formatPlanDescription({ ...MONTHLY, product: { description: null } })).toBeNull();
+    expect(formatPlanDescription({ ...MONTHLY, product: {} })).toBeNull();
+    expect(formatPlanDescription({ ...MONTHLY, product: 'prod_1' })).toBeNull();
+    expect(formatPlanDescription({ ...MONTHLY, product: null })).toBeNull();
+    expect(formatPlanDescription({ ...MONTHLY })).toBeNull();
+    expect(
+      formatPlanDescription({ ...MONTHLY, product: { description: '説明', deleted: true } })
+    ).toBeNull();
+    expect(formatPlanDescription(undefined)).toBeNull();
+  });
+});
+
 describe('buildPlanCards', () => {
   it('有料ロールごとにカードを作る', () => {
     expect(buildPlanCards(input()).map((c) => c.roleId)).toEqual([
@@ -88,6 +111,16 @@ describe('buildPlanCards', () => {
       'quick-clip-premium',
     ]);
     expect(card('livetalk-premium').name).toBe('LiveTalk プレミアム');
+  });
+
+  it('説明は商品の説明から出し、空や Price なしでは出さない', () => {
+    const withDescription = new Map([
+      ['livetalk-premium', { ...MONTHLY, product: { description: '商品の説明' } }],
+      ['quick-clip-premium', { ...MONTHLY, product: { description: '' } }],
+    ]);
+    expect(card('livetalk-premium', { prices: withDescription }).description).toBe('商品の説明');
+    expect(card('quick-clip-premium', { prices: withDescription }).description).toBeNull();
+    expect(card('quick-clip-premium').description).toBeNull();
   });
 
   it('未ログインは申し込みを出さず、手動の権利も見せない', () => {

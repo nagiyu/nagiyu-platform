@@ -82,6 +82,8 @@ export type BillingPrice = {
   unit_amount: number | null;
   currency: string;
   recurring: { interval: string; interval_count: number } | null;
+  /** 商品。`expand` しなければ ID の文字列で、説明は読めない */
+  product?: string | { id: string; description?: string | null; deleted?: unknown } | null;
 };
 
 /** 申し込み・契約の管理が Stripe に対して使う操作 */
@@ -97,6 +99,7 @@ export interface BillingOperationsStripe extends BillingStripe {
       lookup_keys: string[];
       active: boolean;
       limit: number;
+      expand?: string[];
     }): Promise<{ data: BillingPrice[] }>;
   };
   checkout: {

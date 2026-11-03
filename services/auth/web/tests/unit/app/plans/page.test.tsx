@@ -63,6 +63,26 @@ describe('PlansPage', () => {
     expect(loadPlansPageData).not.toHaveBeenCalled();
   });
 
+  it('説明があれば出し、無ければ要素ごと出さない', async () => {
+    (loadPlansPageData as jest.Mock).mockResolvedValue({
+      billingEnabled: true,
+      hasCustomer: false,
+      cards: [
+        baseCard,
+        {
+          ...baseCard,
+          roleId: 'quick-clip-premium',
+          name: 'QuickClip プレミアム',
+          description: null,
+        },
+      ],
+    });
+
+    render(await render_());
+
+    expect(screen.getAllByText('説明')).toHaveLength(1);
+  });
+
   it('未ログインはログインへの導線を出し、契約の管理は出さない', async () => {
     (getSession as jest.Mock).mockResolvedValue(null);
     (loadPlansPageData as jest.Mock).mockResolvedValue({

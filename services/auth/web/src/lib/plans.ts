@@ -12,6 +12,8 @@ export type PlanPrice = {
   unit_amount: number | null;
   currency: string;
   recurring: { interval: string; interval_count: number } | null;
+  /** 商品。説明を読めるのは展開されているときだけ */
+  product?: string | { description?: string | null; deleted?: unknown } | null;
 };
 
 /** Stripe の契約のうち表示に使う部分 */
@@ -29,7 +31,8 @@ export type PlanCardState = 'guest' | 'none' | 'subscribed' | 'canceling';
 export type PlanCard = {
   roleId: string;
   name: string;
-  description: string;
+  /** Stripe の商品の説明。空・無い・取れないときは null */
+  description: string | null;
   /** 「月額 ¥500 (税込)」の形。Price が無ければ null */
   priceLabel: string | null;
   state: PlanCardState;
@@ -92,6 +95,18 @@ export function formatPriceLabel(price: PlanPrice | undefined): string | null {
     return `${labels[0]} ${amount} (税込)`;
   }
   return `${labels[1](price.recurring.interval_count)} ${amount} (税込)`;
+}
+
+/**
+ * Price の商品から説明文を読む。空白だけの説明は無いものとして扱う。
+ */
+export function formatPlanDescription(price: PlanPrice | undefined): string | null {
+  const product = price?.product;
+  if (!product || typeof product === 'string' || product.deleted) {
+    return null;
+  }
+  const description = product.description?.trim();
+  return description ? description : null;
 }
 
 function isActiveGrant(grant: RoleGrant, now: number): boolean {
@@ -176,7 +191,7 @@ export function buildPlanCards(input: BuildPlanCardsInput): PlanCard[] {
     return {
       roleId,
       name: role.name,
-      description: role.description,
+      description: formatPlanDescription(input.prices.get(roleId)),
       priceLabel,
       state,
       stateLabel,
