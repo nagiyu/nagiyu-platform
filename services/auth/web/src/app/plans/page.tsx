@@ -33,9 +33,11 @@ function PlanCardView({ card, callbackUrl }: { card: PlanCard; callbackUrl: stri
           {card.state === 'subscribed' && <Chip size="sm">契約中</Chip>}
           {card.state === 'canceling' && <Chip size="sm">解約予約中</Chip>}
         </Box>
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-          {card.description}
-        </Typography>
+        {card.description && (
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            {card.description}
+          </Typography>
+        )}
         <Typography variant="h5" component="p" sx={{ mt: 2 }}>
           {card.priceLabel ?? PLANS_MESSAGES.PRICE_UNAVAILABLE}
         </Typography>
