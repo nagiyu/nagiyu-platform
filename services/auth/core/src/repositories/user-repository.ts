@@ -73,5 +73,21 @@ export interface UserRepository {
     userId: string,
     compute: (user: User) => RolesAndGrantsChange
   ): Promise<User>;
+  /**
+   * 手動ロールと課金の権利を、呼び出し側が先に読んだ `updatedAt` を条件にして 1 回だけ書く。
+   *
+   * 読み直しはしない。条件が合わないときは、旧形式の `UpdatedAt` でも次の読み直しで条件が合うよう、
+   * 中身を変えずに `UpdatedAt` だけを今の形に書き直してから `OptimisticLockError` を投げる。
+   * 外部の状態 (Stripe など) を読んだ後に書く呼び出し側が、その読み取りと同じ世代のユーザーに対してだけ
+   * 書き込むために使う。
+   *
+   * @throws EntityNotFoundError 対象のユーザーがいないとき
+   * @throws OptimisticLockError `expectedUpdatedAt` の後に別の書き込みがあったとき
+   */
+  updateRolesAndGrantsIfUnchanged(
+    userId: string,
+    change: RolesAndGrantsChange,
+    expectedUpdatedAt: number
+  ): Promise<User>;
   updateLastLogin(userId: string): Promise<void>;
 }

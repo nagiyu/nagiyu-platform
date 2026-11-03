@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createUserRepository } from '@nagiyu/auth-core';
 import { EntityNotFoundError } from '@nagiyu/aws';
 import { getSession } from '@/lib/auth/session';
+import { omitStripeCustomerId } from '@/lib/user-view';
 import { withApiErrorReporting } from '@/lib/api-error-reporting';
 import { COMMON_ERROR_MESSAGES, hasPermission } from '@nagiyu/common';
 import { readJsonObjectBody } from '@nagiyu/nextjs';
@@ -53,7 +54,7 @@ export const GET = withApiErrorReporting(
       return NextResponse.json({ error: ERROR_MESSAGES.USER_NOT_FOUND }, { status: 404 });
     }
 
-    return NextResponse.json(user);
+    return NextResponse.json(omitStripeCustomerId(user));
   },
   ERROR_MESSAGES.FETCH_USER_FAILED
 );
@@ -122,7 +123,7 @@ export const PATCH = withApiErrorReporting(
       // ユーザー情報を更新（リポジトリ層で存在チェックを実施）
       const updatedUser = await repo.updateUser(userId, validatedData);
 
-      return NextResponse.json(updatedUser);
+      return NextResponse.json(omitStripeCustomerId(updatedUser));
     } catch (error) {
       if (error instanceof ZodError) {
         return NextResponse.json(

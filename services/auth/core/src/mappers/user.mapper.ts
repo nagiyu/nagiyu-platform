@@ -134,6 +134,9 @@ export class UserMapper implements EntityMapper<User, UserKey> {
     if (entity.roleGrants !== undefined) {
       item.RoleGrants = entity.roleGrants.map(roleGrantToItem);
     }
+    if (entity.stripeCustomerId !== undefined) {
+      item.StripeCustomerId = entity.stripeCustomerId;
+    }
     if (entity.picture !== undefined) {
       item.Picture = entity.picture;
     }
@@ -167,6 +170,7 @@ export class UserMapper implements EntityMapper<User, UserKey> {
           ? changes.roleGrants
           : changes.roleGrants.map(roleGrantToItem)
       ),
+      StripeCustomerId: optionalPatchValue(changes.stripeCustomerId),
       Picture: optionalPatchValue(changes.picture),
       LastLoginAt: optionalPatchValue(changes.lastLoginAt),
     };
@@ -199,6 +203,11 @@ export class UserMapper implements EntityMapper<User, UserKey> {
     const roleGrants = item.RoleGrants;
     if (roleGrants !== undefined) {
       entity.roleGrants = validateArrayField(roleGrants, 'RoleGrants').map(roleGrantToEntity);
+    }
+
+    // 課金を始めていないユーザーの項目には属性が無い
+    if (item.StripeCustomerId !== undefined) {
+      entity.stripeCustomerId = validateStringField(item.StripeCustomerId, 'StripeCustomerId');
     }
 
     const picture = this.read(item, 'Picture');

@@ -164,6 +164,17 @@ Stripe の顧客の対応は P2 で決める。
 - 猶予の 3 日は、Stripe の通知の再送期間に合わせる。
 - 更新の通知を取りこぼした場合に備え、プランの画面を開いたときにも Stripe から取り直して同期する。
 
+### P2 の取り決め
+
+- **Stripe の顧客の対応**: ユーザーの項目に属性 `StripeCustomerId` を足す (D2 と同じ理由で別テーブルにしない)。顧客を作るときは Stripe の顧客の `metadata.userId` にユーザー ID を入れる。
+    - 通知の顧客 ID から `userId` を引くときは、Stripe の顧客の `metadata.userId` を読み、そのユーザーの `StripeCustomerId` が通知の顧客 ID と一致するかを確かめる。顧客 ID の索引 (GSI) は作らない。同期では毎回 Stripe に問い合わせるので、顧客の取得が 1 回増えるだけで済み、テーブルの定義を変えずに済む。
+    - 一致しない・ユーザーがいないときは、処理せず成功を返す (再送されても結果は同じため)。
+- **同期の中身**: 顧客の契約を Stripe から一覧し、`active` / `trialing` / `past_due` の契約の品目ごとに、商品の Feature の `lookup_key` を有料ロールとして得る。期限は品目の請求期間の終わり + 3 日。
+    - 得たロールに有効な Stripe 由来の権利があれば期限と参照を更新し、なければ作る。得たロールにない有効な Stripe 由来の権利は取り消す。
+    - `lookup_key` が有料ロールでないものは無視してログに残す。
+    - 書き込みは P1 の `updateRolesAndGrants` (楽観ロックとやり直しつき) を使う。
+- **鍵の受け渡し**: 秘密情報 `nagiyu-auth-stripe-{env}` (`{"secretKey":"...","webhookSecret":"..."}`) は CDK で作り、初期値は PLACEHOLDER にする。人が値を書き換える。既存の秘密情報のスタックには足さず、専用のスタック (`NagiyuAuthStripeSecrets{Env}`) に置く。dev で develop の版をデプロイしても、develop の版に無いスタックには触れないため、秘密情報と入れた値が消えない。デプロイは既存の秘密情報と同じく、値を読んで CDK の context → Lambda の環境変数で渡す。鍵が空か PLACEHOLDER のままなら、課金の API は使えない旨を返す (本番の鍵を入れるまでの本番もこの状態)。
+
 ### API (P2、仮)
 
 | メソッド | パス | 説明 | 認証 |

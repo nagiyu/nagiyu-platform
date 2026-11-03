@@ -3,6 +3,7 @@ import { createUserRepository } from '@nagiyu/auth-core';
 import { COMMON_ERROR_MESSAGES, hasPermission } from '@nagiyu/common';
 import { PaginationValidationError, parsePagination } from '@nagiyu/nextjs';
 import { getSession } from '@/lib/auth/session';
+import { omitStripeCustomerId } from '@/lib/user-view';
 import { withApiErrorReporting } from '@/lib/api-error-reporting';
 
 // エラーメッセージ定数
@@ -52,7 +53,7 @@ export const GET = withApiErrorReporting(
 
       // レスポンスを返す
       return NextResponse.json({
-        users: result.items,
+        users: result.items.map(omitStripeCustomerId),
         pagination: {
           count: result.items.length,
           lastKey: result.nextCursor,

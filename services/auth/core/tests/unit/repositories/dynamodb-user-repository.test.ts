@@ -441,4 +441,51 @@ describe('DynamoDBUserRepository', () => {
       expect(mockSend).toHaveBeenCalledTimes(2);
     });
   });
+
+  describe('updateRolesAndGrantsIfUnchanged', () => {
+    const conflict = () =>
+      Object.assign(new Error('conditional'), {
+        name: 'ConditionalCheckFailedException',
+        Item: buildStoredUser(),
+      });
+
+    it('指定した updatedAt を条件に 1 回だけ書く', async () => {
+      mockSend.mockResolvedValueOnce({ Attributes: buildStoredUser({ Roles: ['admin'] }) });
+
+      const result = await repository.updateRolesAndGrantsIfUnchanged(
+        'user-123',
+        { roles: ['admin'] },
+        NOW
+      );
+
+      expect(result.roles).toEqual(['admin']);
+      expect(mockSend).toHaveBeenCalledTimes(1);
+      const command = mockSend.mock.calls[0][0];
+      expect(command.input.ConditionExpression).toContain('#updatedAt = :expectedUpdatedAt');
+      expect(command.input.ExpressionAttributeValues[':expectedUpdatedAt']).toBe(NOW);
+    });
+
+    it('競合したら UpdatedAt だけを書き直し、読み直さずに OptimisticLockError を投げる', async () => {
+      mockSend
+        .mockRejectedValueOnce(conflict())
+        .mockResolvedValueOnce({ Attributes: buildStoredUser() });
+
+      await expect(
+        repository.updateRolesAndGrantsIfUnchanged('user-123', { roles: ['admin'] }, NOW - 1)
+      ).rejects.toBeInstanceOf(OptimisticLockError);
+
+      expect(mockSend).toHaveBeenCalledTimes(2);
+      const touched = mockSend.mock.calls[1][0];
+      expect(touched.input.ConditionExpression).not.toContain(':expectedUpdatedAt');
+    });
+
+    it('競合以外のエラーは書き直さずに伝える', async () => {
+      mockSend.mockRejectedValueOnce(new Error('boom'));
+
+      await expect(
+        repository.updateRolesAndGrantsIfUnchanged('user-123', {}, NOW)
+      ).rejects.toBeInstanceOf(DatabaseError);
+      expect(mockSend).toHaveBeenCalledTimes(1);
+    });
+  });
 });

@@ -245,4 +245,63 @@ describe('InMemoryUserRepository', () => {
       expect(calls).toBe(3);
     });
   });
+
+  describe('updateRolesAndGrantsIfUnchanged', () => {
+    async function createUser() {
+      return repository.upsertUser({ googleId: 'google-1', email: 'a@example.com', name: 'A' });
+    }
+
+    it('読んだ updatedAt が合っていれば 1 回で書く', async () => {
+      const created = await createUser();
+
+      const updated = await repository.updateRolesAndGrantsIfUnchanged(
+        created.userId,
+        { roles: ['admin'] },
+        created.updatedAt
+      );
+
+      expect(updated.roles).toEqual(['admin']);
+    });
+
+    it('読んだ後に別の書き込みがあれば書かず、OptimisticLockError にする', async () => {
+      const created = await createUser();
+      const raw = store.getByKey({ userId: created.userId }) as Record<string, unknown>;
+      store.putByKey({ userId: created.userId }, { ...raw, UpdatedAt: created.updatedAt + 10 });
+
+      await expect(
+        repository.updateRolesAndGrantsIfUnchanged(
+          created.userId,
+          { roles: ['admin'] },
+          created.updatedAt
+        )
+      ).rejects.toBeInstanceOf(OptimisticLockError);
+      expect((await repository.getUserById(created.userId))?.roles).toEqual([]);
+    });
+
+    it('UpdatedAt が旧形式なら、競合の後に今の形へ書き直して読み直しで書ける状態にする', async () => {
+      const created = await createUser();
+      const raw = { ...(store.getByKey({ userId: created.userId }) as Record<string, unknown>) };
+      delete raw.UpdatedAt;
+      raw.updatedAt = '2024-01-01T00:00:00.000Z';
+      store.putByKey({ userId: created.userId }, raw);
+
+      await expect(
+        repository.updateRolesAndGrantsIfUnchanged(created.userId, { roles: ['admin'] }, 0)
+      ).rejects.toBeInstanceOf(OptimisticLockError);
+
+      const reread = await repository.getUserById(created.userId);
+      const updated = await repository.updateRolesAndGrantsIfUnchanged(
+        created.userId,
+        { roles: ['admin'] },
+        reread?.updatedAt as number
+      );
+      expect(updated.roles).toEqual(['admin']);
+    });
+
+    it('存在しないユーザーは EntityNotFoundError になる', async () => {
+      await expect(
+        repository.updateRolesAndGrantsIfUnchanged('none', {}, 1)
+      ).rejects.toBeInstanceOf(EntityNotFoundError);
+    });
+  });
 });
