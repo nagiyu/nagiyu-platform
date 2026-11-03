@@ -2,7 +2,7 @@
  * Unit tests for UserEditForm component
  */
 
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
 import { useRouter } from 'next/navigation';
 import { UserEditForm } from '../../../../../src/app/dashboard/users/[userId]/edit/user-edit-form';
 
@@ -438,6 +438,200 @@ describe('UserEditForm', () => {
         expect(screen.getByText('不正なレスポンス形式です')).toBeInTheDocument();
       });
       expectHeadingAndBackLink();
+    });
+  });
+
+  describe('課金の権利', () => {
+    const FUTURE = Date.UTC(2099, 11, 31, 14, 59, 59, 999);
+    const baseUser = {
+      userId: 'user-123',
+      name: 'テストユーザー',
+      email: 'test@example.com',
+      roles: [],
+      roleGrants: [
+        {
+          grantId: 'm1',
+          roleId: 'admin',
+          source: 'manual',
+          sourceRef: '支援',
+          expiresAt: FUTURE,
+          createdAt: 1,
+          updatedAt: 1,
+        },
+        {
+          grantId: 's1',
+          roleId: 'user-manager',
+          source: 'stripe',
+          expiresAt: FUTURE,
+          createdAt: 1,
+          updatedAt: 1,
+        },
+        {
+          grantId: 'r1',
+          roleId: 'admin',
+          source: 'manual',
+          expiresAt: FUTURE,
+          revokedAt: 5,
+          createdAt: 1,
+          updatedAt: 1,
+        },
+        {
+          grantId: 'e1',
+          roleId: 'user-manager',
+          source: 'manual',
+          expiresAt: 1000,
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      ],
+    };
+
+    function mockLoad(user: unknown = baseUser) {
+      (global.fetch as jest.Mock)
+        .mockResolvedValueOnce({ ok: true, json: async () => user })
+        .mockResolvedValue({ ok: true, json: async () => ({}) });
+    }
+
+    async function renderForm() {
+      render(<UserEditForm userId="user-123" />);
+      await waitFor(() => expect(screen.getByText('課金の権利')).toBeInTheDocument());
+    }
+
+    function lastBody() {
+      const calls = (global.fetch as jest.Mock).mock.calls;
+      return JSON.parse(calls[calls.length - 1][1].body);
+    }
+
+    function rowOf(text: string) {
+      return screen
+        .getAllByTestId('grant-row')
+        .find((r) => r.textContent?.includes(text)) as HTMLElement;
+    }
+
+    it('権利が無いときは空表示で、grantChanges を送らない', async () => {
+      mockLoad({ ...baseUser, roleGrants: undefined });
+      await renderForm();
+      expect(screen.getByText('課金の権利はありません')).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: '保存' }));
+      await waitFor(() => expect(mockPush).toHaveBeenCalled());
+      expect(lastBody()).toEqual({ roles: [] });
+    });
+
+    it('出どころ・状態・メモを表示し、操作は手動かつ取り消し前のものだけに出す', async () => {
+      mockLoad();
+      await renderForm();
+      expect(screen.getAllByTestId('grant-row')).toHaveLength(4);
+      expect(within(rowOf('支援')).getByText('手動')).toBeInTheDocument();
+      expect(within(rowOf('支援')).getByText('有効')).toBeInTheDocument();
+      expect(within(rowOf('支援')).getByText('2099-12-31')).toBeInTheDocument();
+      expect(within(rowOf('Stripe')).queryByRole('button')).not.toBeInTheDocument();
+      expect(
+        within(screen.getAllByTestId('grant-row')[2]).queryByRole('button')
+      ).not.toBeInTheDocument();
+      expect(
+        within(rowOf('期限切れ')).getByRole('button', { name: '期限の変更' })
+      ).toBeInTheDocument();
+    });
+
+    it('取り消しは保存前の変更として表示し、元に戻せる', async () => {
+      mockLoad();
+      await renderForm();
+      fireEvent.click(within(rowOf('支援')).getByRole('button', { name: '取り消し' }));
+      expect(within(rowOf('支援')).getByText('取り消し予定')).toBeInTheDocument();
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+      fireEvent.click(within(rowOf('支援')).getByRole('button', { name: '元に戻す' }));
+      expect(screen.queryByText('取り消し予定')).not.toBeInTheDocument();
+    });
+
+    it('取り消しを保存で送る', async () => {
+      mockLoad();
+      await renderForm();
+      fireEvent.click(within(rowOf('支援')).getByRole('button', { name: '取り消し' }));
+      fireEvent.click(screen.getByRole('button', { name: '保存' }));
+      await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/dashboard/users'));
+      expect(lastBody()).toEqual({ roles: [], grantChanges: { revoke: ['m1'] } });
+    });
+
+    it('期限切れの権利の期限を変更して保存できる', async () => {
+      mockLoad();
+      await renderForm();
+      fireEvent.click(within(rowOf('期限切れ')).getByRole('button', { name: '期限の変更' }));
+      fireEvent.change(screen.getByLabelText('新しい期限'), { target: { value: '2099-06-30' } });
+      fireEvent.click(screen.getByRole('button', { name: '決定' }));
+      expect(screen.getByText('期限変更予定')).toBeInTheDocument();
+      expect(screen.getByText('2099-06-30')).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: '保存' }));
+      await waitFor(() => expect(mockPush).toHaveBeenCalled());
+      expect(lastBody()).toEqual({
+        roles: [],
+        grantChanges: {
+          extend: [{ grantId: 'e1', expiresAt: Date.UTC(2099, 5, 30, 14, 59, 59, 999) }],
+        },
+      });
+    });
+
+    it('期限の変更で過去の日付はエラーにし、やめると閉じる', async () => {
+      mockLoad();
+      await renderForm();
+      fireEvent.click(within(rowOf('支援')).getByRole('button', { name: '期限の変更' }));
+      fireEvent.change(screen.getByLabelText('新しい期限'), { target: { value: '2000-01-01' } });
+      fireEvent.click(screen.getByRole('button', { name: '決定' }));
+      expect(screen.getByText('有効期限は今日以降の日付を指定してください')).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: 'やめる' }));
+      expect(screen.queryByLabelText('新しい期限')).not.toBeInTheDocument();
+    });
+
+    it('権利を追加して保存できる (メモ付き)', async () => {
+      mockLoad();
+      await renderForm();
+      fireEvent.change(screen.getByLabelText('ロール'), { target: { value: 'admin' } });
+      fireEvent.change(screen.getByLabelText(/^有効期限/), { target: { value: '2099-01-01' } });
+      fireEvent.change(screen.getByLabelText('メモ'), { target: { value: '寄付' } });
+      fireEvent.click(screen.getByRole('button', { name: '追加' }));
+      expect(screen.getByText('追加予定')).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: '保存' }));
+      await waitFor(() => expect(mockPush).toHaveBeenCalled());
+      expect(lastBody().grantChanges).toEqual({
+        add: [
+          { roleId: 'admin', expiresAt: Date.UTC(2099, 0, 1, 14, 59, 59, 999), sourceRef: '寄付' },
+        ],
+      });
+    });
+
+    it('追加の入力が不足していればエラーを出し、追加予定は取りやめられる', async () => {
+      mockLoad();
+      await renderForm();
+      fireEvent.click(screen.getByRole('button', { name: '追加' }));
+      expect(screen.getByText('ロールを選択してください')).toBeInTheDocument();
+      fireEvent.change(screen.getByLabelText('ロール'), { target: { value: 'admin' } });
+      fireEvent.change(screen.getByLabelText(/^有効期限/), { target: { value: '2099-01-01' } });
+      fireEvent.click(screen.getByRole('button', { name: '追加' }));
+      expect(screen.queryByText('ロールを選択してください')).not.toBeInTheDocument();
+      fireEvent.click(within(rowOf('追加予定')).getByRole('button', { name: '元に戻す' }));
+      expect(screen.queryByText('追加予定')).not.toBeInTheDocument();
+    });
+
+    it('メモ欄で Enter を押しても保存は送られない', async () => {
+      mockLoad();
+      await renderForm();
+      fireEvent.keyDown(screen.getByLabelText('メモ'), { key: 'Enter' });
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+    });
+
+    it('API の権利の検証エラーを表示する', async () => {
+      (global.fetch as jest.Mock)
+        .mockResolvedValueOnce({ ok: true, json: async () => baseUser })
+        .mockResolvedValueOnce({
+          ok: false,
+          json: async () => ({ error: '他の更新と競合しました。再読み込みしてください' }),
+        });
+      await renderForm();
+      fireEvent.click(screen.getByRole('button', { name: '保存' }));
+      await waitFor(() =>
+        expect(
+          screen.getByText('他の更新と競合しました。再読み込みしてください')
+        ).toBeInTheDocument()
+      );
     });
   });
 });

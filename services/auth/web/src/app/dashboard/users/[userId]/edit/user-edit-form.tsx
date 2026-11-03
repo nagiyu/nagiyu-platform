@@ -8,6 +8,12 @@ import Link from 'next/link';
 import { VALID_ROLES } from '@nagiyu/common';
 import type { User } from '@nagiyu/common';
 import { getRoleDescription, getRoleName } from '@/lib/role-display';
+import {
+  EMPTY_PENDING_GRANT_CHANGES,
+  buildGrantChanges,
+  type PendingGrantChanges,
+} from '@/lib/role-grant-editing';
+import { RoleGrantsSection } from './role-grants-section';
 
 interface UserEditFormProps {
   userId: string;
@@ -49,6 +55,9 @@ function RoleLabel({ roleId }: { roleId: string }) {
 export function UserEditForm({ userId }: UserEditFormProps) {
   const [user, setUser] = useState<User | null>(null);
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
+  const [pendingGrants, setPendingGrants] = useState<PendingGrantChanges>(
+    EMPTY_PENDING_GRANT_CHANGES
+  );
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -96,7 +105,10 @@ export function UserEditForm({ userId }: UserEditFormProps) {
       const response = await fetch(`/api/users/${userId}/roles`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ roles: selectedRoles }),
+        body: JSON.stringify({
+          roles: selectedRoles,
+          grantChanges: buildGrantChanges(pendingGrants),
+        }),
       });
 
       if (!response.ok) {
@@ -179,6 +191,13 @@ export function UserEditForm({ userId }: UserEditFormProps) {
               />
             ))}
           </FormGroup>
+
+          <RoleGrantsSection
+            grants={user.roleGrants ?? []}
+            pending={pendingGrants}
+            onPendingChange={setPendingGrants}
+            disabled={saving}
+          />
 
           <Box sx={{ mt: 3, display: 'flex', gap: 2 }}>
             <Button type="submit" variant="solid" disabled={saving}>
