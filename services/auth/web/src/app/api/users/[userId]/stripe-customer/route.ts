@@ -6,7 +6,6 @@ import { buildStripeUnlink, StripeCustomerNotLinkedError } from '@/lib/stripe-cu
 import { getSession } from '@/lib/auth/session';
 import { withApiErrorReporting } from '@/lib/api-error-reporting';
 
-// エラーメッセージ定数
 const ERROR_MESSAGES = {
   UNAUTHORIZED: COMMON_ERROR_MESSAGES.UNAUTHORIZED,
   FORBIDDEN: COMMON_ERROR_MESSAGES.FORBIDDEN,
@@ -18,9 +17,7 @@ const ERROR_MESSAGES = {
 /**
  * DELETE /api/users/[userId]/stripe-customer - Stripe の顧客との対応を外す
  *
- * Stripe 上の顧客や契約は変更しない (Stripe の API は呼ばない)。
- * 対応の削除と、Stripe 由来の有効な権利の取り消しを 1 回の書き込みで行う。手動の権利には触れない。
- * 対応が無いユーザーは、すでに外れた状態と区別するため 404 を返す。
+ * Stripe 上の顧客や契約は変更しない。対応が無いユーザーは 404 を返す。
  *
  * 必要な権限: roles:assign
  */

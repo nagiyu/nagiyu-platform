@@ -5,11 +5,6 @@ export const STRIPE_UNLINK_ERROR_MESSAGES = {
   NOT_LINKED: 'このユーザーは Stripe の顧客と対応していません',
 } as const;
 
-/**
- * 対応を外す対象が、対応していないユーザーだったときのエラー。
- *
- * 呼び出し側が 404 に変換できるよう、ほかの例外と区別する。
- */
 export class StripeCustomerNotLinkedError extends Error {
   constructor() {
     super(STRIPE_UNLINK_ERROR_MESSAGES.NOT_LINKED);
@@ -17,21 +12,17 @@ export class StripeCustomerNotLinkedError extends Error {
   }
 }
 
-/** リポジトリの書き換え内容 */
 export type AppliedStripeUnlink = {
   stripeCustomerId: null;
   roleGrants: RoleGrant[];
 };
 
 /**
- * Stripe の顧客との対応を外し、Stripe 由来の有効な権利を取り消す内容を作る。
+ * 対応を外し、Stripe 由来の有効な権利を取り消す内容を作る。
  *
- * 対応が外れると以降の通知で権利を書き換えられなくなる。取り消さずに残すと、解約済みでも期限まで
- * 有料ロールが残り続けるため、同じ書き込みで取り消す。手動の権利には触れない。
- * リポジトリがやり直すたびに呼ばれるため、引数以外に依存しない。
+ * 対応が外れると以降の通知で権利を書き換えられなくなり、残した権利は期限まで有料ロールを与え続けるため、
+ * 同じ書き込みで取り消す。リポジトリがやり直すたびに呼ばれるため、引数以外に依存しない。
  *
- * @param user - 読んだ時点のユーザー
- * @param now - 現在時刻 (Unix ミリ秒)
  * @throws StripeCustomerNotLinkedError 対応が無いとき
  */
 export function buildStripeUnlink(user: User, now: number): AppliedStripeUnlink {

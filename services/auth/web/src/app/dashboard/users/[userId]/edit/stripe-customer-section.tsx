@@ -17,17 +17,11 @@ const LABELS = {
 interface StripeCustomerSectionProps {
   userId: string;
   customerId: string;
-  /** 保存中など、ほかの操作と重ならないよう操作を止める */
   disabled: boolean;
-  /** 対応を外した後の、更新されたユーザー (形式は未検証) */
   onUnlinked: (user: unknown) => void;
 }
 
-/**
- * ユーザー編集画面の Stripe の顧客の対応の欄。
- *
- * 下部の「保存」でまとめて送る変更とは別に、確認のうえその場で実行する。
- */
+/** 「保存」でまとめて送る変更とは別に、確認のうえその場で実行する */
 export function StripeCustomerSection({
   userId,
   customerId,
