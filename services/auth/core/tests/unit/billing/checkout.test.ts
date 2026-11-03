@@ -116,6 +116,7 @@ describe('listPlanPrices', () => {
       expect.objectContaining({
         active: true,
         lookup_keys: expect.arrayContaining(['livetalk-premium']),
+        expand: ['data.product'],
       })
     );
     expect([...prices.keys()]).toEqual(['livetalk-premium']);

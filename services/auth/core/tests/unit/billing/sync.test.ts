@@ -79,7 +79,18 @@ describe('syncStripeCustomer', () => {
 
     const result = await syncStripeCustomer(deps(stripe, repo), 'cus_1');
 
-    expect(result).toEqual({ synced: true, changed: true });
+    expect(result).toEqual({
+      synced: true,
+      changed: true,
+      subscriptions: [
+        {
+          roleId: 'livetalk-premium',
+          subscriptionId: 'sub_1',
+          currentPeriodEnd: PERIOD_END_SEC * 1000,
+          endsAt: null,
+        },
+      ],
+    });
     const user = await repo.getUserById(userId);
     expect(user?.roleGrants).toEqual([
       {
@@ -107,7 +118,7 @@ describe('syncStripeCustomer', () => {
 
     const result = await syncStripeCustomer(deps(stripe, repo), 'cus_1');
 
-    expect(result).toEqual({ synced: true, changed: false });
+    expect(result).toMatchObject({ synced: true, changed: false });
     expect(spy).not.toHaveBeenCalled();
     expect(await repo.getUserById(userId)).toEqual(before);
   });
@@ -209,7 +220,7 @@ describe('syncStripeCustomer', () => {
 
       const result = await syncStripeCustomer(deps(stripe, repo), 'cus_1');
 
-      expect(result).toEqual({ synced: true, changed: true });
+      expect(result).toMatchObject({ synced: true, changed: true });
       expect(stripe.subscriptions.list).toHaveBeenCalledTimes(2);
       const grants = (await repo.getUserById(created.userId))?.roleGrants;
       expect(grants?.map((g) => [g.roleId, g.sourceRef])).toEqual([
@@ -269,7 +280,7 @@ describe('syncStripeCustomer', () => {
 
     const result = await syncStripeCustomer(deps(stripe, repo), 'cus_1');
 
-    expect(result).toEqual({ synced: true, changed: false });
+    expect(result).toMatchObject({ synced: true, changed: false });
     expect((await repo.getUserById(userId))?.roleGrants).toBeUndefined();
   });
 

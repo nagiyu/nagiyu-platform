@@ -56,6 +56,7 @@ export async function listPlanPrices(
     lookup_keys: PAID_ROLES,
     active: true,
     limit: 100,
+    expand: ['data.product'],
   });
   const byRole = new Map<string, BillingPrice>();
   for (const price of prices.data) {

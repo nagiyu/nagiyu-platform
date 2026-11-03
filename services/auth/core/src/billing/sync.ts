@@ -12,7 +12,7 @@ const ENTITLING_STATUSES: ReadonlySet<string> = new Set(['active', 'trialing', '
 export const GRACE_PERIOD_MS = 3 * 24 * 60 * 60 * 1000;
 
 export type SyncResult =
-  | { synced: true; changed: boolean }
+  | { synced: true; changed: boolean; subscriptions: EntitledSubscription[] }
   | { synced: false; reason: 'customer-deleted' | 'user-not-found' | 'customer-mismatch' };
 
 export type SyncDependencies = {
@@ -84,11 +84,7 @@ export async function listEntitledSubscriptions(
   return entitled;
 }
 
-async function fetchDesiredRoles(
-  stripe: BillingStripe,
-  customerId: string
-): Promise<DesiredStripeRole[]> {
-  const entitled = await listEntitledSubscriptions(stripe, customerId);
+function toDesiredRoles(entitled: EntitledSubscription[]): DesiredStripeRole[] {
   return entitled.map((entry) => ({
     roleId: entry.roleId,
     expiresAt: entry.currentPeriodEnd + GRACE_PERIOD_MS,
@@ -138,7 +134,8 @@ export async function syncStripeCustomer(
       return { synced: false, reason: 'customer-mismatch' };
     }
 
-    const desired = await fetchDesiredRoles(stripe, customerId);
+    const subscriptions = await listEntitledSubscriptions(stripe, customerId);
+    const desired = toDesiredRoles(subscriptions);
 
     // 変更の有無だけを見る計算なので、権利の ID は消費しない
     const current = user.roleGrants ?? [];
@@ -148,7 +145,7 @@ export async function syncStripeCustomer(
         computeStripeGrants(current, desired, now(), () => '')
       )
     ) {
-      return { synced: true, changed: false };
+      return { synced: true, changed: false, subscriptions };
     }
 
     try {
@@ -157,7 +154,7 @@ export async function syncStripeCustomer(
         { roleGrants: computeStripeGrants(current, desired, now(), generateId) },
         user.updatedAt
       );
-      return { synced: true, changed: true };
+      return { synced: true, changed: true, subscriptions };
     } catch (error) {
       if (error instanceof OptimisticLockError) {
         lastError = error;

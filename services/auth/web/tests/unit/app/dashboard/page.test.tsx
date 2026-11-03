@@ -61,4 +61,14 @@ describe('DashboardPage', () => {
 
     expect(screen.getByText('なし')).toBeInTheDocument();
   });
+
+  it('プランの画面へのリンクを表示する', async () => {
+    (getSession as jest.Mock).mockResolvedValue({
+      user: { id: 'user-1', name: 'テストユーザー', email: 'user@example.com', roles: [] },
+    });
+
+    render(await DashboardPage());
+
+    expect(screen.getByRole('link', { name: 'プランを見る' })).toHaveAttribute('href', '/plans');
+  });
 });
