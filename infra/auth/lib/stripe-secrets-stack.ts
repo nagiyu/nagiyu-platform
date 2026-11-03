@@ -9,10 +9,6 @@ export interface StripeSecretsStackProps extends cdk.StackProps {
 
 /**
  * Stripe の鍵の秘密情報。
- *
- * 既存の SecretsStack には足さない。dev では develop の版と integration の版が後勝ちで上書きし合い、
- * 既存のスタックに足すと develop の版のデプロイでリソースが外れて秘密情報が削除され、
- * 手で入れた値が失われるため。別スタックなら develop の版のデプロイは触れない。
  */
 export class StripeSecretsStack extends cdk.Stack {
   public readonly stripeSecret: secretsmanager.Secret;
