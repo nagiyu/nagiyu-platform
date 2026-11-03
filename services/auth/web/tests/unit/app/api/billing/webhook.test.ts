@@ -16,7 +16,6 @@ jest.mock('@nagiyu/auth-core', () => ({
   BILLING_ERROR_MESSAGES: {
     BILLING_DISABLED: '課金は有効になっていません',
     INVALID_SIGNATURE: '通知の署名を検証できませんでした',
-    CUSTOMER_LOOKUP_FAILED: 'Stripe の顧客を取得できませんでした',
   },
   getBillingConfig: () => mockGetBillingConfig(),
   createBillingStripe: jest.fn(() => ({

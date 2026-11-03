@@ -4,9 +4,9 @@ import { EntityNotFoundError, OptimisticLockError } from '@nagiyu/aws';
 import { COMMON_ERROR_MESSAGES, VALID_ROLES, hasPermission } from '@nagiyu/common';
 import { readJsonObjectBody } from '@nagiyu/nextjs';
 import { z } from 'zod';
-import { applyGrantChanges, GrantChangeError, omitStripeCustomerId } from '@/lib/role-grants';
+import { applyGrantChanges, GrantChangeError } from '@/lib/role-grants';
+import { omitStripeCustomerId } from '@/lib/user-view';
 import { getSession } from '@/lib/auth/session';
-
 import { withApiErrorReporting } from '@/lib/api-error-reporting';
 import { USER_VALIDATION_ERROR_MESSAGES } from '../../schemas';
 
