@@ -52,7 +52,6 @@ async function setup(stripeCustomerId: string | null = 'cus_1') {
   const repo = new InMemoryUserRepository(store);
   const created = await repo.upsertUser({ googleId: 'g1', email: 'a@example.com', name: 'A' });
   if (stripeCustomerId !== null) {
-    // 顧客の対応を保存する更新経路はまだ無いため、保存済みの項目に属性を足す
     const key = { userId: created.userId };
     store.putByKey(key, { ...store.getByKey(key), StripeCustomerId: stripeCustomerId });
   }
@@ -170,7 +169,6 @@ describe('syncStripeCustomer', () => {
   });
 
   describe('同期中に別の書き込みが割り込んだとき', () => {
-    /** Stripe を読んでいる最中に、別のハンドラーがユーザーを書き換えたことにする */
     async function interruptOnList(
       stripe: ReturnType<typeof buildStripe>,
       store: InMemorySingleTableStore,
