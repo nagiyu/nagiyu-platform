@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createUserRepository } from '@nagiyu/auth-core';
 import { EntityNotFoundError } from '@nagiyu/aws';
 import { getSession } from '@/lib/auth/session';
-import { omitStripeCustomerId } from '@/lib/role-grants';
+import { omitStripeCustomerId } from '@/lib/user-view';
 import { withApiErrorReporting } from '@/lib/api-error-reporting';
 import { COMMON_ERROR_MESSAGES, hasPermission } from '@nagiyu/common';
 import { readJsonObjectBody } from '@nagiyu/nextjs';

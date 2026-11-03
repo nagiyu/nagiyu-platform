@@ -14,7 +14,10 @@ import type {
   UpsertUserInput,
   UserRepository,
 } from './user-repository';
-import { updateRolesAndGrantsWithRetry } from './update-roles-and-grants';
+import {
+  updateRolesAndGrantsWithRetry,
+  writeOnceRefreshingOnConflict,
+} from './update-roles-and-grants';
 
 /**
  * InMemory User Repository
@@ -98,6 +101,20 @@ export class InMemoryUserRepository implements UserRepository {
       (id) => this.getUserById(id),
       (id, change, expectedUpdatedAt) =>
         this.entityStore.update({ userId: id }, change, { expectedUpdatedAt }),
+      async (id) => {
+        await this.entityStore.update({ userId: id }, {});
+      }
+    );
+  }
+
+  public async updateRolesAndGrantsIfUnchanged(
+    userId: string,
+    change: RolesAndGrantsChange,
+    expectedUpdatedAt: number
+  ): Promise<User> {
+    return writeOnceRefreshingOnConflict(
+      userId,
+      () => this.entityStore.update({ userId }, change, { expectedUpdatedAt }),
       async (id) => {
         await this.entityStore.update({ userId: id }, {});
       }

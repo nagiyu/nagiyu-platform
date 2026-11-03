@@ -47,3 +47,26 @@ export async function updateRolesAndGrantsWithRetry(
 
   throw lastError as OptimisticLockError;
 }
+
+/**
+ * 指定した `expectedUpdatedAt` を条件に 1 回だけ書き、競合したら `UpdatedAt` を今の形に直してから投げ直す。
+ *
+ * 旧形式の項目は条件が一致しないため、直さないと呼び出し側が読み直しても永遠に競合する。
+ *
+ * @param write - `expectedUpdatedAt` を条件にして書く
+ * @param touch - 中身を変えずに `UpdatedAt` だけを今の形で書き直す
+ */
+export async function writeOnceRefreshingOnConflict(
+  userId: string,
+  write: () => Promise<User>,
+  touch: (userId: string) => Promise<void>
+): Promise<User> {
+  try {
+    return await write();
+  } catch (error) {
+    if (error instanceof OptimisticLockError) {
+      await touch(userId);
+    }
+    throw error;
+  }
+}

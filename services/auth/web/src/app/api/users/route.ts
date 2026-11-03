@@ -3,7 +3,7 @@ import { createUserRepository } from '@nagiyu/auth-core';
 import { COMMON_ERROR_MESSAGES, hasPermission } from '@nagiyu/common';
 import { PaginationValidationError, parsePagination } from '@nagiyu/nextjs';
 import { getSession } from '@/lib/auth/session';
-import { omitStripeCustomerId } from '@/lib/role-grants';
+import { omitStripeCustomerId } from '@/lib/user-view';
 import { withApiErrorReporting } from '@/lib/api-error-reporting';
 
 // エラーメッセージ定数
