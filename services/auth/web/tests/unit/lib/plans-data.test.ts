@@ -60,7 +60,6 @@ function buildStripe(options: Options = {}) {
   } as unknown as BillingOperationsStripe;
 }
 
-/** 楽観ロックを要さない単純な 1 ユーザー分のリポジトリ */
 function buildRepository(initial: User): UserRepository {
   let current = initial;
   return {

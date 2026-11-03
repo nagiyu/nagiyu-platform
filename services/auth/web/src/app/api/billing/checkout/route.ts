@@ -27,11 +27,7 @@ const ERROR_MESSAGES = {
   CHECKOUT_FAILED: '申し込みの準備に失敗しました',
 } as const;
 
-/**
- * POST /api/billing/checkout - 申し込みの Checkout Session を作り、その URL を返す
- *
- * body は `{ roleId, callbackUrl? }`。同じロールを与える契約が既にあれば作らない。
- */
+/** POST /api/billing/checkout - 申し込みの Checkout Session の URL を返す */
 export const POST = withApiErrorReporting(
   'Web API: 申し込みの準備エラー',
   async (request: NextRequest) => {

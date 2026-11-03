@@ -56,7 +56,6 @@ export async function listPlanPrices(
     lookup_keys: PAID_ROLES,
     active: true,
     limit: 100,
-    // 説明文を商品から読むため、商品を ID ではなく中身ごと得る
     expand: ['data.product'],
   });
   const byRole = new Map<string, BillingPrice>();

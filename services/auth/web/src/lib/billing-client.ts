@@ -1,9 +1,3 @@
-/**
- * プランの画面のボタンが課金の API を呼ぶ処理。
- *
- * 画面部品から切り離し、通信の失敗と API のエラーを日本語の文言にそろえてテストできるようにする。
- */
-
 export const BILLING_CLIENT_MESSAGES = {
   REQUEST_FAILED: '通信に失敗しました。時間をおいてもう一度お試しください',
   UNEXPECTED: '予期しない応答でした。時間をおいてもう一度お試しください',
@@ -11,12 +5,6 @@ export const BILLING_CLIENT_MESSAGES = {
 
 export type RedirectUrlResult = { ok: true; url: string } | { ok: false; message: string };
 
-/**
- * API を POST で呼び、返された URL を取り出す。
- *
- * @param path - API のパス
- * @param body - リクエストの本文
- */
 export async function requestRedirectUrl(
   path: string,
   body: Record<string, unknown>

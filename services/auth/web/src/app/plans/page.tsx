@@ -13,7 +13,6 @@ import { resolveBaseUrl } from '@/lib/signout';
 import { PlanActionButton } from './plan-actions';
 
 interface PlansPageProps {
-  // 同じキーを重ねると配列になる
   searchParams: Promise<{ checkout?: string | string[]; callbackUrl?: string | string[] }>;
 }
 

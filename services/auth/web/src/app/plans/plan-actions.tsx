@@ -7,17 +7,12 @@ import { requestRedirectUrl } from '../../lib/billing-client';
 import { navigateTo } from '../../lib/navigate';
 
 interface PlanActionButtonProps {
-  /** 呼ぶ API。申し込みか契約の管理 */
   endpoint: '/api/billing/checkout' | '/api/billing/portal';
-  /** API に渡す本文 */
   body: Record<string, unknown>;
   label: string;
   variant?: 'solid' | 'outline';
 }
 
-/**
- * 課金の API を呼び、返された URL (Stripe の画面) へ遷移するボタン。
- */
 export function PlanActionButton({
   endpoint,
   body,

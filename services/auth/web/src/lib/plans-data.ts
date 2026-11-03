@@ -10,7 +10,6 @@ import {
 } from '@nagiyu/auth-core';
 import { buildPlanCards, type PlanCard, type PlanPrice } from './plans';
 
-/** プランの画面が表示のために読み込むデータ */
 export type PlansPageData =
   { billingEnabled: false } | { billingEnabled: true; cards: PlanCard[]; hasCustomer: boolean };
 
@@ -20,20 +19,13 @@ export type PlansDependencies = {
   now?: () => number;
 };
 
-/** 同期の結果。画面の表示に使う */
 export type PlansSyncResult = {
-  /** 同期後のユーザー。いなければ null */
   user: User | null;
-  /** 同期が Stripe から読んだ契約。同期しなかった・失敗したときは null */
+  /** 同期が読んだ契約。同期しなかった・失敗したときは null */
   subscriptions: EntitledSubscription[] | null;
 };
 
-/**
- * ログイン中のユーザーを Stripe の状態に同期する。
- *
- * 失敗しても画面を壊さない。同期は通知の取りこぼしの保険であり、表示は DB の状態で続けられるため。
- * 同期が読んだ契約は、表示が Stripe に同じ問い合わせをやり直さずに済むよう一緒に返す。
- */
+/** 失敗しても画面を壊さない (同期は通知の取りこぼしの保険) */
 export async function syncUserForPlans(
   deps: PlansDependencies,
   userId: string
@@ -69,14 +61,7 @@ async function loadSafely<T>(label: string, task: () => Promise<T>, fallback: T)
   }
 }
 
-/**
- * プランの画面のデータを組み立てる。
- *
- * 価格と契約の状態は開くたびに Stripe から読む (契約は同期の読み取りを使い回す)。読めなかった部分は画面を壊さず、
- * 価格は出さず、契約の状態は DB の権利から決める。
- *
- * @param userId - ログイン中のユーザー ID。未ログインなら null
- */
+/** Stripe から読めなかった価格は出さず、契約の状態は DB の権利から決める */
 export async function loadPlansPageData(
   deps: PlansDependencies,
   userId: string | null
@@ -92,7 +77,6 @@ export async function loadPlansPageData(
   );
 
   const customerId = user?.stripeCustomerId;
-  // 同期が読んだ結果があれば使い回す。同期が読めなかったときだけ、表示のために読み直す
   const subscriptions =
     user && customerId
       ? (synced?.subscriptions ??
