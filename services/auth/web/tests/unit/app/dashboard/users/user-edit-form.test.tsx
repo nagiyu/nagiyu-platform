@@ -648,4 +648,92 @@ describe('UserEditForm', () => {
       );
     });
   });
+
+  describe('Stripe の顧客との対応', () => {
+    const linkedUser = {
+      userId: 'user-123',
+      name: 'テストユーザー',
+      email: 'test@example.com',
+      roles: [],
+      stripeCustomerId: 'cus_abc',
+    };
+
+    it('対応が無ければ欄を出さない', async () => {
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        json: async () => ({ ...linkedUser, stripeCustomerId: undefined }),
+      });
+
+      render(<UserEditForm userId="user-123" />);
+
+      await waitFor(() => expect(screen.getByText('テストユーザー')).toBeInTheDocument());
+      expect(screen.queryByText(/Stripe の顧客:/)).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: '顧客との対応を外す' })).not.toBeInTheDocument();
+    });
+
+    it('確認のうえ対応を外すと、欄が消える', async () => {
+      (global.fetch as jest.Mock)
+        .mockResolvedValueOnce({ ok: true, json: async () => linkedUser })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ ...linkedUser, stripeCustomerId: undefined }),
+        });
+
+      render(<UserEditForm userId="user-123" />);
+
+      await waitFor(() => expect(screen.getByText('cus_abc')).toBeInTheDocument());
+      fireEvent.click(screen.getByRole('button', { name: '顧客との対応を外す' }));
+      expect(screen.getByText(/Stripe 上の契約は解約されません/)).toBeInTheDocument();
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+
+      fireEvent.click(screen.getByRole('button', { name: '対応を外す' }));
+
+      await waitFor(() => expect(screen.queryByText('cus_abc')).not.toBeInTheDocument());
+      expect(global.fetch).toHaveBeenLastCalledWith('/api/users/user-123/stripe-customer', {
+        method: 'DELETE',
+      });
+    });
+
+    it('確認をやめれば API を呼ばない', async () => {
+      (global.fetch as jest.Mock).mockResolvedValue({ ok: true, json: async () => linkedUser });
+
+      render(<UserEditForm userId="user-123" />);
+
+      await waitFor(() => expect(screen.getByText('cus_abc')).toBeInTheDocument());
+      fireEvent.click(screen.getByRole('button', { name: '顧客との対応を外す' }));
+      fireEvent.click(screen.getByRole('button', { name: 'キャンセル' }));
+
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+      expect(screen.getByText('cus_abc')).toBeInTheDocument();
+    });
+
+    it('失敗したらエラーを表示し、対応は残る', async () => {
+      (global.fetch as jest.Mock)
+        .mockResolvedValueOnce({ ok: true, json: async () => linkedUser })
+        .mockResolvedValueOnce({ ok: false, json: async () => ({ error: '競合しました' }) });
+
+      render(<UserEditForm userId="user-123" />);
+
+      await waitFor(() => expect(screen.getByText('cus_abc')).toBeInTheDocument());
+      fireEvent.click(screen.getByRole('button', { name: '顧客との対応を外す' }));
+      fireEvent.click(screen.getByRole('button', { name: '対応を外す' }));
+
+      await waitFor(() => expect(screen.getByText('競合しました')).toBeInTheDocument());
+      expect(screen.getByText('cus_abc')).toBeInTheDocument();
+    });
+
+    it('応答の形式が不正なら不正なレスポンス形式を表示する', async () => {
+      (global.fetch as jest.Mock)
+        .mockResolvedValueOnce({ ok: true, json: async () => linkedUser })
+        .mockResolvedValueOnce({ ok: true, json: async () => null });
+
+      render(<UserEditForm userId="user-123" />);
+
+      await waitFor(() => expect(screen.getByText('cus_abc')).toBeInTheDocument());
+      fireEvent.click(screen.getByRole('button', { name: '顧客との対応を外す' }));
+      fireEvent.click(screen.getByRole('button', { name: '対応を外す' }));
+
+      await waitFor(() => expect(screen.getByText('不正なレスポンス形式です')).toBeInTheDocument());
+    });
+  });
 });

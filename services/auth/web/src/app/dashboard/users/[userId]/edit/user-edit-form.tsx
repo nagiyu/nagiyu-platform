@@ -14,6 +14,7 @@ import {
   type PendingGrantChanges,
 } from '@/lib/role-grant-editing';
 import { RoleGrantsSection } from './role-grants-section';
+import { StripeCustomerSection } from './stripe-customer-section';
 
 interface UserEditFormProps {
   userId: string;
@@ -94,6 +95,15 @@ export function UserEditForm({ userId }: UserEditFormProps) {
     setSelectedRoles((prev) =>
       prev.includes(role) ? prev.filter((r) => r !== role) : [...prev, role]
     );
+  };
+
+  const handleStripeUnlinked = (updated: unknown) => {
+    // 保存前の手動ロールや権利の変更は残したまま、取り消された権利と対応の有無だけを画面に反映する
+    if (updated && typeof updated === 'object' && 'userId' in updated) {
+      setUser(updated as User);
+    } else {
+      setError(ERROR_MESSAGES.INVALID_RESPONSE);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -198,6 +208,15 @@ export function UserEditForm({ userId }: UserEditFormProps) {
             onPendingChange={setPendingGrants}
             disabled={saving}
           />
+
+          {user.stripeCustomerId && (
+            <StripeCustomerSection
+              userId={user.userId}
+              customerId={user.stripeCustomerId}
+              disabled={saving}
+              onUnlinked={handleStripeUnlinked}
+            />
+          )}
 
           <Box sx={{ mt: 3, display: 'flex', gap: 2 }}>
             <Button type="submit" variant="solid" disabled={saving}>

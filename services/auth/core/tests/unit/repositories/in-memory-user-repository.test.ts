@@ -180,6 +180,20 @@ describe('InMemoryUserRepository', () => {
       expect(onlyRoles.roleGrants).toEqual([GRANT]);
     });
 
+    it('stripeCustomerId に null を渡すと属性ごと消え、ほかの項目は残る', async () => {
+      const created = await createUser();
+      await repository.updateRolesAndGrants(created.userId, () => ({
+        roles: ['admin'],
+        stripeCustomerId: 'cus_1',
+      }));
+
+      await repository.updateRolesAndGrants(created.userId, () => ({ stripeCustomerId: null }));
+
+      const fetched = await repository.getUserById(created.userId);
+      expect(fetched).not.toHaveProperty('stripeCustomerId');
+      expect(fetched?.roles).toEqual(['admin']);
+    });
+
     it('compute には現在のユーザーを渡す', async () => {
       const created = await createUser();
       const compute = jest.fn(() => ({}));

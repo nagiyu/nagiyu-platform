@@ -79,6 +79,14 @@ describe('GET /api/users/[userId]', () => {
     expect(mockGetUserById).toHaveBeenCalledWith('user-456');
   });
 
+  it('管理者向けの応答には Stripe の顧客 ID を含める', async () => {
+    mockGetUserById.mockResolvedValue({ userId: 'user-456', stripeCustomerId: 'cus_1' });
+
+    const response = await GET(createRequest('GET'), context);
+
+    expect((await response.json()).stripeCustomerId).toBe('cus_1');
+  });
+
   it('ユーザーが存在しない場合は 404 を返す', async () => {
     mockGetUserById.mockResolvedValue(null);
 

@@ -35,8 +35,10 @@ export type RolesAndGrantsChange = {
   roleGrants?: RoleGrant[];
   /**
    * Stripe の顧客 ID。顧客の対応を競合に強く保存するため、同じ楽観ロックの書き込みに相乗りする。
+   *
+   * `null` は対応を外す (属性ごと削除する)。空文字では属性が残り、対応ありと読まれてしまう。
    */
-  stripeCustomerId?: string;
+  stripeCustomerId?: string | null;
 };
 
 /**

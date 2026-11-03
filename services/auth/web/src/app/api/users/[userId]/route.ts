@@ -21,7 +21,7 @@ const ERROR_MESSAGES = {
 } as const;
 
 /**
- * GET /api/users/[userId] - ユーザー詳細取得
+ * GET /api/users/[userId] - ユーザー詳細取得 (Stripe の顧客 ID を含む)
  *
  * 必要な権限: users:read
  */
@@ -54,7 +54,8 @@ export const GET = withApiErrorReporting(
       return NextResponse.json({ error: ERROR_MESSAGES.USER_NOT_FOUND }, { status: 404 });
     }
 
-    return NextResponse.json(omitStripeCustomerId(user));
+    // 管理画面が対応の有無を表示するため、users:read を持つ管理者向けのこの応答にだけ顧客 ID を含める
+    return NextResponse.json(user);
   },
   ERROR_MESSAGES.FETCH_USER_FAILED
 );
