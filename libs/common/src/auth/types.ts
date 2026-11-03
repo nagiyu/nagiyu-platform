@@ -26,7 +26,6 @@ export interface User {
   roles: string[];
   /** 課金の権利。一度も付けていないユーザーには無い */
   roleGrants?: RoleGrant[];
-  /** Stripe の顧客 ID。課金を始めていないユーザーには無い */
   stripeCustomerId?: string;
   /** Unix timestamp (milliseconds) of user creation */
   createdAt: number;
