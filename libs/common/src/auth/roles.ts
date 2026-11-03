@@ -21,6 +21,8 @@ interface RoleDefinition {
   description: string;
   /** Array of permissions granted to this role */
   permissions: string[];
+  /** 課金の権利 (RoleGrant) として付けられる有料ロールのとき true */
+  paid?: boolean;
 }
 
 /**
@@ -78,6 +80,20 @@ export const ROLES = {
       'LiveTalk の管理者機能（ステータス閲覧等）にアクセス可能。livetalk:chat も含む（middleware 要件）',
     permissions: ['livetalk:chat', 'livetalk:admin'],
   },
+  'livetalk-premium': {
+    id: 'livetalk-premium',
+    name: 'LiveTalk プレミアム',
+    description: '課金の権利として付く有料ロール。LiveTalk のプレミアム機能を利用できる',
+    permissions: ['livetalk:premium'],
+    paid: true,
+  },
+  'quick-clip-premium': {
+    id: 'quick-clip-premium',
+    name: 'Quick Clip プレミアム',
+    description: '課金の権利として付く有料ロール。Quick Clip のプレミアム機能を利用できる',
+    permissions: ['quick-clip:premium'],
+    paid: true,
+  },
 } as const satisfies Record<string, RoleDefinition>;
 
 /**
@@ -92,3 +108,11 @@ export const ROLES = {
  * APIエンドポイントでのバリデーションに使用
  */
 export const VALID_ROLES = Object.keys(ROLES) as string[];
+
+/**
+ * 課金の権利として付けられる有料ロールIDの配列
+ * 権利を付けるときの検証と選択肢にだけ使い、読み取りや有効なロールの算出では絞らない
+ */
+export const PAID_ROLES = VALID_ROLES.filter(
+  (roleId) => (ROLES as Record<string, RoleDefinition>)[roleId].paid === true
+);

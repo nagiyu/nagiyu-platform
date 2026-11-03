@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { VALID_ROLES, type RoleGrant, type User } from '@nagiyu/common';
+import { PAID_ROLES, type RoleGrant, type User } from '@nagiyu/common';
 
 /**
  * 課金の権利の変更依頼
@@ -19,7 +19,7 @@ export type AppliedGrantChanges = {
 };
 
 export const GRANT_CHANGE_ERROR_MESSAGES = {
-  INVALID_GRANT_ROLE: '権利に無効なロールが含まれています',
+  INVALID_GRANT_ROLE: '権利として付けられるのは有料ロールだけです',
   EXPIRES_AT_NOT_FUTURE: '有効期限は現在より後の日時を指定してください',
   GRANT_NOT_FOUND: '対象の権利が見つかりません',
   GRANT_NOT_MANUAL: '手動で付けた権利以外は変更できません',
@@ -117,7 +117,7 @@ export function applyGrantChanges(
   }
 
   for (const { roleId, expiresAt, sourceRef } of changes?.add ?? []) {
-    if (!VALID_ROLES.includes(roleId)) {
+    if (!PAID_ROLES.includes(roleId)) {
       throw new GrantChangeError(`${GRANT_CHANGE_ERROR_MESSAGES.INVALID_GRANT_ROLE}: ${roleId}`);
     }
     if (expiresAt <= now) {

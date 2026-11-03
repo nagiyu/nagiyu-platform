@@ -581,10 +581,20 @@ describe('UserEditForm', () => {
       expect(screen.queryByLabelText('新しい期限')).not.toBeInTheDocument();
     });
 
+    it('追加の選択肢は有料ロールだけである', async () => {
+      mockLoad();
+      await renderForm();
+      const options = within(screen.getByLabelText('ロール')).getAllByRole('option');
+      expect(options.map((o) => (o as HTMLOptionElement).value).filter((v) => v !== '')).toEqual([
+        'livetalk-premium',
+        'quick-clip-premium',
+      ]);
+    });
+
     it('権利を追加して保存できる (メモ付き)', async () => {
       mockLoad();
       await renderForm();
-      fireEvent.change(screen.getByLabelText('ロール'), { target: { value: 'admin' } });
+      fireEvent.change(screen.getByLabelText('ロール'), { target: { value: 'livetalk-premium' } });
       fireEvent.change(screen.getByLabelText(/^有効期限/), { target: { value: '2099-01-01' } });
       fireEvent.change(screen.getByLabelText('メモ'), { target: { value: '寄付' } });
       fireEvent.click(screen.getByRole('button', { name: '追加' }));
@@ -593,7 +603,11 @@ describe('UserEditForm', () => {
       await waitFor(() => expect(mockPush).toHaveBeenCalled());
       expect(lastBody().grantChanges).toEqual({
         add: [
-          { roleId: 'admin', expiresAt: Date.UTC(2099, 0, 1, 14, 59, 59, 999), sourceRef: '寄付' },
+          {
+            roleId: 'livetalk-premium',
+            expiresAt: Date.UTC(2099, 0, 1, 14, 59, 59, 999),
+            sourceRef: '寄付',
+          },
         ],
       });
     });
@@ -603,7 +617,7 @@ describe('UserEditForm', () => {
       await renderForm();
       fireEvent.click(screen.getByRole('button', { name: '追加' }));
       expect(screen.getByText('ロールを選択してください')).toBeInTheDocument();
-      fireEvent.change(screen.getByLabelText('ロール'), { target: { value: 'admin' } });
+      fireEvent.change(screen.getByLabelText('ロール'), { target: { value: 'livetalk-premium' } });
       fireEvent.change(screen.getByLabelText(/^有効期限/), { target: { value: '2099-01-01' } });
       fireEvent.click(screen.getByRole('button', { name: '追加' }));
       expect(screen.queryByText('ロールを選択してください')).not.toBeInTheDocument();

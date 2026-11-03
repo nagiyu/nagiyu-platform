@@ -1,4 +1,4 @@
-import { ROLES, VALID_ROLES } from '../../../src/auth/roles';
+import { PAID_ROLES, ROLES, VALID_ROLES } from '../../../src/auth/roles';
 
 describe('VALID_ROLES', () => {
   it('すべての定義済みロールIDを含むべき', () => {
@@ -178,5 +178,29 @@ describe('ROLES', () => {
       expect(ROLES['user-manager'].permissions).not.toContain('livetalk:admin');
       expect(ROLES['stock-admin'].permissions).not.toContain('livetalk:admin');
     });
+  });
+});
+
+describe('有料ロール', () => {
+  it('livetalk-premium と quick-clip-premium の構造と権限を持つべき', () => {
+    expect(ROLES['livetalk-premium']).toMatchObject({
+      id: 'livetalk-premium',
+      name: 'LiveTalk プレミアム',
+      permissions: ['livetalk:premium'],
+    });
+    expect(ROLES['quick-clip-premium']).toMatchObject({
+      id: 'quick-clip-premium',
+      name: 'Quick Clip プレミアム',
+      permissions: ['quick-clip:premium'],
+    });
+  });
+
+  it('PAID_ROLES は有料ロールだけを含み、VALID_ROLES の部分集合であるべき', () => {
+    expect(PAID_ROLES).toEqual(['livetalk-premium', 'quick-clip-premium']);
+    for (const roleId of PAID_ROLES) {
+      expect(VALID_ROLES).toContain(roleId);
+    }
+    expect(PAID_ROLES).not.toContain('admin');
+    expect(PAID_ROLES).not.toContain('livetalk-user');
   });
 });

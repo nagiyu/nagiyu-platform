@@ -12,7 +12,7 @@ import {
   Typography,
 } from '@mui/material';
 import { Button, Chip, ErrorAlert, Select, TextField } from '@nagiyu/ui';
-import { VALID_ROLES } from '@nagiyu/common';
+import { PAID_ROLES } from '@nagiyu/common';
 import type { RoleGrant, RoleGrantSource, RoleGrantStatus } from '@nagiyu/common';
 import { getRoleName } from '@/lib/role-display';
 import {
@@ -56,7 +56,8 @@ const DATE_INPUT_STYLE = {
   color: 'inherit',
 } as const;
 
-const ROLE_OPTIONS = VALID_ROLES.map((role) => ({ value: role, label: getRoleName(role) }));
+// 絞るのは追加の選択肢だけ。既存の権利は有料ロール以外でも表示・変更できる
+const ROLE_OPTIONS = PAID_ROLES.map((role) => ({ value: role, label: getRoleName(role) }));
 
 interface RoleGrantsSectionProps {
   grants: readonly RoleGrant[];
