@@ -95,20 +95,31 @@ describe('ensureStripeCustomer', () => {
   });
 
   it('対応を外した後は別の冪等キーで作り直し、前の顧客を返さない', async () => {
-    const { repo, user } = await setupUser();
-    const { stripe, customersCreate } = buildStripe();
-    await ensureStripeCustomer(stripe, repo, user);
-    const linked = await repo.getUserById(user.userId);
-    const unlinked = await repo.updateRolesAndGrants(user.userId, () => ({
-      stripeCustomerId: null,
-    }));
+    // 更新時刻はミリ秒なので、速い環境でも手順ごとに時刻がずれるように進める
+    let now = 1_800_000_000_000;
+    const nowSpy = jest.spyOn(Date, 'now').mockImplementation(() => now);
+    try {
+      const { repo, user } = await setupUser();
+      const { stripe, customersCreate } = buildStripe();
+      now += 1000;
+      await ensureStripeCustomer(stripe, repo, user);
+      now += 1000;
+      const unlinked = await repo.updateRolesAndGrants(user.userId, () => ({
+        stripeCustomerId: null,
+      }));
+      now += 1000;
 
-    await ensureStripeCustomer(stripe, repo, unlinked);
+      await ensureStripeCustomer(stripe, repo, unlinked);
 
-    const keys = customersCreate.mock.calls.map(([, options]) => options.idempotencyKey);
-    expect(keys).toHaveLength(2);
-    expect(keys[0]).not.toBe(keys[1]);
-    expect(unlinked.updatedAt).not.toBe(linked?.updatedAt);
+      const keys = customersCreate.mock.calls.map(([, options]) => options.idempotencyKey);
+      expect(keys).toEqual([
+        `customer-${user.userId}-${user.updatedAt}`,
+        `customer-${user.userId}-${unlinked.updatedAt}`,
+      ]);
+      expect(keys[0]).not.toBe(keys[1]);
+    } finally {
+      nowSpy.mockRestore();
+    }
   });
 
   it('作っている間に別の顧客 ID が保存されたら、上書きせず保存済みのものを使う', async () => {
