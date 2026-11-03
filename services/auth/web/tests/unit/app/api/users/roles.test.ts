@@ -399,7 +399,7 @@ describe('POST /api/users/[userId]/roles', () => {
       const response = await post({
         roles: ['admin'],
         grantChanges: {
-          add: [{ roleId: 'user-manager', expiresAt: newExpiresAt, sourceRef: '検証用' }],
+          add: [{ roleId: 'livetalk-premium', expiresAt: newExpiresAt, sourceRef: '検証用' }],
           extend: [{ grantId: 'manual-1', expiresAt: newExpiresAt }],
         },
       });
@@ -411,7 +411,7 @@ describe('POST /api/users/[userId]/roles', () => {
       expect(data.roleGrants).toHaveLength(4);
       expect(data.roleGrants[0]).toMatchObject({ grantId: 'manual-1', expiresAt: newExpiresAt });
       expect(data.roleGrants[3]).toMatchObject({
-        roleId: 'user-manager',
+        roleId: 'livetalk-premium',
         source: 'manual',
         sourceRef: '検証用',
         expiresAt: newExpiresAt,
@@ -430,10 +430,19 @@ describe('POST /api/users/[userId]/roles', () => {
     });
 
     it.each([
-      ['add の roleId が無効', { add: [{ roleId: 'nope', expiresAt: NOW + DAY }] }, '無効なロール'],
+      [
+        'add の roleId が存在しない',
+        { add: [{ roleId: 'nope', expiresAt: NOW + DAY }] },
+        '有料ロールだけ',
+      ],
+      [
+        'add の roleId が有料ロール以外',
+        { add: [{ roleId: 'admin', expiresAt: NOW + DAY }] },
+        '有料ロールだけ',
+      ],
       [
         'add の expiresAt が過去',
-        { add: [{ roleId: 'admin', expiresAt: NOW - DAY }] },
+        { add: [{ roleId: 'livetalk-premium', expiresAt: NOW - DAY }] },
         '現在より後',
       ],
       [

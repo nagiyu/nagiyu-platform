@@ -84,6 +84,10 @@ export interface Session {
  * LiveTalk permissions:
  * - livetalk:chat - Access LiveTalk chat UI and API
  * - livetalk:admin - Access LiveTalk admin features (status page, debug panel)
+ * - livetalk:premium - Use LiveTalk premium features (paid role)
+ *
+ * Quick Clip permissions:
+ * - quick-clip:premium - Use Quick Clip premium features (paid role)
  */
 export type Permission =
   | 'users:read'
@@ -97,7 +101,9 @@ export type Permission =
   | 'auth:read'
   | 'auth:write'
   | 'livetalk:chat'
-  | 'livetalk:admin';
+  | 'livetalk:admin'
+  | 'livetalk:premium'
+  | 'quick-clip:premium';
 
 /**
  * Valid role IDs defined in ROLES constant
