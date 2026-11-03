@@ -3,6 +3,8 @@ import {
   applyGrantChanges,
   GRANT_CHANGE_ERROR_MESSAGES,
   GrantChangeError,
+  omitStripeCustomerId,
+  toSelfUserView,
 } from '../../../src/lib/role-grants';
 
 const NOW = 1_700_000_000_000;
@@ -119,5 +121,26 @@ describe('applyGrantChanges', () => {
       NOW
     );
     expect(result.roleGrants[0]).toMatchObject({ expiresAt: FUTURE, updatedAt: NOW });
+  });
+});
+
+describe('omitStripeCustomerId', () => {
+  it('Stripe の顧客 ID を外す', () => {
+    const view = omitStripeCustomerId({ ...user(), stripeCustomerId: 'cus_1' });
+
+    expect(view).not.toHaveProperty('stripeCustomerId');
+    expect(view.userId).toBe('u1');
+  });
+
+  it('顧客 ID がなければそのまま返す', () => {
+    const target = user();
+
+    expect(omitStripeCustomerId(target)).toBe(target);
+  });
+
+  it('本人向けの表示からも顧客 ID を外す', () => {
+    const view = toSelfUserView({ ...user([grant()]), stripeCustomerId: 'cus_1' });
+
+    expect(view).not.toHaveProperty('stripeCustomerId');
   });
 });

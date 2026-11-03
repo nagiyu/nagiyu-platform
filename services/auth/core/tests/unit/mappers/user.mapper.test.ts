@@ -289,6 +289,36 @@ describe('UserMapper', () => {
     });
   });
 
+  describe('StripeCustomerId', () => {
+    it('保存して読み戻せる', () => {
+      const item = mapper.toItem(buildEntity({ stripeCustomerId: 'cus_1' }));
+
+      expect(item.StripeCustomerId).toBe('cus_1');
+      expect(mapper.toEntity(item).stripeCustomerId).toBe('cus_1');
+    });
+
+    it('属性が無い項目も読め、保存時も属性を作らない', () => {
+      expect(mapper.toEntity(buildItem())).not.toHaveProperty('stripeCustomerId');
+      expect(mapper.toItem(buildEntity())).not.toHaveProperty('StripeCustomerId');
+    });
+
+    it('文字列でなければ読み込みを拒否する', () => {
+      expect(() => mapper.toEntity(buildItem({ StripeCustomerId: 1 }))).toThrow(
+        InvalidEntityDataError
+      );
+    });
+
+    it('更新の属性に変換でき、null で削除する', () => {
+      expect(mapper.toUpdateAttributes({ stripeCustomerId: 'cus_1' }).StripeCustomerId).toBe(
+        'cus_1'
+      );
+      expect(mapper.toUpdateAttributes({ stripeCustomerId: null }).StripeCustomerId).toBe(
+        REMOVE_ATTRIBUTE
+      );
+      expect(mapper.toUpdateAttributes({ name: 'x' }).StripeCustomerId).toBeUndefined();
+    });
+  });
+
   describe('legacyAttributeNames', () => {
     it('更新で書き得る保存属性の旧名を宣言している', () => {
       expect(mapper.legacyAttributeNames).toEqual({

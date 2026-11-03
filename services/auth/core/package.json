@@ -25,6 +25,7 @@
     "@aws-sdk/client-dynamodb": "^3.1063.0",
     "@aws-sdk/lib-dynamodb": "^3.1063.0",
     "@nagiyu/aws": "*",
-    "@nagiyu/common": "*"
+    "@nagiyu/common": "*",
+    "stripe": "^23.1.0"
   }
 }

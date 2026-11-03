@@ -28,6 +28,10 @@ export class LambdaStack extends LambdaStackBase {
     const nextAuthSecret =
       scope.node.tryGetContext('nextAuthSecret') || 'PLACEHOLDER_NEXTAUTH_SECRET';
 
+    // Stripe の鍵。人が値を入れるまでは秘密情報の PLACEHOLDER_ が渡り、アプリ側で課金が無効になる
+    const stripeSecretKey = scope.node.tryGetContext('stripeSecretKey') || '';
+    const stripeWebhookSecret = scope.node.tryGetContext('stripeWebhookSecret') || '';
+
     // NEXTAUTH_URL の構築
     const nextAuthUrl = getServiceUrl('auth', environment as 'dev' | 'prod');
 
@@ -76,6 +80,9 @@ export class LambdaStack extends LambdaStackBase {
           // Google OAuth
           GOOGLE_CLIENT_ID: googleClientId,
           GOOGLE_CLIENT_SECRET: googleClientSecret,
+          // Stripe
+          STRIPE_SECRET_KEY: stripeSecretKey,
+          STRIPE_WEBHOOK_SECRET: stripeWebhookSecret,
           ERROR_EVENTS_TABLE_NAME: `nagiyu-error-events-${environment}`,
         },
       },
