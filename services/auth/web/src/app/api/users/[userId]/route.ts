@@ -54,7 +54,8 @@ export const GET = withApiErrorReporting(
       return NextResponse.json({ error: ERROR_MESSAGES.USER_NOT_FOUND }, { status: 404 });
     }
 
-    return NextResponse.json(omitStripeCustomerId(user));
+    // 管理画面が対応の有無を表示するため、この応答にだけ顧客 ID を含める
+    return NextResponse.json(user);
   },
   ERROR_MESSAGES.FETCH_USER_FAILED
 );

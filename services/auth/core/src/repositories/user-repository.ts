@@ -33,7 +33,8 @@ export type UpdateUserInput = {
 export type RolesAndGrantsChange = {
   roles?: string[];
   roleGrants?: RoleGrant[];
-  stripeCustomerId?: string;
+  /** `null` は属性ごと削除する。空文字では属性が残り、対応ありと読まれてしまう */
+  stripeCustomerId?: string | null;
 };
 
 /**

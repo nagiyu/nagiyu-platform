@@ -186,6 +186,21 @@ export function defineUserRepositoryContract(
       expect(fetched?.roleGrants).toEqual([grant]);
     });
 
+    it('stripeCustomerId に null を渡すと属性ごと消え、ほかの項目は残る', async () => {
+      const created = await repository.upsertUser(buildUpsertInput('unlink'));
+      await repository.updateRolesAndGrants(created.userId, () => ({
+        roles: ['admin'],
+        stripeCustomerId: 'cus_1',
+      }));
+      expect((await repository.getUserById(created.userId))?.stripeCustomerId).toBe('cus_1');
+
+      await repository.updateRolesAndGrants(created.userId, () => ({ stripeCustomerId: null }));
+
+      const fetched = await repository.getUserById(created.userId);
+      expect(fetched).not.toHaveProperty('stripeCustomerId');
+      expect(fetched?.roles).toEqual(['admin']);
+    });
+
     it('updateLastLogin は lastLoginAt をミリ秒で記録する', async () => {
       const created = await repository.upsertUser(buildUpsertInput('f'));
       const before = Date.now();
