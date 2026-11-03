@@ -5,7 +5,7 @@
  */
 
 import { NextRequest } from 'next/server';
-import { EntityNotFoundError } from '@nagiyu/aws';
+import { EntityNotFoundError, OptimisticLockError } from '@nagiyu/aws';
 import { POST } from '../../../../../src/app/api/users/[userId]/roles/route';
 import { USER_VALIDATION_ERROR_MESSAGES } from '../../../../../src/app/api/users/schemas';
 
@@ -185,6 +185,23 @@ describe('POST /api/users/[userId]/roles', () => {
       expect(response.status).toBe(404);
       const data = await response.json();
       expect(data.error).toBe('ユーザーが見つかりません');
+    });
+
+    it('競合がやり直しで解けない場合は 409 を返す', async () => {
+      mockUpdateRolesAndGrants.mockRejectedValue(new OptimisticLockError('User', 'user-456'));
+
+      const request = new NextRequest('http://localhost/api/users/user-456/roles', {
+        method: 'POST',
+        body: JSON.stringify({ roles: ['admin'] }),
+      });
+
+      const response = await POST(request, {
+        params: Promise.resolve({ userId: 'user-456' }),
+      });
+
+      expect(response.status).toBe(409);
+      const data = await response.json();
+      expect(data.error).toBe('他の更新と競合しました。再読み込みしてください');
     });
   });
 

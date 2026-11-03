@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createUserRepository } from '@nagiyu/auth-core';
-import { EntityNotFoundError } from '@nagiyu/aws';
+import { EntityNotFoundError, OptimisticLockError } from '@nagiyu/aws';
 import { COMMON_ERROR_MESSAGES, VALID_ROLES, hasPermission } from '@nagiyu/common';
 import { readJsonObjectBody } from '@nagiyu/nextjs';
 import { z } from 'zod';
@@ -16,6 +16,7 @@ const ERROR_MESSAGES = {
   USER_NOT_FOUND: COMMON_ERROR_MESSAGES.USER_NOT_FOUND,
   INVALID_ROLES: '無効なロールが含まれています',
   ASSIGN_ROLES_FAILED: 'ロールの割り当てに失敗しました',
+  UPDATE_CONFLICT: '他の更新と競合しました。再読み込みしてください',
 } as const;
 
 const expiresAtSchema = z
@@ -157,6 +158,11 @@ export const POST = withApiErrorReporting(
       // 権利の変更依頼が現在の状態に合わない (対象なし・Stripe 由来・取り消し済みなど)
       if (error instanceof GrantChangeError) {
         return NextResponse.json({ error: error.message }, { status: 400 });
+      }
+
+      // 同じユーザーへの書き込みが重なり、やり直しでも解けなかった。再読み込みして保存し直せば通る
+      if (error instanceof OptimisticLockError) {
+        return NextResponse.json({ error: ERROR_MESSAGES.UPDATE_CONFLICT }, { status: 409 });
       }
 
       // ユーザー不存在 (リポジトリ層の EntityNotFoundError)

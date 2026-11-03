@@ -28,6 +28,27 @@ export const GRANT_CHANGE_ERROR_MESSAGES = {
 } as const;
 
 /**
+ * 本人に返すユーザー情報から、運営者向けの項目を外す。
+ *
+ * 権利のメモ (`sourceRef`) は運営者が内部向けに書くことがあり、付けた運営者 (`grantedBy`) も本人には要らない。
+ * ロール・出どころ・期限・状態は本人にも見せる。
+ */
+export function toSelfUserView(user: User): User {
+  if (user.roleGrants === undefined) {
+    return user;
+  }
+  return {
+    ...user,
+    roleGrants: user.roleGrants.map((grant) => {
+      const view = { ...grant };
+      delete view.sourceRef;
+      delete view.grantedBy;
+      return view;
+    }),
+  };
+}
+
+/**
  * 権利の変更依頼が現在の状態に対して不正なときのエラー。
  *
  * 呼び出し側が 400 に変換できるよう、ほかの例外と区別する。

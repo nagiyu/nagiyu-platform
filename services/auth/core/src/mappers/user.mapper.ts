@@ -195,7 +195,7 @@ export class UserMapper implements EntityMapper<User, UserKey> {
       updatedAt: readTimestamp(item, 'UpdatedAt', LEGACY_ATTRIBUTE_NAMES.UpdatedAt),
     };
 
-    // 属性は課金の権利を導入した版から書かれる。古い版が作った項目には無く、空として読む
+    // 属性は課金の権利を導入した版から書かれる。古い版が作った項目には無く、そのときは roleGrants を持たせない
     const roleGrants = item.RoleGrants;
     if (roleGrants !== undefined) {
       entity.roleGrants = validateArrayField(roleGrants, 'RoleGrants').map(roleGrantToEntity);
