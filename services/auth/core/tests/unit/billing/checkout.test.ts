@@ -89,9 +89,26 @@ describe('ensureStripeCustomer', () => {
     expect(id).toBe('cus_new');
     expect(customersCreate).toHaveBeenCalledWith(
       { email: 'a@example.com', name: 'A', metadata: { userId: user.userId } },
-      { idempotencyKey: `customer-${user.userId}` }
+      { idempotencyKey: `customer-${user.userId}-${user.updatedAt}` }
     );
     expect((await repo.getUserById(user.userId))?.stripeCustomerId).toBe('cus_new');
+  });
+
+  it('対応を外した後は別の冪等キーで作り直し、前の顧客を返さない', async () => {
+    const { repo, user } = await setupUser();
+    const { stripe, customersCreate } = buildStripe();
+    await ensureStripeCustomer(stripe, repo, user);
+    const linked = await repo.getUserById(user.userId);
+    const unlinked = await repo.updateRolesAndGrants(user.userId, () => ({
+      stripeCustomerId: null,
+    }));
+
+    await ensureStripeCustomer(stripe, repo, unlinked);
+
+    const keys = customersCreate.mock.calls.map(([, options]) => options.idempotencyKey);
+    expect(keys).toHaveLength(2);
+    expect(keys[0]).not.toBe(keys[1]);
+    expect(unlinked.updatedAt).not.toBe(linked?.updatedAt);
   });
 
   it('作っている間に別の顧客 ID が保存されたら、上書きせず保存済みのものを使う', async () => {

@@ -18,7 +18,7 @@ export type PortalResult = { ok: true; url: string } | { ok: false; reason: 'no-
 export async function ensureStripeCustomer(
   stripe: BillingOperationsStripe,
   userRepository: UserRepository,
-  user: Pick<User, 'userId' | 'email' | 'name' | 'stripeCustomerId'>
+  user: Pick<User, 'userId' | 'email' | 'name' | 'stripeCustomerId' | 'updatedAt'>
 ): Promise<string> {
   if (user.stripeCustomerId) {
     return user.stripeCustomerId;
@@ -26,7 +26,8 @@ export async function ensureStripeCustomer(
 
   const created = await stripe.customers.create(
     { email: user.email, name: user.name, metadata: { userId: user.userId } },
-    { idempotencyKey: `customer-${user.userId}` }
+    // 同時の申し込みは同じ鍵にして二重作成を防ぐ。対応を外した後は更新時刻が変わるので、前の顧客が返らない
+    { idempotencyKey: `customer-${user.userId}-${user.updatedAt}` }
   );
 
   let saved = created.id;
@@ -76,7 +77,7 @@ export async function listPlanPrices(
  */
 export async function createCheckoutSession(
   deps: { stripe: BillingOperationsStripe; userRepository: UserRepository },
-  user: Pick<User, 'userId' | 'email' | 'name' | 'stripeCustomerId'>,
+  user: Pick<User, 'userId' | 'email' | 'name' | 'stripeCustomerId' | 'updatedAt'>,
   roleId: string,
   urls: { successUrl: string; cancelUrl: string }
 ): Promise<CheckoutResult> {
