@@ -97,7 +97,10 @@ export class InMemoryUserRepository implements UserRepository {
       compute,
       (id) => this.getUserById(id),
       (id, change, expectedUpdatedAt) =>
-        this.entityStore.update({ userId: id }, change, { expectedUpdatedAt })
+        this.entityStore.update({ userId: id }, change, { expectedUpdatedAt }),
+      async (id) => {
+        await this.entityStore.update({ userId: id }, {});
+      }
     );
   }
 

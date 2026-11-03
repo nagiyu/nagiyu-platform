@@ -353,6 +353,7 @@ describe('DynamoDBUserRepository', () => {
             Item: buildStoredUser(),
           })
         )
+        .mockResolvedValueOnce({ Attributes: buildStoredUser() })
         .mockResolvedValueOnce({ Item: buildStoredUser({ UpdatedAt: NOW + 5, Roles: ['x'] }) })
         .mockResolvedValueOnce({ Attributes: buildStoredUser({ Roles: ['x', 'y'] }) });
       const seen: string[][] = [];
@@ -364,8 +365,38 @@ describe('DynamoDBUserRepository', () => {
 
       expect(seen).toEqual([[], ['x']]);
       expect(result.roles).toEqual(['x', 'y']);
-      const retried = mockSend.mock.calls[3][0] as UpdateCommand;
+      // 競合の後に、条件なしで UpdatedAt だけを書き直してから読み直す
+      const touched = mockSend.mock.calls[2][0] as UpdateCommand;
+      expect(touched).toBeInstanceOf(UpdateCommand);
+      expect(touched.input.ConditionExpression).not.toContain(':expectedUpdatedAt');
+      const retried = mockSend.mock.calls[4][0] as UpdateCommand;
       expect(Object.values(retried.input.ExpressionAttributeValues ?? {})).toContain(NOW + 5);
+    });
+
+    it('UpdatedAt が旧形式の項目も、書き直した後のやり直しで書ける', async () => {
+      const legacy: Record<string, unknown> = {
+        ...buildStoredUser(),
+        updatedAt: '2024-01-01T00:00:00.000Z',
+      };
+      delete legacy.UpdatedAt;
+      mockSend
+        .mockResolvedValueOnce({ Item: legacy })
+        .mockRejectedValueOnce(
+          Object.assign(new Error('conditional'), {
+            name: 'ConditionalCheckFailedException',
+            Item: legacy,
+          })
+        )
+        .mockResolvedValueOnce({ Attributes: buildStoredUser() })
+        .mockResolvedValueOnce({ Item: buildStoredUser() })
+        .mockResolvedValueOnce({ Attributes: buildStoredUser({ Roles: ['admin'] }) });
+
+      const result = await repository.updateRolesAndGrants('user-123', () => ({
+        roles: ['admin'],
+      }));
+
+      expect(result.roles).toEqual(['admin']);
+      expect(mockSend).toHaveBeenCalledTimes(5);
     });
 
     it('存在しないユーザーは EntityNotFoundError になる', async () => {
@@ -385,15 +416,18 @@ describe('DynamoDBUserRepository', () => {
       mockSend
         .mockResolvedValueOnce({ Item: buildStoredUser() })
         .mockRejectedValueOnce(conflict())
+        .mockResolvedValueOnce({ Attributes: buildStoredUser() })
         .mockResolvedValueOnce({ Item: buildStoredUser() })
         .mockRejectedValueOnce(conflict())
+        .mockResolvedValueOnce({ Attributes: buildStoredUser() })
         .mockResolvedValueOnce({ Item: buildStoredUser() })
         .mockRejectedValueOnce(conflict());
 
       await expect(repository.updateRolesAndGrants('user-123', () => ({}))).rejects.toBeInstanceOf(
         OptimisticLockError
       );
-      expect(mockSend).toHaveBeenCalledTimes(6);
+      // 最後の競合の後は書き直さない
+      expect(mockSend).toHaveBeenCalledTimes(8);
     });
 
     it('競合以外のエラーはやり直さずに伝える', async () => {
