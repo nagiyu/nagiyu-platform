@@ -1,4 +1,5 @@
-import { EntityNotFoundError, InMemorySingleTableStore } from '@nagiyu/aws';
+import { EntityNotFoundError, InMemorySingleTableStore, OptimisticLockError } from '@nagiyu/aws';
+import type { RoleGrant } from '@nagiyu/common';
 import { InMemoryUserRepository } from '../../../src/repositories/in-memory-user-repository';
 
 describe('InMemoryUserRepository', () => {
@@ -135,5 +136,113 @@ describe('InMemoryUserRepository', () => {
     await expect(repository.assignRoles('none', [])).rejects.toBeInstanceOf(EntityNotFoundError);
     await expect(repository.updateLastLogin('none')).rejects.toBeInstanceOf(EntityNotFoundError);
     await expect(repository.deleteUser('none')).rejects.toBeInstanceOf(EntityNotFoundError);
+  });
+
+  describe('updateRolesAndGrants', () => {
+    const GRANT: RoleGrant = {
+      grantId: 'grant-1',
+      roleId: 'stock-user',
+      source: 'manual',
+      expiresAt: 4_000_000_000_000,
+      createdAt: 1,
+      updatedAt: 1,
+    };
+
+    async function createUser() {
+      return repository.upsertUser({ googleId: 'google-1', email: 'a@example.com', name: 'A' });
+    }
+
+    it('手動ロールと権利を 1 回でまとめて書き換える', async () => {
+      const created = await createUser();
+
+      const updated = await repository.updateRolesAndGrants(created.userId, () => ({
+        roles: ['admin'],
+        roleGrants: [GRANT],
+      }));
+
+      expect(updated.roles).toEqual(['admin']);
+      expect(updated.roleGrants).toEqual([GRANT]);
+      expect(await repository.getUserById(created.userId)).toEqual(updated);
+    });
+
+    it('省略した項目は変更しない', async () => {
+      const created = await createUser();
+      await repository.updateRolesAndGrants(created.userId, () => ({
+        roles: ['admin'],
+        roleGrants: [GRANT],
+      }));
+
+      const onlyRoles = await repository.updateRolesAndGrants(created.userId, (user) => ({
+        roles: [...user.roles, 'user-manager'],
+      }));
+
+      expect(onlyRoles.roles).toEqual(['admin', 'user-manager']);
+      expect(onlyRoles.roleGrants).toEqual([GRANT]);
+    });
+
+    it('compute には現在のユーザーを渡す', async () => {
+      const created = await createUser();
+      const compute = jest.fn(() => ({}));
+
+      await repository.updateRolesAndGrants(created.userId, compute);
+
+      expect(compute).toHaveBeenCalledWith(expect.objectContaining({ userId: created.userId }));
+    });
+
+    it('競合したら読み直してやり直す', async () => {
+      const created = await createUser();
+      const raw = store.getByKey({ userId: created.userId }) as Record<string, unknown>;
+      const seenRoles: string[][] = [];
+
+      const updated = await repository.updateRolesAndGrants(created.userId, (user) => {
+        seenRoles.push(user.roles);
+        if (seenRoles.length === 1) {
+          // 読んだ後に別の書き込みが先に入った状況を作る
+          store.putByKey(
+            { userId: created.userId },
+            { ...raw, Roles: ['other'], UpdatedAt: 1_800_000_000_000 }
+          );
+        }
+        return { roles: [...user.roles, 'mine'] };
+      });
+
+      expect(seenRoles).toEqual([[], ['other']]);
+      expect(updated.roles).toEqual(['other', 'mine']);
+    });
+
+    it('存在しないユーザーは EntityNotFoundError になる', async () => {
+      await expect(repository.updateRolesAndGrants('none', () => ({}))).rejects.toBeInstanceOf(
+        EntityNotFoundError
+      );
+    });
+
+    it('compute の例外はそのまま伝える', async () => {
+      const created = await createUser();
+
+      await expect(
+        repository.updateRolesAndGrants(created.userId, () => {
+          throw new Error('検証エラー');
+        })
+      ).rejects.toThrow('検証エラー');
+    });
+
+    it('競合が解けなければ OptimisticLockError になる', async () => {
+      const created = await createUser();
+      const raw = store.getByKey({ userId: created.userId }) as Record<string, unknown>;
+      let calls = 0;
+
+      await expect(
+        repository.updateRolesAndGrants(created.userId, () => {
+          calls += 1;
+          // 計算のたびに別の書き込みが先に入ったことにする
+          store.putByKey(
+            { userId: created.userId },
+            { ...raw, UpdatedAt: 1_800_000_000_000 + calls }
+          );
+          return { roles: ['admin'] };
+        })
+      ).rejects.toBeInstanceOf(OptimisticLockError);
+      expect(calls).toBe(3);
+    });
   });
 });

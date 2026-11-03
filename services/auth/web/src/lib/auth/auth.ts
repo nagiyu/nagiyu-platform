@@ -2,7 +2,7 @@ import NextAuth, { type NextAuthConfig } from 'next-auth';
 import Google from 'next-auth/providers/google';
 import { createAuthConfig } from '@nagiyu/nextjs';
 import { reportErrorEvent } from '@nagiyu/aws';
-import { isAllowedNagiyuRedirectUrl } from '@nagiyu/common';
+import { getEffectiveRoles, isAllowedNagiyuRedirectUrl } from '@nagiyu/common';
 import { createUserRepository } from '@nagiyu/auth-core';
 import { errorReporter } from '@/lib/api-error-reporting';
 
@@ -52,7 +52,10 @@ const sharedAuthConfig = createAuthConfig({
         const userRepository = createUserRepository();
         const dbUser = await userRepository.getUserByGoogleId(account.providerAccountId);
         token.userId = dbUser?.userId;
-        token.roles = dbUser?.roles || [];
+        // 課金の権利の期限は、ここ (ログイン) と下の再取得でだけ判定する
+        token.roles = dbUser
+          ? getEffectiveRoles(dbUser.roles ?? [], dbUser.roleGrants ?? [], Date.now())
+          : [];
         token.rolesRefreshedAt = Date.now();
 
         if (dbUser) {
@@ -79,7 +82,11 @@ const sharedAuthConfig = createAuthConfig({
           const userRepository = createUserRepository();
           const dbUser = await userRepository.getUserByGoogleId(token.googleId as string);
           if (dbUser) {
-            token.roles = dbUser.roles ?? [];
+            token.roles = getEffectiveRoles(
+              dbUser.roles ?? [],
+              dbUser.roleGrants ?? [],
+              Date.now()
+            );
             token.userId = dbUser.userId;
           } else {
             // ユーザーが DB に存在しない（退会・削除済み等）→ ロールを剥奪する。

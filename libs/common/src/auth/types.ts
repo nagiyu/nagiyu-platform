@@ -6,6 +6,7 @@
  */
 
 import type { ROLES } from './roles.js';
+import type { RoleGrant } from './role-grants.js';
 
 /**
  * DynamoDB に保存されるユーザー情報
@@ -23,6 +24,8 @@ export interface User {
   name: string;
   /** Array of role IDs assigned to the user */
   roles: string[];
+  /** 課金の権利。古い版が作った項目には無い */
+  roleGrants?: RoleGrant[];
   /** Unix timestamp (milliseconds) of user creation */
   createdAt: number;
   /** Unix timestamp (milliseconds) of last update */

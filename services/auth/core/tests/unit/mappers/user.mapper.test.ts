@@ -3,7 +3,7 @@
  */
 
 import { InvalidEntityDataError, REMOVE_ATTRIBUTE } from '@nagiyu/aws';
-import type { User } from '@nagiyu/common';
+import type { RoleGrant, User } from '@nagiyu/common';
 import { UserMapper } from '../../../src/mappers/user.mapper';
 
 const CREATED_AT = 1704067200000;
@@ -36,6 +36,18 @@ function buildItem(overrides: Record<string, unknown> = {}): Record<string, unkn
     ...overrides,
   };
 }
+
+const GRANT: RoleGrant = {
+  grantId: 'grant-1',
+  roleId: 'stock-user',
+  source: 'manual',
+  sourceRef: 'メモ',
+  expiresAt: UPDATED_AT + 1000,
+  revokedAt: UPDATED_AT + 500,
+  grantedBy: 'admin-1',
+  createdAt: CREATED_AT,
+  updatedAt: UPDATED_AT,
+};
 
 describe('UserMapper', () => {
   let mapper: UserMapper;
@@ -211,6 +223,67 @@ describe('UserMapper', () => {
       ['UpdatedAt が不正な文字列', { UpdatedAt: 'not-a-date' }],
       ['Picture が文字列でない', { Picture: 123 }],
       ['LastLoginAt が不正な文字列', { LastLoginAt: 'not-a-date' }],
+    ])('%s のとき InvalidEntityDataError になる', (_label, overrides) => {
+      expect(() => mapper.toEntity(buildItem(overrides))).toThrow(InvalidEntityDataError);
+    });
+  });
+
+  describe('RoleGrants', () => {
+    it('属性がない旧形式の Item は roleGrants なしで読める', () => {
+      const entity = mapper.toEntity(buildItem());
+      expect(entity.roleGrants).toBeUndefined();
+    });
+
+    it('roleGrants がなければ RoleGrants 属性を作らない', () => {
+      expect(mapper.toItem(buildEntity())).not.toHaveProperty('RoleGrants');
+    });
+
+    it('roleGrants を map のリストとして保存し、読み戻せる', () => {
+      const item = mapper.toItem(buildEntity({ roleGrants: [GRANT] }));
+      expect(item.RoleGrants).toEqual([GRANT]);
+      expect(mapper.toEntity({ ...buildItem(), RoleGrants: item.RoleGrants }).roleGrants).toEqual([
+        GRANT,
+      ]);
+    });
+
+    it('任意項目のない権利は属性を作らない', () => {
+      const minimal: RoleGrant = {
+        grantId: 'g2',
+        roleId: 'admin',
+        source: 'stripe',
+        createdAt: CREATED_AT,
+        updatedAt: UPDATED_AT,
+      };
+      const item = mapper.toItem(buildEntity({ roleGrants: [minimal] }));
+      expect(item.RoleGrants).toEqual([minimal]);
+      expect(Object.keys((item.RoleGrants as object[])[0])).not.toContain('expiresAt');
+      expect(mapper.toEntity({ ...buildItem(), RoleGrants: item.RoleGrants }).roleGrants).toEqual([
+        minimal,
+      ]);
+    });
+
+    it('空のリストは空として読める', () => {
+      expect(mapper.toEntity(buildItem({ RoleGrants: [] })).roleGrants).toEqual([]);
+    });
+
+    it('更新では roleGrants を RoleGrants として渡し、null は属性の削除になる', () => {
+      expect(mapper.toUpdateAttributes({ roleGrants: [GRANT] }).RoleGrants).toEqual([GRANT]);
+      expect(mapper.toUpdateAttributes({ roleGrants: null }).RoleGrants).toBe(REMOVE_ATTRIBUTE);
+      expect(mapper.toUpdateAttributes({ name: 'x' }).RoleGrants).toBeUndefined();
+    });
+
+    it.each([
+      ['配列でない', { RoleGrants: 'x' }],
+      ['要素がオブジェクトでない', { RoleGrants: ['x'] }],
+      ['grantId がない', { RoleGrants: [{ ...GRANT, grantId: undefined }] }],
+      ['roleId がない', { RoleGrants: [{ ...GRANT, roleId: undefined }] }],
+      ['source が未知', { RoleGrants: [{ ...GRANT, source: 'other' }] }],
+      ['createdAt がない', { RoleGrants: [{ ...GRANT, createdAt: undefined }] }],
+      ['updatedAt が不正', { RoleGrants: [{ ...GRANT, updatedAt: 'x' }] }],
+      ['sourceRef が文字列でない', { RoleGrants: [{ ...GRANT, sourceRef: 1 }] }],
+      ['expiresAt が不正', { RoleGrants: [{ ...GRANT, expiresAt: 'x' }] }],
+      ['revokedAt が不正', { RoleGrants: [{ ...GRANT, revokedAt: 'x' }] }],
+      ['grantedBy が空', { RoleGrants: [{ ...GRANT, grantedBy: '' }] }],
     ])('%s のとき InvalidEntityDataError になる', (_label, overrides) => {
       expect(() => mapper.toEntity(buildItem(overrides))).toThrow(InvalidEntityDataError);
     });

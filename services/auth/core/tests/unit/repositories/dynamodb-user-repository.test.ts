@@ -12,6 +12,7 @@ import {
   decodeCursor,
   encodeCursor,
   EntityNotFoundError,
+  OptimisticLockError,
   getDynamoDBDocumentClient,
   getTableName,
 } from '@nagiyu/aws';
@@ -310,6 +311,100 @@ describe('DynamoDBUserRepository', () => {
       mockSend.mockRejectedValueOnce(conditionalCheckFailed());
 
       await expect(repository.deleteUser('none')).rejects.toBeInstanceOf(EntityNotFoundError);
+    });
+  });
+
+  describe('updateRolesAndGrants', () => {
+    const GRANT = {
+      grantId: 'grant-1',
+      roleId: 'stock-user',
+      source: 'manual' as const,
+      expiresAt: NOW + 1000,
+      createdAt: NOW,
+      updatedAt: NOW,
+    };
+
+    it('読んだ UpdatedAt を条件に、Roles と RoleGrants を 1 回の UpdateItem で書く', async () => {
+      mockSend.mockResolvedValueOnce({ Item: buildStoredUser() }).mockResolvedValueOnce({
+        Attributes: buildStoredUser({ Roles: ['admin'], RoleGrants: [GRANT] }),
+      });
+
+      const result = await repository.updateRolesAndGrants('user-123', () => ({
+        roles: ['admin'],
+        roleGrants: [GRANT],
+      }));
+
+      expect(result.roles).toEqual(['admin']);
+      expect(result.roleGrants).toEqual([GRANT]);
+      expect(mockSend).toHaveBeenCalledTimes(2);
+      const command = mockSend.mock.calls[1][0] as UpdateCommand;
+      expect(command).toBeInstanceOf(UpdateCommand);
+      expect(Object.values(command.input.ExpressionAttributeValues ?? {})).toContain(NOW);
+      expect(Object.values(command.input.ExpressionAttributeValues ?? {})).toContainEqual([GRANT]);
+      expect(command.input.ConditionExpression).toContain('#updatedAt = :expectedUpdatedAt');
+    });
+
+    it('競合したら読み直し、新しい UpdatedAt でやり直す', async () => {
+      mockSend
+        .mockResolvedValueOnce({ Item: buildStoredUser() })
+        .mockRejectedValueOnce(
+          Object.assign(new Error('conditional'), {
+            name: 'ConditionalCheckFailedException',
+            Item: buildStoredUser(),
+          })
+        )
+        .mockResolvedValueOnce({ Item: buildStoredUser({ UpdatedAt: NOW + 5, Roles: ['x'] }) })
+        .mockResolvedValueOnce({ Attributes: buildStoredUser({ Roles: ['x', 'y'] }) });
+      const seen: string[][] = [];
+
+      const result = await repository.updateRolesAndGrants('user-123', (user) => {
+        seen.push(user.roles);
+        return { roles: [...user.roles, 'y'] };
+      });
+
+      expect(seen).toEqual([[], ['x']]);
+      expect(result.roles).toEqual(['x', 'y']);
+      const retried = mockSend.mock.calls[3][0] as UpdateCommand;
+      expect(Object.values(retried.input.ExpressionAttributeValues ?? {})).toContain(NOW + 5);
+    });
+
+    it('存在しないユーザーは EntityNotFoundError になる', async () => {
+      mockSend.mockResolvedValueOnce({});
+
+      await expect(repository.updateRolesAndGrants('none', () => ({}))).rejects.toBeInstanceOf(
+        EntityNotFoundError
+      );
+    });
+
+    it('競合が解けなければ OptimisticLockError になる', async () => {
+      const conflict = () =>
+        Object.assign(new Error('conditional'), {
+          name: 'ConditionalCheckFailedException',
+          Item: buildStoredUser(),
+        });
+      mockSend
+        .mockResolvedValueOnce({ Item: buildStoredUser() })
+        .mockRejectedValueOnce(conflict())
+        .mockResolvedValueOnce({ Item: buildStoredUser() })
+        .mockRejectedValueOnce(conflict())
+        .mockResolvedValueOnce({ Item: buildStoredUser() })
+        .mockRejectedValueOnce(conflict());
+
+      await expect(repository.updateRolesAndGrants('user-123', () => ({}))).rejects.toBeInstanceOf(
+        OptimisticLockError
+      );
+      expect(mockSend).toHaveBeenCalledTimes(6);
+    });
+
+    it('競合以外のエラーはやり直さずに伝える', async () => {
+      mockSend
+        .mockResolvedValueOnce({ Item: buildStoredUser() })
+        .mockRejectedValueOnce(new Error('boom'));
+
+      await expect(repository.updateRolesAndGrants('user-123', () => ({}))).rejects.toBeInstanceOf(
+        DatabaseError
+      );
+      expect(mockSend).toHaveBeenCalledTimes(2);
     });
   });
 });

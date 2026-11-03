@@ -8,7 +8,13 @@ import {
 import type { User } from '@nagiyu/common';
 import { randomUUID } from 'node:crypto';
 import { UserMapper, type UserKey } from '../mappers/user.mapper';
-import type { UpdateUserInput, UpsertUserInput, UserRepository } from './user-repository';
+import type {
+  RolesAndGrantsChange,
+  UpdateUserInput,
+  UpsertUserInput,
+  UserRepository,
+} from './user-repository';
+import { updateRolesAndGrantsWithRetry } from './update-roles-and-grants';
 
 /**
  * InMemory User Repository
@@ -80,6 +86,19 @@ export class InMemoryUserRepository implements UserRepository {
 
   public async assignRoles(userId: string, roles: string[]): Promise<User> {
     return this.updateUser(userId, { roles });
+  }
+
+  public async updateRolesAndGrants(
+    userId: string,
+    compute: (user: User) => RolesAndGrantsChange
+  ): Promise<User> {
+    return updateRolesAndGrantsWithRetry(
+      userId,
+      compute,
+      (id) => this.getUserById(id),
+      (id, change, expectedUpdatedAt) =>
+        this.entityStore.update({ userId: id }, change, { expectedUpdatedAt })
+    );
   }
 
   public async updateLastLogin(userId: string): Promise<void> {

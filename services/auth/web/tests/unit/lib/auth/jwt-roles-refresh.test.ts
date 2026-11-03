@@ -335,4 +335,90 @@ describe('jwt コールバック - rolesRefreshedAt', () => {
       expect(result).toEqual(token);
     });
   });
+
+  describe('課金の権利を含む有効なロールの算出', () => {
+    const now = Date.now();
+    const grant = (overrides: Record<string, unknown>) => ({
+      grantId: 'g',
+      roleId: 'stock-user',
+      source: 'manual',
+      createdAt: now,
+      updatedAt: now,
+      ...overrides,
+    });
+
+    async function useRepository() {
+      const { createUserRepository } = await import('@nagiyu/auth-core');
+      (createUserRepository as jest.Mock).mockReturnValueOnce({
+        getUserByGoogleId: mockGetUserByGoogleId,
+        updateLastLogin: mockUpdateLastLogin,
+      });
+    }
+
+    const login = () =>
+      capturedCallbacks.jwt!({
+        token: {},
+        user: { email: 'test@example.com', name: 'Test' },
+        account: { providerAccountId: 'google-123' },
+      });
+
+    const refresh = () =>
+      capturedCallbacks.jwt!({
+        token: { googleId: 'google-123', roles: [], rolesRefreshedAt: 0 },
+      });
+
+    it.each([
+      ['ログイン時', login],
+      ['再取得時', refresh],
+    ])('%s: 期限内の権利のロールを手動ロールに足し、重複を除く', async (_label, run) => {
+      mockGetUserByGoogleId.mockResolvedValueOnce({
+        userId: 'u1',
+        roles: ['admin', 'stock-user'],
+        roleGrants: [
+          grant({ grantId: 'a', roleId: 'stock-user', expiresAt: now + 60_000 }),
+          grant({ grantId: 'b', roleId: 'livetalk-user', expiresAt: now + 60_000 }),
+        ],
+      });
+      await useRepository();
+
+      const result = await run();
+
+      expect(result.roles).toEqual(['admin', 'stock-user', 'livetalk-user']);
+    });
+
+    it.each([
+      ['ログイン時', login],
+      ['再取得時', refresh],
+    ])('%s: 期限切れと取り消しの権利は含めない', async (_label, run) => {
+      mockGetUserByGoogleId.mockResolvedValueOnce({
+        userId: 'u1',
+        roles: ['admin'],
+        roleGrants: [
+          grant({ grantId: 'a', expiresAt: now - 1 }),
+          grant({ grantId: 'b', roleId: 'livetalk-user', expiresAt: now + 60_000, revokedAt: now }),
+        ],
+      });
+      await useRepository();
+
+      const result = await run();
+
+      expect(result.roles).toEqual(['admin']);
+    });
+
+    it('roleGrants のない旧形式のユーザーは手動ロールだけになる', async () => {
+      mockGetUserByGoogleId.mockResolvedValueOnce({ userId: 'u1', roles: ['admin'] });
+      await useRepository();
+
+      expect((await refresh()).roles).toEqual(['admin']);
+    });
+
+    it('再取得の読み取りは getUserByGoogleId の 1 回だけ', async () => {
+      mockGetUserByGoogleId.mockResolvedValueOnce({ userId: 'u1', roles: [], roleGrants: [] });
+      await useRepository();
+
+      await refresh();
+
+      expect(mockGetUserByGoogleId).toHaveBeenCalledTimes(1);
+    });
+  });
 });
