@@ -205,7 +205,6 @@ export class UserMapper implements EntityMapper<User, UserKey> {
       entity.roleGrants = validateArrayField(roleGrants, 'RoleGrants').map(roleGrantToEntity);
     }
 
-    // 課金を始めていないユーザーの項目には属性が無い
     if (item.StripeCustomerId !== undefined) {
       entity.stripeCustomerId = validateStringField(item.StripeCustomerId, 'StripeCustomerId');
     }

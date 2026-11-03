@@ -9,7 +9,7 @@ import {
 } from '@nagiyu/auth-core';
 import { withApiErrorReporting } from '@/lib/api-error-reporting';
 
-// 署名の検証に加工していない本文が要る。クライアントの変換や静的化を避けるため Node.js で動かす
+// 署名の検証に加工していない本文が要る
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
@@ -22,8 +22,7 @@ const ERROR_MESSAGES = {
 /**
  * POST /api/billing/webhook - Stripe からの通知を受ける
  *
- * ログインではなく Stripe の署名で守る。通知は「この顧客の何かが変わった」という合図としてだけ使い、
- * 顧客の最新の状態を Stripe から取り直して権利に反映する。同期が失敗したときは 500 を返し、Stripe に再送させる。
+ * ログインではなく Stripe の署名で守る。同期が失敗したときは 500 を返し、Stripe に再送させる。
  */
 export const POST = withApiErrorReporting(
   'Web API: Stripe 通知の処理エラー',
