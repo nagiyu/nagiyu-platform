@@ -12,13 +12,16 @@ import {
   readTimestamp,
   requiredPatchValue,
   validateArrayField,
+  validateEnumField,
+  validateObjectField,
   validateStringField,
+  validateTimestampField,
   type DynamoDBAttributes,
   type DynamoDBKey,
   type EntityMapper,
   type EntityPatch,
 } from '@nagiyu/aws';
-import type { User } from '@nagiyu/common';
+import { ROLE_GRANT_SOURCES, type RoleGrant, type User } from '@nagiyu/common';
 
 /** ユーザーのビジネスキー */
 export type UserKey = { userId: string };
@@ -38,6 +41,65 @@ const LEGACY_ATTRIBUTE_NAMES = {
   UpdatedAt: ['updatedAt'],
   LastLoginAt: ['lastLoginAt'],
 } as const;
+
+/**
+ * 権利を保存用の map にする。
+ *
+ * undefined の任意項目は属性を作らない。
+ */
+function roleGrantToItem(grant: RoleGrant): DynamoDBAttributes {
+  const item: DynamoDBAttributes = {
+    grantId: grant.grantId,
+    roleId: grant.roleId,
+    source: grant.source,
+    createdAt: grant.createdAt,
+    updatedAt: grant.updatedAt,
+  };
+  if (grant.sourceRef !== undefined) {
+    item.sourceRef = grant.sourceRef;
+  }
+  if (grant.expiresAt !== undefined) {
+    item.expiresAt = grant.expiresAt;
+  }
+  if (grant.revokedAt !== undefined) {
+    item.revokedAt = grant.revokedAt;
+  }
+  if (grant.grantedBy !== undefined) {
+    item.grantedBy = grant.grantedBy;
+  }
+  return item;
+}
+
+/**
+ * 保存された map を権利に戻す。
+ *
+ * @throws InvalidEntityDataError 読めない要素のとき
+ */
+function roleGrantToEntity(value: unknown): RoleGrant {
+  const raw = validateObjectField(value, 'RoleGrants[]');
+  const grant: RoleGrant = {
+    grantId: validateStringField(raw.grantId, 'RoleGrants[].grantId'),
+    roleId: validateStringField(raw.roleId, 'RoleGrants[].roleId'),
+    source: validateEnumField(raw.source, 'RoleGrants[].source', ROLE_GRANT_SOURCES),
+    createdAt: validateTimestampField(raw.createdAt, 'RoleGrants[].createdAt'),
+    updatedAt: validateTimestampField(raw.updatedAt, 'RoleGrants[].updatedAt'),
+  };
+  if (raw.sourceRef !== undefined) {
+    grant.sourceRef = validateStringField(raw.sourceRef, 'RoleGrants[].sourceRef', {
+      allowEmpty: true,
+    });
+  }
+  if (raw.expiresAt !== undefined) {
+    grant.expiresAt = validateTimestampField(raw.expiresAt, 'RoleGrants[].expiresAt');
+  }
+  if (raw.revokedAt !== undefined) {
+    grant.revokedAt = validateTimestampField(raw.revokedAt, 'RoleGrants[].revokedAt');
+  }
+  if (raw.grantedBy !== undefined) {
+    grant.grantedBy = validateStringField(raw.grantedBy, 'RoleGrants[].grantedBy');
+  }
+  return grant;
+}
 
 /**
  * User Mapper
@@ -69,6 +131,9 @@ export class UserMapper implements EntityMapper<User, UserKey> {
       UpdatedAt: entity.updatedAt,
     };
 
+    if (entity.roleGrants !== undefined) {
+      item.RoleGrants = entity.roleGrants.map(roleGrantToItem);
+    }
     if (entity.picture !== undefined) {
       item.Picture = entity.picture;
     }
@@ -97,6 +162,11 @@ export class UserMapper implements EntityMapper<User, UserKey> {
       Email: requiredPatchValue(changes.email, 'Email'),
       Name: requiredPatchValue(changes.name, 'Name'),
       Roles: requiredPatchValue(changes.roles, 'Roles'),
+      RoleGrants: optionalPatchValue(
+        changes.roleGrants === null || changes.roleGrants === undefined
+          ? changes.roleGrants
+          : changes.roleGrants.map(roleGrantToItem)
+      ),
       Picture: optionalPatchValue(changes.picture),
       LastLoginAt: optionalPatchValue(changes.lastLoginAt),
     };
@@ -124,6 +194,12 @@ export class UserMapper implements EntityMapper<User, UserKey> {
       createdAt: readTimestamp(item, 'CreatedAt', LEGACY_ATTRIBUTE_NAMES.CreatedAt),
       updatedAt: readTimestamp(item, 'UpdatedAt', LEGACY_ATTRIBUTE_NAMES.UpdatedAt),
     };
+
+    // 権利を一度も付けていないユーザーの項目には属性が無く、そのときは roleGrants を持たせない
+    const roleGrants = item.RoleGrants;
+    if (roleGrants !== undefined) {
+      entity.roleGrants = validateArrayField(roleGrants, 'RoleGrants').map(roleGrantToEntity);
+    }
 
     const picture = this.read(item, 'Picture');
     if (picture !== undefined) {

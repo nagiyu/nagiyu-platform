@@ -53,6 +53,43 @@ describe('GET /api/users/me', () => {
     expect(mockGetUserById).toHaveBeenCalledWith('user-123');
   });
 
+  it('課金の権利のメモと付けた運営者は本人に返さない', async () => {
+    const user = {
+      userId: 'user-123',
+      name: 'テスト',
+      roleGrants: [
+        {
+          grantId: 'g1',
+          roleId: 'stock-user',
+          source: 'manual',
+          sourceRef: '内部メモ',
+          expiresAt: 2,
+          grantedBy: 'admin-1',
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      ],
+    };
+    mockGetUserById.mockResolvedValue(user);
+
+    const response = await GET();
+
+    expect(await response.json()).toEqual({
+      userId: 'user-123',
+      name: 'テスト',
+      roleGrants: [
+        {
+          grantId: 'g1',
+          roleId: 'stock-user',
+          source: 'manual',
+          expiresAt: 2,
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      ],
+    });
+  });
+
   it('ユーザーが存在しない場合は 404 を返す', async () => {
     mockGetUserById.mockResolvedValue(null);
 

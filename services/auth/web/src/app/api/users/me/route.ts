@@ -3,6 +3,7 @@ import { createUserRepository } from '@nagiyu/auth-core';
 import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import { getSession } from '@/lib/auth/session';
 import { withApiErrorReporting } from '@/lib/api-error-reporting';
+import { toSelfUserView } from '@/lib/role-grants';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
@@ -34,7 +35,7 @@ export const GET = withApiErrorReporting(
       return NextResponse.json({ error: ERROR_MESSAGES.USER_NOT_FOUND }, { status: 404 });
     }
 
-    return NextResponse.json(user);
+    return NextResponse.json(toSelfUserView(user));
   },
   ERROR_MESSAGES.FETCH_USER_FAILED
 );
