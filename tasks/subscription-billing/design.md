@@ -173,7 +173,7 @@ Stripe の顧客の対応は P2 で決める。
     - 得たロールに有効な Stripe 由来の権利があれば期限と参照を更新し、なければ作る。得たロールにない有効な Stripe 由来の権利は取り消す。
     - `lookup_key` が有料ロールでないものは無視してログに残す。
     - 書き込みは P1 の `updateRolesAndGrants` (楽観ロックとやり直しつき) を使う。
-- **鍵の受け渡し**: 秘密情報 `nagiyu-auth-stripe-{env}` (`{"secretKey":"...","webhookSecret":"..."}`) は CDK で作らず、人が手で作る。CDK で作ると、dev で develop の版をデプロイするたびに秘密情報が消え、入れた値が失われるため。デプロイはこの名前で値を読み、既存の秘密情報と同じく CDK の context → Lambda の環境変数で渡す。秘密情報が無い環境では値を空にし、課金の API は使えない旨を返す (本番の鍵を入れるまでの本番もこの状態)。
+- **鍵の受け渡し**: 秘密情報 `nagiyu-auth-stripe-{env}` (`{"secretKey":"...","webhookSecret":"..."}`) は CDK で作り、初期値は PLACEHOLDER にする。人が値を書き換える。既存の秘密情報のスタックには足さず、専用のスタック (`NagiyuAuthStripeSecrets{Env}`) に置く。dev で develop の版をデプロイしても、develop の版に無いスタックには触れないため、秘密情報と入れた値が消えない。デプロイは既存の秘密情報と同じく、値を読んで CDK の context → Lambda の環境変数で渡す。鍵が空か PLACEHOLDER のままなら、課金の API は使えない旨を返す (本番の鍵を入れるまでの本番もこの状態)。
 
 ### API (P2、仮)
 
