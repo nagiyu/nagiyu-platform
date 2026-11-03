@@ -7,9 +7,6 @@ export interface StripeSecretsStackProps extends cdk.StackProps {
   environment: string;
 }
 
-/**
- * Stripe の鍵の秘密情報。
- */
 export class StripeSecretsStack extends cdk.Stack {
   public readonly stripeSecret: secretsmanager.Secret;
 
@@ -17,7 +14,6 @@ export class StripeSecretsStack extends cdk.Stack {
     super(scope, id, props);
 
     const { environment } = props;
-    // props.environment は string 型のため、共通レジストリに渡す際に Environment へ寄せる
     const secretEnvironment = environment as Environment;
 
     this.stripeSecret = new secretsmanager.Secret(this, 'StripeSecret', {

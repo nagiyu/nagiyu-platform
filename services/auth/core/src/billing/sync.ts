@@ -6,22 +6,15 @@ import { ROLES_AND_GRANTS_MAX_ATTEMPTS } from '../repositories/user-repository';
 import { computeStripeGrants, isGrantsUnchanged, type DesiredStripeRole } from './grant-diff';
 import type { BillingStripe } from './stripe-client';
 
-/** 有料ロールを与える契約の状態 */
 const ENTITLING_STATUSES: ReadonlySet<string> = new Set(['active', 'trialing', 'past_due']);
 
-/**
- * 請求期間の終わりから権利の期限までの猶予 (ミリ秒)。
- *
- * 更新の通知を取りこぼしても、Stripe の再送期間 (最大 3 日) の間は権利が切れないようにする。
- */
+/** 更新の通知を取りこぼしても、Stripe の再送期間 (最大 3 日) の間は権利が切れないようにする猶予 */
 export const GRACE_PERIOD_MS = 3 * 24 * 60 * 60 * 1000;
 
-/** 同期の結果 */
 export type SyncResult =
   | { synced: true; changed: boolean; subscriptions: EntitledSubscription[] }
   | { synced: false; reason: 'customer-deleted' | 'user-not-found' | 'customer-mismatch' };
 
-/** 同期が使うもの。テストで差し替えられるよう外から受け取る */
 export type SyncDependencies = {
   stripe: BillingStripe;
   userRepository: UserRepository;
@@ -29,7 +22,6 @@ export type SyncDependencies = {
   generateId?: () => string;
 };
 
-/** 有料ロールを与える契約の品目 1 件分 */
 export type EntitledSubscription = {
   roleId: string;
   subscriptionId: string;
@@ -39,12 +31,6 @@ export type EntitledSubscription = {
   endsAt: number | null;
 };
 
-/**
- * 顧客の契約のうち、有料ロールを与えているものを Stripe から得る。
- *
- * 同期と、申し込み・画面の状態の判定が同じ読み方を共有する。
- * 有料ロールでない `lookup_key` は無視する。商品ごとの機能の取得は 1 回に抑える。
- */
 export async function listEntitledSubscriptions(
   stripe: BillingStripe,
   customerId: string
@@ -109,18 +95,10 @@ function toDesiredRoles(entitled: EntitledSubscription[]): DesiredStripeRole[] {
 /**
  * Stripe の顧客の状態を、ユーザーの課金の権利 (`source: 'stripe'`) に反映する。
  *
- * 通知の中身は合図としてだけ使い、毎回 Stripe に最新の状態を問い合わせて上書きする。
- * そのため重複・順序の入れ替わり・再送のいずれでも、最終的に Stripe の状態と一致する。
+ * 通知の中身は合図としてだけ使い、毎回 Stripe から最新の状態を取り直す。
+ * 顧客のメタデータの `userId` が指すユーザーが同じ顧客 ID を持たないときは何もしない。
  *
- * 顧客のメタデータの `userId` が指すユーザーが、同じ顧客 ID を保持しているときだけ反映する。
- * 一致しなければ何もしない。再送されても結果が変わらないため、呼び出し側は成功として扱ってよい。
- *
- * 結果の `subscriptions` は、反映に使った Stripe の読み取り結果。画面が同じ内容を読み直さずに済むよう返す。
- *
- * 書き込みが他の書き込みと競合したときは、ユーザーと Stripe の状態を読み直してやり直す。
- *
- * @throws Stripe や DB の一時的な失敗、および試行回数を使い切っても競合が解けなかったこと
- * (`OptimisticLockError`)。呼び出し側は再送させるために失敗として扱う
+ * @throws Stripe や DB の失敗、競合が解けないまま試行回数を使い切ったこと。呼び出し側は再送させる
  */
 export async function syncStripeCustomer(
   deps: SyncDependencies,
@@ -142,8 +120,8 @@ export async function syncStripeCustomer(
     return { synced: false, reason: 'user-not-found' };
   }
 
-  // Stripe を読んでいる間に別のハンドラーが新しい状態を書くと、古い読み取りで上書きしてしまう。
-  // Stripe を読む前に読んだユーザーの世代を書き込みの条件にし、競合したら両方を読み直す
+  // Stripe を読んでいる間に別のハンドラーが書くと古い読み取りで上書きしてしまうため、
+  // 先に読んだユーザーの世代を書き込みの条件にし、競合したら両方を読み直す
   let lastError: OptimisticLockError | undefined;
   for (let attempt = 0; attempt < ROLES_AND_GRANTS_MAX_ATTEMPTS; attempt++) {
     const user = await userRepository.getUserById(userId);
@@ -159,7 +137,7 @@ export async function syncStripeCustomer(
     const subscriptions = await listEntitledSubscriptions(stripe, customerId);
     const desired = toDesiredRoles(subscriptions);
 
-    // 変更の有無だけを見るための計算なので、権利の ID は消費しない
+    // 変更の有無だけを見る計算なので、権利の ID は消費しない
     const current = user.roleGrants ?? [];
     if (
       isGrantsUnchanged(
@@ -189,11 +167,6 @@ export async function syncStripeCustomer(
   throw lastError as OptimisticLockError;
 }
 
-/**
- * 通知のイベントから顧客 ID を取り出す。
- *
- * `customer` を文字列か、展開されたオブジェクトで持つイベントだけが対象。取り出せなければ null。
- */
 export function extractCustomerId(event: { data: { object: unknown } }): string | null {
   const object = event.data.object;
   if (typeof object !== 'object' || object === null) {

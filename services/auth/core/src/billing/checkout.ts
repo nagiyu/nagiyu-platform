@@ -8,20 +8,13 @@ const CHECKOUT_ERROR_MESSAGES = {
   URL_MISSING: 'Checkout Session の URL を取得できませんでした',
 } as const;
 
-/** 申し込みの結果 */
 export type CheckoutResult =
   | { ok: true; url: string }
   | { ok: false; reason: 'invalid-role' | 'already-subscribed' | 'price-not-found' };
 
-/** 契約の管理の結果 */
 export type PortalResult = { ok: true; url: string } | { ok: false; reason: 'no-customer' };
 
-/**
- * ユーザーの Stripe の顧客を得る。なければ作って保存する。
- *
- * 二重作成は `idempotencyKey` で避ける。保存は楽観ロックつきの書き込みに乗せ、
- * 同時に別の顧客 ID が保存されていたときは、上書きせず保存済みのものを採る。
- */
+/** 同時に別の顧客 ID が保存されていたときは、上書きせず保存済みのものを採る */
 export async function ensureStripeCustomer(
   stripe: BillingOperationsStripe,
   userRepository: UserRepository,
@@ -55,9 +48,7 @@ export async function ensureStripeCustomer(
   return saved;
 }
 
-/**
- * 有料ロールごとの現在の Price を得る。キーはロール ID (Price の lookup_key)。
- */
+/** キーはロール ID (Price の lookup_key) */
 export async function listPlanPrices(
   stripe: BillingOperationsStripe
 ): Promise<Map<string, BillingPrice>> {
@@ -65,7 +56,6 @@ export async function listPlanPrices(
     lookup_keys: PAID_ROLES,
     active: true,
     limit: 100,
-    // 説明文を商品から読むため、商品を ID ではなく中身ごと得る
     expand: ['data.product'],
   });
   const byRole = new Map<string, BillingPrice>();
@@ -80,10 +70,9 @@ export async function listPlanPrices(
 /**
  * 申し込みの Checkout Session を作る。
  *
- * 同じロールを与える契約が既にあるかは、DB ではなく Stripe から取り直して判定する。
- * 通知の遅れで DB が古くても二重に申し込ませないため。
+ * 既存の契約は、通知の遅れで DB が古くても二重に申し込ませないよう、Stripe から取り直して判定する。
  *
- * @param urls - 決済後の戻り先。呼び出し側で検証済みのものを渡す
+ * @param urls - 呼び出し側で検証済みのものを渡す
  */
 export async function createCheckoutSession(
   deps: { stripe: BillingOperationsStripe; userRepository: UserRepository },
@@ -126,9 +115,6 @@ export async function createCheckoutSession(
   return { ok: true, url: session.url };
 }
 
-/**
- * Customer Portal のセッションを作る。顧客を持たないユーザーには作らない。
- */
 export async function createPortalSession(
   stripe: BillingOperationsStripe,
   user: Pick<User, 'stripeCustomerId'>,

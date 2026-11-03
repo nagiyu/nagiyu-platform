@@ -25,11 +25,7 @@ const ERROR_MESSAGES = {
   PORTAL_FAILED: '契約の管理画面を開けませんでした',
 } as const;
 
-/**
- * POST /api/billing/portal - Customer Portal のセッションを作り、その URL を返す
- *
- * body は `{ callbackUrl? }`。Stripe の顧客を持たないユーザーには作らない。
- */
+/** POST /api/billing/portal - Customer Portal の URL を返す */
 export const POST = withApiErrorReporting(
   'Web API: 契約の管理画面の準備エラー',
   async (request: NextRequest) => {
