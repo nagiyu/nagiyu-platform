@@ -39,7 +39,9 @@ const baseCard = {
   canSubscribe: true,
 };
 
-function render_(searchParams: { checkout?: string; callbackUrl?: string } = {}) {
+function render_(
+  searchParams: { checkout?: string | string[]; callbackUrl?: string | string[] } = {}
+) {
   return PlansPage({ searchParams: Promise.resolve(searchParams) });
 }
 
@@ -98,7 +100,7 @@ describe('PlansPage', () => {
     expect(screen.getByText('次の更新日: 2026年12月3日')).toBeInTheDocument();
     expect(screen.getByText('契約を管理')).toBeInTheDocument();
     expect(screen.queryByText('申し込む')).not.toBeInTheDocument();
-    expect(screen.getByText(/毎月自動で更新されます/)).toBeInTheDocument();
+    expect(screen.getByText(/契約は自動で更新されます/)).toBeInTheDocument();
   });
 
   it('未契約は申し込みを、価格が取れないときは価格の代わりに案内を出す', async () => {
@@ -140,7 +142,7 @@ describe('PlansPage', () => {
   });
 
   it('決済成功なら同期してから /refresh へ送る。戻り先が無ければプランの画面に戻す', async () => {
-    (syncUserForPlans as jest.Mock).mockResolvedValue(null);
+    (syncUserForPlans as jest.Mock).mockResolvedValue({ user: null, subscriptions: null });
 
     await expect(render_({ checkout: 'success' })).rejects.toThrow('NEXT_REDIRECT');
 
@@ -151,7 +153,7 @@ describe('PlansPage', () => {
   });
 
   it('決済成功の戻り先に、許可された URL だけを引き継ぐ', async () => {
-    (syncUserForPlans as jest.Mock).mockResolvedValue(null);
+    (syncUserForPlans as jest.Mock).mockResolvedValue({ user: null, subscriptions: null });
 
     await expect(
       render_({ checkout: 'success', callbackUrl: 'https://evil.example.com/' })
@@ -160,5 +162,31 @@ describe('PlansPage', () => {
     expect(mockRedirect).toHaveBeenCalledWith(
       `/refresh?callbackUrl=${encodeURIComponent('https://auth.nagiyu.com/plans')}`
     );
+  });
+
+  it('同じキーを重ねた callbackUrl は無いものとして扱い、画面を落とさない', async () => {
+    (loadPlansPageData as jest.Mock).mockResolvedValue({
+      billingEnabled: true,
+      hasCustomer: false,
+      cards: [baseCard],
+    });
+
+    render(await render_({ callbackUrl: ['https://quick-clip.nagiyu.com/a', '/b'] }));
+
+    expect(screen.getByText('申し込む')).toBeInTheDocument();
+  });
+
+  it('同じキーを重ねた checkout は success として扱わない', async () => {
+    (loadPlansPageData as jest.Mock).mockResolvedValue({
+      billingEnabled: true,
+      hasCustomer: false,
+      cards: [baseCard],
+    });
+
+    render(await render_({ checkout: ['success', 'success'] }));
+
+    expect(syncUserForPlans).not.toHaveBeenCalled();
+    expect(mockRedirect).not.toHaveBeenCalled();
+    expect(loadPlansPageData).toHaveBeenCalled();
   });
 });

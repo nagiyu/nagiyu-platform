@@ -18,7 +18,7 @@ export const GRACE_PERIOD_MS = 3 * 24 * 60 * 60 * 1000;
 
 /** 同期の結果 */
 export type SyncResult =
-  | { synced: true; changed: boolean }
+  | { synced: true; changed: boolean; subscriptions: EntitledSubscription[] }
   | { synced: false; reason: 'customer-deleted' | 'user-not-found' | 'customer-mismatch' };
 
 /** 同期が使うもの。テストで差し替えられるよう外から受け取る */
@@ -98,11 +98,7 @@ export async function listEntitledSubscriptions(
   return entitled;
 }
 
-async function fetchDesiredRoles(
-  stripe: BillingStripe,
-  customerId: string
-): Promise<DesiredStripeRole[]> {
-  const entitled = await listEntitledSubscriptions(stripe, customerId);
+function toDesiredRoles(entitled: EntitledSubscription[]): DesiredStripeRole[] {
   return entitled.map((entry) => ({
     roleId: entry.roleId,
     expiresAt: entry.currentPeriodEnd + GRACE_PERIOD_MS,
@@ -118,6 +114,8 @@ async function fetchDesiredRoles(
  *
  * 顧客のメタデータの `userId` が指すユーザーが、同じ顧客 ID を保持しているときだけ反映する。
  * 一致しなければ何もしない。再送されても結果が変わらないため、呼び出し側は成功として扱ってよい。
+ *
+ * 結果の `subscriptions` は、反映に使った Stripe の読み取り結果。画面が同じ内容を読み直さずに済むよう返す。
  *
  * 書き込みが他の書き込みと競合したときは、ユーザーと Stripe の状態を読み直してやり直す。
  *
@@ -158,7 +156,8 @@ export async function syncStripeCustomer(
       return { synced: false, reason: 'customer-mismatch' };
     }
 
-    const desired = await fetchDesiredRoles(stripe, customerId);
+    const subscriptions = await listEntitledSubscriptions(stripe, customerId);
+    const desired = toDesiredRoles(subscriptions);
 
     // 変更の有無だけを見るための計算なので、権利の ID は消費しない
     const current = user.roleGrants ?? [];
@@ -168,7 +167,7 @@ export async function syncStripeCustomer(
         computeStripeGrants(current, desired, now(), () => '')
       )
     ) {
-      return { synced: true, changed: false };
+      return { synced: true, changed: false, subscriptions };
     }
 
     try {
@@ -177,7 +176,7 @@ export async function syncStripeCustomer(
         { roleGrants: computeStripeGrants(current, desired, now(), generateId) },
         user.updatedAt
       );
-      return { synced: true, changed: true };
+      return { synced: true, changed: true, subscriptions };
     } catch (error) {
       if (error instanceof OptimisticLockError) {
         lastError = error;

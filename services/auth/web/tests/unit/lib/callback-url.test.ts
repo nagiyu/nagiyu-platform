@@ -36,6 +36,23 @@ describe('sanitizeCallbackUrl', () => {
     expect(sanitizeCallbackUrl(raw, BASE)).toBeNull();
   });
 
+  it.each([
+    '/\t/evil.example.com/',
+    '/\n/evil.example.com/',
+    '/\r/evil.example.com/',
+    '/\t\\evil.example.com/',
+  ])('タブや改行が取り除かれて別オリジンになる相対パスは null (%j)', (raw) => {
+    // URL パーサーが制御文字を取り除くと `//evil.example.com/` になる
+    expect(new URL(raw, BASE).origin).not.toBe(BASE);
+    expect(sanitizeCallbackUrl(raw, BASE)).toBeNull();
+  });
+
+  it('パーセントエンコードされたタブはただのパスとして扱い、自サービス内に留める', () => {
+    expect(sanitizeCallbackUrl('/%09/evil.example.com/', BASE)).toBe(
+      'https://auth.nagiyu.com/%09/evil.example.com/'
+    );
+  });
+
   it('解釈できない相対パスは null', () => {
     expect(sanitizeCallbackUrl('/ok', 'not a url')).toBeNull();
   });

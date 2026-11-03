@@ -4,7 +4,7 @@ import type { RoleGrant } from '@nagiyu/common';
 export const PLANS_MESSAGES = {
   PREPARING: '準備中です',
   PRICE_UNAVAILABLE: '価格を取得できませんでした',
-  NOTE: '毎月自動で更新されます。解約は「契約を管理」から行えます。解約しても、支払い済みの期間の終わりまで使えます。',
+  NOTE: '契約は自動で更新されます。解約は「契約を管理」から行えます。解約しても、支払い済みの期間の終わりまで使えます。',
 } as const;
 
 /** Price のうち表示に使う部分 */

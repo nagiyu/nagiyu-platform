@@ -1,6 +1,10 @@
+/**
+ * @jest-environment node
+ */
 import type { User } from '@nagiyu/common';
 import type { BillingOperationsStripe, UserRepository } from '@nagiyu/auth-core';
-// auth-core の入口は DynamoDB 実装を経由して AWS SDK (ESM) を読み込むため、課金のロジックだけを読む
+// auth-core の入口は DynamoDB 実装を経由して AWS SDK (ESM) を読み込むため、課金のロジックだけを読む。
+// 課金のロジックも楽観ロックのエラー型のために @nagiyu/aws を読むので、ブラウザ向けの解決を避けて node で動かす
 jest.mock('@nagiyu/auth-core', () => jest.requireActual('../../../../core/src/billing'));
 
 import { loadPlansPageData, syncUserForPlans } from '../../../src/lib/plans-data';
@@ -63,6 +67,10 @@ function buildRepository(initial: User): UserRepository {
     getUserById: async (id: string) => (id === current.userId ? current : null),
     updateRolesAndGrants: async (_id: string, compute: (user: User) => Partial<User>) => {
       current = { ...current, ...compute(current) };
+      return current;
+    },
+    updateRolesAndGrantsIfUnchanged: async (_id: string, change: Partial<User>) => {
+      current = { ...current, ...change };
       return current;
     },
   } as unknown as UserRepository;
@@ -130,6 +138,26 @@ describe('loadPlansPageData', () => {
     expect(user?.roleGrants?.some((g) => g.source === 'stripe')).toBe(true);
   });
 
+  it('契約の読み取りは同期の 1 回だけで、表示のために重ねて読まない', async () => {
+    const { deps, userId } = await setup(true);
+
+    await loadPlansPageData(deps, userId);
+
+    expect(deps.stripe.subscriptions.list).toHaveBeenCalledTimes(1);
+    expect(deps.stripe.products.listFeatures).toHaveBeenCalledTimes(1);
+  });
+
+  it('同期が契約を読めなかったときは、表示のために読み直す', async () => {
+    const { deps, userId } = await setup(true);
+    (deps.stripe.customers.retrieve as jest.Mock).mockRejectedValueOnce(new Error('down'));
+
+    const data = await loadPlansPageData(deps, userId);
+
+    if (!data.billingEnabled) throw new Error('unreachable');
+    expect(data.cards[0].state).toBe('subscribed');
+    expect(deps.stripe.subscriptions.list).toHaveBeenCalledTimes(1);
+  });
+
   it('解約予約中は終了日つきで返す', async () => {
     const { deps, userId } = await setup(true, { cancelAtPeriodEnd: true });
 
@@ -165,23 +193,35 @@ describe('syncUserForPlans', () => {
   it('ユーザーがいなければ null', async () => {
     const { deps } = await setup(false);
 
-    expect(await syncUserForPlans(deps, 'nobody')).toBeNull();
+    expect(await syncUserForPlans(deps, 'nobody')).toEqual({ user: null, subscriptions: null });
   });
 
   it('顧客がなければ同期せずユーザーを返す', async () => {
     const { deps, userId } = await setup(false);
 
-    const user = await syncUserForPlans(deps, userId);
+    const { user, subscriptions } = await syncUserForPlans(deps, userId);
 
     expect(user?.userId).toBe(userId);
+    expect(subscriptions).toBeNull();
     expect(deps.stripe.customers.retrieve).not.toHaveBeenCalled();
   });
 
   it('同期が失敗してもユーザーを返す', async () => {
     const { deps, userId } = await setup(true, { failSubscriptions: true });
 
-    const user = await syncUserForPlans(deps, userId);
+    const { user, subscriptions } = await syncUserForPlans(deps, userId);
 
     expect(user?.userId).toBe(userId);
+    expect(subscriptions).toBeNull();
+  });
+
+  it('同期が読んだ契約を返す', async () => {
+    const { deps, userId } = await setup(true);
+
+    const { subscriptions } = await syncUserForPlans(deps, userId);
+
+    expect(subscriptions).toEqual([
+      expect.objectContaining({ roleId: 'livetalk-premium', subscriptionId: 'sub_1' }),
+    ]);
   });
 });
