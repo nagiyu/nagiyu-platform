@@ -24,7 +24,7 @@ export interface User {
   name: string;
   /** Array of role IDs assigned to the user */
   roles: string[];
-  /** 課金の権利。古い版が作った項目には無い */
+  /** 課金の権利。一度も付けていないユーザーには無い */
   roleGrants?: RoleGrant[];
   /** Unix timestamp (milliseconds) of user creation */
   createdAt: number;

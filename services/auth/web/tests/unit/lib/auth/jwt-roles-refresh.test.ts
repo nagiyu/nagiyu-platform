@@ -405,7 +405,7 @@ describe('jwt コールバック - rolesRefreshedAt', () => {
       expect(result.roles).toEqual(['admin']);
     });
 
-    it('roleGrants のない旧形式のユーザーは手動ロールだけになる', async () => {
+    it('roleGrants のないユーザーは手動ロールだけになる', async () => {
       mockGetUserByGoogleId.mockResolvedValueOnce({ userId: 'u1', roles: ['admin'] });
       await useRepository();
 
