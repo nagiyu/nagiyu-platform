@@ -52,7 +52,6 @@ async function setup(stripeCustomerId: string | null = 'cus_1') {
   const repo = new InMemoryUserRepository(store);
   const created = await repo.upsertUser({ googleId: 'g1', email: 'a@example.com', name: 'A' });
   if (stripeCustomerId !== null) {
-    // 顧客の対応を保存する更新経路はまだ無いため、保存済みの項目に属性を足す
     const key = { userId: created.userId };
     store.putByKey(key, { ...store.getByKey(key), StripeCustomerId: stripeCustomerId });
   }
@@ -170,7 +169,6 @@ describe('syncStripeCustomer', () => {
   });
 
   describe('同期中に別の書き込みが割り込んだとき', () => {
-    /** Stripe を読んでいる最中に、別のハンドラーがユーザーを書き換えたことにする */
     async function interruptOnList(
       stripe: ReturnType<typeof buildStripe>,
       store: InMemorySingleTableStore,
@@ -359,5 +357,31 @@ describe('extractCustomerId', () => {
   it('オブジェクトでない data.object は null', () => {
     expect(extractCustomerId({ data: { object: 'x' } })).toBeNull();
     expect(extractCustomerId({ data: { object: null } })).toBeNull();
+  });
+});
+
+describe('listEntitledSubscriptions', () => {
+  it('解約の予約と請求期間の終わりを返す', async () => {
+    const { listEntitledSubscriptions } = await import('../../../src/billing/sync');
+    const canceling: BillingSubscription = {
+      ...subscription('sub_a', 'active'),
+      cancel_at_period_end: true,
+    };
+    const cancelAt: BillingSubscription = {
+      ...subscription('sub_b', 'trialing'),
+      cancel_at: PERIOD_END_SEC + 100,
+    };
+    const stripe = buildStripe({
+      subscriptions: [canceling, cancelAt, subscription('sub_c', 'active')],
+      features: { prod_live: ['livetalk-premium'] },
+    });
+
+    const result = await listEntitledSubscriptions(stripe, 'cus_1');
+
+    expect(result.map((r) => [r.subscriptionId, r.endsAt])).toEqual([
+      ['sub_a', PERIOD_END_SEC * 1000],
+      ['sub_b', (PERIOD_END_SEC + 100) * 1000],
+      ['sub_c', null],
+    ]);
   });
 });

@@ -1,5 +1,8 @@
 const mockStripe = {
-  customers: { retrieve: jest.fn() },
+  customers: { retrieve: jest.fn(), create: jest.fn() },
+  prices: { list: jest.fn() },
+  checkout: { sessions: { create: jest.fn() } },
+  billingPortal: { sessions: { create: jest.fn() } },
   subscriptions: { list: jest.fn() },
   products: { listFeatures: jest.fn() },
   webhooks: { constructEvent: jest.fn() },
@@ -60,5 +63,35 @@ describe('createBillingStripe', () => {
     });
     expect(mockStripe.products.listFeatures).toHaveBeenCalledWith('prod_1', { limit: 100 });
     expect(mockStripe.webhooks.constructEvent).toHaveBeenCalledWith('body', 'sig', 'whsec');
+  });
+
+  it('申し込みと契約の管理の呼び出しにも引数をそのまま渡す', async () => {
+    const client = createBillingStripe('sk_test');
+
+    await client.customers.create(
+      { email: 'a@example.com', name: 'A', metadata: { userId: 'u1' } },
+      { idempotencyKey: 'customer-u1' }
+    );
+    await client.prices.list({ lookup_keys: ['k'], active: true, limit: 100 });
+    await client.checkout.sessions.create({ mode: 'subscription' } as never);
+    await client.billingPortal.sessions.create({
+      customer: 'cus_1',
+      return_url: 'https://x/plans',
+    });
+
+    expect(mockStripe.customers.create).toHaveBeenCalledWith(
+      { email: 'a@example.com', name: 'A', metadata: { userId: 'u1' } },
+      { idempotencyKey: 'customer-u1' }
+    );
+    expect(mockStripe.prices.list).toHaveBeenCalledWith({
+      lookup_keys: ['k'],
+      active: true,
+      limit: 100,
+    });
+    expect(mockStripe.checkout.sessions.create).toHaveBeenCalledWith({ mode: 'subscription' });
+    expect(mockStripe.billingPortal.sessions.create).toHaveBeenCalledWith({
+      customer: 'cus_1',
+      return_url: 'https://x/plans',
+    });
   });
 });

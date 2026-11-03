@@ -1,30 +1,15 @@
 import type { RoleGrant } from '@nagiyu/common';
 
-/** Stripe の契約から得た、付けるべきロールと期限 */
 export type DesiredStripeRole = {
   roleId: string;
-  /** 期限 (Unix ミリ秒) */
   expiresAt: number;
-  /** 契約 ID。権利の `sourceRef` に入れる */
   subscriptionId: string;
 };
 
 /**
  * Stripe 由来の権利を、望ましいロールの一覧に合わせた新しい権利の一覧にする。
  *
- * 副作用を持たず、同じ入力には同じ結果を返す。通知が重複しても順序が入れ替わっても、
- * Stripe から取り直した状態が同じなら権利の一覧も同じになる。
- *
- * - 手動の権利には触れない。同じロールに手動と Stripe の権利が並んでもよい
- * - 同じロールを複数の契約が与えるときは、期限が最も遅いものを採る
- * - 有効な Stripe 由来の権利は、期限か参照が違うときだけ更新し、変わらなければ `updatedAt` も変えない
- * - 望ましいロールにない有効な Stripe 由来の権利は取り消す。期限切れのものは何もしない
- * - 同じロールに有効な Stripe 由来の権利が複数あれば、先頭だけ残して余りを取り消す
- *
- * @param grants - 現在の権利 (無効なものを含む)
- * @param desired - Stripe から得た望ましいロールと期限
- * @param now - 判定時刻 (Unix ミリ秒)
- * @param generateId - 新しい権利の ID の生成。純粋さを保つため呼び出し側から受け取る
+ * 結果は入力だけで決まる。手動の権利には触れない。変更のない権利は同じオブジェクトのまま返す。
  */
 export function computeStripeGrants(
   grants: readonly RoleGrant[],
@@ -91,11 +76,7 @@ export function computeStripeGrants(
   return [...next, ...created];
 }
 
-/**
- * 権利の一覧に変更がないかを判定する。変わらなければ書き込みを省くために使う。
- *
- * {@link computeStripeGrants} は変更のない権利を同じオブジェクトのまま返すので、参照で比べる。
- */
+/** 参照で比べる。{@link computeStripeGrants} は変更のない権利を同じオブジェクトのまま返す */
 export function isGrantsUnchanged(
   before: readonly RoleGrant[],
   after: readonly RoleGrant[]
