@@ -43,7 +43,7 @@ new SecretsStack(app, `NagiyuAuthSecrets${envSuffix}`, {
   description: `Auth Service Secrets Manager - ${env} environment`,
 });
 
-// Stripe の鍵のスタックを作成 (既存の Secrets スタックとは分ける。理由は StripeSecretsStack を参照)
+// Stripe の鍵のスタックを作成 (既存の Secrets スタックに足すと、develop の版のデプロイで秘密情報が削除されるため分ける)
 new StripeSecretsStack(app, `NagiyuAuthStripeSecrets${envSuffix}`, {
   environment: env,
   env: stackEnv,

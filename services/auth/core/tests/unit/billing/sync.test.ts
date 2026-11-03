@@ -1,8 +1,9 @@
-import { InMemorySingleTableStore } from '@nagiyu/aws';
+import { InMemorySingleTableStore, OptimisticLockError } from '@nagiyu/aws';
 import type { RoleGrant } from '@nagiyu/common';
 import { GRACE_PERIOD_MS, extractCustomerId, syncStripeCustomer } from '../../../src/billing/sync';
 import type { BillingStripe, BillingSubscription } from '../../../src/billing/stripe-client';
 import { InMemoryUserRepository } from '../../../src/repositories';
+import { ROLES_AND_GRANTS_MAX_ATTEMPTS } from '../../../src/repositories/user-repository';
 
 const NOW = 1_700_000_000_000;
 const PERIOD_END_SEC = Math.floor(NOW / 1000) + 30 * 24 * 60 * 60;
@@ -55,7 +56,7 @@ async function setup(stripeCustomerId: string | null = 'cus_1') {
     const key = { userId: created.userId };
     store.putByKey(key, { ...store.getByKey(key), StripeCustomerId: stripeCustomerId });
   }
-  return { repo, userId: created.userId };
+  return { repo, store, userId: created.userId };
 }
 
 describe('syncStripeCustomer', () => {
@@ -103,7 +104,7 @@ describe('syncStripeCustomer', () => {
     });
     await syncStripeCustomer(deps(stripe, repo), 'cus_1');
     const before = await repo.getUserById(userId);
-    const spy = jest.spyOn(repo, 'updateRolesAndGrants');
+    const spy = jest.spyOn(repo, 'updateRolesAndGrantsIfUnchanged');
 
     const result = await syncStripeCustomer(deps(stripe, repo), 'cus_1');
 
@@ -166,6 +167,71 @@ describe('syncStripeCustomer', () => {
     const grants = (await repo.getUserById(userId))?.roleGrants;
     expect(grants?.[0]).toEqual(manual);
     expect(grants?.[1]).toMatchObject({ grantId: 's1', revokedAt: NOW });
+  });
+
+  describe('同期中に別の書き込みが割り込んだとき', () => {
+    /** Stripe を読んでいる最中に、別のハンドラーがユーザーを書き換えたことにする */
+    async function interruptOnList(
+      stripe: ReturnType<typeof buildStripe>,
+      store: InMemorySingleTableStore,
+      userId: string,
+      responses: BillingSubscription[][]
+    ) {
+      let calls = 0;
+      (stripe.subscriptions.list as jest.Mock).mockImplementation(async () => {
+        const data = responses[Math.min(calls, responses.length - 1)];
+        calls += 1;
+        const raw = store.getByKey({ userId }) as Record<string, unknown>;
+        store.putByKey({ userId }, { ...raw, UpdatedAt: (raw.UpdatedAt as number) + calls });
+        return { data };
+      });
+    }
+
+    it('読み直して、新しい Stripe の状態で書き直す', async () => {
+      const store = new InMemorySingleTableStore();
+      const repo = new InMemoryUserRepository(store);
+      const created = await repo.upsertUser({ googleId: 'g1', email: 'a@example.com', name: 'A' });
+      const key = { userId: created.userId };
+      store.putByKey(key, { ...store.getByKey(key), StripeCustomerId: 'cus_1' });
+      const stripe = buildStripe({
+        customer: { id: 'cus_1', metadata: { userId: created.userId } },
+        features: { prod_old: ['livetalk-premium'], prod_new: ['quick-clip-premium'] },
+      });
+      // 1 回目の読み取りの最中に割り込まれ、2 回目では契約が変わっている
+      let interrupted = false;
+      (stripe.subscriptions.list as jest.Mock).mockImplementation(async () => {
+        if (!interrupted) {
+          interrupted = true;
+          const raw = store.getByKey(key) as Record<string, unknown>;
+          store.putByKey(key, { ...raw, UpdatedAt: (raw.UpdatedAt as number) + 1 });
+          return { data: [subscription('sub_old', 'active', 'prod_old')] };
+        }
+        return { data: [subscription('sub_new', 'active', 'prod_new')] };
+      });
+
+      const result = await syncStripeCustomer(deps(stripe, repo), 'cus_1');
+
+      expect(result).toEqual({ synced: true, changed: true });
+      expect(stripe.subscriptions.list).toHaveBeenCalledTimes(2);
+      const grants = (await repo.getUserById(created.userId))?.roleGrants;
+      expect(grants?.map((g) => [g.roleId, g.sourceRef])).toEqual([
+        ['quick-clip-premium', 'sub_new'],
+      ]);
+    });
+
+    it('競合が解けなければ上限回数で OptimisticLockError にする', async () => {
+      const { repo, store, userId } = await setup();
+      const stripe = buildStripe({
+        customer: { id: 'cus_1', metadata: { userId } },
+        features: { prod_live: ['livetalk-premium'] },
+      });
+      await interruptOnList(stripe, store, userId, [[subscription('sub_1', 'active')]]);
+
+      await expect(syncStripeCustomer(deps(stripe, repo), 'cus_1')).rejects.toBeInstanceOf(
+        OptimisticLockError
+      );
+      expect(stripe.subscriptions.list).toHaveBeenCalledTimes(ROLES_AND_GRANTS_MAX_ATTEMPTS);
+    });
   });
 
   it('同じ商品の機能の取得は 1 回にまとめる', async () => {

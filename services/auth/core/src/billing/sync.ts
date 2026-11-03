@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto';
+import { OptimisticLockError } from '@nagiyu/aws';
 import { PAID_ROLES, logger } from '@nagiyu/common';
 import type { UserRepository } from '../repositories';
+import { ROLES_AND_GRANTS_MAX_ATTEMPTS } from '../repositories/user-repository';
 import { computeStripeGrants, isGrantsUnchanged, type DesiredStripeRole } from './grant-diff';
 import type { BillingStripe } from './stripe-client';
 
@@ -89,7 +91,10 @@ async function fetchDesiredRoles(
  * 顧客のメタデータの `userId` が指すユーザーが、同じ顧客 ID を保持しているときだけ反映する。
  * 一致しなければ何もしない。再送されても結果が変わらないため、呼び出し側は成功として扱ってよい。
  *
- * @throws Stripe や DB の一時的な失敗。呼び出し側は再送させるために失敗として扱う
+ * 書き込みが他の書き込みと競合したときは、ユーザーと Stripe の状態を読み直してやり直す。
+ *
+ * @throws Stripe や DB の一時的な失敗、および試行回数を使い切っても競合が解けなかったこと
+ * (`OptimisticLockError`)。呼び出し側は再送させるために失敗として扱う
  */
 export async function syncStripeCustomer(
   deps: SyncDependencies,
@@ -106,34 +111,55 @@ export async function syncStripeCustomer(
   }
 
   const userId = customer.metadata?.userId;
-  const user = userId ? await userRepository.getUserById(userId) : null;
-  if (!userId || !user) {
+  if (!userId) {
     logger.warn('顧客に対応するユーザーが見つからないため同期を行いません', { customerId });
     return { synced: false, reason: 'user-not-found' };
   }
-  if (user.stripeCustomerId !== customerId) {
-    logger.warn('ユーザーの顧客 ID が一致しないため同期を行いません', { customerId, userId });
-    return { synced: false, reason: 'customer-mismatch' };
+
+  // Stripe を読んでいる間に別のハンドラーが新しい状態を書くと、古い読み取りで上書きしてしまう。
+  // Stripe を読む前に読んだユーザーの世代を書き込みの条件にし、競合したら両方を読み直す
+  let lastError: OptimisticLockError | undefined;
+  for (let attempt = 0; attempt < ROLES_AND_GRANTS_MAX_ATTEMPTS; attempt++) {
+    const user = await userRepository.getUserById(userId);
+    if (!user) {
+      logger.warn('顧客に対応するユーザーが見つからないため同期を行いません', { customerId });
+      return { synced: false, reason: 'user-not-found' };
+    }
+    if (user.stripeCustomerId !== customerId) {
+      logger.warn('ユーザーの顧客 ID が一致しないため同期を行いません', { customerId, userId });
+      return { synced: false, reason: 'customer-mismatch' };
+    }
+
+    const desired = await fetchDesiredRoles(stripe, customerId);
+
+    // 変更の有無だけを見るための計算なので、権利の ID は消費しない
+    const current = user.roleGrants ?? [];
+    if (
+      isGrantsUnchanged(
+        current,
+        computeStripeGrants(current, desired, now(), () => '')
+      )
+    ) {
+      return { synced: true, changed: false };
+    }
+
+    try {
+      await userRepository.updateRolesAndGrantsIfUnchanged(
+        userId,
+        { roleGrants: computeStripeGrants(current, desired, now(), generateId) },
+        user.updatedAt
+      );
+      return { synced: true, changed: true };
+    } catch (error) {
+      if (error instanceof OptimisticLockError) {
+        lastError = error;
+        continue;
+      }
+      throw error;
+    }
   }
 
-  const desired = await fetchDesiredRoles(stripe, customerId);
-
-  // 変更の有無だけを見るための計算なので、権利の ID は消費しない
-  const current = user.roleGrants ?? [];
-  if (
-    isGrantsUnchanged(
-      current,
-      computeStripeGrants(current, desired, now(), () => '')
-    )
-  ) {
-    return { synced: true, changed: false };
-  }
-
-  // 競合で読み直されたときも最新の権利に対して計算し直すため、compute の中で差分を求める
-  await userRepository.updateRolesAndGrants(userId, (latest) => ({
-    roleGrants: computeStripeGrants(latest.roleGrants ?? [], desired, now(), generateId),
-  }));
-  return { synced: true, changed: true };
+  throw lastError as OptimisticLockError;
 }
 
 /**

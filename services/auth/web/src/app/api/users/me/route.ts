@@ -3,7 +3,7 @@ import { createUserRepository } from '@nagiyu/auth-core';
 import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import { getSession } from '@/lib/auth/session';
 import { withApiErrorReporting } from '@/lib/api-error-reporting';
-import { toSelfUserView } from '@/lib/role-grants';
+import { toSelfUserView } from '@/lib/user-view';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
