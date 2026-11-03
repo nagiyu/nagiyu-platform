@@ -89,9 +89,37 @@ describe('ensureStripeCustomer', () => {
     expect(id).toBe('cus_new');
     expect(customersCreate).toHaveBeenCalledWith(
       { email: 'a@example.com', name: 'A', metadata: { userId: user.userId } },
-      { idempotencyKey: `customer-${user.userId}` }
+      { idempotencyKey: `customer-${user.userId}-${user.updatedAt}` }
     );
     expect((await repo.getUserById(user.userId))?.stripeCustomerId).toBe('cus_new');
+  });
+
+  it('対応を外した後は別の冪等キーで作り直し、前の顧客を返さない', async () => {
+    // 更新時刻はミリ秒なので、速い環境でも手順ごとに時刻がずれるように進める
+    let now = 1_800_000_000_000;
+    const nowSpy = jest.spyOn(Date, 'now').mockImplementation(() => now);
+    try {
+      const { repo, user } = await setupUser();
+      const { stripe, customersCreate } = buildStripe();
+      now += 1000;
+      await ensureStripeCustomer(stripe, repo, user);
+      now += 1000;
+      const unlinked = await repo.updateRolesAndGrants(user.userId, () => ({
+        stripeCustomerId: null,
+      }));
+      now += 1000;
+
+      await ensureStripeCustomer(stripe, repo, unlinked);
+
+      const keys = customersCreate.mock.calls.map(([, options]) => options.idempotencyKey);
+      expect(keys).toEqual([
+        `customer-${user.userId}-${user.updatedAt}`,
+        `customer-${user.userId}-${unlinked.updatedAt}`,
+      ]);
+      expect(keys[0]).not.toBe(keys[1]);
+    } finally {
+      nowSpy.mockRestore();
+    }
   });
 
   it('作っている間に別の顧客 ID が保存されたら、上書きせず保存済みのものを使う', async () => {
