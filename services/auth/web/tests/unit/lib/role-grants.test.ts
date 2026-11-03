@@ -40,7 +40,7 @@ describe('applyGrantChanges', () => {
     expect(result).toEqual({ roles: ['admin'], roleGrants: [original] });
   });
 
-  it('roleGrants のない旧形式のユーザーでも追加できる', () => {
+  it('roleGrants のないユーザーでも追加できる', () => {
     const result = applyGrantChanges(
       user(),
       [],

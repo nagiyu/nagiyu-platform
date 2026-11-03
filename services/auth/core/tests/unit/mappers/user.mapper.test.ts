@@ -229,7 +229,7 @@ describe('UserMapper', () => {
   });
 
   describe('RoleGrants', () => {
-    it('属性がない旧形式の Item は roleGrants なしで読める', () => {
+    it('属性がない Item は roleGrants なしで読める', () => {
       const entity = mapper.toEntity(buildItem());
       expect(entity.roleGrants).toBeUndefined();
     });
