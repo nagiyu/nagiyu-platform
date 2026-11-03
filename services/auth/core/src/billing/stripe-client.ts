@@ -33,6 +33,10 @@ export type BillingSubscriptionItem = {
 export type BillingSubscription = {
   id: string;
   status: string;
+  /** 期間の終わりでの解約が予約されているか */
+  cancel_at_period_end?: boolean;
+  /** 解約が予約された日時 (Unix 秒)。期間の終わり以外を指定された場合も入る */
+  cancel_at?: number | null;
   items: { data: BillingSubscriptionItem[] };
 };
 
@@ -71,6 +75,56 @@ export interface BillingStripe {
   };
 }
 
+/** Price のうち画面が読む部分 */
+export type BillingPrice = {
+  id: string;
+  lookup_key: string | null;
+  /** 最小通貨単位での金額 */
+  unit_amount: number | null;
+  currency: string;
+  recurring: { interval: string; interval_count: number } | null;
+};
+
+/** 申し込み・契約の管理が Stripe に対して使う操作 */
+export interface BillingOperationsStripe extends BillingStripe {
+  customers: BillingStripe['customers'] & {
+    create(
+      params: { email: string; name: string; metadata: Record<string, string> },
+      options: { idempotencyKey: string }
+    ): Promise<{ id: string }>;
+  };
+  prices: {
+    list(params: {
+      lookup_keys: string[];
+      active: boolean;
+      limit: number;
+    }): Promise<{ data: BillingPrice[] }>;
+  };
+  checkout: {
+    sessions: {
+      create(params: BillingCheckoutParams): Promise<{ url: string | null }>;
+    };
+  };
+  billingPortal: {
+    sessions: {
+      create(params: { customer: string; return_url: string }): Promise<{ url: string }>;
+    };
+  };
+}
+
+/** Checkout Session の作成内容 */
+export type BillingCheckoutParams = {
+  mode: 'subscription';
+  customer: string;
+  client_reference_id: string;
+  line_items: { price: string; quantity: number }[];
+  metadata: Record<string, string>;
+  subscription_data: { metadata: Record<string, string> };
+  locale: 'ja';
+  success_url: string;
+  cancel_url: string;
+};
+
 function isUnset(value: string): boolean {
   return value === '' || value.startsWith('PLACEHOLDER_');
 }
@@ -95,11 +149,25 @@ export function getBillingConfig(env: NodeJS.ProcessEnv = process.env): BillingC
 /**
  * Stripe の SDK から {@link BillingStripe} を作る。
  */
-export function createBillingStripe(secretKey: string): BillingStripe {
+export function createBillingStripe(secretKey: string): BillingOperationsStripe {
   const stripe = new Stripe(secretKey);
   return {
     customers: {
       retrieve: (id) => stripe.customers.retrieve(id),
+      create: (params, options) => stripe.customers.create(params, options),
+    },
+    prices: {
+      list: (params) => stripe.prices.list(params),
+    },
+    checkout: {
+      sessions: {
+        create: (params) => stripe.checkout.sessions.create(params),
+      },
+    },
+    billingPortal: {
+      sessions: {
+        create: (params) => stripe.billingPortal.sessions.create(params),
+      },
     },
     subscriptions: {
       list: (params) => stripe.subscriptions.list(params),

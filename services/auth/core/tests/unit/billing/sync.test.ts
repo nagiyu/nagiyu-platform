@@ -295,3 +295,29 @@ describe('extractCustomerId', () => {
     expect(extractCustomerId({ data: { object: null } })).toBeNull();
   });
 });
+
+describe('listEntitledSubscriptions', () => {
+  it('解約の予約と請求期間の終わりを返す', async () => {
+    const { listEntitledSubscriptions } = await import('../../../src/billing/sync');
+    const canceling: BillingSubscription = {
+      ...subscription('sub_a', 'active'),
+      cancel_at_period_end: true,
+    };
+    const cancelAt: BillingSubscription = {
+      ...subscription('sub_b', 'trialing'),
+      cancel_at: PERIOD_END_SEC + 100,
+    };
+    const stripe = buildStripe({
+      subscriptions: [canceling, cancelAt, subscription('sub_c', 'active')],
+      features: { prod_live: ['livetalk-premium'] },
+    });
+
+    const result = await listEntitledSubscriptions(stripe, 'cus_1');
+
+    expect(result.map((r) => [r.subscriptionId, r.endsAt])).toEqual([
+      ['sub_a', PERIOD_END_SEC * 1000],
+      ['sub_b', (PERIOD_END_SEC + 100) * 1000],
+      ['sub_c', null],
+    ]);
+  });
+});

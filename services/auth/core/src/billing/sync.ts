@@ -27,15 +27,26 @@ export type SyncDependencies = {
   generateId?: () => string;
 };
 
+/** 有料ロールを与える契約の品目 1 件分 */
+export type EntitledSubscription = {
+  roleId: string;
+  subscriptionId: string;
+  /** 請求期間の終わり (Unix ミリ秒) */
+  currentPeriodEnd: number;
+  /** 解約の予約による終了日 (Unix ミリ秒)。予約がなければ null */
+  endsAt: number | null;
+};
+
 /**
- * Stripe の契約から、付けるべき有料ロールと期限を得る。
+ * 顧客の契約のうち、有料ロールを与えているものを Stripe から得る。
  *
+ * 同期と、申し込み・画面の状態の判定が同じ読み方を共有する。
  * 有料ロールでない `lookup_key` は無視する。商品ごとの機能の取得は 1 回に抑える。
  */
-async function fetchDesiredRoles(
+export async function listEntitledSubscriptions(
   stripe: BillingStripe,
   customerId: string
-): Promise<DesiredStripeRole[]> {
+): Promise<EntitledSubscription[]> {
   const subscriptions = await stripe.subscriptions.list({
     customer: customerId,
     status: 'all',
@@ -43,7 +54,7 @@ async function fetchDesiredRoles(
   });
 
   const lookupKeysByProduct = new Map<string, string[]>();
-  const desired: DesiredStripeRole[] = [];
+  const entitled: EntitledSubscription[] = [];
 
   for (const subscription of subscriptions.data) {
     if (!ENTITLING_STATUSES.has(subscription.status)) {
@@ -60,6 +71,10 @@ async function fetchDesiredRoles(
         lookupKeysByProduct.set(productId, lookupKeys);
       }
 
+      const periodEnd = item.current_period_end * 1000;
+      const cancelAt = subscription.cancel_at ? subscription.cancel_at * 1000 : null;
+      const endsAt = subscription.cancel_at_period_end ? periodEnd : cancelAt;
+
       for (const lookupKey of lookupKeys) {
         if (!PAID_ROLES.includes(lookupKey)) {
           logger.warn('有料ロールでない機能の lookup_key を無視しました', {
@@ -68,16 +83,29 @@ async function fetchDesiredRoles(
           });
           continue;
         }
-        desired.push({
+        entitled.push({
           roleId: lookupKey,
-          expiresAt: item.current_period_end * 1000 + GRACE_PERIOD_MS,
           subscriptionId: subscription.id,
+          currentPeriodEnd: periodEnd,
+          endsAt,
         });
       }
     }
   }
 
-  return desired;
+  return entitled;
+}
+
+async function fetchDesiredRoles(
+  stripe: BillingStripe,
+  customerId: string
+): Promise<DesiredStripeRole[]> {
+  const entitled = await listEntitledSubscriptions(stripe, customerId);
+  return entitled.map((entry) => ({
+    roleId: entry.roleId,
+    expiresAt: entry.currentPeriodEnd + GRACE_PERIOD_MS,
+    subscriptionId: entry.subscriptionId,
+  }));
 }
 
 /**
