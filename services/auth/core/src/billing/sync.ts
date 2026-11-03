@@ -22,7 +22,6 @@ export type SyncDependencies = {
   generateId?: () => string;
 };
 
-/** 有料ロールを与える契約の品目 1 件分 */
 export type EntitledSubscription = {
   roleId: string;
   subscriptionId: string;
@@ -32,12 +31,6 @@ export type EntitledSubscription = {
   endsAt: number | null;
 };
 
-/**
- * 顧客の契約のうち、有料ロールを与えているものを Stripe から得る。
- *
- * 同期と、申し込み・画面の状態の判定が同じ読み方を共有する。
- * 有料ロールでない `lookup_key` は無視する。商品ごとの機能の取得は 1 回に抑える。
- */
 export async function listEntitledSubscriptions(
   stripe: BillingStripe,
   customerId: string

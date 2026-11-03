@@ -25,9 +25,8 @@ export type BillingSubscriptionItem = {
 export type BillingSubscription = {
   id: string;
   status: string;
-  /** 期間の終わりでの解約が予約されているか */
   cancel_at_period_end?: boolean;
-  /** 解約が予約された日時 (Unix 秒)。期間の終わり以外を指定された場合も入る */
+  /** Unix 秒。期間の終わり以外を指定された解約でも入る */
   cancel_at?: number | null;
   items: { data: BillingSubscriptionItem[] };
 };
@@ -60,7 +59,6 @@ export interface BillingStripe {
   };
 }
 
-/** Price のうち画面が読む部分 */
 export type BillingPrice = {
   id: string;
   lookup_key: string | null;
@@ -70,7 +68,6 @@ export type BillingPrice = {
   recurring: { interval: string; interval_count: number } | null;
 };
 
-/** 申し込み・契約の管理が Stripe に対して使う操作 */
 export interface BillingOperationsStripe extends BillingStripe {
   customers: BillingStripe['customers'] & {
     create(
@@ -97,7 +94,6 @@ export interface BillingOperationsStripe extends BillingStripe {
   };
 }
 
-/** Checkout Session の作成内容 */
 export type BillingCheckoutParams = {
   mode: 'subscription';
   customer: string;
@@ -124,9 +120,6 @@ export function getBillingConfig(env: NodeJS.ProcessEnv = process.env): BillingC
   return { secretKey, webhookSecret };
 }
 
-/**
- * Stripe の SDK から {@link BillingStripe} を作る。
- */
 export function createBillingStripe(secretKey: string): BillingOperationsStripe {
   const stripe = new Stripe(secretKey);
   return {

@@ -33,9 +33,6 @@ export type UpdateUserInput = {
 export type RolesAndGrantsChange = {
   roles?: string[];
   roleGrants?: RoleGrant[];
-  /**
-   * Stripe の顧客 ID。顧客の対応を競合に強く保存するため、同じ楽観ロックの書き込みに相乗りする。
-   */
   stripeCustomerId?: string;
 };
 
