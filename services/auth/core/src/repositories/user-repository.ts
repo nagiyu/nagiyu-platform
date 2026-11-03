@@ -23,7 +23,6 @@ export type UpdateUserInput = {
   name?: string;
   picture?: string;
   roles?: string[];
-  stripeCustomerId?: string;
 };
 
 /**
