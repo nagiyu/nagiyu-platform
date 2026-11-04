@@ -21,8 +21,7 @@ export class AlbStack extends cdk.Stack {
     const { environment } = props;
     const ssmEnvironment = environment as 'dev' | 'prod';
 
-    // Import VPC from SSM Parameter Store
-    const { vpc } = importSharedVpc(this, 'ImportedVpc', environment as 'dev' | 'prod');
+    const { vpc } = importSharedVpc(this, 'ImportedVpc', ssmEnvironment);
 
     // Create Security Group for ALB
     const albSecurityGroup = new ec2.SecurityGroup(this, 'AlbSecurityGroup', {

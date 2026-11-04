@@ -24,7 +24,7 @@ export interface ImportedSharedVpc {
  * サブネット ID はデプロイ時にしか分からないので、`Fn.select` でインデックス指定して参照する。
  *
  * @param scope VPC を作成するスコープ
- * @param id VPC の construct ID。既存リソースの論理 ID を保つため、呼び出し元の従来の ID を渡す
+ * @param id VPC の construct ID
  * @param environment 対象環境
  */
 export function importSharedVpc(
