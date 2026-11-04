@@ -1,3 +1,7 @@
+/**
+ * @jest-environment node
+ */
+
 jest.mock('next/server', () => ({
   NextResponse: {
     json: (body: unknown, init?: { status?: number }) => ({
@@ -12,14 +16,16 @@ jest.mock('@/lib/auth/session', () => ({
 }));
 
 jest.mock('@nagiyu/aws', () => ({
+  ...jest.requireActual('@nagiyu/aws'),
   getDynamoDBDocumentClient: jest.fn(),
 }));
 
 jest.mock('@nagiyu/share-together-core', () => ({
   DynamoDBListRepository: jest.fn(),
   createListRepository: jest.fn(),
-  sortListsByCreatedAt: jest.requireActual('../../../../../../../../core/src/libs/sort')
-    .sortListsByCreatedAt,
+  sortListsByCreatedAt: jest.requireActual<typeof import('@nagiyu/share-together-core')>(
+    '@nagiyu/share-together-core'
+  ).sortListsByCreatedAt,
   DynamoDBMembershipRepository: jest.fn(),
   createMembershipRepository: jest.fn(),
 }));
