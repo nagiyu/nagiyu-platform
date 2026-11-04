@@ -102,6 +102,12 @@ export const PUT = withApiErrorReporting(
         if (error.message === GROUP_ERROR_MESSAGES.INVITATION_ALREADY_RESPONDED) {
           return createConflictErrorResponse('ALREADY_RESPONDED', ERROR_MESSAGES.ALREADY_RESPONDED);
         }
+        if (error.message === GROUP_ERROR_MESSAGES.INVITATION_EXPIRED) {
+          return createConflictErrorResponse(
+            'INVITATION_EXPIRED',
+            ERROR_MESSAGES.INVITATION_EXPIRED
+          );
+        }
         if (error.message === GROUP_ERROR_MESSAGES.MEMBER_LIMIT_EXCEEDED) {
           return createConflictErrorResponse(
             'MEMBER_LIMIT_EXCEEDED',
