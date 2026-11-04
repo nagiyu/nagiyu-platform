@@ -4,13 +4,12 @@ import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as ecr from 'aws-cdk-lib/aws-ecr';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as logs from 'aws-cdk-lib/aws-logs';
-import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
 import {
   getEcrRepositoryName,
   getDynamoDBTableName,
-  SSM_PARAMETERS,
   grantErrorEventsWrite,
+  importSharedVpc,
 } from '@nagiyu/infra-common';
 import { BatchRuntimePolicy } from './policies/batch-runtime-policy';
 
@@ -76,20 +75,7 @@ export class BatchStack extends cdk.Stack {
     // DynamoDB テーブル名の取得
     const tableName = getDynamoDBTableName('niconico-mylist-assistant', env);
 
-    const vpcId = ssm.StringParameter.valueForStringParameter(this, SSM_PARAMETERS.VPC_ID(env));
-    const publicSubnetIdsStr = ssm.StringParameter.valueForStringParameter(
-      this,
-      SSM_PARAMETERS.PUBLIC_SUBNET_IDS(env)
-    );
-    const publicSubnetIds = cdk.Fn.split(',', publicSubnetIdsStr);
-    const vpc = ec2.Vpc.fromVpcAttributes(this, 'SharedVpc', {
-      vpcId,
-      availabilityZones: env === 'prod' ? ['us-east-1a', 'us-east-1b'] : ['us-east-1a'],
-      publicSubnetIds:
-        env === 'prod'
-          ? [cdk.Fn.select(0, publicSubnetIds), cdk.Fn.select(1, publicSubnetIds)]
-          : [cdk.Fn.select(0, publicSubnetIds)],
-    });
+    const { vpc, publicSubnetIds } = importSharedVpc(this, 'SharedVpc', env);
 
     // Security Group の作成
     const batchSecurityGroup = new ec2.SecurityGroup(this, 'BatchSecurityGroup', {
