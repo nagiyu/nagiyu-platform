@@ -4,6 +4,7 @@ import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
 import { SSM_PARAMETERS } from '../common/src/utils/ssm';
+import { importSharedVpc } from '../common/src/utils/vpc';
 
 export interface AlbStackProps extends cdk.StackProps {
   environment: string;
@@ -21,38 +22,7 @@ export class AlbStack extends cdk.Stack {
     const ssmEnvironment = environment as 'dev' | 'prod';
 
     // Import VPC from SSM Parameter Store
-    const vpcId = ssm.StringParameter.valueForStringParameter(
-      this,
-      SSM_PARAMETERS.VPC_ID(ssmEnvironment)
-    );
-    const publicSubnetIdsStr = ssm.StringParameter.valueForStringParameter(
-      this,
-      SSM_PARAMETERS.PUBLIC_SUBNET_IDS(ssmEnvironment)
-    );
-
-    // For prod, subnet IDs are comma-separated; for dev, it's a single ID
-    // We'll use Fn.split to handle both cases
-    const publicSubnetIds = cdk.Fn.split(',', publicSubnetIdsStr);
-
-    // Configure VPC attributes based on environment
-    const vpcAttributes =
-      environment === 'prod'
-        ? {
-            vpcId,
-            availabilityZones: ['us-east-1a', 'us-east-1b'],
-            publicSubnetIds: [
-              cdk.Fn.select(0, publicSubnetIds),
-              cdk.Fn.select(1, publicSubnetIds),
-            ],
-          }
-        : {
-            vpcId,
-            availabilityZones: ['us-east-1a'],
-            publicSubnetIds: [cdk.Fn.select(0, publicSubnetIds)],
-          };
-
-    // Look up existing VPC
-    const vpc = ec2.Vpc.fromVpcAttributes(this, 'ImportedVpc', vpcAttributes);
+    const { vpc } = importSharedVpc(this, 'ImportedVpc', environment as 'dev' | 'prod');
 
     // Create Security Group for ALB
     const albSecurityGroup = new ec2.SecurityGroup(this, 'AlbSecurityGroup', {
