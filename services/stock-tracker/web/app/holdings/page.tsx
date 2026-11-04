@@ -64,6 +64,7 @@ const SUCCESS_MESSAGES = {
 interface HoldingResponse {
   holdingId: string;
   tickerId: string;
+  exchangeId: string;
   symbol: string;
   name: string;
   quantity: number;
@@ -321,7 +322,7 @@ export default function HoldingsPage() {
     setSelectedHolding(holding);
     // 編集時は取引所とティッカーは変更不可なので、数量と平均価格のみ編集可能
     setFormData({
-      exchangeId: holding.tickerId.split(':')[0] || '',
+      exchangeId: holding.exchangeId,
       tickerId: holding.tickerId,
       quantity: holding.quantity.toString(),
       averagePrice: holding.averagePrice.toString(),
@@ -674,7 +675,7 @@ export default function HoldingsPage() {
                   const hasAlert = alerts[holding.tickerId] || false;
 
                   // 取引所IDから取引所名を取得
-                  const exchangeId = holding.tickerId.split(':')[0] || '';
+                  const exchangeId = holding.exchangeId;
                   const exchange = exchanges.find((ex) => ex.exchangeId === exchangeId);
                   const exchangeName = exchange?.name || exchangeId;
 
@@ -807,7 +808,7 @@ export default function HoldingsPage() {
             value={
               selectedHolding
                 ? (() => {
-                    const exchangeId = selectedHolding.tickerId.split(':')[0] || '';
+                    const exchangeId = selectedHolding.exchangeId;
                     const exchange = exchanges.find((ex) => ex.exchangeId === exchangeId);
                     return exchange?.name || exchangeId;
                   })()
@@ -851,7 +852,7 @@ export default function HoldingsPage() {
           onSuccess={handleAlertSuccess}
           tickerId={selectedHolding.tickerId}
           symbol={selectedHolding.symbol}
-          exchangeId={selectedHolding.tickerId.split(':')[0] || ''}
+          exchangeId={selectedHolding.exchangeId}
           mode="create"
           tradeMode="Sell"
           defaultTargetPrice={selectedHolding.averagePrice * 1.2}

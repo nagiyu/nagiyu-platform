@@ -85,7 +85,12 @@ describe('GET /api/summaries/[tickerId]', () => {
         updatedAt: 1000,
       },
     ]);
-    mockGetById.mockResolvedValue({ tickerId: 'NASDAQ:NVDA', symbol: 'NVDA', name: 'NVIDIA' });
+    mockGetById.mockResolvedValue({
+      tickerId: 'NASDAQ:NVDA',
+      exchangeId: 'NASDAQ',
+      symbol: 'NVDA',
+      name: 'NVIDIA',
+    });
     mockGetHoldingById.mockResolvedValue({ quantity: 5, averagePrice: 98 });
     mockGetAlertsByUserId.mockResolvedValue({
       items: [{ tickerId: 'NASDAQ:NVDA', mode: 'Buy', enabled: true }],
@@ -98,10 +103,59 @@ describe('GET /api/summaries/[tickerId]', () => {
 
     expect(response.status).toBe(200);
     expect(body.tickerId).toBe('NASDAQ:NVDA');
+    expect(body.exchangeId).toBe('NASDAQ');
     expect(body.holding).toEqual({ quantity: 5, averagePrice: 98 });
     expect(body.buyAlertCount).toEqual({ enabled: 1, disabled: 0 });
     expect(body.forecast).toBeNull();
     expect(mockGetForecast).toHaveBeenCalledWith('NASDAQ:NVDA', '2026-01-01');
+  });
+
+  it('正常系: 取引所 ID と API キーが異なる場合はティッカーマスタの取引所でサマリーを引く', async () => {
+    mockGetByExchange.mockResolvedValue([
+      {
+        tickerId: 'OSE:6758',
+        exchangeId: 'JPX-EX',
+        date: '2026-01-01',
+        open: 100,
+        high: 120,
+        low: 90,
+        close: 110,
+        createdAt: 1,
+        updatedAt: 1000,
+      },
+    ]);
+    mockGetById.mockResolvedValue({
+      tickerId: 'OSE:6758',
+      exchangeId: 'JPX-EX',
+      symbol: '6758',
+      name: 'ソニーグループ',
+    });
+    mockGetHoldingById.mockResolvedValue(null);
+    mockGetAlertsByUserId.mockResolvedValue({ items: [] });
+
+    const response = await GET(new Request('http://localhost/api/summaries/OSE:6758'), {
+      params: Promise.resolve({ tickerId: 'OSE:6758' }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(mockGetByExchange).toHaveBeenCalledWith('JPX-EX');
+    expect(mockGetByExchange).not.toHaveBeenCalledWith('OSE');
+    expect(body.exchangeId).toBe('JPX-EX');
+  });
+
+  it('異常系: ティッカーが存在しない場合は 404 を返す', async () => {
+    mockGetById.mockResolvedValue(null);
+    mockGetHoldingById.mockResolvedValue(null);
+    mockGetAlertsByUserId.mockResolvedValue({ items: [] });
+
+    const response = await GET(new Request('http://localhost/api/summaries/OSE:6758'), {
+      params: Promise.resolve({ tickerId: 'OSE:6758' }),
+    });
+
+    expect(response.status).toBe(404);
+    expect((await response.json()).error).toBe('NOT_FOUND');
+    expect(mockGetByExchange).not.toHaveBeenCalled();
   });
 
   it('正常系: Forecast があれば forecast に要約を含める', async () => {
@@ -118,7 +172,12 @@ describe('GET /api/summaries/[tickerId]', () => {
         updatedAt: 1000,
       },
     ]);
-    mockGetById.mockResolvedValue({ tickerId: 'NASDAQ:NVDA', symbol: 'NVDA', name: 'NVIDIA' });
+    mockGetById.mockResolvedValue({
+      tickerId: 'NASDAQ:NVDA',
+      exchangeId: 'NASDAQ',
+      symbol: 'NVDA',
+      name: 'NVIDIA',
+    });
     mockGetHoldingById.mockResolvedValue(null);
     mockGetAlertsByUserId.mockResolvedValue({ items: [] });
     mockGetForecast.mockResolvedValue({
@@ -164,7 +223,12 @@ describe('GET /api/summaries/[tickerId]', () => {
         updatedAt: 1000,
       },
     ]);
-    mockGetById.mockResolvedValue(null);
+    mockGetById.mockResolvedValue({
+      tickerId: 'NASDAQ:NVDA',
+      exchangeId: 'NASDAQ',
+      symbol: 'NVDA',
+      name: 'NVIDIA',
+    });
     mockGetHoldingById.mockResolvedValue(null);
     mockGetAlertsByUserId.mockResolvedValue({ items: [] });
     mockGetForecast.mockRejectedValue(new Error('forecast db error'));
@@ -186,7 +250,12 @@ describe('GET /api/summaries/[tickerId]', () => {
 
   it('異常系: リポジトリが失敗したら 500 を返して報告する', async () => {
     mockGetByExchange.mockRejectedValue(new Error('db error'));
-    mockGetById.mockResolvedValue(null);
+    mockGetById.mockResolvedValue({
+      tickerId: 'NASDAQ:NVDA',
+      exchangeId: 'NASDAQ',
+      symbol: 'NVDA',
+      name: 'NVIDIA',
+    });
     mockGetHoldingById.mockResolvedValue(null);
     mockGetAlertsByUserId.mockResolvedValue({ items: [] });
     jest.spyOn(console, 'error').mockImplementation(() => undefined);

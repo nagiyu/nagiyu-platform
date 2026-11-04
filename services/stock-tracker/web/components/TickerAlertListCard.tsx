@@ -249,7 +249,7 @@ export default function TickerAlertListCard({
           onSuccess={() => void handleEditSuccess()}
           tickerId={selectedAlert.tickerId}
           symbol={selectedAlert.symbol}
-          exchangeId={selectedAlert.tickerId.split(':')[0] || ''}
+          exchangeId={selectedAlert.exchangeId}
           mode="edit"
           tradeMode={selectedAlert.mode}
           editTarget={selectedAlert}

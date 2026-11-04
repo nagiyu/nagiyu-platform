@@ -44,6 +44,7 @@ const ERROR_MESSAGES = {
 interface AlertResponse {
   alertId: string;
   tickerId: string;
+  exchangeId: string;
   symbol: string;
   name: string;
   mode: string;
@@ -115,6 +116,7 @@ function mapAlertToResponse(
   const response: AlertResponse = {
     alertId: alert.alertId,
     tickerId: alert.tickerId,
+    exchangeId: alert.exchangeId,
     symbol: tickerSymbol,
     name: tickerName,
     mode: alert.mode,
