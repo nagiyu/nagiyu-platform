@@ -10,8 +10,9 @@ import { mergeConfig } from 'vite';
  *
  * NOTE: `libs/ui/tsconfig.json` は Next.js 互換のため `jsx: 'preserve'` にして
  * いる。Storybook（Vite）でビルドする際は React 17+ の自動 JSX ランタイムを
- * 使うよう viteFinal で esbuild を明示設定し、`React.createElement` への
- * 変換を回避する（`Can't find variable: React` エラー対策）。
+ * 使うよう viteFinal で Oxc（Vite 8 の変換器）の jsx を明示設定し、
+ * `React.createElement` への変換を回避する（`Can't find variable: React`
+ * エラー対策）。esbuild オプションは Vite 8 では非推奨のため使わない。
  */
 const config: StorybookConfig = {
   stories: ['../src/**/*.stories.@(ts|tsx|mdx)'],
@@ -25,9 +26,11 @@ const config: StorybookConfig = {
   },
   async viteFinal(config) {
     return mergeConfig(config, {
-      esbuild: {
-        jsx: 'automatic',
-        jsxImportSource: 'react',
+      oxc: {
+        jsx: {
+          runtime: 'automatic',
+          importSource: 'react',
+        },
       },
     });
   },
