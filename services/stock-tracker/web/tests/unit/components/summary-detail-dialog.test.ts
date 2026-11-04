@@ -29,12 +29,13 @@ jest.mock('../../../components/StockChart', () => ({
 
 jest.mock('../../../components/AlertSettingsModal', () => ({
   __esModule: true,
-  default: ({ open }: { open: boolean }) =>
-    open ? React.createElement('div', null, 'AlertSettingsModalMock') : null,
+  default: ({ open, exchangeId }: { open: boolean; exchangeId: string }) =>
+    open ? React.createElement('div', null, `AlertSettingsModalMock:${exchangeId}`) : null,
 }));
 
 const summary: TickerSummary = {
   tickerId: 'NASDAQ:NVDA',
+  exchangeId: 'NASDAQ',
   date: '2025-09-25',
   symbol: 'NVDA',
   name: 'NVIDIA',
@@ -256,8 +257,24 @@ describe('SummaryDetailDialog', () => {
     expect(screen.getByText('StockChartMock')).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: '買いアラート設定' }));
-    expect(screen.getByText('AlertSettingsModalMock')).toBeTruthy();
+    expect(screen.getByText('AlertSettingsModalMock:NASDAQ')).toBeTruthy();
     expect(screen.getByRole('button', { name: '売りアラート設定' })).toBeTruthy();
+  });
+
+  it('取引所 ID と API キーが異なる銘柄では、サマリーの exchangeId をアラート設定に渡す', async () => {
+    mockFetch({ ok: false, status: 404 });
+    render(
+      React.createElement(SummaryDetailDialog, {
+        open: true,
+        summary: { ...summary, tickerId: 'OSE:6758', exchangeId: 'JPX-EX', symbol: '6758' },
+        onClose: jest.fn(),
+      })
+    );
+
+    await screen.findByTestId('forecast-unavailable-reason');
+    fireEvent.click(screen.getByRole('button', { name: '買いアラート設定' }));
+
+    expect(screen.getByText('AlertSettingsModalMock:JPX-EX')).toBeTruthy();
   });
 
   it('取得に失敗したときは取得できなかった旨を表示する', async () => {
