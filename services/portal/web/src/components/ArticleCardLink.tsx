@@ -9,7 +9,7 @@ interface ArticleCardLinkProps {
   slug: string;
   /** カードの中身（CardContent など） */
   children: ReactNode;
-  /** 「記事を読む」を出さない (既定は出す)。省いても同じ遷移先への案内が減るだけで、リンクの機能は変わらない */
+  /** 「記事を読む」を出さない。カード全体が同じ遷移先へのリンクなので、案内が過剰な場面では省いても情報は欠けない */
   hideReadMore?: boolean;
 }
 
@@ -17,8 +17,6 @@ interface ArticleCardLinkProps {
  * 記事カード全体を記事へのリンクにする
  *
  * 「記事を読む」は同じ遷移先への案内でしかないため、リンクの入れ子を避けて表示だけにする。
- * カード全体が既にリンクで遷移先も同じなので、案内を省いても情報は欠けない。
- * 他の記事と並べず見出し配下に小さく添える関連記事のように、案内が過剰な場面は `hideReadMore` で省く。
  * `component={Link}` は関数のため Server Component から渡せず、このコンポーネントを Client Component にしている。
  * Card の高さ揃え（flex column）を保つため、CardActionArea 自体も縦に伸ばす。
  */
