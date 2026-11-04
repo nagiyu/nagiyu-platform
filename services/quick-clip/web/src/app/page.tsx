@@ -8,6 +8,7 @@ import { Button, ErrorAlert } from '@nagiyu/ui';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import { getVideoDurationSec } from '@/lib/get-video-duration';
 import { validateUploadFile } from '@/lib/upload-validation';
+import { useBeforeUnloadWarning } from '@/hooks/useBeforeUnloadWarning';
 
 const ERROR_MESSAGES = {
   SELECT_FILE: '動画ファイルを選択してください',
@@ -72,6 +73,8 @@ export default function Home() {
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // 送信開始から画面遷移までの全体を守る。転送中だけだと、ジョブ作成や完了処理の最中に閉じられて中途半端なジョブが残る
+  useBeforeUnloadWarning(isSubmitting);
   // 選択中ファイルが不正なら送信させない。エラー表示は他の失敗でも使うため別に導出する
   const isFileInvalid = file !== null && validateUploadFile(file) !== null;
 
