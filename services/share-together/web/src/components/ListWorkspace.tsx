@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Box, Snackbar, Stack, Typography } from '@mui/material';
+import { Alert, Box, Snackbar, Stack, Typography } from '@mui/material';
 import { ConfirmDialog, Select, type SelectOption } from '@nagiyu/ui';
 import { CreateItemDialog } from '@/components/CreateItemDialog';
 import { ListSidebar } from '@/components/ListSidebar';
@@ -33,6 +33,10 @@ const SCOPE_OPTIONS: ReadonlyArray<SelectOption> = [
 const ERROR_MESSAGES = {
   SHARED_GROUPS_FETCH_FAILED: '共有グループ一覧の取得に失敗しました',
   SHARED_LISTS_FETCH_FAILED: '共有リスト一覧の取得に失敗しました',
+  SHARED_GROUPS_UNAVAILABLE:
+    '共有グループ一覧を取得できませんでした。時間をおいて再読み込みしてください。',
+  SHARED_GROUP_LISTS_UNAVAILABLE:
+    'このグループの共有リストを取得できませんでした。時間をおいて再読み込みしてください。',
   PERSONAL_LISTS_FETCH_FAILED: '個人リスト一覧の取得に失敗しました',
   SHARED_LIST_CREATE_FAILED: '共有リストの作成に失敗しました。',
   SHARED_LIST_RENAME_FAILED: '共有リスト名の更新に失敗しました。',
@@ -59,6 +63,9 @@ export function ListWorkspace({
   const [sharedListsByGroup, setSharedListsByGroup] = useState<
     Record<string, readonly SharedList[]>
   >({});
+  // 取得に失敗したグループを 0 件のグループと区別するために持つ。失敗の理由では扱いを変えない。
+  const [failedGroupIds, setFailedGroupIds] = useState<ReadonlySet<string>>(new Set());
+  const [isSharedGroupsFailed, setIsSharedGroupsFailed] = useState(false);
   const [selectedGroupId, setSelectedGroupId] = useState<string>(initialGroupId);
   const [selectedListId, setSelectedListId] = useState(initialListId);
   // 共有スコープから入った場合 initialListId は共有リストの ID なので、個人スコープの戻り先に使えない。
@@ -105,7 +112,8 @@ export function ListWorkspace({
         }));
         setSharedGroups(fetchedGroups);
 
-        const sharedListEntries = await Promise.all(
+        // 1 グループの失敗が他のグループの表示に波及しないよう、グループごとに結果を分ける。
+        const results = await Promise.allSettled(
           fetchedGroups.map(async (group) => {
             const listsResponse = await globalThis.fetch(
               `/api/groups/${encodeURIComponent(group.groupId)}/lists`,
@@ -125,13 +133,36 @@ export function ListWorkspace({
           })
         );
 
+        // アンマウントによる中断では state を更新しない。
+        if (controller.signal.aborted) {
+          return;
+        }
+
+        const sharedListEntries: (readonly [string, readonly SharedList[]])[] = [];
+        const failed = new Set<string>();
+        results.forEach((result, index) => {
+          if (result.status === 'fulfilled') {
+            sharedListEntries.push(result.value);
+            return;
+          }
+          failed.add(fetchedGroups[index].groupId);
+          console.error(ERROR_MESSAGES.SHARED_LISTS_FETCH_FAILED, {
+            groupId: fetchedGroups[index].groupId,
+            error: result.reason,
+          });
+        });
+
         setSharedListsByGroup(Object.fromEntries(sharedListEntries));
+        setFailedGroupIds(failed);
         setIsSharedDataLoaded(true);
       } catch (error: unknown) {
         if (error instanceof Error && error.name === 'AbortError') {
           return;
         }
         console.error(ERROR_MESSAGES.SHARED_GROUPS_FETCH_FAILED, { error });
+        // 失敗でも確定させ、「未取得」のまま右側が無表示になるのを避ける。
+        setIsSharedGroupsFailed(true);
+        setIsSharedDataLoaded(true);
       }
     };
 
@@ -228,8 +259,10 @@ export function ListWorkspace({
 
     // 共有は、取得が終わって groupId が確定するまで書き換えない。
     // 確定後にリストが無ければ listId を省き、groupId までの URL にする。
+    // グループ一覧の取得に失敗したときは groupId を確定できず、書き戻すと URL の listId を失うので書き換えない。
     const isSharedSelectionSettled =
       isSharedDataLoaded &&
+      !isSharedGroupsFailed &&
       (sharedGroups.length === 0 ||
         sharedGroups.some((group) => group.groupId === selectedGroupId));
     if (scope === 'shared' && !isSharedSelectionSettled) {
@@ -253,6 +286,7 @@ export function ListWorkspace({
     currentListId,
     currentQuery,
     isSharedDataLoaded,
+    isSharedGroupsFailed,
     sharedGroups,
   ]);
 
@@ -446,12 +480,19 @@ export function ListWorkspace({
           />
         ) : scope === 'shared' && isSharedDataLoaded ? (
           // 取得前は 0 件か未取得か区別できないので、取得が済んでから出す。
+          // 取得に失敗したものは 0 件ではないので、空状態の案内ではなくエラーを出す。
           // グループが無いと共有リストは作れないため、その場合はグループ画面へ案内する。
-          <Typography color="text.secondary">
-            {sharedGroups.length === 0
-              ? '参加しているグループがありません。グループ画面でグループを作成するか、招待を承認してください。'
-              : '共有リストはまだありません。「共有リストを作成」から追加できます。'}
-          </Typography>
+          isSharedGroupsFailed ? (
+            <Alert severity="error">{ERROR_MESSAGES.SHARED_GROUPS_UNAVAILABLE}</Alert>
+          ) : failedGroupIds.has(selectedGroupId) ? (
+            <Alert severity="error">{ERROR_MESSAGES.SHARED_GROUP_LISTS_UNAVAILABLE}</Alert>
+          ) : (
+            <Typography color="text.secondary">
+              {sharedGroups.length === 0
+                ? '参加しているグループがありません。グループ画面でグループを作成するか、招待を承認してください。'
+                : '共有リストはまだありません。「共有リストを作成」から追加できます。'}
+            </Typography>
+          )
         ) : null}
       </Box>
       <CreateItemDialog
