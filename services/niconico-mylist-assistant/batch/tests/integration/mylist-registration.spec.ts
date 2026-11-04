@@ -61,7 +61,7 @@ test.describe('マイリスト登録フロー', () => {
   });
 
   test.afterEach(async () => {
-    await context.close();
+    await context?.close();
   });
 
   /**
