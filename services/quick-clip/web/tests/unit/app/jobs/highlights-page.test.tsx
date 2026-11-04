@@ -627,8 +627,8 @@ describe('HighlightsPage', () => {
     });
     fireEvent.click(screen.getByText('#1'));
 
-    const startInputs = await screen.findAllByRole('spinbutton');
-    fireEvent.change(startInputs[0], { target: { value: '11' } });
+    const startInputs = await screen.findAllByRole('textbox', { name: /^(開始|終了)$/ });
+    fireEvent.change(startInputs[0], { target: { value: '0:11' } });
 
     // recover + highlights + expiresAt + transcript の 4 回（blur 前はPATCHしない）
     expect(global.fetch).toHaveBeenCalledTimes(4);
@@ -641,6 +641,81 @@ describe('HighlightsPage', () => {
         '/api/jobs/job-1/highlights/h-1',
         expect.objectContaining({ method: 'PATCH' })
       );
+    });
+  });
+
+  describe('時刻の分:秒表示と入力', () => {
+    const setup = async (startSec: number, endSec: number) => {
+      global.fetch = withJobRoute(
+        withAuxiliaryRoutes(
+          jest
+            .fn()
+            .mockResolvedValueOnce({
+              ok: true,
+              json: async () => ({
+                highlights: [
+                  {
+                    highlightId: 'h-1',
+                    jobId: 'job-1',
+                    order: 1,
+                    startSec,
+                    endSec,
+                    source: 'motion',
+                    status: 'accepted',
+                    clipStatus: 'GENERATED',
+                    clipUrl: 'https://example.com/h-1.mp4',
+                  },
+                ],
+              }),
+            })
+            .mockResolvedValue({ ok: false }) as jest.Mock
+        )
+      );
+      render(<HighlightsPage params={Promise.resolve({ jobId: 'job-1' })} />);
+      await waitFor(() => {
+        expect(screen.getByText('#1')).toBeInTheDocument();
+      });
+      fireEvent.click(screen.getByText('#1'));
+      return screen.findAllByRole('textbox', { name: /^(開始|終了)$/ });
+    };
+
+    it('一覧と入力欄に切り捨てた分:秒を表示し、列見出しに (秒) を付けない', async () => {
+      const inputs = await setup(70.5, 3725);
+      expect(screen.getByText('1:10〜1:02:05')).toBeInTheDocument();
+      expect(screen.getByText('開始〜終了')).toBeInTheDocument();
+      expect(inputs[0]).toHaveValue('1:10');
+      expect(inputs[1]).toHaveValue('1:02:05');
+    });
+
+    it('端数のある値を表示のまま変えずにフォーカスを外しても PATCH しない', async () => {
+      const inputs = await setup(70.5, 80);
+      fireEvent.focus(inputs[0]);
+      fireEvent.blur(inputs[0]);
+      await act(async () => {});
+      // recover + highlights + expiresAt + transcript の 4 回
+      expect(global.fetch).toHaveBeenCalledTimes(4);
+    });
+
+    it('不正な入力は元の表示に戻し、PATCH しない', async () => {
+      const inputs = await setup(70.5, 80);
+      fireEvent.change(inputs[0], { target: { value: '1:75' } });
+      fireEvent.blur(inputs[0]);
+      await waitFor(() => {
+        expect(inputs[0]).toHaveValue('1:10');
+      });
+      expect(global.fetch).toHaveBeenCalledTimes(4);
+    });
+
+    it('秒の数値でも入力でき、その秒数で PATCH する', async () => {
+      const inputs = await setup(10, 100);
+      fireEvent.change(inputs[0], { target: { value: '70' } });
+      fireEvent.blur(inputs[0]);
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith(
+          '/api/jobs/job-1/highlights/h-1',
+          expect.objectContaining({ body: JSON.stringify({ startSec: 70, endSec: 100 }) })
+        );
+      });
     });
   });
 
@@ -678,8 +753,8 @@ describe('HighlightsPage', () => {
     });
     fireEvent.click(screen.getByText('#1'));
 
-    const startInputs = await screen.findAllByRole('spinbutton');
-    fireEvent.change(startInputs[0], { target: { value: '20' } });
+    const startInputs = await screen.findAllByRole('textbox', { name: /^(開始|終了)$/ });
+    fireEvent.change(startInputs[0], { target: { value: '0:20' } });
     fireEvent.blur(startInputs[0]);
 
     await waitFor(() => {
@@ -726,13 +801,13 @@ describe('HighlightsPage', () => {
     });
     fireEvent.click(screen.getByText('#1'));
 
-    const startInputs = await screen.findAllByRole('spinbutton');
-    fireEvent.change(startInputs[0], { target: { value: '11' } });
+    const startInputs = await screen.findAllByRole('textbox', { name: /^(開始|終了)$/ });
+    fireEvent.change(startInputs[0], { target: { value: '0:11' } });
     fireEvent.blur(startInputs[0]);
 
     await waitFor(() => {
       expect(screen.getByText('見どころの更新に失敗しました')).toBeInTheDocument();
-      expect(startInputs[0]).toHaveValue(10);
+      expect(startInputs[0]).toHaveValue('0:10');
       // recover + highlights + expiresAt + transcript + PATCH の 5 回
       expect(global.fetch).toHaveBeenCalledTimes(5);
     });
@@ -1152,8 +1227,8 @@ describe('HighlightsPage', () => {
     });
 
     // Adjust start time
-    const startInputs = screen.getAllByRole('spinbutton');
-    fireEvent.change(startInputs[0], { target: { value: '11' } });
+    const startInputs = screen.getAllByRole('textbox', { name: /^(開始|終了)$/ });
+    fireEvent.change(startInputs[0], { target: { value: '0:11' } });
     fireEvent.blur(startInputs[0]);
 
     // After PATCH returns GENERATING, spinner is shown and video is hidden
