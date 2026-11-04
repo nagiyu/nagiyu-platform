@@ -97,6 +97,70 @@ describe('InvitationsPage', () => {
     expect(screen.getByText('週末の買い出し')).toBeInTheDocument();
   });
 
+  it('承認が期限切れで失敗した場合は期限切れの文言を表示し、招待を一覧から除いてバッジを更新する', async () => {
+    const listener = jest.fn();
+    window.addEventListener(INVITATIONS_CHANGED_EVENT, listener);
+    try {
+      render(<InvitationsPage />);
+      await screen.findByText('週末の買い出し');
+
+      mockFetch.mockImplementationOnce(() =>
+        Promise.resolve({
+          ok: false,
+          status: 409,
+          json: async () => ({ error: 'INVITATION_EXPIRED', message: 'x' }),
+        } as Response)
+      );
+      fireEvent.click(screen.getAllByRole('button', { name: '承認' })[0]);
+
+      expect(await screen.findByText('招待の有効期限が切れています')).toBeInTheDocument();
+      expect(screen.queryByText('週末の買い出し')).not.toBeInTheDocument();
+      expect(screen.getByText('旅行準備リスト')).toBeInTheDocument();
+      expect(listener).toHaveBeenCalledTimes(1);
+    } finally {
+      window.removeEventListener(INVITATIONS_CHANGED_EVENT, listener);
+    }
+  });
+
+  it('拒否が期限切れで失敗した場合も期限切れの文言を表示し、招待を一覧から除く', async () => {
+    const listener = jest.fn();
+    window.addEventListener(INVITATIONS_CHANGED_EVENT, listener);
+    try {
+      render(<InvitationsPage />);
+      await screen.findByText('週末の買い出し');
+
+      mockFetch.mockImplementationOnce(() =>
+        Promise.resolve({
+          ok: false,
+          status: 409,
+          json: async () => ({ error: 'INVITATION_EXPIRED', message: 'x' }),
+        } as Response)
+      );
+      fireEvent.click(screen.getAllByRole('button', { name: '拒否' })[0]);
+      fireEvent.click(screen.getByRole('button', { name: '拒否' }));
+
+      expect(await screen.findByText('招待の有効期限が切れています')).toBeInTheDocument();
+      expect(screen.queryByText('週末の買い出し')).not.toBeInTheDocument();
+      expect(listener).toHaveBeenCalledTimes(1);
+    } finally {
+      window.removeEventListener(INVITATIONS_CHANGED_EVENT, listener);
+    }
+  });
+
+  it('拒否がそれ以外の理由で失敗した場合は既定の文言を表示し、招待は残る', async () => {
+    render(<InvitationsPage />);
+    await screen.findByText('週末の買い出し');
+
+    mockFetch.mockImplementationOnce(() =>
+      Promise.resolve({ ok: false, status: 500, json: async () => ({}) } as Response)
+    );
+    fireEvent.click(screen.getAllByRole('button', { name: '拒否' })[0]);
+    fireEvent.click(screen.getByRole('button', { name: '拒否' }));
+
+    expect(await screen.findByText('招待の拒否に失敗しました。')).toBeInTheDocument();
+    expect(screen.getByText('週末の買い出し')).toBeInTheDocument();
+  });
+
   it('承認がそれ以外の理由で失敗した場合は既定の文言を表示する', async () => {
     render(<InvitationsPage />);
     await screen.findByText('週末の買い出し');
