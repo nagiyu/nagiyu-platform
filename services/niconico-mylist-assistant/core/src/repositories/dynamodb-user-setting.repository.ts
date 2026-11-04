@@ -9,6 +9,7 @@ import {
   DynamoDBEntityStore,
   toDatabaseError,
   queryPage,
+  queryAllItems,
   type EntityStore,
   type PaginationOptions,
   type PaginatedResult,
@@ -80,56 +81,23 @@ export class DynamoDBUserSettingRepository implements UserSettingRepository {
   }
 
   /**
-   * ユーザーの動画設定を取得（フィルタリング対応）
+   * ユーザーの動画設定を全件取得
    */
-  public async getByUserIdWithFilters(
-    userId: string,
-    filters: {
-      isFavorite?: boolean;
-      isSkip?: boolean;
-    },
-    options?: { limit?: number; offset?: number }
-  ): Promise<{ settings: UserSettingEntity[]; total: number }> {
-    const limit = options?.limit || 50;
-    const offset = options?.offset || 0;
-
-    // DynamoDBからユーザーの全設定を取得
-    // フィルタリングのため、全件取得が必要
-    const allSettings: UserSettingEntity[] = [];
-    let cursor: string | undefined;
-
-    do {
-      const result = await this.getByUserId(userId, {
-        limit: 100,
-        cursor,
+  public async listAllByUserId(userId: string): Promise<UserSettingEntity[]> {
+    try {
+      const items = await queryAllItems(this.docClient, {
+        TableName: this.tableName,
+        KeyConditionExpression: 'PK = :pk AND begins_with(SK, :sk)',
+        ExpressionAttributeValues: {
+          ':pk': `USER#${userId}`,
+          ':sk': 'VIDEO#',
+        },
       });
-      allSettings.push(...result.items);
-      cursor = result.nextCursor;
-    } while (cursor);
 
-    // フィルタリング適用
-    let filteredSettings = allSettings;
-
-    if (filters.isFavorite !== undefined) {
-      filteredSettings = filteredSettings.filter(
-        (setting) => setting.isFavorite === filters.isFavorite
-      );
+      return items.map((item) => this.mapper.toEntity(item));
+    } catch (error) {
+      throw toDatabaseError(error);
     }
-
-    if (filters.isSkip !== undefined) {
-      filteredSettings = filteredSettings.filter((setting) => setting.isSkip === filters.isSkip);
-    }
-
-    // 総件数
-    const total = filteredSettings.length;
-
-    // ページネーション適用
-    const paginatedSettings = filteredSettings.slice(offset, offset + limit);
-
-    return {
-      settings: paginatedSettings,
-      total,
-    };
   }
 
   /**
