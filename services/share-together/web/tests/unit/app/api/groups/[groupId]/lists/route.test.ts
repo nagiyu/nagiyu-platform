@@ -18,6 +18,8 @@ jest.mock('@nagiyu/aws', () => ({
 jest.mock('@nagiyu/share-together-core', () => ({
   DynamoDBListRepository: jest.fn(),
   createListRepository: jest.fn(),
+  sortListsByCreatedAt: jest.requireActual('../../../../../../../../core/src/libs/sort')
+    .sortListsByCreatedAt,
   DynamoDBMembershipRepository: jest.fn(),
   createMembershipRepository: jest.fn(),
 }));
@@ -167,6 +169,31 @@ describe('/api/groups/[groupId]/lists route', () => {
         ],
       },
     });
+  });
+
+  it('GET: リポジトリが順不同で返しても作成の古い順で返す', async () => {
+    mockGetSessionOrUnauthorized.mockResolvedValue({
+      user: { id: 'user-1' },
+    } as SessionOrErrorResponse);
+    mockGetMembershipById.mockResolvedValue({
+      groupId: 'group-1',
+      userId: 'user-1',
+      status: 'ACCEPTED',
+    });
+    const make = (listId: string, createdAt: number) => ({
+      listId,
+      groupId: 'group-1',
+      name: listId,
+      createdBy: 'user-1',
+      createdAt,
+      updatedAt: createdAt,
+    });
+    mockGetGroupListsByGroupId.mockResolvedValue([make('a', 200), make('c', 100), make('b', 100)]);
+
+    const response = await GET({} as Request, { params: Promise.resolve({ groupId: 'group-1' }) });
+
+    const body = (await response.json()) as { data: { lists: { listId: string }[] } };
+    expect(body.data.lists.map((l) => l.listId)).toEqual(['b', 'c', 'a']);
   });
 
   it('POST: name が空文字の場合は400レスポンスを返す', async () => {

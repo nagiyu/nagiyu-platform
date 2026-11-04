@@ -5,7 +5,7 @@ import { readJsonObjectBody } from '@nagiyu/nextjs';
 import type { GroupListsResponse } from '@/types';
 import { getAuthorizedGroupContext } from '@/lib/api/authorization';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
-import { createListRepository } from '@nagiyu/share-together-core';
+import { createListRepository, sortListsByCreatedAt } from '@nagiyu/share-together-core';
 import { createValidationErrorResponse } from '@/lib/api/responses';
 
 type RouteParams = {
@@ -41,8 +41,10 @@ export const GET = withApiErrorReporting(
       return authorizedContextOrResponse;
     }
 
-    const lists = await authorizedContextOrResponse.listRepository.getGroupListsByGroupId(
-      authorizedContextOrResponse.groupId
+    const lists = sortListsByCreatedAt(
+      await authorizedContextOrResponse.listRepository.getGroupListsByGroupId(
+        authorizedContextOrResponse.groupId
+      )
     );
 
     const response: GroupListsResponse = { data: { lists } };
