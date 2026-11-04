@@ -190,149 +190,54 @@ describe('DynamoDBUserSettingRepository', () => {
     });
   });
 
-  describe('getByUserIdWithFilters', () => {
-    it('isFavoriteフィルタでフィルタリングできる', async () => {
-      const mockItems = [
-        {
-          PK: 'USER#user-123',
-          SK: 'VIDEO#video-1',
-          Type: 'USER_SETTING',
-          UserID: 'user-123',
-          VideoID: 'video-1',
-          IsFavorite: true,
-          IsSkip: false,
-          CreatedAt: 1234567890000,
-          UpdatedAt: 1234567890000,
-        },
-        {
-          PK: 'USER#user-123',
-          SK: 'VIDEO#video-2',
-          Type: 'USER_SETTING',
-          UserID: 'user-123',
-          VideoID: 'video-2',
-          IsFavorite: false,
-          IsSkip: false,
-          CreatedAt: 1234567890000,
-          UpdatedAt: 1234567890000,
-        },
-      ];
-
-      ddbMock.on(QueryCommand).resolves({
-        Items: mockItems,
-        Count: 2,
-      });
-
-      const result = await repository.getByUserIdWithFilters('user-123', { isFavorite: true });
-
-      expect(result.settings).toHaveLength(1);
-      expect(result.settings[0].videoId).toBe('video-1');
-      expect(result.total).toBe(1);
+  describe('listAllByUserId', () => {
+    const buildItem = (videoId: string) => ({
+      PK: 'USER#user-123',
+      SK: `VIDEO#${videoId}`,
+      Type: 'USER_SETTING',
+      UserID: 'user-123',
+      VideoID: videoId,
+      IsFavorite: false,
+      IsSkip: false,
+      CreatedAt: 1234567890000,
+      UpdatedAt: 1234567890000,
     });
 
-    it('isSkipフィルタでフィルタリングできる', async () => {
-      const mockItems = [
-        {
-          PK: 'USER#user-123',
-          SK: 'VIDEO#video-1',
-          Type: 'USER_SETTING',
-          UserID: 'user-123',
-          VideoID: 'video-1',
-          IsFavorite: false,
-          IsSkip: true,
-          CreatedAt: 1234567890000,
-          UpdatedAt: 1234567890000,
-        },
-        {
-          PK: 'USER#user-123',
-          SK: 'VIDEO#video-2',
-          Type: 'USER_SETTING',
-          UserID: 'user-123',
-          VideoID: 'video-2',
-          IsFavorite: false,
-          IsSkip: false,
-          CreatedAt: 1234567890000,
-          UpdatedAt: 1234567890000,
-        },
-      ];
+    it('複数ページにまたがる設定を連結して全件返す', async () => {
+      ddbMock
+        .on(QueryCommand)
+        .resolvesOnce({
+          Items: [buildItem('video-1'), buildItem('video-2')],
+          LastEvaluatedKey: { PK: 'USER#user-123', SK: 'VIDEO#video-2' },
+        })
+        .resolvesOnce({ Items: [buildItem('video-3')] });
 
-      ddbMock.on(QueryCommand).resolves({
-        Items: mockItems,
-        Count: 2,
+      const result = await repository.listAllByUserId('user-123');
+
+      expect(result.map((setting) => setting.videoId)).toEqual(['video-1', 'video-2', 'video-3']);
+      const calls = ddbMock.commandCalls(QueryCommand);
+      expect(calls).toHaveLength(2);
+      expect(calls[0].args[0].input).toMatchObject({
+        TableName: tableName,
+        KeyConditionExpression: 'PK = :pk AND begins_with(SK, :sk)',
+        ExpressionAttributeValues: { ':pk': 'USER#user-123', ':sk': 'VIDEO#' },
       });
-
-      const result = await repository.getByUserIdWithFilters('user-123', { isSkip: true });
-
-      expect(result.settings).toHaveLength(1);
-      expect(result.settings[0].isSkip).toBe(true);
-      expect(result.total).toBe(1);
-    });
-
-    it('複数フィルタを組み合わせることができる', async () => {
-      const mockItems = [
-        {
-          PK: 'USER#user-123',
-          SK: 'VIDEO#video-1',
-          Type: 'USER_SETTING',
-          UserID: 'user-123',
-          VideoID: 'video-1',
-          IsFavorite: true,
-          IsSkip: true,
-          CreatedAt: 1234567890000,
-          UpdatedAt: 1234567890000,
-        },
-        {
-          PK: 'USER#user-123',
-          SK: 'VIDEO#video-2',
-          Type: 'USER_SETTING',
-          UserID: 'user-123',
-          VideoID: 'video-2',
-          IsFavorite: true,
-          IsSkip: false,
-          CreatedAt: 1234567890000,
-          UpdatedAt: 1234567890000,
-        },
-      ];
-
-      ddbMock.on(QueryCommand).resolves({
-        Items: mockItems,
-        Count: 2,
-      });
-
-      const result = await repository.getByUserIdWithFilters('user-123', {
-        isFavorite: true,
-        isSkip: true,
-      });
-
-      expect(result.settings).toHaveLength(1);
-      expect(result.settings[0].videoId).toBe('video-1');
-    });
-
-    it('ページネーションオプションを使用できる', async () => {
-      const mockItems = Array.from({ length: 10 }, (_, i) => ({
+      expect(calls[1].args[0].input.ExclusiveStartKey).toEqual({
         PK: 'USER#user-123',
-        SK: `VIDEO#video-${i}`,
-        Type: 'USER_SETTING',
-        UserID: 'user-123',
-        VideoID: `video-${i}`,
-        IsFavorite: false,
-        IsSkip: false,
-        CreatedAt: 1234567890000,
-        UpdatedAt: 1234567890000,
-      }));
-
-      ddbMock.on(QueryCommand).resolves({
-        Items: mockItems,
-        Count: 10,
+        SK: 'VIDEO#video-2',
       });
+    });
 
-      const result = await repository.getByUserIdWithFilters(
-        'user-123',
-        {},
-        { limit: 5, offset: 2 }
-      );
+    it('設定がない場合は空配列を返す', async () => {
+      ddbMock.on(QueryCommand).resolves({ Items: [] });
 
-      expect(result.settings).toHaveLength(5);
-      expect(result.total).toBe(10);
+      await expect(repository.listAllByUserId('user-123')).resolves.toEqual([]);
+    });
+
+    it('DynamoDBエラーの場合はDatabaseErrorをスローする', async () => {
+      ddbMock.on(QueryCommand).rejects(new Error('DynamoDB error'));
+
+      await expect(repository.listAllByUserId('user-123')).rejects.toThrow(DatabaseError);
     });
   });
 

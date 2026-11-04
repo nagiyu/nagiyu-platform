@@ -1103,4 +1103,45 @@ describe('listVideosWithSettings', () => {
     expect(result.videos[0].videoId).toBe('sm1');
     expect(result.videos[0].userSetting).toBeUndefined();
   });
+
+  it('ユーザー設定が複数ページにまたがっても全件を反映する', async () => {
+    const buildSetting = (videoId: string, isFavorite: boolean) => ({
+      PK: 'USER#user123',
+      SK: `VIDEO#${videoId}`,
+      Type: 'USER_SETTING',
+      UserID: 'user123',
+      VideoID: videoId,
+      IsFavorite: isFavorite,
+      IsSkip: false,
+      CreatedAt: 1704067200000,
+      UpdatedAt: 1704067200000,
+    });
+    const buildVideo = (videoId: string) => ({
+      PK: `VIDEO#${videoId}`,
+      SK: `VIDEO#${videoId}`,
+      Type: 'VIDEO',
+      VideoID: videoId,
+      Title: videoId,
+      ThumbnailURL: `https://example.com/${videoId}.jpg`,
+      Length: '3:00',
+      CreatedAt: 1704067200000,
+    });
+
+    ddbMock
+      .on(QueryCommand)
+      .resolvesOnce({
+        Items: [buildSetting('sm1', true)],
+        LastEvaluatedKey: { PK: 'USER#user123', SK: 'VIDEO#sm1' },
+      })
+      .resolvesOnce({ Items: [buildSetting('sm2', true)] });
+    ddbMock.on(ScanCommand).resolves({
+      Items: [buildVideo('sm1'), buildVideo('sm2'), buildVideo('sm3')],
+    });
+
+    const result = await listVideosWithSettings('user123', { isFavorite: true });
+
+    expect(ddbMock.commandCalls(QueryCommand)).toHaveLength(2);
+    expect(result.videos.map((v) => v.videoId).sort()).toEqual(['sm1', 'sm2']);
+    expect(result.total).toBe(2);
+  });
 });

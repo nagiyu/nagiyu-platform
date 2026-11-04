@@ -39,21 +39,12 @@ export interface UserSettingRepository {
   ): Promise<PaginatedResult<UserSettingEntity>>;
 
   /**
-   * ユーザーの動画設定を取得（フィルタリング対応）
+   * ユーザーの動画設定を全件取得
    *
    * @param userId - ユーザーID
-   * @param filters - フィルタ条件
-   * @param options - ページネーションオプション
-   * @returns フィルタリングされた設定の配列
+   * @returns ユーザーの全動画設定
    */
-  getByUserIdWithFilters(
-    userId: string,
-    filters: {
-      isFavorite?: boolean;
-      isSkip?: boolean;
-    },
-    options?: { limit?: number; offset?: number }
-  ): Promise<{ settings: UserSettingEntity[]; total: number }>;
+  listAllByUserId(userId: string): Promise<UserSettingEntity[]>;
 
   /**
    * 新しいユーザー設定を作成

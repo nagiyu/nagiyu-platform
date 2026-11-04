@@ -154,78 +154,34 @@ describe('InMemoryUserSettingRepository', () => {
     });
   });
 
-  describe('getByUserIdWithFilters', () => {
-    beforeEach(async () => {
-      // テストデータを作成
-      await repository.create({
-        userId: 'user1',
-        videoId: 'sm1',
-        isFavorite: true,
-        isSkip: false,
-      });
+  describe('listAllByUserId', () => {
+    it('100件を超えても全件返す', async () => {
+      for (let i = 0; i < 150; i++) {
+        await repository.create({
+          userId: 'user1',
+          videoId: `sm${i}`,
+          isFavorite: false,
+          isSkip: false,
+        });
+      }
 
-      await repository.create({
-        userId: 'user1',
-        videoId: 'sm2',
-        isFavorite: false,
-        isSkip: true,
-      });
+      const result = await repository.listAllByUserId('user1');
 
-      await repository.create({
-        userId: 'user1',
-        videoId: 'sm3',
-        isFavorite: true,
-        isSkip: false,
-      });
-
-      await repository.create({
-        userId: 'user1',
-        videoId: 'sm4',
-        isFavorite: false,
-        isSkip: false,
-      });
+      expect(result).toHaveLength(150);
     });
 
-    it('お気に入りフィルターが機能する', async () => {
-      const result = await repository.getByUserIdWithFilters('user1', { isFavorite: true });
+    it('他ユーザーや動画設定以外のレコードを含まない', async () => {
+      await repository.create({ userId: 'user1', videoId: 'sm1', isFavorite: true, isSkip: false });
+      await repository.create({ userId: 'user2', videoId: 'sm2', isFavorite: true, isSkip: false });
+      store.put({ PK: 'USER#user1', SK: 'OTHER#x', Type: 'OTHER' });
 
-      expect(result.total).toBe(2);
-      expect(result.settings).toHaveLength(2);
-      expect(result.settings[0].isFavorite).toBe(true);
-      expect(result.settings[1].isFavorite).toBe(true);
+      const result = await repository.listAllByUserId('user1');
+
+      expect(result.map((setting) => setting.videoId)).toEqual(['sm1']);
     });
 
-    it('スキップフィルターが機能する', async () => {
-      const result = await repository.getByUserIdWithFilters('user1', { isSkip: true });
-
-      expect(result.total).toBe(1);
-      expect(result.settings).toHaveLength(1);
-      expect(result.settings[0].isSkip).toBe(true);
-    });
-
-    it('複数フィルターを組み合わせられる', async () => {
-      const result = await repository.getByUserIdWithFilters('user1', {
-        isFavorite: true,
-        isSkip: false,
-      });
-
-      expect(result.total).toBe(2);
-      expect(result.settings).toHaveLength(2);
-      expect(result.settings.every((s) => s.isFavorite && !s.isSkip)).toBe(true);
-    });
-
-    it('limitとoffsetでページネーションできる', async () => {
-      const result = await repository.getByUserIdWithFilters('user1', {}, { limit: 2, offset: 0 });
-
-      expect(result.settings).toHaveLength(2);
-      expect(result.total).toBe(4);
-    });
-
-    it('offsetで2ページ目を取得できる', async () => {
-      const page1 = await repository.getByUserIdWithFilters('user1', {}, { limit: 2, offset: 0 });
-      const page2 = await repository.getByUserIdWithFilters('user1', {}, { limit: 2, offset: 2 });
-
-      expect(page1.settings[0].videoId).not.toBe(page2.settings[0].videoId);
+    it('設定がない場合は空配列を返す', async () => {
+      await expect(repository.listAllByUserId('user1')).resolves.toEqual([]);
     });
   });
 
