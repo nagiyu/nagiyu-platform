@@ -18,9 +18,5 @@
   "dependencies": {
     "@nagiyu/aws": "*",
     "@nagiyu/common": "*"
-  },
-  "devDependencies": {
-    "aws-cdk-lib": "^2.273.0",
-    "constructs": "^10.6.0"
   }
 }
