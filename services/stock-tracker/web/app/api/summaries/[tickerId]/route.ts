@@ -64,10 +64,20 @@ export const GET = withInternalErrorReporting(
         );
       }
 
-      const exchangeId = tickerId.split(':')[0];
-      const [ticker, summaries, holding, alertsResult] = await Promise.all([
-        createTickerRepository().getById(tickerId),
-        createDailySummaryRepository().getByExchange(exchangeId),
+      // ティッカーID の先頭は取引所の API キーで取引所 ID とは限らないため、マスタの取引所 ID で引く
+      const ticker = await createTickerRepository().getById(tickerId);
+      if (!ticker) {
+        return NextResponse.json(
+          {
+            error: 'NOT_FOUND',
+            message: ERROR_MESSAGES.NOT_FOUND,
+          } satisfies ErrorResponse,
+          { status: 404 }
+        );
+      }
+
+      const [summaries, holding, alertsResult] = await Promise.all([
+        createDailySummaryRepository().getByExchange(ticker.exchangeId),
         createHoldingRepository().getById(session.user.id, tickerId),
         createAlertRepository().getByUserId(session.user.id, { limit: MAX_ALERTS_PER_USER }),
       ]);
@@ -102,9 +112,10 @@ export const GET = withInternalErrorReporting(
       return NextResponse.json(
         {
           tickerId: latestSummary.tickerId,
+          exchangeId: latestSummary.exchangeId,
           date: latestSummary.date,
-          symbol: ticker?.symbol ?? latestSummary.tickerId.split(':')[1] ?? latestSummary.tickerId,
-          name: ticker?.name ?? latestSummary.tickerId,
+          symbol: ticker.symbol ?? latestSummary.tickerId.split(':')[1] ?? latestSummary.tickerId,
+          name: ticker.name ?? latestSummary.tickerId,
           open: latestSummary.open,
           high: latestSummary.high,
           low: latestSummary.low,

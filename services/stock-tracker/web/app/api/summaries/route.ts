@@ -60,6 +60,7 @@ interface HoldingSummaryResponse {
 
 interface TickerSummaryResponse {
   tickerId: string;
+  exchangeId: string;
   /** 確度の基準日（YYYY-MM-DD） */
   date: string;
   symbol: string;
@@ -124,6 +125,7 @@ function toTickerSummaryResponse(
 
   return {
     tickerId: summary.tickerId,
+    exchangeId: summary.exchangeId,
     date: summary.date,
     symbol: ticker?.symbol ?? summary.tickerId.split(':')[1] ?? summary.tickerId,
     name: ticker?.name ?? summary.tickerId,
