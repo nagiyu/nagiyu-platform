@@ -694,4 +694,54 @@ describe('Home', () => {
       expect(JSON.parse(requestInit.body)).not.toHaveProperty('contentType');
     });
   });
+
+  describe('離脱時の警告', () => {
+    const dispatchBeforeUnload = () => {
+      const event = new Event('beforeunload', { cancelable: true });
+      window.dispatchEvent(event);
+      return event;
+    };
+
+    it('送信中は beforeunload が抑止され、送信前は抑止されない', async () => {
+      global.fetch = jest.fn().mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ jobId: 'job-1', uploadUrl: 'https://example.com/upload' }),
+      }) as jest.Mock;
+
+      render(<Home />);
+      selectFile();
+      expect(dispatchBeforeUnload().defaultPrevented).toBe(false);
+
+      fireEvent.click(screen.getByRole('button', { name: 'アップロードして処理開始' }));
+      await waitFor(() => {
+        expect(mockXHR.send).toHaveBeenCalled();
+      });
+
+      expect(dispatchBeforeUnload().defaultPrevented).toBe(true);
+    });
+
+    it('失敗して送信状態が戻ったら beforeunload は抑止されない', async () => {
+      global.fetch = jest.fn().mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ jobId: 'job-1', uploadUrl: 'https://example.com/upload' }),
+      }) as jest.Mock;
+
+      render(<Home />);
+      selectFile();
+      fireEvent.click(screen.getByRole('button', { name: 'アップロードして処理開始' }));
+      await waitFor(() => {
+        expect(mockXHR.send).toHaveBeenCalled();
+      });
+
+      act(() => {
+        mockXHR.status = 500;
+        mockXHR.onload?.();
+      });
+      await waitFor(() => {
+        expect(screen.getByText('動画ファイルのアップロードに失敗しました')).toBeInTheDocument();
+      });
+
+      expect(dispatchBeforeUnload().defaultPrevented).toBe(false);
+    });
+  });
 });
