@@ -8,6 +8,7 @@ import {
   createGroupRepository,
   createMembershipRepository,
   createUserRepository,
+  isInvitationExpired,
   type UserRepository,
 } from '@nagiyu/share-together-core';
 import { createValidationErrorResponse } from '@/lib/api/responses';
@@ -36,7 +37,11 @@ export const GET = withApiErrorReporting(
     const groupRepository = createGroupRepository(docClient, tableName);
     const userRepository = createUserRepository(docClient, tableName);
 
-    const pendingInvitations = await membershipRepository.getPendingInvitationsByUserId(userId);
+    // TTL による削除は遅れるため、期限切れの招待はここで除いて一覧にもバッジの件数にも出さない
+    const now = Date.now();
+    const pendingInvitations = (
+      await membershipRepository.getPendingInvitationsByUserId(userId)
+    ).filter((invitation) => !isInvitationExpired(invitation, now));
     if (pendingInvitations.length === 0) {
       const response: InvitationsResponse = {
         data: {

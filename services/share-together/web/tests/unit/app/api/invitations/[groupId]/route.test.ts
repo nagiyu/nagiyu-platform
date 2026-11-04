@@ -35,6 +35,7 @@ jest.mock('@nagiyu/share-together-core', () => {
     ERROR_MESSAGES: {
       INVITATION_NOT_FOUND: actualCore.ERROR_MESSAGES.INVITATION_NOT_FOUND,
       INVITATION_ALREADY_RESPONDED: actualCore.ERROR_MESSAGES.INVITATION_ALREADY_RESPONDED,
+      INVITATION_EXPIRED: actualCore.ERROR_MESSAGES.INVITATION_EXPIRED,
       MEMBER_LIMIT_EXCEEDED: actualCore.ERROR_MESSAGES.MEMBER_LIMIT_EXCEEDED,
     },
   };
@@ -244,6 +245,26 @@ describe('PUT /api/invitations/[groupId]', () => {
     await expect(response.json()).resolves.toEqual({
       error: 'ALREADY_RESPONDED',
       message: 'この招待には既に応答済みです',
+    });
+  });
+
+  it('招待の有効期限が切れている場合は409レスポンスを返す', async () => {
+    mockGetSessionOrUnauthorized.mockResolvedValue({
+      user: { id: 'user-1' },
+    } as SessionOrUnauthorized);
+    mockRespondToInvitation.mockRejectedValue(
+      new Error(GROUP_CORE_ERROR_MESSAGES.INVITATION_EXPIRED)
+    );
+
+    const request = {
+      json: jest.fn().mockResolvedValue({ action: 'ACCEPT' }),
+    } as unknown as Request;
+    const response = await PUT(request, { params: Promise.resolve({ groupId: 'group-1' }) });
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toEqual({
+      error: 'INVITATION_EXPIRED',
+      message: '招待の有効期限が切れています',
     });
   });
 
