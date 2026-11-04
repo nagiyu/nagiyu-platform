@@ -37,6 +37,14 @@ export interface FooterProps {
   contactHref?: string;
 
   /**
+   * バージョン行にプライバシーポリシー・利用規約のリンク (ダイアログを開くボタン) を表示するか。
+   * links で法務ページへのリンクを別途並べているサービスが、同じリンクの重複表示を避けるために false を指定する。
+   * false のときはダイアログ本体も描画しない。
+   * @default true
+   */
+  showLegalLinks?: boolean;
+
+  /**
    * 差し替え利用規約データ（省略時はグローバル termSections を使用）
    */
   termsContent?: LegalSection[];
@@ -69,6 +77,7 @@ export interface FooterProps {
 export default function Footer({
   version = '1.0.0',
   contactHref,
+  showLegalLinks = true,
   termsContent,
   privacyContent,
   licenseText,
@@ -134,28 +143,35 @@ export default function Footer({
           {/* バージョン・ポリシー行（既存の構造を維持） */}
           <Typography variant="body2" color="text.secondary" align="center">
             v{version}
-            {' | '}
-            <Link
-              component="button"
-              color="inherit"
-              onClick={() => setPrivacyOpen(true)}
-              sx={{
-                color: 'text.secondary',
-              }}
-            >
-              プライバシーポリシー
-            </Link>
-            {' | '}
-            <Link
-              component="button"
-              color="inherit"
-              onClick={() => setTermsOpen(true)}
-              sx={{
-                color: 'text.secondary',
-              }}
-            >
-              利用規約
-            </Link>
+            {showLegalLinks && (
+              <>
+                {' | '}
+                <Link
+                  component="button"
+                  color="inherit"
+                  onClick={() => setPrivacyOpen(true)}
+                  sx={{
+                    color: 'text.secondary',
+                    // モバイル幅で語の途中で折り返さないよう、リンク単位で改行させる
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  プライバシーポリシー
+                </Link>
+                {' | '}
+                <Link
+                  component="button"
+                  color="inherit"
+                  onClick={() => setTermsOpen(true)}
+                  sx={{
+                    color: 'text.secondary',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  利用規約
+                </Link>
+              </>
+            )}
             {contactHref && (
               <>
                 {' | '}
@@ -164,6 +180,7 @@ export default function Footer({
                   color="inherit"
                   sx={{
                     color: 'text.secondary',
+                    whiteSpace: 'nowrap',
                   }}
                 >
                   お問い合わせ
@@ -204,16 +221,20 @@ export default function Footer({
           )}
         </Container>
       </Box>
-      <PrivacyPolicyDialog
-        open={privacyOpen}
-        onClose={() => setPrivacyOpen(false)}
-        sections={privacyContent}
-      />
-      <TermsOfServiceDialog
-        open={termsOpen}
-        onClose={() => setTermsOpen(false)}
-        sections={termsContent}
-      />
+      {showLegalLinks && (
+        <>
+          <PrivacyPolicyDialog
+            open={privacyOpen}
+            onClose={() => setPrivacyOpen(false)}
+            sections={privacyContent}
+          />
+          <TermsOfServiceDialog
+            open={termsOpen}
+            onClose={() => setTermsOpen(false)}
+            sections={termsContent}
+          />
+        </>
+      )}
     </>
   );
 }
