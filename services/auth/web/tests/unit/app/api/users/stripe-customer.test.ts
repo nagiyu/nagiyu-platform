@@ -73,7 +73,7 @@ describe('DELETE /api/users/[userId]/stripe-customer', () => {
           roleGrants: [
             {
               grantId: 'g1',
-              roleId: 'livetalk-premium',
+              roleId: 'livetalk-standard',
               source: 'stripe',
               createdAt: 1,
               updatedAt: 1,

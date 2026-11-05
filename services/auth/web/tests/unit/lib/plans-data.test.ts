@@ -28,17 +28,18 @@ function buildStripe(options: Options = {}) {
               status: 'active',
               cancel_at_period_end: options.cancelAtPeriodEnd ?? false,
               items: {
-                data: [{ current_period_end: PERIOD_END_SEC, price: { product: 'prod_1' } }],
+                data: [
+                  {
+                    id: 'si_1',
+                    current_period_end: PERIOD_END_SEC,
+                    price: { id: 'price_1', lookup_key: 'livetalk-standard' },
+                  },
+                ],
               },
             },
           ],
         };
       }),
-    },
-    products: {
-      listFeatures: jest.fn(async () => ({
-        data: [{ entitlement_feature: { lookup_key: 'livetalk-premium' } }],
-      })),
     },
     prices: {
       list: jest.fn(async () => {
@@ -47,7 +48,7 @@ function buildStripe(options: Options = {}) {
           data: [
             {
               id: 'price_1',
-              lookup_key: 'livetalk-premium',
+              lookup_key: 'livetalk-standard',
               unit_amount: 500,
               currency: 'jpy',
               recurring: { interval: 'month', interval_count: 1 },
@@ -143,7 +144,6 @@ describe('loadPlansPageData', () => {
     await loadPlansPageData(deps, userId);
 
     expect(deps.stripe.subscriptions.list).toHaveBeenCalledTimes(1);
-    expect(deps.stripe.products.listFeatures).toHaveBeenCalledTimes(1);
   });
 
   it('同期が契約を読めなかったときは、表示のために読み直す', async () => {
@@ -181,7 +181,7 @@ describe('loadPlansPageData', () => {
       priceFetchFailed: true,
       stateLabel: null,
     });
-    expect(data.cards).toHaveLength(2);
+    expect(data.cards).toHaveLength(3);
   });
 
   it('価格を読めたが無いロールは、枠を出さない', async () => {
@@ -190,7 +190,7 @@ describe('loadPlansPageData', () => {
     const data = await loadPlansPageData(deps, null);
 
     if (!data.billingEnabled) throw new Error('unreachable');
-    expect(data.cards.map((c) => c.roleId)).toEqual(['livetalk-premium']);
+    expect(data.cards.map((c) => c.roleId)).toEqual(['livetalk-standard']);
     expect(data.cards[0].priceFetchFailed).toBe(false);
   });
 });
@@ -232,7 +232,7 @@ describe('syncUserForPlans', () => {
     const { subscriptions } = await syncUserForPlans(deps, userId);
 
     expect(subscriptions).toEqual([
-      expect.objectContaining({ roleId: 'livetalk-premium', subscriptionId: 'sub_1' }),
+      expect.objectContaining({ roleId: 'livetalk-standard', subscriptionId: 'sub_1' }),
     ]);
   });
 });

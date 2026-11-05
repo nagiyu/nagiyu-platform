@@ -85,10 +85,11 @@ export interface Session {
  * LiveTalk permissions:
  * - livetalk:chat - Access LiveTalk chat UI and API
  * - livetalk:admin - Access LiveTalk admin features (status page, debug panel)
- * - livetalk:premium - Use LiveTalk premium features (paid role)
+ * - livetalk:standard - Use LiveTalk standard features (paid role)
  *
  * Quick Clip permissions:
- * - quick-clip:premium - Use Quick Clip premium features (paid role)
+ * - quick-clip:standard - Use Quick Clip standard features (paid role)
+ * - quick-clip:pro - Use Quick Clip pro features (paid role, includes standard)
  */
 export type Permission =
   | 'users:read'
@@ -103,8 +104,9 @@ export type Permission =
   | 'auth:write'
   | 'livetalk:chat'
   | 'livetalk:admin'
-  | 'livetalk:premium'
-  | 'quick-clip:premium';
+  | 'livetalk:standard'
+  | 'quick-clip:standard'
+  | 'quick-clip:pro';
 
 /**
  * Valid role IDs defined in ROLES constant

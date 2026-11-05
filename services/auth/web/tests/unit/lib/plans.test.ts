@@ -19,8 +19,8 @@ function input(overrides: Partial<BuildPlanCardsInput> = {}): BuildPlanCardsInpu
   return {
     loggedIn: true,
     prices: new Map([
-      ['livetalk-premium', MONTHLY],
-      ['quick-clip-premium', MONTHLY],
+      ['livetalk-standard', MONTHLY],
+      ['quick-clip-standard', MONTHLY],
     ]),
     subscriptions: [],
     grants: [],
@@ -38,7 +38,7 @@ function card(roleId: string, overrides: Partial<BuildPlanCardsInput> = {}) {
 function grant(partial: Partial<RoleGrant>): RoleGrant {
   return {
     grantId: 'g',
-    roleId: 'livetalk-premium',
+    roleId: 'livetalk-standard',
     source: 'manual',
     createdAt: 0,
     updatedAt: 0,
@@ -110,23 +110,23 @@ describe('formatPlanDescription', () => {
 describe('buildPlanCards', () => {
   it('有料ロールごとにカードを作る', () => {
     expect(buildPlanCards(input()).map((c) => c.roleId)).toEqual([
-      'livetalk-premium',
-      'quick-clip-premium',
+      'livetalk-standard',
+      'quick-clip-standard',
     ]);
-    expect(card('livetalk-premium').name).toBe('LiveTalk プレミアム');
+    expect(card('livetalk-standard').name).toBe('LiveTalk スタンダード');
   });
 
   it('説明は商品の説明から出し、空では出さない', () => {
     const withDescription = new Map([
-      ['livetalk-premium', { ...MONTHLY, product: { description: '商品の説明' } }],
-      ['quick-clip-premium', { ...MONTHLY, product: { description: '' } }],
+      ['livetalk-standard', { ...MONTHLY, product: { description: '商品の説明' } }],
+      ['quick-clip-standard', { ...MONTHLY, product: { description: '' } }],
     ]);
-    expect(card('livetalk-premium', { prices: withDescription }).description).toBe('商品の説明');
-    expect(card('quick-clip-premium', { prices: withDescription }).description).toBeNull();
+    expect(card('livetalk-standard', { prices: withDescription }).description).toBe('商品の説明');
+    expect(card('quick-clip-standard', { prices: withDescription }).description).toBeNull();
   });
 
   it('未ログインは申し込みを出さず、手動の権利も見せない', () => {
-    const c = card('livetalk-premium', {
+    const c = card('livetalk-standard', {
       loggedIn: false,
       subscriptions: null,
       grants: [grant({ expiresAt: NOW + DAY })],
@@ -137,16 +137,16 @@ describe('buildPlanCards', () => {
   });
 
   it('未契約で Price があれば申し込める', () => {
-    expect(card('livetalk-premium')).toMatchObject({
+    expect(card('livetalk-standard')).toMatchObject({
       canSubscribe: true,
       priceFetchFailed: false,
     });
   });
 
   it('Price が読めたうえで無く、契約も手動の権利も無いロールは枠を出さない', () => {
-    const prices = new Map([['livetalk-premium', MONTHLY]]);
+    const prices = new Map([['livetalk-standard', MONTHLY]]);
 
-    expect(buildPlanCards(input({ prices })).map((c) => c.roleId)).toEqual(['livetalk-premium']);
+    expect(buildPlanCards(input({ prices })).map((c) => c.roleId)).toEqual(['livetalk-standard']);
     expect(buildPlanCards(input({ prices: new Map() }))).toEqual([]);
     expect(
       buildPlanCards(
@@ -178,7 +178,7 @@ describe('buildPlanCards', () => {
     [
       '契約中',
       {
-        subscriptions: [{ roleId: 'livetalk-premium', currentPeriodEnd: NOW + DAY, endsAt: null }],
+        subscriptions: [{ roleId: 'livetalk-standard', currentPeriodEnd: NOW + DAY, endsAt: null }],
       },
       'subscribed',
     ],
@@ -186,13 +186,13 @@ describe('buildPlanCards', () => {
       '解約予約中',
       {
         subscriptions: [
-          { roleId: 'livetalk-premium', currentPeriodEnd: NOW + DAY, endsAt: NOW + DAY },
+          { roleId: 'livetalk-standard', currentPeriodEnd: NOW + DAY, endsAt: NOW + DAY },
         ],
       },
       'canceling',
     ],
   ])('Price が無くても%sなら枠を出し、申し込みはできない', (_label, overrides, state) => {
-    const c = card('livetalk-premium', { prices: new Map(), ...overrides });
+    const c = card('livetalk-standard', { prices: new Map(), ...overrides });
 
     expect(c).toMatchObject({
       state,
@@ -209,7 +209,7 @@ describe('buildPlanCards', () => {
 
     expect(cards).toHaveLength(1);
     expect(cards[0]).toMatchObject({
-      roleId: 'livetalk-premium',
+      roleId: 'livetalk-standard',
       priceFetchFailed: false,
       canSubscribe: false,
     });
@@ -231,16 +231,20 @@ describe('buildPlanCards', () => {
   it('Price の取得に失敗したときは全ロールの枠を出し、取得失敗として区別する', () => {
     const cards = buildPlanCards(input({ prices: null }));
 
-    expect(cards.map((c) => c.roleId)).toEqual(['livetalk-premium', 'quick-clip-premium']);
+    expect(cards.map((c) => c.roleId)).toEqual([
+      'livetalk-standard',
+      'quick-clip-standard',
+      'quick-clip-pro',
+    ]);
     expect(cards.every((c) => c.priceFetchFailed && c.priceLabel === null)).toBe(true);
     expect(cards.every((c) => !c.canSubscribe)).toBe(true);
   });
 
   it('契約中は次の更新日を出す', () => {
-    const c = card('livetalk-premium', {
+    const c = card('livetalk-standard', {
       subscriptions: [
         {
-          roleId: 'livetalk-premium',
+          roleId: 'livetalk-standard',
           currentPeriodEnd: Date.parse('2026-12-03T00:00:00+09:00'),
           endsAt: null,
         },
@@ -255,10 +259,10 @@ describe('buildPlanCards', () => {
   });
 
   it('解約予約中は終了日を出す', () => {
-    const c = card('livetalk-premium', {
+    const c = card('livetalk-standard', {
       subscriptions: [
         {
-          roleId: 'livetalk-premium',
+          roleId: 'livetalk-standard',
           currentPeriodEnd: NOW + 10 * DAY,
           endsAt: Date.parse('2026-11-20T00:00:00+09:00'),
         },
@@ -269,10 +273,10 @@ describe('buildPlanCards', () => {
   });
 
   it('同じロールの契約が複数あれば、解約予約のないものを優先する', () => {
-    const c = card('livetalk-premium', {
+    const c = card('livetalk-standard', {
       subscriptions: [
-        { roleId: 'livetalk-premium', currentPeriodEnd: NOW + 30 * DAY, endsAt: NOW + 30 * DAY },
-        { roleId: 'livetalk-premium', currentPeriodEnd: NOW + 10 * DAY, endsAt: null },
+        { roleId: 'livetalk-standard', currentPeriodEnd: NOW + 30 * DAY, endsAt: NOW + 30 * DAY },
+        { roleId: 'livetalk-standard', currentPeriodEnd: NOW + 10 * DAY, endsAt: null },
       ],
     });
 
@@ -280,23 +284,23 @@ describe('buildPlanCards', () => {
   });
 
   it('別のロールの契約は影響しない', () => {
-    const c = card('livetalk-premium', {
-      subscriptions: [{ roleId: 'quick-clip-premium', currentPeriodEnd: NOW + DAY, endsAt: null }],
+    const c = card('livetalk-standard', {
+      subscriptions: [{ roleId: 'quick-clip-standard', currentPeriodEnd: NOW + DAY, endsAt: null }],
     });
 
     expect(c.state).toBe('none');
   });
 
   it('Stripe から取れなかったときは、有効な Stripe の権利があれば契約中とする', () => {
-    const active = card('livetalk-premium', {
+    const active = card('livetalk-standard', {
       subscriptions: null,
       grants: [grant({ source: 'stripe', expiresAt: NOW + DAY })],
     });
-    const expired = card('livetalk-premium', {
+    const expired = card('livetalk-standard', {
       subscriptions: null,
       grants: [grant({ source: 'stripe', expiresAt: NOW - DAY })],
     });
-    const none = card('livetalk-premium', { subscriptions: null });
+    const none = card('livetalk-standard', { subscriptions: null });
 
     expect(active).toMatchObject({ state: 'subscribed', stateLabel: null });
     expect(expired.state).toBe('none');
@@ -304,7 +308,7 @@ describe('buildPlanCards', () => {
   });
 
   it('有効な手動の権利の期限を、契約とは別に出す', () => {
-    const c = card('livetalk-premium', {
+    const c = card('livetalk-standard', {
       grants: [
         grant({ expiresAt: Date.parse('2026-11-30T00:00:00+09:00') }),
         grant({ expiresAt: Date.parse('2026-12-31T00:00:00+09:00') }),
@@ -318,14 +322,14 @@ describe('buildPlanCards', () => {
   });
 
   it('期限のない手動の権利は期限なしと出す', () => {
-    expect(card('livetalk-premium', { grants: [grant({})] }).manualLabel).toBe(
+    expect(card('livetalk-standard', { grants: [grant({})] }).manualLabel).toBe(
       '運営による付与があります (期限なし)'
     );
   });
 
   it('手動の権利が無ければ何も出さない', () => {
     expect(
-      card('livetalk-premium', { grants: [grant({ source: 'stripe' })] }).manualLabel
+      card('livetalk-standard', { grants: [grant({ source: 'stripe' })] }).manualLabel
     ).toBeNull();
   });
 });

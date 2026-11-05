@@ -44,13 +44,13 @@ describe('applyGrantChanges', () => {
     const result = applyGrantChanges(
       user(),
       [],
-      { add: [{ roleId: 'livetalk-premium', expiresAt: FUTURE }] },
+      { add: [{ roleId: 'livetalk-standard', expiresAt: FUTURE }] },
       'op',
       NOW
     );
     expect(result.roleGrants).toHaveLength(1);
     expect(result.roleGrants[0]).toMatchObject({
-      roleId: 'livetalk-premium',
+      roleId: 'livetalk-standard',
       source: 'manual',
       grantedBy: 'op',
       expiresAt: FUTURE,
@@ -94,7 +94,7 @@ describe('applyGrantChanges', () => {
       applyGrantChanges(
         user(),
         [],
-        { add: [{ roleId: 'livetalk-premium', expiresAt: NOW }] },
+        { add: [{ roleId: 'livetalk-standard', expiresAt: NOW }] },
         'op',
         NOW
       )

@@ -161,6 +161,8 @@ export default function Footer({
                     color: 'text.secondary',
                     // モバイル幅で語の途中で折り返さないよう、リンク単位で改行させる
                     whiteSpace: 'nowrap',
+                    // MUI はボタンのリンクを中央揃えにするため、同じ行の文字やリンクと下端を揃える
+                    verticalAlign: 'baseline',
                   }}
                 >
                   プライバシーポリシー
@@ -173,6 +175,7 @@ export default function Footer({
                   sx={{
                     color: 'text.secondary',
                     whiteSpace: 'nowrap',
+                    verticalAlign: 'baseline',
                   }}
                 >
                   利用規約
