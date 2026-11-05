@@ -1,4 +1,11 @@
-import { PAID_ROLES, ROLES, VALID_ROLES } from '../../../src/auth/roles';
+import {
+  BILLING_SERVICES,
+  PAID_ROLES,
+  ROLES,
+  VALID_ROLES,
+  getBillingServiceId,
+  getBillingTierRoleIds,
+} from '../../../src/auth/roles';
 
 describe('VALID_ROLES', () => {
   it('すべての定義済みロールIDを含むべき', () => {
@@ -182,25 +189,66 @@ describe('ROLES', () => {
 });
 
 describe('有料ロール', () => {
-  it('livetalk-premium と quick-clip-premium の構造と権限を持つべき', () => {
-    expect(ROLES['livetalk-premium']).toMatchObject({
-      id: 'livetalk-premium',
-      name: 'LiveTalk プレミアム',
-      permissions: ['livetalk:premium'],
+  it('3 つの有料ロールの構造と権限を持つべき', () => {
+    expect(ROLES['livetalk-standard']).toMatchObject({
+      id: 'livetalk-standard',
+      name: 'LiveTalk スタンダード',
+      permissions: ['livetalk:standard'],
+      billing: { service: 'livetalk', rank: 1 },
     });
-    expect(ROLES['quick-clip-premium']).toMatchObject({
-      id: 'quick-clip-premium',
-      name: 'Quick Clip プレミアム',
-      permissions: ['quick-clip:premium'],
+    expect(ROLES['quick-clip-standard']).toMatchObject({
+      id: 'quick-clip-standard',
+      name: 'Quick Clip スタンダード',
+      permissions: ['quick-clip:standard'],
+      billing: { service: 'quick-clip', rank: 1 },
+    });
+    expect(ROLES['quick-clip-pro']).toMatchObject({
+      id: 'quick-clip-pro',
+      name: 'Quick Clip プロ',
+      permissions: ['quick-clip:standard', 'quick-clip:pro'],
+      billing: { service: 'quick-clip', rank: 2 },
     });
   });
 
-  it('PAID_ROLES は有料ロールだけを含み、VALID_ROLES の部分集合であるべき', () => {
-    expect(PAID_ROLES).toEqual(['livetalk-premium', 'quick-clip-premium']);
+  it('旧プレミアムロールは存在しないべき', () => {
+    expect(VALID_ROLES).not.toContain('livetalk-premium');
+    expect(VALID_ROLES).not.toContain('quick-clip-premium');
+  });
+
+  it('PAID_ROLES は有料ロールだけを含み、サービス → rank 昇順で並ぶべき', () => {
+    expect(PAID_ROLES).toEqual(['livetalk-standard', 'quick-clip-standard', 'quick-clip-pro']);
     for (const roleId of PAID_ROLES) {
       expect(VALID_ROLES).toContain(roleId);
     }
     expect(PAID_ROLES).not.toContain('admin');
     expect(PAID_ROLES).not.toContain('livetalk-user');
+  });
+
+  it('すべての有料ロールのサービスは BILLING_SERVICES に定義されているべき', () => {
+    expect(BILLING_SERVICES).toEqual({ livetalk: 'LiveTalk', 'quick-clip': 'Quick Clip' });
+    for (const roleId of PAID_ROLES) {
+      expect(Object.keys(BILLING_SERVICES)).toContain(getBillingServiceId(roleId));
+    }
+  });
+
+  it('getBillingServiceId はロール ID からサービス ID を返し、有料ロール以外は undefined', () => {
+    expect(getBillingServiceId('quick-clip-pro')).toBe('quick-clip');
+    expect(getBillingServiceId('livetalk-standard')).toBe('livetalk');
+    expect(getBillingServiceId('livetalk-user')).toBeUndefined();
+    expect(getBillingServiceId('unknown')).toBeUndefined();
+  });
+
+  it('getBillingTierRoleIds はサービスの段を rank 昇順で返し、未知のサービスは空', () => {
+    expect(getBillingTierRoleIds('quick-clip')).toEqual(['quick-clip-standard', 'quick-clip-pro']);
+    expect(getBillingTierRoleIds('livetalk')).toEqual(['livetalk-standard']);
+    expect(getBillingTierRoleIds('unknown')).toEqual([]);
+  });
+
+  it('上の段は下の段の権限を含むべき', () => {
+    for (const lower of getBillingTierRoleIds('quick-clip').slice(0, 1)) {
+      for (const p of (ROLES as Record<string, { permissions: string[] }>)[lower].permissions) {
+        expect(ROLES['quick-clip-pro'].permissions).toContain(p);
+      }
+    }
   });
 });

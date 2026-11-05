@@ -37,14 +37,14 @@ function buildStripe(options: Options = {}) {
   }));
   const portalCreate = jest.fn(async () => ({ url: 'https://portal.test/p' }));
   const pricesList = jest.fn(async () => ({
-    data: options.prices ?? [price('livetalk-premium'), { ...price('x'), lookup_key: null }],
+    data: options.prices ?? [price('livetalk-standard'), { ...price('x'), lookup_key: null }],
   }));
   const stripe = {
     customers: { retrieve: jest.fn(), create: customersCreate },
     subscriptions: { list: jest.fn(async () => ({ data: options.subscriptions ?? [] })) },
     products: {
       listFeatures: jest.fn(async () => ({
-        data: (options.features ?? ['livetalk-premium']).map((k) => ({
+        data: (options.features ?? ['livetalk-standard']).map((k) => ({
           entitlement_feature: { lookup_key: k },
         })),
       })),
@@ -143,11 +143,11 @@ describe('listPlanPrices', () => {
     expect(pricesList).toHaveBeenCalledWith(
       expect.objectContaining({
         active: true,
-        lookup_keys: expect.arrayContaining(['livetalk-premium']),
+        lookup_keys: expect.arrayContaining(['livetalk-standard']),
         expand: ['data.product'],
       })
     );
-    expect([...prices.keys()]).toEqual(['livetalk-premium']);
+    expect([...prices.keys()]).toEqual(['livetalk-standard']);
   });
 });
 
@@ -174,7 +174,7 @@ describe('createCheckoutSession', () => {
     const result = await createCheckoutSession(
       { stripe, userRepository: repo },
       user,
-      'livetalk-premium',
+      'livetalk-standard',
       URLS
     );
 
@@ -186,13 +186,13 @@ describe('createCheckoutSession', () => {
     const { repo, user } = await setupUser();
     const { stripe } = buildStripe({
       subscriptions: [activeSubscription],
-      features: ['quick-clip-premium'],
+      features: ['quick-clip-standard'],
     });
 
     const result = await createCheckoutSession(
       { stripe, userRepository: repo },
       user,
-      'livetalk-premium',
+      'livetalk-standard',
       URLS
     );
 
@@ -206,7 +206,7 @@ describe('createCheckoutSession', () => {
     const result = await createCheckoutSession(
       { stripe, userRepository: repo },
       user,
-      'livetalk-premium',
+      'livetalk-standard',
       URLS
     );
 
@@ -217,14 +217,14 @@ describe('createCheckoutSession', () => {
     const { repo, user } = await setupUser();
     const { stripe, sessionsCreate } = buildStripe();
 
-    await createCheckoutSession({ stripe, userRepository: repo }, user, 'livetalk-premium', URLS);
+    await createCheckoutSession({ stripe, userRepository: repo }, user, 'livetalk-standard', URLS);
 
-    const metadata = { userId: user.userId, roleId: 'livetalk-premium' };
+    const metadata = { userId: user.userId, roleId: 'livetalk-standard' };
     expect(sessionsCreate).toHaveBeenCalledWith({
       mode: 'subscription',
       customer: 'cus_new',
       client_reference_id: user.userId,
-      line_items: [{ price: 'price_livetalk-premium', quantity: 1 }],
+      line_items: [{ price: 'price_livetalk-standard', quantity: 1 }],
       metadata,
       subscription_data: { metadata },
       locale: 'ja',
@@ -238,7 +238,7 @@ describe('createCheckoutSession', () => {
     const { stripe } = buildStripe({ sessionUrl: null });
 
     await expect(
-      createCheckoutSession({ stripe, userRepository: repo }, user, 'livetalk-premium', URLS)
+      createCheckoutSession({ stripe, userRepository: repo }, user, 'livetalk-standard', URLS)
     ).rejects.toThrow('Checkout Session の URL を取得できませんでした');
   });
 });
