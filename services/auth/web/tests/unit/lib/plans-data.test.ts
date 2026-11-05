@@ -178,8 +178,20 @@ describe('loadPlansPageData', () => {
     expect(data.cards[0]).toMatchObject({
       state: 'subscribed',
       priceLabel: null,
+      priceFetchFailed: true,
       stateLabel: null,
     });
+    expect(data.cards).toHaveLength(2);
+  });
+
+  it('価格を読めたが無いロールは、枠を出さない', async () => {
+    const { deps } = await setup(false);
+
+    const data = await loadPlansPageData(deps, null);
+
+    if (!data.billingEnabled) throw new Error('unreachable');
+    expect(data.cards.map((c) => c.roleId)).toEqual(['livetalk-premium']);
+    expect(data.cards[0].priceFetchFailed).toBe(false);
   });
 });
 

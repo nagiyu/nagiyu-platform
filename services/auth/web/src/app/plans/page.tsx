@@ -37,9 +37,11 @@ function PlanCardView({ card, callbackUrl }: { card: PlanCard; callbackUrl: stri
             {card.description}
           </Typography>
         )}
-        <Typography variant="h5" component="p" sx={{ mt: 2 }}>
-          {card.priceLabel ?? PLANS_MESSAGES.PRICE_UNAVAILABLE}
-        </Typography>
+        {(card.priceLabel || card.priceFetchFailed) && (
+          <Typography variant="h5" component="p" sx={{ mt: 2 }}>
+            {card.priceLabel ?? PLANS_MESSAGES.PRICE_UNAVAILABLE}
+          </Typography>
+        )}
         {card.stateLabel && (
           <Typography variant="body1" sx={{ mt: 1 }}>
             {card.stateLabel}
@@ -95,17 +97,23 @@ export default async function PlansPage({ searchParams }: PlansPageProps) {
           プラン
         </Typography>
 
-        {!data || !data.billingEnabled ? (
+        {!data || !data.billingEnabled || (data.cards.length === 0 && !data.hasCustomer) ? (
           <Typography variant="body1" color="text.secondary" sx={{ mt: 2 }}>
             {PLANS_MESSAGES.PREPARING}
           </Typography>
         ) : (
           <>
-            <Box sx={{ display: 'grid', gap: 2, mt: 2 }}>
-              {data.cards.map((card) => (
-                <PlanCardView key={card.roleId} card={card} callbackUrl={callbackUrl} />
-              ))}
-            </Box>
+            {data.cards.length === 0 ? (
+              <Typography variant="body1" color="text.secondary" sx={{ mt: 2 }}>
+                {PLANS_MESSAGES.PREPARING}
+              </Typography>
+            ) : (
+              <Box sx={{ display: 'grid', gap: 2, mt: 2 }}>
+                {data.cards.map((card) => (
+                  <PlanCardView key={card.roleId} card={card} callbackUrl={callbackUrl} />
+                ))}
+              </Box>
+            )}
 
             {data.hasCustomer && (
               <Box sx={{ mt: 3 }}>
