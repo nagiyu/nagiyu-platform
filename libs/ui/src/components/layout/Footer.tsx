@@ -37,6 +37,12 @@ export interface FooterProps {
   contactHref?: string;
 
   /**
+   * 特定商取引法に基づく表記のページへのリンク先。
+   * 指定したときだけ、バージョン行にページ遷移のリンクを表示する
+   */
+  commercialTransactionsHref?: string;
+
+  /**
    * バージョン行にプライバシーポリシー・利用規約のリンク (ダイアログを開くボタン) を表示するか。
    * links で法務ページへのリンクを別途並べているサービスが、同じリンクの重複表示を避けるために false を指定する。
    * false のときはダイアログ本体も描画しない。
@@ -77,6 +83,7 @@ export interface FooterProps {
 export default function Footer({
   version = '1.0.0',
   contactHref,
+  commercialTransactionsHref,
   showLegalLinks = true,
   termsContent,
   privacyContent,
@@ -169,6 +176,21 @@ export default function Footer({
                   }}
                 >
                   利用規約
+                </Link>
+              </>
+            )}
+            {commercialTransactionsHref && (
+              <>
+                {' | '}
+                <Link
+                  href={commercialTransactionsHref}
+                  color="inherit"
+                  sx={{
+                    color: 'text.secondary',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  特定商取引法に基づく表記
                 </Link>
               </>
             )}

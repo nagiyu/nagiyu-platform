@@ -22,3 +22,18 @@ export interface LegalSection {
   title: string;
   contents: LegalContent[];
 }
+
+/** 特定商取引法に基づく表記の 1 行 */
+export interface CommercialTransactionItem {
+  /** 項目名 */
+  label: string;
+  /** 内容 */
+  value: string;
+  /**
+   * リンクにする種類。
+   * 'mailto' は内容全体をメールアドレスのリンクにし、'plans' は linkText の部分だけを料金ページへのリンクにする
+   */
+  linkKind?: 'mailto' | 'plans';
+  /** linkKind が 'plans' のとき、内容の中でリンクにする語 */
+  linkText?: string;
+}
