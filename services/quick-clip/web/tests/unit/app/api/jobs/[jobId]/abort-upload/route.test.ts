@@ -3,7 +3,9 @@
  */
 
 import { reportErrorEvent } from '@nagiyu/aws';
+import { createJobRepository, resetInMemoryRepositories } from '@nagiyu/quick-clip-core';
 import { getS3Client } from '@/lib/server/aws';
+import { createUsageService } from '@/lib/server/usage-context';
 import { POST } from '@/app/api/jobs/[jobId]/abort-upload/route';
 
 jest.mock('@nagiyu/aws', () => ({
@@ -15,6 +17,9 @@ jest.mock('@/lib/server/aws', () => ({
   getBucketName: jest.fn(() => 'test-bucket'),
   getS3Client: jest.fn(),
 }));
+
+// セッションの検証 (next-auth) を読み込まないため差し替える。利用回数の戻しはセッションを使わない
+jest.mock('@/lib/auth', () => ({ getSession: jest.fn() }));
 
 jest.mock('next/server', () => ({
   NextResponse: {
@@ -32,6 +37,8 @@ describe('POST /api/jobs/[jobId]/abort-upload', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    process.env.USE_IN_MEMORY_DB = 'true';
+    resetInMemoryRepositories();
     consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
     mockedGetS3Client.mockReturnValue({
       send: s3Send.mockResolvedValue({}),
@@ -40,7 +47,31 @@ describe('POST /api/jobs/[jobId]/abort-upload', () => {
 
   afterEach(() => {
     consoleErrorSpy.mockRestore();
+    delete process.env.USE_IN_MEMORY_DB;
   });
+
+  const createJobWithUsage = async (overrides: { batchJobId?: string } = {}): Promise<void> => {
+    const consumed = await createUsageService().consume({
+      subject: 'USER#u1',
+      tier: 'free',
+      aiAnalysis: false,
+    });
+    if (!consumed.ok) {
+      throw new Error('数えられるはず');
+    }
+    await createJobRepository().create({
+      jobId: 'job-1',
+      originalFileName: 'movie.mp4',
+      fileSize: 1,
+      createdAt: 1,
+      expiresAt: 2,
+      usage: consumed.record,
+      ...overrides,
+    });
+  };
+
+  const getUsed = async (): Promise<{ ai: number; noAi: number }> =>
+    (await createUsageService().getUsage('USER#u1', 'free')).used;
 
   const createRequest = (body: unknown): Request =>
     ({
@@ -56,6 +87,37 @@ describe('POST /api/jobs/[jobId]/abort-upload', () => {
     expect(response.status).toBe(200);
     expect(body).toEqual({});
     expect(s3Send).toHaveBeenCalledTimes(1);
+  });
+
+  it('正常系: アップロードをやめたジョブの利用回数を戻す。二重には戻さない', async () => {
+    await createJobWithUsage();
+
+    await POST(createRequest({ uploadId: 'upload-1' }), {
+      params: Promise.resolve({ jobId: 'job-1' }),
+    });
+    await POST(createRequest({ uploadId: 'upload-1' }), {
+      params: Promise.resolve({ jobId: 'job-1' }),
+    });
+
+    expect(await getUsed()).toEqual({ ai: 0, noAi: 0 });
+  });
+
+  it('正常系: Batch に投入済みのジョブの利用回数は戻さない', async () => {
+    await createJobWithUsage({ batchJobId: 'batch-1' });
+
+    await POST(createRequest({ uploadId: 'upload-1' }), {
+      params: Promise.resolve({ jobId: 'job-1' }),
+    });
+
+    expect(await getUsed()).toEqual({ ai: 0, noAi: 1 });
+  });
+
+  it('正常系: ジョブが無くても中断は成功する', async () => {
+    const response = await POST(createRequest({ uploadId: 'upload-1' }), {
+      params: Promise.resolve({ jobId: 'missing' }),
+    });
+
+    expect(response.status).toBe(200);
   });
 
   it('異常系: リクエストボディが不正な場合は400を返す', async () => {

@@ -144,6 +144,29 @@ describe('GET /api/jobs/[jobId]', () => {
     expect(body.errorMessage).toBe('処理に失敗しました');
   });
 
+  it('正常系: Batch が成功で終えても、ジョブにエラーが記録されていれば FAILED と記録したメッセージを返す', async () => {
+    mockGetJob.mockResolvedValue({
+      jobId: 'job-4',
+      batchJobId: 'batch-3',
+      originalFileName: 'movie.mp4',
+      fileSize: 400,
+      createdAt: 1,
+      expiresAt: 2,
+      errorMessage: '動画の長さがご利用の上限を超えているため、処理できませんでした',
+    });
+    batchSend.mockResolvedValue({ jobs: [{ status: 'SUCCEEDED' }] });
+
+    const response = await GET(mockRequest, {
+      params: Promise.resolve({ jobId: 'job-4' }),
+    });
+    const body = await response.json();
+
+    expect(body.status).toBe('FAILED');
+    expect(body.errorMessage).toBe(
+      '動画の長さがご利用の上限を超えているため、処理できませんでした'
+    );
+  });
+
   it.each([['SUBMITTED'], ['PENDING'], ['RUNNABLE'], ['STARTING']])(
     '正常系: Batch状態が%sの場合はstatus=PENDINGを返す',
     async (batchStatus) => {

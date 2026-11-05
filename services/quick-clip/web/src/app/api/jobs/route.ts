@@ -1,4 +1,4 @@
-import { createJobRepository } from '@nagiyu/quick-clip-core';
+import { createJobRepository, type Job } from '@nagiyu/quick-clip-core';
 import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import type { EmotionFilter } from '@nagiyu/quick-clip-core';
 import { CreateMultipartUploadCommand, UploadPartCommand } from '@aws-sdk/client-s3';
@@ -8,6 +8,14 @@ import { readJsonObjectBody } from '@nagiyu/nextjs';
 import { NextResponse } from 'next/server';
 import { getBucketName, getS3Client } from '@/lib/server/aws';
 import { withApiErrorReporting } from '@/lib/api-error-reporting';
+import { getClientIp } from '@/lib/server/client-ip';
+import {
+  applyPendingCookie,
+  resolveUsageContext,
+  stagePendingCookie,
+  type PendingCookie,
+} from '@/lib/server/usage-context';
+import { releaseUsageBeforeJob, releaseUsageForJob, reserveUsage } from '@/lib/server/usage-flow';
 import { VALID_EMOTION_FILTERS } from '@/lib/server/emotion-filter';
 import { JobDomainService } from '@/lib/server/domain-services';
 import { submitExtractJob } from '@/lib/server/submit-extract-job';
@@ -32,6 +40,8 @@ type CreateJobRequest = {
   contentType?: string;
   emotionFilter?: EmotionFilter;
   durationSec?: number;
+  /** AI 解析 (文字起こし + 感情分析) の希望。省略時は AI ありを試し、残りが無ければ AI なし */
+  aiAnalysis?: boolean;
 };
 
 const UPLOAD_URL_EXPIRES_IN = 3600;
@@ -56,13 +66,106 @@ const isCreateJobRequest = (body: Record<string, unknown>): body is CreateJobReq
   if (body.durationSec !== undefined && typeof body.durationSec !== 'number') {
     return false;
   }
+  if (body.aiAnalysis !== undefined && typeof body.aiAnalysis !== 'boolean') {
+    return false;
+  }
   return true;
 };
 
-export const POST = withApiErrorReporting(
+const createUploadResponse = async (
+  job: Job,
+  body: CreateJobRequest,
+  aiAnalysis: boolean
+): Promise<NextResponse> => {
+  const jobService = new JobDomainService(createJobRepository());
+  const bucketName = getBucketName();
+  const uploadKey = `uploads/${job.jobId}/input.mp4`;
+
+  if (body.fileSize >= MULTIPART_UPLOAD_THRESHOLD_BYTES) {
+    const s3Client = getS3Client();
+    const createMultipartUploadResponse = await s3Client.send(
+      new CreateMultipartUploadCommand({
+        Bucket: bucketName,
+        Key: uploadKey,
+        ContentType: 'video/mp4',
+      })
+    );
+
+    const uploadId = createMultipartUploadResponse.UploadId;
+    if (!uploadId) {
+      return NextResponse.json(
+        {
+          error: 'MULTIPART_UPLOAD_ID_NOT_FOUND',
+          message: ERROR_MESSAGES.MULTIPART_UPLOAD_ID_NOT_FOUND,
+        },
+        { status: 500 }
+      );
+    }
+
+    const partCount = Math.ceil(body.fileSize / MULTIPART_CHUNK_SIZE_BYTES);
+    const uploadUrls = await Promise.all(
+      Array.from({ length: partCount }, (_, index) =>
+        getSignedUrl(
+          s3Client,
+          new UploadPartCommand({
+            Bucket: bucketName,
+            Key: uploadKey,
+            UploadId: uploadId,
+            PartNumber: index + 1,
+          }),
+          { expiresIn: MULTIPART_UPLOAD_URL_EXPIRES_IN }
+        )
+      )
+    );
+
+    return NextResponse.json(
+      {
+        jobId: job.jobId,
+        multipart: {
+          uploadId,
+          uploadUrls,
+          chunkSize: MULTIPART_CHUNK_SIZE_BYTES,
+        },
+        expiresIn: MULTIPART_UPLOAD_URL_EXPIRES_IN,
+      },
+      { status: 201 }
+    );
+  }
+
+  const uploadUrl = await createPresignedUploadUrl(
+    {
+      bucketName,
+      key: uploadKey,
+      contentType: 'video/mp4',
+      expiresIn: UPLOAD_URL_EXPIRES_IN,
+    },
+    getS3Client()
+  );
+
+  const batchJobId = await submitExtractJob({
+    jobId: job.jobId,
+    fileSize: body.fileSize,
+    durationSec: body.durationSec,
+    emotionFilter: body.emotionFilter,
+    aiAnalysis,
+  });
+
+  await jobService.updateBatchJobId(job.jobId, batchJobId);
+
+  return NextResponse.json(
+    {
+      jobId: job.jobId,
+      uploadUrl,
+      expiresIn: UPLOAD_URL_EXPIRES_IN,
+    },
+    { status: 201 }
+  );
+};
+
+const createJob = withApiErrorReporting(
   'Web API: ジョブ作成エラー',
   ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
-  async (request: Request): Promise<NextResponse> => {
+  async (request: Request, pendingCookie: PendingCookie): Promise<NextResponse> => {
     const bodyResult = await readJsonObjectBody(request);
     if (!bodyResult.ok || !isCreateJobRequest(bodyResult.body)) {
       return NextResponse.json(
@@ -111,93 +214,51 @@ export const POST = withApiErrorReporting(
       );
     }
 
-    const jobService = new JobDomainService(createJobRepository());
-    const job = await jobService.createJob({
-      originalFileName: normalizedFileName,
-      fileSize: body.fileSize,
-      ...(body.durationSec !== undefined ? { durationSec: body.durationSec } : {}),
+    // アップロードより前に、ジョブ 1 回分として数える
+    const usageContext = await resolveUsageContext(request);
+    stagePendingCookie(usageContext, pendingCookie);
+    const reservation = await reserveUsage(usageContext, {
+      aiAnalysis: body.aiAnalysis,
+      durationSec: body.durationSec,
+      ip: getClientIp(request.headers),
     });
-
-    const bucketName = getBucketName();
-    const uploadKey = `uploads/${job.jobId}/input.mp4`;
-
-    if (body.fileSize >= MULTIPART_UPLOAD_THRESHOLD_BYTES) {
-      const s3Client = getS3Client();
-      const createMultipartUploadResponse = await s3Client.send(
-        new CreateMultipartUploadCommand({
-          Bucket: bucketName,
-          Key: uploadKey,
-          ContentType: 'video/mp4',
-        })
-      );
-
-      const uploadId = createMultipartUploadResponse.UploadId;
-      if (!uploadId) {
-        return NextResponse.json(
-          {
-            error: 'MULTIPART_UPLOAD_ID_NOT_FOUND',
-            message: ERROR_MESSAGES.MULTIPART_UPLOAD_ID_NOT_FOUND,
-          },
-          { status: 500 }
-        );
-      }
-
-      const partCount = Math.ceil(body.fileSize / MULTIPART_CHUNK_SIZE_BYTES);
-      const uploadUrls = await Promise.all(
-        Array.from({ length: partCount }, (_, index) =>
-          getSignedUrl(
-            s3Client,
-            new UploadPartCommand({
-              Bucket: bucketName,
-              Key: uploadKey,
-              UploadId: uploadId,
-              PartNumber: index + 1,
-            }),
-            { expiresIn: MULTIPART_UPLOAD_URL_EXPIRES_IN }
-          )
-        )
-      );
-
-      return NextResponse.json(
-        {
-          jobId: job.jobId,
-          multipart: {
-            uploadId,
-            uploadUrls,
-            chunkSize: MULTIPART_CHUNK_SIZE_BYTES,
-          },
-          expiresIn: MULTIPART_UPLOAD_URL_EXPIRES_IN,
-        },
-        { status: 201 }
-      );
+    if (reservation.denial) {
+      const { code, message, status } = reservation.denial;
+      return NextResponse.json({ error: code, message }, { status });
     }
 
-    const uploadUrl = await createPresignedUploadUrl(
-      {
-        bucketName,
-        key: uploadKey,
-        contentType: 'video/mp4',
-        expiresIn: UPLOAD_URL_EXPIRES_IN,
-      },
-      getS3Client()
-    );
+    let job: Job;
+    try {
+      job = await new JobDomainService(createJobRepository()).createJob({
+        originalFileName: normalizedFileName,
+        fileSize: body.fileSize,
+        ...(body.durationSec !== undefined ? { durationSec: body.durationSec } : {}),
+        ...(reservation.record ? { usage: reservation.record } : {}),
+        maxDurationSec: reservation.limit.maxDurationSec,
+        aiAnalysis: reservation.aiAnalysis,
+      });
+    } catch (error) {
+      // ジョブができる前の失敗は、ジョブの印を介さずに戻す
+      await releaseUsageBeforeJob(reservation.record);
+      throw error;
+    }
 
-    const batchJobId = await submitExtractJob({
-      jobId: job.jobId,
-      fileSize: body.fileSize,
-      durationSec: body.durationSec,
-      emotionFilter: body.emotionFilter,
-    });
-
-    await jobService.updateBatchJobId(job.jobId, batchJobId);
-
-    return NextResponse.json(
-      {
-        jobId: job.jobId,
-        uploadUrl,
-        expiresIn: UPLOAD_URL_EXPIRES_IN,
-      },
-      { status: 201 }
-    );
+    try {
+      const response = await createUploadResponse(job, body, reservation.aiAnalysis);
+      if (response.status >= 500) {
+        await releaseUsageForJob(job);
+      }
+      return response;
+    } catch (error) {
+      // ジョブができた後の失敗は、こちら側の理由のため数えた 1 回を戻す
+      await releaseUsageForJob(job);
+      throw error;
+    }
   }
 );
+
+/** 例外で 500 を返すときにも、新しく発行した匿名 ID の Cookie を渡す */
+export const POST = async (request: Request): Promise<Response> => {
+  const pendingCookie: PendingCookie = {};
+  return applyPendingCookie(await createJob(request, pendingCookie), pendingCookie);
+};

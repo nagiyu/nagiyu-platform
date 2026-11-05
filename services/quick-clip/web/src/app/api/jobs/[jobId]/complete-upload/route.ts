@@ -8,6 +8,7 @@ import { getBucketName, getS3Client } from '@/lib/server/aws';
 import { withApiErrorReporting } from '@/lib/api-error-reporting';
 import { VALID_EMOTION_FILTERS } from '@/lib/server/emotion-filter';
 import { JobDomainService } from '@/lib/server/domain-services';
+import { releaseUsageForJob } from '@/lib/server/usage-flow';
 import { submitExtractJob } from '@/lib/server/submit-extract-job';
 
 const ERROR_MESSAGES = {
@@ -100,27 +101,34 @@ export const POST = withApiErrorReporting(
       );
     }
 
-    const bucketName = getBucketName();
-    const uploadKey = `uploads/${job.jobId}/input.mp4`;
-    await getS3Client().send(
-      new CompleteMultipartUploadCommand({
-        Bucket: bucketName,
-        Key: uploadKey,
-        UploadId: body.uploadId,
-        MultipartUpload: {
-          Parts: body.parts,
-        },
-      })
-    );
+    try {
+      const bucketName = getBucketName();
+      const uploadKey = `uploads/${job.jobId}/input.mp4`;
+      await getS3Client().send(
+        new CompleteMultipartUploadCommand({
+          Bucket: bucketName,
+          Key: uploadKey,
+          UploadId: body.uploadId,
+          MultipartUpload: {
+            Parts: body.parts,
+          },
+        })
+      );
 
-    const batchJobId = await submitExtractJob({
-      jobId: job.jobId,
-      fileSize: job.fileSize,
-      durationSec: job.durationSec,
-      emotionFilter: body.emotionFilter,
-    });
+      const batchJobId = await submitExtractJob({
+        jobId: job.jobId,
+        fileSize: job.fileSize,
+        durationSec: job.durationSec,
+        emotionFilter: body.emotionFilter,
+        aiAnalysis: job.aiAnalysis,
+      });
 
-    await jobService.updateBatchJobId(job.jobId, batchJobId);
+      await jobService.updateBatchJobId(job.jobId, batchJobId);
+    } catch (error) {
+      // こちら側の理由で投入できなかったため、数えた 1 回を戻す
+      await releaseUsageForJob(job);
+      throw error;
+    }
 
     return NextResponse.json({}, { status: 200 });
   }
