@@ -16,7 +16,7 @@ function idGenerator() {
 function grant(overrides: Partial<RoleGrant> = {}): RoleGrant {
   return {
     grantId: 'g1',
-    roleId: 'livetalk-premium',
+    roleId: 'livetalk-standard',
     source: 'stripe',
     sourceRef: 'sub_1',
     expiresAt: NOW + 10 * DAY,
@@ -28,7 +28,7 @@ function grant(overrides: Partial<RoleGrant> = {}): RoleGrant {
 
 function desired(overrides: Partial<DesiredStripeRole> = {}): DesiredStripeRole {
   return {
-    roleId: 'livetalk-premium',
+    roleId: 'livetalk-standard',
     expiresAt: NOW + 10 * DAY,
     subscriptionId: 'sub_1',
     ...overrides,
@@ -42,7 +42,7 @@ describe('computeStripeGrants', () => {
     expect(result).toEqual([
       {
         grantId: 'new-1',
-        roleId: 'livetalk-premium',
+        roleId: 'livetalk-standard',
         source: 'stripe',
         sourceRef: 'sub_1',
         expiresAt: NOW + 10 * DAY,
@@ -97,7 +97,7 @@ describe('computeStripeGrants', () => {
 
     expect(result).toHaveLength(2);
     expect(result[0]).toBe(manual);
-    expect(result[1]).toMatchObject({ source: 'stripe', roleId: 'livetalk-premium' });
+    expect(result[1]).toMatchObject({ source: 'stripe', roleId: 'livetalk-standard' });
   });
 
   it('取り消し済みや期限切れの権利は変更せず、必要なら新しく作る', () => {
@@ -164,19 +164,19 @@ describe('computeStripeGrants', () => {
   it('複数のロールを roleId の順に作る', () => {
     const result = computeStripeGrants(
       [],
-      [desired({ roleId: 'quick-clip-premium' }), desired({ roleId: 'livetalk-premium' })],
+      [desired({ roleId: 'quick-clip-standard' }), desired({ roleId: 'livetalk-standard' })],
       NOW,
       idGenerator()
     );
 
-    expect(result.map((g) => g.roleId)).toEqual(['livetalk-premium', 'quick-clip-premium']);
+    expect(result.map((g) => g.roleId)).toEqual(['livetalk-standard', 'quick-clip-standard']);
   });
 
   describe('冪等性', () => {
     it('結果を入力にして同じ望ましいロールで再計算しても変わらない', () => {
       const wanted = [
         desired(),
-        desired({ roleId: 'quick-clip-premium', subscriptionId: 'sub_2' }),
+        desired({ roleId: 'quick-clip-standard', subscriptionId: 'sub_2' }),
       ];
       const first = computeStripeGrants([], wanted, NOW, idGenerator());
 
@@ -195,8 +195,8 @@ describe('computeStripeGrants', () => {
     });
 
     it('望ましいロールの並び順や重複が違っても結果は同じ', () => {
-      const a = desired({ roleId: 'livetalk-premium' });
-      const b = desired({ roleId: 'quick-clip-premium', subscriptionId: 'sub_2' });
+      const a = desired({ roleId: 'livetalk-standard' });
+      const b = desired({ roleId: 'quick-clip-standard', subscriptionId: 'sub_2' });
 
       const ordered = computeStripeGrants([], [a, b], NOW, idGenerator());
       const shuffled = computeStripeGrants([], [b, a, a, b], NOW, idGenerator());
