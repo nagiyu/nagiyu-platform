@@ -1,4 +1,4 @@
-import { buildSignOutUrl, buildRefreshUrl } from '../../../src/utils/auth';
+import { buildSignInUrl, buildSignOutUrl, buildRefreshUrl } from '../../../src/utils/auth';
 
 describe('buildSignOutUrl', () => {
   describe('callbackUrl なし', () => {
@@ -165,5 +165,21 @@ describe('buildRefreshUrl', () => {
       const result = buildRefreshUrl('');
       expect(result).toBe('/refresh');
     });
+  });
+});
+
+describe('buildSignInUrl', () => {
+  it('callbackUrl なしでサインイン URL を生成する', () => {
+    expect(buildSignInUrl('https://auth.nagiyu.com')).toBe('https://auth.nagiyu.com/signin');
+  });
+
+  it('callbackUrl が空文字の場合クエリパラメータを付与しない', () => {
+    expect(buildSignInUrl('https://auth.nagiyu.com', '')).toBe('https://auth.nagiyu.com/signin');
+  });
+
+  it('callbackUrl を encode して付与し、末尾スラッシュを正規化する', () => {
+    expect(buildSignInUrl('https://auth.nagiyu.com/', 'https://quick-clip.nagiyu.com/a?b=1')).toBe(
+      'https://auth.nagiyu.com/signin?callbackUrl=https%3A%2F%2Fquick-clip.nagiyu.com%2Fa%3Fb%3D1'
+    );
   });
 });
