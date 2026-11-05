@@ -27,6 +27,8 @@ export type PlanCard = {
   name: string;
   description: string | null;
   priceLabel: string | null;
+  /** 価格を取得できなかった。価格が無いこととは区別し、画面は案内を出す */
+  priceFetchFailed: boolean;
   state: PlanCardState;
   stateLabel: string | null;
   manualLabel: string | null;
@@ -35,7 +37,8 @@ export type PlanCard = {
 
 export type BuildPlanCardsInput = {
   loggedIn: boolean;
-  prices: ReadonlyMap<string, PlanPrice>;
+  /** 取得に失敗したときは null。空の Map は「読めたが売っているものが無い」を表す */
+  prices: ReadonlyMap<string, PlanPrice> | null;
   /** 取れなかったときは null で、DB の権利から状態を決める */
   subscriptions: readonly PlanSubscription[] | null;
   grants: readonly RoleGrant[];
@@ -156,20 +159,36 @@ function resolveManualLabel(roleId: string, input: BuildPlanCardsInput): string 
   return `運営による付与があります (${formatPlanDate(latest)}まで)`;
 }
 
+/**
+ * Stripe に価格が無いロールは、売っていないものとして枠を出さない。
+ * 契約中や有効な手動の権利がある利用者には、契約の確認ができるよう枠を残す。
+ * 価格の取得に失敗したときは売っているか分からないため、全ロールの枠を出す。
+ */
 export function buildPlanCards(input: BuildPlanCardsInput): PlanCard[] {
-  return PAID_ROLES.map((roleId): PlanCard => {
+  const cards: PlanCard[] = [];
+  for (const roleId of PAID_ROLES) {
     const role = ROLES[roleId as keyof typeof ROLES];
-    const priceLabel = formatPriceLabel(input.prices.get(roleId));
+    const price = input.prices?.get(roleId);
+    const priceLabel = formatPriceLabel(price);
     const { state, stateLabel } = resolveState(roleId, input);
-    return {
+    const manualLabel = resolveManualLabel(roleId, input);
+
+    const hasEntitlement = state === 'subscribed' || state === 'canceling' || manualLabel !== null;
+    if (input.prices !== null && price === undefined && !hasEntitlement) {
+      continue;
+    }
+
+    cards.push({
       roleId,
       name: role.name,
-      description: formatPlanDescription(input.prices.get(roleId)),
+      description: formatPlanDescription(price),
       priceLabel,
+      priceFetchFailed: input.prices === null,
       state,
       stateLabel,
-      manualLabel: resolveManualLabel(roleId, input),
+      manualLabel,
       canSubscribe: state === 'none' && priceLabel !== null,
-    };
-  });
+    });
+  }
+  return cards;
 }

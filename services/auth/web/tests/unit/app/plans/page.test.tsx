@@ -33,6 +33,7 @@ const baseCard = {
   name: 'LiveTalk プレミアム',
   description: '説明',
   priceLabel: '月額 ¥500 (税込)',
+  priceFetchFailed: false,
   state: 'none' as const,
   stateLabel: null,
   manualLabel: null,
@@ -133,7 +134,13 @@ describe('PlansPage', () => {
       hasCustomer: false,
       cards: [
         baseCard,
-        { ...baseCard, roleId: 'quick-clip-premium', priceLabel: null, canSubscribe: false },
+        {
+          ...baseCard,
+          roleId: 'quick-clip-premium',
+          priceLabel: null,
+          priceFetchFailed: true,
+          canSubscribe: false,
+        },
       ],
     });
 
@@ -141,6 +148,46 @@ describe('PlansPage', () => {
 
     expect(screen.getAllByText('申し込む')).toHaveLength(1);
     expect(screen.getByText('価格を取得できませんでした')).toBeInTheDocument();
+  });
+
+  it('価格が無いだけの枠は価格の行を出さず、取得失敗の案内も出さない', async () => {
+    (loadPlansPageData as jest.Mock).mockResolvedValue({
+      billingEnabled: true,
+      hasCustomer: true,
+      cards: [{ ...baseCard, priceLabel: null, priceFetchFailed: false, state: 'subscribed' }],
+    });
+
+    render(await render_());
+
+    expect(screen.getByRole('region', { name: 'LiveTalk プレミアム' })).toBeInTheDocument();
+    expect(screen.queryByText('価格を取得できませんでした')).not.toBeInTheDocument();
+  });
+
+  it('出す枠が無ければ準備中を出し、顧客がいなければ契約の管理も注記も出さない', async () => {
+    (loadPlansPageData as jest.Mock).mockResolvedValue({
+      billingEnabled: true,
+      hasCustomer: false,
+      cards: [],
+    });
+
+    render(await render_());
+
+    expect(screen.getByText('準備中です')).toBeInTheDocument();
+    expect(screen.queryByText('契約を管理')).not.toBeInTheDocument();
+    expect(screen.queryByText(/契約は自動で更新されます/)).not.toBeInTheDocument();
+  });
+
+  it('出す枠が無くても顧客がいれば、準備中と契約の管理を出す', async () => {
+    (loadPlansPageData as jest.Mock).mockResolvedValue({
+      billingEnabled: true,
+      hasCustomer: true,
+      cards: [],
+    });
+
+    render(await render_());
+
+    expect(screen.getByText('準備中です')).toBeInTheDocument();
+    expect(screen.getByText('契約を管理')).toBeInTheDocument();
   });
 
   it('解約予約中と手動の権利の表示を出す', async () => {

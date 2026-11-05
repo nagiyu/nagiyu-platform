@@ -61,7 +61,7 @@ async function loadSafely<T>(label: string, task: () => Promise<T>, fallback: T)
   }
 }
 
-/** Stripe から読めなかった価格は出さず、契約の状態は DB の権利から決める */
+/** 価格を読めなかったときは null を渡し、契約の状態は DB の権利から決める */
 export async function loadPlansPageData(
   deps: PlansDependencies,
   userId: string | null
@@ -70,10 +70,10 @@ export async function loadPlansPageData(
   const synced = userId ? await syncUserForPlans(deps, userId) : null;
   const user = synced?.user ?? null;
 
-  const prices = await loadSafely(
+  const prices = await loadSafely<ReadonlyMap<string, PlanPrice> | null>(
     'プランの価格の取得に失敗しました',
     () => listPlanPrices(deps.stripe),
-    new Map<string, PlanPrice>()
+    null
   );
 
   const customerId = user?.stripeCustomerId;
