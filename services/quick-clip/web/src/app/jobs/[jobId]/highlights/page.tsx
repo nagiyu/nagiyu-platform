@@ -29,6 +29,7 @@ import { ColumnVisibilityButton } from '@/components/highlights/ColumnVisibility
 import { HIGHLIGHT_TABLE_COLUMNS } from '@/constants/highlightTableColumns';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { isClipEditLocked } from '@/lib/highlight-edit-lock';
+import { formatHighlightTime, parseHighlightTime } from '@/lib/highlight-time';
 
 const ERROR_MESSAGES = {
   LOAD_FAILED: '見どころ一覧の取得に失敗しました',
@@ -98,29 +99,35 @@ type DownloadResponse = {
 const ZIP_POLL_INTERVAL_MS = 3000;
 const ZIP_POLL_TIMEOUT_MS = 300000;
 const COLUMN_DEFINITIONS = [...HIGHLIGHT_TABLE_COLUMNS];
+const TIME_COLUMN_LABEL = HIGHLIGHT_TABLE_COLUMNS.find((col) => col.id === 'time')?.label;
 const OPTIONAL_COLUMNS = HIGHLIGHT_TABLE_COLUMNS.filter((col) => !col.fixed);
 
 class RangeInvalidError extends Error {}
 class ClipGeneratingError extends Error {}
 
 type TimeInputProps = {
+  label: string;
   value: number;
   min?: number;
   disabled?: boolean;
   onCommit: (value: number) => Promise<void>;
 };
 
-function TimeInput({ value, min = 0, disabled = false, onCommit }: TimeInputProps) {
-  const [draft, setDraft] = useState(String(value));
+function TimeInput({ label, value, min = 0, disabled = false, onCommit }: TimeInputProps) {
+  const [draft, setDraft] = useState(formatHighlightTime(value));
 
   useEffect(() => {
-    setDraft(String(value));
+    setDraft(formatHighlightTime(value));
   }, [value]);
 
   const handleBlur = async (): Promise<void> => {
-    const parsed = Number(draft);
-    if (!Number.isFinite(parsed) || parsed < min) {
-      setDraft(String(value));
+    // 端数のある値は切り捨てて表示するため、文字列が変わっていなければ元の値のまま何もしない
+    if (draft === formatHighlightTime(value)) {
+      return;
+    }
+    const parsed = parseHighlightTime(draft);
+    if (parsed === null || parsed < min) {
+      setDraft(formatHighlightTime(value));
       return;
     }
     // 値が変わっていなければ送らない。送ると不要な作り直しが走り、入力も止まってしまう
@@ -131,14 +138,14 @@ function TimeInput({ value, min = 0, disabled = false, onCommit }: TimeInputProp
     try {
       await onCommit(parsed);
     } catch {
-      setDraft(String(value));
+      setDraft(formatHighlightTime(value));
     }
   };
 
   return (
     <TextField
       size="sm"
-      type="number"
+      aria-label={label}
       disabled={disabled}
       value={draft}
       onChange={(event) => setDraft(event.target.value)}
@@ -757,9 +764,10 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
                   <Stack direction="row" spacing={2} sx={{ alignItems: 'center' }}>
                     <Box>
                       <Typography variant="body2" sx={{ mb: 0.5 }}>
-                        開始(秒):
+                        開始:
                       </Typography>
                       <TimeInput
+                        label="開始"
                         value={selectedHighlight.startSec}
                         min={0}
                         disabled={isSelectedClipEditLocked}
@@ -768,9 +776,10 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
                     </Box>
                     <Box>
                       <Typography variant="body2" sx={{ mb: 0.5 }}>
-                        終了(秒):
+                        終了:
                       </Typography>
                       <TimeInput
+                        label="終了"
                         value={selectedHighlight.endSec}
                         min={1}
                         disabled={isSelectedClipEditLocked}
@@ -828,7 +837,7 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
                     <TableHead>
                       <TableRow>
                         <TableCell>No.</TableCell>
-                        <TableCell>開始〜終了(秒)</TableCell>
+                        <TableCell>{TIME_COLUMN_LABEL}</TableCell>
                         <TableCell>採否</TableCell>
                         {visibilityMap['source'] && <TableCell>抽出根拠</TableCell>}
                       </TableRow>
@@ -844,7 +853,8 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
                         >
                           <TableCell>#{highlight.order}</TableCell>
                           <TableCell>
-                            {highlight.startSec}〜{highlight.endSec}
+                            {formatHighlightTime(highlight.startSec)}〜
+                            {formatHighlightTime(highlight.endSec)}
                           </TableCell>
                           <TableCell>
                             <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>

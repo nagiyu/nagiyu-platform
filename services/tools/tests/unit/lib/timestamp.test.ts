@@ -3,7 +3,7 @@ import {
   convertUnixMillisecondsToDateTime,
   convertUnixSecondsToDateTime,
   ERROR_MESSAGES,
-  STOCK_TRACKER_TIMEZONE_OPTIONS,
+  TIMEZONE_OPTIONS,
 } from '@/lib/timestamp';
 
 describe('timestamp', () => {
@@ -44,7 +44,7 @@ describe('timestamp', () => {
       expect(result.isoUtc).toBe('1970-01-01T00:00:00.000Z');
     });
 
-    it('Stock Trackerで利用するAmerica/New_Yorkの日時を変換できる', () => {
+    it('America/New_Yorkの日時を変換できる', () => {
       const result = convertDateTimeToUnixTimestamp('2024-01-15T09:30:00', 'America/New_York');
 
       expect(result.unixMilliseconds).toBe(1705329000000);
@@ -65,14 +65,30 @@ describe('timestamp', () => {
     });
   });
 
-  it('Stock Tracker由来のタイムゾーン選択肢を保持している', () => {
-    expect(STOCK_TRACKER_TIMEZONE_OPTIONS).toContainEqual({
+  it('主要な取引所のタイムゾーン選択肢を保持している', () => {
+    expect(TIMEZONE_OPTIONS).toContainEqual({
       value: 'America/New_York',
       label: 'America/New_York (NYSE, NASDAQ)',
     });
-    expect(STOCK_TRACKER_TIMEZONE_OPTIONS).toContainEqual({
+    expect(TIMEZONE_OPTIONS).toContainEqual({
       value: 'Asia/Tokyo',
       label: 'Asia/Tokyo (TSE)',
+    });
+  });
+
+  describe('TIMEZONE_OPTIONS', () => {
+    it.each(TIMEZONE_OPTIONS.map((option) => option.value))(
+      '%s は変換で受け付けられる有効なタイムゾーンである',
+      (timeZone) => {
+        expect(() => convertUnixSecondsToDateTime('0', timeZone)).not.toThrow();
+      }
+    );
+
+    it('Europe/Berlin を選んで正しく変換できる', () => {
+      const result = convertUnixSecondsToDateTime('1700000000', 'Europe/Berlin');
+
+      expect(result.dateTimeInTimeZone).toBe('2023-11-14 23:13:20');
+      expect(result.isoUtc).toBe('2023-11-14T22:13:20.000Z');
     });
   });
 });

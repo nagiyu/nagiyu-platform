@@ -14,6 +14,7 @@ Nagiyu Platform の共通インフラストラクチャライブラリ
 ### 主な機能
 
 - **ベーススタッククラス**: ECR、Lambda、CloudFront の共通スタック実装
+- **Lambda 関数の共通部品**: ECR イメージ Lambda 関数を、ログ・X-Ray・タグ・error-events 込みで作るファクトリ関数
 - **型定義**: サービス設定、リソース設定の TypeScript 型定義
 - **命名規則**: AWS リソース名の統一的な生成ユーティリティ
 - **デフォルト値**: Lambda、ECR、CloudFront の推奨設定値
@@ -86,6 +87,7 @@ Lambda 関数の共通実装を提供します。
 
 - Lambda 関数作成（ECR イメージからのデプロイ）
 - 実行ロール自動作成（基本的なログ権限付き）
+- ロググループ（保持期間 30 日）と X-Ray（ACTIVE）の既定設定
 - 環境変数設定
 - Function URL 作成（オプション、デフォルト有効）
 - 追加の IAM ポリシー設定
@@ -137,6 +139,41 @@ const lambdaStack = new LambdaStackBase(app, 'AuthLambdaStack', {
   ],
 });
 ```
+
+#### createEcrImageFunction
+
+ECR イメージから Lambda 関数を 1 つ作る関数単位の共通部品です。`LambdaStackBase` の内部でも使っており、1 スタックに複数の関数を持つサービスや、関数ごとにロールを分けるサービスでも同じ既定値をそろえられます。
+
+**主な機能:**
+
+- ECR イメージ (タグ `latest`) からの関数作成。`cmd` で同一イメージの複数ハンドラを使い分けられる
+- ロググループ (保持期間 30 日) と X-Ray (ACTIVE) の既定設定
+- タグ (`Application` / `Service` / `Environment`) の付与。`Service` の値は `serviceName` で指定する
+- error-events テーブルへの書き込み (環境変数 `ERROR_EVENTS_TABLE_NAME` と書き込み権限)。`enableErrorEvents: false` で無効にできる
+- ロールを渡さない場合は Lambda が自動生成する
+
+```typescript
+import { createEcrImageFunction } from '@nagiyu/infra-common';
+
+const fn = createEcrImageFunction(this, 'BatchFunction', {
+  functionName: `nagiyu-sample-batch-${environment}`,
+  serviceName: 'sample',
+  deployEnvironment: environment,
+  repository,
+  cmd: ['services/sample/batch/dist/src/handler.handler'],
+  role,
+});
+```
+
+#### 設計判断
+
+**Construct でラップせず、呼び出し元の scope に直接関数を作る。** ラップすると CloudFormation の論理 ID にラッパーの id が前置されて変わる。既存スタックの関数・ロールは名前固定なので、論理 ID が変わると置き換えになり、同名リソースの衝突でデプロイが失敗する。関数の construct id は呼び出し元が渡した id そのままで、ロググループは `${id}LogGroup` の別 id にする。
+
+**ロググループは既定で CloudFormation 管理の `LogGroup` を作る。** 保持期間をコードで宣言でき、スタックと一緒に管理・削除できるため。CDK の `logRetention` (カスタムリソース) はロググループの保持期間を設定するだけで、ロググループ自体は CloudFormation の管理外に残る。
+
+**`adoptExistingLogGroup` は既存の関数専用で、`@deprecated` を付けている。** dev / prod には CloudFormation 管理外の同名ロググループが既にあり、`LogGroup` を作ると名前が衝突してデプロイが失敗する。そのため既存の関数だけは `logRetention` で既存のロググループを引き継ぐ。新しく作る関数にはロググループが無いので、この指定は付けない。`@deprecated` は新しい関数で付けないための目印で、lint では強制していない。
+
+**ログ保持期間は全サービス・全環境で 30 日にそろえる。** サービスごとに変えると、障害調査で遡れる期間がずれる。`LambdaConfig` や関数の props には保持期間の上書きを設けていない。
 
 #### CloudFrontStackBase
 
@@ -394,6 +431,8 @@ const responseHeadersPolicy = new cloudfront.ResponseHeadersPolicy(this, 'Securi
 | timeout      | 30           | タイムアウト (秒) |
 | architecture | X86_64       | アーキテクチャ    |
 | runtime      | nodejs20.x   | ランタイム        |
+
+ログ保持期間 (`DEFAULT_LAMBDA_LOG_RETENTION`: 30 日) と X-Ray (`DEFAULT_LAMBDA_TRACING`: ACTIVE) は、`DEFAULT_LAMBDA_CONFIG` には含めず別の定数にしている。`createEcrImageFunction` と `LambdaStackBase` が使う。
 
 ### ECR
 

@@ -9,6 +9,8 @@ interface ArticleCardLinkProps {
   slug: string;
   /** カードの中身（CardContent など） */
   children: ReactNode;
+  /** 「記事を読む」を出さない。カード全体が同じ遷移先へのリンクなので、案内が過剰な場面では省いても情報は欠けない */
+  hideReadMore?: boolean;
 }
 
 /**
@@ -18,7 +20,11 @@ interface ArticleCardLinkProps {
  * `component={Link}` は関数のため Server Component から渡せず、このコンポーネントを Client Component にしている。
  * Card の高さ揃え（flex column）を保つため、CardActionArea 自体も縦に伸ばす。
  */
-export default function ArticleCardLink({ slug, children }: ArticleCardLinkProps) {
+export default function ArticleCardLink({
+  slug,
+  children,
+  hideReadMore = false,
+}: ArticleCardLinkProps) {
   return (
     <CardActionArea
       component={Link}
@@ -32,11 +38,13 @@ export default function ArticleCardLink({ slug, children }: ArticleCardLinkProps
       }}
     >
       {children}
-      <Box sx={{ px: 2, pb: 2 }}>
-        <Typography variant="body2" color="primary" sx={{ fontWeight: 600 }}>
-          記事を読む
-        </Typography>
-      </Box>
+      {!hideReadMore && (
+        <Box sx={{ px: 2, pb: 2 }}>
+          <Typography variant="body2" color="primary" sx={{ fontWeight: 600 }}>
+            記事を読む
+          </Typography>
+        </Box>
+      )}
     </CardActionArea>
   );
 }

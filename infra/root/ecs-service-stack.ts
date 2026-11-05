@@ -7,6 +7,7 @@ import * as logs from 'aws-cdk-lib/aws-logs';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
 import { SSM_PARAMETERS } from '../common/src/utils/ssm';
+import { importSharedVpc } from '../common/src/utils/vpc';
 import { getEcrRepositoryName } from '../common/src/utils/naming';
 
 export interface EcsServiceStackProps extends cdk.StackProps {
@@ -22,38 +23,7 @@ export class EcsServiceStack extends cdk.Stack {
 
     const { environment } = props;
 
-    // Import VPC from SSM Parameter Store
-    const vpcId = ssm.StringParameter.valueForStringParameter(
-      this,
-      SSM_PARAMETERS.VPC_ID(environment as 'dev' | 'prod')
-    );
-    const publicSubnetIdsStr = ssm.StringParameter.valueForStringParameter(
-      this,
-      SSM_PARAMETERS.PUBLIC_SUBNET_IDS(environment as 'dev' | 'prod')
-    );
-
-    // For prod, subnet IDs are comma-separated; for dev, it's a single ID
-    const publicSubnetIds = cdk.Fn.split(',', publicSubnetIdsStr);
-
-    // Configure VPC attributes based on environment
-    const vpcAttributes =
-      environment === 'prod'
-        ? {
-            vpcId,
-            availabilityZones: ['us-east-1a', 'us-east-1b'],
-            publicSubnetIds: [
-              cdk.Fn.select(0, publicSubnetIds),
-              cdk.Fn.select(1, publicSubnetIds),
-            ],
-          }
-        : {
-            vpcId,
-            availabilityZones: ['us-east-1a'],
-            publicSubnetIds: [cdk.Fn.select(0, publicSubnetIds)],
-          };
-
-    // Look up existing VPC
-    const vpc = ec2.Vpc.fromVpcAttributes(this, 'ImportedVpc', vpcAttributes);
+    const { vpc } = importSharedVpc(this, 'ImportedVpc', environment as 'dev' | 'prod');
 
     // Import ECS Cluster from SSM Parameter Store
     const clusterName = ssm.StringParameter.valueForStringParameter(

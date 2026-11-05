@@ -1,3 +1,5 @@
+import * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as logs from 'aws-cdk-lib/aws-logs';
 import { EcrConfig } from '../types/ecr-config';
 import { LambdaConfig } from '../types/lambda-config';
 import { CloudFrontConfig } from '../types/cloudfront-config';
@@ -13,6 +15,7 @@ export const DEFAULT_LAMBDA_CONFIG: Required<
     | 'reservedConcurrentExecutions'
     | 'logicalId'
     | 'executionRoleName'
+    | 'adoptExistingLogGroup'
   >
 > = {
   memorySize: 512,
@@ -20,6 +23,19 @@ export const DEFAULT_LAMBDA_CONFIG: Required<
   architecture: 'X86_64',
   runtime: 'nodejs20.x',
 };
+
+/**
+ * Lambda のログ保持期間の既定値
+ *
+ * 全サービス・全環境で揃える。サービスごとに変えると、障害調査で遡れる期間が
+ * サービス間でずれるため。
+ */
+export const DEFAULT_LAMBDA_LOG_RETENTION = logs.RetentionDays.ONE_MONTH;
+
+/**
+ * Lambda の X-Ray トレーシングの既定値
+ */
+export const DEFAULT_LAMBDA_TRACING = lambda.Tracing.ACTIVE;
 
 /**
  * ECR のデフォルト設定

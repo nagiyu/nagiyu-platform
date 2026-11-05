@@ -12,6 +12,7 @@ import {
   deleteGroupWithCascade,
   ERROR_MESSAGES,
   inviteMember,
+  isInvitationExpired,
   leaveGroup,
   removeMember,
   respondToInvitation,
@@ -121,22 +122,57 @@ describe('group library', () => {
     );
   });
 
+  describe('isInvitationExpired', () => {
+    it('期限より前の承認待ちは期限切れではない', () => {
+      const membership = createMembership({ status: 'PENDING', expiresAt: JAN_2 });
+      expect(isInvitationExpired(membership, JAN_2 - 1)).toBe(false);
+    });
+
+    it('期限ちょうどの承認待ちは期限切れになる', () => {
+      const membership = createMembership({ status: 'PENDING', expiresAt: JAN_2 });
+      expect(isInvitationExpired(membership, JAN_2)).toBe(true);
+    });
+
+    it('期限を過ぎた承認待ちは期限切れになる', () => {
+      const membership = createMembership({ status: 'PENDING', expiresAt: JAN_2 });
+      expect(isInvitationExpired(membership, JAN_2 + 1)).toBe(true);
+    });
+
+    it('期限の無い承認待ちは期限切れにならない', () => {
+      expect(isInvitationExpired(createMembership({ status: 'PENDING' }), JAN_2)).toBe(false);
+    });
+
+    it('承認待ち以外は期限が過ぎていても期限切れにならない', () => {
+      expect(
+        isInvitationExpired(createMembership({ status: 'ACCEPTED', expiresAt: JAN_1 }), JAN_2)
+      ).toBe(false);
+    });
+  });
+
+  it('期限切れのPENDINGは重複招待エラーにならない', () => {
+    const expired = createMembership({ status: 'PENDING', expiresAt: JAN_2 });
+    expect(() => validateNoDuplicateInvitation(expired, JAN_2)).not.toThrow();
+    expect(() => validateNoDuplicateInvitation(expired, JAN_2 - 1)).toThrow(
+      ERROR_MESSAGES.DUPLICATE_INVITATION
+    );
+  });
+
   it('招待がPENDINGの場合は重複招待エラーになる', () => {
     const pendingMembership = createMembership({ status: 'PENDING' });
 
-    expect(() => validateNoDuplicateInvitation(pendingMembership)).toThrow(
+    expect(() => validateNoDuplicateInvitation(pendingMembership, JAN_1)).toThrow(
       ERROR_MESSAGES.DUPLICATE_INVITATION
     );
   });
 
   it('既存メンバーシップがPENDING以外なら重複招待エラーにならない', () => {
     expect(() =>
-      validateNoDuplicateInvitation(createMembership({ status: 'ACCEPTED' }))
+      validateNoDuplicateInvitation(createMembership({ status: 'ACCEPTED' }), JAN_1)
     ).not.toThrow();
     expect(() =>
-      validateNoDuplicateInvitation(createMembership({ status: 'REJECTED' }))
+      validateNoDuplicateInvitation(createMembership({ status: 'REJECTED' }), JAN_1)
     ).not.toThrow();
-    expect(() => validateNoDuplicateInvitation(null)).not.toThrow();
+    expect(() => validateNoDuplicateInvitation(null, JAN_1)).not.toThrow();
   });
 
   it('招待の有効期限は招待時刻から 1 日後のエポックミリ秒で計算される', () => {
@@ -245,7 +281,9 @@ describe('group library', () => {
     const membershipRepository: MembershipRepository = {
       getById: jest
         .fn()
-        .mockResolvedValue(createMembership({ status: 'PENDING', userId: 'user-2', expiresAt: 1 })),
+        .mockResolvedValue(
+          createMembership({ status: 'PENDING', userId: 'user-2', expiresAt: JAN_2 + 1 })
+        ),
       getByGroupId: jest
         .fn()
         .mockResolvedValue([createMembership({ role: 'OWNER', userId: 'owner-1' })]),
@@ -337,7 +375,9 @@ describe('group library', () => {
     const createRepository = (memberships: GroupMembership[]): MembershipRepository => ({
       getById: jest
         .fn()
-        .mockResolvedValue(createMembership({ status: 'PENDING', userId: 'user-9', expiresAt: 1 })),
+        .mockResolvedValue(
+          createMembership({ status: 'PENDING', userId: 'user-9', expiresAt: JAN_2 + 1 })
+        ),
       getByGroupId: jest.fn().mockResolvedValue(memberships),
       getByUserId: jest.fn(),
       getPendingInvitationsByUserId: jest.fn(),
@@ -664,6 +704,88 @@ describe('group library', () => {
       invitedAt: JAN_1,
       respondedAt: null,
       expiresAt: JAN_2,
+    });
+  });
+
+  describe('期限切れの招待', () => {
+    const createDeps = (existing: GroupMembership) => {
+      const groupRepository: GroupRepository = {
+        getById: jest.fn(),
+        batchGetByIds: jest.fn(),
+        create: jest.fn(),
+        update: jest.fn(),
+        delete: jest.fn(),
+      };
+      const membershipRepository: MembershipRepository = {
+        getById: jest.fn().mockResolvedValue(existing),
+        getByGroupId: jest.fn().mockResolvedValue([existing]),
+        getPendingInvitationsByUserId: jest.fn(),
+        getByUserId: jest.fn(),
+        create: jest.fn(),
+        update: jest.fn().mockResolvedValue(existing),
+        delete: jest.fn(),
+        deleteByGroupId: jest.fn(),
+      };
+      return { groupRepository, membershipRepository };
+    };
+    const expiredPending = () =>
+      createMembership({ status: 'PENDING', userId: 'user-2', expiresAt: JAN_2 });
+
+    it.each(['ACCEPT', 'REJECT'] as const)(
+      '期限切れの招待への %s は INVITATION_EXPIRED になり、更新されない',
+      async (response) => {
+        const deps = createDeps(expiredPending());
+
+        await expect(
+          respondToInvitation(
+            { groupId: 'group-1', userId: 'user-2', response, respondedAt: JAN_2 },
+            deps
+          )
+        ).rejects.toThrow(ERROR_MESSAGES.INVITATION_EXPIRED);
+        expect(deps.membershipRepository.update).not.toHaveBeenCalled();
+      }
+    );
+
+    it('期限の直前なら応答できる', async () => {
+      const deps = createDeps(expiredPending());
+
+      await respondToInvitation(
+        { groupId: 'group-1', userId: 'user-2', response: 'REJECT', respondedAt: JAN_2 - 1 },
+        deps
+      );
+
+      expect(deps.membershipRepository.update).toHaveBeenCalled();
+    });
+
+    it('期限切れのPENDINGへの再招待は作成ではなく更新で上書きする', async () => {
+      const deps = createDeps(expiredPending());
+      const invitedAt = JAN_2 + 1000;
+
+      await inviteMember(
+        { groupId: 'group-1', userId: 'user-2', invitedBy: 'owner-1', invitedAt },
+        deps
+      );
+
+      expect(deps.membershipRepository.create).not.toHaveBeenCalled();
+      expect(deps.membershipRepository.update).toHaveBeenCalledWith('group-1', 'user-2', {
+        status: 'PENDING',
+        invitedBy: 'owner-1',
+        invitedAt,
+        respondedAt: null,
+        expiresAt: calculateInvitationExpiresAt(invitedAt),
+      });
+    });
+
+    it('有効なPENDINGへの再招待は従来どおり重複エラーになる', async () => {
+      const deps = createDeps(expiredPending());
+
+      await expect(
+        inviteMember(
+          { groupId: 'group-1', userId: 'user-2', invitedBy: 'owner-1', invitedAt: JAN_1 },
+          deps
+        )
+      ).rejects.toThrow(ERROR_MESSAGES.DUPLICATE_INVITATION);
+      expect(deps.membershipRepository.update).not.toHaveBeenCalled();
     });
   });
 });

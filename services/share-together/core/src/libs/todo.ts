@@ -1,5 +1,6 @@
 import { InvalidInputError } from '@nagiyu/common';
 import type { TodoRepository } from '../repositories/todo/todo-repository.interface.js';
+import { sortTodosByCreatedAt } from './sort.js';
 import type { TodoItem, UpdateTodoItemInput } from '../types/index.js';
 
 const ERROR_MESSAGES = {
@@ -24,7 +25,7 @@ export class TodoService {
 
   public async getTodosByListId(listId: string): Promise<TodoItem[]> {
     this.assertRequiredValue(listId, ERROR_MESSAGES.LIST_ID_REQUIRED);
-    return this.todoRepository.getByListId(listId);
+    return sortTodosByCreatedAt(await this.todoRepository.getByListId(listId));
   }
 
   public async createTodo(listId: string, title: string, userId: string): Promise<TodoItem> {

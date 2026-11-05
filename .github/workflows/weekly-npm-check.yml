@@ -2,8 +2,8 @@ name: Weekly NPM Management Check
 
 on:
   schedule:
-    # 毎週月曜日 10:00 JST (1:00 UTC)
-    - cron: '0 1 * * 1'
+    # 毎週土曜日 3:17 JST (金曜日 18:17 UTC)
+    - cron: '17 18 * * 5'
   workflow_dispatch: # 手動実行も可能
 
 permissions:
@@ -11,7 +11,52 @@ permissions:
   contents: read
 
 jobs:
+  # 重い処理 (npm ci など) の前に判定し、既存 Issue があれば後続ジョブごとスキップする
+  duplicate-check:
+    runs-on: ubuntu-latest
+    outputs:
+      should_create: ${{ steps.duplicate_check.outputs.should_create }}
+    steps:
+      - name: Check existing open weekly-check issue
+        id: duplicate_check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # checkout しないため、対象リポジトリを明示する
+          GH_REPO: ${{ github.repository }}
+        run: |
+          OPEN_ISSUES_JSON=$(gh issue list \
+            --label "weekly-check" \
+            --state open \
+            --limit 1 \
+            --json number,url)
+
+          ISSUE_NUMBER=$(echo "$OPEN_ISSUES_JSON" | jq -r '.[0]? | .number // empty')
+          ISSUE_URL=$(echo "$OPEN_ISSUES_JSON" | jq -r '.[0]? | .url // empty')
+
+          if [ -n "$ISSUE_NUMBER" ]; then
+            echo "should_create=false" >> "$GITHUB_OUTPUT"
+            echo "open_issue_number=$ISSUE_NUMBER" >> "$GITHUB_OUTPUT"
+            echo "open_issue_url=$ISSUE_URL" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_create=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Summary (skipped)
+        if: steps.duplicate_check.outputs.should_create != 'true'
+        run: |
+          echo "⏭️ 既存の weekly-check ラベル付きオープン Issue が存在するため、新規作成をスキップしました" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          if [ -n "${{ steps.duplicate_check.outputs.open_issue_number }}" ] && [ -n "${{ steps.duplicate_check.outputs.open_issue_url }}" ]; then
+            echo "**既存Issue**: #${{ steps.duplicate_check.outputs.open_issue_number }} (${{ steps.duplicate_check.outputs.open_issue_url }})" >> "$GITHUB_STEP_SUMMARY"
+          elif [ -n "${{ steps.duplicate_check.outputs.open_issue_number }}" ]; then
+            echo "**既存Issue**: #${{ steps.duplicate_check.outputs.open_issue_number }}" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "**既存Issue**: 取得できませんでした" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
   npm-check:
+    needs: duplicate-check
+    if: needs.duplicate-check.outputs.should_create == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -23,12 +68,13 @@ jobs:
           node-version: '24'
           cache-dependency-path: './package-lock.json'
 
+      # 実行時刻 (金曜 18:17 UTC) は UTC では前日にあたるため、年・週番号・日付は JST で決める
       - name: Get current week info
         id: week_info
         run: |
-          YEAR=$(date +%Y)
-          WEEK=$(date +%U)
-          DATE=$(date +%Y-%m-%d)
+          YEAR=$(TZ=Asia/Tokyo date +%Y)
+          WEEK=$(TZ=Asia/Tokyo date +%U)
+          DATE=$(TZ=Asia/Tokyo date +%Y-%m-%d)
 
           echo "year=$YEAR" >> $GITHUB_OUTPUT
           echo "week=$WEEK" >> $GITHUB_OUTPUT
@@ -38,8 +84,8 @@ jobs:
       - name: Calculate next check date
         id: next_check
         run: |
-          NEXT_MONDAY=$(date -d "next monday" +%Y-%m-%d)
-          echo "next_date=$NEXT_MONDAY" >> $GITHUB_OUTPUT
+          NEXT_SATURDAY=$(TZ=Asia/Tokyo date -d "next saturday" +%Y-%m-%d)
+          echo "next_date=$NEXT_SATURDAY" >> $GITHUB_OUTPUT
 
       - name: Check npm outdated
         id: outdated
@@ -86,7 +132,7 @@ jobs:
           INCONSISTENCY: ${{ steps.inconsistency.outputs.inconsistency }}
           NEXT_DATE: ${{ steps.next_check.outputs.next_date }}
         run: |
-          CREATE_TIME=$(date -u +"%Y-%m-%d %H:%M UTC")
+          CREATE_TIME=$(TZ=Asia/Tokyo date +"%Y-%m-%d %H:%M JST")
           export CREATE_TIME
           # Python スクリプトでBase64デコードして本文を生成
           BODY=$(python3 .github/workflows/scripts/prepare-npm-issue.py)

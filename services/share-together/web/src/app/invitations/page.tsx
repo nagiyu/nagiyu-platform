@@ -16,7 +16,11 @@ import { formatJstDateTime } from '@nagiyu/common';
 import { Button, Chip } from '@nagiyu/ui';
 import type { InvitationSummary, InvitationsResponse } from '@/types';
 import { notifyInvitationsChanged } from '@/lib/invitation-events';
-import { ACCEPT_FAILURE_MESSAGE, resolveAcceptFailureMessage } from '@/lib/invitation-errors';
+import {
+  ACCEPT_FAILURE_MESSAGE,
+  REJECT_FAILURE_MESSAGE,
+  resolveInvitationFailure,
+} from '@/lib/invitation-errors';
 
 export default function InvitationsPage() {
   const [invitations, setInvitations] = useState<InvitationSummary[]>([]);
@@ -63,7 +67,12 @@ export default function InvitationsPage() {
         });
         if (!response.ok) {
           console.error('招待の承認に失敗しました', { groupId, status: response.status });
-          setSnackbarMessage(await resolveAcceptFailureMessage(response));
+          const failure = await resolveInvitationFailure(response, ACCEPT_FAILURE_MESSAGE);
+          setSnackbarMessage(failure.message);
+          if (failure.removeFromList) {
+            setInvitations((prev) => prev.filter((inv) => inv.groupId !== groupId));
+            notifyInvitationsChanged();
+          }
           return;
         }
 
@@ -95,7 +104,18 @@ export default function InvitationsPage() {
           body: JSON.stringify({ action: 'REJECT' }),
         });
         if (!response.ok) {
-          throw new Error(`status: ${response.status}`);
+          const failure = await resolveInvitationFailure(response, REJECT_FAILURE_MESSAGE);
+          console.error('招待の拒否に失敗しました', {
+            groupId: rejectTarget.groupId,
+            status: response.status,
+          });
+          setSnackbarMessage(failure.message);
+          // 拒否したかった招待は既に無効なので、一覧から除けば目的は達している
+          if (failure.removeFromList) {
+            setInvitations((prev) => prev.filter((inv) => inv.groupId !== rejectTarget.groupId));
+            notifyInvitationsChanged();
+          }
+          return;
         }
 
         setInvitations((prev) => prev.filter((inv) => inv.groupId !== rejectTarget.groupId));
@@ -103,7 +123,7 @@ export default function InvitationsPage() {
         notifyInvitationsChanged();
       } catch (error: unknown) {
         console.error('招待の拒否に失敗しました', { groupId: rejectTarget.groupId, error });
-        setSnackbarMessage('招待の拒否に失敗しました。');
+        setSnackbarMessage(REJECT_FAILURE_MESSAGE);
       } finally {
         setRejectTarget(null);
         setProcessing(null);

@@ -25,5 +25,6 @@ export const ERROR_MESSAGES = {
   INVALID_EMAIL_FORMAT: 'メールアドレスの形式が正しくありません',
   INVITATION_SEND_FAILED: '招待の送信に失敗しました。',
   ALREADY_RESPONDED: 'この招待には既に応答済みです',
+  INVITATION_EXPIRED: '招待の有効期限が切れています',
   INVALID_INVITATION_STATUS: '招待のステータスが不正です',
 } as const;

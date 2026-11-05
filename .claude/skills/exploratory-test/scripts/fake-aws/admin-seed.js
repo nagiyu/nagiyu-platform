@@ -1,8 +1,11 @@
 // admin のエラー履歴を、admin-fake-ddb.js に投入する。
 // 境界値を一通り含める: 120 件 (ページング)、長大な文字列、HTML / 制御文字、不正な context、
-// 未知の severity、10 日前 / 40 日前 / 未来の日時。
+// 10 日前 / 40 日前 / 未来の日時。
+// 既定の値は libs/common の ERROR_SOURCES / ERROR_SEVERITIES の範囲内に収める。範囲外の値が 1 件でもあると、
+// mapper が例外を投げて一覧 API 全体が 500 になるため。不正データの挙動を試すときだけ SEED_INVALID=1 で
+// 未知の severity を 1 件足す。
 //
-// 実行: node admin-seed.js
+// 実行: node admin-seed.js (不正データも入れるなら SEED_INVALID=1 node admin-seed.js)
 // 環境変数: FAKE_DDB_URL (既定 http://127.0.0.1:18201)、ERROR_EVENTS_TABLE_NAME (既定 errors-local)
 //   テーブル名は admin 側の ERROR_EVENTS_TABLE_NAME と揃える。
 // キー設計は admin の履歴リポジトリに合わせる: PK=ERROR_EVENT#<サービス>、SK と GSI1SK=OCCURRED#<日時>#<id>、
@@ -17,7 +20,7 @@ function add(e) {
   const sk = `OCCURRED#${occurredAt}#${e.eventId}`;
   const m = (v) => ({ S: String(v) });
   ev.push({ PK: m(`ERROR_EVENT#${e.serviceId}`), SK: m(sk), GSI1PK: m('ERROR_EVENT_ALL'), GSI1SK: m(sk),
-    eventId: m(e.eventId), serviceId: m(e.serviceId), source: m(e.source || 'app'), severity: m(e.severity),
+    eventId: m(e.eventId), serviceId: m(e.serviceId), source: m(e.source || 'application'), severity: m(e.severity),
     title: m(e.title), message: m(e.message), context: m(e.context ?? '{}'), occurredAt: m(occurredAt) });
 }
 const svcs = ['stock-tracker', 'niconico-mylist-assistant', 'livetalk', 'auth'];
@@ -33,7 +36,7 @@ add({ eventId: 'xss-1', serviceId: '<script>alert(1)</script>', severity: 'error
   title: '<img src=x onerror=alert(1)>', message: 'line1\nline2\n\tindented', context: 'not json {' });
 add({ eventId: 'weird/id#1 ?&x', serviceId: 'svc with space', severity: 'warning', occurredAt: new Date(now - 7 * 60e3).toISOString(),
   title: '特殊文字 ID', message: 'm', context: '' });
-add({ eventId: 'unknown-sev', serviceId: 'auth', severity: 'fatal', occurredAt: new Date(now - 8 * 60e3).toISOString(),
+if (process.env.SEED_INVALID === '1') add({ eventId: 'unknown-sev', serviceId: 'auth', severity: 'fatal', occurredAt: new Date(now - 8 * 60e3).toISOString(),
   title: '未知の severity', message: 'm', context: 'null' });
 add({ eventId: 'old-10d', serviceId: 'auth', severity: 'info', occurredAt: new Date(now - 240 * H).toISOString(), title: '10日前', message: 'old', context: '{}' });
 add({ eventId: 'old-40d', serviceId: 'auth', severity: 'info', occurredAt: new Date(now - 960 * H).toISOString(), title: '40日前', message: 'old', context: '{}' });

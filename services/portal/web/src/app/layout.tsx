@@ -148,7 +148,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </Box>
             <Footer
               version={version}
-              contactHref="/contact"
+              showLegalLinks={false}
               links={footerLinks}
               copyright={copyright}
             />

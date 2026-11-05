@@ -4,11 +4,10 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 import * as ecr from 'aws-cdk-lib/aws-ecr';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
-import * as logs from 'aws-cdk-lib/aws-logs';
 import { Construct } from 'constructs';
 import { WebRuntimePolicy } from './policies/web-runtime-policy';
 import { BatchRuntimePolicy } from './policies/batch-runtime-policy';
-import { grantErrorEventsWrite, getServiceUrl } from '@nagiyu/infra-common';
+import { createEcrImageFunction, getServiceUrl } from '@nagiyu/infra-common';
 
 export interface LambdaStackProps extends cdk.StackProps {
   environment: string;
@@ -65,6 +64,8 @@ export class LambdaStack extends cdk.Stack {
       forecastLegacyExclusionBefore,
     } = props;
 
+    const deployEnvironment = environment as 'dev' | 'prod';
+
     // ECR リポジトリの参照
     const webRepository = ecr.Repository.fromRepositoryName(
       this,
@@ -102,17 +103,16 @@ export class LambdaStack extends cdk.Stack {
       ],
     });
 
-    grantErrorEventsWrite(this, webExecutionRole, environment as 'dev' | 'prod');
-
     // Web Lambda Function の作成
-    this.webFunction = new lambda.Function(this, 'WebFunction', {
+    this.webFunction = createEcrImageFunction(this, 'WebFunction', {
       functionName: `nagiyu-stock-tracker-web-${environment}`,
-      runtime: lambda.Runtime.FROM_IMAGE,
-      code: lambda.Code.fromEcrImage(webRepository, {
-        tagOrDigest: 'latest',
-      }),
-      handler: lambda.Handler.FROM_IMAGE,
+      serviceName: 'stock-tracker',
+      deployEnvironment,
+      repository: webRepository,
       role: webExecutionRole,
+      // CloudFormation 管理外の同名ロググループが既にあり、LogGroup を作ると名前が衝突するため
+      // 既存のものを引き継ぐ。この関数が既存だから付けているもので、新しい関数では付けない。
+      adoptExistingLogGroup: true,
       memorySize: 1024,
       timeout: cdk.Duration.seconds(30),
       environment: {
@@ -125,15 +125,12 @@ export class LambdaStack extends cdk.Stack {
         DYNAMODB_TABLE_NAME: dynamoTable.tableName,
         VAPID_PUBLIC_KEY: vapidPublicKey,
         VAPID_PRIVATE_KEY: vapidPrivateKey,
-        AUTH_URL: getServiceUrl('auth', environment as 'dev' | 'prod'),
-        NEXT_PUBLIC_AUTH_URL: getServiceUrl('auth', environment as 'dev' | 'prod'),
-        APP_URL: getServiceUrl('stock-tracker', environment as 'dev' | 'prod'),
+        AUTH_URL: getServiceUrl('auth', deployEnvironment),
+        NEXT_PUBLIC_AUTH_URL: getServiceUrl('auth', deployEnvironment),
+        APP_URL: getServiceUrl('stock-tracker', deployEnvironment),
         AUTH_SECRET: nextAuthSecret,
         STOCK_TRACKER_SUMMARY_BATCH_FUNCTION_NAME: `nagiyu-stock-tracker-batch-summary-${environment}`,
-        ERROR_EVENTS_TABLE_NAME: `nagiyu-error-events-${environment}`,
       },
-      tracing: lambda.Tracing.ACTIVE, // X-Ray トレーシング有効化
-      logRetention: logs.RetentionDays.ONE_MONTH, // CloudWatch Logs 保持期間: 30日
     });
 
     // Function URL の作成（Lambda Web Adapter 用）
@@ -157,18 +154,16 @@ export class LambdaStack extends cdk.Stack {
       ],
     });
 
-    grantErrorEventsWrite(this, batchExecutionRole, environment as 'dev' | 'prod');
-
     // Batch Lambda - Minute（1分間隔、MINUTE_LEVEL アラート処理）
-    this.batchMinuteFunction = new lambda.Function(this, 'BatchMinuteFunction', {
+    this.batchMinuteFunction = createEcrImageFunction(this, 'BatchMinuteFunction', {
       functionName: `nagiyu-stock-tracker-batch-minute-${environment}`,
-      runtime: lambda.Runtime.FROM_IMAGE,
-      code: lambda.Code.fromEcrImage(batchRepository, {
-        tagOrDigest: 'latest',
-        cmd: ['services/stock-tracker/batch/dist/src/minute.handler'],
-      }),
-      handler: lambda.Handler.FROM_IMAGE,
+      serviceName: 'stock-tracker',
+      deployEnvironment,
+      repository: batchRepository,
+      cmd: ['services/stock-tracker/batch/dist/src/minute.handler'],
       role: batchExecutionRole,
+      // 既存の関数で、CloudFormation 管理外の同名ロググループを引き継ぐために付けている。
+      adoptExistingLogGroup: true,
       memorySize: 1024,
       timeout: cdk.Duration.seconds(50),
       reservedConcurrentExecutions: 1,
@@ -184,22 +179,19 @@ export class LambdaStack extends cdk.Stack {
         MINUTE_BATCH_FIRST_ATTEMPT_TIMEOUT_MS: '4000',
         MINUTE_BATCH_RETRY_TIMEOUT_MS: '8000',
         MINUTE_BATCH_RETRY_DELAY_MS: '500',
-        ERROR_EVENTS_TABLE_NAME: `nagiyu-error-events-${environment}`,
       },
-      tracing: lambda.Tracing.ACTIVE,
-      logRetention: logs.RetentionDays.ONE_MONTH,
     });
 
     // Batch Lambda - Hourly（1時間間隔、HOURLY_LEVEL アラート処理）
-    this.batchHourlyFunction = new lambda.Function(this, 'BatchHourlyFunction', {
+    this.batchHourlyFunction = createEcrImageFunction(this, 'BatchHourlyFunction', {
       functionName: `nagiyu-stock-tracker-batch-hourly-${environment}`,
-      runtime: lambda.Runtime.FROM_IMAGE,
-      code: lambda.Code.fromEcrImage(batchRepository, {
-        tagOrDigest: 'latest',
-        cmd: ['services/stock-tracker/batch/dist/src/hourly.handler'],
-      }),
-      handler: lambda.Handler.FROM_IMAGE,
+      serviceName: 'stock-tracker',
+      deployEnvironment,
+      repository: batchRepository,
+      cmd: ['services/stock-tracker/batch/dist/src/hourly.handler'],
       role: batchExecutionRole,
+      // 既存の関数で、CloudFormation 管理外の同名ロググループを引き継ぐために付けている。
+      adoptExistingLogGroup: true,
       memorySize: 512,
       timeout: cdk.Duration.minutes(5),
       environment: {
@@ -209,69 +201,60 @@ export class LambdaStack extends cdk.Stack {
         VAPID_PUBLIC_KEY: vapidPublicKey,
         VAPID_PRIVATE_KEY: vapidPrivateKey,
         FINNHUB_API_KEY: finnhubApiKey,
-        ERROR_EVENTS_TABLE_NAME: `nagiyu-error-events-${environment}`,
       },
-      tracing: lambda.Tracing.ACTIVE,
-      logRetention: logs.RetentionDays.ONE_MONTH,
     });
 
     // Batch Lambda - Summary（1時間間隔、日次サマリー生成）
-    this.batchSummaryFunction = new lambda.Function(this, 'BatchSummaryFunction', {
+    this.batchSummaryFunction = createEcrImageFunction(this, 'BatchSummaryFunction', {
       functionName: `nagiyu-stock-tracker-batch-summary-${environment}`,
-      runtime: lambda.Runtime.FROM_IMAGE,
-      code: lambda.Code.fromEcrImage(batchRepository, {
-        tagOrDigest: 'latest',
-        cmd: ['services/stock-tracker/batch/dist/src/summary.handler'],
-      }),
-      handler: lambda.Handler.FROM_IMAGE,
+      serviceName: 'stock-tracker',
+      deployEnvironment,
+      repository: batchRepository,
+      cmd: ['services/stock-tracker/batch/dist/src/summary.handler'],
       role: batchExecutionRole,
+      // 既存の関数で、CloudFormation 管理外の同名ロググループを引き継ぐために付けている。
+      adoptExistingLogGroup: true,
       memorySize: 512,
       timeout: cdk.Duration.minutes(5),
       environment: {
         NODE_ENV: environment,
         DYNAMODB_TABLE_NAME: dynamoTable.tableName,
         BATCH_TYPE: 'SUMMARY',
-        ERROR_EVENTS_TABLE_NAME: `nagiyu-error-events-${environment}`,
         // 毎時の起動を待たずに、サマリーができた直後に確度算出へ進められるようにするため
         STOCK_TRACKER_FORECAST_BATCH_FUNCTION_NAME: `nagiyu-stock-tracker-batch-forecast-${environment}`,
       },
-      tracing: lambda.Tracing.ACTIVE,
-      logRetention: logs.RetentionDays.ONE_MONTH,
     });
 
     // Batch Lambda - Daily（日次、データクリーンアップ）
-    this.batchDailyFunction = new lambda.Function(this, 'BatchDailyFunction', {
+    this.batchDailyFunction = createEcrImageFunction(this, 'BatchDailyFunction', {
       functionName: `nagiyu-stock-tracker-batch-daily-${environment}`,
-      runtime: lambda.Runtime.FROM_IMAGE,
-      code: lambda.Code.fromEcrImage(batchRepository, {
-        tagOrDigest: 'latest',
-        cmd: ['services/stock-tracker/batch/dist/src/daily.handler'],
-      }),
-      handler: lambda.Handler.FROM_IMAGE,
+      serviceName: 'stock-tracker',
+      deployEnvironment,
+      repository: batchRepository,
+      cmd: ['services/stock-tracker/batch/dist/src/daily.handler'],
       role: batchExecutionRole,
+      // 既存の関数で、CloudFormation 管理外の同名ロググループを引き継ぐために付けている。
+      adoptExistingLogGroup: true,
       memorySize: 512,
       timeout: cdk.Duration.minutes(10),
       environment: {
         NODE_ENV: environment,
         DYNAMODB_TABLE_NAME: dynamoTable.tableName,
         BATCH_TYPE: 'DAILY',
-        ERROR_EVENTS_TABLE_NAME: `nagiyu-error-events-${environment}`,
       },
-      tracing: lambda.Tracing.ACTIVE,
-      logRetention: logs.RetentionDays.ONE_MONTH,
     });
 
     // Batch Lambda - Forecast（1時間間隔、確度算出。summary バッチからも非同期起動される）
     // タイムアウトは、手動起動する初期値算出（リプレイ）が Lambda の上限 15 分に収まる想定で設定する。
-    this.batchForecastFunction = new lambda.Function(this, 'BatchForecastFunction', {
+    this.batchForecastFunction = createEcrImageFunction(this, 'BatchForecastFunction', {
       functionName: `nagiyu-stock-tracker-batch-forecast-${environment}`,
-      runtime: lambda.Runtime.FROM_IMAGE,
-      code: lambda.Code.fromEcrImage(batchRepository, {
-        tagOrDigest: 'latest',
-        cmd: ['services/stock-tracker/batch/dist/src/forecast.handler'],
-      }),
-      handler: lambda.Handler.FROM_IMAGE,
+      serviceName: 'stock-tracker',
+      deployEnvironment,
+      repository: batchRepository,
+      cmd: ['services/stock-tracker/batch/dist/src/forecast.handler'],
       role: batchExecutionRole,
+      // 既存の関数で、CloudFormation 管理外の同名ロググループを引き継ぐために付けている。
+      adoptExistingLogGroup: true,
       memorySize: 1024,
       timeout: cdk.Duration.minutes(15),
       // 通常モードは1回の実行につき処理する日数に上限を持つため多重実行を並列化する意味がなく、
@@ -282,55 +265,34 @@ export class LambdaStack extends cdk.Stack {
         NODE_ENV: environment,
         DYNAMODB_TABLE_NAME: dynamoTable.tableName,
         BATCH_TYPE: 'FORECAST',
-        ERROR_EVENTS_TABLE_NAME: `nagiyu-error-events-${environment}`,
         ...(forecastLegacyExclusionBefore !== undefined
           ? { STOCK_TRACKER_LEGACY_EXCLUSION_BEFORE: forecastLegacyExclusionBefore }
           : {}),
       },
-      tracing: lambda.Tracing.ACTIVE,
-      logRetention: logs.RetentionDays.ONE_MONTH,
     });
 
     // Batch Lambda - Temporary Alert Expiry（1時間間隔、一時通知の期限切れ無効化）
-    this.batchTemporaryAlertExpiryFunction = new lambda.Function(
+    this.batchTemporaryAlertExpiryFunction = createEcrImageFunction(
       this,
       'BatchTemporaryAlertExpiryFunction',
       {
         functionName: `nagiyu-stock-tracker-batch-temporary-alert-expiry-${environment}`,
-        runtime: lambda.Runtime.FROM_IMAGE,
-        code: lambda.Code.fromEcrImage(batchRepository, {
-          tagOrDigest: 'latest',
-          cmd: ['services/stock-tracker/batch/dist/src/temporary-alert-expiry.handler'],
-        }),
-        handler: lambda.Handler.FROM_IMAGE,
+        serviceName: 'stock-tracker',
+        deployEnvironment,
+        repository: batchRepository,
+        cmd: ['services/stock-tracker/batch/dist/src/temporary-alert-expiry.handler'],
         role: batchExecutionRole,
+        // 既存の関数で、CloudFormation 管理外の同名ロググループを引き継ぐために付けている。
+        adoptExistingLogGroup: true,
         memorySize: 512,
         timeout: cdk.Duration.minutes(5),
         environment: {
           NODE_ENV: environment,
           DYNAMODB_TABLE_NAME: dynamoTable.tableName,
           BATCH_TYPE: 'TEMPORARY_ALERT_EXPIRY',
-          ERROR_EVENTS_TABLE_NAME: `nagiyu-error-events-${environment}`,
         },
-        tracing: lambda.Tracing.ACTIVE,
-        logRetention: logs.RetentionDays.ONE_MONTH,
       }
     );
-
-    // タグの追加
-    [
-      this.webFunction,
-      this.batchMinuteFunction,
-      this.batchHourlyFunction,
-      this.batchSummaryFunction,
-      this.batchDailyFunction,
-      this.batchTemporaryAlertExpiryFunction,
-      this.batchForecastFunction,
-    ].forEach((fn) => {
-      cdk.Tags.of(fn).add('Application', 'nagiyu');
-      cdk.Tags.of(fn).add('Service', 'stock-tracker');
-      cdk.Tags.of(fn).add('Environment', environment);
-    });
 
     // CloudFormation Outputs
     new cdk.CfnOutput(this, 'WebFunctionArn', {

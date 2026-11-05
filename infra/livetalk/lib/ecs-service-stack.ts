@@ -17,6 +17,7 @@ import {
   getEcrRepositoryName,
   getServiceUrl,
   grantErrorEventsWrite,
+  importSharedVpc,
 } from '@nagiyu/infra-common';
 
 export interface LiveTalkEcsServiceStackProps extends cdk.StackProps {
@@ -85,21 +86,7 @@ export class LiveTalkEcsServiceStack extends cdk.Stack {
 
     const appUrl = getServiceUrl('live-talk', environment);
 
-    const vpcId = ssm.StringParameter.valueForStringParameter(
-      this,
-      SSM_PARAMETERS.VPC_ID(environment)
-    );
-    const publicSubnetIdsStr = ssm.StringParameter.valueForStringParameter(
-      this,
-      SSM_PARAMETERS.PUBLIC_SUBNET_IDS(environment)
-    );
-
-    const publicSubnetIds = cdk.Fn.split(',', publicSubnetIdsStr);
-    const vpc = ec2.Vpc.fromVpcAttributes(this, 'ImportedVpc', {
-      vpcId,
-      availabilityZones: ['us-east-1a', 'us-east-1b'],
-      publicSubnetIds: [cdk.Fn.select(0, publicSubnetIds), cdk.Fn.select(1, publicSubnetIds)],
-    });
+    const { vpc } = importSharedVpc(this, 'ImportedVpc', environment);
 
     const clusterName = ssm.StringParameter.valueForStringParameter(
       this,

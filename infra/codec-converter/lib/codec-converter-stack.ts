@@ -14,7 +14,13 @@ import * as route53 from 'aws-cdk-lib/aws-route53';
 import * as targets from 'aws-cdk-lib/aws-route53-targets';
 import { Construct } from 'constructs';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
-import { SSM_PARAMETERS, grantErrorEventsWrite } from '@nagiyu/infra-common';
+import {
+  DEFAULT_LAMBDA_LOG_RETENTION,
+  DEFAULT_LAMBDA_TRACING,
+  SSM_PARAMETERS,
+  grantErrorEventsWrite,
+  importSharedVpc,
+} from '@nagiyu/infra-common';
 import { AppRuntimePolicy } from './policies/app-runtime-policy';
 import { LambdaExecutionRole } from './roles/lambda-execution-role';
 import { BatchJobRole } from './roles/batch-job-role';
@@ -149,23 +155,11 @@ export class CodecConverterStack extends cdk.Stack {
       });
       grantErrorEventsWrite(this, batchJobRole, envName as 'dev' | 'prod');
 
-      const vpcId = ssm.StringParameter.valueForStringParameter(
+      const { vpc, publicSubnetIds } = importSharedVpc(
         this,
-        SSM_PARAMETERS.VPC_ID(envName as 'dev' | 'prod')
+        'SharedVpc',
+        envName as 'dev' | 'prod'
       );
-      const publicSubnetIdsStr = ssm.StringParameter.valueForStringParameter(
-        this,
-        SSM_PARAMETERS.PUBLIC_SUBNET_IDS(envName as 'dev' | 'prod')
-      );
-      const publicSubnetIds = cdk.Fn.split(',', publicSubnetIdsStr);
-      const vpc = ec2.Vpc.fromVpcAttributes(this, 'SharedVpc', {
-        vpcId,
-        availabilityZones: envName === 'prod' ? ['us-east-1a', 'us-east-1b'] : ['us-east-1a'],
-        publicSubnetIds:
-          envName === 'prod'
-            ? [cdk.Fn.select(0, publicSubnetIds), cdk.Fn.select(1, publicSubnetIds)]
-            : [cdk.Fn.select(0, publicSubnetIds)],
-      });
 
       // Create security group for Batch compute environment
       const batchSecurityGroup = new ec2.SecurityGroup(this, 'BatchSecurityGroup', {
@@ -298,7 +292,7 @@ export class CodecConverterStack extends cdk.Stack {
       // CloudWatch Log Group for Lambda (created explicitly to avoid conflicts)
       const lambdaLogGroup = new logs.LogGroup(this, 'LambdaLogGroup', {
         logGroupName: `/aws/lambda/nagiyu-codec-converter-${envName}`,
-        retention: logs.RetentionDays.ONE_WEEK,
+        retention: DEFAULT_LAMBDA_LOG_RETENTION,
         removalPolicy: cdk.RemovalPolicy.DESTROY,
       });
 
@@ -312,6 +306,7 @@ export class CodecConverterStack extends cdk.Stack {
         timeout: cdk.Duration.seconds(30),
         role: lambdaExecutionRole,
         logGroup: lambdaLogGroup,
+        tracing: DEFAULT_LAMBDA_TRACING,
         environment: {
           APP_VERSION: appVersion,
           DYNAMODB_TABLE_NAME: jobsTable.tableName,

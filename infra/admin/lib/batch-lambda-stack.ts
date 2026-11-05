@@ -3,12 +3,11 @@ import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as ecr from 'aws-cdk-lib/aws-ecr';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
-import * as logs from 'aws-cdk-lib/aws-logs';
 import * as sns from 'aws-cdk-lib/aws-sns';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
 import { SnsEventSource, DynamoEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
 import { Construct } from 'constructs';
-import { grantErrorEventsWrite, getServiceUrl } from '@nagiyu/infra-common';
+import { createEcrImageFunction, getServiceUrl } from '@nagiyu/infra-common';
 
 export interface BatchLambdaStackProps extends cdk.StackProps {
   environment: 'dev' | 'prod';
@@ -70,25 +69,22 @@ export class BatchLambdaStack extends cdk.Stack {
         iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole'),
       ],
     });
-    grantErrorEventsWrite(this, alarmIngestRole, environment);
 
-    this.alarmIngestFunction = new lambda.Function(this, 'AlarmIngestFunction', {
+    this.alarmIngestFunction = createEcrImageFunction(this, 'AlarmIngestFunction', {
       functionName: `nagiyu-admin-alarm-ingest-${environment}`,
-      runtime: lambda.Runtime.FROM_IMAGE,
-      handler: lambda.Handler.FROM_IMAGE,
-      code: lambda.Code.fromEcrImage(batchRepository, {
-        tagOrDigest: 'latest',
-        cmd: ['services/admin/batch/dist/src/alarm-ingest.handler'],
-      }),
+      serviceName: 'admin-batch',
+      deployEnvironment: environment,
+      repository: batchRepository,
+      cmd: ['services/admin/batch/dist/src/alarm-ingest.handler'],
       role: alarmIngestRole,
       memorySize: 256,
       timeout: cdk.Duration.seconds(30),
       environment: {
         NODE_ENV: environment,
-        ERROR_EVENTS_TABLE_NAME: errorEventsTableName,
       },
-      tracing: lambda.Tracing.ACTIVE,
-      logRetention: logs.RetentionDays.ONE_MONTH,
+      // CloudFormation 管理外の同名ロググループが既にあり、LogGroup を作ると名前が衝突するため
+      // 既存のものを引き継ぐ。この関数が既存だから付けているもので、新しい関数では付けない。
+      adoptExistingLogGroup: true,
       description: 'SNS (admin alarms) → DynamoDB (error-events) を仲介するイベント取り込み Lambda',
     });
 
@@ -135,15 +131,16 @@ export class BatchLambdaStack extends cdk.Stack {
     // DLQ への送信権限
     this.streamHandlerDeadLetterQueue.grantSendMessages(streamHandlerRole);
 
-    this.streamHandlerFunction = new lambda.Function(this, 'StreamHandlerFunction', {
+    this.streamHandlerFunction = createEcrImageFunction(this, 'StreamHandlerFunction', {
       functionName: `nagiyu-admin-stream-handler-${environment}`,
-      runtime: lambda.Runtime.FROM_IMAGE,
-      handler: lambda.Handler.FROM_IMAGE,
-      code: lambda.Code.fromEcrImage(batchRepository, {
-        tagOrDigest: 'latest',
-        cmd: ['services/admin/batch/dist/src/stream-handler.handler'],
-      }),
+      serviceName: 'admin-batch',
+      deployEnvironment: environment,
+      repository: batchRepository,
+      cmd: ['services/admin/batch/dist/src/stream-handler.handler'],
       role: streamHandlerRole,
+      // この関数は error-events へ書き込まない (ERROR_EVENTS_TABLE_NAME も持たない) ため、
+      // 共通部品の既定の環境変数と権限を付けない。
+      enableErrorEvents: false,
       memorySize: 256,
       timeout: cdk.Duration.seconds(30),
       environment: {
@@ -154,8 +151,9 @@ export class BatchLambdaStack extends cdk.Stack {
         APP_URL: adminUrl,
       },
       deadLetterQueue: this.streamHandlerDeadLetterQueue,
-      tracing: lambda.Tracing.ACTIVE,
-      logRetention: logs.RetentionDays.ONE_MONTH,
+      // CloudFormation 管理外の同名ロググループが既にあり、LogGroup を作ると名前が衝突するため
+      // 既存のものを引き継ぐ。この関数が既存だから付けているもので、新しい関数では付けない。
+      adoptExistingLogGroup: true,
       description: 'error-events DynamoDB Streams を契機に Web Push を fan-out する Lambda',
     });
 
@@ -180,14 +178,8 @@ export class BatchLambdaStack extends cdk.Stack {
     );
 
     // ─────────────────────────────────────────
-    // タグ・Outputs
+    // Outputs
     // ─────────────────────────────────────────
-    [this.alarmIngestFunction, this.streamHandlerFunction].forEach((fn) => {
-      cdk.Tags.of(fn).add('Application', 'nagiyu');
-      cdk.Tags.of(fn).add('Service', 'admin-batch');
-      cdk.Tags.of(fn).add('Environment', environment);
-    });
-
     new cdk.CfnOutput(this, 'AlarmIngestFunctionArn', {
       value: this.alarmIngestFunction.functionArn,
       description: 'alarm-ingest Lambda Function ARN',

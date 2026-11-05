@@ -58,6 +58,7 @@ export const CHART_BAR_COUNT_LABELS: Record<ChartBarCount, string> = {
  */
 export interface TickerSummary {
   tickerId: string;
+  exchangeId: string;
   /** 確度の基準日（YYYY-MM-DD） */
   date: string;
   symbol: string;

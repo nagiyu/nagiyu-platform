@@ -18,6 +18,7 @@ export const ERROR_MESSAGES = {
   ALREADY_GROUP_MEMBER: 'すでにグループメンバーです',
   INVITATION_NOT_FOUND: '招待が見つかりません',
   INVITATION_ALREADY_RESPONDED: 'この招待にはすでに回答済みです',
+  INVITATION_EXPIRED: '招待の有効期限が切れています',
   MEMBERSHIP_NOT_FOUND: 'メンバーシップが見つかりません',
 } as const;
 
@@ -61,6 +62,23 @@ export interface LeaveGroupInput {
 }
 
 /**
+ * 承認待ちの招待が期限切れかを判定する
+ *
+ * DynamoDB の TTL による削除は期限から遅れるため、レコードが残っていても期限切れの招待は
+ * 無効として扱う必要がある。期限ちょうどは切れたものとする。期限の無い招待は有効扱い。
+ *
+ * @param membership - 判定対象のメンバーシップ
+ * @param now - 判定に使う日時 (エポックミリ秒)
+ */
+export function isInvitationExpired(membership: GroupMembership, now: number): boolean {
+  return (
+    membership.status === 'PENDING' &&
+    membership.expiresAt !== undefined &&
+    membership.expiresAt <= now
+  );
+}
+
+/**
  * 承認済みメンバー数が上限に達していないことを検証する
  *
  * 承認時は、承認待ちの招待が他にあっても承認済みの人数だけで判定する。
@@ -86,8 +104,7 @@ export function validateInviteLimit(memberships: GroupMembership[], now: number)
   const occupiedCount = memberships.filter(
     (membership) =>
       membership.status === 'ACCEPTED' ||
-      (membership.status === 'PENDING' &&
-        (membership.expiresAt === undefined || membership.expiresAt > now))
+      (membership.status === 'PENDING' && !isInvitationExpired(membership, now))
   ).length;
   if (occupiedCount >= GROUP_RULES.MAX_MEMBER_COUNT) {
     throw new Error(ERROR_MESSAGES.MEMBER_LIMIT_EXCEEDED);
@@ -106,8 +123,19 @@ export function validateOwnerCanBeRemoved(membership: GroupMembership): void {
   }
 }
 
-export function validateNoDuplicateInvitation(existingMembership: GroupMembership | null): void {
-  if (existingMembership?.status === 'PENDING') {
+/**
+ * 同じ相手への有効な招待が無いことを検証する
+ *
+ * 期限切れの招待は削除が遅れて残っているだけなので、重複としない。
+ *
+ * @param existingMembership - 招待先の既存メンバーシップ
+ * @param now - 期限判定に使う日時 (エポックミリ秒)
+ */
+export function validateNoDuplicateInvitation(
+  existingMembership: GroupMembership | null,
+  now: number
+): void {
+  if (existingMembership?.status === 'PENDING' && !isInvitationExpired(existingMembership, now)) {
     throw new Error(ERROR_MESSAGES.DUPLICATE_INVITATION);
   }
 }
@@ -158,13 +186,17 @@ export async function inviteMember(
     input.groupId,
     input.userId
   );
-  validateNoDuplicateInvitation(existingMembership);
+  validateNoDuplicateInvitation(existingMembership, input.invitedAt);
   if (existingMembership?.status === 'ACCEPTED') {
     throw new Error(ERROR_MESSAGES.ALREADY_GROUP_MEMBER);
   }
 
   const expiresAt = calculateInvitationExpiresAt(input.invitedAt);
-  if (existingMembership?.status === 'REJECTED') {
+  // 期限切れの招待はレコードが残っているため、作成では衝突する。拒否済みと同じく上書きする
+  if (
+    existingMembership?.status === 'REJECTED' ||
+    (existingMembership && isInvitationExpired(existingMembership, input.invitedAt))
+  ) {
     return dependencies.membershipRepository.update(input.groupId, input.userId, {
       status: 'PENDING',
       invitedBy: input.invitedBy,
@@ -204,6 +236,9 @@ export async function respondToInvitation(
   }
   if (membership.status !== 'PENDING') {
     throw new Error(ERROR_MESSAGES.INVITATION_ALREADY_RESPONDED);
+  }
+  if (isInvitationExpired(membership, input.respondedAt)) {
+    throw new Error(ERROR_MESSAGES.INVITATION_EXPIRED);
   }
 
   if (input.response === 'ACCEPT') {

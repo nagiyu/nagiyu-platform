@@ -3,11 +3,10 @@ import * as batch from 'aws-cdk-lib/aws-batch';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as logs from 'aws-cdk-lib/aws-logs';
-import * as ssm from 'aws-cdk-lib/aws-ssm';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import { Construct } from 'constructs';
-import { SSM_PARAMETERS, grantErrorEventsWrite } from '@nagiyu/infra-common';
+import { grantErrorEventsWrite, importSharedVpc } from '@nagiyu/infra-common';
 import type { QuickClipEnvironment } from './environment';
 
 export interface BatchStackProps extends cdk.StackProps {
@@ -25,24 +24,7 @@ export class BatchStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: BatchStackProps) {
     super(scope, id, props);
 
-    const vpcId = ssm.StringParameter.valueForStringParameter(
-      this,
-      SSM_PARAMETERS.VPC_ID(props.environment)
-    );
-    const publicSubnetIdsStr = ssm.StringParameter.valueForStringParameter(
-      this,
-      SSM_PARAMETERS.PUBLIC_SUBNET_IDS(props.environment)
-    );
-    const publicSubnetIds = cdk.Fn.split(',', publicSubnetIdsStr);
-    const vpc = ec2.Vpc.fromVpcAttributes(this, 'SharedVpc', {
-      vpcId,
-      availabilityZones:
-        props.environment === 'prod' ? ['us-east-1a', 'us-east-1b'] : ['us-east-1a'],
-      publicSubnetIds:
-        props.environment === 'prod'
-          ? [cdk.Fn.select(0, publicSubnetIds), cdk.Fn.select(1, publicSubnetIds)]
-          : [cdk.Fn.select(0, publicSubnetIds)],
-    });
+    const { vpc, publicSubnetIds } = importSharedVpc(this, 'SharedVpc', props.environment);
 
     const securityGroup = new ec2.SecurityGroup(this, 'BatchSecurityGroup', {
       vpc,

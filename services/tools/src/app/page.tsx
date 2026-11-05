@@ -85,7 +85,7 @@ export default function HomePage() {
       id: 'timestamp-converter',
       title: 'タイムスタンプ変換ツール',
       description:
-        'Unixタイムスタンプ（秒/ミリ秒）と日時文字列を相互変換できます。Stock Trackerで利用しているタイムゾーンに対応しています。',
+        'Unixタイムスタンプ（秒/ミリ秒）と日時文字列を相互変換できます。主要な取引所のタイムゾーンに対応しています。',
       icon: <AccessTimeIcon sx={{ fontSize: 48 }} />,
       href: '/timestamp-converter',
       category: '変換ツール',

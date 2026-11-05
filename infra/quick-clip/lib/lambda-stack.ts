@@ -6,6 +6,7 @@ import { Construct } from 'constructs';
 import {
   LambdaStackBase,
   LambdaStackBaseProps,
+  createEcrImageFunction,
   grantErrorEventsWrite,
   getServiceUrl,
 } from '@nagiyu/infra-common';
@@ -69,6 +70,9 @@ export class LambdaStack extends LambdaStackBase {
       environment,
       ecrRepositoryName: webEcrRepositoryName,
       lambdaConfig: {
+        // CloudFormation 管理外の同名ロググループが既にあり、LogGroup を作ると名前が衝突するため
+        // 既存のものを引き継ぐ。この関数が既存だから付けているもので、新しい関数では付けない。
+        adoptExistingLogGroup: true,
         functionName: `nagiyu-quick-clip-web-${environment}`,
         logicalId: 'WebFunction',
         memorySize: 1024,
@@ -153,13 +157,11 @@ export class LambdaStack extends LambdaStackBase {
       zipLambdaEcrRepositoryName
     );
 
-    this.clipFunction = new lambda.Function(this, 'ClipRegenerateFunction', {
+    this.clipFunction = createEcrImageFunction(this, 'ClipRegenerateFunction', {
       functionName: `nagiyu-quick-clip-clip-regenerate-${environment}`,
-      runtime: lambda.Runtime.FROM_IMAGE,
-      handler: lambda.Handler.FROM_IMAGE,
-      code: lambda.Code.fromEcrImage(clipLambdaRepository, {
-        tagOrDigest: 'latest',
-      }),
+      serviceName: 'quick-clip',
+      deployEnvironment: environment,
+      repository: clipLambdaRepository,
       memorySize: 2048,
       timeout: cdk.Duration.seconds(300),
       ephemeralStorageSize: cdk.Size.mebibytes(10240),
@@ -171,8 +173,10 @@ export class LambdaStack extends LambdaStackBase {
         DEPLOY_ENV: environment,
         DYNAMODB_TABLE_NAME: jobsTableName,
         S3_BUCKET: storageBucketName,
-        ERROR_EVENTS_TABLE_NAME: `nagiyu-error-events-${environment}`,
       },
+      // CloudFormation 管理外の同名ロググループが既にあり、LogGroup を作ると名前が衝突するため
+      // 既存のものを引き継ぐ。この関数が既存だから付けているもので、新しい関数では付けない。
+      adoptExistingLogGroup: true,
     });
     this.clipFunction.addToRolePolicy(
       new iam.PolicyStatement({
@@ -196,21 +200,21 @@ export class LambdaStack extends LambdaStackBase {
       })
     );
 
-    this.zipFunction = new lambda.Function(this, 'ZipGeneratorFunction', {
+    this.zipFunction = createEcrImageFunction(this, 'ZipGeneratorFunction', {
       functionName: `nagiyu-quick-clip-zip-generator-${environment}`,
-      runtime: lambda.Runtime.FROM_IMAGE,
-      handler: lambda.Handler.FROM_IMAGE,
-      code: lambda.Code.fromEcrImage(zipLambdaRepository, {
-        tagOrDigest: 'latest',
-      }),
+      serviceName: 'quick-clip',
+      deployEnvironment: environment,
+      repository: zipLambdaRepository,
       memorySize: 1024,
       timeout: cdk.Duration.seconds(120),
       environment: {
         NODE_ENV: environment === 'prod' ? 'production' : 'development',
         DEPLOY_ENV: environment,
         S3_BUCKET: storageBucketName,
-        ERROR_EVENTS_TABLE_NAME: `nagiyu-error-events-${environment}`,
       },
+      // CloudFormation 管理外の同名ロググループが既にあり、LogGroup を作ると名前が衝突するため
+      // 既存のものを引き継ぐ。この関数が既存だから付けているもので、新しい関数では付けない。
+      adoptExistingLogGroup: true,
     });
     this.zipFunction.addToRolePolicy(
       new iam.PolicyStatement({
@@ -228,8 +232,6 @@ export class LambdaStack extends LambdaStackBase {
     );
 
     grantErrorEventsWrite(this, this.webFunction, environment);
-    grantErrorEventsWrite(this, this.clipFunction, environment);
-    grantErrorEventsWrite(this, this.zipFunction, environment);
 
     new cdk.CfnOutput(this, 'ClipRegenerateFunctionArn', {
       value: this.clipFunction.functionArn,

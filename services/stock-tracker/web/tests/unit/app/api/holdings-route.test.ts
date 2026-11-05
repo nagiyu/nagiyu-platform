@@ -168,9 +168,15 @@ describe('POST /api/holdings', () => {
     jest.clearAllMocks();
     (createHoldingRepository as jest.Mock).mockReturnValue({ create: mockCreate });
     (createTickerRepository as jest.Mock).mockReturnValue({ getById: mockGetTickerById });
+    mockGetTickerById.mockResolvedValue({
+      tickerId: 'NSDQ:AAPL',
+      exchangeId: 'NSDQ',
+      symbol: 'AAPL',
+      name: 'Apple Inc.',
+    });
   });
 
-  it('取引所 ID をティッカー ID から補って保有株式を登録する', async () => {
+  it('取引所 ID をティッカーマスタから補って保有株式を登録する', async () => {
     mockCreate.mockResolvedValue({
       userId: 'test-user',
       tickerId: 'NSDQ:AAPL',
@@ -181,7 +187,6 @@ describe('POST /api/holdings', () => {
       createdAt: 1704067200000,
       updatedAt: 1704067200000,
     });
-    mockGetTickerById.mockResolvedValue({ symbol: 'AAPL', name: 'Apple Inc.' });
 
     const response = await POST(
       createRequest(JSON.stringify({ ...validBody, userId: 'other-user' }))
@@ -211,7 +216,6 @@ describe('POST /api/holdings', () => {
     expect(response.status).toBe(400);
     expect(body.error).toBe('INVALID_REQUEST');
     expect(body.message).toBe('指定された銘柄は既に保有株式として登録されています');
-    expect(mockGetTickerById).not.toHaveBeenCalled();
     expect(awsModule.reportErrorEvent).not.toHaveBeenCalled();
   });
 
@@ -240,7 +244,65 @@ describe('POST /api/holdings', () => {
     expect(response.status).toBe(400);
     expect((await response.json()).error).toBe('INVALID_REQUEST');
     expect(mockCreate).not.toHaveBeenCalled();
-    expect(mockGetTickerById).not.toHaveBeenCalled();
+  });
+
+  it('取引所 ID と API キーが異なる取引所では、ティッカーマスタの取引所 ID で登録する', async () => {
+    mockGetTickerById.mockResolvedValue({
+      tickerId: 'OSE:6758',
+      exchangeId: 'JPX-EX',
+      symbol: '6758',
+      name: 'ソニーグループ',
+    });
+    mockCreate.mockResolvedValue({
+      userId: 'test-user',
+      tickerId: 'OSE:6758',
+      exchangeId: 'JPX-EX',
+      quantity: 10,
+      averagePrice: 3000,
+      currency: 'JPY',
+      createdAt: 1704067200000,
+      updatedAt: 1704067200000,
+    });
+
+    const response = await POST(
+      createRequest(JSON.stringify({ ...validBody, tickerId: 'OSE:6758', currency: 'JPY' }))
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(201);
+    expect(body.exchangeId).toBe('JPX-EX');
+    expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({ exchangeId: 'JPX-EX' }));
+  });
+
+  it('指定された取引所 ID がティッカーマスタと異なる場合は 400 を返す', async () => {
+    mockGetTickerById.mockResolvedValue({
+      tickerId: 'OSE:6758',
+      exchangeId: 'JPX-EX',
+      symbol: '6758',
+      name: 'ソニーグループ',
+    });
+
+    const response = await POST(
+      createRequest(JSON.stringify({ ...validBody, tickerId: 'OSE:6758', exchangeId: 'OSE' }))
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.error).toBe('INVALID_REQUEST');
+    expect(body.message).toBe('指定された取引所IDが銘柄の取引所と一致しません');
+    expect(mockCreate).not.toHaveBeenCalled();
+  });
+
+  it('ティッカーが存在しない場合は 400 を返す', async () => {
+    mockGetTickerById.mockResolvedValue(null);
+
+    const response = await POST(createRequest(JSON.stringify(validBody)));
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.error).toBe('INVALID_REQUEST');
+    expect(body.message).toBe('指定された銘柄が見つかりません');
+    expect(mockCreate).not.toHaveBeenCalled();
   });
 
   it('壊れた JSON の場合は専用のメッセージを返す', async () => {

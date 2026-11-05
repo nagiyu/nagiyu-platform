@@ -342,7 +342,7 @@ lint・format・ユニットテスト・カバレッジ・契約テストは、�
 1. `{target}-verify.yml` を作り、`dirs` を渡して再利用ワークフローを呼ぶ。パッケージを同じディレクトリ配下に足すだけなら、ワークフローは変えない
 2. 検査をかけたいものは、そのパッケージに npm scripts を用意する。用意しなければ、その検査はかからない。**漏れても CI は赤くならない**ため、新しいパッケージには `lint` / `format:check` / `test` / `test:coverage` を揃えるのを基本とする
 3. ユニットテストの前に、web や batch が参照する `core` と、infra が参照する `@nagiyu/infra-common` はビルドされる。この前提から外れる構成 (別名の共有パッケージなど) では、ワークフロー側の変更が要る
-4. ビルド・Docker・synth・E2E・サービス固有の検査 (portal の内部リンクチェック、niconico の batch の `test:integration` など) は、`{target}-verify.yml` 側にジョブとして残す。再利用ワークフローの対象外である
+4. ビルド・Docker・synth・E2E・サービス固有の検査 (portal の内部リンクチェックなど) は、`{target}-verify.yml` 側にジョブとして残す。再利用ワークフローの対象外である
 
 **検査の流し方**:
 
