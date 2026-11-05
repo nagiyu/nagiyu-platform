@@ -74,7 +74,7 @@ describe('syncStripeCustomer', () => {
     const stripe = buildStripe({
       customer: { id: 'cus_1', metadata: { userId } },
       subscriptions: [subscription('sub_1', 'active')],
-      features: { prod_live: ['livetalk-premium'] },
+      features: { prod_live: ['livetalk-standard'] },
     });
 
     const result = await syncStripeCustomer(deps(stripe, repo), 'cus_1');
@@ -84,7 +84,7 @@ describe('syncStripeCustomer', () => {
       changed: true,
       subscriptions: [
         {
-          roleId: 'livetalk-premium',
+          roleId: 'livetalk-standard',
           subscriptionId: 'sub_1',
           currentPeriodEnd: PERIOD_END_SEC * 1000,
           endsAt: null,
@@ -95,7 +95,7 @@ describe('syncStripeCustomer', () => {
     expect(user?.roleGrants).toEqual([
       {
         grantId: 'grant-1',
-        roleId: 'livetalk-premium',
+        roleId: 'livetalk-standard',
         source: 'stripe',
         sourceRef: 'sub_1',
         expiresAt: EXPECTED_EXPIRES_AT,
@@ -110,7 +110,7 @@ describe('syncStripeCustomer', () => {
     const stripe = buildStripe({
       customer: { id: 'cus_1', metadata: { userId } },
       subscriptions: [subscription('sub_1', 'trialing')],
-      features: { prod_live: ['livetalk-premium'] },
+      features: { prod_live: ['livetalk-standard'] },
     });
     await syncStripeCustomer(deps(stripe, repo), 'cus_1');
     const before = await repo.getUserById(userId);
@@ -132,14 +132,14 @@ describe('syncStripeCustomer', () => {
         subscription('sub_c', 'canceled', 'prod_b'),
         subscription('sub_i', 'incomplete', 'prod_b'),
       ],
-      features: { prod_a: ['livetalk-premium'], prod_b: ['quick-clip-premium'] },
+      features: { prod_a: ['livetalk-standard'], prod_b: ['quick-clip-standard'] },
     });
 
     await syncStripeCustomer(deps(stripe, repo), 'cus_1');
 
     const user = await repo.getUserById(userId);
     expect(user?.roleGrants?.map((g) => [g.roleId, g.sourceRef])).toEqual([
-      ['livetalk-premium', 'sub_pd'],
+      ['livetalk-standard', 'sub_pd'],
     ]);
   });
 
@@ -147,7 +147,7 @@ describe('syncStripeCustomer', () => {
     const { repo, userId } = await setup();
     const manual: RoleGrant = {
       grantId: 'm1',
-      roleId: 'livetalk-premium',
+      roleId: 'livetalk-standard',
       source: 'manual',
       expiresAt: NOW + 1000,
       createdAt: NOW,
@@ -158,7 +158,7 @@ describe('syncStripeCustomer', () => {
         manual,
         {
           grantId: 's1',
-          roleId: 'livetalk-premium',
+          roleId: 'livetalk-standard',
           source: 'stripe',
           sourceRef: 'sub_1',
           expiresAt: EXPECTED_EXPIRES_AT,
@@ -204,7 +204,7 @@ describe('syncStripeCustomer', () => {
       store.putByKey(key, { ...store.getByKey(key), StripeCustomerId: 'cus_1' });
       const stripe = buildStripe({
         customer: { id: 'cus_1', metadata: { userId: created.userId } },
-        features: { prod_old: ['livetalk-premium'], prod_new: ['quick-clip-premium'] },
+        features: { prod_old: ['livetalk-standard'], prod_new: ['quick-clip-standard'] },
       });
       // 1 回目の読み取りの最中に割り込まれ、2 回目では契約が変わっている
       let interrupted = false;
@@ -224,7 +224,7 @@ describe('syncStripeCustomer', () => {
       expect(stripe.subscriptions.list).toHaveBeenCalledTimes(2);
       const grants = (await repo.getUserById(created.userId))?.roleGrants;
       expect(grants?.map((g) => [g.roleId, g.sourceRef])).toEqual([
-        ['quick-clip-premium', 'sub_new'],
+        ['quick-clip-standard', 'sub_new'],
       ]);
     });
 
@@ -232,7 +232,7 @@ describe('syncStripeCustomer', () => {
       const { repo, store, userId } = await setup();
       const stripe = buildStripe({
         customer: { id: 'cus_1', metadata: { userId } },
-        features: { prod_live: ['livetalk-premium'] },
+        features: { prod_live: ['livetalk-standard'] },
       });
       await interruptOnList(stripe, store, userId, [[subscription('sub_1', 'active')]]);
 
@@ -248,7 +248,7 @@ describe('syncStripeCustomer', () => {
     const stripe = buildStripe({
       customer: { id: 'cus_1', metadata: { userId } },
       subscriptions: [subscription('sub_1', 'active'), subscription('sub_2', 'active')],
-      features: { prod_live: ['livetalk-premium'] },
+      features: { prod_live: ['livetalk-standard'] },
     });
 
     await syncStripeCustomer(deps(stripe, repo), 'cus_1');
@@ -261,13 +261,13 @@ describe('syncStripeCustomer', () => {
     const stripe = buildStripe({
       customer: { id: 'cus_1', metadata: { userId } },
       subscriptions: [subscription('sub_1', 'active', { id: 'prod_x' })],
-      features: { prod_x: ['quick-clip-premium'] },
+      features: { prod_x: ['quick-clip-standard'] },
     });
 
     await syncStripeCustomer(deps(stripe, repo), 'cus_1');
 
     expect(stripe.listFeatures).toHaveBeenCalledWith('prod_x', expect.anything());
-    expect((await repo.getUserById(userId))?.roleGrants?.[0].roleId).toBe('quick-clip-premium');
+    expect((await repo.getUserById(userId))?.roleGrants?.[0].roleId).toBe('quick-clip-standard');
   });
 
   it('有料ロールでない lookup_key は無視する', async () => {
@@ -318,7 +318,7 @@ describe('syncStripeCustomer', () => {
     const stripe = buildStripe({
       customer: { id: 'cus_1', metadata: { userId } },
       subscriptions: [subscription('sub_1', 'active')],
-      features: { prod_live: ['livetalk-premium'] },
+      features: { prod_live: ['livetalk-standard'] },
     });
 
     expect(await syncStripeCustomer(deps(stripe, repo), 'cus_1')).toEqual({
@@ -342,7 +342,7 @@ describe('syncStripeCustomer', () => {
     const stripe = buildStripe({
       customer: { id: 'cus_1', metadata: { userId } },
       subscriptions: [subscription('sub_1', 'active', 'prod_live', futureSec)],
-      features: { prod_live: ['livetalk-premium'] },
+      features: { prod_live: ['livetalk-standard'] },
     });
 
     await syncStripeCustomer({ stripe, userRepository: repo }, 'cus_1');
@@ -384,7 +384,7 @@ describe('listEntitledSubscriptions', () => {
     };
     const stripe = buildStripe({
       subscriptions: [canceling, cancelAt, subscription('sub_c', 'active')],
-      features: { prod_live: ['livetalk-premium'] },
+      features: { prod_live: ['livetalk-standard'] },
     });
 
     const result = await listEntitledSubscriptions(stripe, 'cus_1');

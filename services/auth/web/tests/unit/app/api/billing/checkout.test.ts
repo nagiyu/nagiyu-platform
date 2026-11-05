@@ -55,7 +55,7 @@ describe('POST /api/billing/checkout', () => {
   it('未認証なら 401', async () => {
     mockGetSession.mockResolvedValue(null);
 
-    const response = await POST(buildRequest({ roleId: 'livetalk-premium' }));
+    const response = await POST(buildRequest({ roleId: 'livetalk-standard' }));
 
     expect(response.status).toBe(401);
   });
@@ -63,7 +63,7 @@ describe('POST /api/billing/checkout', () => {
   it('課金が無効なら 503', async () => {
     mockGetBillingConfig.mockReturnValue(null);
 
-    const response = await POST(buildRequest({ roleId: 'livetalk-premium' }));
+    const response = await POST(buildRequest({ roleId: 'livetalk-standard' }));
 
     expect(response.status).toBe(503);
   });
@@ -79,7 +79,7 @@ describe('POST /api/billing/checkout', () => {
   );
 
   it('callbackUrl が文字列でなければ 400', async () => {
-    const response = await POST(buildRequest({ roleId: 'livetalk-premium', callbackUrl: 1 }));
+    const response = await POST(buildRequest({ roleId: 'livetalk-standard', callbackUrl: 1 }));
 
     expect(response.status).toBe(400);
   });
@@ -87,27 +87,27 @@ describe('POST /api/billing/checkout', () => {
   it('ユーザーがいなければ 404', async () => {
     mockGetUserById.mockResolvedValue(null);
 
-    const response = await POST(buildRequest({ roleId: 'livetalk-premium' }));
+    const response = await POST(buildRequest({ roleId: 'livetalk-standard' }));
 
     expect(response.status).toBe(404);
   });
 
   it('検証した戻り先で Checkout Session を作り、URL を返す', async () => {
     const response = await POST(
-      buildRequest({ roleId: 'livetalk-premium', callbackUrl: 'https://quick-clip.nagiyu.com/a' })
+      buildRequest({ roleId: 'livetalk-standard', callbackUrl: 'https://quick-clip.nagiyu.com/a' })
     );
 
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ url: 'https://checkout.test/s' });
     const [, , roleId, urls] = mockCreateCheckoutSession.mock.calls[0];
-    expect(roleId).toBe('livetalk-premium');
+    expect(roleId).toBe('livetalk-standard');
     expect(urls.successUrl).toContain('/plans?checkout=success&callbackUrl=');
     expect(urls.cancelUrl).toContain(encodeURIComponent('https://quick-clip.nagiyu.com/a'));
   });
 
   it('許可されない戻り先は無視する', async () => {
     await POST(
-      buildRequest({ roleId: 'livetalk-premium', callbackUrl: 'https://evil.example.com/' })
+      buildRequest({ roleId: 'livetalk-standard', callbackUrl: 'https://evil.example.com/' })
     );
 
     const [, , , urls] = mockCreateCheckoutSession.mock.calls[0];
@@ -118,7 +118,7 @@ describe('POST /api/billing/checkout', () => {
   it('既に契約中なら 409', async () => {
     mockCreateCheckoutSession.mockResolvedValue({ ok: false, reason: 'already-subscribed' });
 
-    const response = await POST(buildRequest({ roleId: 'livetalk-premium' }));
+    const response = await POST(buildRequest({ roleId: 'livetalk-standard' }));
 
     expect(response.status).toBe(409);
   });
@@ -126,7 +126,7 @@ describe('POST /api/billing/checkout', () => {
   it('Price が無ければ 503', async () => {
     mockCreateCheckoutSession.mockResolvedValue({ ok: false, reason: 'price-not-found' });
 
-    const response = await POST(buildRequest({ roleId: 'livetalk-premium' }));
+    const response = await POST(buildRequest({ roleId: 'livetalk-standard' }));
 
     expect(response.status).toBe(503);
   });
@@ -134,7 +134,7 @@ describe('POST /api/billing/checkout', () => {
   it('有料ロールでないと判定されたら 400', async () => {
     mockCreateCheckoutSession.mockResolvedValue({ ok: false, reason: 'invalid-role' });
 
-    const response = await POST(buildRequest({ roleId: 'livetalk-premium' }));
+    const response = await POST(buildRequest({ roleId: 'livetalk-standard' }));
 
     expect(response.status).toBe(400);
   });
@@ -142,7 +142,7 @@ describe('POST /api/billing/checkout', () => {
   it('想定外の失敗は 500', async () => {
     mockCreateCheckoutSession.mockRejectedValue(new Error('boom'));
 
-    const response = await POST(buildRequest({ roleId: 'livetalk-premium' }));
+    const response = await POST(buildRequest({ roleId: 'livetalk-standard' }));
 
     expect(response.status).toBe(500);
   });

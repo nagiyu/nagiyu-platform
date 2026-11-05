@@ -37,7 +37,7 @@ function buildStripe(options: Options = {}) {
     },
     products: {
       listFeatures: jest.fn(async () => ({
-        data: [{ entitlement_feature: { lookup_key: 'livetalk-premium' } }],
+        data: [{ entitlement_feature: { lookup_key: 'livetalk-standard' } }],
       })),
     },
     prices: {
@@ -47,7 +47,7 @@ function buildStripe(options: Options = {}) {
           data: [
             {
               id: 'price_1',
-              lookup_key: 'livetalk-premium',
+              lookup_key: 'livetalk-standard',
               unit_amount: 500,
               currency: 'jpy',
               recurring: { interval: 'month', interval_count: 1 },
@@ -181,7 +181,7 @@ describe('loadPlansPageData', () => {
       priceFetchFailed: true,
       stateLabel: null,
     });
-    expect(data.cards).toHaveLength(2);
+    expect(data.cards).toHaveLength(3);
   });
 
   it('価格を読めたが無いロールは、枠を出さない', async () => {
@@ -190,7 +190,7 @@ describe('loadPlansPageData', () => {
     const data = await loadPlansPageData(deps, null);
 
     if (!data.billingEnabled) throw new Error('unreachable');
-    expect(data.cards.map((c) => c.roleId)).toEqual(['livetalk-premium']);
+    expect(data.cards.map((c) => c.roleId)).toEqual(['livetalk-standard']);
     expect(data.cards[0].priceFetchFailed).toBe(false);
   });
 });
@@ -232,7 +232,7 @@ describe('syncUserForPlans', () => {
     const { subscriptions } = await syncUserForPlans(deps, userId);
 
     expect(subscriptions).toEqual([
-      expect.objectContaining({ roleId: 'livetalk-premium', subscriptionId: 'sub_1' }),
+      expect.objectContaining({ roleId: 'livetalk-standard', subscriptionId: 'sub_1' }),
     ]);
   });
 });
