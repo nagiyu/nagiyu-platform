@@ -57,6 +57,8 @@ export default function CommercialTransactionsTable({
                   display: { xs: 'block', sm: 'table-cell' },
                   width: { sm: '30%' },
                   fontWeight: 600,
+                  // 内容が複数行になっても、項目名を内容の 1 行目に揃える
+                  verticalAlign: 'top',
                   borderBottom: { xs: 'none', sm: undefined },
                   pb: { xs: 0, sm: undefined },
                 }}
@@ -66,6 +68,7 @@ export default function CommercialTransactionsTable({
               <TableCell
                 sx={{
                   display: { xs: 'block', sm: 'table-cell' },
+                  verticalAlign: 'top',
                   // 長い本文や URL がはみ出さないよう折り返す
                   overflowWrap: 'anywhere',
                 }}
