@@ -123,6 +123,11 @@ export default async function PlansPage({ searchParams }: PlansPageProps) {
             </Typography>
           </>
         )}
+
+        {/* 課金が無効 (準備中) でも出す。決済事業者の審査が表記の URL を確かめるため */}
+        <Box sx={{ mt: 3 }}>
+          <Link href="/legal/tokushoho">特定商取引法に基づく表記</Link>
+        </Box>
       </Box>
     </Container>
   );
