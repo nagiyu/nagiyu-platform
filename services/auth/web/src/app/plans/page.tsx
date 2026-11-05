@@ -2,7 +2,7 @@ import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { Box, Card, CardContent, Container, Typography } from '@mui/material';
-import { Button, Chip } from '@nagiyu/ui';
+import { Button, Chip, Link as UiLink } from '@nagiyu/ui';
 import { createBillingStripe, createUserRepository, getBillingConfig } from '@nagiyu/auth-core';
 import { getSession } from '@/lib/auth/session';
 import { buildRefreshPath, buildSignInPath } from '@/lib/billing-urls';
@@ -123,6 +123,13 @@ export default async function PlansPage({ searchParams }: PlansPageProps) {
             </Typography>
           </>
         )}
+
+        {/* 課金が無効 (準備中) でも出す。決済事業者の審査が表記の URL を確かめるため */}
+        <Box sx={{ mt: 3 }}>
+          <UiLink asChild>
+            <Link href="/legal/tokushoho">特定商取引法に基づく表記</Link>
+          </UiLink>
+        </Box>
       </Box>
     </Container>
   );

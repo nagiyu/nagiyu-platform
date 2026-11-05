@@ -61,6 +61,10 @@ describe('PlansPage', () => {
     expect(screen.getByText('準備中です')).toBeInTheDocument();
     expect(screen.queryByText('申し込む')).not.toBeInTheDocument();
     expect(loadPlansPageData).not.toHaveBeenCalled();
+    expect(screen.getByRole('link', { name: '特定商取引法に基づく表記' })).toHaveAttribute(
+      'href',
+      '/legal/tokushoho'
+    );
   });
 
   it('説明があれば出し、無ければ要素ごと出さない', async () => {
