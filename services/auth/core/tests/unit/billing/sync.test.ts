@@ -12,28 +12,30 @@ const EXPECTED_EXPIRES_AT = PERIOD_END_SEC * 1000 + GRACE_PERIOD_MS;
 type FakeOptions = {
   customer?: { id: string; deleted?: boolean; metadata?: Record<string, string> | null };
   subscriptions?: BillingSubscription[];
-  features?: Record<string, string[]>;
 };
 
 function subscription(
   id: string,
   status: string,
-  productId: string | { id: string } = 'prod_live',
+  lookupKey: string | null = 'livetalk-standard',
   periodEnd = PERIOD_END_SEC
 ): BillingSubscription {
   return {
     id,
     status,
-    items: { data: [{ current_period_end: periodEnd, price: { product: productId } }] },
+    items: {
+      data: [
+        {
+          id: `si_${id}`,
+          current_period_end: periodEnd,
+          price: { id: `price_${id}`, lookup_key: lookupKey },
+        },
+      ],
+    },
   };
 }
 
-function buildStripe(options: FakeOptions): BillingStripe & { listFeatures: jest.Mock } {
-  const listFeatures = jest.fn(async (productId: string) => ({
-    data: (options.features?.[productId] ?? []).map((lookup_key) => ({
-      entitlement_feature: { lookup_key },
-    })),
-  }));
+function buildStripe(options: FakeOptions): BillingStripe {
   return {
     customers: {
       retrieve: jest.fn(
@@ -41,9 +43,7 @@ function buildStripe(options: FakeOptions): BillingStripe & { listFeatures: jest
       ),
     },
     subscriptions: { list: jest.fn(async () => ({ data: options.subscriptions ?? [] })) },
-    products: { listFeatures },
     webhooks: { constructEvent: jest.fn() },
-    listFeatures,
   };
 }
 
@@ -74,7 +74,6 @@ describe('syncStripeCustomer', () => {
     const stripe = buildStripe({
       customer: { id: 'cus_1', metadata: { userId } },
       subscriptions: [subscription('sub_1', 'active')],
-      features: { prod_live: ['livetalk-standard'] },
     });
 
     const result = await syncStripeCustomer(deps(stripe, repo), 'cus_1');
@@ -86,6 +85,7 @@ describe('syncStripeCustomer', () => {
         {
           roleId: 'livetalk-standard',
           subscriptionId: 'sub_1',
+          subscriptionItemId: 'si_sub_1',
           currentPeriodEnd: PERIOD_END_SEC * 1000,
           endsAt: null,
         },
@@ -110,7 +110,6 @@ describe('syncStripeCustomer', () => {
     const stripe = buildStripe({
       customer: { id: 'cus_1', metadata: { userId } },
       subscriptions: [subscription('sub_1', 'trialing')],
-      features: { prod_live: ['livetalk-standard'] },
     });
     await syncStripeCustomer(deps(stripe, repo), 'cus_1');
     const before = await repo.getUserById(userId);
@@ -128,11 +127,10 @@ describe('syncStripeCustomer', () => {
     const stripe = buildStripe({
       customer: { id: 'cus_1', metadata: { userId } },
       subscriptions: [
-        subscription('sub_pd', 'past_due', 'prod_a'),
-        subscription('sub_c', 'canceled', 'prod_b'),
-        subscription('sub_i', 'incomplete', 'prod_b'),
+        subscription('sub_pd', 'past_due', 'livetalk-standard'),
+        subscription('sub_c', 'canceled', 'quick-clip-standard'),
+        subscription('sub_i', 'incomplete', 'quick-clip-standard'),
       ],
-      features: { prod_a: ['livetalk-standard'], prod_b: ['quick-clip-standard'] },
     });
 
     await syncStripeCustomer(deps(stripe, repo), 'cus_1');
@@ -204,7 +202,6 @@ describe('syncStripeCustomer', () => {
       store.putByKey(key, { ...store.getByKey(key), StripeCustomerId: 'cus_1' });
       const stripe = buildStripe({
         customer: { id: 'cus_1', metadata: { userId: created.userId } },
-        features: { prod_old: ['livetalk-standard'], prod_new: ['quick-clip-standard'] },
       });
       // 1 回目の読み取りの最中に割り込まれ、2 回目では契約が変わっている
       let interrupted = false;
@@ -213,9 +210,9 @@ describe('syncStripeCustomer', () => {
           interrupted = true;
           const raw = store.getByKey(key) as Record<string, unknown>;
           store.putByKey(key, { ...raw, UpdatedAt: (raw.UpdatedAt as number) + 1 });
-          return { data: [subscription('sub_old', 'active', 'prod_old')] };
+          return { data: [subscription('sub_old', 'active', 'livetalk-standard')] };
         }
-        return { data: [subscription('sub_new', 'active', 'prod_new')] };
+        return { data: [subscription('sub_new', 'active', 'quick-clip-standard')] };
       });
 
       const result = await syncStripeCustomer(deps(stripe, repo), 'cus_1');
@@ -232,7 +229,6 @@ describe('syncStripeCustomer', () => {
       const { repo, store, userId } = await setup();
       const stripe = buildStripe({
         customer: { id: 'cus_1', metadata: { userId } },
-        features: { prod_live: ['livetalk-standard'] },
       });
       await interruptOnList(stripe, store, userId, [[subscription('sub_1', 'active')]]);
 
@@ -243,39 +239,27 @@ describe('syncStripeCustomer', () => {
     });
   });
 
-  it('同じ商品の機能の取得は 1 回にまとめる', async () => {
+  it('価格の lookup_key で段ごとのロールを決め、商品の機能は読まない', async () => {
     const { repo, userId } = await setup();
     const stripe = buildStripe({
       customer: { id: 'cus_1', metadata: { userId } },
-      subscriptions: [subscription('sub_1', 'active'), subscription('sub_2', 'active')],
-      features: { prod_live: ['livetalk-standard'] },
+      subscriptions: [subscription('sub_1', 'active', 'quick-clip-pro')],
     });
+    const result = await syncStripeCustomer(deps(stripe, repo), 'cus_1');
 
-    await syncStripeCustomer(deps(stripe, repo), 'cus_1');
-
-    expect(stripe.listFeatures).toHaveBeenCalledTimes(1);
+    expect(result).toMatchObject({
+      synced: true,
+      subscriptions: [{ roleId: 'quick-clip-pro', subscriptionItemId: 'si_sub_1' }],
+    });
+    expect((await repo.getUserById(userId))?.roleGrants?.[0].roleId).toBe('quick-clip-pro');
+    expect('products' in stripe).toBe(false);
   });
 
-  it('展開された商品オブジェクトの ID も扱える', async () => {
+  it.each([['admin'], [null]])('有料ロールでない lookup_key (%s) は無視する', async (lookupKey) => {
     const { repo, userId } = await setup();
     const stripe = buildStripe({
       customer: { id: 'cus_1', metadata: { userId } },
-      subscriptions: [subscription('sub_1', 'active', { id: 'prod_x' })],
-      features: { prod_x: ['quick-clip-standard'] },
-    });
-
-    await syncStripeCustomer(deps(stripe, repo), 'cus_1');
-
-    expect(stripe.listFeatures).toHaveBeenCalledWith('prod_x', expect.anything());
-    expect((await repo.getUserById(userId))?.roleGrants?.[0].roleId).toBe('quick-clip-standard');
-  });
-
-  it('有料ロールでない lookup_key は無視する', async () => {
-    const { repo, userId } = await setup();
-    const stripe = buildStripe({
-      customer: { id: 'cus_1', metadata: { userId } },
-      subscriptions: [subscription('sub_1', 'active')],
-      features: { prod_live: ['admin', 'unknown-feature'] },
+      subscriptions: [subscription('sub_1', 'active', lookupKey)],
     });
 
     const result = await syncStripeCustomer(deps(stripe, repo), 'cus_1');
@@ -318,7 +302,6 @@ describe('syncStripeCustomer', () => {
     const stripe = buildStripe({
       customer: { id: 'cus_1', metadata: { userId } },
       subscriptions: [subscription('sub_1', 'active')],
-      features: { prod_live: ['livetalk-standard'] },
     });
 
     expect(await syncStripeCustomer(deps(stripe, repo), 'cus_1')).toEqual({
@@ -341,8 +324,7 @@ describe('syncStripeCustomer', () => {
     const futureSec = Math.floor(Date.now() / 1000) + 24 * 60 * 60;
     const stripe = buildStripe({
       customer: { id: 'cus_1', metadata: { userId } },
-      subscriptions: [subscription('sub_1', 'active', 'prod_live', futureSec)],
-      features: { prod_live: ['livetalk-standard'] },
+      subscriptions: [subscription('sub_1', 'active', 'livetalk-standard', futureSec)],
     });
 
     await syncStripeCustomer({ stripe, userRepository: repo }, 'cus_1');
@@ -384,7 +366,6 @@ describe('listEntitledSubscriptions', () => {
     };
     const stripe = buildStripe({
       subscriptions: [canceling, cancelAt, subscription('sub_c', 'active')],
-      features: { prod_live: ['livetalk-standard'] },
     });
 
     const result = await listEntitledSubscriptions(stripe, 'cus_1');

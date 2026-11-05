@@ -22,7 +22,7 @@ const ERROR_MESSAGES = {
   BILLING_DISABLED: BILLING_ERROR_MESSAGES.BILLING_DISABLED,
   INVALID_BODY: 'リクエストの内容が正しくありません',
   INVALID_ROLE: '申し込めないプランです',
-  ALREADY_SUBSCRIBED: 'このプランは既に契約中です',
+  ALREADY_SUBSCRIBED_IN_SERVICE: 'このサービスは既に契約中です。段の変更はプランの画面から行えます',
   PRICE_NOT_FOUND: 'プランの価格を取得できませんでした',
   CHECKOUT_FAILED: '申し込みの準備に失敗しました',
 } as const;
@@ -70,8 +70,11 @@ export const POST = withApiErrorReporting(
     switch (result.reason) {
       case 'invalid-role':
         return NextResponse.json({ error: ERROR_MESSAGES.INVALID_ROLE }, { status: 400 });
-      case 'already-subscribed':
-        return NextResponse.json({ error: ERROR_MESSAGES.ALREADY_SUBSCRIBED }, { status: 409 });
+      case 'already-subscribed-in-service':
+        return NextResponse.json(
+          { error: ERROR_MESSAGES.ALREADY_SUBSCRIBED_IN_SERVICE },
+          { status: 409 }
+        );
       case 'price-not-found':
         return NextResponse.json({ error: ERROR_MESSAGES.PRICE_NOT_FOUND }, { status: 503 });
     }

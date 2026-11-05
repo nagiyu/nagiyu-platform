@@ -25,6 +25,8 @@ export type SyncDependencies = {
 export type EntitledSubscription = {
   roleId: string;
   subscriptionId: string;
+  /** 段の切り替えで差し替える品目の ID */
+  subscriptionItemId: string;
   /** 請求期間の終わり (Unix ミリ秒) */
   currentPeriodEnd: number;
   /** 解約の予約による終了日 (Unix ミリ秒)。予約がなければ null */
@@ -41,7 +43,6 @@ export async function listEntitledSubscriptions(
     limit: 100,
   });
 
-  const lookupKeysByProduct = new Map<string, string[]>();
   const entitled: EntitledSubscription[] = [];
 
   for (const subscription of subscriptions.data) {
@@ -49,35 +50,27 @@ export async function listEntitledSubscriptions(
       continue;
     }
     for (const item of subscription.items.data) {
-      const product = item.price.product;
-      const productId = typeof product === 'string' ? product : product.id;
-
-      let lookupKeys = lookupKeysByProduct.get(productId);
-      if (lookupKeys === undefined) {
-        const features = await stripe.products.listFeatures(productId, { limit: 100 });
-        lookupKeys = features.data.map((feature) => feature.entitlement_feature.lookup_key);
-        lookupKeysByProduct.set(productId, lookupKeys);
+      // 1 サービス = 1 商品で段は価格が表すため、商品の機能ではなく価格の lookup_key で決める
+      const lookupKey = item.price.lookup_key;
+      if (lookupKey === null || !PAID_ROLES.includes(lookupKey)) {
+        logger.warn('有料ロールでない価格の lookup_key を無視しました', {
+          lookupKey,
+          subscriptionId: subscription.id,
+        });
+        continue;
       }
 
       const periodEnd = item.current_period_end * 1000;
       const cancelAt = subscription.cancel_at ? subscription.cancel_at * 1000 : null;
       const endsAt = subscription.cancel_at_period_end ? periodEnd : cancelAt;
 
-      for (const lookupKey of lookupKeys) {
-        if (!PAID_ROLES.includes(lookupKey)) {
-          logger.warn('有料ロールでない機能の lookup_key を無視しました', {
-            lookupKey,
-            subscriptionId: subscription.id,
-          });
-          continue;
-        }
-        entitled.push({
-          roleId: lookupKey,
-          subscriptionId: subscription.id,
-          currentPeriodEnd: periodEnd,
-          endsAt,
-        });
-      }
+      entitled.push({
+        roleId: lookupKey,
+        subscriptionId: subscription.id,
+        subscriptionItemId: item.id,
+        currentPeriodEnd: periodEnd,
+        endsAt,
+      });
     }
   }
 

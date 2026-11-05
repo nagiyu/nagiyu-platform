@@ -1,4 +1,4 @@
-import { PAID_ROLES, logger } from '@nagiyu/common';
+import { PAID_ROLES, getBillingServiceId, logger } from '@nagiyu/common';
 import type { User } from '@nagiyu/common';
 import type { UserRepository } from '../repositories';
 import type { BillingOperationsStripe, BillingPrice } from './stripe-client';
@@ -10,7 +10,7 @@ const CHECKOUT_ERROR_MESSAGES = {
 
 export type CheckoutResult =
   | { ok: true; url: string }
-  | { ok: false; reason: 'invalid-role' | 'already-subscribed' | 'price-not-found' };
+  | { ok: false; reason: 'invalid-role' | 'already-subscribed-in-service' | 'price-not-found' };
 
 export type PortalResult = { ok: true; url: string } | { ok: false; reason: 'no-customer' };
 
@@ -89,8 +89,10 @@ export async function createCheckoutSession(
   const customerId = await ensureStripeCustomer(stripe, userRepository, user);
 
   const entitled = await listEntitledSubscriptions(stripe, customerId);
-  if (entitled.some((entry) => entry.roleId === roleId)) {
-    return { ok: false, reason: 'already-subscribed' };
+  // 段の変更は申し込みではなくプランの画面での切り替えで行うため、同じサービスの契約は段を問わず断る
+  const serviceId = getBillingServiceId(roleId);
+  if (entitled.some((entry) => getBillingServiceId(entry.roleId) === serviceId)) {
+    return { ok: false, reason: 'already-subscribed-in-service' };
   }
 
   const price = (await listPlanPrices(stripe)).get(roleId);

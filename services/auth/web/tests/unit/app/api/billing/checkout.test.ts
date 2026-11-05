@@ -116,7 +116,10 @@ describe('POST /api/billing/checkout', () => {
   });
 
   it('既に契約中なら 409', async () => {
-    mockCreateCheckoutSession.mockResolvedValue({ ok: false, reason: 'already-subscribed' });
+    mockCreateCheckoutSession.mockResolvedValue({
+      ok: false,
+      reason: 'already-subscribed-in-service',
+    });
 
     const response = await POST(buildRequest({ roleId: 'livetalk-standard' }));
 

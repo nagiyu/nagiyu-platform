@@ -28,17 +28,18 @@ function buildStripe(options: Options = {}) {
               status: 'active',
               cancel_at_period_end: options.cancelAtPeriodEnd ?? false,
               items: {
-                data: [{ current_period_end: PERIOD_END_SEC, price: { product: 'prod_1' } }],
+                data: [
+                  {
+                    id: 'si_1',
+                    current_period_end: PERIOD_END_SEC,
+                    price: { id: 'price_1', lookup_key: 'livetalk-standard' },
+                  },
+                ],
               },
             },
           ],
         };
       }),
-    },
-    products: {
-      listFeatures: jest.fn(async () => ({
-        data: [{ entitlement_feature: { lookup_key: 'livetalk-standard' } }],
-      })),
     },
     prices: {
       list: jest.fn(async () => {
@@ -143,7 +144,6 @@ describe('loadPlansPageData', () => {
     await loadPlansPageData(deps, userId);
 
     expect(deps.stripe.subscriptions.list).toHaveBeenCalledTimes(1);
-    expect(deps.stripe.products.listFeatures).toHaveBeenCalledTimes(1);
   });
 
   it('同期が契約を読めなかったときは、表示のために読み直す', async () => {

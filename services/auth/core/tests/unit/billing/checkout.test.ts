@@ -15,7 +15,6 @@ const URLS = {
 
 type Options = {
   subscriptions?: unknown[];
-  features?: string[];
   prices?: BillingPrice[];
   sessionUrl?: string | null;
 };
@@ -42,13 +41,6 @@ function buildStripe(options: Options = {}) {
   const stripe = {
     customers: { retrieve: jest.fn(), create: customersCreate },
     subscriptions: { list: jest.fn(async () => ({ data: options.subscriptions ?? [] })) },
-    products: {
-      listFeatures: jest.fn(async () => ({
-        data: (options.features ?? ['livetalk-standard']).map((k) => ({
-          entitlement_feature: { lookup_key: k },
-        })),
-      })),
-    },
     webhooks: { constructEvent: jest.fn() },
     prices: { list: pricesList },
     checkout: { sessions: { create: sessionsCreate } },
@@ -63,11 +55,21 @@ async function setupUser() {
   return { repo, user };
 }
 
-const activeSubscription = {
-  id: 'sub_1',
-  status: 'active',
-  items: { data: [{ current_period_end: 2_000_000_000, price: { product: 'prod_1' } }] },
-};
+function activeSubscription(lookupKey: string) {
+  return {
+    id: 'sub_1',
+    status: 'active',
+    items: {
+      data: [
+        {
+          id: 'si_1',
+          current_period_end: 2_000_000_000,
+          price: { id: `price_${lookupKey}`, lookup_key: lookupKey },
+        },
+      ],
+    },
+  };
+}
 
 describe('ensureStripeCustomer', () => {
   it('保存済みの顧客 ID があれば Stripe を呼ばずに返す', async () => {
@@ -167,26 +169,31 @@ describe('createCheckoutSession', () => {
     expect(customersCreate).not.toHaveBeenCalled();
   });
 
-  it('同じロールの有効な契約があれば拒否する', async () => {
+  it.each([
+    ['同じ段', 'livetalk-standard', 'livetalk-standard'],
+    ['同じサービスの別の段', 'quick-clip-standard', 'quick-clip-pro'],
+  ])('%sの有効な契約があれば拒否する', async (_label, subscribed, requested) => {
     const { repo, user } = await setupUser();
-    const { stripe, sessionsCreate } = buildStripe({ subscriptions: [activeSubscription] });
+    const { stripe, sessionsCreate } = buildStripe({
+      subscriptions: [activeSubscription(subscribed)],
+      prices: [price(requested)],
+    });
 
     const result = await createCheckoutSession(
       { stripe, userRepository: repo },
       user,
-      'livetalk-standard',
+      requested,
       URLS
     );
 
-    expect(result).toEqual({ ok: false, reason: 'already-subscribed' });
+    expect(result).toEqual({ ok: false, reason: 'already-subscribed-in-service' });
     expect(sessionsCreate).not.toHaveBeenCalled();
   });
 
-  it('別のロールの契約だけなら申し込める', async () => {
+  it('別のサービスの契約だけなら申し込める', async () => {
     const { repo, user } = await setupUser();
     const { stripe } = buildStripe({
-      subscriptions: [activeSubscription],
-      features: ['quick-clip-standard'],
+      subscriptions: [activeSubscription('quick-clip-standard')],
     });
 
     const result = await createCheckoutSession(
