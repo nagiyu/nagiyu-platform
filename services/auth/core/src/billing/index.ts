@@ -3,6 +3,8 @@ export {
   createBillingStripe,
   getBillingConfig,
   type BillingCheckoutParams,
+  type BillingPortalParams,
+  type BillingSchedule,
   type BillingConfig,
   type BillingOperationsStripe,
   type BillingPrice,
@@ -17,13 +19,18 @@ export {
   syncStripeCustomer,
   type SyncDependencies,
   type EntitledSubscription,
+  type ScheduledChange,
   type SyncResult,
 } from './sync';
 export {
   createCheckoutSession,
+  cancelScheduledChange,
+  createPlanChangeSession,
   createPortalSession,
   ensureStripeCustomer,
   listPlanPrices,
+  type CancelScheduledChangeResult,
   type CheckoutResult,
+  type PlanChangeResult,
   type PortalResult,
 } from './checkout';

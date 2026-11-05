@@ -24,6 +24,18 @@ export type BillingSubscriptionItem = {
   price: { id: string; lookup_key: string | null };
 };
 
+/** 契約に付く予約 (Subscription Schedule)。`expand: ['data.schedule']` で展開したときだけ中身が入る */
+export type BillingSchedule = {
+  id: string;
+  status: string;
+  phases: {
+    /** Unix 秒 */
+    start_date: number;
+    /** 展開しない限り価格 ID の文字列。展開の深さの上限のため展開しない */
+    items: { price: string | { id: string } }[];
+  }[];
+};
+
 export type BillingSubscription = {
   id: string;
   status: string;
@@ -31,6 +43,7 @@ export type BillingSubscription = {
   /** Unix 秒。期間の終わり以外を指定された解約でも入る */
   cancel_at?: number | null;
   items: { data: BillingSubscriptionItem[] };
+  schedule?: string | BillingSchedule | null;
 };
 
 export type BillingEvent = {
@@ -47,6 +60,7 @@ export interface BillingStripe {
       customer: string;
       status: 'all';
       limit: number;
+      expand?: string[];
     }): Promise<{ data: BillingSubscription[] }>;
   };
   webhooks: {
@@ -87,10 +101,27 @@ export interface BillingOperationsStripe extends BillingStripe {
   };
   billingPortal: {
     sessions: {
-      create(params: { customer: string; return_url: string }): Promise<{ url: string }>;
+      create(params: BillingPortalParams): Promise<{ url: string }>;
     };
   };
+  subscriptionSchedules: {
+    release(id: string): Promise<unknown>;
+  };
 }
+
+export type BillingPortalParams = {
+  customer: string;
+  return_url: string;
+  /** 指定すると Portal の特定の画面から始める */
+  flow_data?: {
+    type: 'subscription_update_confirm';
+    subscription_update_confirm: {
+      subscription: string;
+      items: { id: string; price: string; quantity: number }[];
+    };
+    after_completion: { type: 'redirect'; redirect: { return_url: string } };
+  };
+};
 
 export type BillingCheckoutParams = {
   mode: 'subscription';
@@ -140,6 +171,9 @@ export function createBillingStripe(secretKey: string): BillingOperationsStripe 
     },
     subscriptions: {
       list: (params) => stripe.subscriptions.list(params),
+    },
+    subscriptionSchedules: {
+      release: (id) => stripe.subscriptionSchedules.release(id),
     },
     webhooks: {
       constructEvent: (payload, header, secret) =>

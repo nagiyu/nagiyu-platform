@@ -1,7 +1,9 @@
 import { InMemorySingleTableStore } from '@nagiyu/aws';
 import type { BillingOperationsStripe, BillingPrice } from '../../../src/billing/stripe-client';
 import {
+  cancelScheduledChange,
   createCheckoutSession,
+  createPlanChangeSession,
   createPortalSession,
   ensureStripeCustomer,
   listPlanPrices,
@@ -35,6 +37,7 @@ function buildStripe(options: Options = {}) {
     url: options.sessionUrl === undefined ? 'https://checkout.test/s' : options.sessionUrl,
   }));
   const portalCreate = jest.fn(async () => ({ url: 'https://portal.test/p' }));
+  const releaseSchedule = jest.fn(async () => ({}));
   const pricesList = jest.fn(async () => ({
     data: options.prices ?? [price('livetalk-standard'), { ...price('x'), lookup_key: null }],
   }));
@@ -45,8 +48,9 @@ function buildStripe(options: Options = {}) {
     prices: { list: pricesList },
     checkout: { sessions: { create: sessionsCreate } },
     billingPortal: { sessions: { create: portalCreate } },
+    subscriptionSchedules: { release: releaseSchedule },
   } as unknown as BillingOperationsStripe;
-  return { stripe, customersCreate, sessionsCreate, portalCreate, pricesList };
+  return { stripe, customersCreate, sessionsCreate, portalCreate, pricesList, releaseSchedule };
 }
 
 async function setupUser() {
@@ -55,8 +59,12 @@ async function setupUser() {
   return { repo, user };
 }
 
-function activeSubscription(lookupKey: string) {
+function activeSubscription(
+  lookupKey: string,
+  extra: Record<string, unknown> = {}
+): Record<string, unknown> {
   return {
+    ...extra,
     id: 'sub_1',
     status: 'active',
     items: {
@@ -274,5 +282,144 @@ describe('createPortalSession', () => {
       customer: 'cus_1',
       return_url: 'https://auth.test/plans',
     });
+  });
+});
+
+const PLAN_URLS = {
+  returnUrl: 'https://auth.test/plans',
+  completionUrl: 'https://auth.test/plans?checkout=success',
+};
+
+const LOWER_SCHEDULE = {
+  id: 'sched_1',
+  status: 'active',
+  phases: [
+    { start_date: 1_000_000_000, items: [{ price: 'price_quick-clip-pro' }] },
+    { start_date: 2_000_000_000, items: [{ price: 'price_quick-clip-standard' }] },
+  ],
+};
+
+describe('createPlanChangeSession', () => {
+  const prices = [price('quick-clip-standard'), price('quick-clip-pro')];
+  const user = { stripeCustomerId: 'cus_1' };
+
+  it.each([
+    ['有料ロールでない', 'admin', user, [], 'invalid-role'],
+    ['顧客がない', 'quick-clip-pro', {}, [], 'not-subscribed'],
+    [
+      '同じサービスの契約がない',
+      'quick-clip-pro',
+      user,
+      [activeSubscription('livetalk-standard')],
+      'not-subscribed',
+    ],
+    ['今の段と同じ', 'quick-clip-pro', user, [activeSubscription('quick-clip-pro')], 'same-plan'],
+    [
+      '解約を予約中',
+      'quick-clip-pro',
+      user,
+      [activeSubscription('quick-clip-standard', { cancel_at_period_end: true })],
+      'canceling',
+    ],
+    [
+      '下げを予約中',
+      'quick-clip-standard',
+      user,
+      [activeSubscription('quick-clip-pro', { schedule: LOWER_SCHEDULE })],
+      'change-scheduled',
+    ],
+  ])('断る: %s', async (_name, roleId, target, subscriptions, reason) => {
+    const { stripe, portalCreate } = buildStripe({ subscriptions, prices });
+
+    const result = await createPlanChangeSession(stripe, target, roleId, PLAN_URLS);
+
+    expect(result).toEqual({ ok: false, reason });
+    expect(portalCreate).not.toHaveBeenCalled();
+  });
+
+  it('行き先の価格がなければ断る', async () => {
+    const { stripe, portalCreate } = buildStripe({
+      subscriptions: [activeSubscription('quick-clip-standard')],
+      prices: [price('quick-clip-standard')],
+    });
+
+    const result = await createPlanChangeSession(stripe, user, 'quick-clip-pro', PLAN_URLS);
+
+    expect(result).toEqual({ ok: false, reason: 'price-not-found' });
+    expect(portalCreate).not.toHaveBeenCalled();
+  });
+
+  it('契約の品目を行き先の価格に差し替える確認画面の URL を返す', async () => {
+    const { stripe, portalCreate } = buildStripe({
+      subscriptions: [activeSubscription('quick-clip-standard')],
+      prices,
+    });
+
+    const result = await createPlanChangeSession(stripe, user, 'quick-clip-pro', PLAN_URLS);
+
+    expect(result).toEqual({ ok: true, url: 'https://portal.test/p' });
+    expect(portalCreate).toHaveBeenCalledWith({
+      customer: 'cus_1',
+      return_url: PLAN_URLS.returnUrl,
+      flow_data: {
+        type: 'subscription_update_confirm',
+        subscription_update_confirm: {
+          subscription: 'sub_1',
+          items: [{ id: 'si_1', price: 'price_quick-clip-pro', quantity: 1 }],
+        },
+        after_completion: { type: 'redirect', redirect: { return_url: PLAN_URLS.completionUrl } },
+      },
+    });
+  });
+});
+
+describe('cancelScheduledChange', () => {
+  async function setupCustomer(subscriptions: unknown[]) {
+    const { repo, user } = await setupUser();
+    const withCustomer = { ...user, stripeCustomerId: 'cus_1' };
+    const built = buildStripe({ subscriptions });
+    // 同期は顧客の取得で終わらせ、ここでは release の呼び出しだけを見る
+    (built.stripe.customers.retrieve as jest.Mock).mockResolvedValue({
+      id: 'cus_1',
+      deleted: true,
+    });
+    return { repo, user: withCustomer, ...built };
+  }
+
+  it('同じサービスの契約の予約を release して同期する', async () => {
+    const { repo, user, stripe, releaseSchedule } = await setupCustomer([
+      activeSubscription('quick-clip-pro', { schedule: LOWER_SCHEDULE }),
+    ]);
+
+    const result = await cancelScheduledChange(
+      { stripe, userRepository: repo },
+      user,
+      'quick-clip'
+    );
+
+    expect(result).toEqual({ ok: true });
+    expect(releaseSchedule).toHaveBeenCalledWith('sched_1');
+    expect(stripe.customers.retrieve).toHaveBeenCalledWith('cus_1');
+  });
+
+  it.each([
+    ['予約がない', [activeSubscription('quick-clip-pro')], 'cus_1'],
+    [
+      '別のサービスの予約だけ',
+      [activeSubscription('livetalk-standard', { schedule: LOWER_SCHEDULE })],
+      'cus_1',
+    ],
+    ['顧客がない', [activeSubscription('quick-clip-pro', { schedule: LOWER_SCHEDULE })], undefined],
+  ])('release しない: %s', async (_name, subscriptions, customerId) => {
+    const { repo, user, stripe, releaseSchedule } = await setupCustomer(subscriptions);
+
+    const result = await cancelScheduledChange(
+      { stripe, userRepository: repo },
+      { ...user, stripeCustomerId: customerId },
+      'quick-clip'
+    );
+
+    expect(result).toEqual({ ok: false, reason: 'no-scheduled-change' });
+    expect(releaseSchedule).not.toHaveBeenCalled();
   });
 });

@@ -4,7 +4,7 @@ import { PAID_ROLES, logger } from '@nagiyu/common';
 import type { UserRepository } from '../repositories';
 import { ROLES_AND_GRANTS_MAX_ATTEMPTS } from '../repositories/user-repository';
 import { computeStripeGrants, isGrantsUnchanged, type DesiredStripeRole } from './grant-diff';
-import type { BillingStripe } from './stripe-client';
+import type { BillingStripe, BillingSubscription } from './stripe-client';
 
 const ENTITLING_STATUSES: ReadonlySet<string> = new Set(['active', 'trialing', 'past_due']);
 
@@ -31,7 +31,42 @@ export type EntitledSubscription = {
   currentPeriodEnd: number;
   /** 解約の予約による終了日 (Unix ミリ秒)。予約がなければ null */
   endsAt: number | null;
+  /** 次の期間から別の価格に切り替わる予約。なければ null */
+  scheduledChange: ScheduledChange | null;
 };
+
+export type ScheduledChange = {
+  scheduleId: string;
+  /** 切り替わり先の価格の ID。ロールへの対応付けは価格の一覧で行う */
+  priceId: string;
+  /** 切り替わる時刻 (Unix ミリ秒) */
+  startsAt: number;
+};
+
+/** 今の期間より後に今と違う価格で始まるフェーズがある、有効な予約だけを下げの予約とみなす */
+function findScheduledChange(
+  schedule: BillingSubscription['schedule'],
+  currentPriceId: string,
+  periodEndSeconds: number
+): ScheduledChange | null {
+  if (!schedule || typeof schedule === 'string') {
+    return null;
+  }
+  if (schedule.status !== 'active' && schedule.status !== 'not_started') {
+    return null;
+  }
+  for (const phase of schedule.phases) {
+    if (phase.start_date < periodEndSeconds) {
+      continue;
+    }
+    const price = phase.items[0]?.price;
+    const priceId = typeof price === 'string' ? price : price?.id;
+    if (priceId && priceId !== currentPriceId) {
+      return { scheduleId: schedule.id, priceId, startsAt: phase.start_date * 1000 };
+    }
+  }
+  return null;
+}
 
 export async function listEntitledSubscriptions(
   stripe: BillingStripe,
@@ -41,6 +76,7 @@ export async function listEntitledSubscriptions(
     customer: customerId,
     status: 'all',
     limit: 100,
+    expand: ['data.schedule'],
   });
 
   const entitled: EntitledSubscription[] = [];
@@ -70,6 +106,11 @@ export async function listEntitledSubscriptions(
         subscriptionItemId: item.id,
         currentPeriodEnd: periodEnd,
         endsAt,
+        scheduledChange: findScheduledChange(
+          subscription.schedule,
+          item.price.id,
+          item.current_period_end
+        ),
       });
     }
   }
