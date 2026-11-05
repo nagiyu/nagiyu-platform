@@ -30,6 +30,8 @@ const ERROR_MESSAGES = {
   INTERNAL_ERROR: '保有株式の取得に失敗しました',
   CREATE_ERROR: '保有株式の登録に失敗しました',
   ALREADY_EXISTS: '指定された銘柄は既に保有株式として登録されています',
+  TICKER_NOT_FOUND: '指定された銘柄が見つかりません',
+  EXCHANGE_ID_MISMATCH: '指定された取引所IDが銘柄の取引所と一致しません',
 } as const;
 
 /**
@@ -45,6 +47,7 @@ const REPORT_TITLES = {
 interface HoldingResponse {
   holdingId: string;
   tickerId: string;
+  exchangeId: string;
   symbol: string;
   name: string;
   quantity: number;
@@ -76,6 +79,7 @@ function mapHoldingToResponse(
   return {
     holdingId,
     tickerId: holding.tickerId,
+    exchangeId: holding.exchangeId,
     symbol: tickerSymbol,
     name: tickerName,
     quantity: holding.quantity,
@@ -186,8 +190,32 @@ export const POST = withApiErrorReporting(
     // ユーザーIDを取得
     const userId = session!.user.id;
 
-    // 取引所IDは未指定ならティッカーID ({取引所}:{シンボル}) の先頭から補う
-    const exchangeId = requestedExchangeId || tickerId?.split(':')[0] || '';
+    // ティッカーID の先頭は取引所の API キーで取引所 ID とは限らないため、取引所 ID はティッカーマスタから引く
+    // tickerId が未指定の場合は検証に任せる
+    const tickerRepo = createTickerRepository();
+    let exchangeId = requestedExchangeId || '';
+    if (tickerId) {
+      const masterTicker = await tickerRepo.getById(tickerId);
+      if (!masterTicker) {
+        return NextResponse.json(
+          {
+            error: 'INVALID_REQUEST',
+            message: ERROR_MESSAGES.TICKER_NOT_FOUND,
+          },
+          { status: 400 }
+        );
+      }
+      if (requestedExchangeId && requestedExchangeId !== masterTicker.exchangeId) {
+        return NextResponse.json(
+          {
+            error: 'INVALID_REQUEST',
+            message: ERROR_MESSAGES.EXCHANGE_ID_MISMATCH,
+          },
+          { status: 400 }
+        );
+      }
+      exchangeId = masterTicker.exchangeId;
+    }
 
     // リクエストボディから Holding オブジェクトを構築
     const holdingData = {
@@ -250,7 +278,6 @@ export const POST = withApiErrorReporting(
     }
 
     // TickerリポジトリでSymbolとNameを取得
-    const tickerRepo = createTickerRepository();
     const ticker = await tickerRepo.getById(createdHolding.tickerId);
 
     // レスポンス形式に変換

@@ -19,6 +19,7 @@ import {
   DEFAULT_LAMBDA_TRACING,
   SSM_PARAMETERS,
   grantErrorEventsWrite,
+  importSharedVpc,
 } from '@nagiyu/infra-common';
 import { AppRuntimePolicy } from './policies/app-runtime-policy';
 import { LambdaExecutionRole } from './roles/lambda-execution-role';
@@ -154,23 +155,11 @@ export class CodecConverterStack extends cdk.Stack {
       });
       grantErrorEventsWrite(this, batchJobRole, envName as 'dev' | 'prod');
 
-      const vpcId = ssm.StringParameter.valueForStringParameter(
+      const { vpc, publicSubnetIds } = importSharedVpc(
         this,
-        SSM_PARAMETERS.VPC_ID(envName as 'dev' | 'prod')
+        'SharedVpc',
+        envName as 'dev' | 'prod'
       );
-      const publicSubnetIdsStr = ssm.StringParameter.valueForStringParameter(
-        this,
-        SSM_PARAMETERS.PUBLIC_SUBNET_IDS(envName as 'dev' | 'prod')
-      );
-      const publicSubnetIds = cdk.Fn.split(',', publicSubnetIdsStr);
-      const vpc = ec2.Vpc.fromVpcAttributes(this, 'SharedVpc', {
-        vpcId,
-        availabilityZones: envName === 'prod' ? ['us-east-1a', 'us-east-1b'] : ['us-east-1a'],
-        publicSubnetIds:
-          envName === 'prod'
-            ? [cdk.Fn.select(0, publicSubnetIds), cdk.Fn.select(1, publicSubnetIds)]
-            : [cdk.Fn.select(0, publicSubnetIds)],
-      });
 
       // Create security group for Batch compute environment
       const batchSecurityGroup = new ec2.SecurityGroup(this, 'BatchSecurityGroup', {

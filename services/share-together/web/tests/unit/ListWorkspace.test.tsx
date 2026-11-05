@@ -762,6 +762,106 @@ describe('ListWorkspace', () => {
     });
   });
 
+  describe('共有データの取得失敗', () => {
+    const GROUP_LISTS_ERROR =
+      'このグループの共有リストを取得できませんでした。時間をおいて再読み込みしてください。';
+    const GROUPS_ERROR =
+      '共有グループ一覧を取得できませんでした。時間をおいて再読み込みしてください。';
+    const EMPTY_MESSAGE = '共有リストはまだありません。「共有リストを作成」から追加できます。';
+
+    const installFailingFetch = (failing: Record<string, () => Promise<Response>>) => {
+      const baseFetch = globalThis.fetch as jest.Mock;
+      const fetchMock = jest
+        .fn()
+        .mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+          if (typeof input === 'string' && failing[input]) {
+            return failing[input]();
+          }
+          return baseFetch(input, init);
+        });
+      Object.defineProperty(globalThis, 'fetch', { writable: true, value: fetchMock });
+      Object.defineProperty(window, 'fetch', { writable: true, value: fetchMock });
+    };
+    const status = (code: number) => () =>
+      Promise.resolve({ ok: false, status: code, json: async () => ({}) } as Response);
+
+    let consoleErrorSpy: jest.SpyInstance;
+    beforeEach(() => {
+      consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    });
+    afterEach(() => {
+      consoleErrorSpy.mockRestore();
+    });
+
+    it('一部のグループが失敗しても、成功したグループのリストは表示する', async () => {
+      installFailingFetch({ '/api/groups/group-2/lists': status(500) });
+      render(<ListWorkspace initialScope="shared" initialListId="group-list-1" />);
+
+      expect(await screen.findByText('買い物リスト（共有）')).toBeInTheDocument();
+      expect(screen.queryByText(GROUP_LISTS_ERROR)).not.toBeInTheDocument();
+      expect(consoleErrorSpy).toHaveBeenCalled();
+    });
+
+    it.each([403, 404, 500])(
+      '失敗したグループ (%i) を選ぶとエラーを出し、空状態の案内は出さない',
+      async (code) => {
+        installFailingFetch({ '/api/groups/group-2/lists': status(code) });
+        render(<ListWorkspace initialScope="shared" initialListId="group-list-1" />);
+        await screen.findByText('買い物リスト（共有）');
+
+        fireEvent.change(screen.getByLabelText('グループ'), { target: { value: 'group-2' } });
+
+        expect(await screen.findByText(GROUP_LISTS_ERROR)).toBeInTheDocument();
+        expect(screen.queryByText(EMPTY_MESSAGE)).not.toBeInTheDocument();
+        expect(screen.getByLabelText('グループ')).toHaveTextContent('ルームメイト');
+      }
+    );
+
+    it('ネットワークエラーで失敗したグループも同様に扱う', async () => {
+      installFailingFetch({
+        '/api/groups/group-1/lists': () => Promise.reject(new TypeError('network')),
+      });
+      render(<ListWorkspace initialScope="shared" initialListId="x" />);
+
+      expect(await screen.findByText(GROUP_LISTS_ERROR)).toBeInTheDocument();
+      expect(screen.queryByText(EMPTY_MESSAGE)).not.toBeInTheDocument();
+    });
+
+    it('全グループ成功時は従来どおりエラーを出さない', async () => {
+      render(<ListWorkspace initialScope="shared" initialListId="group-list-1" />);
+
+      expect(await screen.findByText('買い物リスト（共有）')).toBeInTheDocument();
+      expect(screen.queryByText(GROUP_LISTS_ERROR)).not.toBeInTheDocument();
+      expect(screen.queryByText(GROUPS_ERROR)).not.toBeInTheDocument();
+    });
+
+    it('グループ一覧の取得に失敗したら全体のエラーを出し、「参加しているグループがありません」は出さない', async () => {
+      installFailingFetch({ '/api/groups': status(500) });
+      render(<ListWorkspace initialScope="shared" initialListId="x" />);
+
+      expect(await screen.findByText(GROUPS_ERROR)).toBeInTheDocument();
+      expect(screen.queryByText(/参加しているグループがありません/)).not.toBeInTheDocument();
+      expect(screen.queryByText(EMPTY_MESSAGE)).not.toBeInTheDocument();
+      expect(consoleErrorSpy).toHaveBeenCalled();
+    });
+
+    it('グループ一覧の取得に失敗したときは URL を書き換えない', async () => {
+      installFailingFetch({ '/api/groups': status(500) });
+      render(<ListWorkspace initialScope="shared" initialListId="x" initialGroupId="group-1" />);
+      await screen.findByText(GROUPS_ERROR);
+
+      fireEvent.change(screen.getByLabelText('表示範囲'), { target: { value: 'personal' } });
+      fireEvent.change(screen.getByLabelText('表示範囲'), { target: { value: 'shared' } });
+
+      expect(await screen.findByText(GROUPS_ERROR)).toBeInTheDocument();
+      expect(replaceStateSpy).not.toHaveBeenCalledWith(
+        null,
+        '',
+        expect.stringContaining('groupId=')
+      );
+    });
+  });
+
   it('個人スコープでは共有リストの編集・削除ボタンが表示されない', async () => {
     render(<ListWorkspace initialListId="mock-default-list" />);
 

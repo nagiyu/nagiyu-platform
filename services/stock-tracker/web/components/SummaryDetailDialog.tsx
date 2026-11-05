@@ -67,11 +67,6 @@ const UNAVAILABLE_MESSAGES = {
   error: ERROR_MESSAGES.FORECAST_FETCH_FAILED,
 } as const;
 
-const extractExchangeId = (tickerId: string): string => {
-  const [exchangeId, symbol] = tickerId.split(':');
-  return exchangeId && symbol ? exchangeId : '';
-};
-
 interface ForecastCardProps {
   question: DetailQuestion;
   detail: QuestionDetail | null;
@@ -177,7 +172,7 @@ export default function SummaryDetailDialog({
     setAlertModalState({ open: true, tradeMode, initialPrice });
   };
 
-  const selectedTickerExchangeId = summary ? extractExchangeId(summary.tickerId) : '';
+  const selectedTickerExchangeId = summary?.exchangeId ?? '';
   const forecastData = forecastState.status === 'ok' ? forecastState.data : null;
   const referenceDate = formatReferenceDate(forecastData?.date ?? summary?.date);
   const activeDetail = forecastData?.questions[activeQuestion] ?? null;

@@ -23,6 +23,9 @@ jest.mock('@nagiyu/share-together-core', () => ({
   createGroupRepository: jest.fn(),
   DynamoDBUserRepository: jest.fn(),
   createUserRepository: jest.fn(),
+  // 判定ロジック自体は core 側でテストする。ここでは期限での絞り込みだけを確かめる
+  isInvitationExpired: (membership: { expiresAt?: number }, now: number) =>
+    membership.expiresAt !== undefined && membership.expiresAt <= now,
 }));
 
 import {
@@ -170,6 +173,70 @@ describe('GET /api/invitations', () => {
         ],
       },
     });
+  });
+
+  it('期限切れの招待は一覧から除き、グループ名・招待者名も引かない', async () => {
+    mockGetSessionOrUnauthorized.mockResolvedValue({
+      user: { id: 'user-1' },
+    } as SessionOrUnauthorized);
+    const now = Date.now();
+    mockGetPendingInvitationsByUserId.mockResolvedValue([
+      {
+        groupId: 'group-expired',
+        userId: 'user-1',
+        role: 'MEMBER',
+        status: 'PENDING',
+        invitedBy: 'inviter-expired',
+        expiresAt: now - 1000,
+        createdAt: 1772323200000,
+        updatedAt: 1772323200000,
+      },
+      {
+        groupId: 'group-valid',
+        userId: 'user-1',
+        role: 'MEMBER',
+        status: 'PENDING',
+        invitedBy: 'inviter-valid',
+        expiresAt: now + 60_000,
+        createdAt: 1772323200000,
+        updatedAt: 1772323200000,
+      },
+    ]);
+    mockBatchGetByIds.mockResolvedValue([]);
+    mockBatchGetUsersByIds.mockResolvedValue([]);
+
+    const response = await GET();
+    const body = (await response.json()) as {
+      data: { invitations: Array<{ groupId: string }> };
+    };
+
+    expect(body.data.invitations.map((invitation) => invitation.groupId)).toEqual(['group-valid']);
+    expect(mockBatchGetByIds).toHaveBeenCalledWith(['group-valid']);
+    expect(mockBatchGetUsersByIds).toHaveBeenCalledWith(['inviter-valid']);
+  });
+
+  it('招待がすべて期限切れなら空の一覧を返し、グループ名・招待者名を引かない', async () => {
+    mockGetSessionOrUnauthorized.mockResolvedValue({
+      user: { id: 'user-1' },
+    } as SessionOrUnauthorized);
+    mockGetPendingInvitationsByUserId.mockResolvedValue([
+      {
+        groupId: 'group-expired',
+        userId: 'user-1',
+        role: 'MEMBER',
+        status: 'PENDING',
+        invitedBy: 'inviter-1',
+        expiresAt: Date.now() - 1000,
+        createdAt: 1772323200000,
+        updatedAt: 1772323200000,
+      },
+    ]);
+
+    const response = await GET();
+
+    await expect(response.json()).resolves.toEqual({ data: { invitations: [] } });
+    expect(mockBatchGetByIds).not.toHaveBeenCalled();
+    expect(mockBatchGetUsersByIds).not.toHaveBeenCalled();
   });
 
   it('同じ招待者は 1 回だけ引き、見つからない招待者の名前は空文字になる', async () => {

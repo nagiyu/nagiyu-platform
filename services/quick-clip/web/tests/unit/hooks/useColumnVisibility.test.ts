@@ -4,7 +4,7 @@ import type { ColumnDefinition } from '../../../src/constants/highlightTableColu
 
 const FIXED_COLUMNS: ColumnDefinition[] = [
   { id: 'order', label: 'No.', fixed: true, defaultVisible: true },
-  { id: 'time', label: '開始〜終了(秒)', fixed: true, defaultVisible: true },
+  { id: 'time', label: '開始〜終了', fixed: true, defaultVisible: true },
   { id: 'status', label: '採否', fixed: true, defaultVisible: true },
 ];
 

@@ -35,6 +35,7 @@ const ERROR_MESSAGES = {
 interface HoldingResponse {
   holdingId: string;
   tickerId: string;
+  exchangeId: string;
   symbol: string;
   name: string;
   quantity: number;
@@ -78,6 +79,7 @@ function mapHoldingToResponse(
   return {
     holdingId,
     tickerId: holding.tickerId,
+    exchangeId: holding.exchangeId,
     symbol: tickerSymbol,
     name: tickerName,
     quantity: holding.quantity,

@@ -155,12 +155,12 @@ describe('HighlightsPage 作り直し中の操作制御と復旧', () => {
       });
 
       await renderAndSelect(1);
-      const generatingInputs = await screen.findAllByRole('spinbutton');
+      const generatingInputs = await screen.findAllByRole('textbox', { name: /^(開始|終了)$/ });
       expect(generatingInputs).toHaveLength(2);
       generatingInputs.forEach((input) => expect(input).toBeDisabled());
 
       fireEvent.click(screen.getByText('#2'));
-      const generatedInputs = await screen.findAllByRole('spinbutton');
+      const generatedInputs = await screen.findAllByRole('textbox', { name: /^(開始|終了)$/ });
       generatedInputs.forEach((input) => expect(input).toBeEnabled());
     });
 
@@ -175,8 +175,8 @@ describe('HighlightsPage 作り直し中の操作制御と復旧', () => {
       });
 
       await renderAndSelect(1);
-      const inputs = await screen.findAllByRole('spinbutton');
-      fireEvent.change(inputs[0], { target: { value: '11' } });
+      const inputs = await screen.findAllByRole('textbox', { name: /^(開始|終了)$/ });
+      fireEvent.change(inputs[0], { target: { value: '0:11' } });
       fireEvent.blur(inputs[0]);
 
       await waitFor(() => {
@@ -184,7 +184,9 @@ describe('HighlightsPage 作り直し中の操作制御と復旧', () => {
           '/api/jobs/job-1/highlights/h-1',
           expect.objectContaining({ method: 'PATCH' })
         );
-        screen.getAllByRole('spinbutton').forEach((input) => expect(input).toBeDisabled());
+        screen
+          .getAllByRole('textbox', { name: /^(開始|終了)$/ })
+          .forEach((input) => expect(input).toBeDisabled());
       });
 
       await act(async () => {
@@ -197,7 +199,9 @@ describe('HighlightsPage 作り直し中の操作制御と復旧', () => {
       await waitFor(() => {
         expect(screen.getByText('クリップ生成中...')).toBeInTheDocument();
       });
-      screen.getAllByRole('spinbutton').forEach((input) => expect(input).toBeDisabled());
+      screen
+        .getAllByRole('textbox', { name: /^(開始|終了)$/ })
+        .forEach((input) => expect(input).toBeDisabled());
     });
 
     it('作り直しが終わって GENERATED になったら、入力を再び受け付ける', async () => {
@@ -210,14 +214,18 @@ describe('HighlightsPage 作り直し中の操作制御と復旧', () => {
       });
 
       await renderAndSelect(1);
-      (await screen.findAllByRole('spinbutton')).forEach((input) => expect(input).toBeDisabled());
+      (await screen.findAllByRole('textbox', { name: /^(開始|終了)$/ })).forEach((input) =>
+        expect(input).toBeDisabled()
+      );
 
       act(() => {
         jest.advanceTimersByTime(3000);
       });
 
       await waitFor(() => {
-        screen.getAllByRole('spinbutton').forEach((input) => expect(input).toBeEnabled());
+        screen
+          .getAllByRole('textbox', { name: /^(開始|終了)$/ })
+          .forEach((input) => expect(input).toBeEnabled());
       });
     });
 
@@ -228,14 +236,18 @@ describe('HighlightsPage 作り直し中の操作制御と復旧', () => {
       });
 
       await renderAndSelect(1);
-      (await screen.findAllByRole('spinbutton')).forEach((input) => expect(input).toBeDisabled());
+      (await screen.findAllByRole('textbox', { name: /^(開始|終了)$/ })).forEach((input) =>
+        expect(input).toBeDisabled()
+      );
 
       act(() => {
         jest.advanceTimersByTime(3000);
       });
 
       await waitFor(() => {
-        screen.getAllByRole('spinbutton').forEach((input) => expect(input).toBeEnabled());
+        screen
+          .getAllByRole('textbox', { name: /^(開始|終了)$/ })
+          .forEach((input) => expect(input).toBeEnabled());
       });
     });
 
@@ -251,8 +263,8 @@ describe('HighlightsPage 作り直し中の操作制御と復旧', () => {
       });
 
       await renderAndSelect(1);
-      const inputs = await screen.findAllByRole('spinbutton');
-      fireEvent.change(inputs[0], { target: { value: '11' } });
+      const inputs = await screen.findAllByRole('textbox', { name: /^(開始|終了)$/ });
+      fireEvent.change(inputs[0], { target: { value: '0:11' } });
       fireEvent.blur(inputs[0]);
 
       await waitFor(() => {
@@ -260,7 +272,9 @@ describe('HighlightsPage 作り直し中の操作制御と復旧', () => {
       });
       expect(screen.queryByText('見どころの更新に失敗しました')).not.toBeInTheDocument();
       await waitFor(() => {
-        screen.getAllByRole('spinbutton').forEach((input) => expect(input).toBeDisabled());
+        screen
+          .getAllByRole('textbox', { name: /^(開始|終了)$/ })
+          .forEach((input) => expect(input).toBeDisabled());
       });
     });
 
@@ -272,8 +286,8 @@ describe('HighlightsPage 作り直し中の操作制御と復旧', () => {
       });
 
       await renderAndSelect(1);
-      const inputs = await screen.findAllByRole('spinbutton');
-      fireEvent.change(inputs[0], { target: { value: '11' } });
+      const inputs = await screen.findAllByRole('textbox', { name: /^(開始|終了)$/ });
+      fireEvent.change(inputs[0], { target: { value: '0:11' } });
       fireEvent.blur(inputs[0]);
       await waitFor(() => {
         expect(screen.getByText(CLIP_GENERATING_MESSAGE)).toBeInTheDocument();
@@ -297,8 +311,8 @@ describe('HighlightsPage 作り直し中の操作制御と復旧', () => {
       });
 
       await renderAndSelect(1);
-      const inputs = await screen.findAllByRole('spinbutton');
-      fireEvent.change(inputs[0], { target: { value: '11' } });
+      const inputs = await screen.findAllByRole('textbox', { name: /^(開始|終了)$/ });
+      fireEvent.change(inputs[0], { target: { value: '0:11' } });
       fireEvent.blur(inputs[0]);
 
       await waitFor(() => {
@@ -334,11 +348,11 @@ describe('HighlightsPage 作り直し中の操作制御と復旧', () => {
       const { fetchMock } = installRoutedFetch({ lists: [[buildHighlight(1, 'GENERATED')]] });
 
       await renderAndSelect(1);
-      const inputs = await screen.findAllByRole('spinbutton');
+      const inputs = await screen.findAllByRole('textbox', { name: /^(開始|終了)$/ });
       fireEvent.blur(inputs[0]);
 
       await waitFor(() => {
-        expect(screen.getAllByRole('spinbutton')[0]).toBeEnabled();
+        expect(screen.getAllByRole('textbox', { name: /^(開始|終了)$/ })[0]).toBeEnabled();
       });
       expect(fetchMock).not.toHaveBeenCalledWith(
         expect.stringContaining('/highlights/h-1'),

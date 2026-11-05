@@ -8,7 +8,7 @@ nagiyu プラットフォーム全体で共有されるインフラストラク�
 
 ### VPC Stack
 - **VPC**: ネットワーク基盤
-- **パブリックサブネット**: dev=1個、prod=2個
+- **パブリックサブネット**: dev・prod とも 2 個 (us-east-1a / us-east-1b)
 - **インターネットゲートウェイ**: 外部通信用
 
 ### ECS Cluster Stack

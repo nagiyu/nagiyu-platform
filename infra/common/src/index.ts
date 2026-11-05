@@ -35,6 +35,8 @@ export {
 } from './utils/arn';
 export { SSM_PARAMETERS } from './utils/ssm';
 export { SECRET_NAMES } from './utils/secrets';
+export { importSharedVpc } from './utils/vpc';
+export type { ImportedSharedVpc } from './utils/vpc';
 
 // Default configurations
 export {

@@ -19,7 +19,7 @@ import {
   convertDateTimeToUnixTimestamp,
   convertUnixMillisecondsToDateTime,
   convertUnixSecondsToDateTime,
-  STOCK_TRACKER_TIMEZONE_OPTIONS,
+  TIMEZONE_OPTIONS,
   TimestampConversionResult,
 } from '@/lib/timestamp';
 import { SnackbarState } from '@/types/tools';
@@ -137,8 +137,8 @@ export default function TimestampConverterClient() {
         Unixタイムスタンプ（秒/ミリ秒）と日時文字列を相互変換できます。
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }} align="center">
-        タイムゾーンは Stock Tracker で利用している取引所設定に合わせています。日時入力は
-        YYYY-MM-DDTHH:mm または YYYY-MM-DDTHH:mm:ss 形式をサポートします。
+        タイムゾーンは主要な取引所の所在地から選べます。日時入力は YYYY-MM-DDTHH:mm または
+        YYYY-MM-DDTHH:mm:ss 形式をサポートします。
       </Typography>
 
       <Box sx={{ mb: 3 }}>
@@ -147,7 +147,7 @@ export default function TimestampConverterClient() {
           label="タイムゾーン"
           value={timeZone}
           onChange={setTimeZone}
-          options={STOCK_TRACKER_TIMEZONE_OPTIONS.map((option) => ({
+          options={TIMEZONE_OPTIONS.map((option) => ({
             value: option.value,
             label: option.label,
           }))}

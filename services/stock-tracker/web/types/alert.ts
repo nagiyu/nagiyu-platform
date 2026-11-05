@@ -20,6 +20,7 @@ export interface AlertLine {
 export interface AlertResponse {
   alertId: string;
   tickerId: string;
+  exchangeId: string;
   symbol: string;
   name: string;
   mode: AlertMode;

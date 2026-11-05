@@ -5,7 +5,7 @@ import { timestampConverterStructuredData, toJsonLd } from '@/lib/structuredData
 export const metadata: Metadata = {
   title: 'タイムスタンプ変換ツール - Tools',
   description:
-    'Unixタイムスタンプ（秒/ミリ秒）と日時文字列を相互に変換できる無料ツールです。Stock Trackerで利用しているタイムゾーンに対応し、ブラウザ内で安全に変換できます。',
+    'Unixタイムスタンプ（秒/ミリ秒）と日時文字列を相互に変換できる無料ツールです。主要な取引所のタイムゾーンに対応し、ブラウザ内で安全に変換できます。',
 };
 
 export default function TimestampConverterPage() {

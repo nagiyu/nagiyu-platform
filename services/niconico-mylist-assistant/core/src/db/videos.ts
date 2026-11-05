@@ -168,7 +168,7 @@ export async function deleteUserVideoSetting(userId: string, videoId: string): P
  *
  * @remarks
  * 現在の実装では、フィルタリングとoffset/limit方式のページネーションを実現するため、
- * DynamoDBから全ユーザー設定を取得してメモリ内で処理しています。
+ * ユーザーの全設定を取得してメモリ内で処理しています。
  * これは以下の理由によります：
  * - DynamoDBのQueryでは複数属性での効率的なフィルタリングができない
  * - offset/limit方式のページネーションにはフィルタ後の総件数が必要
@@ -199,19 +199,10 @@ export async function listVideosWithSettings(
   const allVideos = await getVideoRepository().listAll();
   const sortedVideos = [...allVideos].sort((a, b) => b.createdAt - a.createdAt);
 
-  // DynamoDBからユーザーの全設定を取得
-  // フィルタリングのため、全件取得が必要
-  const allSettings: UserVideoSetting[] = [];
-  let cursor: string | undefined;
-
-  do {
-    const result = await listUserVideoSettings(userId, {
-      limit: 100,
-      cursor,
-    });
-    allSettings.push(...result.settings);
-    cursor = result.nextCursor;
-  } while (cursor);
+  // フィルタリングとソートのため、ユーザーの全設定が必要
+  const allSettings = (await getUserSettingRepository().listAllByUserId(
+    userId
+  )) as UserVideoSetting[];
 
   const settingMap = new Map(allSettings.map((setting) => [setting.videoId, setting]));
   const mergedVideos: Array<VideoBasicInfo & { userSetting?: UserVideoSetting }> = sortedVideos.map(
