@@ -19,6 +19,26 @@ export type AnalysisProgress = {
 export type HighlightStatus = 'accepted' | 'rejected' | 'unconfirmed';
 export type ClipStatus = 'PENDING' | 'GENERATING' | 'GENERATED' | 'FAILED';
 
+/** 利用回数の種類。AI 解析 (文字起こし + 感情分析) あり / なし */
+export type UsageKind = 'ai' | 'noAi';
+
+/**
+ * ジョブを作るときに数えた 1 回の記録。
+ * 処理が失敗したときに、同じ主体・月・種類の回数を戻すために使う。
+ */
+export type UsageRecord = {
+  /** 回数を数えた主体 (ユーザーまたは匿名 ID) */
+  subject: string;
+  /** 数えた月 (日本時間、例: 202611) */
+  month: string;
+  kind: UsageKind;
+  /**
+   * 数えた時点の、AI 解析なしの月の上限。
+   * AI 解析ありで数えたのに AI 解析ができなかったとき、AI 解析なしへ付け替えられるかを決めるために使う
+   */
+  noAiLimit: number;
+};
+
 export type Job = {
   jobId: string;
   batchJobId?: string;

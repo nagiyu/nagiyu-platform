@@ -6,11 +6,15 @@ import { InMemoryJobRepository } from './in-memory-job.repository.js';
 import type { HighlightRepository } from './highlight.repository.interface.js';
 import { DynamoDBHighlightRepository } from './dynamodb-highlight.repository.js';
 import { InMemoryHighlightRepository } from './in-memory-highlight.repository.js';
+import type { UsageRepository } from './usage.repository.interface.js';
+import { DynamoDBUsageRepository } from './dynamodb-usage.repository.js';
+import { InMemoryUsageRepository } from './in-memory-usage.repository.js';
 
 const repositoryRegistry = registerDynamoRepositories<
   {
     job: JobRepository;
     highlight: HighlightRepository;
+    usage: UsageRepository;
   },
   InMemorySingleTableStore
 >(
@@ -24,6 +28,11 @@ const repositoryRegistry = registerDynamoRepositories<
       createInMemoryRepository: (store) => new InMemoryHighlightRepository(store),
       createDynamoDBRepository: ({ docClient, tableName }) =>
         new DynamoDBHighlightRepository(docClient, tableName),
+    },
+    usage: {
+      createInMemoryRepository: (store) => new InMemoryUsageRepository(store),
+      createDynamoDBRepository: ({ docClient, tableName }) =>
+        new DynamoDBUsageRepository(docClient, tableName),
     },
   },
   {
@@ -53,4 +62,11 @@ export function createHighlightRepository(
   tableName?: string
 ): HighlightRepository {
   return repositoryRegistry.highlight.createRepository(docClient, tableName);
+}
+
+export function createUsageRepository(
+  docClient?: DynamoDBDocumentClient,
+  tableName?: string
+): UsageRepository {
+  return repositoryRegistry.usage.createRepository(docClient, tableName);
 }
