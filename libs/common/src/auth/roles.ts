@@ -21,8 +21,16 @@ interface RoleDefinition {
   description: string;
   /** Array of permissions granted to this role */
   permissions: string[];
-  /** 課金の権利 (RoleGrant) として付けられる有料ロールのとき true */
-  paid?: boolean;
+  /**
+   * 課金の権利 (RoleGrant) として付けられる有料ロールのときだけ持つ。
+   * サービスと段の上下をロール ID の文字列解析に頼らず、この項目で決める
+   */
+  billing?: {
+    /** 有料サービスの ID (BILLING_SERVICES のキー) */
+    service: string;
+    /** 段の順位。小さいほど下の段。上の段は下の段の権限を含む */
+    rank: number;
+  };
 }
 
 /**
@@ -80,19 +88,27 @@ export const ROLES = {
       'LiveTalk の管理者機能（ステータス閲覧等）にアクセス可能。livetalk:chat も含む（middleware 要件）',
     permissions: ['livetalk:chat', 'livetalk:admin'],
   },
-  'livetalk-premium': {
-    id: 'livetalk-premium',
-    name: 'LiveTalk プレミアム',
-    description: '課金の権利として付く有料ロール。LiveTalk のプレミアム機能を利用できる',
-    permissions: ['livetalk:premium'],
-    paid: true,
+  'livetalk-standard': {
+    id: 'livetalk-standard',
+    name: 'LiveTalk スタンダード',
+    description: '課金の権利として付く有料ロール。LiveTalk のスタンダード機能を利用できる',
+    permissions: ['livetalk:standard'],
+    billing: { service: 'livetalk', rank: 1 },
   },
-  'quick-clip-premium': {
-    id: 'quick-clip-premium',
-    name: 'Quick Clip プレミアム',
-    description: '課金の権利として付く有料ロール。Quick Clip のプレミアム機能を利用できる',
-    permissions: ['quick-clip:premium'],
-    paid: true,
+  'quick-clip-standard': {
+    id: 'quick-clip-standard',
+    name: 'Quick Clip スタンダード',
+    description: '課金の権利として付く有料ロール。Quick Clip のスタンダード機能を利用できる',
+    permissions: ['quick-clip:standard'],
+    billing: { service: 'quick-clip', rank: 1 },
+  },
+  'quick-clip-pro': {
+    id: 'quick-clip-pro',
+    name: 'Quick Clip プロ',
+    description:
+      '課金の権利として付く有料ロール。Quick Clip のプロ機能を利用できる。上の段のためスタンダードの権限も含む',
+    permissions: ['quick-clip:standard', 'quick-clip:pro'],
+    billing: { service: 'quick-clip', rank: 2 },
   },
 } as const satisfies Record<string, RoleDefinition>;
 
@@ -110,9 +126,44 @@ export const ROLES = {
 export const VALID_ROLES = Object.keys(ROLES) as string[];
 
 /**
- * 課金の権利として付けられる有料ロールIDの配列
+ * 有料サービスの ID と表示名
+ * ロール定義の billing.service はここのキーを指す
+ */
+export const BILLING_SERVICES = {
+  livetalk: 'LiveTalk',
+  'quick-clip': 'Quick Clip',
+} as const satisfies Record<string, string>;
+
+/** 有料サービスの ID */
+export type BillingServiceId = keyof typeof BILLING_SERVICES;
+
+type BillingRole = RoleDefinition & { billing: NonNullable<RoleDefinition['billing']> };
+
+const BILLING_ROLES: BillingRole[] = (Object.values(ROLES) as RoleDefinition[])
+  .filter((role): role is BillingRole => role.billing !== undefined)
+  .sort((a, b) => {
+    const byService = a.billing.service.localeCompare(b.billing.service);
+    return byService !== 0 ? byService : a.billing.rank - b.billing.rank;
+  });
+
+/**
+ * 課金の権利として付けられる有料ロールIDの配列 (サービス → rank 昇順)
  * 権利を付けるときの検証と選択肢にだけ使い、読み取りや有効なロールの算出では絞らない
  */
-export const PAID_ROLES = VALID_ROLES.filter(
-  (roleId) => (ROLES as Record<string, RoleDefinition>)[roleId].paid === true
-);
+export const PAID_ROLES: string[] = BILLING_ROLES.map((role) => role.id);
+
+/**
+ * 有料ロールIDから有料サービスIDを引く
+ * 有料ロールでなければ undefined
+ */
+export function getBillingServiceId(roleId: string): string | undefined {
+  return BILLING_ROLES.find((role) => role.id === roleId)?.billing.service;
+}
+
+/**
+ * 有料サービスの有料ロールIDを、下の段から順に返す
+ * 知らないサービスなら空配列
+ */
+export function getBillingTierRoleIds(serviceId: string): string[] {
+  return BILLING_ROLES.filter((role) => role.billing.service === serviceId).map((role) => role.id);
+}

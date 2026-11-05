@@ -4,7 +4,7 @@ import { PAID_ROLES, logger } from '@nagiyu/common';
 import type { UserRepository } from '../repositories';
 import { ROLES_AND_GRANTS_MAX_ATTEMPTS } from '../repositories/user-repository';
 import { computeStripeGrants, isGrantsUnchanged, type DesiredStripeRole } from './grant-diff';
-import type { BillingStripe } from './stripe-client';
+import type { BillingStripe, BillingSubscription } from './stripe-client';
 
 const ENTITLING_STATUSES: ReadonlySet<string> = new Set(['active', 'trialing', 'past_due']);
 
@@ -25,11 +25,51 @@ export type SyncDependencies = {
 export type EntitledSubscription = {
   roleId: string;
   subscriptionId: string;
+  /** 段の切り替えで差し替える品目の ID */
+  subscriptionItemId: string;
   /** 請求期間の終わり (Unix ミリ秒) */
   currentPeriodEnd: number;
   /** 解約の予約による終了日 (Unix ミリ秒)。予約がなければ null */
   endsAt: number | null;
+  /** 契約の状態。支払いの遅れ (`past_due`) でも権利は続くため、段の切り替えの可否の判定に使う */
+  status: string;
+  /** 次の期間から別の価格に切り替わる予約。なければ null */
+  scheduledChange: ScheduledChange | null;
 };
+
+export type ScheduledChange = {
+  scheduleId: string;
+  /** 切り替わり先の価格の ID。ロールへの対応付けは価格の一覧で行う */
+  priceId: string;
+  /** 切り替わる時刻 (Unix ミリ秒) */
+  startsAt: number;
+};
+
+/** 今の期間より後に今と違う価格で始まるフェーズがある、有効な予約だけを下げの予約とみなす */
+function findScheduledChange(
+  schedule: BillingSubscription['schedule'],
+  currentPriceId: string,
+  periodEndSeconds: number
+): ScheduledChange | null {
+  if (!schedule || typeof schedule === 'string') {
+    return null;
+  }
+  if (schedule.status !== 'active' && schedule.status !== 'not_started') {
+    return null;
+  }
+  for (const phase of schedule.phases) {
+    if (phase.start_date < periodEndSeconds) {
+      continue;
+    }
+    // Portal の flow が品目 1 つの契約しか扱わないため、契約は 1 品目の前提で先頭だけを見る
+    const price = phase.items[0]?.price;
+    const priceId = typeof price === 'string' ? price : price?.id;
+    if (priceId && priceId !== currentPriceId) {
+      return { scheduleId: schedule.id, priceId, startsAt: phase.start_date * 1000 };
+    }
+  }
+  return null;
+}
 
 export async function listEntitledSubscriptions(
   stripe: BillingStripe,
@@ -39,9 +79,9 @@ export async function listEntitledSubscriptions(
     customer: customerId,
     status: 'all',
     limit: 100,
+    expand: ['data.schedule'],
   });
 
-  const lookupKeysByProduct = new Map<string, string[]>();
   const entitled: EntitledSubscription[] = [];
 
   for (const subscription of subscriptions.data) {
@@ -49,35 +89,33 @@ export async function listEntitledSubscriptions(
       continue;
     }
     for (const item of subscription.items.data) {
-      const product = item.price.product;
-      const productId = typeof product === 'string' ? product : product.id;
-
-      let lookupKeys = lookupKeysByProduct.get(productId);
-      if (lookupKeys === undefined) {
-        const features = await stripe.products.listFeatures(productId, { limit: 100 });
-        lookupKeys = features.data.map((feature) => feature.entitlement_feature.lookup_key);
-        lookupKeysByProduct.set(productId, lookupKeys);
+      // 1 サービス = 1 商品で段は価格が表すため、商品の機能ではなく価格の lookup_key で決める
+      const lookupKey = item.price.lookup_key;
+      if (lookupKey === null || !PAID_ROLES.includes(lookupKey)) {
+        logger.warn('有料ロールでない価格の lookup_key を無視しました', {
+          lookupKey,
+          subscriptionId: subscription.id,
+        });
+        continue;
       }
 
       const periodEnd = item.current_period_end * 1000;
       const cancelAt = subscription.cancel_at ? subscription.cancel_at * 1000 : null;
       const endsAt = subscription.cancel_at_period_end ? periodEnd : cancelAt;
 
-      for (const lookupKey of lookupKeys) {
-        if (!PAID_ROLES.includes(lookupKey)) {
-          logger.warn('有料ロールでない機能の lookup_key を無視しました', {
-            lookupKey,
-            subscriptionId: subscription.id,
-          });
-          continue;
-        }
-        entitled.push({
-          roleId: lookupKey,
-          subscriptionId: subscription.id,
-          currentPeriodEnd: periodEnd,
-          endsAt,
-        });
-      }
+      entitled.push({
+        roleId: lookupKey,
+        subscriptionId: subscription.id,
+        subscriptionItemId: item.id,
+        currentPeriodEnd: periodEnd,
+        endsAt,
+        status: subscription.status,
+        scheduledChange: findScheduledChange(
+          subscription.schedule,
+          item.price.id,
+          item.current_period_end
+        ),
+      });
     }
   }
 

@@ -48,6 +48,13 @@ describe('Footer', () => {
       expect(termsLink.tagName).toBe('BUTTON');
     });
 
+    it('ボタンのリンクが同じ行の文字と下端で揃う', () => {
+      render(<Footer />);
+
+      expect(screen.getByText('プライバシーポリシー')).toHaveStyle({ verticalAlign: 'baseline' });
+      expect(screen.getByText('利用規約')).toHaveStyle({ verticalAlign: 'baseline' });
+    });
+
     it('プライバシーポリシーリンククリックでダイアログが開く', async () => {
       const user = userEvent.setup();
       render(<Footer />);

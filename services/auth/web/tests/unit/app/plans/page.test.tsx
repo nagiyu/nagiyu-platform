@@ -29,8 +29,8 @@ jest.mock('../../../../src/app/plans/plan-actions', () => ({
 }));
 
 const baseCard = {
-  roleId: 'livetalk-premium',
-  name: 'LiveTalk プレミアム',
+  roleId: 'livetalk-standard',
+  name: 'LiveTalk スタンダード',
   description: '説明',
   priceLabel: '月額 ¥500 (税込)',
   priceFetchFailed: false,
@@ -76,8 +76,8 @@ describe('PlansPage', () => {
         baseCard,
         {
           ...baseCard,
-          roleId: 'quick-clip-premium',
-          name: 'QuickClip プレミアム',
+          roleId: 'quick-clip-standard',
+          name: 'Quick Clip スタンダード',
           description: null,
         },
       ],
@@ -136,7 +136,7 @@ describe('PlansPage', () => {
         baseCard,
         {
           ...baseCard,
-          roleId: 'quick-clip-premium',
+          roleId: 'quick-clip-standard',
           priceLabel: null,
           priceFetchFailed: true,
           canSubscribe: false,
@@ -159,7 +159,7 @@ describe('PlansPage', () => {
 
     render(await render_());
 
-    expect(screen.getByRole('region', { name: 'LiveTalk プレミアム' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'LiveTalk スタンダード' })).toBeInTheDocument();
     expect(screen.queryByText('価格を取得できませんでした')).not.toBeInTheDocument();
   });
 

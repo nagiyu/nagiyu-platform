@@ -11,7 +11,7 @@ function renderButton() {
   render(
     <PlanActionButton
       endpoint="/api/billing/checkout"
-      body={{ roleId: 'livetalk-premium' }}
+      body={{ roleId: 'livetalk-standard' }}
       label="申し込む"
     />
   );
@@ -29,7 +29,7 @@ describe('PlanActionButton', () => {
     await userEvent.click(screen.getByRole('button', { name: '申し込む' }));
 
     expect(requestRedirectUrl).toHaveBeenCalledWith('/api/billing/checkout', {
-      roleId: 'livetalk-premium',
+      roleId: 'livetalk-standard',
     });
     await waitFor(() => expect(navigateTo).toHaveBeenCalledWith('https://stripe.test/x'));
   });

@@ -10,9 +10,14 @@ describe('resolveUsageTier', () => {
     expect(resolveUsageTier(['user-manager'])).toBe('free');
   });
 
-  it('quick-clip:premium を持つロールがあれば premium になる', () => {
-    expect(resolveUsageTier(['quick-clip-premium'])).toBe('premium');
-    expect(resolveUsageTier(['user-manager', 'quick-clip-premium'])).toBe('premium');
+  it('quick-clip:standard を持つロールがあれば standard になる', () => {
+    expect(resolveUsageTier(['quick-clip-standard'])).toBe('standard');
+    expect(resolveUsageTier(['user-manager', 'quick-clip-standard'])).toBe('standard');
+  });
+
+  it('quick-clip:pro を持つロールがあれば、standard の権限も持っていても pro になる', () => {
+    expect(resolveUsageTier(['quick-clip-pro'])).toBe('pro');
+    expect(resolveUsageTier(['quick-clip-standard', 'quick-clip-pro'])).toBe('pro');
   });
 });
 
@@ -24,6 +29,6 @@ describe('getUsageLimit', () => {
       maxDurationSec: 3600,
     });
     expect(getUsageLimit('free')).toBe(USAGE_LIMITS.free);
-    expect(getUsageLimit('premium').maxDurationSec).toBe(240 * 60);
+    expect(getUsageLimit('standard').maxDurationSec).toBe(240 * 60);
   });
 });

@@ -399,7 +399,7 @@ describe('POST /api/users/[userId]/roles', () => {
       const response = await post({
         roles: ['admin'],
         grantChanges: {
-          add: [{ roleId: 'livetalk-premium', expiresAt: newExpiresAt, sourceRef: '検証用' }],
+          add: [{ roleId: 'livetalk-standard', expiresAt: newExpiresAt, sourceRef: '検証用' }],
           extend: [{ grantId: 'manual-1', expiresAt: newExpiresAt }],
         },
       });
@@ -411,7 +411,7 @@ describe('POST /api/users/[userId]/roles', () => {
       expect(data.roleGrants).toHaveLength(4);
       expect(data.roleGrants[0]).toMatchObject({ grantId: 'manual-1', expiresAt: newExpiresAt });
       expect(data.roleGrants[3]).toMatchObject({
-        roleId: 'livetalk-premium',
+        roleId: 'livetalk-standard',
         source: 'manual',
         sourceRef: '検証用',
         expiresAt: newExpiresAt,
@@ -442,7 +442,7 @@ describe('POST /api/users/[userId]/roles', () => {
       ],
       [
         'add の expiresAt が過去',
-        { add: [{ roleId: 'livetalk-premium', expiresAt: NOW - DAY }] },
+        { add: [{ roleId: 'livetalk-standard', expiresAt: NOW - DAY }] },
         '現在より後',
       ],
       [
