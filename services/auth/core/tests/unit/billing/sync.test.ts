@@ -88,6 +88,8 @@ describe('syncStripeCustomer', () => {
           subscriptionItemId: 'si_sub_1',
           currentPeriodEnd: PERIOD_END_SEC * 1000,
           endsAt: null,
+          status: 'active',
+          scheduledChange: null,
         },
       ],
     });
@@ -375,5 +377,92 @@ describe('listEntitledSubscriptions', () => {
       ['sub_b', (PERIOD_END_SEC + 100) * 1000],
       ['sub_c', null],
     ]);
+  });
+});
+
+describe('listEntitledSubscriptions の下げの予約', () => {
+  function withSchedule(schedule: BillingSubscription['schedule']): BillingSubscription {
+    return { ...subscription('sub_s', 'active', 'quick-clip-pro'), schedule };
+  }
+  function phase(startSec: number, priceId: unknown) {
+    return { start_date: startSec, items: [{ price: priceId as string }] };
+  }
+  async function scheduledChangeOf(subscriptionValue: BillingSubscription) {
+    const { listEntitledSubscriptions } = await import('../../../src/billing/sync');
+    const stripe = buildStripe({ subscriptions: [subscriptionValue] });
+    const [entry] = await listEntitledSubscriptions(stripe, 'cus_1');
+    return { entry, stripe };
+  }
+
+  it('予約を展開して取得する', async () => {
+    const { stripe } = await scheduledChangeOf(withSchedule(null));
+
+    expect(stripe.subscriptions.list).toHaveBeenCalledWith(
+      expect.objectContaining({ expand: ['data.schedule'] })
+    );
+  });
+
+  it('今の期間より後に別の価格で始まるフェーズを予約として返す', async () => {
+    const { entry } = await scheduledChangeOf(
+      withSchedule({
+        id: 'sched_1',
+        status: 'active',
+        phases: [phase(PERIOD_END_SEC - 1000, 'price_sub_s'), phase(PERIOD_END_SEC, 'price_lower')],
+      })
+    );
+
+    expect(entry.scheduledChange).toEqual({
+      scheduleId: 'sched_1',
+      priceId: 'price_lower',
+      startsAt: PERIOD_END_SEC * 1000,
+    });
+  });
+
+  it('未来のフェーズが同じ価格から違う価格へ続くときは、違う価格のフェーズを返す', async () => {
+    const { entry } = await scheduledChangeOf(
+      withSchedule({
+        id: 'sched_1',
+        status: 'active',
+        phases: [phase(PERIOD_END_SEC, 'price_sub_s'), phase(PERIOD_END_SEC + 1000, 'price_lower')],
+      })
+    );
+
+    expect(entry.scheduledChange).toEqual({
+      scheduleId: 'sched_1',
+      priceId: 'price_lower',
+      startsAt: (PERIOD_END_SEC + 1000) * 1000,
+    });
+  });
+
+  it('展開された価格のオブジェクトでも価格 ID を読む', async () => {
+    const { entry } = await scheduledChangeOf(
+      withSchedule({
+        id: 'sched_1',
+        status: 'not_started',
+        phases: [phase(PERIOD_END_SEC, { id: 'price_lower' })],
+      })
+    );
+
+    expect(entry.scheduledChange?.priceId).toBe('price_lower');
+  });
+
+  it.each([
+    ['予約がない', null],
+    ['予約が ID の文字列のまま', 'sched_1'],
+    ['予約が有効でない', { id: 's', status: 'released', phases: [phase(PERIOD_END_SEC, 'p2')] }],
+    [
+      'フェーズが今の期間内',
+      { id: 's', status: 'active', phases: [phase(PERIOD_END_SEC - 1, 'p2')] },
+    ],
+    [
+      '後のフェーズも同じ価格',
+      { id: 's', status: 'active', phases: [phase(PERIOD_END_SEC, 'price_sub_s')] },
+    ],
+  ])('予約として扱わない: %s', async (_name, schedule) => {
+    const { entry } = await scheduledChangeOf(
+      withSchedule(schedule as BillingSubscription['schedule'])
+    );
+
+    expect(entry.scheduledChange).toBeNull();
   });
 });
