@@ -30,6 +30,8 @@ export interface LambdaStackProps extends cdk.StackProps {
   storageBucketArn: string;
   batchJobQueueArn: string;
   batchJobDefinitionPrefix: string;
+  /** Auth サービスが発行する JWT の検証鍵 */
+  nextAuthSecret: string;
 }
 
 export class LambdaStack extends LambdaStackBase {
@@ -50,6 +52,7 @@ export class LambdaStack extends LambdaStackBase {
       storageBucketArn,
       batchJobQueueArn,
       batchJobDefinitionPrefix,
+      nextAuthSecret,
       ...stackProps
     } = props;
     const region = stackProps.env?.region ?? cdk.Aws.REGION;
@@ -63,6 +66,8 @@ export class LambdaStack extends LambdaStackBase {
     const batchSubmitJobResources = Array.from(
       new Set([batchJobQueueArn, ...jobDefinitionArnsWithAndWithoutVersions])
     );
+
+    const authUrl = getServiceUrl('auth', environment);
 
     const baseProps: LambdaStackBaseProps = {
       ...stackProps,
@@ -82,6 +87,12 @@ export class LambdaStack extends LambdaStackBase {
           // DEPLOY_ENV はアプリ内で dev/prod 判定を行うためのデプロイ環境識別子として利用する。
           NODE_ENV: environment === 'prod' ? 'production' : 'development',
           DEPLOY_ENV: environment,
+          // NAGIYU_ENV: Auth の Cookie ドメイン判定用。NODE_ENV は Next.js のビルド時に
+          // 'production' へ置換され、デプロイ後の dev/prod 判定に使えない。
+          NAGIYU_ENV: environment,
+          AUTH_URL: authUrl,
+          NEXT_PUBLIC_AUTH_URL: authUrl,
+          AUTH_SECRET: nextAuthSecret,
           APP_VERSION: appVersion,
           DYNAMODB_TABLE_NAME: jobsTableName,
           S3_BUCKET: storageBucketName,
