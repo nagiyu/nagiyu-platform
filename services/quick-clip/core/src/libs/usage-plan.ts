@@ -1,7 +1,7 @@
 import { hasPermission } from '@nagiyu/common';
 
-/** 利用回数の段。未ログイン・ログイン済み (無料)・有料の 3 段階 */
-export type UsageTier = 'anonymous' | 'free' | 'premium';
+/** 利用回数の段。未ログイン・ログイン済み (無料)・有料の各段 */
+export type UsageTier = 'anonymous' | 'free' | 'standard' | 'pro';
 
 /** 1 つの段の上限 */
 export type UsageLimit = {
@@ -22,11 +22,9 @@ export type UsageLimit = {
 export const USAGE_LIMITS: Readonly<Record<UsageTier, UsageLimit>> = {
   anonymous: { aiPerMonth: 0, noAiPerMonth: 3, maxDurationSec: 60 * 60 },
   free: { aiPerMonth: 1, noAiPerMonth: 10, maxDurationSec: 180 * 60 },
-  premium: { aiPerMonth: 10, noAiPerMonth: 30, maxDurationSec: 240 * 60 },
+  standard: { aiPerMonth: 10, noAiPerMonth: 30, maxDurationSec: 240 * 60 },
+  pro: { aiPerMonth: 10, noAiPerMonth: 30, maxDurationSec: 240 * 60 },
 };
-
-/** 有料の段にする権限 */
-const PREMIUM_PERMISSION = 'quick-clip:premium';
 
 /**
  * 持っている権限から段を決める。
@@ -37,7 +35,11 @@ export const resolveUsageTier = (roles: readonly string[] | undefined): UsageTie
   if (roles === undefined) {
     return 'anonymous';
   }
-  return hasPermission([...roles], PREMIUM_PERMISSION) ? 'premium' : 'free';
+  // 上の段のロールは下の段の権限も持つため、上の段から順に確かめる
+  if (hasPermission([...roles], 'quick-clip:pro')) {
+    return 'pro';
+  }
+  return hasPermission([...roles], 'quick-clip:standard') ? 'standard' : 'free';
 };
 
 /** 段の上限を返す */

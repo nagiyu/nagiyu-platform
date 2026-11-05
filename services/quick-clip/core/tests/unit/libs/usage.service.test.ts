@@ -30,7 +30,7 @@ describe('UsageService.consume', () => {
 
     const result = await service.consume({
       subject: 'USER#u1',
-      tier: 'premium',
+      tier: 'standard',
       aiAnalysis: false,
     });
 
