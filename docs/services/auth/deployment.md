@@ -20,7 +20,7 @@
 - **Lambda Function**: Next.js SSR 実行環境 (コンテナ)
 - **ECR Repository**: Docker イメージ保存
 - **DynamoDB Table**: ユーザー情報管理
-- **Secrets Manager**: Google OAuth 認証情報、NEXTAUTH_SECRET
+- **Secrets Manager**: Google OAuth 認証情報、NEXTAUTH_SECRET、Stripe の鍵
 - **CloudFront Distribution**: コンテンツ配信、カスタムドメイン
 - **Lambda Function URL**: CloudFront のオリジン
 
@@ -215,6 +215,21 @@ curl https://auth.dev.nagiyu.com/api/health
 # }
 ```
 
+### 3.8 Stripe の鍵の登録
+
+Stripe の鍵は、秘密情報 `nagiyu-auth-stripe-{env}` に、秘密鍵 (`secretKey`) と通知の署名鍵 (`webhookSecret`) の 2 つを入れる。秘密情報は Auth のデプロイが専用のスタックとして作り、初期値は仮の値 (`PLACEHOLDER_` で始まる値) になっている。値は人が Stripe の管理画面で発行して書き換える。dev ではサンドボックスの鍵を使う。
+
+```bash
+aws secretsmanager put-secret-value \
+    --secret-id nagiyu-auth-stripe-dev \
+    --secret-string '{"secretKey":"YOUR_SECRET_KEY","webhookSecret":"YOUR_WEBHOOK_SECRET"}' \
+    --region us-east-1
+```
+
+- **値を変えたら Auth を再デプロイする**: 鍵はデプロイ時に秘密情報から読まれ、Lambda の環境変数として渡る。秘密情報を書き換えただけでは、動いている Auth に届かない
+- **鍵が未設定の間は課金が無効**: 2 つの鍵のどちらかが空か仮の値のままなら、課金は無効として動く。プランの画面は価格と操作の代わりに「準備中です」と表示し、申し込み・契約の管理・通知の受け口の API は、課金が有効になっていない旨を返す。特定商取引法に基づく表記は、この間も表示される
+- 本番は、本番の Stripe を有効化するまでこの状態で動く (→ [8.5 課金 (Stripe) の運用](#85-課金-stripe-の運用))
+
 ---
 
 ## 4. CI/CD パイプライン
@@ -355,6 +370,8 @@ aws lambda update-function-code \
 | `GOOGLE_CLIENT_ID`       | Google OAuth クライアント ID               | `123456789.apps.googleusercontent.com`  | ✅   |
 | `GOOGLE_CLIENT_SECRET`   | Google OAuth クライアントシークレット      | (Secrets Manager から取得)              | ✅   |
 | `DYNAMODB_TABLE_NAME`    | DynamoDB テーブル名                        | `nagiyu-auth-users-dev`                 | ✅   |
+| `STRIPE_SECRET_KEY`      | Stripe の秘密鍵 (Secrets Manager から取得) | (Stripe の管理画面で発行)               | -    |
+| `STRIPE_WEBHOOK_SECRET`  | Stripe の通知の署名鍵 (Secrets Manager から取得) | (Stripe の管理画面で発行)         | -    |
 | `NODE_ENV`               | 実行環境                                   | `production`                            | ✅   |
 
 ### 6.2 環境変数の設定方法
@@ -517,6 +534,33 @@ npm audit fix --force
    - Secrets Manager で更新
    - Lambda 関数を再起動
    - **注意**: すべての既存セッションが無効化されます
+
+### 8.5 課金 (Stripe) の運用
+
+#### 本番の Stripe を有効化する
+
+Stripe の事業者の情報 (公開用の事業者名・サポートの連絡先) は、本番環境を有効化してからでないと設定できない。サンドボックスとは別に、本番の環境で次を用意する。
+
+1. **商品と価格**: 有料ロールごとに商品を作り、1 か月ごとの価格を付ける。価格の lookup_key は、有料ロールの ID (`livetalk-premium` など) にする。プランの画面は、この lookup_key で価格を引いて表示する。商品の説明もプランの画面に表示される (空なら出ない)
+2. **機能**: 機能 (Entitlements) を作り、lookup_key を有料ロールの ID にして、対応する商品に紐づける。どの有料ロールが付くかは、この lookup_key で決まる。有料ロールの ID でない lookup_key は無視される
+3. **Customer Portal**: 解約・支払い方法の変更・請求の履歴を利用者に開く。解約は期間の終わりに効かせる。プランの画面と特定商取引法に基づく表記で、解約しても期間の終わりまで使えると案内しているため
+4. **通知の受け口**: `https://auth.nagiyu.com/api/billing/webhook` を登録する。通知の種類は、サンドボックスの受け口と同じものを選ぶ。受け口は、顧客 ID を含む通知を、その顧客の契約を取り直す合図として扱う
+5. **鍵**: 本番の秘密鍵と、受け口の署名鍵を `nagiyu-auth-stripe-prod` に入れ、Auth を再デプロイする (→ [3.8 Stripe の鍵の登録](#38-stripe-の鍵の登録))
+6. **表記の URL**: 特定商取引法に基づく表記のページ (`https://auth.nagiyu.com/legal/tokushoho`) の URL を Stripe に登録する。本番の審査で確かめられる
+
+本番の審査では、料金が本番のサイトに出ている必要がある。価格はコードに持たないので、本番の価格はそれまでに Stripe 上で決めればよい。
+
+#### 契約中のユーザーを削除するとき
+
+先に Stripe で契約を解約してから、ユーザーを削除する。ユーザーの削除は Stripe の契約に触れないため、そのままだと請求が続く。
+
+#### Stripe で顧客を削除したとき
+
+管理画面のユーザー編集から、Stripe の顧客との対応を外す。外さないと、Auth に削除済みの顧客 ID が残り、その利用者の申し込みと契約の管理が失敗し続ける。外すと、Stripe 由来の有効な課金の権利も一緒に取り消される。
+
+#### 返金するとき
+
+Stripe の管理画面から手で返金する。Auth には返金の仕組みを持たない。
 
 ---
 
