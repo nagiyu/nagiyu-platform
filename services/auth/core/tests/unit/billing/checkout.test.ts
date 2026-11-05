@@ -64,9 +64,9 @@ function activeSubscription(
   extra: Record<string, unknown> = {}
 ): Record<string, unknown> {
   return {
-    ...extra,
     id: 'sub_1',
     status: 'active',
+    ...extra,
     items: {
       data: [
         {
@@ -337,6 +337,42 @@ describe('createPlanChangeSession', () => {
     expect(portalCreate).not.toHaveBeenCalled();
   });
 
+  it('cancel_at だけが付いた契約は解約の予約中として断る', async () => {
+    const { stripe, portalCreate } = buildStripe({
+      subscriptions: [activeSubscription('quick-clip-standard', { cancel_at: 2_100_000_000 })],
+      prices,
+    });
+
+    const result = await createPlanChangeSession(stripe, user, 'quick-clip-pro', PLAN_URLS);
+
+    expect(result).toEqual({ ok: false, reason: 'canceling' });
+    expect(portalCreate).not.toHaveBeenCalled();
+  });
+
+  it('支払いが遅れている契約は断る', async () => {
+    const { stripe, portalCreate } = buildStripe({
+      subscriptions: [activeSubscription('quick-clip-standard', { status: 'past_due' })],
+      prices,
+    });
+
+    const result = await createPlanChangeSession(stripe, user, 'quick-clip-pro', PLAN_URLS);
+
+    expect(result).toEqual({ ok: false, reason: 'payment-past-due' });
+    expect(portalCreate).not.toHaveBeenCalled();
+  });
+
+  it('試用中の契約は切り替えられる', async () => {
+    const { stripe, portalCreate } = buildStripe({
+      subscriptions: [activeSubscription('quick-clip-standard', { status: 'trialing' })],
+      prices,
+    });
+
+    const result = await createPlanChangeSession(stripe, user, 'quick-clip-pro', PLAN_URLS);
+
+    expect(result.ok).toBe(true);
+    expect(portalCreate).toHaveBeenCalled();
+  });
+
   it('行き先の価格がなければ断る', async () => {
     const { stripe, portalCreate } = buildStripe({
       subscriptions: [activeSubscription('quick-clip-standard')],
@@ -374,32 +410,26 @@ describe('createPlanChangeSession', () => {
 });
 
 describe('cancelScheduledChange', () => {
-  async function setupCustomer(subscriptions: unknown[]) {
-    const { repo, user } = await setupUser();
-    const withCustomer = { ...user, stripeCustomerId: 'cus_1' };
-    const built = buildStripe({ subscriptions });
-    // 同期は顧客の取得で終わらせ、ここでは release の呼び出しだけを見る
-    (built.stripe.customers.retrieve as jest.Mock).mockResolvedValue({
-      id: 'cus_1',
-      deleted: true,
+  const user = { stripeCustomerId: 'cus_1' };
+
+  it('同じサービスの契約の予約を release する', async () => {
+    const { stripe, releaseSchedule } = buildStripe({
+      subscriptions: [activeSubscription('quick-clip-pro', { schedule: LOWER_SCHEDULE })],
     });
-    return { repo, user: withCustomer, ...built };
-  }
 
-  it('同じサービスの契約の予約を release して同期する', async () => {
-    const { repo, user, stripe, releaseSchedule } = await setupCustomer([
-      activeSubscription('quick-clip-pro', { schedule: LOWER_SCHEDULE }),
-    ]);
-
-    const result = await cancelScheduledChange(
-      { stripe, userRepository: repo },
-      user,
-      'quick-clip'
-    );
+    const result = await cancelScheduledChange(stripe, user, 'quick-clip');
 
     expect(result).toEqual({ ok: true });
     expect(releaseSchedule).toHaveBeenCalledWith('sched_1');
-    expect(stripe.customers.retrieve).toHaveBeenCalledWith('cus_1');
+  });
+
+  it('release が失敗したら例外を伝える', async () => {
+    const { stripe, releaseSchedule } = buildStripe({
+      subscriptions: [activeSubscription('quick-clip-pro', { schedule: LOWER_SCHEDULE })],
+    });
+    releaseSchedule.mockRejectedValue(new Error('stripe down'));
+
+    await expect(cancelScheduledChange(stripe, user, 'quick-clip')).rejects.toThrow('stripe down');
   });
 
   it.each([
@@ -411,11 +441,11 @@ describe('cancelScheduledChange', () => {
     ],
     ['顧客がない', [activeSubscription('quick-clip-pro', { schedule: LOWER_SCHEDULE })], undefined],
   ])('release しない: %s', async (_name, subscriptions, customerId) => {
-    const { repo, user, stripe, releaseSchedule } = await setupCustomer(subscriptions);
+    const { stripe, releaseSchedule } = buildStripe({ subscriptions });
 
     const result = await cancelScheduledChange(
-      { stripe, userRepository: repo },
-      { ...user, stripeCustomerId: customerId },
+      stripe,
+      { stripeCustomerId: customerId },
       'quick-clip'
     );
 

@@ -2,7 +2,7 @@ import { PAID_ROLES, getBillingServiceId, logger } from '@nagiyu/common';
 import type { User } from '@nagiyu/common';
 import type { UserRepository } from '../repositories';
 import type { BillingOperationsStripe, BillingPrice } from './stripe-client';
-import { listEntitledSubscriptions, syncStripeCustomer } from './sync';
+import { listEntitledSubscriptions } from './sync';
 
 const CHECKOUT_ERROR_MESSAGES = {
   URL_MISSING: 'Checkout Session の URL を取得できませんでした',
@@ -142,6 +142,7 @@ export type PlanChangeResult =
         | 'not-subscribed'
         | 'same-plan'
         | 'canceling'
+        | 'payment-past-due'
         | 'change-scheduled'
         | 'price-not-found';
     };
@@ -179,6 +180,10 @@ export async function createPlanChangeSession(
   if (current.roleId === roleId) {
     return { ok: false, reason: 'same-plan' };
   }
+  // 支払いを確認できていない契約の段を変えると、日割りの請求が失敗したまま段だけ変わりうる
+  if (current.status === 'past_due') {
+    return { ok: false, reason: 'payment-past-due' };
+  }
   // 解約の取り消しは Portal の確認画面では扱えないため、呼び出し側が「契約を管理」へ案内する
   if (current.endsAt !== null) {
     return { ok: false, reason: 'canceling' };
@@ -214,11 +219,10 @@ export async function createPlanChangeSession(
  * 契約は今の段のまま残る。他人の予約を指定できないよう、予約の ID は受け取らず Stripe から引く。
  */
 export async function cancelScheduledChange(
-  deps: { stripe: BillingOperationsStripe; userRepository: UserRepository },
+  stripe: BillingOperationsStripe,
   user: Pick<User, 'stripeCustomerId'>,
   serviceId: string
 ): Promise<CancelScheduledChangeResult> {
-  const { stripe, userRepository } = deps;
   if (!user.stripeCustomerId) {
     return { ok: false, reason: 'no-scheduled-change' };
   }
@@ -231,7 +235,7 @@ export async function cancelScheduledChange(
     return { ok: false, reason: 'no-scheduled-change' };
   }
 
+  // release で変わるのは予約だけで、権利の計算に使う値は変わらないため同期しない
   await stripe.subscriptionSchedules.release(scheduled.scheduleId);
-  await syncStripeCustomer({ stripe, userRepository }, user.stripeCustomerId);
   return { ok: true };
 }

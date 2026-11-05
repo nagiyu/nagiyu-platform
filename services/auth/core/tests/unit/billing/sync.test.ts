@@ -88,6 +88,7 @@ describe('syncStripeCustomer', () => {
           subscriptionItemId: 'si_sub_1',
           currentPeriodEnd: PERIOD_END_SEC * 1000,
           endsAt: null,
+          status: 'active',
           scheduledChange: null,
         },
       ],
@@ -414,6 +415,22 @@ describe('listEntitledSubscriptions の下げの予約', () => {
       scheduleId: 'sched_1',
       priceId: 'price_lower',
       startsAt: PERIOD_END_SEC * 1000,
+    });
+  });
+
+  it('未来のフェーズが同じ価格から違う価格へ続くときは、違う価格のフェーズを返す', async () => {
+    const { entry } = await scheduledChangeOf(
+      withSchedule({
+        id: 'sched_1',
+        status: 'active',
+        phases: [phase(PERIOD_END_SEC, 'price_sub_s'), phase(PERIOD_END_SEC + 1000, 'price_lower')],
+      })
+    );
+
+    expect(entry.scheduledChange).toEqual({
+      scheduleId: 'sched_1',
+      priceId: 'price_lower',
+      startsAt: (PERIOD_END_SEC + 1000) * 1000,
     });
   });
 

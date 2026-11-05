@@ -31,6 +31,8 @@ export type EntitledSubscription = {
   currentPeriodEnd: number;
   /** 解約の予約による終了日 (Unix ミリ秒)。予約がなければ null */
   endsAt: number | null;
+  /** 契約の状態。支払いの遅れ (`past_due`) でも権利は続くため、段の切り替えの可否の判定に使う */
+  status: string;
   /** 次の期間から別の価格に切り替わる予約。なければ null */
   scheduledChange: ScheduledChange | null;
 };
@@ -59,6 +61,7 @@ function findScheduledChange(
     if (phase.start_date < periodEndSeconds) {
       continue;
     }
+    // Portal の flow が品目 1 つの契約しか扱わないため、契約は 1 品目の前提で先頭だけを見る
     const price = phase.items[0]?.price;
     const priceId = typeof price === 'string' ? price : price?.id;
     if (priceId && priceId !== currentPriceId) {
@@ -106,6 +109,7 @@ export async function listEntitledSubscriptions(
         subscriptionItemId: item.id,
         currentPeriodEnd: periodEnd,
         endsAt,
+        status: subscription.status,
         scheduledChange: findScheduledChange(
           subscription.schedule,
           item.price.id,

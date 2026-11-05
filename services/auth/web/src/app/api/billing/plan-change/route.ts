@@ -25,6 +25,8 @@ const ERROR_MESSAGES = {
   NOT_SUBSCRIBED: 'このサービスは契約していません',
   SAME_PLAN: '既にこのプランを契約中です',
   CANCELING: '解約を予約中のため切り替えられません。解約の取り消しは「契約を管理」から行えます',
+  PAYMENT_PAST_DUE:
+    '支払いを確認できていないため段を変えられません。「契約を管理」から支払い方法を更新してください',
   CHANGE_SCHEDULED: '変更を予約中のため切り替えられません。先に予約を取り消してください',
   PRICE_NOT_FOUND: 'プランの価格を取得できませんでした',
   PLAN_CHANGE_FAILED: 'プランの切り替えの準備に失敗しました',
@@ -82,6 +84,8 @@ export const POST = withApiErrorReporting(
         return NextResponse.json({ error: ERROR_MESSAGES.SAME_PLAN }, { status: 409 });
       case 'canceling':
         return NextResponse.json({ error: ERROR_MESSAGES.CANCELING }, { status: 409 });
+      case 'payment-past-due':
+        return NextResponse.json({ error: ERROR_MESSAGES.PAYMENT_PAST_DUE }, { status: 409 });
       case 'change-scheduled':
         return NextResponse.json({ error: ERROR_MESSAGES.CHANGE_SCHEDULED }, { status: 409 });
       case 'price-not-found':

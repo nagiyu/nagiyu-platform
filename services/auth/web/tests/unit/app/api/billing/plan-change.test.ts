@@ -103,6 +103,7 @@ describe('POST /api/billing/plan-change', () => {
     ['not-subscribed', 409],
     ['same-plan', 409],
     ['canceling', 409],
+    ['payment-past-due', 409],
     ['change-scheduled', 409],
     ['price-not-found', 503],
   ])('断った理由 %s は %i', async (reason, status) => {

@@ -41,14 +41,13 @@ export const POST = withApiErrorReporting(
       return NextResponse.json({ error: ERROR_MESSAGES.INVALID_SERVICE }, { status: 400 });
     }
 
-    const userRepository = createUserRepository();
-    const user = await userRepository.getUserById(session.user.id);
+    const user = await createUserRepository().getUserById(session.user.id);
     if (!user) {
       return NextResponse.json({ error: ERROR_MESSAGES.USER_NOT_FOUND }, { status: 404 });
     }
 
     const result = await cancelScheduledChange(
-      { stripe: createBillingStripe(config.secretKey), userRepository },
+      createBillingStripe(config.secretKey),
       user,
       body.serviceId
     );
