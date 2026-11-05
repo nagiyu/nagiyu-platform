@@ -4,7 +4,6 @@ const mockStripe = {
   checkout: { sessions: { create: jest.fn() } },
   billingPortal: { sessions: { create: jest.fn() } },
   subscriptions: { list: jest.fn() },
-  products: { listFeatures: jest.fn() },
   webhooks: { constructEvent: jest.fn() },
 };
 
@@ -44,7 +43,6 @@ describe('createBillingStripe', () => {
   it('SDK の呼び出しに引数をそのまま渡す', async () => {
     mockStripe.customers.retrieve.mockResolvedValue({ id: 'cus_1' });
     mockStripe.subscriptions.list.mockResolvedValue({ data: [] });
-    mockStripe.products.listFeatures.mockResolvedValue({ data: [] });
     mockStripe.webhooks.constructEvent.mockReturnValue({ type: 't' });
 
     const client = createBillingStripe('sk_test');
@@ -52,7 +50,6 @@ describe('createBillingStripe', () => {
     expect(Stripe).toHaveBeenCalledWith('sk_test');
     await client.customers.retrieve('cus_1');
     await client.subscriptions.list({ customer: 'cus_1', status: 'all', limit: 100 });
-    await client.products.listFeatures('prod_1', { limit: 100 });
     client.webhooks.constructEvent('body', 'sig', 'whsec');
 
     expect(mockStripe.customers.retrieve).toHaveBeenCalledWith('cus_1');
@@ -61,7 +58,6 @@ describe('createBillingStripe', () => {
       status: 'all',
       limit: 100,
     });
-    expect(mockStripe.products.listFeatures).toHaveBeenCalledWith('prod_1', { limit: 100 });
     expect(mockStripe.webhooks.constructEvent).toHaveBeenCalledWith('body', 'sig', 'whsec');
   });
 

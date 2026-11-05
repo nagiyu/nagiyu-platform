@@ -17,9 +17,11 @@ export type BillingCustomer = {
 };
 
 export type BillingSubscriptionItem = {
+  id: string;
   /** 請求期間の終わり (Unix 秒)。契約ではなく品目が持つ */
   current_period_end: number;
-  price: { product: string | { id: string } };
+  /** `lookup_key` は有料ロール ID。付いていない価格は null */
+  price: { id: string; lookup_key: string | null };
 };
 
 export type BillingSubscription = {
@@ -29,10 +31,6 @@ export type BillingSubscription = {
   /** Unix 秒。期間の終わり以外を指定された解約でも入る */
   cancel_at?: number | null;
   items: { data: BillingSubscriptionItem[] };
-};
-
-export type BillingProductFeature = {
-  entitlement_feature: { lookup_key: string };
 };
 
 export type BillingEvent = {
@@ -50,9 +48,6 @@ export interface BillingStripe {
       status: 'all';
       limit: number;
     }): Promise<{ data: BillingSubscription[] }>;
-  };
-  products: {
-    listFeatures(id: string, params: { limit: number }): Promise<{ data: BillingProductFeature[] }>;
   };
   webhooks: {
     constructEvent(payload: string, header: string, secret: string): BillingEvent;
@@ -145,9 +140,6 @@ export function createBillingStripe(secretKey: string): BillingOperationsStripe 
     },
     subscriptions: {
       list: (params) => stripe.subscriptions.list(params),
-    },
-    products: {
-      listFeatures: (id, params) => stripe.products.listFeatures(id, params),
     },
     webhooks: {
       constructEvent: (payload, header, secret) =>
