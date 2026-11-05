@@ -448,3 +448,19 @@ describe('Footer', () => {
     });
   });
 });
+
+describe('Footer 特定商取引法に基づく表記リンク', () => {
+  it('commercialTransactionsHref 指定時にページ遷移のリンクを表示する', () => {
+    render(<Footer commercialTransactionsHref="/legal/tokushoho" />);
+
+    const link = screen.getByRole('link', { name: '特定商取引法に基づく表記' });
+    expect(link).toHaveAttribute('href', '/legal/tokushoho');
+    expect(link).toHaveStyle({ whiteSpace: 'nowrap' });
+  });
+
+  it('未指定時は表示しない', () => {
+    render(<Footer />);
+
+    expect(screen.queryByText('特定商取引法に基づく表記')).not.toBeInTheDocument();
+  });
+});

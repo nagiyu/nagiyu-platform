@@ -38,7 +38,7 @@ describe('TermsOfServiceDialog', () => {
       expect(screen.getByText('第1条（適用）')).toBeInTheDocument();
       expect(screen.getByText('第2条（利用登録）')).toBeInTheDocument();
       expect(screen.getByText('第3条（ユーザーIDおよびパスワードの管理）')).toBeInTheDocument();
-      expect(screen.getByText('第4条（利用料金および支払方法）')).toBeInTheDocument();
+      expect(screen.getByText('第4条（有料プラン）')).toBeInTheDocument();
       expect(screen.getByText('第5条（禁止事項）')).toBeInTheDocument();
       expect(screen.getByText('第6条（本サービスの提供の停止等）')).toBeInTheDocument();
       expect(screen.getByText('第7条（利用制限および登録抹消）')).toBeInTheDocument();
