@@ -39,11 +39,12 @@ describe('quick-clip core exports', () => {
       command: 'extract',
       jobId: 'job-1',
       emotionFilter: DEFAULT_EMOTION_FILTER,
+      aiAnalysis: true,
     };
 
     expect(BATCH_JOB_ENV_NAMES.JOB_ID).toBe('JOB_ID');
     expect(EMOTION_FILTERS).toContain(input.emotionFilter);
-    expect(toBatchJobEnvironment(input)).toHaveLength(3);
+    expect(toBatchJobEnvironment(input)).toHaveLength(4);
     expect(readBatchJobInput({ BATCH_COMMAND: 'extract', JOB_ID: 'job-1' })).toEqual(input);
   });
 
@@ -113,6 +114,9 @@ describe('quick-clip core exports', () => {
       updateBatchStage: async () => undefined,
       updateErrorMessage: async () => undefined,
       updateAnalysisProgress: async () => undefined,
+      markUsageReleased: async () => true,
+      markUsageSwitched: async () => true,
+      updateUsage: async () => undefined,
     };
 
     const highlightRepository: HighlightRepository = {

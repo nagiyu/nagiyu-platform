@@ -26,7 +26,19 @@ describe('validateEnvironment', () => {
       awsRegion: 'ap-northeast-1',
       openAiApiKey: undefined,
       emotionFilter: 'any',
+      aiAnalysis: true,
     });
+  });
+
+  it('AI_ANALYSIS = false を AI 解析なしとして読み取る', () => {
+    process.env.BATCH_COMMAND = 'extract';
+    process.env.JOB_ID = 'job-1';
+    process.env.DYNAMODB_TABLE_NAME = 'table';
+    process.env.S3_BUCKET = 'bucket';
+    process.env.AWS_REGION = 'ap-northeast-1';
+    process.env.AI_ANALYSIS = 'false';
+
+    expect(validateEnvironment().aiAnalysis).toBe(false);
   });
 
   it('必須環境変数不足でエラーになる', () => {

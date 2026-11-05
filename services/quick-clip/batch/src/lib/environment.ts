@@ -18,7 +18,7 @@ export const validateEnvironment = (): QuickClipBatchRunInput => {
     'AWS_REGION',
   ]);
 
-  const { command, jobId, emotionFilter } = readBatchJobInput(process.env);
+  const { command, jobId, emotionFilter, aiAnalysis } = readBatchJobInput(process.env);
   const openAiApiKey = process.env.OPENAI_API_KEY?.trim() || undefined;
 
   return {
@@ -29,5 +29,6 @@ export const validateEnvironment = (): QuickClipBatchRunInput => {
     awsRegion: env.AWS_REGION,
     openAiApiKey,
     emotionFilter,
+    aiAnalysis,
   };
 };

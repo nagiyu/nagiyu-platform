@@ -12,6 +12,8 @@ export type QuickClipBatchJobInput = {
   /** ジョブID（英数字・アンダースコア・ハイフンのみ許可）。 */
   jobId: string;
   emotionFilter: EmotionFilter;
+  /** AI 解析 (文字起こし + 感情分析) を行うか。 */
+  aiAnalysis: boolean;
 };
 
 /** web が渡し、batch が読む環境変数名。両側で同じ名前を参照するための唯一の定義。 */
@@ -19,6 +21,7 @@ export const BATCH_JOB_ENV_NAMES = {
   COMMAND: 'BATCH_COMMAND',
   JOB_ID: 'JOB_ID',
   EMOTION_FILTER: 'EMOTION_FILTER',
+  AI_ANALYSIS: 'AI_ANALYSIS',
 } as const;
 
 /** 感情フィルターとして受け付ける値。 */
@@ -42,6 +45,7 @@ const ERROR_MESSAGES = {
   MISSING_ENV: '必要な環境変数が設定されていません',
   INVALID_JOB_ID: 'ジョブIDが不正です',
   INVALID_EMOTION_FILTER: 'EMOTION_FILTER の値が不正です',
+  INVALID_AI_ANALYSIS: 'AI_ANALYSIS の値が不正です',
 } as const;
 
 /**
@@ -55,6 +59,7 @@ export const toBatchJobEnvironment = (
   { name: BATCH_JOB_ENV_NAMES.COMMAND, value: input.command },
   { name: BATCH_JOB_ENV_NAMES.JOB_ID, value: input.jobId },
   { name: BATCH_JOB_ENV_NAMES.EMOTION_FILTER, value: input.emotionFilter },
+  { name: BATCH_JOB_ENV_NAMES.AI_ANALYSIS, value: String(input.aiAnalysis) },
 ];
 
 const normalize = (value: string | undefined): string => value?.trim() ?? '';
@@ -69,6 +74,8 @@ const isEmotionFilter = (value: string): value is EmotionFilter =>
  * 環境変数から起動ごとの入力を読み取り、値を検証する。
  *
  * EMOTION_FILTER は未設定・空白のみのとき {@link DEFAULT_EMOTION_FILTER} にする。
+ * AI_ANALYSIS は未設定・空白のみのとき true にする。この変数を渡さない版の web が投入したジョブでも、
+ * 従来どおり AI 解析を行うため。
  * ジョブ定義由来の値（テーブル名など）は読まない。
  *
  * @param env 環境変数のレコード（`process.env` 等）
@@ -99,13 +106,19 @@ export const readBatchJobInput = (
     throw new Error(ERROR_MESSAGES.INVALID_JOB_ID);
   }
 
+  const rawAiAnalysis = normalize(env[BATCH_JOB_ENV_NAMES.AI_ANALYSIS]);
+  if (rawAiAnalysis.length > 0 && rawAiAnalysis !== 'true' && rawAiAnalysis !== 'false') {
+    throw new Error(ERROR_MESSAGES.INVALID_AI_ANALYSIS);
+  }
+  const aiAnalysis = rawAiAnalysis !== 'false';
+
   const rawEmotionFilter = normalize(env[BATCH_JOB_ENV_NAMES.EMOTION_FILTER]);
   if (rawEmotionFilter.length === 0) {
-    return { command, jobId, emotionFilter: DEFAULT_EMOTION_FILTER };
+    return { command, jobId, emotionFilter: DEFAULT_EMOTION_FILTER, aiAnalysis };
   }
   if (!isEmotionFilter(rawEmotionFilter)) {
     throw new Error(ERROR_MESSAGES.INVALID_EMOTION_FILTER);
   }
 
-  return { command, jobId, emotionFilter: rawEmotionFilter };
+  return { command, jobId, emotionFilter: rawEmotionFilter, aiAnalysis };
 };

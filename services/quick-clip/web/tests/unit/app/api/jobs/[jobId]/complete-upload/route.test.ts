@@ -340,6 +340,7 @@ describe('POST /api/jobs/[jobId]/complete-upload', () => {
       'BATCH_COMMAND',
       'JOB_ID',
       'EMOTION_FILTER',
+      'AI_ANALYSIS',
     ]);
   });
 

@@ -8,7 +8,7 @@ import { dirname } from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import { HighlightAggregationService } from './highlight-aggregation.service.js';
 import { JobService } from './job.service.js';
-import type { AnalysisProgress, BatchStage, Highlight } from '../types.js';
+import type { AnalysisProgress, BatchStage, Highlight, Job } from '../types.js';
 import type { EmotionFilter, EmotionHighlightScore } from './highlight-extractor.service.js';
 import { FfmpegVideoAnalyzer } from './ffmpeg-video-analyzer.js';
 import { MotionHighlightService } from './motion-highlight.service.js';
@@ -19,6 +19,9 @@ import { TranscriptionService } from './transcription.service.js';
 import type { TranscriptSegment } from './transcription.service.js';
 import { EmotionHighlightService } from './emotion-highlight.service.js';
 import { sleep, toErrorMessage } from '@nagiyu/common';
+import { createUsageRepository } from '../repositories/factory.js';
+import { UsageService } from './usage.service.js';
+import { DOMAIN_ERROR_MESSAGES } from './domain-error-messages.js';
 
 /** Batch 実行コマンド種別。 */
 export type QuickClipBatchCommand = 'extract';
@@ -33,6 +36,8 @@ export type QuickClipBatchRunInput = {
   awsRegion: string;
   /** OpenAI API キー（未設定時は感情分析をスキップ）。 */
   openAiApiKey?: string;
+  /** AI 解析 (文字起こし + 感情分析) を行うか（未指定時は行う）。 */
+  aiAnalysis?: boolean;
   /** 感情フィルター（未指定時は 'any'）。 */
   emotionFilter?: EmotionFilter;
 };
@@ -42,7 +47,19 @@ const ERROR_MESSAGES = {
   SOURCE_VIDEO_NOT_FOUND: (sourceVideoKey: string): string =>
     `アップロード済みの動画ファイルが見つかりません: ${sourceVideoKey}`,
   CLIP_SPLIT_FAILED: 'クリップ分割に失敗しました',
+  JOB_NOT_FOUND: (jobId: string): string => `ジョブが見つかりません: ${jobId}`,
 } as const;
+
+/**
+ * 実際の動画の長さがジョブに記録された上限を超えたことを表す。
+ * 利用者の都合による失敗のため、障害としては報告しない。
+ */
+class DurationLimitExceededError extends Error {
+  constructor() {
+    super(DOMAIN_ERROR_MESSAGES.DURATION_LIMIT_EXCEEDED);
+    this.name = 'DurationLimitExceededError';
+  }
+}
 
 const errorReporter = createErrorReporter({ serviceId: 'quick-clip' });
 
@@ -208,6 +225,8 @@ const generateClips = async (
 type BuildHighlightsResult = {
   highlights: Highlight[];
   segments: TranscriptSegment[];
+  /** AI 解析を行い、文字起こしも感情分析も失敗しなかったか。 */
+  aiSucceeded: boolean;
 };
 
 const buildHighlights = async (
@@ -216,7 +235,8 @@ const buildHighlights = async (
   tableName: string,
   awsRegion: string,
   openAiApiKey?: string,
-  emotionFilter?: EmotionFilter
+  emotionFilter?: EmotionFilter,
+  maxDurationSec?: number
 ): Promise<BuildHighlightsResult> => {
   const { size: videoFileSizeBytes } = await stat(localPath);
   console.info(`[buildHighlights] 開始: jobId=${jobId} videoFileSize=${videoFileSizeBytes}bytes`);
@@ -225,6 +245,10 @@ const buildHighlights = async (
   const motionService = new MotionHighlightService(analyzer);
   const volumeService = new VolumeHighlightService(analyzer);
   const duration = await analyzer.getDurationSec(localPath);
+  // 申告された長さで判定した web 側をすり抜けた動画を、費用のかかる文字起こしより前に止める
+  if (maxDurationSec !== undefined && duration > maxDurationSec) {
+    throw new DurationLimitExceededError();
+  }
 
   const initialProgress: AnalysisProgress = {
     motion: { status: 'in_progress' },
@@ -234,6 +258,7 @@ const buildHighlights = async (
   await updateAnalysisProgress(jobId, initialProgress, tableName, awsRegion);
 
   const progress = { ...initialProgress };
+  let aiFailed = false;
 
   console.info(`[buildHighlights] モーション・音量・文字起こし並列分析 開始: jobId=${jobId}`);
   const [motionScores, volumeScores, segments] = await Promise.all([
@@ -273,6 +298,7 @@ const buildHighlights = async (
             })
             .catch(async (err: unknown) => {
               console.warn('[buildHighlights] 文字起こしをスキップします:', err);
+              aiFailed = true;
               progress.transcription = { status: 'failed' };
               await updateAnalysisProgress(jobId, { ...progress }, tableName, awsRegion);
               return [] as TranscriptSegment[];
@@ -310,6 +336,7 @@ const buildHighlights = async (
       );
     } catch (error) {
       console.warn('[buildHighlights] 感情分析をスキップします:', error);
+      aiFailed = true;
       progress.emotionScoring = { status: 'failed' };
       await updateAnalysisProgress(jobId, { ...progress }, tableName, awsRegion);
       await errorReporter.report('QuickClip 感情分析に失敗しスキップしました', error, {
@@ -337,7 +364,7 @@ const buildHighlights = async (
     status: 'unconfirmed' as const,
     clipStatus: 'PENDING' as const,
   }));
-  return { highlights, segments };
+  return { highlights, segments, aiSucceeded: Boolean(openAiApiKey) && !aiFailed };
 };
 
 const updateBatchStage = async (
@@ -376,19 +403,43 @@ const updateErrorMessage = async (
   await service.updateErrorMessage(jobId, errorMessage);
 };
 
-const getJobExpiresAt = async (
-  jobId: string,
-  tableName: string,
-  awsRegion: string
-): Promise<number> => {
+const getJobOrThrow = async (jobId: string, tableName: string, awsRegion: string): Promise<Job> => {
   const docClient = getDynamoDBDocumentClient(awsRegion);
   const jobRepo = createJobRepository(docClient, tableName);
   const service = new JobService(jobRepo);
   const job = await service.getJob(jobId);
   if (!job) {
-    throw new Error(`ジョブが見つかりません: ${jobId}`);
+    throw new Error(ERROR_MESSAGES.JOB_NOT_FOUND(jobId));
   }
-  return job.expiresAt;
+  return job;
+};
+
+/**
+ * ジョブで数えた利用回数を、戻す・AI 解析なしへ付け替えるのいずれかで整える。
+ *
+ * 失敗しても元の処理の扱いを妨げないよう、例外は報告にとどめる。
+ * 戻しは Batch のコンテナごと落ちた場合などには到達しないため、その場合は戻らない。
+ * 利用者の不利益よりも、戻す仕組みを複雑にしない側に倒している。
+ */
+const settleJobUsage = async (
+  env: QuickClipBatchRunInput,
+  operation: 'releaseForJob' | 'switchToNoAiForJob'
+): Promise<void> => {
+  try {
+    const docClient = getDynamoDBDocumentClient(env.awsRegion);
+    const jobRepo = createJobRepository(docClient, env.tableName);
+    const job = await new JobService(jobRepo).getJob(env.jobId);
+    if (!job) {
+      return;
+    }
+    const usageService = new UsageService(createUsageRepository(docClient, env.tableName));
+    await usageService[operation](job, jobRepo);
+  } catch (error) {
+    await errorReporter.report('QuickClip 利用回数を整えられませんでした', error, {
+      severity: 'warning',
+      context: { jobId: env.jobId, operation },
+    });
+  }
 };
 
 const runExtract = async (env: QuickClipBatchRunInput): Promise<void> => {
@@ -400,13 +451,17 @@ const runExtract = async (env: QuickClipBatchRunInput): Promise<void> => {
 
   console.info(`[runExtract] analyzing ステージ開始: jobId=${env.jobId}`);
   await updateBatchStage(env.jobId, 'analyzing', env.tableName, env.awsRegion);
-  const { highlights, segments } = await buildHighlights(
+  const job = await getJobOrThrow(env.jobId, env.tableName, env.awsRegion);
+  const { highlights, segments, aiSucceeded } = await buildHighlights(
     env.jobId,
     localVideoPath,
     env.tableName,
     env.awsRegion,
-    env.openAiApiKey,
-    env.emotionFilter
+    // AI 解析なしのジョブは API キーがあっても文字起こし・感情分析をしない。
+    // 環境変数だけでなくジョブの記録も見るのは、AI_ANALYSIS を渡さない版の web が投入したジョブでも崩れないようにするため
+    env.aiAnalysis === false || job.aiAnalysis === false ? undefined : env.openAiApiKey,
+    env.emotionFilter,
+    job.maxDurationSec
   );
 
   console.info(`[runExtract] clipping ステージ開始: jobId=${env.jobId}`);
@@ -415,7 +470,7 @@ const runExtract = async (env: QuickClipBatchRunInput): Promise<void> => {
 
   console.info(`[runExtract] aggregating ステージ開始: jobId=${env.jobId}`);
   await updateBatchStage(env.jobId, 'aggregating', env.tableName, env.awsRegion);
-  const expiresAt = await getJobExpiresAt(env.jobId, env.tableName, env.awsRegion);
+  const { expiresAt } = job;
   await persistHighlights(env.jobId, highlights, expiresAt, env.tableName, env.awsRegion);
   console.info(`[runExtract] ハイライト保存完了: jobId=${env.jobId} count=${highlights.length}`);
 
@@ -441,6 +496,11 @@ const runExtract = async (env: QuickClipBatchRunInput): Promise<void> => {
       `[runExtract] 文字起こしセグメントが0件のため transcript.json を保存しません: jobId=${env.jobId}`
     );
   }
+
+  if (!aiSucceeded) {
+    // AI 解析ありで数えたのに成果が無いジョブは、AI 解析なしの 1 回に付け替える
+    await settleJobUsage(env, 'switchToNoAiForJob');
+  }
 };
 
 export const runQuickClipBatch = async (env: QuickClipBatchRunInput): Promise<void> => {
@@ -448,7 +508,14 @@ export const runQuickClipBatch = async (env: QuickClipBatchRunInput): Promise<vo
     await runExtract(env);
   } catch (error) {
     const message = toErrorMessage(error);
+    // 理由を問わず戻す。エラーメッセージの記録が失敗しても戻せるよう先に行う
+    await settleJobUsage(env, 'releaseForJob');
     await updateErrorMessage(env.jobId, message, env.tableName, env.awsRegion);
+    if (error instanceof DurationLimitExceededError) {
+      // 利用者側の上限による失敗は障害ではないため報告しない。
+      // Batch ジョブは成功で終えるので、失敗として見せるのは web が記録したエラーメッセージで行う
+      return;
+    }
     await errorReporter.report('QuickClip 抽出処理が失敗しました', error, {
       context: { jobId: env.jobId, command: env.command },
     });

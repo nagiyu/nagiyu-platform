@@ -1,6 +1,7 @@
 import { createHmac, randomBytes } from 'node:crypto';
+import type { JobRepository } from '../repositories/job.repository.interface.js';
 import type { UsageRepository } from '../repositories/usage.repository.interface.js';
-import type { UsageKind, UsageRecord } from '../types.js';
+import type { Job, UsageKind, UsageRecord } from '../types.js';
 import { toDayTtlSeconds, toJstDayKey, toJstMonthKey, toMonthTtlSeconds } from './usage-period.js';
 import { getUsageLimit, type UsageLimit, type UsageTier } from './usage-plan.js';
 
@@ -152,6 +153,48 @@ export class UsageService {
       ttlSec: toMonthTtlSeconds(this.now()),
     });
     return consumed ? { ...record, kind: 'noAi' } : undefined;
+  }
+
+  /**
+   * ジョブに記録された 1 回を戻す。記録が無いジョブでは何もしない。
+   *
+   * ジョブの戻し済みの印を条件付きで付けられた呼び出しだけが戻すため、Batch の再試行や
+   * web との重なりがあっても同じ 1 回を二重に戻さない。
+   * 印を先に付けるので、戻す処理の途中で失敗したときは戻し損ねる側に倒れる。
+   *
+   * @returns 戻したか
+   */
+  public async releaseForJob(job: Job, jobRepository: JobRepository): Promise<boolean> {
+    if (!job.usage) {
+      return false;
+    }
+    if (!(await jobRepository.markUsageReleased(job.jobId))) {
+      return false;
+    }
+    await this.release(job.usage);
+    return true;
+  }
+
+  /**
+   * AI 解析ありで数えたジョブを、AI 解析なしへ付け替える。AI 解析ありのジョブ以外では何もしない。
+   *
+   * 付け替え済みの印を条件付きで付けられた呼び出しだけが行うため、再試行しても二重に付け替えない。
+   * 付け替えた結果はジョブの記録へ反映し、以降の戻しが実際に数えている種類を戻すようにする。
+   * AI 解析なしを数えられなかったときは戻すものが無いため、戻し済みの印を付ける。
+   */
+  public async switchToNoAiForJob(job: Job, jobRepository: JobRepository): Promise<void> {
+    if (!job.usage || job.usage.kind !== 'ai') {
+      return;
+    }
+    if (!(await jobRepository.markUsageSwitched(job.jobId))) {
+      return;
+    }
+    const moved = await this.moveToNoAi(job.usage);
+    if (moved) {
+      await jobRepository.updateUsage(job.jobId, moved);
+    } else {
+      await jobRepository.markUsageReleased(job.jobId);
+    }
   }
 
   /** 残り回数を返す */
