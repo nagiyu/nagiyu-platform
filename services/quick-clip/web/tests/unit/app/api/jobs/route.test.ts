@@ -38,8 +38,8 @@ const FREE_SESSION = {
   user: { id: 'user-1', email: 'a@example.com', name: 'A', roles: [] },
   expires: '2999-01-01T00:00:00.000Z',
 };
-const PREMIUM_SESSION = {
-  user: { ...FREE_SESSION.user, roles: ['quick-clip-premium'] },
+const STANDARD_SESSION = {
+  user: { ...FREE_SESSION.user, roles: ['quick-clip-standard'] },
   expires: '2999-01-01T00:00:00.000Z',
 };
 const ANON_ID = '11111111-1111-4111-8111-111111111111';
@@ -584,7 +584,7 @@ describe('POST /api/jobs', () => {
     });
 
     it('有料の段は長い動画を受ける', async () => {
-      mockGetSession.mockResolvedValue(PREMIUM_SESSION);
+      mockGetSession.mockResolvedValue(STANDARD_SESSION);
 
       const response = await POST(createRequest({ ...validBody, durationSec: 240 * 60 }));
 

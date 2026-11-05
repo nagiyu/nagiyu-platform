@@ -68,14 +68,14 @@ describe('GET /api/usage', () => {
 
   it('ログイン中はユーザー ID ごとに、権限に応じた段を返す', async () => {
     mockGetSession.mockResolvedValue({
-      user: { id: 'u1', email: 'a@example.com', name: 'A', roles: ['quick-clip-premium'] },
+      user: { id: 'u1', email: 'a@example.com', name: 'A', roles: ['quick-clip-standard'] },
       expires: '2999-01-01T00:00:00.000Z',
     });
 
     const response = await GET(createRequest());
     const body = await response.json();
 
-    expect(body.tier).toBe('premium');
+    expect(body.tier).toBe('standard');
     expect(body.remaining).toEqual({ ai: 10, noAi: 30 });
     expect(response.headers.get('set-cookie')).toBeNull();
   });
