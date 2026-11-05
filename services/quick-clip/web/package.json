@@ -28,6 +28,7 @@
     "@nagiyu/common": "*",
     "@nagiyu/nextjs": "*",
     "@nagiyu/quick-clip-core": "*",
-    "@nagiyu/ui": "*"
+    "@nagiyu/ui": "*",
+    "next-auth": "^5.0.0-beta.32"
   }
 }

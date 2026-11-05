@@ -11,9 +11,13 @@ jest.mock('next-auth/react', () => ({
 
 const mockBuildSignOutUrl = jest.fn();
 jest.mock('../../../../src/utils/auth', () => ({
+  buildSignInUrl: (authUrl: string, callbackUrl?: string) =>
+    mockBuildSignInUrl(authUrl, callbackUrl),
   buildSignOutUrl: (authUrl: string, callbackUrl?: string) =>
     mockBuildSignOutUrl(authUrl, callbackUrl),
 }));
+
+const mockBuildSignInUrl = jest.fn();
 
 import SessionHeader from '../../../../src/components/layout/SessionHeader';
 import type { NavigationItem } from '../../../../src/components/layout/Header';
@@ -57,6 +61,55 @@ describe('SessionHeader', () => {
       render(<SessionHeader authUrl={AUTH_URL} navigationItems={items} />);
 
       expect(screen.queryByRole('link', { name: 'チャット' })).not.toBeInTheDocument();
+    });
+  });
+
+  describe('showSignIn', () => {
+    it('既定ではログインボタンを表示しない', () => {
+      mockUseSession.mockReturnValue({ data: null, status: 'unauthenticated' });
+      render(<SessionHeader authUrl={AUTH_URL} />);
+
+      expect(screen.queryByRole('button', { name: 'ログイン' })).not.toBeInTheDocument();
+    });
+
+    it('未ログインのときログインボタンを表示し、actions と並べる', () => {
+      mockUseSession.mockReturnValue({ data: null, status: 'unauthenticated' });
+      render(
+        <SessionHeader
+          authUrl={AUTH_URL}
+          showSignIn
+          actions={<span data-testid="extra-action">x</span>}
+        />
+      );
+
+      expect(screen.getByRole('button', { name: 'ログイン' })).toBeInTheDocument();
+      expect(screen.getByTestId('extra-action')).toBeInTheDocument();
+    });
+
+    it('読み込み中はログインボタンを表示しない', () => {
+      mockUseSession.mockReturnValue({ data: undefined, status: 'loading' });
+      render(<SessionHeader authUrl={AUTH_URL} showSignIn />);
+
+      expect(screen.queryByRole('button', { name: 'ログイン' })).not.toBeInTheDocument();
+    });
+
+    it('ログイン中はログインボタンを表示しない', () => {
+      mockUseSession.mockReturnValue(authenticated({ name: 'a', roles: [] }));
+      render(<SessionHeader authUrl={AUTH_URL} showSignIn />);
+
+      expect(screen.queryByRole('button', { name: 'ログイン' })).not.toBeInTheDocument();
+    });
+
+    it('押すと現在の URL を戻り先にして auth のサインインへ遷移する', async () => {
+      const user = userEvent.setup();
+      mockBuildSignInUrl.mockReturnValue(`${window.location.origin}/#signed-in`);
+      mockUseSession.mockReturnValue({ data: null, status: 'unauthenticated' });
+      render(<SessionHeader authUrl={AUTH_URL} showSignIn />);
+
+      await user.click(screen.getByRole('button', { name: 'ログイン' }));
+
+      expect(mockBuildSignInUrl).toHaveBeenCalledWith(AUTH_URL, expect.any(String));
+      expect(window.location.hash).toBe('#signed-in');
     });
   });
 
