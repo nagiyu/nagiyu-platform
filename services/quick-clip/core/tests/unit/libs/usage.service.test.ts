@@ -1,0 +1,309 @@
+import { createHmac } from 'node:crypto';
+import { InMemorySingleTableStore } from '@nagiyu/aws';
+import { IP_DAILY_JOB_LIMIT, UsageService } from '../../../src/libs/usage.service.js';
+import { USAGE_LIMITS } from '../../../src/libs/usage-plan.js';
+import { InMemoryUsageRepository } from '../../../src/repositories/in-memory-usage.repository.js';
+import type { UsageRepository } from '../../../src/repositories/usage.repository.interface.js';
+
+// 日本時間 2026-11-05 12:00
+const NOW = Date.UTC(2026, 10, 5, 3, 0, 0);
+
+const createService = (
+  repository: UsageRepository = new InMemoryUsageRepository(new InMemorySingleTableStore())
+) => new UsageService(repository, { now: () => NOW, generateSalt: () => 'fixed-salt' });
+
+describe('UsageService.consume', () => {
+  it('AI ありで数え、数えた記録を返す', async () => {
+    const service = createService();
+
+    const result = await service.consume({ subject: 'USER#u1', tier: 'free', aiAnalysis: true });
+
+    expect(result).toEqual({
+      ok: true,
+      record: { subject: 'USER#u1', month: '202611', kind: 'ai', noAiLimit: 10 },
+      limit: USAGE_LIMITS.free,
+    });
+  });
+
+  it('AI なしを明示すれば AI なしで数える', async () => {
+    const service = createService();
+
+    const result = await service.consume({
+      subject: 'USER#u1',
+      tier: 'premium',
+      aiAnalysis: false,
+    });
+
+    expect(result).toMatchObject({ ok: true, record: { kind: 'noAi' } });
+  });
+
+  it('省略時は AI ありで受け、AI ありの残りが 0 なら AI なしで受ける', async () => {
+    const service = createService();
+
+    const first = await service.consume({ subject: 'USER#u1', tier: 'free' });
+    const second = await service.consume({ subject: 'USER#u1', tier: 'free' });
+
+    expect(first).toMatchObject({ ok: true, record: { kind: 'ai' } });
+    expect(second).toMatchObject({ ok: true, record: { kind: 'noAi' } });
+  });
+
+  it('未ログインは AI の上限が 0 のため、省略時は AI なしで受ける', async () => {
+    const service = createService();
+
+    const result = await service.consume({ subject: 'ANON#a1', tier: 'anonymous' });
+
+    expect(result).toMatchObject({ ok: true, record: { kind: 'noAi' } });
+  });
+
+  it('AI ありを明示して残りが 0 なら断る', async () => {
+    const service = createService();
+
+    expect(
+      await service.consume({ subject: 'ANON#a1', tier: 'anonymous', aiAnalysis: true })
+    ).toEqual({ ok: false, code: 'AI_LIMIT_EXCEEDED' });
+  });
+
+  it('AI なしの上限に達したら断る', async () => {
+    const service = createService();
+    for (let i = 0; i < USAGE_LIMITS.anonymous.noAiPerMonth; i += 1) {
+      await service.consume({ subject: 'ANON#a1', tier: 'anonymous', aiAnalysis: false });
+    }
+
+    expect(
+      await service.consume({ subject: 'ANON#a1', tier: 'anonymous', aiAnalysis: false })
+    ).toEqual({ ok: false, code: 'NO_AI_LIMIT_EXCEEDED' });
+  });
+
+  it('省略時に AI あり・なしの両方が尽きていれば AI なしの上限として断る', async () => {
+    const service = createService();
+    await service.consume({ subject: 'USER#u1', tier: 'free', aiAnalysis: true });
+    for (let i = 0; i < USAGE_LIMITS.free.noAiPerMonth; i += 1) {
+      await service.consume({ subject: 'USER#u1', tier: 'free', aiAnalysis: false });
+    }
+
+    expect(await service.consume({ subject: 'USER#u1', tier: 'free' })).toEqual({
+      ok: false,
+      code: 'NO_AI_LIMIT_EXCEEDED',
+    });
+  });
+
+  it('申告された長さが上限を超えていれば数えずに断る。申告が無ければ通す', async () => {
+    const repository = new InMemoryUsageRepository(new InMemorySingleTableStore());
+    const service = createService(repository);
+    const tooLong = USAGE_LIMITS.anonymous.maxDurationSec + 1;
+
+    expect(
+      await service.consume({ subject: 'ANON#a1', tier: 'anonymous', durationSec: tooLong })
+    ).toEqual({ ok: false, code: 'DURATION_LIMIT_EXCEEDED' });
+    expect(await repository.getCounts('ANON#a1', '202611')).toEqual({ ai: 0, noAi: 0 });
+
+    expect(
+      await service.consume({
+        subject: 'ANON#a1',
+        tier: 'anonymous',
+        durationSec: USAGE_LIMITS.anonymous.maxDurationSec,
+      })
+    ).toMatchObject({ ok: true });
+    expect(await service.consume({ subject: 'ANON#a2', tier: 'anonymous' })).toMatchObject({
+      ok: true,
+    });
+  });
+
+  describe('IP の補助の上限', () => {
+    it('日ごとの塩を鍵にした HMAC を保存し、IP をそのまま保存しない', async () => {
+      const store = new InMemorySingleTableStore();
+      const service = createService(new InMemoryUsageRepository(store));
+
+      await service.consume({ subject: 'ANON#a1', tier: 'anonymous', ip: '203.0.113.7' });
+
+      const expectedHash = createHmac('sha256', 'fixed-salt').update('203.0.113.7').digest('hex');
+      const items = store.scanAll();
+      expect(items.find((item) => item.PK === 'USAGE_IP#20261105')?.SK).toBe(`IP#${expectedHash}`);
+      expect(JSON.stringify(items)).not.toContain('203.0.113.7');
+    });
+
+    it('同じ IP の 1 日の上限を超えると断り、数えた 1 回を戻す', async () => {
+      const repository = new InMemoryUsageRepository(new InMemorySingleTableStore());
+      const service = createService(repository);
+      // 匿名 ID ごとの上限に当たらないよう、別の匿名 ID で申し込む
+      for (let i = 0; i < IP_DAILY_JOB_LIMIT; i += 1) {
+        const result = await service.consume({
+          subject: `ANON#a${i}`,
+          tier: 'anonymous',
+          ip: '203.0.113.7',
+        });
+        expect(result.ok).toBe(true);
+      }
+
+      const rejected = await service.consume({
+        subject: 'ANON#extra',
+        tier: 'anonymous',
+        ip: '203.0.113.7',
+      });
+
+      expect(rejected).toEqual({ ok: false, code: 'IP_LIMIT_EXCEEDED' });
+      expect(await repository.getCounts('ANON#extra', '202611')).toEqual({ ai: 0, noAi: 0 });
+      expect(
+        await service.consume({ subject: 'ANON#extra', tier: 'anonymous', ip: '198.51.100.1' })
+      ).toMatchObject({ ok: true });
+    });
+
+    it('ログイン済みには IP の上限を使わない', async () => {
+      const store = new InMemorySingleTableStore();
+      const service = createService(new InMemoryUsageRepository(store));
+
+      await service.consume({ subject: 'USER#u1', tier: 'free', ip: '203.0.113.7' });
+
+      expect(store.scanAll().some((item) => String(item.PK).startsWith('USAGE_IP#'))).toBe(false);
+    });
+
+    it('IP が取れなければ IP の上限は使わない', async () => {
+      const store = new InMemorySingleTableStore();
+      const service = createService(new InMemoryUsageRepository(store));
+
+      expect(await service.consume({ subject: 'ANON#a1', tier: 'anonymous' })).toMatchObject({
+        ok: true,
+      });
+      expect(store.scanAll().some((item) => String(item.PK).startsWith('USAGE_IP#'))).toBe(false);
+    });
+
+    it('IP の確認で障害になったら、数えた 1 回を戻して例外を投げる', async () => {
+      const repository = new InMemoryUsageRepository(new InMemorySingleTableStore());
+      jest.spyOn(repository, 'getOrCreateDailySalt').mockRejectedValue(new Error('boom'));
+      const service = createService(repository);
+
+      await expect(
+        service.consume({ subject: 'ANON#a1', tier: 'anonymous', ip: '203.0.113.7' })
+      ).rejects.toThrow('boom');
+      expect(await repository.getCounts('ANON#a1', '202611')).toEqual({ ai: 0, noAi: 0 });
+    });
+
+    it('戻す処理も失敗したときは元の例外を投げ、戻せなかったことを報告する', async () => {
+      const repository = new InMemoryUsageRepository(new InMemorySingleTableStore());
+      jest.spyOn(repository, 'getOrCreateDailySalt').mockRejectedValue(new Error('boom'));
+      const releaseError = new Error('release failed');
+      jest.spyOn(repository, 'release').mockRejectedValue(releaseError);
+      const reportError = jest.fn().mockResolvedValue(undefined);
+      const service = new UsageService(repository, { now: () => NOW, reportError });
+
+      await expect(
+        service.consume({ subject: 'ANON#a1', tier: 'anonymous', ip: '203.0.113.7' })
+      ).rejects.toThrow('boom');
+      expect(reportError).toHaveBeenCalledWith(
+        'QuickClip 利用回数を戻せませんでした',
+        releaseError
+      );
+    });
+
+    it('報告先を渡さなくても、戻す処理の失敗で元の例外が変わらない', async () => {
+      const repository = new InMemoryUsageRepository(new InMemorySingleTableStore());
+      jest.spyOn(repository, 'getOrCreateDailySalt').mockRejectedValue(new Error('boom'));
+      jest.spyOn(repository, 'release').mockRejectedValue(new Error('release failed'));
+
+      await expect(
+        createService(repository).consume({
+          subject: 'ANON#a1',
+          tier: 'anonymous',
+          ip: '203.0.113.7',
+        })
+      ).rejects.toThrow('boom');
+    });
+  });
+
+  it('日本時間で月が変わると回数が 0 に戻る', async () => {
+    const repository = new InMemoryUsageRepository(new InMemorySingleTableStore());
+    let nowMs = Date.UTC(2026, 10, 30, 14, 59, 59); // 11/30 23:59:59 JST
+    const service = new UsageService(repository, { now: () => nowMs });
+    for (let i = 0; i < USAGE_LIMITS.free.noAiPerMonth; i += 1) {
+      await service.consume({ subject: 'USER#u1', tier: 'free', aiAnalysis: false });
+    }
+    expect(
+      await service.consume({ subject: 'USER#u1', tier: 'free', aiAnalysis: false })
+    ).toMatchObject({ ok: false });
+
+    nowMs = Date.UTC(2026, 10, 30, 15, 0, 0); // 12/1 00:00:00 JST
+
+    expect(
+      await service.consume({ subject: 'USER#u1', tier: 'free', aiAnalysis: false })
+    ).toMatchObject({ ok: true, record: { month: '202612' } });
+  });
+});
+
+describe('UsageService の取り消しと取得', () => {
+  it('release は同じ主体・月・種類の回数を戻す', async () => {
+    const repository = new InMemoryUsageRepository(new InMemorySingleTableStore());
+    const service = createService(repository);
+    const consumed = await service.consume({ subject: 'USER#u1', tier: 'free', aiAnalysis: true });
+    if (!consumed.ok) {
+      throw new Error('数えられるはず');
+    }
+
+    await service.release(consumed.record);
+
+    expect(await repository.getCounts('USER#u1', '202611')).toEqual({ ai: 0, noAi: 0 });
+  });
+
+  describe('moveToNoAi', () => {
+    it('AI ありを戻し、AI なしを数える', async () => {
+      const repository = new InMemoryUsageRepository(new InMemorySingleTableStore());
+      const service = createService(repository);
+      const consumed = await service.consume({
+        subject: 'USER#u1',
+        tier: 'free',
+        aiAnalysis: true,
+      });
+      if (!consumed.ok) {
+        throw new Error('数えられるはず');
+      }
+
+      const moved = await service.moveToNoAi(consumed.record);
+
+      expect(moved).toEqual({ ...consumed.record, kind: 'noAi' });
+      expect(await repository.getCounts('USER#u1', '202611')).toEqual({ ai: 0, noAi: 1 });
+    });
+
+    it('AI なしの上限に達していれば、AI ありを戻すだけにする', async () => {
+      const repository = new InMemoryUsageRepository(new InMemorySingleTableStore());
+      const service = createService(repository);
+      const consumed = await service.consume({
+        subject: 'USER#u1',
+        tier: 'free',
+        aiAnalysis: true,
+      });
+      for (let i = 0; i < USAGE_LIMITS.free.noAiPerMonth; i += 1) {
+        await service.consume({ subject: 'USER#u1', tier: 'free', aiAnalysis: false });
+      }
+      if (!consumed.ok) {
+        throw new Error('数えられるはず');
+      }
+
+      expect(await service.moveToNoAi(consumed.record)).toBeUndefined();
+      expect(await repository.getCounts('USER#u1', '202611')).toEqual({
+        ai: 0,
+        noAi: USAGE_LIMITS.free.noAiPerMonth,
+      });
+    });
+  });
+
+  it('getUsage は段・上限・使用済み・残りを返す', async () => {
+    const service = createService();
+    await service.consume({ subject: 'USER#u1', tier: 'free', aiAnalysis: true });
+    await service.consume({ subject: 'USER#u1', tier: 'free', aiAnalysis: false });
+
+    expect(await service.getUsage('USER#u1', 'free')).toEqual({
+      month: '202611',
+      tier: 'free',
+      limits: USAGE_LIMITS.free,
+      used: { ai: 1, noAi: 1 },
+      remaining: { ai: 0, noAi: USAGE_LIMITS.free.noAiPerMonth - 1 },
+    });
+  });
+
+  it('getUsage の残りは 0 未満にならない', async () => {
+    const repository = new InMemoryUsageRepository(new InMemorySingleTableStore());
+    jest.spyOn(repository, 'getCounts').mockResolvedValue({ ai: 99, noAi: 99 });
+    const service = createService(repository);
+
+    expect((await service.getUsage('USER#u1', 'free')).remaining).toEqual({ ai: 0, noAi: 0 });
+  });
+});
