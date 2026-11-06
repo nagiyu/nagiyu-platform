@@ -1,5 +1,6 @@
 import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import {
+  createUsageRepository,
   createHighlightRepository,
   createJobRepository,
   resetInMemoryRepositories,
@@ -7,6 +8,8 @@ import {
 import { DynamoDBHighlightRepository } from '../../../src/repositories/dynamodb-highlight.repository.js';
 import { DynamoDBJobRepository } from '../../../src/repositories/dynamodb-job.repository.js';
 import { InMemoryHighlightRepository } from '../../../src/repositories/in-memory-highlight.repository.js';
+import { DynamoDBUsageRepository } from '../../../src/repositories/dynamodb-usage.repository.js';
+import { InMemoryUsageRepository } from '../../../src/repositories/in-memory-usage.repository.js';
 import { InMemoryJobRepository } from '../../../src/repositories/in-memory-job.repository.js';
 import type { Highlight, Job } from '../../../src/types.js';
 
@@ -53,10 +56,14 @@ describe('リポジトリ生成の口', () => {
 
       expect(createJobRepository()).toBeInstanceOf(InMemoryJobRepository);
       expect(createHighlightRepository()).toBeInstanceOf(InMemoryHighlightRepository);
+      expect(createUsageRepository()).toBeInstanceOf(InMemoryUsageRepository);
     });
 
     it('docClient と tableName を明示すると DynamoDB 実装を返す', () => {
       expect(createJobRepository(docClient, 'test-table')).toBeInstanceOf(DynamoDBJobRepository);
+      expect(createUsageRepository(docClient, 'test-table')).toBeInstanceOf(
+        DynamoDBUsageRepository
+      );
       expect(createHighlightRepository(docClient, 'test-table')).toBeInstanceOf(
         DynamoDBHighlightRepository
       );
