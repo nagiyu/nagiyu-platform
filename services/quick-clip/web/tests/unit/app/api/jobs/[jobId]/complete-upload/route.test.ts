@@ -3,12 +3,14 @@
  */
 
 import { reportErrorEvent } from '@nagiyu/aws';
-import type { JobRepository } from '@nagiyu/quick-clip-core';
+import { resetInMemoryRepositories, type JobRepository } from '@nagiyu/quick-clip-core';
+import { createUsageService } from '@/lib/server/usage-context';
 import { getBatchClient, getS3Client } from '@/lib/server/aws';
 import { POST } from '@/app/api/jobs/[jobId]/complete-upload/route';
 
 const mockGetById = jest.fn();
 const mockUpdateBatchJobId = jest.fn();
+const mockMarkUsageReleased = jest.fn();
 
 jest.mock('@nagiyu/quick-clip-core', () => ({
   ...jest.requireActual('@nagiyu/quick-clip-core'),
@@ -18,6 +20,7 @@ jest.mock('@nagiyu/quick-clip-core', () => ({
         create: jest.fn(),
         getById: mockGetById,
         updateBatchJobId: mockUpdateBatchJobId,
+        markUsageReleased: mockMarkUsageReleased,
       }) as unknown as JobRepository
   ),
 }));
@@ -34,6 +37,9 @@ jest.mock('@/lib/server/aws', () => ({
   getBucketName: jest.fn(() => 'test-bucket'),
   getS3Client: jest.fn(),
 }));
+
+// セッションの検証 (next-auth) を読み込まないため差し替える。利用回数の戻しはセッションを使わない
+jest.mock('@/lib/auth', () => ({ getSession: jest.fn() }));
 
 jest.mock('next/server', () => ({
   NextResponse: {
@@ -68,10 +74,89 @@ describe('POST /api/jobs/[jobId]/complete-upload', () => {
       expiresAt: 2,
     });
     mockUpdateBatchJobId.mockResolvedValue(undefined);
+    mockMarkUsageReleased.mockResolvedValue(true);
+    process.env.USE_IN_MEMORY_DB = 'true';
+    resetInMemoryRepositories();
   });
 
   afterEach(() => {
     consoleErrorSpy.mockRestore();
+    delete process.env.USE_IN_MEMORY_DB;
+  });
+
+  const givenJobWithUsage = async (): Promise<void> => {
+    const consumed = await createUsageService().consume({
+      subject: 'USER#u1',
+      tier: 'free',
+      aiAnalysis: false,
+    });
+    if (!consumed.ok) {
+      throw new Error('数えられるはず');
+    }
+    mockGetById.mockResolvedValue({
+      jobId: 'job-1',
+      originalFileName: 'movie.mp4',
+      fileSize: 1024,
+      createdAt: 1,
+      expiresAt: 2,
+      usage: consumed.record,
+    });
+  };
+
+  const getUsed = async (): Promise<{ ai: number; noAi: number }> =>
+    (await createUsageService().getUsage('USER#u1', 'free')).used;
+
+  const callComplete = (): ReturnType<typeof POST> =>
+    POST(createRequest({ uploadId: 'upload-1', parts: [{ PartNumber: 1, ETag: '"etag-1"' }] }), {
+      params: Promise.resolve({ jobId: 'job-1' }),
+    });
+
+  it('異常系: CompleteMultipartUpload が失敗したら、数えた利用回数を戻す', async () => {
+    await givenJobWithUsage();
+    s3Send.mockRejectedValueOnce(new Error('complete failed'));
+
+    const response = await callComplete();
+
+    expect(response.status).toBe(500);
+    expect(mockMarkUsageReleased).toHaveBeenCalledWith('job-1');
+    expect(await getUsed()).toEqual({ ai: 0, noAi: 0 });
+  });
+
+  it('異常系: Batch 投入が失敗したら、数えた利用回数を戻す', async () => {
+    await givenJobWithUsage();
+    batchSend.mockRejectedValueOnce(new Error('submit failed'));
+
+    expect((await callComplete()).status).toBe(500);
+
+    expect(await getUsed()).toEqual({ ai: 0, noAi: 0 });
+  });
+
+  it('異常系: ジョブの更新が失敗したら、数えた利用回数を戻す', async () => {
+    await givenJobWithUsage();
+    mockUpdateBatchJobId.mockRejectedValueOnce(new Error('update failed'));
+
+    expect((await callComplete()).status).toBe(500);
+
+    expect(await getUsed()).toEqual({ ai: 0, noAi: 0 });
+  });
+
+  it('異常系: 戻し済みの印を先に付けられていたら、二重には戻さない', async () => {
+    await givenJobWithUsage();
+    mockMarkUsageReleased.mockResolvedValue(false);
+    batchSend.mockRejectedValueOnce(new Error('submit failed'));
+
+    await callComplete();
+
+    expect(await getUsed()).toEqual({ ai: 0, noAi: 1 });
+  });
+
+  it('正常系: 成功したら利用回数は戻さない', async () => {
+    await givenJobWithUsage();
+
+    expect((await callComplete()).status).toBe(200);
+
+    expect(mockMarkUsageReleased).not.toHaveBeenCalled();
+    expect(await getUsed()).toEqual({ ai: 0, noAi: 1 });
   });
 
   const createRequest = (body: unknown): Request =>
@@ -342,6 +427,32 @@ describe('POST /api/jobs/[jobId]/complete-upload', () => {
       'EMOTION_FILTER',
       'AI_ANALYSIS',
     ]);
+  });
+
+  it('正常系: ジョブ作成時に決めた AI 解析の有無を Batch env に引き継ぐ', async () => {
+    mockGetById.mockResolvedValue({
+      jobId: 'job-1',
+      originalFileName: 'movie.mp4',
+      fileSize: 1024,
+      createdAt: 1,
+      expiresAt: 2,
+      aiAnalysis: false,
+    });
+
+    await POST(
+      createRequest({ uploadId: 'upload-1', parts: [{ PartNumber: 1, ETag: '"etag-1"' }] }),
+      { params: Promise.resolve({ jobId: 'job-1' }) }
+    );
+
+    expect(batchSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        input: expect.objectContaining({
+          containerOverrides: expect.objectContaining({
+            environment: expect.arrayContaining([{ name: 'AI_ANALYSIS', value: 'false' }]),
+          }),
+        }),
+      })
+    );
   });
 
   it('異常系: 不正なemotionFilterは400を返す', async () => {

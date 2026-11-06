@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { ServiceLayout } from '@nagiyu/ui';
 import { SessionHeader, SessionProviderWrapper } from '@nagiyu/ui/session-provider';
+import { quickClipPrivacySections } from '@/lib/privacy-policy';
 import '@nagiyu/ui/tokens.css';
 import '@nagiyu/ui/base.css';
 
@@ -47,7 +48,11 @@ export default function RootLayout({
                 showSignIn
               />
             }
-            footerProps={{ version, commercialTransactionsHref: '/legal/tokushoho' }}
+            footerProps={{
+              version,
+              commercialTransactionsHref: '/legal/tokushoho',
+              privacyContent: quickClipPrivacySections,
+            }}
           >
             {children}
           </ServiceLayout>
