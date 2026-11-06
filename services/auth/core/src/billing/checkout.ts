@@ -194,8 +194,8 @@ async function scheduleDowngrade(
           proration_behavior: 'none',
         },
         {
-          // 終わりを決めないと、下の段に切り替わった時点で予約が外れる (end_behavior: release)。
-          // 区切ると予約が残り、その間は Portal で段の変更も解約もできない
+          // Customer Portal が下げで作る予約と同じ形にそろえるため、終わりは指定しない。
+          // 指定しなくても Stripe が 1 請求期間の終わりを入れ、切り替わった後もその間は予約が残る
           items: [{ price: price.id, quantity: 1 }],
           proration_behavior: 'none',
         },
