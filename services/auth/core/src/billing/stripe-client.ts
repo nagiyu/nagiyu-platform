@@ -105,9 +105,41 @@ export interface BillingOperationsStripe extends BillingStripe {
     };
   };
   subscriptionSchedules: {
+    /** 契約から予約を作る。直後の phases は今の期間の 1 つだけで、価格は文字列の ID で返る */
+    create(params: { from_subscription: string }): Promise<BillingCreatedSchedule>;
+    update(id: string, params: BillingScheduleUpdateParams): Promise<unknown>;
     release(id: string): Promise<unknown>;
   };
 }
+
+export type BillingCreatedSchedule = {
+  id: string;
+  phases: {
+    /** Unix 秒 */
+    start_date: number;
+    /** Unix 秒 */
+    end_date: number;
+    items: { price: string | { id: string }; quantity?: number | null }[];
+  }[];
+};
+
+export type BillingScheduleInterval = 'day' | 'week' | 'month' | 'year';
+
+export type BillingSchedulePhaseParams = {
+  /** 先頭の phase では必須。作成直後の phase の開始時刻を渡し直す */
+  start_date?: number;
+  end_date?: number;
+  duration?: { interval: BillingScheduleInterval; interval_count: number };
+  items: { price: string; quantity: number }[];
+  proration_behavior?: 'none';
+};
+
+export type BillingScheduleUpdateParams = {
+  phases: BillingSchedulePhaseParams[];
+  end_behavior: 'release';
+  proration_behavior: 'none';
+  metadata: Record<string, string>;
+};
 
 export type BillingPortalParams = {
   customer: string;
@@ -173,6 +205,8 @@ export function createBillingStripe(secretKey: string): BillingOperationsStripe 
       list: (params) => stripe.subscriptions.list(params),
     },
     subscriptionSchedules: {
+      create: (params) => stripe.subscriptionSchedules.create(params),
+      update: (id, params) => stripe.subscriptionSchedules.update(id, params),
       release: (id) => stripe.subscriptionSchedules.release(id),
     },
     webhooks: {

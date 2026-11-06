@@ -38,6 +38,17 @@ function buildStripe(options: Options = {}) {
   }));
   const portalCreate = jest.fn(async () => ({ url: 'https://portal.test/p' }));
   const releaseSchedule = jest.fn(async () => ({}));
+  const createSchedule = jest.fn(async () => ({
+    id: 'sched_new',
+    phases: [
+      {
+        start_date: 1_000_000_000,
+        end_date: 2_000_000_000,
+        items: [{ price: 'price_quick-clip-pro', quantity: 1 }],
+      },
+    ],
+  }));
+  const updateSchedule = jest.fn(async (): Promise<unknown> => ({}));
   const pricesList = jest.fn(async () => ({
     data: options.prices ?? [price('livetalk-standard'), { ...price('x'), lookup_key: null }],
   }));
@@ -48,9 +59,22 @@ function buildStripe(options: Options = {}) {
     prices: { list: pricesList },
     checkout: { sessions: { create: sessionsCreate } },
     billingPortal: { sessions: { create: portalCreate } },
-    subscriptionSchedules: { release: releaseSchedule },
+    subscriptionSchedules: {
+      create: createSchedule,
+      update: updateSchedule,
+      release: releaseSchedule,
+    },
   } as unknown as BillingOperationsStripe;
-  return { stripe, customersCreate, sessionsCreate, portalCreate, pricesList, releaseSchedule };
+  return {
+    stripe,
+    customersCreate,
+    sessionsCreate,
+    portalCreate,
+    pricesList,
+    releaseSchedule,
+    createSchedule,
+    updateSchedule,
+  };
 }
 
 async function setupUser() {
@@ -393,7 +417,7 @@ describe('createPlanChangeSession', () => {
 
     const result = await createPlanChangeSession(stripe, user, 'quick-clip-pro', PLAN_URLS);
 
-    expect(result).toEqual({ ok: true, url: 'https://portal.test/p' });
+    expect(result).toEqual({ ok: true, kind: 'portal', url: 'https://portal.test/p' });
     expect(portalCreate).toHaveBeenCalledWith({
       customer: 'cus_1',
       return_url: PLAN_URLS.returnUrl,
@@ -406,6 +430,101 @@ describe('createPlanChangeSession', () => {
         after_completion: { type: 'redirect', redirect: { return_url: PLAN_URLS.completionUrl } },
       },
     });
+  });
+});
+
+describe('createPlanChangeSession (下げ)', () => {
+  const prices = [price('quick-clip-standard'), price('quick-clip-pro')];
+  const user = { stripeCustomerId: 'cus_1' };
+  const subscriptions = [activeSubscription('quick-clip-pro')];
+
+  it('Portal へ送らず、期末に下の段へ切り替わる予約を作る', async () => {
+    const { stripe, portalCreate, createSchedule, updateSchedule, releaseSchedule } = buildStripe({
+      subscriptions,
+      prices,
+    });
+
+    const result = await createPlanChangeSession(stripe, user, 'quick-clip-standard', PLAN_URLS);
+
+    expect(result).toEqual({ ok: true, kind: 'scheduled', startsAt: 2_000_000_000_000 });
+    expect(portalCreate).not.toHaveBeenCalled();
+    expect(createSchedule).toHaveBeenCalledWith({ from_subscription: 'sub_1' });
+    expect(updateSchedule).toHaveBeenCalledWith('sched_new', {
+      phases: [
+        {
+          start_date: 1_000_000_000,
+          end_date: 2_000_000_000,
+          items: [{ price: 'price_quick-clip-pro', quantity: 1 }],
+          proration_behavior: 'none',
+        },
+        {
+          items: [{ price: 'price_quick-clip-standard', quantity: 1 }],
+          duration: { interval: 'month', interval_count: 1 },
+          proration_behavior: 'none',
+        },
+      ],
+      end_behavior: 'release',
+      proration_behavior: 'none',
+      metadata: { createdBy: 'nagiyu-auth' },
+    });
+    expect(releaseSchedule).not.toHaveBeenCalled();
+  });
+
+  it('予約の更新に失敗したら release して例外を伝える', async () => {
+    const { stripe, updateSchedule, releaseSchedule } = buildStripe({ subscriptions, prices });
+    updateSchedule.mockRejectedValue(new Error('update failed'));
+
+    await expect(
+      createPlanChangeSession(stripe, user, 'quick-clip-standard', PLAN_URLS)
+    ).rejects.toThrow('update failed');
+    expect(releaseSchedule).toHaveBeenCalledWith('sched_new');
+  });
+
+  it('release も失敗したときは、元の例外を伝える', async () => {
+    const { stripe, updateSchedule, releaseSchedule } = buildStripe({ subscriptions, prices });
+    updateSchedule.mockRejectedValue(new Error('update failed'));
+    releaseSchedule.mockRejectedValue(new Error('release failed'));
+
+    await expect(
+      createPlanChangeSession(stripe, user, 'quick-clip-standard', PLAN_URLS)
+    ).rejects.toThrow('update failed');
+  });
+
+  it('作成直後に現在の期間がなければ release して例外を伝える', async () => {
+    const { stripe, createSchedule, updateSchedule, releaseSchedule } = buildStripe({
+      subscriptions,
+      prices,
+    });
+    createSchedule.mockResolvedValue({ id: 'sched_new', phases: [] });
+
+    await expect(
+      createPlanChangeSession(stripe, user, 'quick-clip-standard', PLAN_URLS)
+    ).rejects.toThrow();
+    expect(updateSchedule).not.toHaveBeenCalled();
+    expect(releaseSchedule).toHaveBeenCalledWith('sched_new');
+  });
+
+  it('行き先の価格に請求期間がなければ予約を作らず断る', async () => {
+    const { stripe, createSchedule } = buildStripe({
+      subscriptions,
+      prices: [price('quick-clip-pro'), { ...price('quick-clip-standard'), recurring: null }],
+    });
+
+    const result = await createPlanChangeSession(stripe, user, 'quick-clip-standard', PLAN_URLS);
+
+    expect(result).toEqual({ ok: false, reason: 'price-not-found' });
+    expect(createSchedule).not.toHaveBeenCalled();
+  });
+
+  it('上げでは予約を作らない', async () => {
+    const { stripe, createSchedule } = buildStripe({
+      subscriptions: [activeSubscription('quick-clip-standard')],
+      prices,
+    });
+
+    await createPlanChangeSession(stripe, user, 'quick-clip-pro', PLAN_URLS);
+
+    expect(createSchedule).not.toHaveBeenCalled();
   });
 });
 

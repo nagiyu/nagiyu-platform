@@ -8,10 +8,11 @@ import {
   type EntitledSubscription,
   type UserRepository,
 } from '@nagiyu/auth-core';
-import { buildPlanCards, type PlanCard, type PlanPrice } from './plans';
+import { buildPlanServices, type PlanService, type PlanPrice } from './plans';
 
 export type PlansPageData =
-  { billingEnabled: false } | { billingEnabled: true; cards: PlanCard[]; hasCustomer: boolean };
+  | { billingEnabled: false }
+  | { billingEnabled: true; services: PlanService[]; hasCustomer: boolean };
 
 export type PlansDependencies = {
   stripe: BillingOperationsStripe;
@@ -92,7 +93,7 @@ export async function loadPlansPageData(
   return {
     billingEnabled: true,
     hasCustomer: Boolean(customerId),
-    cards: buildPlanCards({
+    services: buildPlanServices({
       loggedIn: user !== null,
       prices,
       subscriptions,

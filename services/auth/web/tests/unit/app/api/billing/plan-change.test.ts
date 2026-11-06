@@ -48,7 +48,11 @@ describe('POST /api/billing/plan-change', () => {
     mockGetSession.mockResolvedValue({ user: { id: 'u1', roles: [] } });
     mockGetBillingConfig.mockReturnValue({ secretKey: 'sk', webhookSecret: 'wh' });
     mockGetUserById.mockResolvedValue({ userId: 'u1', stripeCustomerId: 'cus_1' });
-    mockCreatePlanChangeSession.mockResolvedValue({ ok: true, url: 'https://portal.test/c' });
+    mockCreatePlanChangeSession.mockResolvedValue({
+      ok: true,
+      kind: 'portal',
+      url: 'https://portal.test/c',
+    });
     jest.spyOn(console, 'error').mockImplementation(() => undefined);
   });
 
@@ -96,6 +100,19 @@ describe('POST /api/billing/plan-change', () => {
     expect(urls.completionUrl).toBe(
       'https://auth.nagiyu.com/plans?checkout=success&callbackUrl=https%3A%2F%2Fauth.nagiyu.com%2Fback'
     );
+  });
+
+  it('下げは予約を作ったことを、URL ではなく予約の日時で返す', async () => {
+    mockCreatePlanChangeSession.mockResolvedValue({
+      ok: true,
+      kind: 'scheduled',
+      startsAt: 2_000_000_000_000,
+    });
+
+    const response = await POST(buildRequest({ roleId: 'quick-clip-standard' }));
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ scheduled: true, startsAt: 2_000_000_000_000 });
   });
 
   it.each([

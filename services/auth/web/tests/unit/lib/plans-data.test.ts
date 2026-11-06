@@ -112,7 +112,10 @@ describe('loadPlansPageData', () => {
 
     expect(data).toMatchObject({ billingEnabled: true, hasCustomer: false });
     if (!data.billingEnabled) throw new Error('unreachable');
-    expect(data.cards[0]).toMatchObject({ state: 'guest', priceLabel: '月額 ¥500 (税込)' });
+    expect(data.services[0].tiers[0]).toMatchObject({
+      state: 'guest',
+      priceLabel: '月額 ¥500 (税込)',
+    });
   });
 
   it('顧客を持たないログイン中のユーザーは未契約で、Stripe の契約を問い合わせない', async () => {
@@ -122,7 +125,7 @@ describe('loadPlansPageData', () => {
 
     if (!data.billingEnabled) throw new Error('unreachable');
     expect(data.hasCustomer).toBe(false);
-    expect(data.cards[0]).toMatchObject({ state: 'none', canSubscribe: true });
+    expect(data.services[0].tiers[0]).toMatchObject({ state: 'none', action: 'subscribe' });
     expect(deps.stripe.subscriptions.list).not.toHaveBeenCalled();
   });
 
@@ -133,7 +136,7 @@ describe('loadPlansPageData', () => {
 
     if (!data.billingEnabled) throw new Error('unreachable');
     expect(data.hasCustomer).toBe(true);
-    expect(data.cards[0].state).toBe('subscribed');
+    expect(data.services[0].tiers[0].state).toBe('subscribed');
     const user = await deps.userRepository.getUserById(userId);
     expect(user?.roleGrants?.some((g) => g.source === 'stripe')).toBe(true);
   });
@@ -153,7 +156,7 @@ describe('loadPlansPageData', () => {
     const data = await loadPlansPageData(deps, userId);
 
     if (!data.billingEnabled) throw new Error('unreachable');
-    expect(data.cards[0].state).toBe('subscribed');
+    expect(data.services[0].tiers[0].state).toBe('subscribed');
     expect(deps.stripe.subscriptions.list).toHaveBeenCalledTimes(1);
   });
 
@@ -163,7 +166,7 @@ describe('loadPlansPageData', () => {
     const data = await loadPlansPageData(deps, userId);
 
     if (!data.billingEnabled) throw new Error('unreachable');
-    expect(data.cards[0].state).toBe('canceling');
+    expect(data.services[0].tiers[0].state).toBe('canceling');
   });
 
   it('Stripe の読み取りが失敗しても画面を壊さず、価格を出さず DB の状態で表示する', async () => {
@@ -175,13 +178,13 @@ describe('loadPlansPageData', () => {
     const data = await loadPlansPageData(deps, userId);
 
     if (!data.billingEnabled) throw new Error('unreachable');
-    expect(data.cards[0]).toMatchObject({
+    expect(data.services[0].tiers[0]).toMatchObject({
       state: 'subscribed',
       priceLabel: null,
       priceFetchFailed: true,
       stateLabel: null,
     });
-    expect(data.cards).toHaveLength(3);
+    expect(data.services.flatMap((service) => service.tiers)).toHaveLength(3);
   });
 
   it('価格を読めたが無いロールは、枠を出さない', async () => {
@@ -190,8 +193,10 @@ describe('loadPlansPageData', () => {
     const data = await loadPlansPageData(deps, null);
 
     if (!data.billingEnabled) throw new Error('unreachable');
-    expect(data.cards.map((c) => c.roleId)).toEqual(['livetalk-standard']);
-    expect(data.cards[0].priceFetchFailed).toBe(false);
+    expect(data.services.flatMap((service) => service.tiers.map((t) => t.roleId))).toEqual([
+      'livetalk-standard',
+    ]);
+    expect(data.services[0].tiers[0].priceFetchFailed).toBe(false);
   });
 });
 

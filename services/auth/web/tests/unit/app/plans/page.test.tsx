@@ -25,7 +25,15 @@ jest.mock('../../../../src/lib/plans-data', () => ({
   syncUserForPlans: jest.fn(),
 }));
 jest.mock('../../../../src/app/plans/plan-actions', () => ({
-  PlanActionButton: ({ label }: { label: string }) => <button>{label}</button>,
+  DowngradeButton: ({ label, confirmMessage }: { label: string; confirmMessage: string }) => (
+    <button data-confirm={confirmMessage}>{label}</button>
+  ),
+  PlanActionButton: ({ label, endpoint }: { label: string; endpoint: string }) => (
+    <button data-endpoint={endpoint}>{label}</button>
+  ),
+  ScheduledChangeCancelButton: ({ serviceId }: { serviceId: string }) => (
+    <button data-service={serviceId}>予約を取り消す</button>
+  ),
 }));
 
 const baseCard = {
@@ -37,7 +45,15 @@ const baseCard = {
   state: 'none' as const,
   stateLabel: null,
   manualLabel: null,
-  canSubscribe: true,
+  action: 'subscribe' as const,
+  scheduledChangeLabel: null,
+  downgradeConfirmMessage: null,
+};
+
+const baseService = {
+  serviceId: 'quick-clip',
+  name: 'Quick Clip',
+  tiers: [baseCard],
 };
 
 function render_(
@@ -72,13 +88,18 @@ describe('PlansPage', () => {
     (loadPlansPageData as jest.Mock).mockResolvedValue({
       billingEnabled: true,
       hasCustomer: false,
-      cards: [
-        baseCard,
+      services: [
         {
-          ...baseCard,
-          roleId: 'quick-clip-standard',
-          name: 'Quick Clip スタンダード',
-          description: null,
+          ...baseService,
+          tiers: [
+            baseCard,
+            {
+              ...baseCard,
+              roleId: 'quick-clip-standard',
+              name: 'Quick Clip スタンダード',
+              description: null,
+            },
+          ],
         },
       ],
     });
@@ -93,7 +114,9 @@ describe('PlansPage', () => {
     (loadPlansPageData as jest.Mock).mockResolvedValue({
       billingEnabled: true,
       hasCustomer: false,
-      cards: [{ ...baseCard, state: 'guest', canSubscribe: false }],
+      services: [
+        { ...baseService, tiers: [{ ...baseCard, state: 'guest', action: 'sign-in' as const }] },
+      ],
     });
 
     render(await render_({ callbackUrl: 'https://quick-clip.nagiyu.com/a' }));
@@ -109,12 +132,17 @@ describe('PlansPage', () => {
     (loadPlansPageData as jest.Mock).mockResolvedValue({
       billingEnabled: true,
       hasCustomer: true,
-      cards: [
+      services: [
         {
-          ...baseCard,
-          state: 'subscribed',
-          stateLabel: '次の更新日: 2026年12月3日',
-          canSubscribe: false,
+          ...baseService,
+          tiers: [
+            {
+              ...baseCard,
+              state: 'subscribed',
+              stateLabel: '次の更新日: 2026年12月3日',
+              action: null,
+            },
+          ],
         },
       ],
     });
@@ -132,14 +160,19 @@ describe('PlansPage', () => {
     (loadPlansPageData as jest.Mock).mockResolvedValue({
       billingEnabled: true,
       hasCustomer: false,
-      cards: [
-        baseCard,
+      services: [
         {
-          ...baseCard,
-          roleId: 'quick-clip-standard',
-          priceLabel: null,
-          priceFetchFailed: true,
-          canSubscribe: false,
+          ...baseService,
+          tiers: [
+            baseCard,
+            {
+              ...baseCard,
+              roleId: 'quick-clip-standard',
+              priceLabel: null,
+              priceFetchFailed: true,
+              action: null,
+            },
+          ],
         },
       ],
     });
@@ -154,7 +187,12 @@ describe('PlansPage', () => {
     (loadPlansPageData as jest.Mock).mockResolvedValue({
       billingEnabled: true,
       hasCustomer: true,
-      cards: [{ ...baseCard, priceLabel: null, priceFetchFailed: false, state: 'subscribed' }],
+      services: [
+        {
+          ...baseService,
+          tiers: [{ ...baseCard, priceLabel: null, priceFetchFailed: false, state: 'subscribed' }],
+        },
+      ],
     });
 
     render(await render_());
@@ -167,7 +205,7 @@ describe('PlansPage', () => {
     (loadPlansPageData as jest.Mock).mockResolvedValue({
       billingEnabled: true,
       hasCustomer: false,
-      cards: [],
+      services: [],
     });
 
     render(await render_());
@@ -181,7 +219,7 @@ describe('PlansPage', () => {
     (loadPlansPageData as jest.Mock).mockResolvedValue({
       billingEnabled: true,
       hasCustomer: true,
-      cards: [],
+      services: [],
     });
 
     render(await render_());
@@ -194,13 +232,18 @@ describe('PlansPage', () => {
     (loadPlansPageData as jest.Mock).mockResolvedValue({
       billingEnabled: true,
       hasCustomer: true,
-      cards: [
+      services: [
         {
-          ...baseCard,
-          state: 'canceling',
-          stateLabel: '2026年11月20日に終了します',
-          manualLabel: '運営による付与があります (期限なし)',
-          canSubscribe: false,
+          ...baseService,
+          tiers: [
+            {
+              ...baseCard,
+              state: 'canceling',
+              stateLabel: '2026年11月20日に終了します',
+              manualLabel: '運営による付与があります (期限なし)',
+              action: null,
+            },
+          ],
         },
       ],
     });
@@ -210,6 +253,87 @@ describe('PlansPage', () => {
     expect(screen.getByText('解約予約中')).toBeInTheDocument();
     expect(screen.getByText('2026年11月20日に終了します')).toBeInTheDocument();
     expect(screen.getByText('運営による付与があります (期限なし)')).toBeInTheDocument();
+  });
+
+  it('サービスの見出しを出す', async () => {
+    (loadPlansPageData as jest.Mock).mockResolvedValue({
+      billingEnabled: true,
+      hasCustomer: false,
+      services: [baseService, { ...baseService, serviceId: 'livetalk', name: 'LiveTalk' }],
+    });
+
+    render(await render_());
+
+    expect(screen.getByRole('heading', { level: 2, name: 'Quick Clip' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: 'LiveTalk' })).toBeInTheDocument();
+  });
+
+  it('上げは plan-change を呼ぶボタンで出す', async () => {
+    (loadPlansPageData as jest.Mock).mockResolvedValue({
+      billingEnabled: true,
+      hasCustomer: true,
+      services: [{ ...baseService, tiers: [{ ...baseCard, action: 'upgrade' as const }] }],
+    });
+
+    render(await render_());
+
+    expect(screen.getByText('この段に変える')).toHaveAttribute(
+      'data-endpoint',
+      '/api/billing/plan-change'
+    );
+  });
+
+  it('下げは確認の本文を持つボタンで出し、本文が無ければ出さない', async () => {
+    (loadPlansPageData as jest.Mock).mockResolvedValue({
+      billingEnabled: true,
+      hasCustomer: true,
+      services: [
+        {
+          ...baseService,
+          tiers: [
+            { ...baseCard, action: 'downgrade' as const, downgradeConfirmMessage: '確認の本文' },
+            {
+              ...baseCard,
+              roleId: 'quick-clip-standard',
+              action: 'downgrade' as const,
+              downgradeConfirmMessage: null,
+            },
+          ],
+        },
+      ],
+    });
+
+    render(await render_());
+
+    expect(screen.getAllByText('この段に変える')).toHaveLength(1);
+    expect(screen.getByText('この段に変える')).toHaveAttribute('data-confirm', '確認の本文');
+  });
+
+  it('下げを予約中は行き先の文言と、サービスの予約の取り消しを出す', async () => {
+    (loadPlansPageData as jest.Mock).mockResolvedValue({
+      billingEnabled: true,
+      hasCustomer: true,
+      services: [
+        {
+          ...baseService,
+          tiers: [
+            {
+              ...baseCard,
+              state: 'subscribed' as const,
+              action: null,
+              scheduledChangeLabel: '2026年12月3日からQuick Clip スタンダードに変わります',
+            },
+          ],
+        },
+      ],
+    });
+
+    render(await render_());
+
+    expect(
+      screen.getByText('2026年12月3日からQuick Clip スタンダードに変わります')
+    ).toBeInTheDocument();
+    expect(screen.getByText('予約を取り消す')).toHaveAttribute('data-service', 'quick-clip');
   });
 
   it('決済成功なら同期してから /refresh へ送る。戻り先が無ければプランの画面に戻す', async () => {
@@ -239,7 +363,7 @@ describe('PlansPage', () => {
     (loadPlansPageData as jest.Mock).mockResolvedValue({
       billingEnabled: true,
       hasCustomer: false,
-      cards: [baseCard],
+      services: [baseService],
     });
 
     render(await render_({ callbackUrl: ['https://quick-clip.nagiyu.com/a', '/b'] }));
@@ -251,7 +375,7 @@ describe('PlansPage', () => {
     (loadPlansPageData as jest.Mock).mockResolvedValue({
       billingEnabled: true,
       hasCustomer: false,
-      cards: [baseCard],
+      services: [baseService],
     });
 
     render(await render_({ checkout: ['success', 'success'] }));
