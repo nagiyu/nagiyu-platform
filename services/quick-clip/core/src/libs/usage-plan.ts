@@ -17,7 +17,7 @@ export type UsageLimit = {
  * 段ごとの上限の表。
  *
  * 値と段の種類は変わる前提のため、段の判定 ({@link resolveUsageTier}) とは分け、上限の値はここだけに置く。
- * 値の根拠は原価と価格から決めている。値を変えるときは docs の該当 ADR も直す。
+ * 値は、2 時間の動画を基準に使い切っても各段の価格の手取りに収まるよう、原価から決めている。
  */
 export const USAGE_LIMITS: Readonly<Record<UsageTier, UsageLimit>> = {
   anonymous: { aiPerMonth: 0, noAiPerMonth: 3, maxDurationSec: 60 * 60 },
