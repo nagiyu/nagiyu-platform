@@ -2,9 +2,13 @@
 
 import { useState } from 'react';
 import { Box } from '@mui/material';
-import { Button, ErrorAlert } from '@nagiyu/ui';
+import { Button, ConfirmDialog, ErrorAlert } from '@nagiyu/ui';
 import { useRouter } from 'next/navigation';
-import { requestCancelScheduledChange, requestRedirectUrl } from '../../lib/billing-client';
+import {
+  requestCancelScheduledChange,
+  requestRedirectUrl,
+  requestScheduleDowngrade,
+} from '../../lib/billing-client';
 import { navigateTo } from '../../lib/navigate';
 
 interface PlanActionButtonProps {
@@ -82,6 +86,64 @@ export function ScheduledChangeCancelButton({ serviceId }: ScheduledChangeCancel
           <ErrorAlert message={error} />
         </Box>
       )}
+    </Box>
+  );
+}
+
+interface DowngradeButtonProps {
+  roleId: string;
+  callbackUrl: string | null;
+  /** 変わる日と、それまでは今の段のままであること、返金がないことを伝える本文 */
+  confirmMessage: string;
+  label: string;
+}
+
+/** 下げは即時には効かないため、押したら確認を挟み、確定で期末への予約を作る */
+export function DowngradeButton({
+  roleId,
+  callbackUrl,
+  confirmMessage,
+  label,
+}: DowngradeButtonProps) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleConfirm = async () => {
+    setLoading(true);
+    setError(null);
+    const result = await requestScheduleDowngrade(roleId, callbackUrl);
+    if (result.ok) {
+      // 予約の表示と取り消しのボタンが出る状態を読み直す。終わるまで閉じず、押せないままにして二重に送らせない
+      router.refresh();
+      return;
+    }
+    setError(result.message);
+    setLoading(false);
+  };
+
+  return (
+    <Box>
+      <Button variant="solid" onClick={() => setOpen(true)}>
+        {label}
+      </Button>
+      <ConfirmDialog
+        open={open}
+        title="プランの変更を予約します"
+        description={confirmMessage}
+        confirmLabel="変更を予約する"
+        cancelLabel="やめる"
+        confirmColor="primary"
+        loading={loading}
+        onConfirm={handleConfirm}
+        onCancel={() => {
+          setOpen(false);
+          setError(null);
+        }}
+      >
+        {error && <ErrorAlert message={error} />}
+      </ConfirmDialog>
     </Box>
   );
 }

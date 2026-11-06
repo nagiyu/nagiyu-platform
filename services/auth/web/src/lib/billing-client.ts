@@ -7,7 +7,9 @@ export type RedirectUrlResult = { ok: true; url: string } | { ok: false; message
 
 export type CancelScheduledChangeResult = { ok: true } | { ok: false; message: string };
 
-type PostResult = { ok: true; data: { url?: unknown } | null } | { ok: false; message: string };
+type PostResult =
+  | { ok: true; data: { url?: unknown; scheduled?: unknown } | null }
+  | { ok: false; message: string };
 
 async function postJson(path: string, body: Record<string, unknown>): Promise<PostResult> {
   let response: Response;
@@ -21,7 +23,9 @@ async function postJson(path: string, body: Record<string, unknown>): Promise<Po
     return { ok: false, message: BILLING_CLIENT_MESSAGES.REQUEST_FAILED };
   }
 
-  const data: { url?: unknown; error?: unknown } | null = await response.json().catch(() => null);
+  const data: { url?: unknown; scheduled?: unknown; error?: unknown } | null = await response
+    .json()
+    .catch(() => null);
 
   if (!response.ok) {
     const message =
@@ -51,4 +55,21 @@ export async function requestCancelScheduledChange(
 ): Promise<CancelScheduledChangeResult> {
   const result = await postJson('/api/billing/scheduled-change/cancel', { serviceId });
   return result.ok ? { ok: true } : result;
+}
+
+/** 下げを請求期間の終わりに予約する。成功は予約が作られたことを示す応答で決める */
+export async function requestScheduleDowngrade(
+  roleId: string,
+  callbackUrl: string | null
+): Promise<CancelScheduledChangeResult> {
+  const result = await postJson('/api/billing/plan-change', {
+    roleId,
+    ...(callbackUrl ? { callbackUrl } : {}),
+  });
+  if (!result.ok) {
+    return result;
+  }
+  return result.data?.scheduled === true
+    ? { ok: true }
+    : { ok: false, message: BILLING_CLIENT_MESSAGES.UNEXPECTED };
 }
