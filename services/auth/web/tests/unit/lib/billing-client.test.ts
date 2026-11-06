@@ -1,4 +1,8 @@
-import { BILLING_CLIENT_MESSAGES, requestRedirectUrl } from '../../../src/lib/billing-client';
+import {
+  BILLING_CLIENT_MESSAGES,
+  requestCancelScheduledChange,
+  requestRedirectUrl,
+} from '../../../src/lib/billing-client';
 
 function mockFetch(response: Partial<Response> & { json?: () => Promise<unknown> }) {
   global.fetch = jest.fn().mockResolvedValue(response);
@@ -54,6 +58,37 @@ describe('requestRedirectUrl', () => {
     global.fetch = jest.fn().mockRejectedValue(new Error('network'));
 
     expect(await requestRedirectUrl('/x', {})).toEqual({
+      ok: false,
+      message: BILLING_CLIENT_MESSAGES.REQUEST_FAILED,
+    });
+  });
+});
+
+describe('requestCancelScheduledChange', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('サービスの ID を送り、成功は HTTP の成否で決める', async () => {
+    mockFetch({ ok: true, json: async () => ({ ok: true }) });
+
+    expect(await requestCancelScheduledChange('quick-clip')).toEqual({ ok: true });
+    expect(global.fetch).toHaveBeenCalledWith('/api/billing/scheduled-change/cancel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{"serviceId":"quick-clip"}',
+    });
+  });
+
+  it('API のエラーメッセージを返し、通信の失敗は案内にする', async () => {
+    mockFetch({ ok: false, json: async () => ({ error: '予約がありません' }) });
+    expect(await requestCancelScheduledChange('quick-clip')).toEqual({
+      ok: false,
+      message: '予約がありません',
+    });
+
+    global.fetch = jest.fn().mockRejectedValue(new Error('offline'));
+    expect(await requestCancelScheduledChange('quick-clip')).toEqual({
       ok: false,
       message: BILLING_CLIENT_MESSAGES.REQUEST_FAILED,
     });
