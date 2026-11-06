@@ -3,7 +3,9 @@
  * 画面 (app/) に判定を持たせず、表示に依らないものをここに集める。
  */
 
-export type UsageTier = 'anonymous' | 'free' | 'standard' | 'pro';
+import type { UsageTier } from '@nagiyu/quick-clip-core';
+
+export type { UsageTier };
 
 /** `GET /api/usage` の応答 */
 export type UsageSummary = {
@@ -40,7 +42,13 @@ const LIMIT_ERROR_CODES: readonly string[] = [
   'DURATION_LIMIT_EXCEEDED',
 ];
 
-const TIERS: readonly string[] = ['anonymous', 'free', 'standard', 'pro'];
+// 段を足したときに検証から漏れないよう、サーバー側の段の型から全段を求める
+const TIERS: Readonly<Record<UsageTier, true>> = {
+  anonymous: true,
+  free: true,
+  standard: true,
+  pro: true,
+};
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;
@@ -57,7 +65,7 @@ export const parseUsageSummary = (body: unknown): UsageSummary | null => {
     return null;
   }
   const { tier, limits, remaining } = body;
-  if (typeof tier !== 'string' || !TIERS.includes(tier)) {
+  if (typeof tier !== 'string' || !Object.hasOwn(TIERS, tier)) {
     return null;
   }
   if (
