@@ -29,6 +29,10 @@ const stackEnv = {
 // OpenAI API キー（デプロイ時に --context openAiApiKey=xxx で渡す、未指定の場合は PLACEHOLDER）
 const openAiApiKey = app.node.tryGetContext('openAiApiKey') || 'PLACEHOLDER';
 
+// Auth サービスの JWT 検証鍵（デプロイ時に --context nextAuthSecret=xxx で渡す、未指定の場合は PLACEHOLDER）。
+// PLACEHOLDER ではログインの検証が通らず匿名扱いになるだけで、主要機能は動く。
+const nextAuthSecret = app.node.tryGetContext('nextAuthSecret') || 'PLACEHOLDER';
+
 const secretsStack = new SecretsStack(app, `NagiyuQuickClipSecrets${envSuffix}`, {
   environment: typedEnv,
   env: stackEnv,
@@ -96,6 +100,7 @@ const lambdaStack = new LambdaStack(app, `NagiyuQuickClipLambda${envSuffix}`, {
   storageBucketArn: storageStack.storageBucket.bucketArn,
   batchJobQueueArn,
   batchJobDefinitionPrefix: batchStack.jobDefinitionPrefix,
+  nextAuthSecret,
   env: stackEnv,
   description: `QuickClip Lambda - ${env} environment`,
 });

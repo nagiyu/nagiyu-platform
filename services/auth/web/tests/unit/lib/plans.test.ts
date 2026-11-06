@@ -343,22 +343,11 @@ describe('buildPlanCards', () => {
     ]);
   });
 
-  it('サービスの説明は、どの段の価格の商品でもよく、空なら null', () => {
+  it('段の説明は商品の説明から出し、空では出さない。価格の metadata は読まない', () => {
     const prices = new Map([
-      ['quick-clip-standard', { ...MONTHLY, product: { description: '' } }],
-      ['quick-clip-pro', { ...MONTHLY, product: { description: '商品の説明' } }],
-      ['livetalk-standard', { ...MONTHLY, product: { description: ' ' } }],
-    ]);
-    const services = buildPlanServices(input({ prices }));
-
-    expect(services.map((s) => s.description)).toEqual([null, '商品の説明']);
-  });
-
-  it('段の説明は価格の metadata の description から出し、空では出さない', () => {
-    const prices = new Map([
-      ['quick-clip-standard', { ...MONTHLY, metadata: { description: ' 基本の機能 ' } }],
-      ['quick-clip-pro', { ...MONTHLY, metadata: { description: '' } }],
-      ['livetalk-standard', { ...MONTHLY, product: { description: '商品の説明' } }],
+      ['quick-clip-standard', { ...MONTHLY, product: { description: ' 基本の機能 ' } }],
+      ['quick-clip-pro', { ...MONTHLY, product: { description: '' } }],
+      ['livetalk-standard', { ...MONTHLY, metadata: { description: '価格の説明' } }],
     ]);
 
     expect(card('quick-clip-standard', { prices }).description).toBe('基本の機能');
@@ -382,11 +371,29 @@ describe('buildPlanCards', () => {
       ]);
     });
 
-    it('契約中のサービスの他の段は、切り替えを出して申し込みは出さない', () => {
+    it('契約中のサービスの上の段は上げを出して申し込みは出さない', () => {
       expect(actions({ subscriptions: [base] })).toEqual([
         ['quick-clip-standard', null],
-        ['quick-clip-pro', 'change'],
+        ['quick-clip-pro', 'upgrade'],
       ]);
+    });
+
+    it('契約中のサービスの下の段は下げを出し、確認の本文に次の更新日と行き先を載せる', () => {
+      const pro = {
+        ...base,
+        roleId: 'quick-clip-pro',
+        currentPeriodEnd: Date.parse('2026-12-03T00:00:00+09:00'),
+      };
+      const found = buildPlanCards(input({ prices: PRICES, subscriptions: [pro] }));
+
+      expect(found.map((t) => [t.roleId, t.action])).toEqual([
+        ['quick-clip-standard', 'downgrade'],
+        ['quick-clip-pro', null],
+      ]);
+      expect(found[0].downgradeConfirmMessage).toBe(
+        '2026年12月3日からQuick Clip スタンダードに変わります。それまでは今の段のまま使えます。返金はありません。'
+      );
+      expect(found[1].downgradeConfirmMessage).toBeNull();
     });
 
     it('他のサービスの契約は、このサービスの申し込みを妨げない', () => {

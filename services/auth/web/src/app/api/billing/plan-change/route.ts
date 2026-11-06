@@ -29,10 +29,10 @@ const ERROR_MESSAGES = {
     '支払いを確認できていないため段を変えられません。「契約を管理」から支払い方法を更新してください',
   CHANGE_SCHEDULED: '変更を予約中のため切り替えられません。先に予約を取り消してください',
   PRICE_NOT_FOUND: 'プランの価格を取得できませんでした',
-  PLAN_CHANGE_FAILED: 'プランの切り替えの準備に失敗しました',
+  PLAN_CHANGE_FAILED: 'プランの切り替えに失敗しました',
 } as const;
 
-/** POST /api/billing/plan-change - 段の切り替え確認画面 (Customer Portal) の URL を返す */
+/** POST /api/billing/plan-change - 上げは確認画面 (Customer Portal) の URL を、下げは期末への予約を作って予約を返す */
 export const POST = withApiErrorReporting(
   'Web API: プランの切り替えの準備エラー',
   async (request: NextRequest) => {
@@ -73,7 +73,9 @@ export const POST = withApiErrorReporting(
     );
 
     if (result.ok) {
-      return NextResponse.json({ url: result.url });
+      return result.kind === 'portal'
+        ? NextResponse.json({ url: result.url })
+        : NextResponse.json({ scheduled: true, startsAt: result.startsAt });
     }
     switch (result.reason) {
       case 'invalid-role':

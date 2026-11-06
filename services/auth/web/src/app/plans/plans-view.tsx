@@ -4,7 +4,7 @@ import { Button, Chip, Link as UiLink } from '@nagiyu/ui';
 import { buildSignInPath } from '@/lib/billing-urls';
 import type { PlansPageData } from '@/lib/plans-data';
 import { PLANS_MESSAGES, type PlanService, type PlanTier } from '@/lib/plans';
-import { PlanActionButton, ScheduledChangeCancelButton } from './plan-actions';
+import { DowngradeButton, PlanActionButton, ScheduledChangeCancelButton } from './plan-actions';
 
 interface PlansViewProps {
   /** 課金が無効で読めないときは null */
@@ -69,10 +69,18 @@ function PlanTierCard({
               label="申し込む"
             />
           )}
-          {tier.action === 'change' && (
+          {tier.action === 'upgrade' && (
             <PlanActionButton
               endpoint="/api/billing/plan-change"
               body={{ roleId: tier.roleId, ...(callbackUrl ? { callbackUrl } : {}) }}
+              label="この段に変える"
+            />
+          )}
+          {tier.action === 'downgrade' && tier.downgradeConfirmMessage && (
+            <DowngradeButton
+              roleId={tier.roleId}
+              callbackUrl={callbackUrl}
+              confirmMessage={tier.downgradeConfirmMessage}
               label="この段に変える"
             />
           )}
@@ -95,11 +103,6 @@ function PlanServiceSection({
       <Typography variant="h5" component="h2">
         {service.name}
       </Typography>
-      {service.description && (
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-          {service.description}
-        </Typography>
-      )}
       <Box
         sx={{
           display: 'grid',
