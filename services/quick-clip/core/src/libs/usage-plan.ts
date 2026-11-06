@@ -17,13 +17,13 @@ export type UsageLimit = {
  * 段ごとの上限の表。
  *
  * 値と段の種類は変わる前提のため、段の判定 ({@link resolveUsageTier}) とは分け、上限の値はここだけに置く。
- * 値は仮のもの。
+ * 値の根拠は原価と価格から決めている。値を変えるときは docs の該当 ADR も直す。
  */
 export const USAGE_LIMITS: Readonly<Record<UsageTier, UsageLimit>> = {
   anonymous: { aiPerMonth: 0, noAiPerMonth: 3, maxDurationSec: 60 * 60 },
-  free: { aiPerMonth: 1, noAiPerMonth: 10, maxDurationSec: 180 * 60 },
-  standard: { aiPerMonth: 10, noAiPerMonth: 30, maxDurationSec: 240 * 60 },
-  pro: { aiPerMonth: 10, noAiPerMonth: 30, maxDurationSec: 240 * 60 },
+  free: { aiPerMonth: 1, noAiPerMonth: 3, maxDurationSec: 120 * 60 },
+  standard: { aiPerMonth: 4, noAiPerMonth: 5, maxDurationSec: 180 * 60 },
+  pro: { aiPerMonth: 8, noAiPerMonth: 10, maxDurationSec: 240 * 60 },
 };
 
 /**
