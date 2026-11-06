@@ -22,7 +22,12 @@ describe('UsageService.consume', () => {
 
     expect(result).toEqual({
       ok: true,
-      record: { subject: 'USER#u1', month: '202611', kind: 'ai', noAiLimit: 10 },
+      record: {
+        subject: 'USER#u1',
+        month: '202611',
+        kind: 'ai',
+        noAiLimit: USAGE_LIMITS.free.noAiPerMonth,
+      },
       limit: USAGE_LIMITS.free,
     });
   });

@@ -13,6 +13,7 @@ import {
   buildAnonymousSubject,
   createJobRepository,
   createUsageRepository,
+  USAGE_LIMITS,
   resetInMemoryRepositories,
 } from '@nagiyu/quick-clip-core';
 import { createUsageService } from '@/lib/server/usage-context';
@@ -565,7 +566,7 @@ describe('POST /api/jobs', () => {
     });
 
     it('AI なしの上限に達したら 429 と AI なしの上限のコードを返す', async () => {
-      for (let i = 0; i < 10; i += 1) {
+      for (let i = 0; i < USAGE_LIMITS.free.noAiPerMonth; i += 1) {
         await POST(createRequest({ ...validBody, aiAnalysis: false }));
       }
 
@@ -576,7 +577,9 @@ describe('POST /api/jobs', () => {
     });
 
     it('申告された長さが段の上限を超えていれば 400 と長さの上限のコードを返し、ジョブを作らない', async () => {
-      const response = await POST(createRequest({ ...validBody, durationSec: 180 * 60 + 1 }));
+      const response = await POST(
+        createRequest({ ...validBody, durationSec: USAGE_LIMITS.free.maxDurationSec + 1 })
+      );
 
       expect(response.status).toBe(400);
       expect((await response.json()).error).toBe('DURATION_LIMIT_EXCEEDED');
@@ -586,7 +589,9 @@ describe('POST /api/jobs', () => {
     it('有料の段は長い動画を受ける', async () => {
       mockGetSession.mockResolvedValue(STANDARD_SESSION);
 
-      const response = await POST(createRequest({ ...validBody, durationSec: 240 * 60 }));
+      const response = await POST(
+        createRequest({ ...validBody, durationSec: USAGE_LIMITS.free.maxDurationSec + 1 })
+      );
 
       expect(response.status).toBe(201);
     });
@@ -602,9 +607,9 @@ describe('POST /api/jobs', () => {
             subject: 'USER#user-1',
             month: expect.stringMatching(/^\d{6}$/),
             kind: 'noAi',
-            noAiLimit: 10,
+            noAiLimit: USAGE_LIMITS.free.noAiPerMonth,
           },
-          maxDurationSec: 180 * 60,
+          maxDurationSec: USAGE_LIMITS.free.maxDurationSec,
           aiAnalysis: false,
         })
       );

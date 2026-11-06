@@ -26,9 +26,9 @@ describe('getUsageLimit', () => {
     expect(getUsageLimit('anonymous')).toEqual({
       aiPerMonth: 0,
       noAiPerMonth: 3,
-      maxDurationSec: 3600,
+      maxDurationSec: 60 * 60,
     });
     expect(getUsageLimit('free')).toBe(USAGE_LIMITS.free);
-    expect(getUsageLimit('standard').maxDurationSec).toBe(240 * 60);
+    expect(getUsageLimit('standard').maxDurationSec).toBe(180 * 60);
   });
 });

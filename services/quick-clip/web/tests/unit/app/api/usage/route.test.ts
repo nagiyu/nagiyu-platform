@@ -2,7 +2,7 @@
  * @jest-environment node
  */
 
-import { resetInMemoryRepositories } from '@nagiyu/quick-clip-core';
+import { USAGE_LIMITS, resetInMemoryRepositories } from '@nagiyu/quick-clip-core';
 import { createUsageService } from '@/lib/server/usage-context';
 import { GET } from '@/app/api/usage/route';
 
@@ -76,7 +76,10 @@ describe('GET /api/usage', () => {
     const body = await response.json();
 
     expect(body.tier).toBe('standard');
-    expect(body.remaining).toEqual({ ai: 10, noAi: 30 });
+    expect(body.remaining).toEqual({
+      ai: USAGE_LIMITS.standard.aiPerMonth,
+      noAi: USAGE_LIMITS.standard.noAiPerMonth,
+    });
     expect(response.headers.get('set-cookie')).toBeNull();
   });
 
