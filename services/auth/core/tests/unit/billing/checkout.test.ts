@@ -459,7 +459,6 @@ describe('createPlanChangeSession (下げ)', () => {
         },
         {
           items: [{ price: 'price_quick-clip-standard', quantity: 1 }],
-          duration: { interval: 'month', interval_count: 1 },
           proration_behavior: 'none',
         },
       ],
