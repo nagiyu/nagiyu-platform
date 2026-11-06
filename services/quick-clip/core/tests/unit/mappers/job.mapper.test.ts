@@ -104,6 +104,38 @@ describe('JobMapper', () => {
       expect(mapper.toEntity(item)).toEqual(entity);
     });
 
+    it('利用回数の記録・長さの上限・AI 解析の有無・戻し済みを往復できる', () => {
+      const entity = buildEntity({
+        usage: { subject: 'ANON#a1', month: '202611', kind: 'noAi', noAiLimit: 3 },
+        maxDurationSec: 3600,
+        aiAnalysis: false,
+        usageReleased: true,
+        usageSwitched: true,
+      });
+
+      const item = mapper.toItem(entity);
+
+      expect(item).toMatchObject({
+        Usage: { subject: 'ANON#a1', month: '202611', kind: 'noAi', noAiLimit: 3 },
+        MaxDurationSec: 3600,
+        AiAnalysis: false,
+        UsageReleased: true,
+        UsageSwitched: true,
+      });
+      expect(mapper.toEntity(item)).toEqual(entity);
+    });
+
+    it('利用回数の記録が不正な Item は読み取りに失敗する', () => {
+      const item = mapper.toItem(buildEntity());
+
+      expect(() =>
+        mapper.toEntity({
+          ...item,
+          Usage: { subject: 's', month: '202611', kind: 'x', noAiLimit: 1 },
+        })
+      ).toThrow();
+    });
+
     it('TTL はミリ秒の expiresAt をエポック秒 (切り捨て) で保存する', () => {
       const item = mapper.toItem(buildEntity({ expiresAt: 1704153600999 }));
 

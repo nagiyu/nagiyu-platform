@@ -8,6 +8,8 @@ const mockUpdateBatchStage = jest.fn();
 const mockUpdateErrorMessage = jest.fn();
 const mockUpdateAnalysisProgress = jest.fn();
 const mockGetJob = jest.fn();
+const mockReleaseForJob = jest.fn();
+const mockSwitchToNoAiForJob = jest.fn();
 const mockCreateMany = jest.fn();
 const mockAggregate = jest.fn();
 const mockGetDurationSec = jest.fn();
@@ -69,6 +71,14 @@ jest.mock('../../../src/repositories/factory.js', () => ({
   })),
   createHighlightRepository: jest.fn().mockImplementation(() => ({
     createMany: mockCreateMany,
+  })),
+  createUsageRepository: jest.fn().mockImplementation(() => ({})),
+}));
+
+jest.mock('../../../src/libs/usage.service.js', () => ({
+  UsageService: jest.fn().mockImplementation(() => ({
+    releaseForJob: mockReleaseForJob,
+    switchToNoAiForJob: mockSwitchToNoAiForJob,
   })),
 }));
 
@@ -168,6 +178,8 @@ describe('runQuickClipBatch', () => {
     mockUpdateErrorMessage.mockResolvedValue(undefined);
     mockUpdateAnalysisProgress.mockResolvedValue(undefined);
     mockGetJob.mockResolvedValue({ expiresAt: JOB_EXPIRES_AT });
+    mockReleaseForJob.mockResolvedValue(undefined);
+    mockSwitchToNoAiForJob.mockResolvedValue(undefined);
     mockTranscribe.mockResolvedValue([]);
     mockGetScores.mockResolvedValue([]);
     mockSpawn.mockImplementation(() => ({
@@ -228,6 +240,7 @@ describe('runQuickClipBatch', () => {
       'job-1',
       'アップロード済みの動画ファイルが見つかりません: uploads/job-1/input.mp4'
     );
+    expect(mockReleaseForJob).toHaveBeenCalledTimes(1);
     const reported = (createErrorEventWriter() as InMemoryErrorEventWriter).getRecords();
     expect(reported).toEqual([
       expect.objectContaining({
@@ -244,6 +257,166 @@ describe('runQuickClipBatch', () => {
       errorMessage: 'アップロード済みの動画ファイルが見つかりません: uploads/job-1/input.mp4',
       errorStack: expect.any(String),
     });
+  });
+
+  it('処理が失敗したら、ジョブで数えた利用回数を戻す', async () => {
+    mockS3Send.mockResolvedValue({ Body: { pipe: jest.fn() } });
+    mockAnalyzeMotion.mockRejectedValue(new Error('解析に失敗'));
+    const job = {
+      expiresAt: JOB_EXPIRES_AT,
+      usage: { subject: 'USER#u1', month: '202611', kind: 'ai' },
+    };
+    mockGetJob.mockResolvedValue(job);
+
+    await expect(runQuickClipBatch(input)).rejects.toThrow('解析に失敗');
+
+    expect(mockReleaseForJob).toHaveBeenCalledWith(job, expect.anything());
+  });
+
+  it('利用回数を戻せなくても、元の失敗を投げ、戻せなかったことを warning で報告する', async () => {
+    mockS3Send.mockResolvedValue({ Body: { pipe: jest.fn() } });
+    mockAnalyzeMotion.mockRejectedValue(new Error('解析に失敗'));
+    mockReleaseForJob.mockRejectedValue(new Error('戻せない'));
+
+    await expect(runQuickClipBatch(input)).rejects.toThrow('解析に失敗');
+
+    const reported = (createErrorEventWriter() as InMemoryErrorEventWriter).getRecords();
+    expect(reported.map((record) => [record.severity, record.title])).toEqual([
+      ['warning', 'QuickClip 利用回数を整えられませんでした'],
+      ['error', 'QuickClip 抽出処理が失敗しました'],
+    ]);
+  });
+
+  it('実際の長さがジョブの上限を超えていたら、文字起こしより前に止めて失敗にし、回数を戻す', async () => {
+    mockS3Send.mockResolvedValue({ Body: { pipe: jest.fn() } });
+    mockGetDurationSec.mockResolvedValue(3601);
+    mockGetJob.mockResolvedValue({ expiresAt: JOB_EXPIRES_AT, maxDurationSec: 3600 });
+
+    await expect(
+      runQuickClipBatch({ ...input, openAiApiKey: 'sk-test-key' })
+    ).resolves.toBeUndefined();
+
+    expect(mockTranscribe).not.toHaveBeenCalled();
+    expect(mockAnalyzeMotion).not.toHaveBeenCalled();
+    expect(mockUpdateErrorMessage).toHaveBeenCalledWith(
+      'job-1',
+      '動画の長さがご利用の上限を超えているため、処理できませんでした'
+    );
+    expect(mockReleaseForJob).toHaveBeenCalledTimes(1);
+    expect(mockCreateMany).not.toHaveBeenCalled();
+    // 利用者側の上限による失敗は障害として報告しない
+    expect((createErrorEventWriter() as InMemoryErrorEventWriter).getRecords()).toEqual([]);
+  });
+
+  it('実際の長さが上限ちょうどなら処理を続ける。上限の記録が無いジョブも続ける', async () => {
+    mockS3Send.mockResolvedValue({ Body: { pipe: jest.fn() } });
+    mockGetDurationSec.mockResolvedValue(3600);
+    mockGetJob.mockResolvedValue({ expiresAt: JOB_EXPIRES_AT, maxDurationSec: 3600 });
+
+    await expect(runQuickClipBatch(input)).resolves.toBeUndefined();
+    expect(mockCreateMany).toHaveBeenCalledTimes(1);
+
+    mockGetJob.mockResolvedValue({ expiresAt: JOB_EXPIRES_AT });
+    await expect(runQuickClipBatch(input)).resolves.toBeUndefined();
+    expect(mockCreateMany).toHaveBeenCalledTimes(2);
+  });
+
+  it('AI 解析なしのジョブは、API キーがあっても文字起こしと感情分析を行わない', async () => {
+    mockS3Send.mockResolvedValue({ Body: { pipe: jest.fn() } });
+
+    await expect(
+      runQuickClipBatch({ ...input, openAiApiKey: 'sk-test-key', aiAnalysis: false })
+    ).resolves.toBeUndefined();
+
+    expect(mockTranscribe).not.toHaveBeenCalled();
+    expect(mockGetScores).not.toHaveBeenCalled();
+    expect(mockUpdateAnalysisProgress).toHaveBeenCalledWith('job-1', {
+      motion: { status: 'in_progress' },
+      volume: { status: 'in_progress' },
+    });
+  });
+
+  it('aiAnalysis を渡さない場合は、API キーがあれば文字起こしを行う', async () => {
+    mockS3Send.mockResolvedValue({ Body: { pipe: jest.fn() } });
+
+    await runQuickClipBatch({ ...input, openAiApiKey: 'sk-test-key' });
+
+    expect(mockTranscribe).toHaveBeenCalledTimes(1);
+  });
+
+  it('AI 解析が成功したジョブは付け替えない', async () => {
+    mockS3Send.mockResolvedValue({ Body: { pipe: jest.fn() } });
+    mockTranscribe.mockResolvedValue([{ start: 1, end: 3, text: 'やばい' }]);
+    mockGetScores.mockResolvedValue([{ second: 1, score: 0.9, dominantEmotion: 'excite' }]);
+
+    await runQuickClipBatch({ ...input, openAiApiKey: 'sk-test-key' });
+
+    expect(mockSwitchToNoAiForJob).not.toHaveBeenCalled();
+  });
+
+  it('API キーが無くて AI 解析ができなかったジョブは、AI 解析なしへ付け替える', async () => {
+    mockS3Send.mockResolvedValue({ Body: { pipe: jest.fn() } });
+
+    await runQuickClipBatch(input);
+
+    expect(mockSwitchToNoAiForJob).toHaveBeenCalledTimes(1);
+    expect(mockReleaseForJob).not.toHaveBeenCalled();
+  });
+
+  it('文字起こしが失敗したジョブは付け替える', async () => {
+    mockS3Send.mockResolvedValue({ Body: { pipe: jest.fn() } });
+    mockTranscribe.mockRejectedValue(new Error('文字起こし失敗'));
+
+    await runQuickClipBatch({ ...input, openAiApiKey: 'sk-test-key' });
+
+    expect(mockSwitchToNoAiForJob).toHaveBeenCalledTimes(1);
+  });
+
+  it('感情分析が失敗したジョブは付け替える', async () => {
+    mockS3Send.mockResolvedValue({ Body: { pipe: jest.fn() } });
+    mockTranscribe.mockResolvedValue([{ start: 1, end: 3, text: 'やばい' }]);
+    mockGetScores.mockRejectedValue(new Error('感情分析失敗'));
+
+    await runQuickClipBatch({ ...input, openAiApiKey: 'sk-test-key' });
+
+    expect(mockSwitchToNoAiForJob).toHaveBeenCalledTimes(1);
+  });
+
+  it('付け替えに失敗しても処理は成功し、warning で報告する', async () => {
+    mockS3Send.mockResolvedValue({ Body: { pipe: jest.fn() } });
+    mockSwitchToNoAiForJob.mockRejectedValue(new Error('付け替え失敗'));
+
+    await expect(runQuickClipBatch(input)).resolves.toBeUndefined();
+
+    const reported = (createErrorEventWriter() as InMemoryErrorEventWriter).getRecords();
+    expect(reported.map((record) => [record.severity, record.title])).toEqual([
+      ['warning', 'QuickClip 利用回数を整えられませんでした'],
+    ]);
+  });
+
+  it('ジョブの記録が AI 解析なしなら、環境変数が AI 解析ありでも文字起こしを行わない', async () => {
+    mockS3Send.mockResolvedValue({ Body: { pipe: jest.fn() } });
+    mockGetJob.mockResolvedValue({ expiresAt: JOB_EXPIRES_AT, aiAnalysis: false });
+
+    await runQuickClipBatch({ ...input, openAiApiKey: 'sk-test-key', aiAnalysis: true });
+
+    expect(mockTranscribe).not.toHaveBeenCalled();
+  });
+
+  it('失敗時は、エラーメッセージの記録より先に回数を戻す', async () => {
+    mockS3Send.mockResolvedValue({ Body: { pipe: jest.fn() } });
+    mockAnalyzeMotion.mockRejectedValue(new Error('解析に失敗'));
+    const order: string[] = [];
+    mockReleaseForJob.mockImplementation(async () => {
+      order.push('release');
+    });
+    mockUpdateErrorMessage.mockImplementation(async () => {
+      order.push('error-message');
+    });
+
+    await expect(runQuickClipBatch(input)).rejects.toThrow('解析に失敗');
+
+    expect(order).toEqual(['release', 'error-message']);
   });
 
   it('extract コマンドで生成する見どころは clipStatus を GENERATED で保存する', async () => {

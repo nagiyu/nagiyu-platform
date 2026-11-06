@@ -12,12 +12,14 @@ describe('toBatchJobEnvironment', () => {
       command: 'extract',
       jobId: 'job-1',
       emotionFilter: 'laugh',
+      aiAnalysis: true,
     });
 
     expect(environment).toEqual([
       { name: 'BATCH_COMMAND', value: 'extract' },
       { name: 'JOB_ID', value: 'job-1' },
       { name: 'EMOTION_FILTER', value: 'laugh' },
+      { name: 'AI_ANALYSIS', value: 'true' },
     ]);
   });
 
@@ -26,6 +28,7 @@ describe('toBatchJobEnvironment', () => {
       command: 'extract',
       jobId: 'job-1',
       emotionFilter: 'any',
+      aiAnalysis: true,
     }).map((entry) => entry.name);
 
     expect(names).not.toContain('DYNAMODB_TABLE_NAME');
@@ -34,7 +37,12 @@ describe('toBatchJobEnvironment', () => {
   });
 
   it('変換結果を読み取り関数に渡すと元の入力に戻る', () => {
-    const input = { command: 'extract', jobId: 'job_2-A', emotionFilter: 'tension' } as const;
+    const input = {
+      command: 'extract',
+      jobId: 'job_2-A',
+      emotionFilter: 'tension',
+      aiAnalysis: false,
+    } as const;
     const record = Object.fromEntries(
       toBatchJobEnvironment(input).map((entry) => [entry.name, entry.value])
     );
@@ -54,7 +62,24 @@ describe('readBatchJobInput', () => {
       command: 'extract',
       jobId: 'job-1',
       emotionFilter: DEFAULT_EMOTION_FILTER,
+      aiAnalysis: true,
     });
+  });
+
+  it('AI_ANALYSIS 未設定なら AI 解析ありになる (この変数を渡さない版の web が投入したジョブ)', () => {
+    expect(readBatchJobInput(validEnv).aiAnalysis).toBe(true);
+    expect(readBatchJobInput({ ...validEnv, AI_ANALYSIS: '  ' }).aiAnalysis).toBe(true);
+  });
+
+  it('AI_ANALYSIS = false なら AI 解析なしになる', () => {
+    expect(readBatchJobInput({ ...validEnv, AI_ANALYSIS: 'false' }).aiAnalysis).toBe(false);
+    expect(readBatchJobInput({ ...validEnv, AI_ANALYSIS: 'true' }).aiAnalysis).toBe(true);
+  });
+
+  it('不正な AI_ANALYSIS でエラーになる', () => {
+    expect(() => readBatchJobInput({ ...validEnv, AI_ANALYSIS: 'no' })).toThrow(
+      'AI_ANALYSIS の値が不正です'
+    );
   });
 
   it('前後の空白を取り除いて読み取る', () => {
@@ -64,7 +89,7 @@ describe('readBatchJobInput', () => {
         JOB_ID: ' job-1 ',
         EMOTION_FILTER: ' laugh ',
       })
-    ).toEqual({ command: 'extract', jobId: 'job-1', emotionFilter: 'laugh' });
+    ).toEqual({ command: 'extract', jobId: 'job-1', emotionFilter: 'laugh', aiAnalysis: true });
   });
 
   it('EMOTION_FILTER が空白のみなら既定値になる', () => {

@@ -2,6 +2,8 @@ import { createHmac } from 'node:crypto';
 import { InMemorySingleTableStore } from '@nagiyu/aws';
 import { IP_DAILY_JOB_LIMIT, UsageService } from '../../../src/libs/usage.service.js';
 import { USAGE_LIMITS } from '../../../src/libs/usage-plan.js';
+import { InMemoryJobRepository } from '../../../src/repositories/in-memory-job.repository.js';
+import type { Job, UsageRecord } from '../../../src/types.js';
 import { InMemoryUsageRepository } from '../../../src/repositories/in-memory-usage.repository.js';
 import type { UsageRepository } from '../../../src/repositories/usage.repository.interface.js';
 
@@ -282,6 +284,125 @@ describe('UsageService の取り消しと取得', () => {
         ai: 0,
         noAi: USAGE_LIMITS.free.noAiPerMonth,
       });
+    });
+  });
+
+  describe('ジョブの記録に従った戻しと付け替え', () => {
+    const setup = async (): Promise<{
+      repository: InMemoryUsageRepository;
+      service: UsageService;
+      jobRepository: InMemoryJobRepository;
+      job: Job;
+    }> => {
+      const store = new InMemorySingleTableStore();
+      const repository = new InMemoryUsageRepository(store);
+      const service = createService(repository);
+      const jobRepository = new InMemoryJobRepository(store);
+      const consumed = await service.consume({
+        subject: 'USER#u1',
+        tier: 'free',
+        aiAnalysis: true,
+      });
+      if (!consumed.ok) {
+        throw new Error('数えられるはず');
+      }
+      const job = await jobRepository.create({
+        jobId: 'job-1',
+        originalFileName: 'a.mp4',
+        fileSize: 1,
+        createdAt: NOW,
+        expiresAt: NOW + 1000,
+        usage: consumed.record,
+      });
+      return { repository, service, jobRepository, job };
+    };
+
+    it('releaseForJob は記録された 1 回を戻し、戻し済みの印を付ける', async () => {
+      const { repository, service, jobRepository, job } = await setup();
+
+      expect(await service.releaseForJob(job, jobRepository)).toBe(true);
+
+      expect(await repository.getCounts('USER#u1', '202611')).toEqual({ ai: 0, noAi: 0 });
+      expect((await jobRepository.getById('job-1'))?.usageReleased).toBe(true);
+    });
+
+    it('releaseForJob は 2 回目以降 (同時の呼び出しを含む) では戻さない', async () => {
+      const { repository, service, jobRepository, job } = await setup();
+      const releaseSpy = jest.spyOn(repository, 'release');
+
+      const results = await Promise.all([
+        service.releaseForJob(job, jobRepository),
+        service.releaseForJob(job, jobRepository),
+      ]);
+
+      expect(results.filter(Boolean)).toHaveLength(1);
+      expect(releaseSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('releaseForJob は記録の無いジョブでは何もしない', async () => {
+      const { service, jobRepository, job } = await setup();
+
+      expect(await service.releaseForJob({ ...job, usage: undefined }, jobRepository)).toBe(false);
+      expect((await jobRepository.getById('job-1'))?.usageReleased).toBeUndefined();
+    });
+
+    it('switchToNoAiForJob は AI ありを戻して AI なしを数え、ジョブの記録も AI なしにする', async () => {
+      const { repository, service, jobRepository, job } = await setup();
+
+      await service.switchToNoAiForJob(job, jobRepository);
+
+      expect(await repository.getCounts('USER#u1', '202611')).toEqual({ ai: 0, noAi: 1 });
+      expect((await jobRepository.getById('job-1'))?.usage?.kind).toBe('noAi');
+    });
+
+    it('switchToNoAiForJob は二重に付け替えない', async () => {
+      const { repository, service, jobRepository, job } = await setup();
+
+      await Promise.all([
+        service.switchToNoAiForJob(job, jobRepository),
+        service.switchToNoAiForJob(job, jobRepository),
+      ]);
+      await service.switchToNoAiForJob(job, jobRepository);
+
+      expect(await repository.getCounts('USER#u1', '202611')).toEqual({ ai: 0, noAi: 1 });
+    });
+
+    it('付け替えたあとの戻しは、実際に数えている AI なしを戻す', async () => {
+      const { repository, service, jobRepository, job } = await setup();
+      await service.switchToNoAiForJob(job, jobRepository);
+
+      const switched = (await jobRepository.getById('job-1')) as Job;
+      await service.releaseForJob(switched, jobRepository);
+
+      expect(await repository.getCounts('USER#u1', '202611')).toEqual({ ai: 0, noAi: 0 });
+    });
+
+    it('AI なしの上限に達していれば AI ありを戻すだけにし、ジョブは戻し済みになる', async () => {
+      const { repository, service, jobRepository, job } = await setup();
+      for (let i = 0; i < USAGE_LIMITS.free.noAiPerMonth; i += 1) {
+        await service.consume({ subject: 'USER#u1', tier: 'free', aiAnalysis: false });
+      }
+
+      await service.switchToNoAiForJob(job, jobRepository);
+
+      expect(await repository.getCounts('USER#u1', '202611')).toEqual({
+        ai: 0,
+        noAi: USAGE_LIMITS.free.noAiPerMonth,
+      });
+      expect((await jobRepository.getById('job-1'))?.usageReleased).toBe(true);
+    });
+
+    it('switchToNoAiForJob は AI なしで数えたジョブや記録の無いジョブでは何もしない', async () => {
+      const { repository, service, jobRepository, job } = await setup();
+      const releaseSpy = jest.spyOn(repository, 'release');
+
+      await service.switchToNoAiForJob(
+        { ...job, usage: { ...(job.usage as UsageRecord), kind: 'noAi' } },
+        jobRepository
+      );
+      await service.switchToNoAiForJob({ ...job, usage: undefined }, jobRepository);
+
+      expect(releaseSpy).not.toHaveBeenCalled();
     });
   });
 

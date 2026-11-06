@@ -6,6 +6,7 @@ import {
   readTimestamp,
   requiredPatchValue,
   toTtlSeconds,
+  validateBooleanField,
   validateEnumField,
   validateNumberField,
   validateObjectField,
@@ -15,9 +16,10 @@ import {
   type EntityMapper,
   type EntityPatch,
 } from '@nagiyu/aws';
-import type { AnalysisProgress, BatchStage, Job, JobKey } from '../types.js';
+import type { AnalysisProgress, BatchStage, Job, JobKey, UsageRecord } from '../types.js';
 
 const BATCH_STAGES = ['downloading', 'analyzing', 'clipping', 'aggregating'] as const;
+const USAGE_KINDS = ['ai', 'noAi'] as const;
 
 /** 旧形式 (camelCase) の属性名。書き込みは新名のみで、旧データは読み取り側で受ける */
 const LEGACY_ATTRIBUTE_NAMES = {
@@ -80,6 +82,21 @@ export class JobMapper implements EntityMapper<Job, JobKey> {
     if (entity.analysisProgress) {
       item.AnalysisProgress = entity.analysisProgress;
     }
+    if (entity.usage) {
+      item.Usage = entity.usage;
+    }
+    if (entity.aiAnalysis !== undefined) {
+      item.AiAnalysis = entity.aiAnalysis;
+    }
+    if (entity.usageReleased !== undefined) {
+      item.UsageReleased = entity.usageReleased;
+    }
+    if (entity.usageSwitched !== undefined) {
+      item.UsageSwitched = entity.usageSwitched;
+    }
+    if (entity.maxDurationSec !== undefined) {
+      item.MaxDurationSec = entity.maxDurationSec;
+    }
 
     return item;
   }
@@ -109,6 +126,11 @@ export class JobMapper implements EntityMapper<Job, JobKey> {
       DurationSec: optionalPatchValue(changes.durationSec),
       ErrorMessage: optionalPatchValue(changes.errorMessage),
       AnalysisProgress: optionalPatchValue(changes.analysisProgress),
+      Usage: optionalPatchValue(changes.usage),
+      AiAnalysis: optionalPatchValue(changes.aiAnalysis),
+      UsageReleased: optionalPatchValue(changes.usageReleased),
+      UsageSwitched: optionalPatchValue(changes.usageSwitched),
+      MaxDurationSec: optionalPatchValue(changes.maxDurationSec),
     };
   }
 
@@ -158,7 +180,37 @@ export class JobMapper implements EntityMapper<Job, JobKey> {
         'AnalysisProgress'
       );
     }
+    const usage = item.Usage;
+    if (usage !== undefined) {
+      entity.usage = this.toUsageRecord(usage);
+    }
+    const aiAnalysis = item.AiAnalysis;
+    if (aiAnalysis !== undefined) {
+      entity.aiAnalysis = validateBooleanField(aiAnalysis, 'AiAnalysis');
+    }
+    const usageReleased = item.UsageReleased;
+    if (usageReleased !== undefined) {
+      entity.usageReleased = validateBooleanField(usageReleased, 'UsageReleased');
+    }
+    const usageSwitched = item.UsageSwitched;
+    if (usageSwitched !== undefined) {
+      entity.usageSwitched = validateBooleanField(usageSwitched, 'UsageSwitched');
+    }
+    const maxDurationSec = item.MaxDurationSec;
+    if (maxDurationSec !== undefined) {
+      entity.maxDurationSec = validateNumberField(maxDurationSec, 'MaxDurationSec');
+    }
 
     return entity;
+  }
+
+  private toUsageRecord(value: unknown): UsageRecord {
+    const record = validateObjectField<Record<string, unknown>>(value, 'Usage');
+    return {
+      subject: validateStringField(record.subject, 'Usage.subject'),
+      month: validateStringField(record.month, 'Usage.month'),
+      kind: validateEnumField<UsageRecord['kind']>(record.kind, 'Usage.kind', USAGE_KINDS),
+      noAiLimit: validateNumberField(record.noAiLimit, 'Usage.noAiLimit'),
+    };
   }
 }
