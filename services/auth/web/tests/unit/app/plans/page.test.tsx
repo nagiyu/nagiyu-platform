@@ -25,6 +25,9 @@ jest.mock('../../../../src/lib/plans-data', () => ({
   syncUserForPlans: jest.fn(),
 }));
 jest.mock('../../../../src/app/plans/plan-actions', () => ({
+  DowngradeButton: ({ label, confirmMessage }: { label: string; confirmMessage: string }) => (
+    <button data-confirm={confirmMessage}>{label}</button>
+  ),
   PlanActionButton: ({ label, endpoint }: { label: string; endpoint: string }) => (
     <button data-endpoint={endpoint}>{label}</button>
   ),
@@ -44,12 +47,12 @@ const baseCard = {
   manualLabel: null,
   action: 'subscribe' as const,
   scheduledChangeLabel: null,
+  downgradeConfirmMessage: null,
 };
 
 const baseService = {
   serviceId: 'quick-clip',
   name: 'Quick Clip',
-  description: null,
   tiers: [baseCard],
 };
 
@@ -252,28 +255,24 @@ describe('PlansPage', () => {
     expect(screen.getByText('運営による付与があります (期限なし)')).toBeInTheDocument();
   });
 
-  it('サービスの見出しと説明を出し、説明が空なら出さない', async () => {
+  it('サービスの見出しを出す', async () => {
     (loadPlansPageData as jest.Mock).mockResolvedValue({
       billingEnabled: true,
       hasCustomer: false,
-      services: [
-        { ...baseService, description: 'サービスの説明' },
-        { ...baseService, serviceId: 'livetalk', name: 'LiveTalk' },
-      ],
+      services: [baseService, { ...baseService, serviceId: 'livetalk', name: 'LiveTalk' }],
     });
 
     render(await render_());
 
     expect(screen.getByRole('heading', { level: 2, name: 'Quick Clip' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 2, name: 'LiveTalk' })).toBeInTheDocument();
-    expect(screen.getAllByText('サービスの説明')).toHaveLength(1);
   });
 
-  it('他の段への切り替えは plan-change を呼ぶボタンで出す', async () => {
+  it('上げは plan-change を呼ぶボタンで出す', async () => {
     (loadPlansPageData as jest.Mock).mockResolvedValue({
       billingEnabled: true,
       hasCustomer: true,
-      services: [{ ...baseService, tiers: [{ ...baseCard, action: 'change' as const }] }],
+      services: [{ ...baseService, tiers: [{ ...baseCard, action: 'upgrade' as const }] }],
     });
 
     render(await render_());
@@ -282,6 +281,32 @@ describe('PlansPage', () => {
       'data-endpoint',
       '/api/billing/plan-change'
     );
+  });
+
+  it('下げは確認の本文を持つボタンで出し、本文が無ければ出さない', async () => {
+    (loadPlansPageData as jest.Mock).mockResolvedValue({
+      billingEnabled: true,
+      hasCustomer: true,
+      services: [
+        {
+          ...baseService,
+          tiers: [
+            { ...baseCard, action: 'downgrade' as const, downgradeConfirmMessage: '確認の本文' },
+            {
+              ...baseCard,
+              roleId: 'quick-clip-standard',
+              action: 'downgrade' as const,
+              downgradeConfirmMessage: null,
+            },
+          ],
+        },
+      ],
+    });
+
+    render(await render_());
+
+    expect(screen.getAllByText('この段に変える')).toHaveLength(1);
+    expect(screen.getByText('この段に変える')).toHaveAttribute('data-confirm', '確認の本文');
   });
 
   it('下げを予約中は行き先の文言と、サービスの予約の取り消しを出す', async () => {

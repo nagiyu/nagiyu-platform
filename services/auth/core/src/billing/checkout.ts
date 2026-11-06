@@ -1,11 +1,16 @@
-import { PAID_ROLES, getBillingServiceId, logger } from '@nagiyu/common';
+import { PAID_ROLES, getBillingServiceId, getBillingTierRoleIds, logger } from '@nagiyu/common';
 import type { User } from '@nagiyu/common';
 import type { UserRepository } from '../repositories';
-import type { BillingOperationsStripe, BillingPrice } from './stripe-client';
-import { listEntitledSubscriptions } from './sync';
+import type {
+  BillingOperationsStripe,
+  BillingPrice,
+  BillingScheduleInterval,
+} from './stripe-client';
+import { listEntitledSubscriptions, type EntitledSubscription } from './sync';
 
 const CHECKOUT_ERROR_MESSAGES = {
   URL_MISSING: 'Checkout Session の URL を取得できませんでした',
+  SCHEDULE_PHASE_MISSING: '作成した予約の現在の期間を取得できませんでした',
 } as const;
 
 export type CheckoutResult =
@@ -133,8 +138,14 @@ export async function createPortalSession(
   return { ok: true, url: session.url };
 }
 
+/** Auth が作った予約の印。取り消しや後始末で、Auth 以外が作った予約と見分けるのに使う */
+export const AUTH_SCHEDULE_METADATA = { createdBy: 'nagiyu-auth' } as const;
+
 export type PlanChangeResult =
-  | { ok: true; url: string }
+  /** 上げ: Customer Portal の確認画面へ送る */
+  | { ok: true; kind: 'portal'; url: string }
+  /** 下げ: 請求期間の終わりに切り替わる予約を作った。`startsAt` は Unix ミリ秒 */
+  | { ok: true; kind: 'scheduled'; startsAt: number }
   | {
       ok: false;
       reason:
@@ -151,9 +162,72 @@ export type CancelScheduledChangeResult =
   { ok: true } | { ok: false; reason: 'no-scheduled-change' };
 
 /**
- * 同じサービスの中で段を切り替える Customer Portal の確認画面の URL を作る。
+ * 今の請求期間の終わりに下の段の価格へ切り替わる予約を作る。
  *
- * 日割り・下げを期末に効かせる・支払いの扱いは Portal の設定で決まるため、ここでは指定しない。
+ * 予約の作成直後の phase は今の段のまま 1 つだけなので、それを期末までに縮めて下の段の phase を足す。
+ * 更新に失敗した予約は、契約に付いたまま残ると以後の変更を断るため release して元に戻す。
+ */
+async function scheduleDowngrade(
+  stripe: BillingOperationsStripe,
+  current: EntitledSubscription,
+  price: BillingPrice
+): Promise<PlanChangeResult> {
+  if (!price.recurring) {
+    return { ok: false, reason: 'price-not-found' };
+  }
+
+  const schedule = await stripe.subscriptionSchedules.create({
+    from_subscription: current.subscriptionId,
+  });
+  const periodEnd = current.currentPeriodEnd / 1000;
+  const currentPhase = schedule.phases[0];
+
+  try {
+    if (!currentPhase) {
+      throw new Error(CHECKOUT_ERROR_MESSAGES.SCHEDULE_PHASE_MISSING);
+    }
+    await stripe.subscriptionSchedules.update(schedule.id, {
+      phases: [
+        {
+          start_date: currentPhase.start_date,
+          end_date: periodEnd,
+          items: currentPhase.items.map((item) => ({
+            price: typeof item.price === 'string' ? item.price : item.price.id,
+            quantity: item.quantity ?? 1,
+          })),
+          proration_behavior: 'none',
+        },
+        {
+          items: [{ price: price.id, quantity: 1 }],
+          duration: {
+            // Stripe の型は未知の値も許すが、期間の単位は day / week / month / year のいずれか
+            interval: price.recurring.interval as BillingScheduleInterval,
+            interval_count: price.recurring.interval_count,
+          },
+          proration_behavior: 'none',
+        },
+      ],
+      end_behavior: 'release',
+      proration_behavior: 'none',
+      metadata: AUTH_SCHEDULE_METADATA,
+    });
+  } catch (error) {
+    await stripe.subscriptionSchedules.release(schedule.id).catch((releaseError: unknown) => {
+      logger.error('下げの予約の巻き戻しに失敗しました', {
+        scheduleId: schedule.id,
+        error: releaseError instanceof Error ? releaseError.message : String(releaseError),
+      });
+    });
+    throw error;
+  }
+  return { ok: true, kind: 'scheduled', startsAt: current.currentPeriodEnd };
+}
+
+/**
+ * 同じサービスの中で段を切り替える。
+ *
+ * 上げは Customer Portal の確認画面の URL を返す。日割りと支払いの扱いは Portal の設定で決まるため、ここでは指定しない。
+ * 下げは Portal では期末に予約できないため、Subscription Schedule を作って請求期間の終わりに切り替える。返金や日割りのクレジットは出さない。
  * 契約は通知の遅れで DB が古くても誤判定しないよう、Stripe から取り直して判定する。
  *
  * @param urls - 呼び出し側で検証済みのものを渡す。`completionUrl` は確認を終えた後の戻り先
@@ -198,6 +272,12 @@ export async function createPlanChangeSession(
     return { ok: false, reason: 'price-not-found' };
   }
 
+  // getBillingTierRoleIds は下の段から順に返すため、並びが段の順位になる
+  const tierRoleIds = getBillingTierRoleIds(serviceId);
+  if (tierRoleIds.indexOf(roleId) < tierRoleIds.indexOf(current.roleId)) {
+    return scheduleDowngrade(stripe, current, price);
+  }
+
   const session = await stripe.billingPortal.sessions.create({
     customer: user.stripeCustomerId,
     return_url: urls.returnUrl,
@@ -210,7 +290,7 @@ export async function createPlanChangeSession(
       after_completion: { type: 'redirect', redirect: { return_url: urls.completionUrl } },
     },
   });
-  return { ok: true, url: session.url };
+  return { ok: true, kind: 'portal', url: session.url };
 }
 
 /**

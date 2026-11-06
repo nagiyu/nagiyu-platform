@@ -14,7 +14,6 @@ export type PlanPrice = {
   currency: string;
   recurring: { interval: string; interval_count: number } | null;
   product?: string | { description?: string | null; deleted?: unknown } | null;
-  metadata?: Record<string, string> | null;
 };
 
 export type PlanSubscription = {
@@ -27,13 +26,16 @@ export type PlanSubscription = {
 
 export type PlanTierState = 'guest' | 'none' | 'subscribed' | 'canceling';
 
-/** 段のカードに出す操作。契約の状態から決め、画面は分岐しない */
-export type PlanTierAction = 'sign-in' | 'subscribe' | 'change' | null;
+/**
+ * 段のカードに出す操作。契約の状態から決め、画面は分岐しない。
+ * 上げは Customer Portal の確認画面へ送り、下げは Auth の確認ダイアログを経て期末に予約する。
+ */
+export type PlanTierAction = 'sign-in' | 'subscribe' | 'upgrade' | 'downgrade' | null;
 
 export type PlanTier = {
   roleId: string;
   name: string;
-  /** 価格の metadata の description */
+  /** 段ごとに別の商品なので、商品の説明 */
   description: string | null;
   priceLabel: string | null;
   /** 価格を取得できなかった。価格が無いこととは区別し、画面は案内を出す */
@@ -44,13 +46,13 @@ export type PlanTier = {
   action: PlanTierAction;
   /** 下げを予約中の契約中の段にだけ付く。予約の取り消しの導線を出す目印も兼ねる */
   scheduledChangeLabel: string | null;
+  /** 下げの確認ダイアログの本文。`action` が `downgrade` のときだけ付く */
+  downgradeConfirmMessage: string | null;
 };
 
 export type PlanService = {
   serviceId: string;
   name: string;
-  /** 商品の説明。同じサービスの段は同じ商品なので、どの段の価格の商品でもよい */
-  description: string | null;
   /** 下の段から順 */
   tiers: PlanTier[];
 };
@@ -122,11 +124,6 @@ function pickSubscription(candidates: PlanSubscription[]): PlanSubscription | un
     const bCanceling = b.endsAt !== null ? 1 : 0;
     return aCanceling - bCanceling || b.currentPeriodEnd - a.currentPeriodEnd;
   })[0];
-}
-
-function formatPlanTierDescription(price: PlanPrice | undefined): string | null {
-  const description = price?.metadata?.description?.trim();
-  return description ? description : null;
 }
 
 function resolveState(
@@ -230,7 +227,7 @@ export function buildPlanServices(input: BuildPlanServicesInput): PlanService[] 
     const hasContract = resolved.some(
       (tier) => tier.state === 'subscribed' || tier.state === 'canceling'
     );
-    // 解約予約中・下げの予約中の契約は、Portal での切り替えを断るため導線を出さない
+    // 解約予約中・下げの予約中の契約は、切り替えを断るため導線を出さない
     const canChange =
       serviceSubscription !== undefined &&
       serviceSubscription.endsAt === null &&
@@ -249,13 +246,21 @@ export function buildPlanServices(input: BuildPlanServicesInput): PlanService[] 
       if (tier.state === 'guest') {
         action = 'sign-in';
       } else if (tier.state === 'none' && priceLabel !== null) {
-        action = !hasContract ? 'subscribe' : canChange ? 'change' : null;
+        if (!hasContract) {
+          action = 'subscribe';
+        } else if (canChange && serviceSubscription) {
+          // getBillingTierRoleIds は下の段から順に返すため、並びが段の順位になる
+          action =
+            roleIds.indexOf(tier.roleId) > roleIds.indexOf(serviceSubscription.roleId)
+              ? 'upgrade'
+              : 'downgrade';
+        }
       }
 
       tiers.push({
         roleId: tier.roleId,
         name: ROLES[tier.roleId as keyof typeof ROLES].name,
-        description: formatPlanTierDescription(tier.price),
+        description: formatPlanDescription(tier.price),
         priceLabel,
         priceFetchFailed: input.prices === null,
         state: tier.state,
@@ -266,6 +271,10 @@ export function buildPlanServices(input: BuildPlanServicesInput): PlanService[] 
           tier.state === 'subscribed'
             ? resolveScheduledChangeLabel(tier.subscription, input)
             : null,
+        downgradeConfirmMessage:
+          action === 'downgrade' && serviceSubscription
+            ? `${formatPlanDate(serviceSubscription.currentPeriodEnd)}から${ROLES[tier.roleId as keyof typeof ROLES].name}に変わります。それまでは今の段のまま使えます。返金はありません。`
+            : null,
       });
     }
     if (tiers.length === 0) {
@@ -275,9 +284,6 @@ export function buildPlanServices(input: BuildPlanServicesInput): PlanService[] 
     services.push({
       serviceId,
       name: serviceName,
-      description:
-        roleIds.map((roleId) => formatPlanDescription(input.prices?.get(roleId))).find(Boolean) ??
-        null,
       tiers,
     });
   }

@@ -89,7 +89,7 @@ export async function listEntitledSubscriptions(
       continue;
     }
     for (const item of subscription.items.data) {
-      // 1 サービス = 1 商品で段は価格が表すため、商品の機能ではなく価格の lookup_key で決める
+      // 段ごとに別の商品だが、ロールは商品の機能ではなく価格の lookup_key で決める
       const lookupKey = item.price.lookup_key;
       if (lookupKey === null || !PAID_ROLES.includes(lookupKey)) {
         logger.warn('有料ロールでない価格の lookup_key を無視しました', {
