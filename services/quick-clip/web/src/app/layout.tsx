@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { ServiceLayout } from '@nagiyu/ui';
 import { SessionHeader, SessionProviderWrapper } from '@nagiyu/ui/session-provider';
+import { AuthUrlProvider } from '@/components/AuthUrlProvider';
 import { quickClipPrivacySections } from '@/lib/privacy-policy';
 import '@nagiyu/ui/tokens.css';
 import '@nagiyu/ui/base.css';
@@ -54,7 +55,7 @@ export default function RootLayout({
               privacyContent: quickClipPrivacySections,
             }}
           >
-            {children}
+            <AuthUrlProvider authUrl={authUrl}>{children}</AuthUrlProvider>
           </ServiceLayout>
         </SessionProviderWrapper>
       </body>

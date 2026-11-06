@@ -1,4 +1,9 @@
-import { buildSignInUrl, buildSignOutUrl, buildRefreshUrl } from '../../../src/utils/auth';
+import {
+  buildPlansUrl,
+  buildSignInUrl,
+  buildSignOutUrl,
+  buildRefreshUrl,
+} from '../../../src/utils/auth';
 
 describe('buildSignOutUrl', () => {
   describe('callbackUrl なし', () => {
@@ -181,5 +186,25 @@ describe('buildSignInUrl', () => {
     expect(buildSignInUrl('https://auth.nagiyu.com/', 'https://quick-clip.nagiyu.com/a?b=1')).toBe(
       'https://auth.nagiyu.com/signin?callbackUrl=https%3A%2F%2Fquick-clip.nagiyu.com%2Fa%3Fb%3D1'
     );
+  });
+});
+
+describe('buildPlansUrl', () => {
+  it('callbackUrl なしでプラン画面 URL を生成する', () => {
+    expect(buildPlansUrl('https://auth.nagiyu.com')).toBe('https://auth.nagiyu.com/plans');
+  });
+
+  it('callbackUrl が空文字の場合クエリパラメータを付与しない', () => {
+    expect(buildPlansUrl('https://auth.nagiyu.com', '')).toBe('https://auth.nagiyu.com/plans');
+  });
+
+  it('callbackUrl を encode して付与し、末尾スラッシュを正規化する', () => {
+    expect(buildPlansUrl('https://auth.nagiyu.com/', 'https://quick-clip.nagiyu.com/a?b=1')).toBe(
+      'https://auth.nagiyu.com/plans?callbackUrl=https%3A%2F%2Fquick-clip.nagiyu.com%2Fa%3Fb%3D1'
+    );
+  });
+
+  it('authUrl が空文字でも例外を投げずパスだけを返す', () => {
+    expect(buildPlansUrl('')).toBe('/plans');
   });
 });
