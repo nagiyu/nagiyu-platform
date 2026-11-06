@@ -77,6 +77,8 @@ export type BillingPrice = {
   recurring: { interval: string; interval_count: number } | null;
   /** 商品。`expand` しなければ ID の文字列で、説明は読めない */
   product?: string | { id: string; description?: string | null; deleted?: unknown } | null;
+  /** 段の説明 (`description`) を読むのに使う */
+  metadata?: Record<string, string> | null;
 };
 
 export interface BillingOperationsStripe extends BillingStripe {

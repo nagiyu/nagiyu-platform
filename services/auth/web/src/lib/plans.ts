@@ -1,4 +1,4 @@
-import { ROLES, PAID_ROLES } from '@nagiyu/common';
+import { ROLES, BILLING_SERVICES, getBillingTierRoleIds } from '@nagiyu/common';
 import type { RoleGrant } from '@nagiyu/common';
 
 export const PLANS_MESSAGES = {
@@ -8,34 +8,54 @@ export const PLANS_MESSAGES = {
 } as const;
 
 export type PlanPrice = {
+  /** 下げの予約の行き先 (価格 ID) を段に対応付けるのに使う */
+  id?: string;
   unit_amount: number | null;
   currency: string;
   recurring: { interval: string; interval_count: number } | null;
   product?: string | { description?: string | null; deleted?: unknown } | null;
+  metadata?: Record<string, string> | null;
 };
 
 export type PlanSubscription = {
   roleId: string;
   currentPeriodEnd: number;
   endsAt: number | null;
+  /** 次の期間から別の価格へ切り替わる予約 */
+  scheduledChange?: { priceId: string; startsAt: number } | null;
 };
 
-export type PlanCardState = 'guest' | 'none' | 'subscribed' | 'canceling';
+export type PlanTierState = 'guest' | 'none' | 'subscribed' | 'canceling';
 
-export type PlanCard = {
+/** 段のカードに出す操作。契約の状態から決め、画面は分岐しない */
+export type PlanTierAction = 'sign-in' | 'subscribe' | 'change' | null;
+
+export type PlanTier = {
   roleId: string;
   name: string;
+  /** 価格の metadata の description */
   description: string | null;
   priceLabel: string | null;
   /** 価格を取得できなかった。価格が無いこととは区別し、画面は案内を出す */
   priceFetchFailed: boolean;
-  state: PlanCardState;
+  state: PlanTierState;
   stateLabel: string | null;
   manualLabel: string | null;
-  canSubscribe: boolean;
+  action: PlanTierAction;
+  /** 下げを予約中の契約中の段にだけ付く。予約の取り消しの導線を出す目印も兼ねる */
+  scheduledChangeLabel: string | null;
 };
 
-export type BuildPlanCardsInput = {
+export type PlanService = {
+  serviceId: string;
+  name: string;
+  /** 商品の説明。同じサービスの段は同じ商品なので、どの段の価格の商品でもよい */
+  description: string | null;
+  /** 下の段から順 */
+  tiers: PlanTier[];
+};
+
+export type BuildPlanServicesInput = {
   loggedIn: boolean;
   /** 取得に失敗したときは null。空の Map は「読めたが売っているものが無い」を表す */
   prices: ReadonlyMap<string, PlanPrice> | null;
@@ -104,12 +124,17 @@ function pickSubscription(candidates: PlanSubscription[]): PlanSubscription | un
   })[0];
 }
 
+function formatPlanTierDescription(price: PlanPrice | undefined): string | null {
+  const description = price?.metadata?.description?.trim();
+  return description ? description : null;
+}
+
 function resolveState(
   roleId: string,
-  input: BuildPlanCardsInput
-): { state: PlanCardState; stateLabel: string | null } {
+  input: BuildPlanServicesInput
+): { state: PlanTierState; stateLabel: string | null; subscription: PlanSubscription | null } {
   if (!input.loggedIn) {
-    return { state: 'guest', stateLabel: null };
+    return { state: 'guest', stateLabel: null, subscription: null };
   }
 
   if (input.subscriptions !== null) {
@@ -117,17 +142,19 @@ function resolveState(
       input.subscriptions.filter((entry) => entry.roleId === roleId)
     );
     if (!subscription) {
-      return { state: 'none', stateLabel: null };
+      return { state: 'none', stateLabel: null, subscription: null };
     }
     if (subscription.endsAt !== null) {
       return {
         state: 'canceling',
         stateLabel: `${formatPlanDate(subscription.endsAt)}に終了します`,
+        subscription,
       };
     }
     return {
       state: 'subscribed',
       stateLabel: `次の更新日: ${formatPlanDate(subscription.currentPeriodEnd)}`,
+      subscription,
     };
   }
 
@@ -137,11 +164,11 @@ function resolveState(
       grant.source === 'stripe' && grant.roleId === roleId && isActiveGrant(grant, input.now)
   );
   return hasStripeGrant
-    ? { state: 'subscribed', stateLabel: null }
-    : { state: 'none', stateLabel: null };
+    ? { state: 'subscribed', stateLabel: null, subscription: null }
+    : { state: 'none', stateLabel: null, subscription: null };
 }
 
-function resolveManualLabel(roleId: string, input: BuildPlanCardsInput): string | null {
+function resolveManualLabel(roleId: string, input: BuildPlanServicesInput): string | null {
   if (!input.loggedIn) {
     return null;
   }
@@ -159,36 +186,100 @@ function resolveManualLabel(roleId: string, input: BuildPlanCardsInput): string 
   return `運営による付与があります (${formatPlanDate(latest)}まで)`;
 }
 
-/**
- * Stripe に価格が無いロールは、売っていないものとして枠を出さない。
- * 契約中や有効な手動の権利がある利用者には、契約の確認ができるよう枠を残す。
- * 価格の取得に失敗したときは売っているか分からないため、全ロールの枠を出す。
- */
-export function buildPlanCards(input: BuildPlanCardsInput): PlanCard[] {
-  const cards: PlanCard[] = [];
-  for (const roleId of PAID_ROLES) {
-    const role = ROLES[roleId as keyof typeof ROLES];
-    const price = input.prices?.get(roleId);
-    const priceLabel = formatPriceLabel(price);
-    const { state, stateLabel } = resolveState(roleId, input);
-    const manualLabel = resolveManualLabel(roleId, input);
+/** 行き先の価格が段に対応付けられないときは、日付だけの文言にする */
+function resolveScheduledChangeLabel(
+  subscription: PlanSubscription | null,
+  input: BuildPlanServicesInput
+): string | null {
+  const change = subscription?.scheduledChange;
+  if (!change) {
+    return null;
+  }
+  const date = formatPlanDate(change.startsAt);
+  for (const [roleId, price] of input.prices ?? []) {
+    if (price.id === change.priceId) {
+      return `${date}から${ROLES[roleId as keyof typeof ROLES].name}に変わります`;
+    }
+  }
+  return `${date}に別の段に変わります`;
+}
 
-    const hasEntitlement = state === 'subscribed' || state === 'canceling' || manualLabel !== null;
-    if (input.prices !== null && price === undefined && !hasEntitlement) {
+/**
+ * サービスごとに、段のカードの状態と操作を決める。
+ *
+ * Stripe に価格が無い段は、売っていないものとして枠を出さない。
+ * 契約中や有効な手動の権利がある利用者には、契約の確認ができるよう枠を残す。
+ * 価格の取得に失敗したときは売っているか分からないため、全段の枠を出す。
+ * 出す段が 1 つも無いサービスは返さない。
+ */
+export function buildPlanServices(input: BuildPlanServicesInput): PlanService[] {
+  const services: PlanService[] = [];
+  for (const [serviceId, serviceName] of Object.entries(BILLING_SERVICES)) {
+    const roleIds = getBillingTierRoleIds(serviceId);
+    const resolved = roleIds.map((roleId) => ({
+      roleId,
+      price: input.prices?.get(roleId),
+      manualLabel: resolveManualLabel(roleId, input),
+      ...resolveState(roleId, input),
+    }));
+
+    const serviceSubscription =
+      input.subscriptions === null
+        ? undefined
+        : pickSubscription(input.subscriptions.filter((entry) => roleIds.includes(entry.roleId)));
+    const hasContract = resolved.some(
+      (tier) => tier.state === 'subscribed' || tier.state === 'canceling'
+    );
+    // 解約予約中・下げの予約中の契約は、Portal での切り替えを断るため導線を出さない
+    const canChange =
+      serviceSubscription !== undefined &&
+      serviceSubscription.endsAt === null &&
+      !serviceSubscription.scheduledChange;
+
+    const tiers: PlanTier[] = [];
+    for (const tier of resolved) {
+      const priceLabel = formatPriceLabel(tier.price);
+      const hasEntitlement =
+        tier.state === 'subscribed' || tier.state === 'canceling' || tier.manualLabel !== null;
+      if (input.prices !== null && tier.price === undefined && !hasEntitlement) {
+        continue;
+      }
+
+      let action: PlanTierAction = null;
+      if (tier.state === 'guest') {
+        action = 'sign-in';
+      } else if (tier.state === 'none' && priceLabel !== null) {
+        action = !hasContract ? 'subscribe' : canChange ? 'change' : null;
+      }
+
+      tiers.push({
+        roleId: tier.roleId,
+        name: ROLES[tier.roleId as keyof typeof ROLES].name,
+        description: formatPlanTierDescription(tier.price),
+        priceLabel,
+        priceFetchFailed: input.prices === null,
+        state: tier.state,
+        stateLabel: tier.stateLabel,
+        manualLabel: tier.manualLabel,
+        action,
+        scheduledChangeLabel:
+          tier.state === 'subscribed'
+            ? resolveScheduledChangeLabel(tier.subscription, input)
+            : null,
+      });
+    }
+    if (tiers.length === 0) {
       continue;
     }
 
-    cards.push({
-      roleId,
-      name: role.name,
-      description: formatPlanDescription(price),
-      priceLabel,
-      priceFetchFailed: input.prices === null,
-      state,
-      stateLabel,
-      manualLabel,
-      canSubscribe: state === 'none' && priceLabel !== null,
+    services.push({
+      serviceId,
+      name: serviceName,
+      description:
+        roleIds.map((roleId) => formatPlanDescription(input.prices?.get(roleId))).find(Boolean) ??
+        null,
+      tiers,
     });
   }
-  return cards;
+  return services;
 }
