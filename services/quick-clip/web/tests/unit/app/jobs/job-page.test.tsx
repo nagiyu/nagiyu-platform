@@ -338,6 +338,24 @@ describe('JobPage', () => {
     expect(screen.getByText('解析')).toHaveClass('Mui-error');
   });
 
+  it('FAILED のとき errorMessage の文言を画面に出す', async () => {
+    mockJob('FAILED', {
+      errorMessage: '動画の長さがご利用の上限を超えているため、処理できませんでした',
+    });
+    render(<JobPage params={Promise.resolve({ jobId: 'job-x' })} />);
+
+    expect(
+      await screen.findByText('動画の長さがご利用の上限を超えているため、処理できませんでした')
+    ).toBeInTheDocument();
+  });
+
+  it('FAILED で errorMessage が無いときは固定文言を出す', async () => {
+    mockJob('FAILED');
+    render(<JobPage params={Promise.resolve({ jobId: 'job-x' })} />);
+
+    expect(await screen.findByText('処理に失敗しました')).toBeInTheDocument();
+  });
+
   it('FAILED 以外では解析の段をエラー表示にしない', async () => {
     mockJob('PROCESSING', { batchStage: 'analyzing' });
     const { container } = render(<JobPage params={Promise.resolve({ jobId: 'job-x' })} />);

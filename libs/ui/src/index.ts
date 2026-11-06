@@ -52,7 +52,7 @@ export type {
 } from './types/legal';
 
 // Export utils
-export { buildSignOutUrl, buildRefreshUrl } from './utils/auth';
+export { buildSignOutUrl, buildRefreshUrl, buildSignInUrl, buildPlansUrl } from './utils/auth';
 
 // Export feedback components
 export { default as AccessDeniedView } from './components/feedback/AccessDeniedView';

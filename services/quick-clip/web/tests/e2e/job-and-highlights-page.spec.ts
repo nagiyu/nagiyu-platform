@@ -28,6 +28,34 @@ test.describe('QuickClip Job Page', () => {
   });
 });
 
+test.describe('QuickClip Job Page 失敗', () => {
+  test.use({ serviceWorkers: 'block' });
+
+  test('失敗したジョブの理由を画面に出す', async ({ page }) => {
+    await page.route('**/api/jobs/e2e-job-failed', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          jobId: 'e2e-job-failed',
+          status: 'FAILED',
+          originalFileName: 'movie.mp4',
+          fileSize: 1024,
+          createdAt: Date.now(),
+          expiresAt: Date.now() + 86400 * 1000,
+          errorMessage: '動画の長さがご利用の上限を超えているため、処理できませんでした',
+        }),
+      });
+    });
+
+    await page.goto('/jobs/e2e-job-failed');
+
+    await expect(
+      page.getByText('動画の長さがご利用の上限を超えているため、処理できませんでした')
+    ).toBeVisible();
+  });
+});
+
 test.describe('QuickClip Highlights Page', () => {
   test.use({ serviceWorkers: 'block' });
 
