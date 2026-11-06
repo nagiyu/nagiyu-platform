@@ -1,11 +1,7 @@
 import { PAID_ROLES, getBillingServiceId, getBillingTierRoleIds, logger } from '@nagiyu/common';
 import type { User } from '@nagiyu/common';
 import type { UserRepository } from '../repositories';
-import type {
-  BillingOperationsStripe,
-  BillingPrice,
-  BillingScheduleInterval,
-} from './stripe-client';
+import type { BillingOperationsStripe, BillingPrice } from './stripe-client';
 import { listEntitledSubscriptions, type EntitledSubscription } from './sync';
 
 const CHECKOUT_ERROR_MESSAGES = {
@@ -198,12 +194,9 @@ async function scheduleDowngrade(
           proration_behavior: 'none',
         },
         {
+          // 終わりを決めないと、下の段に切り替わった時点で予約が外れる (end_behavior: release)。
+          // 区切ると予約が残り、その間は Portal で段の変更も解約もできない
           items: [{ price: price.id, quantity: 1 }],
-          duration: {
-            // Stripe の型は未知の値も許すが、期間の単位は day / week / month / year のいずれか
-            interval: price.recurring.interval as BillingScheduleInterval,
-            interval_count: price.recurring.interval_count,
-          },
           proration_behavior: 'none',
         },
       ],

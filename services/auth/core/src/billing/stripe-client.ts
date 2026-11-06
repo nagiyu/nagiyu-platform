@@ -123,13 +123,10 @@ export type BillingCreatedSchedule = {
   }[];
 };
 
-export type BillingScheduleInterval = 'day' | 'week' | 'month' | 'year';
-
 export type BillingSchedulePhaseParams = {
   /** 先頭の phase では必須。作成直後の phase の開始時刻を渡し直す */
   start_date?: number;
   end_date?: number;
-  duration?: { interval: BillingScheduleInterval; interval_count: number };
   items: { price: string; quantity: number }[];
   proration_behavior?: 'none';
 };
