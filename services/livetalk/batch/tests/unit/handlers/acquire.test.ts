@@ -58,6 +58,7 @@ describe('acquire handler', () => {
       staleFactsReviewed: 4,
       selfStudied: 1,
       webRawWritten: 5,
+      webSearchCalls: 9,
     });
 
     const { handler } = await import('../../../src/handlers/acquire.js');
@@ -67,6 +68,7 @@ describe('acquire handler', () => {
     const body = JSON.parse(response.body);
     expect(body.processedUsers).toBe(5);
     expect(body.webRawWritten).toBe(5);
+    expect(body.webSearchCalls).toBe(9);
   });
 
   it('例外発生時に throw する', async () => {

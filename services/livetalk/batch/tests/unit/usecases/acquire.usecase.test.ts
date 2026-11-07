@@ -95,6 +95,7 @@ describe('acquireAllUsers', () => {
       staleFactsReviewed: 0,
       selfStudied: 0,
       webRawWritten: 1,
+      webSearchCalls: 2,
     });
 
     const { acquireAllUsers } = await import('../../../src/usecases/acquire.usecase.js');
@@ -106,6 +107,7 @@ describe('acquireAllUsers', () => {
     expect(result.skippedUsers).toBe(0);
     expect(result.failedUsers).toBe(0);
     expect(result.webRawWritten).toBe(4);
+    expect(result.webSearchCalls).toBe(8);
   });
 
   it('acquireForUser に messageRepo を渡す（勉強を止める判定の入力）', async () => {
@@ -208,6 +210,7 @@ describe('acquireAllUsers', () => {
       staleFactsReviewed: 5,
       selfStudied: 1,
       webRawWritten: 3,
+      webSearchCalls: 7,
     });
 
     const { acquireAllUsers } = await import('../../../src/usecases/acquire.usecase.js');
@@ -220,6 +223,7 @@ describe('acquireAllUsers', () => {
     expect(result.staleFactsReviewed).toBe(20);
     expect(result.selfStudied).toBe(4);
     expect(result.webRawWritten).toBe(12);
+    expect(result.webSearchCalls).toBe(28);
   });
 
   it('getCharacterDefinitionById が undefined を返すキャラクターはスキップ', async () => {
