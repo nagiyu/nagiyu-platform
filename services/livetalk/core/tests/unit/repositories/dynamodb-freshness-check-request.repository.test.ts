@@ -49,6 +49,26 @@ describe('DynamoDBFreshnessCheckRequestRepository', () => {
       SK: 'CHAR#hiyori#FRESHCHECK#t1',
       TTL: Math.floor((FIXED_NOW + 7000) / 1000),
     });
+    // 既存の依頼を上書きしない (依頼時刻を新しくしない)
+    expect(command.input.ConditionExpression).toContain('attribute_not_exists');
+  });
+
+  it('put は同じ Topic の依頼が既にあれば、既存の依頼を返す', async () => {
+    const conditionalFailure = Object.assign(new Error('conditional'), {
+      name: 'ConditionalCheckFailedException',
+    });
+    const mockSend = jest
+      .fn()
+      .mockRejectedValueOnce(conditionalFailure)
+      .mockResolvedValueOnce({ Item: makeItem('t1', FIXED_NOW - 5000) });
+
+    const entity = await makeRepo(mockSend).put({
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: 't1',
+    });
+
+    expect(entity.createdAt).toBe(FIXED_NOW - 5000);
   });
 
   it('listByCharacter は SK プレフィックスで Query し、依頼時刻の古い順に返す', async () => {

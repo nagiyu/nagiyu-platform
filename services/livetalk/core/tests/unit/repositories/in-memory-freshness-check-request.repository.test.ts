@@ -25,14 +25,15 @@ describe('InMemoryFreshnessCheckRequestRepository', () => {
     expect(await repo.listByCharacter('u1', 'hiyori')).toHaveLength(1);
   });
 
-  it('同じ Topic への put は上書きで、件数が増えない (冪等)', async () => {
+  it('同じ Topic への put は最初の依頼を残し、依頼時刻を新しくしない (冪等)', async () => {
     await repo.put({ userId: 'u1', characterId: 'hiyori', topicId: 't1' });
     now = BASE + 5000;
-    await repo.put({ userId: 'u1', characterId: 'hiyori', topicId: 't1' });
+    const second = await repo.put({ userId: 'u1', characterId: 'hiyori', topicId: 't1' });
 
+    expect(second.createdAt).toBe(BASE);
     const list = await repo.listByCharacter('u1', 'hiyori');
     expect(list).toHaveLength(1);
-    expect(list[0].updatedAt).toBe(BASE + 5000);
+    expect(list[0].createdAt).toBe(BASE);
   });
 
   it('listByCharacter は依頼時刻の古い順で、他のキャラ・他の利用者の依頼を含めない', async () => {

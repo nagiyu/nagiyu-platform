@@ -26,7 +26,8 @@ export class DynamoDBFreshnessCheckRequestRepository implements FreshnessCheckRe
   }
 
   public async put(input: PutFreshnessCheckRequestInput): Promise<FreshnessCheckRequestEntity> {
-    return this.entityStore.put({ ...input, createdAt: undefined });
+    const { entity } = await this.entityStore.createIfAbsent(input);
+    return entity;
   }
 
   public async listByCharacter(
