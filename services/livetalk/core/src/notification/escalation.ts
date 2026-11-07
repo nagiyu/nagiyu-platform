@@ -15,6 +15,17 @@ export interface EscalationResult {
   isCritical: boolean;
   topicId: string | null;
   factId: string | null;
+  /** 緊急と判定した予定の日付 (YYYY-MM-DD)。送り済みの照合に使うため、通知の記録へ残す */
+  eventDate: string | null;
+}
+
+/**
+ * 送り済みの重要通知 1 件。同じ話題・同じ予定の再通知を止めるために渡す。
+ */
+export interface SentCritical {
+  topicId: string;
+  /** 送ったときの予定の日付。記録に無い旧データは undefined */
+  eventDate?: string;
 }
 
 /**
@@ -36,6 +47,11 @@ export interface DetectCriticalInput {
   llmClient: ILLMClient;
   /** 判定基準時刻（today 計算・LLM プロンプトの今日日付注入に使用） */
   now: Date;
+  /**
+   * 送り済みの重要通知。同じ話題・同じ予定は候補から外す。
+   * 予定の日付が違う (延期など) ものは新しい予定として扱う。
+   */
+  sentCriticals?: SentCritical[];
 }
 
 /**
@@ -105,11 +121,29 @@ function isUrgent(eventDate: string | null, now: Date): boolean {
  * LLM 呼び出しは isHighCare=true の Topic の WEB fact のみに行い、コストを節約する。
  * 各 Topic につき ObservedAt 降順で直近 ESCALATION_RECENT_WEB_FACTS_LIMIT 件のみを評価する。
  *
+ * - 送り済み (sentCriticals) の扱い:
+ *   - 予定の日付つきで送り済みの話題は、LLM で日付を取り出して同じ日付なら外す
+ *     (日付が変わっていれば新しい予定として通す。日付は LLM を呼ぶまで分からない)
+ *   - 予定の日付が記録に無い旧データは、日付を比べられないため話題ごと外す
+ *     (LLM も呼ばない)。記録は 30 日で消えるので、延期の再通知を逃すのはその間だけ
  * - 候補が複数あっても最初に urgent と判定した 1 件のみ返す（頻度キャップはバッチ側で担保）
  * - LLM 呼び出し失敗は best-effort（例外を握りつぶして次の候補へ）
  */
 export async function detectCriticalTopic(input: DetectCriticalInput): Promise<EscalationResult> {
-  const { candidates, careThreshold, llmClient, now } = input;
+  const { candidates, careThreshold, llmClient, now, sentCriticals = [] } = input;
+
+  // 話題ごとの送り済み予定日。null は日付不明の旧データで、話題ごと送り済みとして扱う
+  const sentDatesByTopic = new Map<string, Set<string> | null>();
+  for (const sent of sentCriticals) {
+    if (sent.eventDate === undefined) {
+      sentDatesByTopic.set(sent.topicId, null);
+      continue;
+    }
+    const dates = sentDatesByTopic.get(sent.topicId);
+    if (dates === null) continue;
+    if (dates) dates.add(sent.eventDate);
+    else sentDatesByTopic.set(sent.topicId, new Set([sent.eventDate]));
+  }
 
   // Node.js は TZ=Asia/Tokyo で実行される前提のため、ローカル時刻で読むと JST の日付になる
   const todayStr = formatLocalDate(now);
@@ -119,6 +153,10 @@ export async function detectCriticalTopic(input: DetectCriticalInput): Promise<E
 
     // isHighCare=false の Topic は LLM を呼ばずスキップ
     if (topic.care < careThreshold) continue;
+
+    // 日付を比べられない送り済みの話題は LLM を呼ばずに外す
+    const sentDates = sentDatesByTopic.get(topic.topicId);
+    if (sentDates === null) continue;
 
     const recentWebFacts = [...webFacts]
       .sort((a, b) => b.observedAt - a.observedAt)
@@ -138,8 +176,15 @@ export async function detectCriticalTopic(input: DetectCriticalInput): Promise<E
           { purpose: 'classify' }
         );
 
-        if (isUrgent(result.eventDate, now)) {
-          return { isCritical: true, topicId: topic.topicId, factId: webFact.factId };
+        if (result.eventDate && isUrgent(result.eventDate, now)) {
+          // 同じ予定は送り済み。別の fact・候補に同じ話題の別の予定があれば拾う
+          if (sentDates?.has(result.eventDate)) continue;
+          return {
+            isCritical: true,
+            topicId: topic.topicId,
+            factId: webFact.factId,
+            eventDate: result.eventDate,
+          };
         }
       } catch {
         // best-effort: LLM 呼び出し失敗は無視して次の候補へ
@@ -147,5 +192,5 @@ export async function detectCriticalTopic(input: DetectCriticalInput): Promise<E
     }
   }
 
-  return { isCritical: false, topicId: null, factId: null };
+  return { isCritical: false, topicId: null, factId: null, eventDate: null };
 }

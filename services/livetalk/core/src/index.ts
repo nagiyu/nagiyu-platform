@@ -288,6 +288,7 @@ export type {
   EscalationResult,
   DetectCriticalInput,
   DetectCriticalCandidate,
+  SentCritical,
   SelectNotificationsInput,
   SelectNotificationsResult,
 } from './notification/index.js';

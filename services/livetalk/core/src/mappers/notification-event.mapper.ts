@@ -61,6 +61,7 @@ export class NotificationEventMapper implements EntityMapper<
       UpdatedAt: entity.updatedAt,
       [TTL_ATTRIBUTE_NAME]: toTtlSeconds(entity.expiresAt),
       ...(entity.topicId !== undefined && { TopicID: entity.topicId }),
+      ...(entity.eventDate !== undefined && { EventDate: entity.eventDate }),
       ...(entity.suggestedReply !== undefined && { SuggestedReply: entity.suggestedReply }),
       ...(entity.consumedAt !== undefined && { ConsumedAt: entity.consumedAt }),
     };
@@ -77,6 +78,7 @@ export class NotificationEventMapper implements EntityMapper<
       Body: requiredPatchValue(changes.body, 'Body'),
       [TTL_ATTRIBUTE_NAME]: this.toTtlPatchValue(changes.expiresAt),
       TopicID: optionalPatchValue(changes.topicId),
+      EventDate: optionalPatchValue(changes.eventDate),
       SuggestedReply: optionalPatchValue(changes.suggestedReply),
       ConsumedAt: optionalPatchValue(changes.consumedAt),
     };
@@ -102,6 +104,9 @@ export class NotificationEventMapper implements EntityMapper<
       updatedAt: readTimestamp(item, 'UpdatedAt'),
       expiresAt: readTimestamp(item, TTL_ATTRIBUTE_NAME, LEGACY_TTL_ATTRIBUTE_NAMES),
       ...(item.TopicID !== undefined && { topicId: validateStringField(item.TopicID, 'TopicID') }),
+      ...(item.EventDate !== undefined && {
+        eventDate: validateStringField(item.EventDate, 'EventDate'),
+      }),
       ...(item.SuggestedReply !== undefined && {
         suggestedReply: validateStringField(item.SuggestedReply, 'SuggestedReply'),
       }),
