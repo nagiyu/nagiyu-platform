@@ -21,17 +21,15 @@ import {
   buildSelfFactSKPrefix,
   buildTopicBundleSKPrefix,
   buildTopicGSI3PK,
-  buildTopicStaleGSI4PK,
   buildUserPK,
   buildWebFactSKPrefix,
-  STALE_GSI_PROJECTION,
   TOPIC_GSI_PROJECTION,
 } from '../mappers/keys.js';
 import type { TopicBundle, TopicRepository } from './topic.repository.interface.js';
 
 /**
  * Topic（ヘッダ・META）+ SELF fact + WEB fact を扱う統合リポジトリの InMemory 実装。
- * GSI3（GSI-TOPIC）・GSI4（GSI-STALE）相当は属性の配列フィルタで再現する。
+ * GSI3（GSI-TOPIC）相当は属性の配列フィルタで再現する。
  */
 export class InMemoryTopicRepository implements TopicRepository {
   private readonly topicMapper = new TopicMapper();
@@ -176,33 +174,6 @@ export class InMemoryTopicRepository implements TopicRepository {
     const prefix = buildWebFactSKPrefix(characterId, topicId);
     const items = this.store.queryAll({ pk, sk: { operator: 'begins_with', value: prefix } });
     return items.map((item: DynamoDBAttributes) => this.webFactMapper.toEntity(item));
-  }
-
-  public async listStaleWebFacts(
-    userId: string,
-    characterId: string,
-    nowMs: number,
-    limit: number
-  ): Promise<WebFactEntity[]> {
-    // GSI4（GSI-STALE）相当を `GSI4PK` 属性の配列フィルタで再現し、
-    // NextReview<=nowMs のフィルタ・昇順ソート・limit の slice で窓走査を再現する
-    // （queryGsi3 と同じ方針）。
-    const gsi4pk = buildTopicStaleGSI4PK(characterId, userId);
-    const items = this.store.queryAllByAttribute({
-      attributeName: 'GSI4PK',
-      attributeValue: gsi4pk,
-      projection: STALE_GSI_PROJECTION,
-      // sk条件を指定しないため、実DynamoDBのGSI4 Queryと同様にGSI4SK（NextReview、Number型）昇順で
-      // 返すよう明示する。sortBySortKeyはNumber型ソートキーを数値比較するため、実際に数値順になる
-      // （最終的な昇順ソートはこの後のJS側.sort()でも重ねて行うが、結果は同じになる）。
-      gsiSortKeyAttributeName: 'GSI4SK',
-    });
-    const results = items.map((item) => this.webFactMapper.toEntity(item));
-
-    return results
-      .filter((fact) => fact.nextReview !== undefined && fact.nextReview <= nowMs)
-      .sort((a, b) => (a.nextReview ?? 0) - (b.nextReview ?? 0))
-      .slice(0, limit);
   }
 
   public async updateWebFactNextReview(key: WebFactKey, nextReview: number): Promise<void> {

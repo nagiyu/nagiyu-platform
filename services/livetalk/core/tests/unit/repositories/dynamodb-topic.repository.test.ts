@@ -348,7 +348,7 @@ describe('DynamoDBTopicRepository', () => {
   });
 
   describe('WEB fact', () => {
-    it('putWebFact は nextReview があるときだけ GSI4 属性を付けて Put する', async () => {
+    it('putWebFact は nextReview があるときだけ NextReview を付けて Put する', async () => {
       const sent: unknown[] = [];
       const repo = makeRepo(async (cmd) => {
         sent.push(cmd);
@@ -369,9 +369,10 @@ describe('DynamoDBTopicRepository', () => {
 
       expect(fact.factId).toBe('ULID-FIXED');
       const withReview = (sent[0] as PutCommand).input.Item;
-      expect(withReview?.GSI4PK).toBe('hiyori#STALE#u1');
-      expect(withReview?.GSI4SK).toBe(FIXED_NOW + 1);
-      expect((sent[1] as PutCommand).input.Item).not.toHaveProperty('GSI4PK');
+      expect(withReview?.NextReview).toBe(FIXED_NOW + 1);
+      expect(withReview).not.toHaveProperty('GSI4PK');
+      expect(withReview).not.toHaveProperty('GSI4SK');
+      expect((sent[1] as PutCommand).input.Item).not.toHaveProperty('NextReview');
     });
 
     it('listWebFacts は WEB の SK プレフィックスで Query する', async () => {
@@ -389,74 +390,8 @@ describe('DynamoDBTopicRepository', () => {
     });
   });
 
-  describe('listStaleWebFacts（GSI4 の窓走査）', () => {
-    const staleFactItem = {
-      PK: 'USER#u1',
-      SK: 'CHAR#hiyori#TOPIC#TOPIC-001#WEB#F1',
-      Type: 'WebFact',
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      TopicID: 'TOPIC-001',
-      FactID: 'F1',
-      Text: '鮮度切れの fact',
-      SourceUrls: [],
-      Volatility: 'high',
-      ObservedAt: FIXED_NOW - 100_000,
-      GSI4PK: 'hiyori#STALE#u1',
-      GSI4SK: FIXED_NOW - 1000,
-      CreatedAt: FIXED_NOW - 100_000,
-    };
-
-    it('GSI4 を GSI4SK<=now の昇順で Query し、GSI4SK から nextReview を復元する', async () => {
-      const sent: unknown[] = [];
-      const repo = makeRepo(async (cmd) => {
-        sent.push(cmd);
-        return { Items: [staleFactItem] };
-      });
-
-      const result = await repo.listStaleWebFacts('u1', 'hiyori', FIXED_NOW, 10);
-
-      const input = (sent[0] as QueryCommand).input;
-      expect(input.IndexName).toBe('GSI4');
-      expect(input.ExpressionAttributeValues?.[':pk']).toBe('hiyori#STALE#u1');
-      expect(input.ExpressionAttributeValues?.[':now']).toBe(FIXED_NOW);
-      expect(input.ScanIndexForward).toBe(true);
-      expect(result[0].factId).toBe('F1');
-      expect(result[0].nextReview).toBe(FIXED_NOW - 1000);
-    });
-
-    it('limit に到達したら以降のページを取得せず打ち切る', async () => {
-      let call = 0;
-      const repo = makeRepo(async () => {
-        call++;
-        return {
-          Items: [
-            { ...staleFactItem, FactID: 'F1' },
-            { ...staleFactItem, FactID: 'F2' },
-          ],
-          LastEvaluatedKey: { PK: 'x' },
-        };
-      });
-
-      const result = await repo.listStaleWebFacts('u1', 'hiyori', FIXED_NOW, 1);
-
-      expect(call).toBe(1);
-      expect(result).toHaveLength(1);
-    });
-
-    it('エラーは DatabaseError でラップする', async () => {
-      const repo = makeRepo(async () => {
-        throw new Error('boom');
-      });
-
-      await expect(repo.listStaleWebFacts('u1', 'hiyori', FIXED_NOW, 10)).rejects.toBeInstanceOf(
-        DatabaseError
-      );
-    });
-  });
-
   describe('updateWebFactNextReview', () => {
-    it('nextReview と GSI4PK/GSI4SK だけを UpdateCommand で更新する', async () => {
+    it('nextReview だけを UpdateCommand で更新する', async () => {
       const sent: unknown[] = [];
       const repo = makeRepo(async (cmd) => {
         sent.push(cmd);
@@ -482,9 +417,8 @@ describe('DynamoDBTopicRepository', () => {
       const input = (sent[0] as UpdateCommand).input;
       expect(input.Key).toEqual({ PK: 'USER#u1', SK: 'CHAR#hiyori#TOPIC#TOPIC-001#WEB#F1' });
       const values = Object.values(input.ExpressionAttributeValues ?? {});
-      expect(values).toEqual(
-        expect.arrayContaining([FIXED_NOW + 100_000, 'hiyori#STALE#u1', FIXED_NOW])
-      );
+      expect(values).toEqual(expect.arrayContaining([FIXED_NOW + 100_000, FIXED_NOW]));
+      expect(JSON.stringify(input)).not.toContain('GSI4');
     });
 
     it('対象が存在しなければ warn を出して何もしない', async () => {
