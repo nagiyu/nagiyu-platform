@@ -1,4 +1,4 @@
-export type { IResearchClient, ResearchResult } from './types.js';
+export type { IResearchClient, ResearchResult, WebSearchCallCounts } from './types.js';
 export {
   OpenAIResearchClient,
   RESEARCH_ERROR_MESSAGES,

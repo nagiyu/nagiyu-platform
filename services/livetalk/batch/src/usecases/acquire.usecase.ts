@@ -45,6 +45,8 @@ export interface AcquireAllUsersResult {
   selfStudied: number;
   /** WEBRAW を書き込んだ総件数 */
   webRawWritten: number;
+  /** research が実行した Web 検索 tool call の総回数（action の種別を問わない） */
+  webSearchCalls: number;
 }
 
 /**
@@ -85,6 +87,7 @@ export async function acquireAllUsers(
     staleFactsReviewed: 0,
     selfStudied: 0,
     webRawWritten: 0,
+    webSearchCalls: 0,
   };
 
   const allCharacterIds = getAllCharacterIds();
@@ -130,6 +133,7 @@ export async function acquireAllUsers(
             result.staleFactsReviewed += outcome.staleFactsReviewed;
             result.selfStudied += outcome.selfStudied;
             result.webRawWritten += outcome.webRawWritten;
+            result.webSearchCalls += outcome.webSearchCalls;
           }
         } catch (error) {
           logger.warn('[acquireAllUsers] キャラクター処理失敗（他キャラは継続）', {
