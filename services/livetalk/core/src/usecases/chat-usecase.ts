@@ -362,7 +362,7 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
     retrievedTopicCount: retrievedTopics.length,
   });
 
-  // 3.65. 鮮度確認の依頼（fail-warn: 記録に失敗しても会話は続行）
+  // 3.65. 鮮度確認の依頼 (fail-warn: 記録に失敗しても会話は続行)
   // 会話で直接使われた Topic だけが対象。関連展開で付いてきた Topic は、使われたとは言えない。
   if (freshnessCheckRequestRepository) {
     await requestFreshnessChecks({

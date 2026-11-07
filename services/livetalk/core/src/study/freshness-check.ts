@@ -30,7 +30,7 @@ export interface RequestFreshnessChecksParams {
  *
  * 呼び出し元の応答を止めないため、記録の失敗は握って続行する (依頼は次に使われたときに再び記録される)。
  *
- * @returns 記録した依頼の件数
+ * @returns 依頼を記録した Topic の件数 (既に依頼があった Topic も含む)
  */
 export async function requestFreshnessChecks(
   params: RequestFreshnessChecksParams

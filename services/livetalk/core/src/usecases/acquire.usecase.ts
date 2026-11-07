@@ -49,7 +49,7 @@ export interface AcquireForUserResult {
   /** 依頼（StudyTopic pending）を処理した件数 */
   requestsProcessed: number;
   /**
-   * 鮮度確認の依頼の処理で実行した research 回数（トピック単位。変化の有無を問わない）。
+   * 鮮度確認の依頼の処理で実行した research 回数 (トピック単位。変化の有無を問わない)。
    * 1 トピックに複数の期限切れ WEB fact があっても research は 1 回にまとめるため、
    * 期限切れ fact の件数とは一致しない（fact 件数は `staleFactsReviewed` を参照）。
    */
@@ -79,7 +79,7 @@ export interface AcquireForUserResult {
 interface ShouldAcquireDecision {
   /** キャラが起床中か。false ならこの回は全スキップする。 */
   awake: boolean;
-  /** true の場合、care 自発リサーチのみスキップする（依頼・鮮度確認は実施） */
+  /** true の場合、care 自発リサーチのみスキップする (依頼・鮮度確認は実施) */
   skipSelfStudy: boolean;
   reason?: string;
 }
@@ -89,7 +89,7 @@ interface ShouldAcquireDecision {
  *
  * - キャラが就寝中なら全スキップ（Web 活動をしない）。
  * - 起床中でもユーザーのピーク活動時間帯は、自発 care リサーチのみスキップする
- *   （依頼・鮮度確認はユーザーが使った Topic 起点のため awake なら実施する）。
+ *   (依頼・鮮度確認はユーザーが使った Topic 起点のため awake なら実施する)。
  */
 export function shouldAcquireNow(lifecycle: LifecycleEntity, now: Date): ShouldAcquireDecision {
   const state = resolveLifecycleState(now, lifecycle.bedtime, lifecycle.wakeUpTime);
@@ -135,9 +135,9 @@ function computeNextReview(volatility: 'low' | 'medium' | 'high', readAt: number
 /**
  * Topic の Subject から「〜最新情報」形式のリサーチクエリを組み立てる。
  *
- * Subject の末尾（前後空白を除いた上で）が既に「最新情報」で終わっている場合は
- * 付け足さない（例: Subject が「〇〇の最新情報」だと「〇〇の最新情報 最新情報」という
- * 二重付与クエリになってしまうバグの修正）。鮮度確認・care 自発リサーチの
+ * Subject の末尾 (前後空白を除いた上で) が既に「最新情報」で終わっている場合は
+ * 付け足さない (例: Subject が「〇〇の最新情報」だと「〇〇の最新情報 最新情報」という
+ * 二重付与クエリになってしまうバグの修正)。鮮度確認・care 自発リサーチの
  * 両方のクエリ生成で共通して使う。
  */
 export function buildLatestInfoQuery(subject: string): string {
@@ -155,19 +155,19 @@ export function buildLatestInfoQuery(subject: string): string {
  * 既存の `study`（Phase 5a）を「取得だけ」に縮小した新バッチ。3 種の対象を Web 取得し
  * WEBRAW を書く（Topic への畳み込みは既存 consolidation に一切委ねる）。
  *
- * 処理順は 依頼（StudyTopic pending）→ 鮮度確認の依頼 → care 自発リサーチ。
+ * 処理順は 依頼 (StudyTopic pending) → 鮮度確認の依頼 → care 自発リサーチ。
  * `maxQueriesPerRun`（既定 `ACQUIRE_MAX_QUERIES_PER_RUN`）を 3 ソース合算で消費する。
  *
- * 鮮度確認の依頼は、会話や通知で Topic が使われたときに、期限（NextReview）切れの WEB fact を
+ * 鮮度確認の依頼は、会話や通知で Topic が使われたときに、期限 (NextReview) 切れの WEB fact を
  * 持つ Topic について記録される。期限ごとに全 Topic を走査すると会話に出ない Topic まで
  * 調べ直してしまうため、使われた Topic だけを古い依頼から処理する。
  * 1 Topic に数十〜百件の fact が付くケースがあり、fact 単位で research すると同一トピックへ
- * 同じクエリを何度も発行してしまうため、**research はトピックにつき 1 回**（= budget 1 消費）とし、
+ * 同じクエリを何度も発行してしまうため、**research はトピックにつき 1 回** (= budget 1 消費) とし、
  * そのトピックの期限切れ fact 全部の `NextReview` をまとめて前方更新する。
  * 枠・予算で止まった依頼は残し、次の回で処理する。
  *
- * 鮮度確認は、変化検知（`changeDetector`）で「変化があった時だけ」WEBRAW を書く
- * （陳腐な再要約を止める）。変化の有無に関わらず（失敗時も）対象 fact 全部の `NextReview` を
+ * 鮮度確認は、変化検知 (`changeDetector`) で「変化があった時だけ」WEBRAW を書く
+ * (陳腐な再要約を止める)。変化の有無に関わらず (失敗時も) 対象 fact 全部の `NextReview` を
  * 前方更新し、同じ fact を調べ直し続けないようにする。
  *
  * 個々の Web 取得失敗は fail-warn（握って継続）。run 全体は落とさない。
@@ -355,9 +355,9 @@ export async function acquireForUser(
     }
   }
 
-  // ---- 2. 鮮度確認の依頼（Topic が使われたときに記録されたもの）----
-  // 依頼は古い順に処理する。Topic 単位で research を 1 回にまとめ（1 Topic に数十〜百件の
-  // WEB fact が付くことがあり、fact 単位だと同じクエリを何度も発行してしまう）、
+  // ---- 2. 鮮度確認の依頼 (Topic が使われたときに記録されたもの) ----
+  // 依頼は古い順に処理する。Topic 単位で research を 1 回にまとめ (1 Topic に数十〜百件の
+  // WEB fact が付くことがあり、fact 単位だと同じクエリを何度も発行してしまう)、
   // その Topic の期限切れ WEB fact 全部の NextReview をまとめて前進させる。
   // 枠・予算で止まったときは依頼を残し、次の回で処理する。
   if (budget > 0) {
@@ -470,16 +470,16 @@ export async function acquireForUser(
             err: toErrorMessage(err),
           }
         );
-        // 失敗しても research を試行した以上は budget を消費する（障害時に 1 実行で
-        // 依頼の件数ぶん research が走らないようにする）。
+        // 失敗しても research を試行した以上は budget を消費する (障害時に 1 実行で
+        // 依頼の件数ぶん research が走らないようにする)。
         budget--;
         // research/検知/書き込みのいずれかで失敗しても、同じ fact を毎回「期限切れ」として
-        // 調べ直し続けて枠を占有しないよう（poison pill）、対象 fact 全部を best-effort で前進させる。
+        // 調べ直し続けて枠を占有しないよう (poison pill)、対象 fact 全部を best-effort で前進させる。
         await bumpAllNextReview();
       }
 
-      // 成否にかかわらず、試した依頼は消す（失敗した fact は NextReview を前進させてあり、
-      // 次に使われたときに期限が来ていれば再び依頼される）。
+      // 成否にかかわらず、試した依頼は消す (失敗した fact は NextReview を前進させてあり、
+      // 次に使われたときに期限が来ていれば再び依頼される)。
       await deleteRequest(topicId);
     }
   }
