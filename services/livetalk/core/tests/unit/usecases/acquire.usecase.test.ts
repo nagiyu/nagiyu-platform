@@ -9,16 +9,13 @@ import { createDailyResearchAllowance } from '../../../src/study/research-allowa
 import type { ResearchAllowance } from '../../../src/study/research-allowance.js';
 import { InMemoryTopicRepository } from '../../../src/repositories/in-memory-topic.repository.js';
 import { InMemoryWebRawRepository } from '../../../src/repositories/in-memory-webraw.repository.js';
+import { InMemoryFreshnessCheckRequestRepository } from '../../../src/repositories/in-memory-freshness-check-request.repository.js';
 import { InMemoryStudyTopicRepository } from '../../../src/repositories/in-memory-study-topic.repository.js';
 import type { LifecycleEntity } from '../../../src/entities/lifecycle.entity.js';
 import type { CharacterDefinition } from '../../../src/characters/types.js';
 import type { IResearchClient, ResearchResult } from '../../../src/research/types.js';
 import type { IWebFactChangeDetector } from '../../../src/research/web-fact-change-detector.js';
-import {
-  ACQUIRE_MAX_QUERIES_PER_RUN,
-  ACQUIRE_STALE_SWEEP_LIMIT,
-  WEBFACT_REVIEW_INTERVAL_MS,
-} from '../../../src/constants.js';
+import { ACQUIRE_MAX_QUERIES_PER_RUN, WEBFACT_REVIEW_INTERVAL_MS } from '../../../src/constants.js';
 
 const makeLifecycle = (overrides: Partial<LifecycleEntity> = {}): LifecycleEntity => ({
   userId: 'u1',
@@ -120,6 +117,7 @@ describe('acquireForUser', () => {
   let topicRepo: InMemoryTopicRepository;
   let webRawRepo: InMemoryWebRawRepository;
   let studyTopicRepo: InMemoryStudyTopicRepository;
+  let freshnessCheckRequestRepo: InMemoryFreshnessCheckRequestRepository;
   /** 上限なしの枠。上限の挙動を見ないケースで使う */
   const researchAllowance: ResearchAllowance = { tryConsume: async () => true };
 
@@ -138,6 +136,10 @@ describe('acquireForUser', () => {
     );
     const studyTopicStore = new InMemorySingleTableStore();
     studyTopicRepo = new InMemoryStudyTopicRepository(studyTopicStore, () => NOW_MS);
+    freshnessCheckRequestRepo = new InMemoryFreshnessCheckRequestRepository(
+      new InMemorySingleTableStore(),
+      () => NOW_MS
+    );
   });
 
   it('就寝中は全スキップする', async () => {
@@ -148,6 +150,7 @@ describe('acquireForUser', () => {
     const result = await acquireForUser('u1', 'hiyori', {
       topicRepo,
       webRawRepo,
+      freshnessCheckRequestRepo,
       researchAllowance,
       studyTopicRepo,
       researchClient,
@@ -193,6 +196,7 @@ describe('acquireForUser', () => {
       const result = await acquireForUser('u1', 'hiyori', {
         topicRepo,
         webRawRepo,
+        freshnessCheckRequestRepo,
         studyTopicRepo,
         researchClient,
         changeDetector: makeChangeDetector(),
@@ -232,6 +236,11 @@ describe('acquireForUser', () => {
     });
 
     it('上限に達したら鮮度切れ・自発リサーチも止める (3 種を同じ枠で数える)', async () => {
+      await freshnessCheckRequestRepo.put({
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId: 'topic-1',
+      });
       await seedRequests(1);
       await topicRepo.putTopic({
         userId: 'u1',
@@ -264,6 +273,11 @@ describe('acquireForUser', () => {
     });
 
     it('3 種を合わせて上限を数える', async () => {
+      await freshnessCheckRequestRepo.put({
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId: 'topic-1',
+      });
       await seedRequests(1);
       await topicRepo.putTopic({
         userId: 'u1',
@@ -338,6 +352,7 @@ describe('acquireForUser', () => {
       const result = await acquireForUser('u1', 'hiyori', {
         topicRepo,
         webRawRepo,
+        freshnessCheckRequestRepo,
         studyTopicRepo,
         researchClient: failing,
         changeDetector: makeChangeDetector(),
@@ -376,6 +391,7 @@ describe('acquireForUser', () => {
       await acquireForUser('u1', 'hiyori', {
         topicRepo,
         webRawRepo,
+        freshnessCheckRequestRepo,
         studyTopicRepo,
         researchClient: second,
         changeDetector: makeChangeDetector(),
@@ -465,6 +481,11 @@ describe('acquireForUser', () => {
     });
 
     it('利用者・キャラクターごとに別の枠として数える', async () => {
+      await freshnessCheckRequestRepo.put({
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId: 'topic-1',
+      });
       await seedRequests(2);
       const other = createDailyResearchAllowance({
         studyUsageRepo,
@@ -496,6 +517,7 @@ describe('acquireForUser', () => {
     const result = await acquireForUser('u1', 'hiyori', {
       topicRepo,
       webRawRepo,
+      freshnessCheckRequestRepo,
       researchAllowance,
       studyTopicRepo,
       researchClient,
@@ -524,6 +546,11 @@ describe('acquireForUser', () => {
   });
 
   it('鮮度切れ fact が変化ありの場合、WEBRAW を書き NextReview を前方更新する', async () => {
+    await freshnessCheckRequestRepo.put({
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: 'topic-1',
+    });
     await topicRepo.putTopic({
       userId: 'u1',
       characterId: 'hiyori',
@@ -553,6 +580,7 @@ describe('acquireForUser', () => {
     const result = await acquireForUser('u1', 'hiyori', {
       topicRepo,
       webRawRepo,
+      freshnessCheckRequestRepo,
       researchAllowance,
       studyTopicRepo,
       researchClient,
@@ -581,6 +609,11 @@ describe('acquireForUser', () => {
   });
 
   it('鮮度切れ fact が変化なしの場合、WEBRAW は書かないが NextReview は前方更新する', async () => {
+    await freshnessCheckRequestRepo.put({
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: 'topic-1',
+    });
     await topicRepo.putTopic({
       userId: 'u1',
       characterId: 'hiyori',
@@ -608,6 +641,7 @@ describe('acquireForUser', () => {
     const result = await acquireForUser('u1', 'hiyori', {
       topicRepo,
       webRawRepo,
+      freshnessCheckRequestRepo,
       researchAllowance,
       studyTopicRepo,
       researchClient,
@@ -631,8 +665,91 @@ describe('acquireForUser', () => {
     expect(updated?.nextReview).toBeGreaterThan(NOW_MS);
   });
 
-  describe('鮮度切れ再取得のトピック単位集約（#3781）', () => {
+  describe('鮮度確認の依頼の処理', () => {
+    async function seedStaleTopic(topicId: string): Promise<void> {
+      await freshnessCheckRequestRepo.put({ userId: 'u1', characterId: 'hiyori', topicId });
+      await topicRepo.putTopic({
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId,
+        subject: '桜まつり',
+        canonicalSummary: '桜まつりの話題',
+        category: 'イベント',
+        care: 1,
+        embedding: [0.1],
+      });
+      await topicRepo.putWebFact({
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId,
+        factId: `${topicId}-fact`,
+        text: '去年の桜まつりは3月下旬でした。',
+        sourceUrls: [],
+        volatility: 'high',
+        observedAt: NOW_MS - 100_000,
+        nextReview: NOW_MS - 1000,
+      });
+    }
+
+    it('Topic の読み取りに失敗した依頼は、調べずに残す', async () => {
+      await seedStaleTopic('topic-1');
+      jest.spyOn(topicRepo, 'getTopic').mockRejectedValueOnce(new Error('一時的な障害'));
+      const researchClient = makeResearchClient();
+
+      const result = await acquireForUser('u1', 'hiyori', {
+        topicRepo,
+        webRawRepo,
+        freshnessCheckRequestRepo,
+        researchAllowance,
+        studyTopicRepo,
+        researchClient,
+        changeDetector: makeChangeDetector(true),
+        character,
+        lifecycle: makeLifecycle(),
+        now: () => awakeNonPeak,
+        maxQueriesPerRun: 1,
+      });
+
+      expect(researchClient.research).not.toHaveBeenCalled();
+      expect(result.staleRefreshed).toBe(0);
+      const remaining = await freshnessCheckRequestRepo.listByCharacter('u1', 'hiyori');
+      expect(remaining.map((r) => r.topicId)).toEqual(['topic-1']);
+    });
+
+    it('依頼の削除に失敗しても、処理を続ける', async () => {
+      await seedStaleTopic('topic-1');
+      jest
+        .spyOn(freshnessCheckRequestRepo, 'delete')
+        .mockRejectedValueOnce(new Error('削除の障害'));
+      const researchClient = makeResearchClient();
+
+      const result = await acquireForUser('u1', 'hiyori', {
+        topicRepo,
+        webRawRepo,
+        freshnessCheckRequestRepo,
+        researchAllowance,
+        studyTopicRepo,
+        researchClient,
+        changeDetector: makeChangeDetector(true),
+        character,
+        lifecycle: makeLifecycle(),
+        now: () => awakeNonPeak,
+        maxQueriesPerRun: 1,
+      });
+
+      expect(result.outcome).toBe('acquired');
+      expect(result.staleRefreshed).toBe(1);
+      // 消せなかった依頼は残るが、fact の期限は前進済みのため次の回では調べ直さない
+      const facts = await topicRepo.listWebFacts('u1', 'hiyori', 'topic-1');
+      expect(facts.every((f) => (f.nextReview ?? 0) > NOW_MS)).toBe(true);
+    });
+
     it('同一トピックの複数期限切れ fact をまとめて research 1 回にする', async () => {
+      await freshnessCheckRequestRepo.put({
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId: 'topic-1',
+      });
       await topicRepo.putTopic({
         userId: 'u1',
         characterId: 'hiyori',
@@ -672,6 +789,7 @@ describe('acquireForUser', () => {
       const result = await acquireForUser('u1', 'hiyori', {
         topicRepo,
         webRawRepo,
+        freshnessCheckRequestRepo,
         researchAllowance,
         studyTopicRepo,
         researchClient,
@@ -696,6 +814,11 @@ describe('acquireForUser', () => {
     });
 
     it('対象 fact 全部の NextReview を Volatility ごとに前進させる', async () => {
+      await freshnessCheckRequestRepo.put({
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId: 'topic-1',
+      });
       await topicRepo.putTopic({
         userId: 'u1',
         characterId: 'hiyori',
@@ -735,6 +858,7 @@ describe('acquireForUser', () => {
       const result = await acquireForUser('u1', 'hiyori', {
         topicRepo,
         webRawRepo,
+        freshnessCheckRequestRepo,
         researchAllowance,
         studyTopicRepo,
         researchClient,
@@ -755,6 +879,11 @@ describe('acquireForUser', () => {
     });
 
     it('複数 fact があっても変化なしなら WEBRAW を書かない', async () => {
+      await freshnessCheckRequestRepo.put({
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId: 'topic-1',
+      });
       await topicRepo.putTopic({
         userId: 'u1',
         characterId: 'hiyori',
@@ -794,6 +923,7 @@ describe('acquireForUser', () => {
       const result = await acquireForUser('u1', 'hiyori', {
         topicRepo,
         webRawRepo,
+        freshnessCheckRequestRepo,
         researchAllowance,
         studyTopicRepo,
         researchClient,
@@ -810,98 +940,17 @@ describe('acquireForUser', () => {
       expect(webraws).toHaveLength(0);
     });
 
-    it('窓（ACQUIRE_STALE_SWEEP_LIMIT）外に落ちた同トピックの期限切れ fact も前進する', async () => {
-      // 他トピックのダミー期限切れ fact を ACQUIRE_STALE_SWEEP_LIMIT - 1 件分、
-      // 対象トピックの fact より古い NextReview で用意し、窓（上位 limit 件）を埋める。
-      // トピックヘッダは置かず、getTopic=null のフォールバック経路で単純に消費させる。
-      for (let i = 0; i < ACQUIRE_STALE_SWEEP_LIMIT - 1; i++) {
-        await topicRepo.putWebFact({
-          userId: 'u1',
-          characterId: 'hiyori',
-          topicId: `filler-${i}`,
-          factId: `filler-fact-${i}`,
-          text: `ダミー事実${i}`,
-          sourceUrls: [],
-          volatility: 'high',
-          observedAt: NOW_MS - 900_000,
-          nextReview: NOW_MS - 900_000 - i,
-        });
-      }
-
-      await topicRepo.putTopic({
-        userId: 'u1',
-        characterId: 'hiyori',
-        topicId: 'topic-1',
-        subject: '桜まつり',
-        canonicalSummary: '桜まつりの話題',
-        category: 'イベント',
-        care: 1,
-        embedding: [0.1],
-      });
-      // 窓（上位 ACQUIRE_STALE_SWEEP_LIMIT 件）にちょうど収まる古さの fact
-      await topicRepo.putWebFact({
-        userId: 'u1',
-        characterId: 'hiyori',
-        topicId: 'topic-1',
-        factId: 'fact-in-window',
-        text: '窓内の事実。',
-        sourceUrls: [],
-        volatility: 'high',
-        observedAt: NOW_MS - 100_000,
-        nextReview: NOW_MS - 800_000,
-      });
-      // 窓には収まらないが、期限切れではある（NextReview<=nowMs）同一トピックの fact
-      await topicRepo.putWebFact({
-        userId: 'u1',
-        characterId: 'hiyori',
-        topicId: 'topic-1',
-        factId: 'fact-out-of-window',
-        text: '窓外の事実。',
-        sourceUrls: [],
-        volatility: 'medium',
-        observedAt: NOW_MS - 100_000,
-        nextReview: NOW_MS - 1000,
-      });
-
-      // 窓には確かに fact-in-window までしか含まれず、fact-out-of-window は含まれないことを確認
-      const window = await topicRepo.listStaleWebFacts(
-        'u1',
-        'hiyori',
-        NOW_MS,
-        ACQUIRE_STALE_SWEEP_LIMIT
-      );
-      expect(window.some((f) => f.factId === 'fact-out-of-window')).toBe(false);
-      expect(window.some((f) => f.factId === 'fact-in-window')).toBe(true);
-
-      const researchClient = makeResearchClient();
-      const changeDetector = makeChangeDetector(false);
-
-      const result = await acquireForUser('u1', 'hiyori', {
-        topicRepo,
-        webRawRepo,
-        researchAllowance,
-        studyTopicRepo,
-        researchClient,
-        changeDetector,
-        character,
-        lifecycle: makeLifecycle(),
-        now: () => awakeNonPeak,
-        // フィラー（フォールバック経路、fact 単位）ACQUIRE_STALE_SWEEP_LIMIT-1 件 + topic-1（束ね 1 回）
-        maxQueriesPerRun: ACQUIRE_STALE_SWEEP_LIMIT,
-      });
-
-      expect(result.staleRefreshed).toBe(ACQUIRE_STALE_SWEEP_LIMIT);
-
-      const facts = await topicRepo.listWebFacts('u1', 'hiyori', 'topic-1');
-      const inWindow = facts.find((f) => f.factId === 'fact-in-window');
-      const outOfWindow = facts.find((f) => f.factId === 'fact-out-of-window');
-      // 窓外だった fact-out-of-window も、topic-1 の research 実行時に
-      // listWebFacts で取り直されて NextReview が前進する
-      expect(inWindow?.nextReview).toBeGreaterThan(NOW_MS);
-      expect(outOfWindow?.nextReview).toBeGreaterThan(NOW_MS);
-    });
-
     it('budget はトピック単位で消費される（fact 数ではなく research 回数）', async () => {
+      await freshnessCheckRequestRepo.put({
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId: 'topic-1',
+      });
+      await freshnessCheckRequestRepo.put({
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId: 'topic-2',
+      });
       await topicRepo.putTopic({
         userId: 'u1',
         characterId: 'hiyori',
@@ -963,6 +1012,7 @@ describe('acquireForUser', () => {
       const result = await acquireForUser('u1', 'hiyori', {
         topicRepo,
         webRawRepo,
+        freshnessCheckRequestRepo,
         researchAllowance,
         studyTopicRepo,
         researchClient,
@@ -979,60 +1029,175 @@ describe('acquireForUser', () => {
       expect(result.staleFactsReviewed).toBe(3);
     });
 
-    it('トピック欠落（getTopic が null）時は fact 単位でフォールバックする（束ねない）', async () => {
-      // Topic ヘッダを作らず WEB fact だけ 2 件用意する（トピック欠落を模す）
+    async function seedTopic(topicId: string, nextReview: number | undefined): Promise<void> {
+      await topicRepo.putTopic({
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId,
+        subject: `話題-${topicId}`,
+        canonicalSummary: '',
+        category: 'テスト',
+        care: 1,
+        embedding: [0.1],
+      });
       await topicRepo.putWebFact({
         userId: 'u1',
         characterId: 'hiyori',
-        topicId: 'missing-topic',
-        factId: 'fact-a',
-        text: '欠落トピックの事実A',
+        topicId,
+        factId: `fact-${topicId}`,
+        text: `事実-${topicId}`,
         sourceUrls: [],
-        volatility: 'high',
+        volatility: nextReview === undefined ? 'stable' : 'high',
         observedAt: NOW_MS - 100_000,
-        nextReview: NOW_MS - 2000,
+        ...(nextReview !== undefined && { nextReview }),
       });
-      await topicRepo.putWebFact({
+    }
+
+    const listRequestIds = async (): Promise<string[]> =>
+      (await freshnessCheckRequestRepo.listByCharacter('u1', 'hiyori')).map((r) => r.topicId);
+
+    const baseParams = () => ({
+      topicRepo,
+      webRawRepo,
+      freshnessCheckRequestRepo,
+      researchAllowance,
+      studyTopicRepo,
+      researchClient: makeResearchClient(),
+      changeDetector: makeChangeDetector(false),
+      character,
+      lifecycle: makeLifecycle(),
+      now: () => awakeNonPeak,
+    });
+
+    it('依頼が無ければ、期限切れの fact があっても調べない', async () => {
+      await seedTopic('topic-1', NOW_MS - 1000);
+      const params = baseParams();
+
+      const result = await acquireForUser('u1', 'hiyori', { ...params, maxQueriesPerRun: 1 });
+
+      expect(params.researchClient.research).not.toHaveBeenCalled();
+      expect(result.staleRefreshed).toBe(0);
+    });
+
+    it('Topic が無い依頼は、調べずに消す', async () => {
+      await freshnessCheckRequestRepo.put({
         userId: 'u1',
         characterId: 'hiyori',
-        topicId: 'missing-topic',
-        factId: 'fact-b',
-        text: '欠落トピックの事実B',
-        sourceUrls: [],
-        volatility: 'medium',
-        observedAt: NOW_MS - 100_000,
-        nextReview: NOW_MS - 1000,
+        topicId: 'missing',
       });
+      const params = baseParams();
 
-      const researchClient = makeResearchClient();
-      const changeDetector = makeChangeDetector(true);
+      const result = await acquireForUser('u1', 'hiyori', { ...params, maxQueriesPerRun: 1 });
 
-      const result = await acquireForUser('u1', 'hiyori', {
-        topicRepo,
-        webRawRepo,
-        researchAllowance,
-        studyTopicRepo,
-        researchClient,
-        changeDetector,
-        character,
-        lifecycle: makeLifecycle(),
-        now: () => awakeNonPeak,
-        maxQueriesPerRun: 2,
+      expect(params.researchClient.research).not.toHaveBeenCalled();
+      expect(result.staleRefreshed).toBe(0);
+      expect(await listRequestIds()).toEqual([]);
+    });
+
+    it('期限切れの fact が無い (既に新しい) 依頼は、調べずに消す', async () => {
+      await seedTopic('fresh', NOW_MS + 1000);
+      await seedTopic('stable', undefined);
+      await freshnessCheckRequestRepo.put({
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId: 'fresh',
       });
+      await freshnessCheckRequestRepo.put({
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId: 'stable',
+      });
+      const params = baseParams();
 
-      // 束ねられず fact 単位で research するため 2 回消費する
-      expect(researchClient.research).toHaveBeenCalledTimes(2);
-      expect(researchClient.research).toHaveBeenCalledWith('欠落トピックの事実A', character);
-      expect(researchClient.research).toHaveBeenCalledWith('欠落トピックの事実B', character);
-      expect(result.staleRefreshed).toBe(2);
-      expect(result.webSearchCalls).toBe(6);
-      expect(result.staleFactsReviewed).toBe(2);
+      const result = await acquireForUser('u1', 'hiyori', { ...params, maxQueriesPerRun: 2 });
 
-      const facts = await topicRepo.listWebFacts('u1', 'hiyori', 'missing-topic');
-      expect(facts.every((f) => (f.nextReview ?? 0) > NOW_MS)).toBe(true);
+      expect(params.researchClient.research).not.toHaveBeenCalled();
+      expect(result.staleRefreshed).toBe(0);
+      expect(await listRequestIds()).toEqual([]);
+    });
+
+    it('依頼の古い順に処理し、処理した依頼を消す。予算で止まった分は残す', async () => {
+      await seedTopic('older', NOW_MS - 1000);
+      await seedTopic('newer', NOW_MS - 1000);
+      // 新しい依頼を先に put しても、依頼時刻の古い方から処理する
+      const store = new InMemorySingleTableStore();
+      const clock = { t: NOW_MS - 5000 };
+      const repo = new InMemoryFreshnessCheckRequestRepository(store, () => clock.t);
+      clock.t = NOW_MS - 1000;
+      await repo.put({ userId: 'u1', characterId: 'hiyori', topicId: 'newer' });
+      clock.t = NOW_MS - 5000;
+      await repo.put({ userId: 'u1', characterId: 'hiyori', topicId: 'older' });
+      const params = { ...baseParams(), freshnessCheckRequestRepo: repo };
+
+      const result = await acquireForUser('u1', 'hiyori', { ...params, maxQueriesPerRun: 1 });
+
+      expect(params.researchClient.research).toHaveBeenCalledTimes(1);
+      expect(params.researchClient.research).toHaveBeenCalledWith('話題-older 最新情報', character);
+      expect(result.staleRefreshed).toBe(1);
+      const remaining = (await repo.listByCharacter('u1', 'hiyori')).map((r) => r.topicId);
+      expect(remaining).toEqual(['newer']);
+    });
+
+    it('枠が使えず止まったときは、依頼を残す', async () => {
+      await seedTopic('topic-1', NOW_MS - 1000);
+      await freshnessCheckRequestRepo.put({
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId: 'topic-1',
+      });
+      const params = { ...baseParams(), researchAllowance: { tryConsume: async () => false } };
+
+      const result = await acquireForUser('u1', 'hiyori', { ...params, maxQueriesPerRun: 1 });
+
+      expect(params.researchClient.research).not.toHaveBeenCalled();
+      expect(result.dailyLimitReached).toBe(true);
+      expect(await listRequestIds()).toEqual(['topic-1']);
+      const facts = await topicRepo.listWebFacts('u1', 'hiyori', 'topic-1');
+      expect(facts[0].nextReview).toBe(NOW_MS - 1000);
+    });
+
+    it('research が失敗しても、依頼を消して fact の NextReview を前進させる', async () => {
+      await seedTopic('topic-1', NOW_MS - 1000);
+      await freshnessCheckRequestRepo.put({
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId: 'topic-1',
+      });
+      const params = {
+        ...baseParams(),
+        researchClient: makeResearchClient(async () => {
+          throw new Error('research failed');
+        }),
+      };
+
+      const result = await acquireForUser('u1', 'hiyori', { ...params, maxQueriesPerRun: 1 });
+
+      expect(result.staleRefreshed).toBe(0);
+      expect(await listRequestIds()).toEqual([]);
+      const facts = await topicRepo.listWebFacts('u1', 'hiyori', 'topic-1');
+      expect(facts[0].nextReview).toBeGreaterThan(NOW_MS);
+    });
+
+    it('他のキャラクターの依頼は処理しない', async () => {
+      await seedTopic('topic-1', NOW_MS - 1000);
+      await freshnessCheckRequestRepo.put({
+        userId: 'u1',
+        characterId: 'ageha',
+        topicId: 'topic-1',
+      });
+      const params = baseParams();
+
+      await acquireForUser('u1', 'hiyori', { ...params, maxQueriesPerRun: 1 });
+
+      expect(params.researchClient.research).not.toHaveBeenCalled();
     });
 
     it('失敗時（research 例外）でも対象 fact 全部の NextReview を前進させる', async () => {
+      await freshnessCheckRequestRepo.put({
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId: 'topic-1',
+      });
       await topicRepo.putTopic({
         userId: 'u1',
         characterId: 'hiyori',
@@ -1074,6 +1239,7 @@ describe('acquireForUser', () => {
       const result = await acquireForUser('u1', 'hiyori', {
         topicRepo,
         webRawRepo,
+        freshnessCheckRequestRepo,
         researchAllowance,
         studyTopicRepo,
         researchClient,
@@ -1100,6 +1266,11 @@ describe('acquireForUser', () => {
 
     it('research が失敗し続けても試行回数は budget で頭打ちになる', async () => {
       for (let i = 0; i < 5; i++) {
+        await freshnessCheckRequestRepo.put({
+          userId: 'u1',
+          characterId: 'hiyori',
+          topicId: `topic-${i}`,
+        });
         await topicRepo.putTopic({
           userId: 'u1',
           characterId: 'hiyori',
@@ -1129,6 +1300,7 @@ describe('acquireForUser', () => {
       const result = await acquireForUser('u1', 'hiyori', {
         topicRepo,
         webRawRepo,
+        freshnessCheckRequestRepo,
         researchAllowance,
         studyTopicRepo,
         researchClient,
@@ -1144,6 +1316,11 @@ describe('acquireForUser', () => {
     });
 
     it('Subject が既に「最新情報」で終わる場合はクエリを二重付与しない', async () => {
+      await freshnessCheckRequestRepo.put({
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId: 'topic-1',
+      });
       await topicRepo.putTopic({
         userId: 'u1',
         characterId: 'hiyori',
@@ -1172,6 +1349,7 @@ describe('acquireForUser', () => {
       await acquireForUser('u1', 'hiyori', {
         topicRepo,
         webRawRepo,
+        freshnessCheckRequestRepo,
         researchAllowance,
         studyTopicRepo,
         researchClient,
@@ -1214,6 +1392,7 @@ describe('acquireForUser', () => {
     const result = await acquireForUser('u1', 'hiyori', {
       topicRepo,
       webRawRepo,
+      freshnessCheckRequestRepo,
       researchAllowance,
       studyTopicRepo,
       researchClient,
@@ -1273,6 +1452,7 @@ describe('acquireForUser', () => {
     const result = await acquireForUser('u1', 'hiyori', {
       topicRepo,
       webRawRepo,
+      freshnessCheckRequestRepo,
       researchAllowance,
       studyTopicRepo,
       researchClient,
@@ -1290,6 +1470,11 @@ describe('acquireForUser', () => {
   });
 
   it('ピーク時は care 自発をスキップするが依頼・鮮度切れは実施する', async () => {
+    await freshnessCheckRequestRepo.put({
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: 'topic-1',
+    });
     const lifecycle = makeLifecycle({
       userActivityProfile: {
         morningPeak: '14:00',
@@ -1345,6 +1530,7 @@ describe('acquireForUser', () => {
     const result = await acquireForUser('u1', 'hiyori', {
       topicRepo,
       webRawRepo,
+      freshnessCheckRequestRepo,
       researchAllowance,
       studyTopicRepo,
       researchClient,
@@ -1388,6 +1574,7 @@ describe('acquireForUser', () => {
     const result = await acquireForUser('u1', 'hiyori', {
       topicRepo,
       webRawRepo,
+      freshnessCheckRequestRepo,
       researchAllowance,
       studyTopicRepo,
       researchClient,
@@ -1422,6 +1609,7 @@ describe('acquireForUser', () => {
     const result = await acquireForUser('u1', 'hiyori', {
       topicRepo,
       webRawRepo,
+      freshnessCheckRequestRepo,
       researchAllowance,
       studyTopicRepo,
       researchClient,
@@ -1465,6 +1653,7 @@ describe('acquireForUser', () => {
     const result = await acquireForUser('u1', 'hiyori', {
       topicRepo,
       webRawRepo,
+      freshnessCheckRequestRepo,
       researchAllowance,
       studyTopicRepo,
       researchClient,
@@ -1500,6 +1689,7 @@ describe('acquireForUser', () => {
     const result = await acquireForUser('u1', 'hiyori', {
       topicRepo,
       webRawRepo,
+      freshnessCheckRequestRepo,
       researchAllowance,
       studyTopicRepo,
       researchClient: makeResearchClient(),
@@ -1515,6 +1705,11 @@ describe('acquireForUser', () => {
   });
 
   it('鮮度切れの再取得が失敗しても他の処理を継続する（fail-warn）', async () => {
+    await freshnessCheckRequestRepo.put({
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: 'topic-1',
+    });
     await topicRepo.putTopic({
       userId: 'u1',
       characterId: 'hiyori',
@@ -1544,6 +1739,7 @@ describe('acquireForUser', () => {
     const result = await acquireForUser('u1', 'hiyori', {
       topicRepo,
       webRawRepo,
+      freshnessCheckRequestRepo,
       researchAllowance,
       studyTopicRepo,
       researchClient,
@@ -1596,6 +1792,7 @@ describe('acquireForUser', () => {
     const result = await acquireForUser('u1', 'hiyori', {
       topicRepo,
       webRawRepo,
+      freshnessCheckRequestRepo,
       researchAllowance,
       studyTopicRepo,
       researchClient,
@@ -1628,6 +1825,7 @@ describe('acquireForUser', () => {
     const result = await acquireForUser('u1', 'hiyori', {
       topicRepo,
       webRawRepo,
+      freshnessCheckRequestRepo,
       studyTopicRepo,
       researchClient,
       changeDetector: makeChangeDetector(),
@@ -1648,6 +1846,7 @@ describe('acquireForUser', () => {
     const result = await acquireForUser('u1', 'hiyori', {
       topicRepo,
       webRawRepo,
+      freshnessCheckRequestRepo,
       researchAllowance,
       studyTopicRepo,
       researchClient,
