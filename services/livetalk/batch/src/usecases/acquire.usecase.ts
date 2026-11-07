@@ -11,6 +11,7 @@ import {
   type IResearchClient,
   type IWebFactChangeDetector,
   type LifecycleEntity,
+  type FreshnessCheckRequestRepository,
   type LifecycleRepository,
   type MessageRepository,
   type ProfileRepository,
@@ -28,6 +29,8 @@ export interface AcquireAllUsersParams {
   topicRepo: TopicRepository;
   webRawRepo: WebRawRepository;
   studyTopicRepo: StudyTopicRepository;
+  /** 鮮度確認の依頼 (Topic が使われたときに記録される) */
+  freshnessCheckRequestRepo: FreshnessCheckRequestRepository;
   /** 勉強の 1 日あたりの回数 (利用者 × 日) の記録 */
   studyUsageRepo: StudyUsageRepository;
   researchClient: IResearchClient;
@@ -44,13 +47,13 @@ export interface AcquireAllUsersResult {
   /** 依頼（StudyTopic pending）を処理した総件数 */
   requestsProcessed: number;
   /**
-   * 鮮度切れ再取得で実行した research の総回数（トピック単位。変化の有無を問わない）。
+   * 鮮度確認の依頼の処理で実行した research の総回数（トピック単位。変化の有無を問わない）。
    * 期限切れ WEB fact の件数とは一致しない（fact 件数は `staleFactsReviewed` を参照）。
    */
   staleRefreshed: number;
-  /** 鮮度切れ再取得のうち変化ありと判定された総回数 */
+  /** 鮮度確認のうち変化ありと判定された総回数 */
   staleChanged: number;
-  /** 鮮度切れ再取得で NextReview を前方更新した WEB fact の総数 */
+  /** 鮮度確認の依頼の処理で NextReview を前方更新した WEB fact の総数 */
   staleFactsReviewed: number;
   /** care 自発リサーチを行った総件数 */
   selfStudied: number;
@@ -89,6 +92,7 @@ export async function acquireAllUsers(
     topicRepo,
     webRawRepo,
     studyTopicRepo,
+    freshnessCheckRequestRepo,
     studyUsageRepo,
     researchClient,
     changeDetector,
@@ -172,6 +176,7 @@ export async function acquireAllUsers(
             topicRepo,
             webRawRepo,
             studyTopicRepo,
+            freshnessCheckRequestRepo,
             researchClient,
             changeDetector,
             character: characterDef,

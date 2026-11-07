@@ -14,6 +14,7 @@ jest.mock('@nagiyu/livetalk-core', () => ({
   createTopicRepository: jest.fn(),
   createWebRawRepository: jest.fn(),
   createStudyTopicRepository: jest.fn(),
+  createFreshnessCheckRequestRepository: jest.fn(),
   createLifecycleRepository: jest.fn(),
   createMessageRepository: jest.fn(),
   createStudyUsageRepository: jest.fn(),

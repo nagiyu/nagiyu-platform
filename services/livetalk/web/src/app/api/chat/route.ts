@@ -10,6 +10,7 @@ import {
   createCharacterStateRepository,
   createChatGuardRepository,
   createConsolidationCursorRepository,
+  createFreshnessCheckRequestRepository,
   createLifecycleRepository,
   createMessageRepository,
   createNoteRepository,
@@ -228,6 +229,7 @@ export const POST = withApiErrorReporting(
             characterStateRepository: createCharacterStateRepository(),
             lifecycleRepository: createLifecycleRepository(),
             studyTopicRepository: createStudyTopicRepository(),
+            freshnessCheckRequestRepository: createFreshnessCheckRequestRepository(),
             noteRepository: createNoteRepository(),
             consolidationCursorRepository: createConsolidationCursorRepository(),
           });

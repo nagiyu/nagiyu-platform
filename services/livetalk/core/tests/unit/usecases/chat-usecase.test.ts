@@ -6,6 +6,7 @@ import type { IVoiceClient } from '../../../src/voice/types.js';
 import type { MessageRepository } from '../../../src/repositories/message.repository.interface.js';
 import type { SafetyEventRepository } from '../../../src/repositories/safety-event.repository.interface.js';
 import type { StudyTopicRepository } from '../../../src/repositories/study-topic.repository.interface.js';
+import type { FreshnessCheckRequestRepository } from '../../../src/repositories/freshness-check-request.repository.interface.js';
 import type { NoteRepository } from '../../../src/repositories/note.repository.interface.js';
 import type { ConsolidationCursorRepository } from '../../../src/repositories/consolidation-cursor.repository.interface.js';
 import type { NoteEntity } from '../../../src/entities/note.entity.js';
@@ -1410,6 +1411,91 @@ describe('runChatUseCase', () => {
   });
 
   // ── Topic 想起（関連度 only）（リブトーク知識再設計 P2 / #3698、P5 で必須化） ──────
+
+  describe('鮮度確認の依頼', () => {
+    function staleRetrievedTopic(topicId: string, via: 'direct' | 'related'): RetrievedTopic {
+      const base = makeRetrievedTopic('桜まつり', [], ['開催は来週']);
+      return {
+        ...base,
+        via,
+        topic: { ...base.topic, topicId },
+        webFacts: base.webFacts.map((f) => ({
+          ...f,
+          topicId,
+          volatility: 'high' as const,
+          nextReview: Date.now() - 1000,
+        })),
+      };
+    }
+
+    function makeFreshnessRepo(): FreshnessCheckRequestRepository {
+      return {
+        put: jest.fn(async (input) => ({ ...input, createdAt: 0, updatedAt: 0 })),
+        listByCharacter: jest.fn(async () => []),
+        delete: jest.fn(async () => undefined),
+      };
+    }
+
+    async function run(
+      topics: RetrievedTopic[],
+      freshnessCheckRequestRepository?: FreshnessCheckRequestRepository
+    ) {
+      await collectEvents(
+        runChatUseCase({
+          ...makeBaseParams(),
+          llmClient: makeLLMClient(['ok。']),
+          voiceClient: makeVoiceClient(),
+          messageRepository: makeRepo(),
+          topicRetriever: makeTopicRetriever(topics),
+          freshnessCheckRequestRepository,
+        })
+      );
+    }
+
+    it('direct で想起した Topic の期限切れ WEB fact を依頼する (related は依頼しない)', async () => {
+      const repo = makeFreshnessRepo();
+
+      await run(
+        [staleRetrievedTopic('direct-1', 'direct'), staleRetrievedTopic('rel-1', 'related')],
+        repo
+      );
+
+      expect(repo.put).toHaveBeenCalledTimes(1);
+      expect(repo.put).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: 'u1', characterId: 'hiyori', topicId: 'direct-1' })
+      );
+    });
+
+    it('期限内・stable の WEB fact しかなければ依頼しない', async () => {
+      const repo = makeFreshnessRepo();
+
+      await run([makeRetrievedTopic('コーヒー', [], ['stable な事実'])], repo);
+
+      expect(repo.put).not.toHaveBeenCalled();
+    });
+
+    it('依頼の記録に失敗しても会話は続行する (fail-warn)', async () => {
+      const repo = makeFreshnessRepo();
+      (repo.put as jest.Mock).mockRejectedValue(new Error('DB 障害'));
+
+      const events = await collectEvents(
+        runChatUseCase({
+          ...makeBaseParams(),
+          llmClient: makeLLMClient(['ok。']),
+          voiceClient: makeVoiceClient(),
+          messageRepository: makeRepo(),
+          topicRetriever: makeTopicRetriever([staleRetrievedTopic('direct-1', 'direct')]),
+          freshnessCheckRequestRepository: repo,
+        })
+      );
+
+      expect(events.some((e) => e.type === 'done')).toBe(true);
+    });
+
+    it('リポジトリ未指定なら何もせず会話を続行する', async () => {
+      await expect(run([staleRetrievedTopic('direct-1', 'direct')])).resolves.toBeUndefined();
+    });
+  });
 
   describe('Topic 想起（topicRetriever）', () => {
     it('retrieve が userInput 付きで呼ばれる', async () => {
