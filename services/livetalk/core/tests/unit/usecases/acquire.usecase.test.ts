@@ -1431,7 +1431,7 @@ describe('acquireForUser', () => {
       topicId: 'topic-recent',
       text: '既知',
       sourceUrls: [],
-      volatility: 'stable', // NextReview 無し → 鮮度掃引には出ない
+      volatility: 'stable', // NextReview 無し → 鮮度確認の対象外
       observedAt: NOW_MS - 1000, // クールダウン（24h）内
     });
     // 低 care だが未取得 → 研究対象
@@ -1754,7 +1754,7 @@ describe('acquireForUser', () => {
     expect(result.staleChanged).toBe(0);
 
     // 再取得失敗でも NextReview は前方更新する（poison pill による budget starvation を防ぐ）。
-    // high の再検証間隔（1 日）だけ前進し、掃引窓から外れる。
+    // high の再検証間隔（1 日）だけ前進する。
     const facts = await topicRepo.listWebFacts('u1', 'hiyori', 'topic-1');
     expect(facts[0].nextReview).toBe(NOW_MS + 24 * 60 * 60 * 1000);
   });

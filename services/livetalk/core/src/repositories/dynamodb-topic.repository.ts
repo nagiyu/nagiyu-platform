@@ -24,10 +24,8 @@ import {
   buildSelfFactSKPrefix,
   buildTopicBundleSKPrefix,
   buildTopicGSI3PK,
-  buildTopicStaleGSI4PK,
   buildUserPK,
   buildWebFactSKPrefix,
-  STALE_GSI_INDEX_NAME,
   TOPIC_GSI_INDEX_NAME,
 } from '../mappers/keys.js';
 import type { TopicBundle, TopicRepository } from './topic.repository.interface.js';
@@ -36,7 +34,7 @@ import type { TopicBundle, TopicRepository } from './topic.repository.interface.
  * Topic（ヘッダ・META）+ SELF fact + WEB fact を扱う統合リポジトリの DynamoDB 実装。
  *
  * 単一アイテムの CRUD はエンティティごとの EntityStore に任せ、
- * bundle の 1 Query 取得や GSI3 / GSI4 の走査だけを自前で持つ。
+ * bundle の 1 Query 取得や GSI3 の走査だけを自前で持つ。
  */
 export class DynamoDBTopicRepository implements TopicRepository {
   private readonly topicMapper = new TopicMapper();
@@ -217,40 +215,6 @@ export class DynamoDBTopicRepository implements TopicRepository {
     const pk = buildUserPK(userId);
     const prefix = buildWebFactSKPrefix(characterId, topicId);
     return this.queryByPrefix(pk, prefix, this.webFactMapper);
-  }
-
-  public async listStaleWebFacts(
-    userId: string,
-    characterId: string,
-    nowMs: number,
-    limit: number
-  ): Promise<WebFactEntity[]> {
-    const gsi4pk = buildTopicStaleGSI4PK(characterId, userId);
-    const results: WebFactEntity[] = [];
-
-    try {
-      for await (const page of queryPages(this.docClient, {
-        TableName: this.tableName,
-        IndexName: STALE_GSI_INDEX_NAME,
-        KeyConditionExpression: '#gsi4pk = :pk AND #gsi4sk <= :now',
-        ExpressionAttributeNames: { '#gsi4pk': 'GSI4PK', '#gsi4sk': 'GSI4SK' },
-        ExpressionAttributeValues: { ':pk': gsi4pk, ':now': nowMs },
-        // 期限が古い順（昇順）で窓走査する。停止分・遅延分を取りこぼさないため、
-        // begins_with や現在バケットのみの参照ではなく `GSI4SK <= now` で幅広く拾う。
-        ScanIndexForward: true,
-      })) {
-        for (const raw of page) {
-          results.push(this.webFactMapper.toEntity(raw));
-          if (results.length >= limit) {
-            return results.slice(0, limit);
-          }
-        }
-      }
-    } catch (error) {
-      throw toDatabaseError(error);
-    }
-
-    return results;
   }
 
   public async updateWebFactNextReview(key: WebFactKey, nextReview: number): Promise<void> {

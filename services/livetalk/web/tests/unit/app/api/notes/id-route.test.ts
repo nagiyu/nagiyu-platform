@@ -103,7 +103,6 @@ const makeTopicRepo = (over: Partial<TopicRepository> = {}): TopicRepository =>
     deleteSelfFact: jest.fn(),
     putWebFact: jest.fn(),
     listWebFacts: jest.fn(),
-    listStaleWebFacts: jest.fn(),
     updateWebFactNextReview: jest.fn(),
     ...over,
   }) as unknown as TopicRepository;

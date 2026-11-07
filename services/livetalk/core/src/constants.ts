@@ -284,7 +284,7 @@ export const TOPIC_ROUTING_MAX_CANDIDATES = 8;
 export const CONSOLIDATION_ROUTING_TEXT_MAX_CHARS = 2000;
 
 /**
- * WEB fact の揮発性区分ごとの再検証間隔（ミリ秒）（P3 の鮮度掃引バッチで使用予定）。
+ * WEB fact の揮発性区分ごとの再検証間隔（ミリ秒）（acquire バッチの鮮度確認で使用）。
  * `stable` は再検証不要のため対象外（NextReview は常に undefined）。
  */
 export const WEBFACT_REVIEW_INTERVAL_MS: Record<'low' | 'medium' | 'high', number> = {
