@@ -20,7 +20,7 @@ export interface TryConsumeStudyUsageInput {
 
 export interface StudyUsageRepository {
   /**
-   * キャラクターの上限と利用者の合計の上限の両方に達していなければ 1 回分を数える。判定と加算は不可分で、同時に呼ばれても上限を超えない。
+   * キャラクターの上限と利用者の合計の上限の両方に達していなければ 1 回分を数える。上限は超えないが、同時に呼ばれると実際より多く数えて断る側にずれることがある。
    *
    * @returns 数えられたとき true、上限に達していたとき false
    * @throws 記録の読み書きに失敗したとき

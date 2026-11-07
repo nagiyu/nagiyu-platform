@@ -121,7 +121,9 @@ export async function acquireAllUsers(
 
     try {
       // 勉強中のキャラクターの人数で 1 日の枠を等分するため、先に全キャラクターの
-      // lifecycle と停止判定を済ませる。就寝中のキャラクターも枠の配分には含める。
+      // lifecycle と停止判定を済ませる。就寝中のキャラクターも枠の配分には含める:
+      // 勉強中かどうかは 3 日ルールで決まり、就寝は一日の中で入れ替わる一時的な状態のため、
+      // 就寝で人数を数え直すと同じ日の中で枠の大きさが揺れる。
       const studying: StudyingCharacter[] = [];
       for (const characterId of allCharacterIds) {
         const characterDef = getCharacterDefinitionById(characterId);

@@ -317,6 +317,95 @@ describe('acquireForUser', () => {
       expect(second.result.dailyLimitReached).toBe(true);
     });
 
+    it('リサーチが続けて失敗しても、1 回の実行では予算の 3 回までしか試さず、枠も 3 回分しか減らない', async () => {
+      await seedRequests(5);
+      await topicRepo.putTopic({
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId: 'topic-1',
+        subject: '桜まつり',
+        canonicalSummary: '桜まつりの話題',
+        category: 'イベント',
+        care: 5,
+        embedding: [0.1],
+      });
+      const failing = makeResearchClient(async () => {
+        throw new Error('検索失敗');
+      });
+      const allowance = allowanceFor(20);
+      const result = await acquireForUser('u1', 'hiyori', {
+        topicRepo,
+        webRawRepo,
+        studyTopicRepo,
+        researchClient: failing,
+        changeDetector: makeChangeDetector(),
+        character,
+        lifecycle: makeLifecycle(),
+        researchAllowance: allowance,
+        now: () => awakeNonPeak,
+      });
+
+      expect(result.outcome).toBe('acquired');
+      expect(failing.research).toHaveBeenCalledTimes(ACQUIRE_MAX_QUERIES_PER_RUN);
+      // 失敗した依頼は pending に戻る
+      expect(await studyTopicRepo.listByStatus('u1', 'hiyori', 'pending')).toHaveLength(5);
+      // 枠は 3 回分だけ減っている (残り 17 回)
+      let remaining = 0;
+      while (await allowance.tryConsume()) remaining++;
+      expect(remaining).toBe(20 - ACQUIRE_MAX_QUERIES_PER_RUN);
+    });
+
+    it('自発リサーチが続けて失敗しても予算の 3 回までしか試さない', async () => {
+      for (let i = 0; i < 5; i++) {
+        await topicRepo.putTopic({
+          userId: 'u1',
+          characterId: 'hiyori',
+          topicId: `topic-${i}`,
+          subject: `話題${i}`,
+          canonicalSummary: '要約',
+          category: 'その他',
+          care: 5 - i,
+          embedding: [0.1],
+        });
+      }
+      const second = makeResearchClient(async () => {
+        throw new Error('検索失敗');
+      });
+      await acquireForUser('u1', 'hiyori', {
+        topicRepo,
+        webRawRepo,
+        studyTopicRepo,
+        researchClient: second,
+        changeDetector: makeChangeDetector(),
+        character,
+        lifecycle: makeLifecycle(),
+        researchAllowance: allowanceFor(20),
+        now: () => awakeNonPeak,
+      });
+
+      expect(second.research).toHaveBeenCalledTimes(ACQUIRE_MAX_QUERIES_PER_RUN);
+    });
+
+    it('依頼が削除されていてリサーチを呼ばずにスキップしたときは、枠を数えない', async () => {
+      await seedRequests(1);
+      jest
+        .spyOn(studyTopicRepo, 'updateStatus')
+        .mockRejectedValueOnce(new EntityNotFoundError('StudyTopic', 'req-0'));
+      const allowance = allowanceFor(1);
+      const { researchClient } = await run(allowance);
+
+      expect(researchClient.research).not.toHaveBeenCalled();
+      expect(await allowance.tryConsume()).toBe(true);
+    });
+
+    it('枠が使えず止めた依頼は pending に戻る', async () => {
+      await seedRequests(1);
+      await run(allowanceFor(0));
+
+      expect(await studyTopicRepo.listByStatus('u1', 'hiyori', 'pending')).toHaveLength(1);
+      expect(await studyTopicRepo.listByStatus('u1', 'hiyori', 'in_progress')).toHaveLength(0);
+    });
+
     it('日付が変わると枠が戻る', async () => {
       await seedRequests(2);
       const first = await run(allowanceFor(1));

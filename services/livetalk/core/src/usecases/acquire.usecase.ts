@@ -30,7 +30,7 @@ export interface AcquireForUserParams {
   lifecycle: LifecycleEntity;
   /**
    * リサーチを呼ぶ直前に 1 回分を問い合わせる枠。
-   * 3 日ルールで止まる組には呼び出し側が渡さない (この関数は止まっているかを判定しない)。
+   * 3 日ルールで止まる組では、呼び出し側がこの関数自体を呼ばない (この関数は止まっているかを判定しない)。
    */
   researchAllowance: ResearchAllowance;
   /** テスト用途の ULID 差し替え（acquire 自体は ID を採番しないため現状未使用） */
@@ -243,9 +243,6 @@ export async function acquireForUser(
     for (const studyTopic of pendingTopics) {
       if (budget <= 0) break;
 
-      // in_progress にする前に数える: 止める場合に依頼を pending のまま残すため。
-      if (!(await tryConsumeAllowance())) break;
-
       try {
         await studyTopicRepo.updateStatus({
           userId,
@@ -255,6 +252,31 @@ export async function acquireForUser(
           priority: studyTopic.priority,
         });
 
+        // 依頼が削除されていた場合などリサーチを呼ばずにスキップする判定が済んだ後、
+        // リサーチを呼ぶ直前に数える。止めるときは in_progress の依頼を pending に戻す。
+        if (!(await tryConsumeAllowance())) {
+          try {
+            await studyTopicRepo.updateStatus({
+              userId,
+              characterId,
+              topicId: studyTopic.topicId,
+              status: 'pending',
+              priority: studyTopic.priority,
+            });
+          } catch (revertErr) {
+            logger.warn('[acquire] 依頼（StudyTopic）の pending 復帰に失敗しました', {
+              userId,
+              characterId,
+              topic: studyTopic.topic,
+              err: toErrorMessage(revertErr),
+            });
+          }
+          break;
+        }
+
+        // 成否にかかわらず試した時点で 1 回の実行の予算を使う。
+        // 外部の障害時に、1 回の実行で 1 日の枠を使い切らないようにするため。
+        budget--;
         const result = await researchClient.research(studyTopic.topic, character);
 
         await webRawRepo.put({
@@ -278,7 +300,6 @@ export async function acquireForUser(
         });
 
         requestsProcessed++;
-        budget--;
       } catch (err) {
         // 取得から更新までの間にアカウント削除などでトピックが消えた場合は、
         // 復帰させる対象もないため、バッチ全体を止めずに次の依頼へ進む。
@@ -566,6 +587,8 @@ export async function acquireForUser(
 
       try {
         const query = buildLatestInfoQuery(header.subject);
+        // 成否にかかわらず試した時点で 1 回の実行の予算を使う（依頼と同じ理由）。
+        budget--;
         const result = await researchClient.research(query, character);
 
         await webRawRepo.put({
@@ -578,7 +601,6 @@ export async function acquireForUser(
         });
         webRawWritten++;
         selfStudied++;
-        budget--;
       } catch (err) {
         logger.warn('[acquire] care 自発リサーチに失敗しました（スキップして継続）', {
           userId,
