@@ -67,6 +67,11 @@ export interface AcquireForUserResult {
   dailyLimitReached: boolean;
   /** 回数の記録に失敗して、以降のリサーチを止めたか (止める側に倒す) */
   counterFailed: boolean;
+  /**
+   * research が実行した Web 検索 tool call の合計回数（search / open_page / find_in_page の全部）。
+   * research が例外で終わった呼び出しは回数を取れないため含まれない。
+   */
+  webSearchCalls: number;
 }
 
 interface ShouldAcquireDecision {
@@ -200,6 +205,7 @@ export async function acquireForUser(
       webRawWritten: 0,
       dailyLimitReached: false,
       counterFailed: false,
+      webSearchCalls: 0,
     };
   }
 
@@ -235,6 +241,7 @@ export async function acquireForUser(
     budget = 0;
     return false;
   };
+  let webSearchCalls = 0;
 
   // ---- 1. 依頼（StudyTopic pending）を消費 ----
   if (budget > 0) {
@@ -278,6 +285,8 @@ export async function acquireForUser(
         // 外部の障害時に、1 回の実行で 1 日の枠を使い切らないようにするため。
         budget--;
         const result = await researchClient.research(studyTopic.topic, character);
+        // 後続の書き込みが失敗しても検索は課金済みのため、research 直後に加算する。
+        webSearchCalls += result.webSearchCalls?.total ?? 0;
 
         await webRawRepo.put({
           userId,
@@ -395,6 +404,8 @@ export async function acquireForUser(
           try {
             const query = fact.text;
             const result = await researchClient.research(query, character);
+            // 後続の書き込みが失敗しても検索は課金済みのため、research 直後に加算する。
+            webSearchCalls += result.webSearchCalls?.total ?? 0;
             const changed = await changeDetector.hasChanged(fact.text, result);
 
             if (changed) {
@@ -509,6 +520,8 @@ export async function acquireForUser(
 
       try {
         const result = await researchClient.research(query, character);
+        // 後続の書き込みが失敗しても検索は課金済みのため、research 直後に加算する。
+        webSearchCalls += result.webSearchCalls?.total ?? 0;
         const changed = await changeDetector.hasChanged(existingText, result);
 
         if (changed) {
@@ -590,6 +603,8 @@ export async function acquireForUser(
         // 成否にかかわらず試した時点で 1 回の実行の予算を使う（依頼と同じ理由）。
         budget--;
         const result = await researchClient.research(query, character);
+        // 後続の書き込みが失敗しても検索は課金済みのため、research 直後に加算する。
+        webSearchCalls += result.webSearchCalls?.total ?? 0;
 
         await webRawRepo.put({
           userId,
@@ -623,5 +638,6 @@ export async function acquireForUser(
     webRawWritten,
     dailyLimitReached,
     counterFailed,
+    webSearchCalls,
   };
 }

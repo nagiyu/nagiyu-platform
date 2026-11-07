@@ -60,6 +60,8 @@ export interface AcquireAllUsersResult {
   dailyLimitReachedCharacters: number;
   /** 回数の記録に失敗して勉強を止めた利用者 × キャラクターの組の数 */
   counterFailedCharacters: number;
+  /** research が実行した Web 検索 tool call の総回数（action の種別を問わない） */
+  webSearchCalls: number;
 }
 
 /** 勉強中 (lifecycle があり、3 日ルールで止まっていない) のキャラクター */
@@ -111,6 +113,7 @@ export async function acquireAllUsers(
     webRawWritten: 0,
     dailyLimitReachedCharacters: 0,
     counterFailedCharacters: 0,
+    webSearchCalls: 0,
   };
 
   const allCharacterIds = getAllCharacterIds();
@@ -199,6 +202,7 @@ export async function acquireAllUsers(
             result.staleFactsReviewed += outcome.staleFactsReviewed;
             result.selfStudied += outcome.selfStudied;
             result.webRawWritten += outcome.webRawWritten;
+            result.webSearchCalls += outcome.webSearchCalls;
           }
         } catch (error) {
           logger.warn('[acquireAllUsers] キャラクター処理失敗（他キャラは継続）', {

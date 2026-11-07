@@ -48,6 +48,8 @@ const makeResearchResult = (overrides: Partial<ResearchResult> = {}): ResearchRe
   summary: 'テスト要約です。',
   sourceUrls: ['https://example.com'],
   rawComment: 'へぇ！',
+  // 呼び出し 1 回あたり search 2 + open_page 1 の合計 3 回とする
+  webSearchCalls: { total: 3, search: 2, openPage: 1, findInPage: 0, other: 0 },
   ...overrides,
 });
 
@@ -506,6 +508,7 @@ describe('acquireForUser', () => {
     expect(result.outcome).toBe('acquired');
     expect(result.requestsProcessed).toBe(1);
     expect(result.webRawWritten).toBe(1);
+    expect(result.webSearchCalls).toBe(3);
 
     const topics = await studyTopicRepo.listByStatus('u1', 'hiyori', 'done');
     expect(topics).toHaveLength(1);
@@ -562,6 +565,7 @@ describe('acquireForUser', () => {
     });
 
     expect(result.staleRefreshed).toBe(1);
+    expect(result.webSearchCalls).toBe(3);
     expect(result.staleChanged).toBe(1);
     expect(result.webRawWritten).toBe(1);
 
@@ -683,6 +687,7 @@ describe('acquireForUser', () => {
       expect(researchClient.research).toHaveBeenCalledTimes(1);
       expect(researchClient.research).toHaveBeenCalledWith('桜まつり 最新情報', character);
       expect(result.staleRefreshed).toBe(1);
+      expect(result.webSearchCalls).toBe(3);
 
       // 変化検知の existingText は対象 fact 全部の Text を改行区切りで連結したもの
       expect(changeDetector.hasChanged).toHaveBeenCalledTimes(1);
@@ -1020,6 +1025,7 @@ describe('acquireForUser', () => {
       expect(researchClient.research).toHaveBeenCalledWith('欠落トピックの事実A', character);
       expect(researchClient.research).toHaveBeenCalledWith('欠落トピックの事実B', character);
       expect(result.staleRefreshed).toBe(2);
+      expect(result.webSearchCalls).toBe(6);
       expect(result.staleFactsReviewed).toBe(2);
 
       const facts = await topicRepo.listWebFacts('u1', 'hiyori', 'missing-topic');
@@ -1081,6 +1087,7 @@ describe('acquireForUser', () => {
       // research 失敗のため staleRefreshed は増えないが、fact の NextReview は
       // best-effort で 2 件とも前進する（poison pill による budget starvation を防ぐ）。
       expect(result.staleRefreshed).toBe(0);
+      expect(result.webSearchCalls).toBe(0);
       expect(result.staleChanged).toBe(0);
       expect(result.staleFactsReviewed).toBe(2);
 
@@ -1218,6 +1225,7 @@ describe('acquireForUser', () => {
     });
 
     expect(result.selfStudied).toBe(1);
+    expect(result.webSearchCalls).toBe(3);
     const webraws = await webRawRepo.listSince('u1', 'hiyori', 0);
     expect(webraws).toHaveLength(1);
     expect(webraws[0].query).toContain('高 care トピック');
@@ -1600,6 +1608,37 @@ describe('acquireForUser', () => {
 
     expect(result.selfStudied).toBe(1);
     expect(result.webRawWritten).toBe(1);
+    // 例外で終わった呼び出しは回数を取れないため、成功した 1 回分だけを数える
+    expect(result.webSearchCalls).toBe(3);
+  });
+
+  it('research が webSearchCalls を返さない場合は 0 として扱う', async () => {
+    await studyTopicRepo.put({
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: 'req-nocount',
+      topic: '件数なし',
+      priority: 10,
+      status: 'pending',
+    });
+    const researchClient = makeResearchClient(async (query) =>
+      makeResearchResult({ topic: query, webSearchCalls: undefined })
+    );
+
+    const result = await acquireForUser('u1', 'hiyori', {
+      topicRepo,
+      webRawRepo,
+      studyTopicRepo,
+      researchClient,
+      changeDetector: makeChangeDetector(),
+      character,
+      lifecycle: makeLifecycle(),
+      researchAllowance: { tryConsume: async () => true },
+      now: () => awakeNonPeak,
+    });
+
+    expect(result.requestsProcessed).toBe(1);
+    expect(result.webSearchCalls).toBe(0);
   });
 
   it('now 未指定でも既定（現在時刻）で動作する', async () => {
