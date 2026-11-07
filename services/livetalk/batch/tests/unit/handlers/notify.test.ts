@@ -12,6 +12,7 @@ jest.mock('../../../../../../libs/aws/src/error-events/report.js', () => ({
 
 jest.mock('@nagiyu/livetalk-core', () => ({
   createProfileRepository: jest.fn(),
+  createFreshnessCheckRequestRepository: jest.fn(),
   createLifecycleRepository: jest.fn(),
   createMessageRepository: jest.fn(),
   createNotificationEventRepository: jest.fn(),
