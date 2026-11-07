@@ -273,7 +273,7 @@ describe('acquireAllUsers', () => {
       expect(used).toEqual({ 'u1:hiyori': 10, 'u1:ageha': 10 });
     });
 
-    it('カウンターの障害: 止めた組を集計し、ユーザーの失敗にはしない', async () => {
+    it('カウンターの障害: 止めた組を集計し、ユーザーの失敗として計上する', async () => {
       mockAcquireForUser.mockResolvedValue({
         outcome: 'acquired',
         requestsProcessed: 0,
@@ -291,7 +291,8 @@ describe('acquireAllUsers', () => {
 
       expect(result.counterFailedCharacters).toBe(2);
       expect(result.dailyLimitReachedCharacters).toBe(0);
-      expect(result.failedUsers).toBe(0);
+      expect(result.failedUsers).toBe(1);
+      expect(result.failedUserIds).toEqual(['u1']);
     });
 
     it('履歴の取得に失敗したキャラクターは失敗として計上し、他キャラは継続する', async () => {

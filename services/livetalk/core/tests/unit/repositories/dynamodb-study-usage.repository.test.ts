@@ -13,7 +13,7 @@ const NOW_MS = Date.parse('2026-11-05T03:00:00Z');
 const tableName = 'nagiyu-livetalk-dev';
 
 const makeClient = (send: jest.Mock) => ({ send }) as never;
-const input = { userId: 'u1', characterId: 'hiyori', limit: 5, nowMs: NOW_MS };
+const input = { userId: 'u1', characterId: 'hiyori', limit: 5, totalLimit: 20, nowMs: NOW_MS };
 
 describe('DynamoDBStudyUsageRepository', () => {
   it('利用者 × 日のアイテムのキャラクター別の属性を、上限付きで加算する', async () => {
@@ -30,6 +30,10 @@ describe('DynamoDBStudyUsageRepository', () => {
       '#cnt': 'Count#hiyori',
       '#ttl': 'TTL',
     });
+    // 続けて利用者合計の属性を数える
+    const total = send.mock.calls[1][0] as UpdateCommand;
+    expect(total.input.ExpressionAttributeNames).toMatchObject({ '#cnt': 'Count#total' });
+    expect(total.input.ExpressionAttributeValues).toMatchObject({ ':limit': 20 });
     expect(command.input.ExpressionAttributeValues).toMatchObject({
       ':limit': 5,
       ':type': 'StudyUsage',
@@ -53,5 +57,53 @@ describe('DynamoDBStudyUsageRepository', () => {
     const repo = new DynamoDBStudyUsageRepository(makeClient(send), tableName);
 
     await expect(repo.tryConsume(input)).rejects.toBeInstanceOf(DatabaseError);
+  });
+
+  const conditionFailed = () =>
+    Object.assign(new Error('条件不一致'), { name: 'ConditionalCheckFailedException' });
+
+  it('キャラクター別が断ったら合計には触れない', async () => {
+    const send = jest.fn().mockRejectedValue(conditionFailed());
+    const repo = new DynamoDBStudyUsageRepository(makeClient(send), tableName);
+
+    expect(await repo.tryConsume(input)).toBe(false);
+    expect(send).toHaveBeenCalledTimes(1);
+  });
+
+  it('合計だけが断ったら、キャラクター別を戻して false を返す', async () => {
+    const send = jest
+      .fn()
+      .mockResolvedValueOnce({})
+      .mockRejectedValueOnce(conditionFailed())
+      .mockResolvedValueOnce({});
+    const repo = new DynamoDBStudyUsageRepository(makeClient(send), tableName);
+
+    expect(await repo.tryConsume(input)).toBe(false);
+    const rollback = send.mock.calls[2][0] as UpdateCommand;
+    expect(rollback.input.ExpressionAttributeValues).toMatchObject({ ':minusOne': -1 });
+    expect(rollback.input.ExpressionAttributeNames).toMatchObject({ '#cnt': 'Count#hiyori' });
+  });
+
+  it('戻しに失敗しても false を返す (1 回分多く数えたままになる)', async () => {
+    const send = jest
+      .fn()
+      .mockResolvedValueOnce({})
+      .mockRejectedValueOnce(conditionFailed())
+      .mockRejectedValueOnce(new Error('戻し失敗'));
+    const repo = new DynamoDBStudyUsageRepository(makeClient(send), tableName);
+
+    expect(await repo.tryConsume(input)).toBe(false);
+  });
+
+  it('合計の加算が障害なら、キャラクター別を戻して投げる', async () => {
+    const send = jest
+      .fn()
+      .mockResolvedValueOnce({})
+      .mockRejectedValueOnce(new Error('障害'))
+      .mockResolvedValueOnce({});
+    const repo = new DynamoDBStudyUsageRepository(makeClient(send), tableName);
+
+    await expect(repo.tryConsume(input)).rejects.toBeInstanceOf(DatabaseError);
+    expect(send).toHaveBeenCalledTimes(3);
   });
 });

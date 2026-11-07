@@ -226,6 +226,11 @@ export function buildStudyUsageCountAttribute(characterId: string): string {
   return `Count#${characterId}`;
 }
 
+/** 勉強の回数アイテム内の、利用者の全キャラクター合計の回数の属性名 */
+export function buildStudyUsageTotalAttribute(): string {
+  return 'Count#total';
+}
+
 // ---- Topic 中心モデル（リブトーク知識再設計 P1 / #3697、shadow build）----
 //
 // 1 Topic = ヘッダ(META) + SELF fact 群 + WEB fact 群。

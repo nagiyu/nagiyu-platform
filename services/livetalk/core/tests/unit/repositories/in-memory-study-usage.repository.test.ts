@@ -18,6 +18,7 @@ interface ConsumeOverrides {
   userId?: string;
   characterId?: string;
   limit?: number;
+  totalLimit?: number;
   nowMs?: number;
 }
 
@@ -35,6 +36,7 @@ describe('InMemoryStudyUsageRepository', () => {
       userId: 'u1',
       characterId: 'hiyori',
       limit: 2,
+      totalLimit: 100,
       nowMs: NOW_MS,
       ...overrides,
     });
@@ -61,6 +63,25 @@ describe('InMemoryStudyUsageRepository', () => {
     expect(await consume({ userId: 'u2' })).toBe(true);
   });
 
+  it('勉強中の人数が途中で減っても、利用者の合計は上限で止まる', async () => {
+    // 2 人で 10 回ずつ使った後に片方が止まり、残った 1 人の枠が 20 になる日
+    for (let i = 0; i < 10; i++) {
+      expect(await consume({ characterId: 'hiyori', limit: 10, totalLimit: 20 })).toBe(true);
+      expect(await consume({ characterId: 'ageha', limit: 10, totalLimit: 20 })).toBe(true);
+    }
+    expect(await consume({ characterId: 'hiyori', limit: 20, totalLimit: 20 })).toBe(false);
+    // 合計が断った分はキャラクター別に残さない
+    expect(store.get('USER#u1', 'STUDYUSAGE#20261105')).toMatchObject({
+      'Count#hiyori': 10,
+      'Count#total': 20,
+    });
+  });
+
+  it('合計の上限に達した後はキャラクター別の枠が残っていても数えない', async () => {
+    expect(await consume({ limit: 5, totalLimit: 1 })).toBe(true);
+    expect(await consume({ characterId: 'ageha', limit: 5, totalLimit: 1 })).toBe(false);
+  });
+
   it('日本時間の 0 時で日が変わる', async () => {
     const beforeMidnight = Date.parse('2026-11-05T14:59:59Z');
     const afterMidnight = Date.parse('2026-11-05T15:00:00Z');
@@ -78,6 +99,7 @@ describe('InMemoryStudyUsageRepository', () => {
       Type: 'StudyUsage',
       'Count#hiyori': 1,
       'Count#ageha': 1,
+      'Count#total': 2,
     });
     // 日が終わった翌日 (2026-11-07 00:00 JST) の TTL
     expect(item?.['TTL']).toBe(Date.parse('2026-11-06T15:00:00Z') / 1000);

@@ -183,7 +183,11 @@ export async function acquireAllUsers(
           });
 
           if (outcome.dailyLimitReached) result.dailyLimitReachedCharacters++;
-          if (outcome.counterFailed) result.counterFailedCharacters++;
+          if (outcome.counterFailed) {
+            result.counterFailedCharacters++;
+            // 勉強が黙って止まらないよう、バッチの失敗として上げる
+            hasCharacterError = true;
+          }
 
           if (outcome.outcome === 'acquired') {
             hasAcquired = true;

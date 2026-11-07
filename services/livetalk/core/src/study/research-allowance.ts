@@ -36,6 +36,8 @@ export interface CreateDailyResearchAllowanceParams {
   characterId: string;
   /** このキャラクターが 1 日に使える回数 */
   limit: number;
+  /** 利用者の全キャラクター合計の 1 日の上限 */
+  totalLimit?: number;
   /** 日付の判定に使う。呼ぶたびに評価するため、日をまたいだ実行でも日付が追従する */
   now?: () => Date;
 }
@@ -44,9 +46,16 @@ export interface CreateDailyResearchAllowanceParams {
 export function createDailyResearchAllowance(
   params: CreateDailyResearchAllowanceParams
 ): ResearchAllowance {
-  const { studyUsageRepo, userId, characterId, limit, now = () => new Date() } = params;
+  const {
+    studyUsageRepo,
+    userId,
+    characterId,
+    limit,
+    totalLimit = STUDY_DAILY_RESEARCH_LIMIT_PER_USER,
+    now = () => new Date(),
+  } = params;
   return {
     tryConsume: () =>
-      studyUsageRepo.tryConsume({ userId, characterId, limit, nowMs: now().getTime() }),
+      studyUsageRepo.tryConsume({ userId, characterId, limit, totalLimit, nowMs: now().getTime() }),
   };
 }

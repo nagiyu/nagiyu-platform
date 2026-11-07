@@ -12,13 +12,15 @@ export interface TryConsumeStudyUsageInput {
   characterId: string;
   /** このキャラクターが 1 日に使える回数の上限 */
   limit: number;
+  /** 利用者の全キャラクター合計で 1 日に使える回数の上限 */
+  totalLimit: number;
   /** 日付の判定に使う現在時刻 (Unix ms) */
   nowMs: number;
 }
 
 export interface StudyUsageRepository {
   /**
-   * 上限に達していなければ 1 回分を数える。判定と加算は不可分で、同時に呼ばれても上限を超えない。
+   * キャラクターの上限と利用者の合計の上限の両方に達していなければ 1 回分を数える。判定と加算は不可分で、同時に呼ばれても上限を超えない。
    *
    * @returns 数えられたとき true、上限に達していたとき false
    * @throws 記録の読み書きに失敗したとき

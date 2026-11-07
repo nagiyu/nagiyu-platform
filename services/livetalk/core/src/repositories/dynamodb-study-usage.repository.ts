@@ -9,9 +9,7 @@
 
 import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { DynamoDBUsageCounter } from '@nagiyu/aws';
-import { toDayTtlSeconds, toJstDayKey } from '@nagiyu/common';
-import { buildStudyUsageCountAttribute, buildStudyUsageSK, buildUserPK } from '../mappers/keys.js';
-import { STUDY_USAGE_ITEM_TYPE } from './study-usage.repository.interface.js';
+import { tryConsumeStudyUsage } from './study-usage-counting.js';
 import type {
   StudyUsageRepository,
   TryConsumeStudyUsageInput,
@@ -25,15 +23,6 @@ export class DynamoDBStudyUsageRepository implements StudyUsageRepository {
   }
 
   public async tryConsume(input: TryConsumeStudyUsageInput): Promise<boolean> {
-    return this.counter.tryIncrement({
-      key: {
-        PK: buildUserPK(input.userId),
-        SK: buildStudyUsageSK(toJstDayKey(input.nowMs)),
-      },
-      attribute: buildStudyUsageCountAttribute(input.characterId),
-      limit: input.limit,
-      ttlSec: toDayTtlSeconds(input.nowMs),
-      itemType: STUDY_USAGE_ITEM_TYPE,
-    });
+    return tryConsumeStudyUsage(this.counter, input);
   }
 }
