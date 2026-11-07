@@ -63,6 +63,15 @@ export interface CloudFrontStackBaseProps extends cdk.StackProps {
    * @default ALL_VIEWER_EXCEPT_HOST_HEADER
    */
   originRequestPolicy?: cloudfront.IOriginRequestPolicy;
+
+  /**
+   * default behavior に付ける CloudFront Function などの関連付けを作る関数
+   *
+   * Function はこのスタックの中に作る必要があるが、スーパークラスのコンストラクタが終わるまで
+   * `this` を使えないため、スタック自身を受け取って作る形にしている。
+   * @default 付けない
+   */
+  createFunctionAssociations?: (scope: Construct) => cloudfront.FunctionAssociation[];
 }
 
 /**
@@ -134,6 +143,7 @@ export class CloudFrontStackBase extends cdk.Stack {
       certificateArn,
       cachePolicy,
       originRequestPolicy,
+      createFunctionAssociations,
     } = props;
 
     // デフォルト設定とマージ
@@ -246,6 +256,9 @@ export class CloudFrontStackBase extends cdk.Stack {
           originRequestPolicy || cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
         responseHeadersPolicy: this.responseHeadersPolicy,
         compress: true,
+        ...(createFunctionAssociations
+          ? { functionAssociations: createFunctionAssociations(this) }
+          : {}),
       },
       domainNames: [domainName],
       certificate: certificate,

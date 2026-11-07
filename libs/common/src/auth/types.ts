@@ -6,6 +6,7 @@
  */
 
 import type { ROLES } from './roles.js';
+import type { RoleGrant } from './role-grants.js';
 
 /**
  * DynamoDB に保存されるユーザー情報
@@ -23,6 +24,9 @@ export interface User {
   name: string;
   /** Array of role IDs assigned to the user */
   roles: string[];
+  /** 課金の権利。一度も付けていないユーザーには無い */
+  roleGrants?: RoleGrant[];
+  stripeCustomerId?: string;
   /** Unix timestamp (milliseconds) of user creation */
   createdAt: number;
   /** Unix timestamp (milliseconds) of last update */
@@ -81,6 +85,11 @@ export interface Session {
  * LiveTalk permissions:
  * - livetalk:chat - Access LiveTalk chat UI and API
  * - livetalk:admin - Access LiveTalk admin features (status page, debug panel)
+ * - livetalk:standard - Use LiveTalk standard features (paid role)
+ *
+ * Quick Clip permissions:
+ * - quick-clip:standard - Use Quick Clip standard features (paid role)
+ * - quick-clip:pro - Use Quick Clip pro features (paid role, includes standard)
  */
 export type Permission =
   | 'users:read'
@@ -94,7 +103,10 @@ export type Permission =
   | 'auth:read'
   | 'auth:write'
   | 'livetalk:chat'
-  | 'livetalk:admin';
+  | 'livetalk:admin'
+  | 'livetalk:standard'
+  | 'quick-clip:standard'
+  | 'quick-clip:pro';
 
 /**
  * Valid role IDs defined in ROLES constant

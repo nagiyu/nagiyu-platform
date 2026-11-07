@@ -25,6 +25,7 @@ const POLLING_INTERVAL_MS = 5000;
 const ERROR_MESSAGES = {
   LOAD_FAILED: 'ジョブ情報の取得に失敗しました',
   NOT_FOUND: COMMON_ERROR_MESSAGES.JOB_NOT_FOUND,
+  JOB_FAILED: '処理に失敗しました',
 } as const;
 
 const STATUS_LABELS: Record<JobStatus, string> = {
@@ -266,7 +267,7 @@ export default function JobPage({ params }: JobPageProps) {
             </Typography>
 
             {job.status === 'FAILED' && (
-              <Typography color="error">{job.errorMessage ?? '処理に失敗しました'}</Typography>
+              <ErrorAlert message={job.errorMessage || ERROR_MESSAGES.JOB_FAILED} />
             )}
 
             {job.status !== 'FAILED' && !adFinished && (

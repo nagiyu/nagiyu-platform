@@ -83,7 +83,9 @@ jobs:
             --context env=dev \
             --context googleClientId=dummy-client-id-for-verification \
             --context googleClientSecret=dummy-secret-for-verification \
-            --context nextAuthSecret=dummy-auth-secret-for-verification
+            --context nextAuthSecret=dummy-auth-secret-for-verification \
+            --context stripeSecretKey=dummy-stripe-secret-key-for-verification \
+            --context stripeWebhookSecret=dummy-stripe-webhook-secret-for-verification
 
       - name: Validate generated CloudFormation templates
         run: |

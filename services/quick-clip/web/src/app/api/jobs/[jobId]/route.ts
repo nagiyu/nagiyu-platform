@@ -65,7 +65,10 @@ export async function GET(_request: Request, { params }: RouteParams): Promise<N
     );
     const batchJob = batchResult.jobs?.[0];
     const batchStatus = batchJob?.status ?? 'FAILED';
-    const status = mapBatchStatus(batchStatus);
+    // Batch が成功で終えても、ジョブにエラーが記録されていれば失敗として見せる。
+    // 動画の長さの上限超過のように、障害ではなく利用者側の理由で止めたジョブがこれにあたる
+    const status =
+      job.errorMessage && batchStatus === 'SUCCEEDED' ? 'FAILED' : mapBatchStatus(batchStatus);
 
     return NextResponse.json({
       jobId: job.jobId,

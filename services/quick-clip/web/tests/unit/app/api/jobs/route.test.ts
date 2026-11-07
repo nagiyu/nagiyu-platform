@@ -2,21 +2,48 @@
  * @jest-environment node
  */
 
-import { reportErrorEvent } from '@nagiyu/aws';
+import {
+  createErrorEventWriter,
+  reportErrorEvent,
+  resetErrorEventWriter,
+  type InMemoryErrorEventWriter,
+} from '@nagiyu/aws';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import type { JobRepository } from '@nagiyu/quick-clip-core';
-import { createJobRepository } from '@nagiyu/quick-clip-core';
+import {
+  buildAnonymousSubject,
+  createJobRepository,
+  createUsageRepository,
+  USAGE_LIMITS,
+  resetInMemoryRepositories,
+} from '@nagiyu/quick-clip-core';
+import { createUsageService } from '@/lib/server/usage-context';
 import { getBatchClient, getS3Client } from '@/lib/server/aws';
 import { POST } from '@/app/api/jobs/route';
 
+const mockGetSession = jest.fn();
+jest.mock('@/lib/auth', () => ({
+  getSession: () => mockGetSession(),
+}));
+
 jest.mock('next/server', () => ({
   NextResponse: {
-    json: (body: unknown, init?: { status?: number }) => ({
+    json: (body: unknown, init?: { status?: number; headers?: Record<string, string> }) => ({
       status: init?.status ?? 200,
+      headers: new Headers(init?.headers),
       json: async () => body,
     }),
   },
 }));
+
+const FREE_SESSION = {
+  user: { id: 'user-1', email: 'a@example.com', name: 'A', roles: [] },
+  expires: '2999-01-01T00:00:00.000Z',
+};
+const STANDARD_SESSION = {
+  user: { ...FREE_SESSION.user, roles: ['quick-clip-standard'] },
+  expires: '2999-01-01T00:00:00.000Z',
+};
+const ANON_ID = '11111111-1111-4111-8111-111111111111';
 
 jest.mock('@nagiyu/aws', () => ({
   ...jest.requireActual('@nagiyu/aws'),
@@ -37,14 +64,6 @@ jest.mock('@/lib/server/aws', () => ({
 
 jest.mock('@nagiyu/quick-clip-core', () => ({
   ...jest.requireActual('@nagiyu/quick-clip-core'),
-  createJobRepository: jest.fn().mockImplementation(
-    () =>
-      ({
-        create: jest.fn(async (job) => job),
-        getById: jest.fn(),
-        updateBatchJobId: jest.fn(),
-      }) as unknown as JobRepository
-  ),
 }));
 
 describe('POST /api/jobs', () => {
@@ -57,6 +76,11 @@ describe('POST /api/jobs', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    process.env.USE_IN_MEMORY_DB = 'true';
+    process.env.ERROR_EVENTS_TABLE_NAME = 'test-error-events';
+    resetErrorEventWriter();
+    resetInMemoryRepositories();
+    mockGetSession.mockResolvedValue(FREE_SESSION);
     consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
     mockedGetSignedUrl.mockResolvedValue('https://example.com/upload');
     mockedGetBatchClient.mockReturnValue({
@@ -69,12 +93,18 @@ describe('POST /api/jobs', () => {
 
   afterEach(() => {
     consoleErrorSpy.mockRestore();
+    delete process.env.USE_IN_MEMORY_DB;
+    delete process.env.ERROR_EVENTS_TABLE_NAME;
+    resetErrorEventWriter();
   });
 
-  const createRequest = (body: unknown): Request =>
+  const createRequest = (body: unknown, headers: Record<string, string> = {}): Request =>
     ({
       json: async () => body,
+      headers: new Headers(headers),
     }) as Request;
+
+  const validBody = { fileName: 'movie.mp4', fileSize: 1024, contentType: 'video/mp4' };
 
   it('正常系: ジョブ作成・Presigned URL生成・Batch投入を行う', async () => {
     const request = createRequest({
@@ -339,6 +369,7 @@ describe('POST /api/jobs', () => {
       'BATCH_COMMAND',
       'JOB_ID',
       'EMOTION_FILTER',
+      'AI_ANALYSIS',
     ]);
   });
 
@@ -483,11 +514,299 @@ describe('POST /api/jobs', () => {
         error: 'INVALID_REQUEST',
         message: 'リクエストが不正です',
       });
-      expect(createJobRepository).not.toHaveBeenCalled();
+      expect(mockGetSession).not.toHaveBeenCalled();
       expect(mockedGetSignedUrl).not.toHaveBeenCalled();
       expect(s3Send).not.toHaveBeenCalled();
       expect(batchSend).not.toHaveBeenCalled();
       expect(consoleErrorSpy).not.toHaveBeenCalled();
+    });
+  });
+  describe('利用回数の制限', () => {
+    const getEnvironment = (): { name: string; value: string }[] =>
+      (batchSend.mock.calls[0][0] as { input: { containerOverrides: { environment: never[] } } })
+        .input.containerOverrides.environment;
+
+    const getReportedTitles = (): string[] =>
+      (createErrorEventWriter() as InMemoryErrorEventWriter).getRecords().map((r) => r.title);
+
+    it('ログイン済みで AI 解析の指定を省略すると AI ありで受け、Batch に伝える', async () => {
+      const response = await POST(createRequest(validBody));
+
+      expect(response.status).toBe(201);
+      expect(getEnvironment()).toContainEqual({ name: 'AI_ANALYSIS', value: 'true' });
+    });
+
+    it('aiAnalysis: false を渡すと AI なしで受け、Batch に伝える', async () => {
+      const response = await POST(createRequest({ ...validBody, aiAnalysis: false }));
+
+      expect(response.status).toBe(201);
+      expect(getEnvironment()).toContainEqual({ name: 'AI_ANALYSIS', value: 'false' });
+    });
+
+    it('AI ありの残りが 0 なら、省略時は AI なしで受ける', async () => {
+      await POST(createRequest(validBody));
+      batchSend.mockClear();
+
+      const response = await POST(createRequest(validBody));
+
+      expect(response.status).toBe(201);
+      expect(getEnvironment()).toContainEqual({ name: 'AI_ANALYSIS', value: 'false' });
+    });
+
+    it('AI ありを明示して残りが 0 なら 429 と AI の上限のコードを返す', async () => {
+      await POST(createRequest(validBody));
+
+      const response = await POST(createRequest({ ...validBody, aiAnalysis: true }));
+
+      expect(response.status).toBe(429);
+      expect(await response.json()).toEqual({
+        error: 'AI_LIMIT_EXCEEDED',
+        message: '今月の AI 解析ありの利用回数の上限に達しました',
+      });
+    });
+
+    it('AI なしの上限に達したら 429 と AI なしの上限のコードを返す', async () => {
+      for (let i = 0; i < USAGE_LIMITS.free.noAiPerMonth; i += 1) {
+        await POST(createRequest({ ...validBody, aiAnalysis: false }));
+      }
+
+      const response = await POST(createRequest({ ...validBody, aiAnalysis: false }));
+
+      expect(response.status).toBe(429);
+      expect((await response.json()).error).toBe('NO_AI_LIMIT_EXCEEDED');
+    });
+
+    it('申告された長さが段の上限を超えていれば 400 と長さの上限のコードを返し、ジョブを作らない', async () => {
+      const response = await POST(
+        createRequest({ ...validBody, durationSec: USAGE_LIMITS.free.maxDurationSec + 1 })
+      );
+
+      expect(response.status).toBe(400);
+      expect((await response.json()).error).toBe('DURATION_LIMIT_EXCEEDED');
+      expect(batchSend).not.toHaveBeenCalled();
+    });
+
+    it('有料の段は長い動画を受ける', async () => {
+      mockGetSession.mockResolvedValue(STANDARD_SESSION);
+
+      const response = await POST(
+        createRequest({ ...validBody, durationSec: USAGE_LIMITS.free.maxDurationSec + 1 })
+      );
+
+      expect(response.status).toBe(201);
+    });
+
+    it('数えた記録と長さの上限をジョブに残す', async () => {
+      const create = jest.spyOn(createJobRepository(), 'create');
+
+      await POST(createRequest({ ...validBody, aiAnalysis: false }));
+
+      expect(create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          usage: {
+            subject: 'USER#user-1',
+            month: expect.stringMatching(/^\d{6}$/),
+            kind: 'noAi',
+            noAiLimit: USAGE_LIMITS.free.noAiPerMonth,
+          },
+          maxDurationSec: USAGE_LIMITS.free.maxDurationSec,
+          aiAnalysis: false,
+        })
+      );
+    });
+
+    it('不正な aiAnalysis は 400 を返す', async () => {
+      const response = await POST(createRequest({ ...validBody, aiAnalysis: 'yes' }));
+
+      expect(response.status).toBe(400);
+    });
+
+    describe('未ログイン', () => {
+      beforeEach(() => {
+        mockGetSession.mockResolvedValue(null);
+      });
+
+      it('Cookie が無ければ匿名 ID を発行し、host-only の HttpOnly Cookie で渡す', async () => {
+        const response = await POST(createRequest(validBody));
+
+        expect(response.status).toBe(201);
+        const cookie = response.headers.get('set-cookie') ?? '';
+        expect(cookie).toMatch(/^qc_anon_id=[0-9a-f-]{36};/);
+        expect(cookie).toContain('HttpOnly');
+        expect(cookie).toContain('SameSite=Lax');
+        expect(cookie).toContain('Max-Age=31536000');
+        expect(cookie).toContain('Path=/');
+        expect(cookie).not.toContain('Domain');
+      });
+
+      it('本番では Secure を付ける。ローカル開発 (http) では付けない', async () => {
+        const env = process.env as Record<string, string | undefined>;
+        const original = env.NODE_ENV;
+        try {
+          env.NODE_ENV = 'production';
+          expect((await POST(createRequest(validBody))).headers.get('set-cookie')).toContain(
+            'Secure'
+          );
+          env.NODE_ENV = 'development';
+          expect((await POST(createRequest(validBody))).headers.get('set-cookie')).not.toContain(
+            'Secure'
+          );
+        } finally {
+          env.NODE_ENV = original;
+        }
+      });
+
+      it('有効な Cookie があれば再発行せず、その ID ごとに数える', async () => {
+        const headers = { cookie: `other=1; qc_anon_id=${ANON_ID}` };
+        for (let i = 0; i < 3; i += 1) {
+          const response = await POST(createRequest(validBody, headers));
+          expect(response.status).toBe(201);
+          expect(response.headers.get('set-cookie')).toBeNull();
+        }
+
+        const response = await POST(createRequest(validBody, headers));
+
+        expect(response.status).toBe(429);
+        expect((await response.json()).error).toBe('NO_AI_LIMIT_EXCEEDED');
+        const usage = await createUsageService().getUsage(
+          buildAnonymousSubject(ANON_ID),
+          'anonymous'
+        );
+        expect(usage.used).toEqual({ ai: 0, noAi: 3 });
+      });
+
+      it('形式の違う Cookie は無効として新しく発行する', async () => {
+        const response = await POST(createRequest(validBody, { cookie: 'qc_anon_id=abc' }));
+
+        expect(response.headers.get('set-cookie')).toMatch(/^qc_anon_id=[0-9a-f-]{36};/);
+      });
+
+      it('AI 解析は使えないため、省略時は AI なしで受ける', async () => {
+        await POST(createRequest(validBody));
+
+        expect(getEnvironment()).toContainEqual({ name: 'AI_ANALYSIS', value: 'false' });
+      });
+
+      it('429 のレスポンスでも新しい匿名 ID を渡す', async () => {
+        const response = await POST(createRequest({ ...validBody, aiAnalysis: true }));
+
+        expect(response.status).toBe(429);
+        expect(response.headers.get('set-cookie')).toContain('qc_anon_id=');
+      });
+
+      it('同じ IP の 1 日の上限を超えると 429 と IP の上限のコードを返す', async () => {
+        const headers = { 'x-nagiyu-viewer-ip': '203.0.113.7' };
+        for (let i = 0; i < 20; i += 1) {
+          // Cookie なしで申し込むたびに別の匿名 ID になる
+          const response = await POST(createRequest(validBody, headers));
+          expect(response.status).toBe(201);
+        }
+
+        const response = await POST(createRequest(validBody, headers));
+
+        expect(response.status).toBe(429);
+        expect((await response.json()).error).toBe('IP_LIMIT_EXCEEDED');
+      });
+    });
+
+    describe('数えられないとき', () => {
+      const breakUsageRepository = (): void => {
+        const repository = createUsageRepository();
+        jest.spyOn(repository, 'tryConsume').mockRejectedValue(new Error('dynamodb down'));
+      };
+
+      it('エラーを報告して通す (フェイルオープン)', async () => {
+        breakUsageRepository();
+
+        const response = await POST(createRequest(validBody));
+
+        expect(response.status).toBe(201);
+        expect(getReportedTitles()).toEqual(['Web API: 利用回数の確認エラー (バイパス)']);
+      });
+
+      it('通した場合は、AI ありの申し込みも AI なしとして処理する', async () => {
+        breakUsageRepository();
+
+        await POST(createRequest({ ...validBody, aiAnalysis: true }));
+
+        expect(getEnvironment()).toContainEqual({ name: 'AI_ANALYSIS', value: 'false' });
+      });
+
+      it('通した場合、ジョブに回数の記録は残らない', async () => {
+        breakUsageRepository();
+        const create = jest.spyOn(createJobRepository(), 'create');
+
+        await POST(createRequest(validBody));
+
+        expect(create.mock.calls[0][0]).not.toHaveProperty('usage');
+        expect(create.mock.calls[0][0]).toMatchObject({ aiAnalysis: false });
+      });
+    });
+
+    describe('こちら側の理由でジョブを作れなかったとき', () => {
+      it('数えた 1 回を戻す', async () => {
+        batchSend.mockRejectedValueOnce(new Error('submit failed'));
+
+        const response = await POST(createRequest({ ...validBody, aiAnalysis: true }));
+
+        expect(response.status).toBe(500);
+        const second = await POST(createRequest({ ...validBody, aiAnalysis: true }));
+        expect(second.status).toBe(201);
+      });
+
+      it('レスポンスとして 500 を返す場合 (マルチパート ID が無い) も戻す', async () => {
+        s3Send.mockResolvedValueOnce({});
+        const big = { ...validBody, fileSize: 100 * 1024 * 1024, aiAnalysis: true };
+
+        expect((await POST(createRequest(big))).status).toBe(500);
+
+        expect((await POST(createRequest({ ...validBody, aiAnalysis: true }))).status).toBe(201);
+      });
+
+      it('ジョブを作れなかったときは、ジョブの印を介さずに戻す', async () => {
+        jest.spyOn(createJobRepository(), 'create').mockRejectedValueOnce(new Error('db down'));
+
+        const response = await POST(createRequest({ ...validBody, aiAnalysis: true }));
+
+        expect(response.status).toBe(500);
+        expect((await POST(createRequest({ ...validBody, aiAnalysis: true }))).status).toBe(201);
+      });
+
+      it('ジョブができた後の戻しは印を付け、Batch 側の戻しと重なっても二重に戻らない', async () => {
+        batchSend.mockRejectedValueOnce(new Error('submit failed'));
+        const create = jest.spyOn(createJobRepository(), 'create');
+
+        await POST(createRequest({ ...validBody, aiAnalysis: true }));
+
+        const job = await create.mock.results[0].value;
+        const stored = await createJobRepository().getById(job.jobId);
+        expect(stored?.usageReleased).toBe(true);
+        const usageService = createUsageService();
+        expect(await usageService.releaseForJob(job, createJobRepository())).toBe(false);
+        const usage = await usageService.getUsage('USER#user-1', 'free');
+        expect(usage.used).toEqual({ ai: 0, noAi: 0 });
+      });
+
+      it('例外で 500 を返すときも、新しく発行した匿名 ID の Cookie を付ける', async () => {
+        mockGetSession.mockResolvedValue(null);
+        batchSend.mockRejectedValueOnce(new Error('submit failed'));
+
+        const response = await POST(createRequest(validBody));
+
+        expect(response.status).toBe(500);
+        expect(response.headers.get('set-cookie')).toMatch(/^qc_anon_id=[0-9a-f-]{36};/);
+      });
+
+      it('戻せなくても元のエラーを返し、戻せなかったことを報告する', async () => {
+        const repository = createUsageRepository();
+        jest.spyOn(repository, 'release').mockRejectedValue(new Error('release failed'));
+        batchSend.mockRejectedValueOnce(new Error('submit failed'));
+
+        const response = await POST(createRequest(validBody));
+
+        expect(response.status).toBe(500);
+        expect(getReportedTitles()).toContain('Web API: 利用回数を戻せませんでした');
+      });
     });
   });
 });

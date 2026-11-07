@@ -53,6 +53,25 @@ describe('InMemoryJobRepository', () => {
     expect(await repository.getById('job-1')).toEqual(created);
   });
 
+  it('markUsageReleased は最初の 1 回だけ印を付けられる', async () => {
+    await repository.create(buildJob());
+
+    expect(await repository.markUsageReleased('job-1')).toBe(true);
+    expect(await repository.markUsageReleased('job-1')).toBe(false);
+    expect((await repository.getById('job-1'))?.usageReleased).toBe(true);
+  });
+
+  it('markUsageSwitched は最初の 1 回だけ印を付けられ、updateUsage で記録を書き換えられる', async () => {
+    await repository.create(buildJob());
+
+    expect(await repository.markUsageSwitched('job-1')).toBe(true);
+    expect(await repository.markUsageSwitched('job-1')).toBe(false);
+
+    const usage = { subject: 'USER#u1', month: '202611', kind: 'noAi', noAiLimit: 10 } as const;
+    await repository.updateUsage('job-1', usage);
+    expect((await repository.getById('job-1'))?.usage).toEqual(usage);
+  });
+
   it('存在しないジョブは null を返す', async () => {
     expect(await repository.getById('missing')).toBeNull();
   });

@@ -54,3 +54,31 @@ export function buildSignOutUrl(authUrl: string, callbackUrl?: string): string {
 export function buildRefreshUrl(authUrl: string, callbackUrl?: string): string {
   return buildAuthUrl(authUrl, '/refresh', callbackUrl);
 }
+
+/**
+ * auth サービスのサインイン URL を生成する。
+ *
+ * ログインが任意のサービスが、未ログインの利用者を auth サービスのサインイン画面へ
+ * 誘導するために使う。サインイン後は callbackUrl に指定した URL へ戻る。
+ *
+ * @param authUrl - auth サービスのベース URL（例: "https://auth.nagiyu.com"）
+ * @param callbackUrl - サインイン後のリダイレクト先 URL（省略時は付与しない）
+ * @returns auth サービスの signin ページ URL
+ */
+export function buildSignInUrl(authUrl: string, callbackUrl?: string): string {
+  return buildAuthUrl(authUrl, '/signin', callbackUrl);
+}
+
+/**
+ * auth サービスのプラン画面 URL を生成する。
+ *
+ * 有料プランへの案内が必要なサービスが、利用者をプラン画面へ誘導するために使う。
+ * 購入や変更の後は callbackUrl に指定した URL へ戻れる。
+ *
+ * @param authUrl - auth サービスのベース URL（例: "https://auth.nagiyu.com"）
+ * @param callbackUrl - プラン画面から戻る先の URL（省略時は付与しない）
+ * @returns auth サービスのプラン画面 URL
+ */
+export function buildPlansUrl(authUrl: string, callbackUrl?: string): string {
+  return buildAuthUrl(authUrl, '/plans', callbackUrl);
+}

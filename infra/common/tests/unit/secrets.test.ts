@@ -15,6 +15,8 @@ describe('SECRET_NAMES', () => {
     expect(SECRET_NAMES.AUTH_GOOGLE_OAUTH('prod')).toBe('nagiyu-auth-google-oauth-prod');
     expect(SECRET_NAMES.AUTH_NEXTAUTH('dev')).toBe('nagiyu-auth-nextauth-secret-dev');
     expect(SECRET_NAMES.AUTH_NEXTAUTH('prod')).toBe('nagiyu-auth-nextauth-secret-prod');
+    expect(SECRET_NAMES.AUTH_STRIPE('dev')).toBe('nagiyu-auth-stripe-dev');
+    expect(SECRET_NAMES.AUTH_STRIPE('prod')).toBe('nagiyu-auth-stripe-prod');
   });
 
   it('LiveTalk の VAPID シークレット名を生成する', () => {

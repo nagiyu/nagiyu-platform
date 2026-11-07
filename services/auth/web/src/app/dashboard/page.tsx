@@ -53,6 +53,19 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
 
+        <Card sx={{ mt: 3 }}>
+          <CardContent>
+            <Typography variant="h6" gutterBottom>
+              プラン
+            </Typography>
+            <Box sx={{ mt: 2 }}>
+              <Button asChild variant="outline">
+                <Link href="/plans">プランを見る</Link>
+              </Button>
+            </Box>
+          </CardContent>
+        </Card>
+
         {hasPermission(session.user.roles, 'users:read') && (
           <Card sx={{ mt: 3 }}>
             <CardContent>

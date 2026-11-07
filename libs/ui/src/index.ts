@@ -27,7 +27,8 @@ export type { PrivacyPolicyDialogProps } from './components/dialogs/PrivacyPolic
 export { default as TermsOfServiceDialog } from './components/dialogs/TermsOfServiceDialog';
 export type { TermsOfServiceDialogProps } from './components/dialogs/TermsOfServiceDialog';
 export { default as LegalSections } from './components/legal';
-export type { LegalSectionsProps } from './components/legal';
+export type { LegalSectionsProps, CommercialTransactionsTableProps } from './components/legal';
+export { CommercialTransactionsTable } from './components/legal';
 export { default as ConfirmDialog } from './components/dialogs/ConfirmDialog';
 export type { ConfirmDialogProps } from './components/dialogs/ConfirmDialog';
 export { default as AppThemeProvider } from './components/providers/AppThemeProvider';
@@ -42,10 +43,16 @@ export type { LoadingStateProps } from './components/loading/LoadingState';
 // Export data
 export { privacyPolicySections } from './data/privacyPolicyData';
 export { termSections } from './data/termsOfServiceData';
-export type { LegalSection, LegalContent, LegalSubContent } from './types/legal';
+export { commercialTransactionItems } from './data/commercialTransactionsData';
+export type {
+  LegalSection,
+  LegalContent,
+  LegalSubContent,
+  CommercialTransactionItem,
+} from './types/legal';
 
 // Export utils
-export { buildSignOutUrl, buildRefreshUrl } from './utils/auth';
+export { buildSignOutUrl, buildRefreshUrl, buildSignInUrl, buildPlansUrl } from './utils/auth';
 
 // Export feedback components
 export { default as AccessDeniedView } from './components/feedback/AccessDeniedView';

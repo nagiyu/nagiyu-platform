@@ -1,6 +1,6 @@
 import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { DynamoDBEntityStore, type EntityStore } from '@nagiyu/aws';
-import type { AnalysisProgress, BatchStage, Job, JobKey } from '../types.js';
+import type { AnalysisProgress, BatchStage, Job, JobKey, UsageRecord } from '../types.js';
 import type { JobRepository } from './job.repository.interface.js';
 import { JobMapper } from '../mappers/job.mapper.js';
 
@@ -38,5 +38,23 @@ export class DynamoDBJobRepository implements JobRepository {
 
   public async updateAnalysisProgress(jobId: string, progress: AnalysisProgress): Promise<void> {
     await this.entityStore.update({ jobId }, { analysisProgress: progress });
+  }
+
+  public async markUsageReleased(jobId: string): Promise<boolean> {
+    const result = await this.entityStore.updateIfAttributeAbsent({ jobId }, 'UsageReleased', {
+      usageReleased: true,
+    });
+    return result.updated;
+  }
+
+  public async markUsageSwitched(jobId: string): Promise<boolean> {
+    const result = await this.entityStore.updateIfAttributeAbsent({ jobId }, 'UsageSwitched', {
+      usageSwitched: true,
+    });
+    return result.updated;
+  }
+
+  public async updateUsage(jobId: string, usage: UsageRecord): Promise<void> {
+    await this.entityStore.update({ jobId }, { usage });
   }
 }

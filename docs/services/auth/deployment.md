@@ -20,7 +20,7 @@
 - **Lambda Function**: Next.js SSR 実行環境 (コンテナ)
 - **ECR Repository**: Docker イメージ保存
 - **DynamoDB Table**: ユーザー情報管理
-- **Secrets Manager**: Google OAuth 認証情報、NEXTAUTH_SECRET
+- **Secrets Manager**: Google OAuth 認証情報、NEXTAUTH_SECRET、Stripe の鍵
 - **CloudFront Distribution**: コンテンツ配信、カスタムドメイン
 - **Lambda Function URL**: CloudFront のオリジン
 
@@ -215,6 +215,21 @@ curl https://auth.dev.nagiyu.com/api/health
 # }
 ```
 
+### 3.8 Stripe の鍵の登録
+
+Stripe の鍵は、秘密情報 `nagiyu-auth-stripe-{env}` に、秘密鍵 (`secretKey`) と通知の署名鍵 (`webhookSecret`) の 2 つを入れる。秘密情報は Auth のデプロイが専用のスタックとして作り、初期値は仮の値 (`PLACEHOLDER_` で始まる値) になっている。値は人が Stripe の管理画面で発行して書き換える。dev ではサンドボックスの鍵を使う。
+
+```bash
+aws secretsmanager put-secret-value \
+    --secret-id nagiyu-auth-stripe-dev \
+    --secret-string '{"secretKey":"YOUR_SECRET_KEY","webhookSecret":"YOUR_WEBHOOK_SECRET"}' \
+    --region us-east-1
+```
+
+- **値を変えたら Auth を再デプロイする**: 鍵はデプロイ時に秘密情報から読まれ、Lambda の環境変数として渡る。秘密情報を書き換えただけでは、動いている Auth に届かない
+- **鍵が未設定の間は課金が無効**: 2 つの鍵のどちらかが空か仮の値のままなら、課金は無効として動く。プランの画面は価格と操作の代わりに「準備中です」と表示し、申し込み・契約の管理・通知の受け口の API は、課金が有効になっていない旨を返す。特定商取引法に基づく表記は、この間も表示される
+- 本番は、本番の Stripe を有効化するまでこの状態で動く (→ [8.5 課金 (Stripe) の運用](#85-課金-stripe-の運用))
+
 ---
 
 ## 4. CI/CD パイプライン
@@ -355,6 +370,8 @@ aws lambda update-function-code \
 | `GOOGLE_CLIENT_ID`       | Google OAuth クライアント ID               | `123456789.apps.googleusercontent.com`  | ✅   |
 | `GOOGLE_CLIENT_SECRET`   | Google OAuth クライアントシークレット      | (Secrets Manager から取得)              | ✅   |
 | `DYNAMODB_TABLE_NAME`    | DynamoDB テーブル名                        | `nagiyu-auth-users-dev`                 | ✅   |
+| `STRIPE_SECRET_KEY`      | Stripe の秘密鍵 (Secrets Manager から取得) | (Stripe の管理画面で発行)               | -    |
+| `STRIPE_WEBHOOK_SECRET`  | Stripe の通知の署名鍵 (Secrets Manager から取得) | (Stripe の管理画面で発行)         | -    |
 | `NODE_ENV`               | 実行環境                                   | `production`                            | ✅   |
 
 ### 6.2 環境変数の設定方法
@@ -517,6 +534,46 @@ npm audit fix --force
    - Secrets Manager で更新
    - Lambda 関数を再起動
    - **注意**: すべての既存セッションが無効化されます
+
+### 8.5 課金 (Stripe) の運用
+
+#### 本番の Stripe を有効化する
+
+Stripe の事業者の情報 (公開用の事業者名・サポートの連絡先) は、本番環境を有効化してからでないと設定できない。サンドボックスとは別に、本番の環境で次を用意する。
+
+1. **商品と価格**: 段ごとに商品を作り、それぞれに 1 か月ごとの価格を付ける。価格の lookup_key は、有料ロールの ID (`livetalk-standard`、`quick-clip-pro` など) にする。どの有料ロールが付くかも、プランの画面の価格の取得も、この lookup_key で決まる。有料ロールの ID でない lookup_key は無視される。商品の説明は段の説明としてプランの画面に表示される (空なら出ない)。機能 (Entitlements) は使わないので作らない。金額は、サンドボックスで決めた価格と同じにする。価格はコードにも docs にも持たず、サンドボックスの価格が決定の置き場所になっているため、サンドボックスの各価格を見て同じ金額で作る
+2. **Customer Portal**: 解約・支払い方法の変更・請求の履歴に加え、プランの切り替えを利用者に開く。切り替えの対象に、段の商品と価格を入れる (Auth が上げを送る確認画面は、ここに入っている価格にしか切り替えられない)。比例配分はオンにして即時に請求する。下げは Auth が予約するので、Portal のダウングレードの設定には依らない。解約は期間の終わりに効かせる。プランの画面と特定商取引法に基づく表記で、解約しても期間の終わりまで使えると案内しているため
+3. **通知の受け口**: `https://auth.nagiyu.com/api/billing/webhook` を登録する。通知の種類は、サンドボックスの受け口と同じものを選ぶ (Auth が作る下げの予約に関わる subscription_schedule のイベントを含む)。受け口は、顧客 ID を含む通知を、その顧客の契約を取り直す合図として扱う
+4. **鍵**: 本番の秘密鍵と、受け口の署名鍵を `nagiyu-auth-stripe-prod` に入れ、Auth を再デプロイする (→ [3.8 Stripe の鍵の登録](#38-stripe-の鍵の登録))
+5. **表記の URL**: 特定商取引法に基づく表記のページ (`https://auth.nagiyu.com/legal/tokushoho`) の URL を Stripe に登録する。本番の審査で確かめられる
+
+本番の審査では、料金が本番のサイトに出ている必要がある。価格はコードに持たないので、本番の価格はそれまでに Stripe 上で決めればよい。
+
+#### 契約中のユーザーを削除するとき
+
+先に Stripe で契約を解約してから、ユーザーを削除する。ユーザーの削除は Stripe の契約に触れないため、そのままだと請求が続く。
+
+#### Stripe で顧客を削除したとき
+
+管理画面のユーザー編集から、Stripe の顧客との対応を外す。外さないと、Auth に削除済みの顧客 ID が残り、その利用者の申し込みと契約の管理が失敗し続ける。外すと、Stripe 由来の有効な課金の権利も一緒に取り消される。
+
+#### 下げの予約が残っているとき
+
+段を下げると、下げが効いた後も 1 請求期間、契約に予約 (Subscription Schedule) が付いたまま残る (→ [アーキテクチャ](./architecture.md) の ADR-013)。その間に利用者が上げや解約をできずに困ったら、Stripe の管理画面で、その契約の予約を解除 (release) する。契約の中身は変わらない。望まない次の期間分が請求されていたら、返金する (→ 返金するとき)。
+
+その間に上げや解約が実際に断られるかは確かめていない。確かめるときは、サンドボックスのテストクロック (管理画面の「シミュレーション」) で顧客と上の段の契約を作り、期間の終わりに下の段へ切り替わる更新をスケジュールしてから、切り替わった後まで時間を進める。契約の `schedule` に予約が残っている状態で、Customer Portal や管理画面から上げ・解約ができるかを見る。
+
+#### 価格を変えるとき
+
+Stripe の価格は、一度使われると金額を変えられない。金額を変えるときは、同じ商品に新しい価格を作り、lookup_key を古い価格から新しい価格へ移す (API なら、価格を作るときに `transfer_lookup_key` を指定すると移せる)。古い価格はアーカイブしてよい。
+
+- プランの画面と申し込みは、lookup_key で価格を引くので、移した時点から新しい金額になる。コードの変更も Auth の再デプロイも要らない
+- すでに古い価格で契約している利用者は、古い価格のまま更新され続ける。移すかどうかは別に判断し、移すなら Stripe 側で契約の価格を切り替える
+- 金額を変えたら、プランの画面と特定商取引法に基づく表記の案内 (表記は金額を持たず、プランの画面へ案内している) に食い違いが無いかを確かめる
+
+#### 返金するとき
+
+Stripe の管理画面から手で返金する。Auth には返金の仕組みを持たない。
 
 ---
 

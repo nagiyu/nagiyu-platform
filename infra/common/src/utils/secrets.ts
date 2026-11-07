@@ -30,6 +30,9 @@ export const SECRET_NAMES = {
    */
   AUTH_NEXTAUTH: (env: Environment) => `nagiyu-auth-nextauth-secret-${env}`,
 
+  /** Stripe の鍵（`{"secretKey":"...","webhookSecret":"..."}` の JSON） */
+  AUTH_STRIPE: (env: Environment) => `nagiyu-auth-stripe-${env}`,
+
   /** LiveTalk の Web Push 用 VAPID 鍵ペア（`{"publicKey":"...","privateKey":"..."}` の JSON） */
   LIVETALK_VAPID: (env: Environment) => `nagiyu-livetalk-vapid-${env}`,
 

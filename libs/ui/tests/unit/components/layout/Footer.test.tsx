@@ -48,6 +48,13 @@ describe('Footer', () => {
       expect(termsLink.tagName).toBe('BUTTON');
     });
 
+    it('ボタンのリンクが同じ行の文字と下端で揃う', () => {
+      render(<Footer />);
+
+      expect(screen.getByText('プライバシーポリシー')).toHaveStyle({ verticalAlign: 'baseline' });
+      expect(screen.getByText('利用規約')).toHaveStyle({ verticalAlign: 'baseline' });
+    });
+
     it('プライバシーポリシーリンククリックでダイアログが開く', async () => {
       const user = userEvent.setup();
       render(<Footer />);
@@ -446,5 +453,21 @@ describe('Footer', () => {
         expect(screen.getByText(name)).toHaveStyle({ whiteSpace: 'nowrap' });
       }
     });
+  });
+});
+
+describe('Footer 特定商取引法に基づく表記リンク', () => {
+  it('commercialTransactionsHref 指定時にページ遷移のリンクを表示する', () => {
+    render(<Footer commercialTransactionsHref="/legal/tokushoho" />);
+
+    const link = screen.getByRole('link', { name: '特定商取引法に基づく表記' });
+    expect(link).toHaveAttribute('href', '/legal/tokushoho');
+    expect(link).toHaveStyle({ whiteSpace: 'nowrap' });
+  });
+
+  it('未指定時は表示しない', () => {
+    render(<Footer />);
+
+    expect(screen.queryByText('特定商取引法に基づく表記')).not.toBeInTheDocument();
   });
 });

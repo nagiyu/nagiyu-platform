@@ -29,7 +29,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               // auth 自身がサインアウトの提供元なので、同一オリジンの相対 URL になるよう空文字を渡す
               <SessionHeader title="Auth" ariaLabel="Auth ホームページに戻る" authUrl="" />
             }
-            footerProps={{ version }}
+            footerProps={{ version, commercialTransactionsHref: '/legal/tokushoho' }}
           >
             {children}
           </ServiceLayout>

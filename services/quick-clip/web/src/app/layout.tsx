@@ -1,7 +1,18 @@
 import type { Metadata, Viewport } from 'next';
 import { ServiceLayout } from '@nagiyu/ui';
+import { SessionHeader, SessionProviderWrapper } from '@nagiyu/ui/session-provider';
+import { AuthUrlProvider } from '@/components/AuthUrlProvider';
+import { quickClipPrivacySections } from '@/lib/privacy-policy';
 import '@nagiyu/ui/tokens.css';
 import '@nagiyu/ui/base.css';
+
+/**
+ * layout 全体を動的レンダリングに強制する。
+ *
+ * NEXT_PUBLIC_AUTH_URL は Docker ビルド時には渡されないため、静的にプリレンダすると
+ * ビルド時の空文字が HTML に固定され、ログイン・サインアウト先が壊れる。
+ */
+export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: 'さくっとクリップ',
@@ -21,19 +32,32 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   const version = process.env.APP_VERSION || '0.1.0';
+  // client component 内で参照するとビルド時にインライン化されて空文字になるため、
+  // サーバーのランタイム env から解決して prop として渡す。
+  const authUrl = process.env.NEXT_PUBLIC_AUTH_URL ?? '';
 
   return (
     <html lang="ja">
       <body>
-        <ServiceLayout
-          headerProps={{
-            title: 'さくっとクリップ',
-            ariaLabel: 'さくっとクリップ ホームページに戻る',
-          }}
-          footerProps={{ version }}
-        >
-          {children}
-        </ServiceLayout>
+        <SessionProviderWrapper>
+          <ServiceLayout
+            headerSlot={
+              <SessionHeader
+                title="さくっとクリップ"
+                ariaLabel="さくっとクリップ ホームページに戻る"
+                authUrl={authUrl}
+                showSignIn
+              />
+            }
+            footerProps={{
+              version,
+              commercialTransactionsHref: '/legal/tokushoho',
+              privacyContent: quickClipPrivacySections,
+            }}
+          >
+            <AuthUrlProvider authUrl={authUrl}>{children}</AuthUrlProvider>
+          </ServiceLayout>
+        </SessionProviderWrapper>
       </body>
     </html>
   );
