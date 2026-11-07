@@ -12,6 +12,7 @@ import {
   createWebRawRepository,
   createStudyTopicRepository,
   createLifecycleRepository,
+  createMessageRepository,
   createProfileRepository,
   OpenAIResearchClient,
   OpenAIClient,
@@ -33,6 +34,7 @@ export const handler = createScheduledHandler<ScheduledEvent, HandlerResponse>(
     const webRawRepo = createWebRawRepository(docClient, tableName);
     const studyTopicRepo = createStudyTopicRepository(docClient, tableName);
     const lifecycleRepo = createLifecycleRepository(docClient, tableName);
+    const messageRepo = createMessageRepository(docClient, tableName);
     const profileRepo = createProfileRepository(docClient, tableName);
     const researchClient = new OpenAIResearchClient({ apiKey });
     const llmClient = new OpenAIClient({ apiKey });
@@ -41,6 +43,7 @@ export const handler = createScheduledHandler<ScheduledEvent, HandlerResponse>(
     const result = await acquireAllUsers({
       profileRepo,
       lifecycleRepo,
+      messageRepo,
       topicRepo,
       webRawRepo,
       studyTopicRepo,

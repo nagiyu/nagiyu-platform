@@ -72,6 +72,7 @@ describe('acquireAllUsers', () => {
   const makeParams = (overrides = {}) => ({
     profileRepo: makeProfileRepo(['u1', 'u2']) as never,
     lifecycleRepo: makeLifecycleRepo() as never,
+    messageRepo: {} as never,
     topicRepo: {} as never,
     webRawRepo: {} as never,
     studyTopicRepo: {} as never,
@@ -107,6 +108,20 @@ describe('acquireAllUsers', () => {
     expect(result.failedUsers).toBe(0);
     expect(result.webRawWritten).toBe(4);
     expect(result.webSearchCalls).toBe(8);
+  });
+
+  it('acquireForUser に messageRepo を渡す（勉強を止める判定の入力）', async () => {
+    mockAcquireForUser.mockResolvedValue({ outcome: 'skipped', skipReason: 'テスト' });
+    const messageRepo = { listSince: jest.fn() };
+
+    const { acquireAllUsers } = await import('../../../src/usecases/acquire.usecase.js');
+    await acquireAllUsers(makeParams({ messageRepo: messageRepo as never }));
+
+    expect(mockAcquireForUser).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(String),
+      expect.objectContaining({ messageRepo })
+    );
   });
 
   it('acquireForUser がスキップを返したキャラはユーザー単位の processed に加算しない', async () => {

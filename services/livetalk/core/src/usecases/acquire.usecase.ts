@@ -11,15 +11,19 @@ import {
 } from '../constants.js';
 import type { LifecycleEntity } from '../entities/lifecycle.entity.js';
 import type { WebFactEntity } from '../entities/web-fact.entity.js';
+import type { MessageRepository } from '../repositories/message.repository.interface.js';
 import type { TopicRepository } from '../repositories/topic.repository.interface.js';
 import type { WebRawRepository } from '../repositories/webraw.repository.interface.js';
 import type { StudyTopicRepository } from '../repositories/study-topic.repository.interface.js';
 import { resolveLifecycleState } from '../lifecycle/state-resolver.js';
+import { isStudyPaused, resolveLastUserMessageAt } from '../study/active-window.js';
 import type { IResearchClient } from '../research/types.js';
 import type { IWebFactChangeDetector } from '../research/web-fact-change-detector.js';
 import type { UlidFactory } from '../lib/ulid.js';
 
 export interface AcquireForUserParams {
+  /** 最後のユーザー発話の時刻を求め、勉強を止める判定に使う */
+  messageRepo: MessageRepository;
   topicRepo: TopicRepository;
   webRawRepo: WebRawRepository;
   studyTopicRepo: StudyTopicRepository;
@@ -167,6 +171,7 @@ export async function acquireForUser(
   params: AcquireForUserParams
 ): Promise<AcquireForUserResult> {
   const {
+    messageRepo,
     topicRepo,
     webRawRepo,
     studyTopicRepo,
@@ -186,6 +191,28 @@ export async function acquireForUser(
     return {
       outcome: 'skipped',
       skipReason: decision.reason,
+      requestsProcessed: 0,
+      staleRefreshed: 0,
+      staleChanged: 0,
+      staleFactsReviewed: 0,
+      selfStudied: 0,
+      webRawWritten: 0,
+      webSearchCalls: 0,
+    };
+  }
+
+  // 就寝判定の後に読む: 寝ているキャラはメッセージ履歴を読むまでもなく止まるため。
+  // 依頼・鮮度切れ・自発リサーチのすべてをここで止める。
+  const lastUserMessageAt = await resolveLastUserMessageAt(
+    messageRepo,
+    userId,
+    characterId,
+    nowDate
+  );
+  if (isStudyPaused(lastUserMessageAt, nowDate)) {
+    return {
+      outcome: 'skipped',
+      skipReason: 'ユーザーが話していない期間が長いため勉強を止めている',
       requestsProcessed: 0,
       staleRefreshed: 0,
       staleChanged: 0,
