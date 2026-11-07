@@ -50,6 +50,9 @@ import { InMemoryConsolidationCursorRepository } from './in-memory-consolidation
 import type { WebRawRepository } from './webraw.repository.interface.js';
 import { DynamoDBWebRawRepository } from './dynamodb-webraw.repository.js';
 import { InMemoryWebRawRepository } from './in-memory-webraw.repository.js';
+import type { StudyUsageRepository } from './study-usage.repository.interface.js';
+import { DynamoDBStudyUsageRepository } from './dynamodb-study-usage.repository.js';
+import { InMemoryStudyUsageRepository } from './in-memory-study-usage.repository.js';
 import type { SafetyEventRepository } from './safety-event.repository.interface.js';
 import { DynamoDBSafetyEventRepository } from './dynamodb-safety-event.repository.js';
 import { InMemorySafetyEventRepository } from './in-memory-safety-event.repository.js';
@@ -70,6 +73,7 @@ const repositoryRegistry = registerDynamoRepositories<
     consolidationCursor: ConsolidationCursorRepository;
     webRaw: WebRawRepository;
     safetyEvent: SafetyEventRepository;
+    studyUsage: StudyUsageRepository;
   },
   InMemorySingleTableStore
 >(
@@ -143,6 +147,11 @@ const repositoryRegistry = registerDynamoRepositories<
       createInMemoryRepository: (store) => new InMemorySafetyEventRepository(store),
       createDynamoDBRepository: ({ docClient, tableName }) =>
         new DynamoDBSafetyEventRepository(docClient, tableName),
+    },
+    studyUsage: {
+      createInMemoryRepository: (store) => new InMemoryStudyUsageRepository(store),
+      createDynamoDBRepository: ({ docClient, tableName }) =>
+        new DynamoDBStudyUsageRepository(docClient, tableName),
     },
   },
   {
@@ -255,4 +264,11 @@ export function createSafetyEventRepository(
   tableName?: string
 ): SafetyEventRepository {
   return repositoryRegistry.safetyEvent.createRepository(docClient, tableName);
+}
+
+export function createStudyUsageRepository(
+  docClient?: DynamoDBDocumentClient,
+  tableName?: string
+): StudyUsageRepository {
+  return repositoryRegistry.studyUsage.createRepository(docClient, tableName);
 }

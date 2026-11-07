@@ -11,6 +11,7 @@ import {
   createPushSubscriptionRepository,
   createSafetyEventRepository,
   createStudyTopicRepository,
+  createStudyUsageRepository,
   createTopicRepository,
   createWebRawRepository,
   resetRepositoryFactories,
@@ -64,6 +65,7 @@ describe('repositories/factory', () => {
       createProfileRepository,
       createPushSubscriptionRepository,
       createStudyTopicRepository,
+      createStudyUsageRepository,
       createTopicRepository,
     ];
     for (const create of factories) {

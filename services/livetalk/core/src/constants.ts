@@ -74,6 +74,13 @@ export const STUDY_INACTIVE_WINDOW_HOURS = 2;
 export const STUDY_PAUSE_AFTER_HOURS = 72;
 
 /**
+ * 勉強 (Web リサーチ) の 1 日あたりの上限回数。利用者 1 人あたり、日本時間の暦日で数える。
+ * 会話からの依頼・鮮度切れの再取得・自発リサーチを同じ枠で数え、勉強中のキャラクターで等分する。
+ * 本番での使用感を見て調整する仮の値。
+ */
+export const STUDY_DAILY_RESEARCH_LIMIT_PER_USER = 20;
+
+/**
  * StudyTopic に付与する DynamoDB TTL（秒）。30 日後に自動削除。
  */
 export const STUDY_TOPIC_TTL_SECONDS = 30 * 24 * 60 * 60;

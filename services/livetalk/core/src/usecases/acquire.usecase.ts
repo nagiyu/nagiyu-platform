@@ -11,19 +11,16 @@ import {
 } from '../constants.js';
 import type { LifecycleEntity } from '../entities/lifecycle.entity.js';
 import type { WebFactEntity } from '../entities/web-fact.entity.js';
-import type { MessageRepository } from '../repositories/message.repository.interface.js';
 import type { TopicRepository } from '../repositories/topic.repository.interface.js';
 import type { WebRawRepository } from '../repositories/webraw.repository.interface.js';
 import type { StudyTopicRepository } from '../repositories/study-topic.repository.interface.js';
 import { resolveLifecycleState } from '../lifecycle/state-resolver.js';
-import { isStudyPaused, resolveLastUserMessageAt } from '../study/active-window.js';
+import type { ResearchAllowance } from '../study/research-allowance.js';
 import type { IResearchClient } from '../research/types.js';
 import type { IWebFactChangeDetector } from '../research/web-fact-change-detector.js';
 import type { UlidFactory } from '../lib/ulid.js';
 
 export interface AcquireForUserParams {
-  /** 最後のユーザー発話の時刻を求め、勉強を止める判定に使う */
-  messageRepo: MessageRepository;
   topicRepo: TopicRepository;
   webRawRepo: WebRawRepository;
   studyTopicRepo: StudyTopicRepository;
@@ -31,6 +28,11 @@ export interface AcquireForUserParams {
   changeDetector: IWebFactChangeDetector;
   character: CharacterDefinition;
   lifecycle: LifecycleEntity;
+  /**
+   * リサーチを呼ぶ直前に 1 回分を問い合わせる枠。
+   * 3 日ルールで止まる組では、呼び出し側がこの関数自体を呼ばない (この関数は止まっているかを判定しない)。
+   */
+  researchAllowance: ResearchAllowance;
   /** テスト用途の ULID 差し替え（acquire 自体は ID を採番しないため現状未使用） */
   ulidFactory?: UlidFactory;
   now?: () => Date;
@@ -61,6 +63,10 @@ export interface AcquireForUserResult {
   selfStudied: number;
   /** WEBRAW を書き込んだ総件数 */
   webRawWritten: number;
+  /** 1 日の上限に達して、以降のリサーチを止めたか */
+  dailyLimitReached: boolean;
+  /** 回数の記録に失敗して、以降のリサーチを止めたか (止める側に倒す) */
+  counterFailed: boolean;
   /**
    * research が実行した Web 検索 tool call の合計回数（search / open_page / find_in_page の全部）。
    * research が例外で終わった呼び出しは回数を取れないため含まれない。
@@ -171,7 +177,6 @@ export async function acquireForUser(
   params: AcquireForUserParams
 ): Promise<AcquireForUserResult> {
   const {
-    messageRepo,
     topicRepo,
     webRawRepo,
     studyTopicRepo,
@@ -179,6 +184,7 @@ export async function acquireForUser(
     changeDetector,
     character,
     lifecycle,
+    researchAllowance,
     now = () => new Date(),
     maxQueriesPerRun = ACQUIRE_MAX_QUERIES_PER_RUN,
   } = params;
@@ -197,28 +203,8 @@ export async function acquireForUser(
       staleFactsReviewed: 0,
       selfStudied: 0,
       webRawWritten: 0,
-      webSearchCalls: 0,
-    };
-  }
-
-  // 就寝判定の後に読む: 寝ているキャラはメッセージ履歴を読むまでもなく止まるため。
-  // 依頼・鮮度切れ・自発リサーチのすべてをここで止める。
-  const lastUserMessageAt = await resolveLastUserMessageAt(
-    messageRepo,
-    userId,
-    characterId,
-    nowDate
-  );
-  if (isStudyPaused(lastUserMessageAt, nowDate)) {
-    return {
-      outcome: 'skipped',
-      skipReason: 'ユーザーが話していない期間が長いため勉強を止めている',
-      requestsProcessed: 0,
-      staleRefreshed: 0,
-      staleChanged: 0,
-      staleFactsReviewed: 0,
-      selfStudied: 0,
-      webRawWritten: 0,
+      dailyLimitReached: false,
+      counterFailed: false,
       webSearchCalls: 0,
     };
   }
@@ -230,6 +216,31 @@ export async function acquireForUser(
   let staleFactsReviewed = 0;
   let selfStudied = 0;
   let webRawWritten = 0;
+  let dailyLimitReached = false;
+  let counterFailed = false;
+
+  /**
+   * リサーチを呼ぶ直前に枠を 1 回分使う。使えなければ、残りの予算を 0 にして以降のリサーチを止める。
+   * 上限に達した後は同じ日のうちは何度問い合わせても使えず、記録の障害も続く可能性が高いため、
+   * 1 組につき 1 度だけ問い合わせて止める。
+   */
+  const tryConsumeAllowance = async (): Promise<boolean> => {
+    try {
+      if (await researchAllowance.tryConsume()) return true;
+      dailyLimitReached = true;
+      logger.info('[acquire] 1 日の上限に達したため勉強を止めます', { userId, characterId });
+    } catch (err) {
+      // 数えられないまま勉強すると原価の上限を守れないため、止める側に倒す。
+      counterFailed = true;
+      logger.warn('[acquire] 勉強の回数の記録に失敗したため勉強を止めます', {
+        userId,
+        characterId,
+        err: toErrorMessage(err),
+      });
+    }
+    budget = 0;
+    return false;
+  };
   let webSearchCalls = 0;
 
   // ---- 1. 依頼（StudyTopic pending）を消費 ----
@@ -248,6 +259,31 @@ export async function acquireForUser(
           priority: studyTopic.priority,
         });
 
+        // 依頼が削除されていた場合などリサーチを呼ばずにスキップする判定が済んだ後、
+        // リサーチを呼ぶ直前に数える。止めるときは in_progress の依頼を pending に戻す。
+        if (!(await tryConsumeAllowance())) {
+          try {
+            await studyTopicRepo.updateStatus({
+              userId,
+              characterId,
+              topicId: studyTopic.topicId,
+              status: 'pending',
+              priority: studyTopic.priority,
+            });
+          } catch (revertErr) {
+            logger.warn('[acquire] 依頼（StudyTopic）の pending 復帰に失敗しました', {
+              userId,
+              characterId,
+              topic: studyTopic.topic,
+              err: toErrorMessage(revertErr),
+            });
+          }
+          break;
+        }
+
+        // 成否にかかわらず試した時点で 1 回の実行の予算を使う。
+        // 外部の障害時に、1 回の実行で 1 日の枠を使い切らないようにするため。
+        budget--;
         const result = await researchClient.research(studyTopic.topic, character);
         // 後続の書き込みが失敗しても検索は課金済みのため、research 直後に加算する。
         webSearchCalls += result.webSearchCalls?.total ?? 0;
@@ -273,7 +309,6 @@ export async function acquireForUser(
         });
 
         requestsProcessed++;
-        budget--;
       } catch (err) {
         // 取得から更新までの間にアカウント削除などでトピックが消えた場合は、
         // 復帰させる対象もないため、バッチ全体を止めずに次の依頼へ進む。
@@ -364,6 +399,7 @@ export async function acquireForUser(
         // トピック欠落: 束ねられないため従来どおり fact 単位で処理する（フォールバック）。
         for (const fact of windowFacts) {
           if (budget <= 0) break;
+          if (!(await tryConsumeAllowance())) break;
 
           try {
             const query = fact.text;
@@ -480,6 +516,8 @@ export async function acquireForUser(
         }
       };
 
+      if (!(await tryConsumeAllowance())) break;
+
       try {
         const result = await researchClient.research(query, character);
         // 後続の書き込みが失敗しても検索は課金済みのため、research 直後に加算する。
@@ -558,8 +596,12 @@ export async function acquireForUser(
         });
       }
 
+      if (!(await tryConsumeAllowance())) break;
+
       try {
         const query = buildLatestInfoQuery(header.subject);
+        // 成否にかかわらず試した時点で 1 回の実行の予算を使う（依頼と同じ理由）。
+        budget--;
         const result = await researchClient.research(query, character);
         // 後続の書き込みが失敗しても検索は課金済みのため、research 直後に加算する。
         webSearchCalls += result.webSearchCalls?.total ?? 0;
@@ -574,7 +616,6 @@ export async function acquireForUser(
         });
         webRawWritten++;
         selfStudied++;
-        budget--;
       } catch (err) {
         logger.warn('[acquire] care 自発リサーチに失敗しました（スキップして継続）', {
           userId,
@@ -595,6 +636,8 @@ export async function acquireForUser(
     staleFactsReviewed,
     selfStudied,
     webRawWritten,
+    dailyLimitReached,
+    counterFailed,
     webSearchCalls,
   };
 }

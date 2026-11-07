@@ -3,12 +3,19 @@ import {
   getAllCharacterIds,
   getCharacterDefinitionById,
   acquireForUser,
+  computePerCharacterResearchLimit,
+  createDailyResearchAllowance,
+  isStudyPaused,
+  resolveLastUserMessageAt,
+  type CharacterDefinition,
   type IResearchClient,
   type IWebFactChangeDetector,
+  type LifecycleEntity,
   type LifecycleRepository,
   type MessageRepository,
   type ProfileRepository,
   type StudyTopicRepository,
+  type StudyUsageRepository,
   type TopicRepository,
   type UlidFactory,
   type WebRawRepository,
@@ -21,6 +28,8 @@ export interface AcquireAllUsersParams {
   topicRepo: TopicRepository;
   webRawRepo: WebRawRepository;
   studyTopicRepo: StudyTopicRepository;
+  /** 勉強の 1 日あたりの回数 (利用者 × 日) の記録 */
+  studyUsageRepo: StudyUsageRepository;
   researchClient: IResearchClient;
   changeDetector: IWebFactChangeDetector;
   ulidFactory?: UlidFactory;
@@ -47,8 +56,19 @@ export interface AcquireAllUsersResult {
   selfStudied: number;
   /** WEBRAW を書き込んだ総件数 */
   webRawWritten: number;
+  /** 1 日の上限に達して勉強を止めた利用者 × キャラクターの組の数 */
+  dailyLimitReachedCharacters: number;
+  /** 回数の記録に失敗して勉強を止めた利用者 × キャラクターの組の数 */
+  counterFailedCharacters: number;
   /** research が実行した Web 検索 tool call の総回数（action の種別を問わない） */
   webSearchCalls: number;
+}
+
+/** 勉強中 (lifecycle があり、3 日ルールで止まっていない) のキャラクター */
+interface StudyingCharacter {
+  characterId: string;
+  characterDef: CharacterDefinition;
+  lifecycle: LifecycleEntity;
 }
 
 /**
@@ -69,10 +89,11 @@ export async function acquireAllUsers(
     topicRepo,
     webRawRepo,
     studyTopicRepo,
+    studyUsageRepo,
     researchClient,
     changeDetector,
     ulidFactory,
-    now,
+    now = () => new Date(),
   } = params;
 
   const userIds = await profileRepo.listAllUserIds();
@@ -90,6 +111,8 @@ export async function acquireAllUsers(
     staleFactsReviewed: 0,
     selfStudied: 0,
     webRawWritten: 0,
+    dailyLimitReachedCharacters: 0,
+    counterFailedCharacters: 0,
     webSearchCalls: 0,
   };
 
@@ -100,6 +123,11 @@ export async function acquireAllUsers(
     let hasAcquired = false;
 
     try {
+      // 勉強中のキャラクターの人数で 1 日の枠を等分するため、先に全キャラクターの
+      // lifecycle と停止判定を済ませる。就寝中のキャラクターも枠の配分には含める:
+      // 勉強中かどうかは 3 日ルールで決まり、就寝は一日の中で入れ替わる一時的な状態のため、
+      // 就寝で人数を数え直すと同じ日の中で枠の大きさが揺れる。
+      const studying: StudyingCharacter[] = [];
       for (const characterId of allCharacterIds) {
         const characterDef = getCharacterDefinitionById(characterId);
         if (!characterDef) {
@@ -116,8 +144,31 @@ export async function acquireAllUsers(
             continue;
           }
 
-          const outcome = await acquireForUser(userId, characterId, {
+          const checkedAt = now();
+          const lastUserMessageAt = await resolveLastUserMessageAt(
             messageRepo,
+            userId,
+            characterId,
+            checkedAt
+          );
+          if (isStudyPaused(lastUserMessageAt, checkedAt)) continue;
+
+          studying.push({ characterId, characterDef, lifecycle });
+        } catch (error) {
+          logger.warn('[acquireAllUsers] キャラクター処理失敗（他キャラは継続）', {
+            userId,
+            characterId,
+            error: toErrorMessage(error),
+          });
+          hasCharacterError = true;
+        }
+      }
+
+      const limitPerCharacter = computePerCharacterResearchLimit(studying.length);
+
+      for (const { characterId, characterDef, lifecycle } of studying) {
+        try {
+          const outcome = await acquireForUser(userId, characterId, {
             topicRepo,
             webRawRepo,
             studyTopicRepo,
@@ -125,9 +176,23 @@ export async function acquireAllUsers(
             changeDetector,
             character: characterDef,
             lifecycle,
+            researchAllowance: createDailyResearchAllowance({
+              studyUsageRepo,
+              userId,
+              characterId,
+              limit: limitPerCharacter,
+              now,
+            }),
             ulidFactory,
             now,
           });
+
+          if (outcome.dailyLimitReached) result.dailyLimitReachedCharacters++;
+          if (outcome.counterFailed) {
+            result.counterFailedCharacters++;
+            // 勉強が黙って止まらないよう、バッチの失敗として上げる
+            hasCharacterError = true;
+          }
 
           if (outcome.outcome === 'acquired') {
             hasAcquired = true;

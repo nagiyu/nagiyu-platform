@@ -4,7 +4,9 @@ import {
   shouldAcquireNow,
   buildLatestInfoQuery,
 } from '../../../src/usecases/acquire.usecase.js';
-import { InMemoryMessageRepository } from '../../../src/repositories/in-memory-message.repository.js';
+import { InMemoryStudyUsageRepository } from '../../../src/repositories/in-memory-study-usage.repository.js';
+import { createDailyResearchAllowance } from '../../../src/study/research-allowance.js';
+import type { ResearchAllowance } from '../../../src/study/research-allowance.js';
 import { InMemoryTopicRepository } from '../../../src/repositories/in-memory-topic.repository.js';
 import { InMemoryWebRawRepository } from '../../../src/repositories/in-memory-webraw.repository.js';
 import { InMemoryStudyTopicRepository } from '../../../src/repositories/in-memory-study-topic.repository.js';
@@ -118,9 +120,10 @@ describe('acquireForUser', () => {
   let topicRepo: InMemoryTopicRepository;
   let webRawRepo: InMemoryWebRawRepository;
   let studyTopicRepo: InMemoryStudyTopicRepository;
-  let messageRepo: InMemoryMessageRepository;
+  /** 上限なしの枠。上限の挙動を見ないケースで使う */
+  const researchAllowance: ResearchAllowance = { tryConsume: async () => true };
 
-  beforeEach(async () => {
+  beforeEach(() => {
     const topicStore = new InMemorySingleTableStore();
     topicRepo = new InMemoryTopicRepository(
       topicStore,
@@ -135,18 +138,6 @@ describe('acquireForUser', () => {
     );
     const studyTopicStore = new InMemorySingleTableStore();
     studyTopicRepo = new InMemoryStudyTopicRepository(studyTopicStore, () => NOW_MS);
-    // 既定は「1 時間前にユーザーが話した」状態。勉強が止まっていない前提で各ケースを検証する
-    messageRepo = new InMemoryMessageRepository(
-      new InMemorySingleTableStore(),
-      () => 'ulid-message',
-      () => NOW_MS - 60 * 60 * 1000
-    );
-    await messageRepo.create({
-      userId: 'u1',
-      characterId: 'hiyori',
-      role: 'user',
-      text: 'こんにちは',
-    });
   });
 
   it('就寝中は全スキップする', async () => {
@@ -157,7 +148,7 @@ describe('acquireForUser', () => {
     const result = await acquireForUser('u1', 'hiyori', {
       topicRepo,
       webRawRepo,
-      messageRepo,
+      researchAllowance,
       studyTopicRepo,
       researchClient,
       changeDetector,
@@ -170,43 +161,78 @@ describe('acquireForUser', () => {
     expect(researchClient.research).not.toHaveBeenCalled();
   });
 
-  describe('最後の発話から 3 日たった組は勉強しない', () => {
-    const PAUSE_MS = 72 * 60 * 60 * 1000;
+  describe('1 日の上限', () => {
+    const DAY_MS = 24 * 60 * 60 * 1000;
+    let studyUsageRepo: InMemoryStudyUsageRepository;
+    let clockMs = NOW_MS;
 
-    /** 履歴の時計。再開のケースで、止まった後の発話時刻を進めるために使う */
-    let clock = 0;
-
-    /** 指定の時刻に発話がある履歴を作る */
-    async function makeMessageRepoWith(
-      messages: Array<{ role: 'user' | 'assistant'; at: number }>
-    ): Promise<InMemoryMessageRepository> {
-      const repo = new InMemoryMessageRepository(
-        new InMemorySingleTableStore(),
-        undefined,
-        () => clock
-      );
-      for (const message of messages) {
-        clock = message.at;
-        await repo.create({
-          userId: 'u1',
-          characterId: 'hiyori',
-          role: message.role,
-          text: 'テスト',
-        });
-      }
-      return repo;
-    }
-
-    /** 3 種のリサーチ (依頼・鮮度切れ・自発) がすべて対象になる状態を用意する */
-    async function seedAllResearchTargets(): Promise<void> {
-      await studyTopicRepo.put({
+    const allowanceFor = (limit: number): ResearchAllowance =>
+      createDailyResearchAllowance({
+        studyUsageRepo,
         userId: 'u1',
         characterId: 'hiyori',
-        topicId: 'req-1',
-        topic: '依頼の話題',
-        priority: 10,
-        status: 'pending',
+        limit,
+        now: () => new Date(clockMs),
       });
+
+    /** 依頼を count 件 pending で積む */
+    async function seedRequests(count: number): Promise<void> {
+      for (let i = 0; i < count; i++) {
+        await studyTopicRepo.put({
+          userId: 'u1',
+          characterId: 'hiyori',
+          topicId: `req-${i}`,
+          topic: `依頼${i}`,
+          priority: 10,
+          status: 'pending',
+        });
+      }
+    }
+
+    async function run(allowance: ResearchAllowance, researchClient = makeResearchClient()) {
+      const result = await acquireForUser('u1', 'hiyori', {
+        topicRepo,
+        webRawRepo,
+        studyTopicRepo,
+        researchClient,
+        changeDetector: makeChangeDetector(),
+        character,
+        lifecycle: makeLifecycle(),
+        researchAllowance: allowance,
+        now: () => awakeNonPeak,
+        maxQueriesPerRun: 10,
+      });
+      return { result, researchClient };
+    }
+
+    beforeEach(() => {
+      studyUsageRepo = new InMemoryStudyUsageRepository(new InMemorySingleTableStore());
+      clockMs = NOW_MS;
+    });
+
+    it('上限ちょうど: 上限までリサーチし、止まったとは数えない', async () => {
+      await seedRequests(3);
+      const { result, researchClient } = await run(allowanceFor(3));
+
+      expect(researchClient.research).toHaveBeenCalledTimes(3);
+      expect(result.requestsProcessed).toBe(3);
+      expect(result.dailyLimitReached).toBe(false);
+    });
+
+    it('上限を超えるとき: 上限までで止め、残りの依頼は pending のまま残す', async () => {
+      await seedRequests(4);
+      const { result, researchClient } = await run(allowanceFor(3));
+
+      expect(researchClient.research).toHaveBeenCalledTimes(3);
+      expect(result.requestsProcessed).toBe(3);
+      expect(result.dailyLimitReached).toBe(true);
+      expect(result.counterFailed).toBe(false);
+      expect(await studyTopicRepo.listByStatus('u1', 'hiyori', 'pending')).toHaveLength(1);
+      expect(await studyTopicRepo.listByStatus('u1', 'hiyori', 'in_progress')).toHaveLength(0);
+    });
+
+    it('上限に達したら鮮度切れ・自発リサーチも止める (3 種を同じ枠で数える)', async () => {
+      await seedRequests(1);
       await topicRepo.putTopic({
         userId: 'u1',
         characterId: 'hiyori',
@@ -224,110 +250,236 @@ describe('acquireForUser', () => {
         text: '開催は今週末',
         sourceUrls: [],
         volatility: 'high',
-        observedAt: NOW_MS - 30 * 24 * 60 * 60 * 1000,
+        observedAt: NOW_MS - 30 * DAY_MS,
         nextReview: NOW_MS - 1000,
       });
-    }
 
-    async function runWith(repo: InMemoryMessageRepository) {
-      await seedAllResearchTargets();
-      const researchClient = makeResearchClient();
-      const result = await acquireForUser('u1', 'hiyori', {
-        messageRepo: repo,
-        topicRepo,
-        webRawRepo,
-        studyTopicRepo,
-        researchClient,
-        changeDetector: makeChangeDetector(),
-        character,
-        lifecycle: makeLifecycle(),
-        now: () => awakeNonPeak,
+      const { result, researchClient } = await run(allowanceFor(1));
+
+      expect(researchClient.research).toHaveBeenCalledTimes(1);
+      expect(result.requestsProcessed).toBe(1);
+      expect(result.staleRefreshed).toBe(0);
+      expect(result.selfStudied).toBe(0);
+      expect(result.dailyLimitReached).toBe(true);
+    });
+
+    it('3 種を合わせて上限を数える', async () => {
+      await seedRequests(1);
+      await topicRepo.putTopic({
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId: 'topic-1',
+        subject: '桜まつり',
+        canonicalSummary: '桜まつりの話題',
+        category: 'イベント',
+        care: 5,
+        embedding: [0.1],
       });
-      return { result, researchClient };
-    }
+      await topicRepo.putWebFact({
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId: 'topic-1',
+        text: '開催は今週末',
+        sourceUrls: [],
+        volatility: 'high',
+        observedAt: NOW_MS - 30 * DAY_MS,
+        nextReview: NOW_MS - 1000,
+      });
 
-    it('ちょうど 3 日: 3 種のリサーチをすべて止める', async () => {
-      const repo = await makeMessageRepoWith([{ role: 'user', at: NOW_MS - PAUSE_MS }]);
-      const { result, researchClient } = await runWith(repo);
+      const { result, researchClient } = await run(allowanceFor(2));
 
-      expect(result.outcome).toBe('skipped');
-      expect(result.skipReason).toContain('勉強を止めている');
+      // 依頼 1 + 鮮度切れ 1 で上限。自発リサーチには回らない
+      expect(researchClient.research).toHaveBeenCalledTimes(2);
+      expect(result.requestsProcessed).toBe(1);
+      expect(result.staleRefreshed).toBe(1);
+      expect(result.selfStudied).toBe(0);
+      expect(result.dailyLimitReached).toBe(true);
+    });
+
+    it('枠が 0 のときは 1 回もリサーチしない', async () => {
+      await seedRequests(1);
+      const { result, researchClient } = await run(allowanceFor(0));
+
       expect(researchClient.research).not.toHaveBeenCalled();
-      // 依頼は pending のまま残り、話しかけた後のバッチで消費される
+      expect(result.dailyLimitReached).toBe(true);
       expect(await studyTopicRepo.listByStatus('u1', 'hiyori', 'pending')).toHaveLength(1);
     });
 
-    it('3 日に 1 ミリ秒足りない: 止まらずにリサーチする', async () => {
-      const repo = await makeMessageRepoWith([{ role: 'user', at: NOW_MS - PAUSE_MS + 1 }]);
-      const { result, researchClient } = await runWith(repo);
+    it('リサーチが失敗しても数えた回数は戻さない', async () => {
+      await seedRequests(2);
+      const failing = makeResearchClient(async () => {
+        throw new Error('検索失敗');
+      });
+      const first = await run(allowanceFor(2), failing);
+      expect(first.result.requestsProcessed).toBe(0);
 
-      expect(result.outcome).toBe('acquired');
-      expect(result.requestsProcessed).toBe(1);
-      expect(researchClient.research).toHaveBeenCalled();
+      // 2 回とも失敗しても 2 回分が数えられており、同じ日の次の実行では 1 回も使えない
+      const second = await run(allowanceFor(2));
+      expect(second.researchClient.research).not.toHaveBeenCalled();
+      expect(second.result.dailyLimitReached).toBe(true);
     });
 
-    it('発話が一度もない組は止まっている', async () => {
-      const repo = await makeMessageRepoWith([]);
-      const { result, researchClient } = await runWith(repo);
-
-      expect(result.outcome).toBe('skipped');
-      expect(researchClient.research).not.toHaveBeenCalled();
-    });
-
-    it('アシスタントの発話だけが最近にあっても止まっている', async () => {
-      const repo = await makeMessageRepoWith([
-        { role: 'user', at: NOW_MS - 5 * 24 * 60 * 60 * 1000 },
-        { role: 'assistant', at: NOW_MS - 1000 },
-      ]);
-      const { result, researchClient } = await runWith(repo);
-
-      expect(result.outcome).toBe('skipped');
-      expect(researchClient.research).not.toHaveBeenCalled();
-    });
-
-    it('止まっていた組が話しかけると、次のバッチから再開する', async () => {
-      const repo = await makeMessageRepoWith([{ role: 'user', at: NOW_MS - 10 * PAUSE_MS }]);
-      const paused = await runWith(repo);
-      expect(paused.result.outcome).toBe('skipped');
-
-      clock = NOW_MS - 1000;
-      await repo.create({ userId: 'u1', characterId: 'hiyori', role: 'user', text: 'ただいま' });
-      const researchClient = makeResearchClient();
-      const resumed = await acquireForUser('u1', 'hiyori', {
-        messageRepo: repo,
+    it('リサーチが続けて失敗しても、1 回の実行では予算の 3 回までしか試さず、枠も 3 回分しか減らない', async () => {
+      await seedRequests(5);
+      await topicRepo.putTopic({
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId: 'topic-1',
+        subject: '桜まつり',
+        canonicalSummary: '桜まつりの話題',
+        category: 'イベント',
+        care: 5,
+        embedding: [0.1],
+      });
+      const failing = makeResearchClient(async () => {
+        throw new Error('検索失敗');
+      });
+      const allowance = allowanceFor(20);
+      const result = await acquireForUser('u1', 'hiyori', {
         topicRepo,
         webRawRepo,
         studyTopicRepo,
-        researchClient,
+        researchClient: failing,
         changeDetector: makeChangeDetector(),
         character,
         lifecycle: makeLifecycle(),
+        researchAllowance: allowance,
         now: () => awakeNonPeak,
       });
 
-      expect(resumed.outcome).toBe('acquired');
-      expect(resumed.requestsProcessed).toBe(1);
+      expect(result.outcome).toBe('acquired');
+      expect(failing.research).toHaveBeenCalledTimes(ACQUIRE_MAX_QUERIES_PER_RUN);
+      // 失敗した依頼は pending に戻る
+      expect(await studyTopicRepo.listByStatus('u1', 'hiyori', 'pending')).toHaveLength(5);
+      // 枠は 3 回分だけ減っている (残り 17 回)
+      let remaining = 0;
+      while (await allowance.tryConsume()) remaining++;
+      expect(remaining).toBe(20 - ACQUIRE_MAX_QUERIES_PER_RUN);
     });
 
-    it('就寝中は履歴を読まずにスキップする', async () => {
-      const repo = await makeMessageRepoWith([]);
-      const listSince = jest.spyOn(repo, 'listSince');
+    it('自発リサーチが続けて失敗しても予算の 3 回までしか試さない', async () => {
+      for (let i = 0; i < 5; i++) {
+        await topicRepo.putTopic({
+          userId: 'u1',
+          characterId: 'hiyori',
+          topicId: `topic-${i}`,
+          subject: `話題${i}`,
+          canonicalSummary: '要約',
+          category: 'その他',
+          care: 5 - i,
+          embedding: [0.1],
+        });
+      }
+      const second = makeResearchClient(async () => {
+        throw new Error('検索失敗');
+      });
       await acquireForUser('u1', 'hiyori', {
-        messageRepo: repo,
         topicRepo,
         webRawRepo,
         studyTopicRepo,
-        researchClient: makeResearchClient(),
+        researchClient: second,
         changeDetector: makeChangeDetector(),
         character,
         lifecycle: makeLifecycle(),
-        now: () => new Date(2026, 4, 31, 3, 0, 0),
+        researchAllowance: allowanceFor(20),
+        now: () => awakeNonPeak,
       });
 
-      expect(listSince).not.toHaveBeenCalled();
+      expect(second.research).toHaveBeenCalledTimes(ACQUIRE_MAX_QUERIES_PER_RUN);
+    });
+
+    it('依頼が削除されていてリサーチを呼ばずにスキップしたときは、枠を数えない', async () => {
+      await seedRequests(1);
+      jest
+        .spyOn(studyTopicRepo, 'updateStatus')
+        .mockRejectedValueOnce(new EntityNotFoundError('StudyTopic', 'req-0'));
+      const allowance = allowanceFor(1);
+      const { researchClient } = await run(allowance);
+
+      expect(researchClient.research).not.toHaveBeenCalled();
+      expect(await allowance.tryConsume()).toBe(true);
+    });
+
+    it('枠が使えず止めた依頼は pending に戻る', async () => {
+      await seedRequests(1);
+      await run(allowanceFor(0));
+
+      expect(await studyTopicRepo.listByStatus('u1', 'hiyori', 'pending')).toHaveLength(1);
+      expect(await studyTopicRepo.listByStatus('u1', 'hiyori', 'in_progress')).toHaveLength(0);
+    });
+
+    it('日付が変わると枠が戻る', async () => {
+      await seedRequests(2);
+      const first = await run(allowanceFor(1));
+      expect(first.result.requestsProcessed).toBe(1);
+      expect(first.result.dailyLimitReached).toBe(true);
+
+      const sameDay = await run(allowanceFor(1));
+      expect(sameDay.researchClient.research).not.toHaveBeenCalled();
+
+      clockMs = NOW_MS + DAY_MS;
+      const nextDay = await run(allowanceFor(1));
+      expect(nextDay.result.requestsProcessed).toBe(1);
+    });
+
+    it('日本時間の 0 時で日が変わる', async () => {
+      await seedRequests(2);
+      // 2026-06-01 23:59:59 JST と 2026-06-02 00:00:00 JST
+      clockMs = Date.parse('2026-06-01T14:59:59Z');
+      expect((await run(allowanceFor(1))).result.requestsProcessed).toBe(1);
+      clockMs = Date.parse('2026-06-01T15:00:00Z');
+      expect((await run(allowanceFor(1))).result.requestsProcessed).toBe(1);
+    });
+
+    it('カウンターの障害: 勉強を止め、依頼は pending のまま残す', async () => {
+      await seedRequests(2);
+      const broken: ResearchAllowance = {
+        tryConsume: async () => {
+          throw new Error('DynamoDB 障害');
+        },
+      };
+      const { result, researchClient } = await run(broken);
+
+      expect(researchClient.research).not.toHaveBeenCalled();
+      expect(result.counterFailed).toBe(true);
+      expect(result.dailyLimitReached).toBe(false);
+      expect(await studyTopicRepo.listByStatus('u1', 'hiyori', 'pending')).toHaveLength(2);
+    });
+
+    it('カウンターが障害になった時点で残りも止める', async () => {
+      await seedRequests(3);
+      let calls = 0;
+      const flaky: ResearchAllowance = {
+        tryConsume: async () => {
+          calls++;
+          if (calls > 1) throw new Error('DynamoDB 障害');
+          return true;
+        },
+      };
+      const { result, researchClient } = await run(flaky);
+
+      expect(researchClient.research).toHaveBeenCalledTimes(1);
+      expect(calls).toBe(2);
+      expect(result.requestsProcessed).toBe(1);
+      expect(result.counterFailed).toBe(true);
+    });
+
+    it('利用者・キャラクターごとに別の枠として数える', async () => {
+      await seedRequests(2);
+      const other = createDailyResearchAllowance({
+        studyUsageRepo,
+        userId: 'u1',
+        characterId: 'ageha',
+        limit: 1,
+        now: () => new Date(clockMs),
+      });
+      expect(await other.tryConsume()).toBe(true);
+      expect(await other.tryConsume()).toBe(false);
+
+      const { result } = await run(allowanceFor(1));
+      expect(result.requestsProcessed).toBe(1);
     });
   });
-
   it('依頼（StudyTopic pending）を消費し done に遷移する', async () => {
     const studyTopic = await studyTopicRepo.put({
       userId: 'u1',
@@ -344,7 +496,7 @@ describe('acquireForUser', () => {
     const result = await acquireForUser('u1', 'hiyori', {
       topicRepo,
       webRawRepo,
-      messageRepo,
+      researchAllowance,
       studyTopicRepo,
       researchClient,
       changeDetector,
@@ -401,7 +553,7 @@ describe('acquireForUser', () => {
     const result = await acquireForUser('u1', 'hiyori', {
       topicRepo,
       webRawRepo,
-      messageRepo,
+      researchAllowance,
       studyTopicRepo,
       researchClient,
       changeDetector,
@@ -456,7 +608,7 @@ describe('acquireForUser', () => {
     const result = await acquireForUser('u1', 'hiyori', {
       topicRepo,
       webRawRepo,
-      messageRepo,
+      researchAllowance,
       studyTopicRepo,
       researchClient,
       changeDetector,
@@ -520,7 +672,7 @@ describe('acquireForUser', () => {
       const result = await acquireForUser('u1', 'hiyori', {
         topicRepo,
         webRawRepo,
-        messageRepo,
+        researchAllowance,
         studyTopicRepo,
         researchClient,
         changeDetector,
@@ -583,7 +735,7 @@ describe('acquireForUser', () => {
       const result = await acquireForUser('u1', 'hiyori', {
         topicRepo,
         webRawRepo,
-        messageRepo,
+        researchAllowance,
         studyTopicRepo,
         researchClient,
         changeDetector,
@@ -642,7 +794,7 @@ describe('acquireForUser', () => {
       const result = await acquireForUser('u1', 'hiyori', {
         topicRepo,
         webRawRepo,
-        messageRepo,
+        researchAllowance,
         studyTopicRepo,
         researchClient,
         changeDetector,
@@ -727,7 +879,7 @@ describe('acquireForUser', () => {
       const result = await acquireForUser('u1', 'hiyori', {
         topicRepo,
         webRawRepo,
-        messageRepo,
+        researchAllowance,
         studyTopicRepo,
         researchClient,
         changeDetector,
@@ -811,7 +963,7 @@ describe('acquireForUser', () => {
       const result = await acquireForUser('u1', 'hiyori', {
         topicRepo,
         webRawRepo,
-        messageRepo,
+        researchAllowance,
         studyTopicRepo,
         researchClient,
         changeDetector,
@@ -858,7 +1010,7 @@ describe('acquireForUser', () => {
       const result = await acquireForUser('u1', 'hiyori', {
         topicRepo,
         webRawRepo,
-        messageRepo,
+        researchAllowance,
         studyTopicRepo,
         researchClient,
         changeDetector,
@@ -922,7 +1074,7 @@ describe('acquireForUser', () => {
       const result = await acquireForUser('u1', 'hiyori', {
         topicRepo,
         webRawRepo,
-        messageRepo,
+        researchAllowance,
         studyTopicRepo,
         researchClient,
         changeDetector,
@@ -977,7 +1129,7 @@ describe('acquireForUser', () => {
       const result = await acquireForUser('u1', 'hiyori', {
         topicRepo,
         webRawRepo,
-        messageRepo,
+        researchAllowance,
         studyTopicRepo,
         researchClient,
         changeDetector: makeChangeDetector(),
@@ -1020,7 +1172,7 @@ describe('acquireForUser', () => {
       await acquireForUser('u1', 'hiyori', {
         topicRepo,
         webRawRepo,
-        messageRepo,
+        researchAllowance,
         studyTopicRepo,
         researchClient,
         changeDetector,
@@ -1062,7 +1214,7 @@ describe('acquireForUser', () => {
     const result = await acquireForUser('u1', 'hiyori', {
       topicRepo,
       webRawRepo,
-      messageRepo,
+      researchAllowance,
       studyTopicRepo,
       researchClient,
       changeDetector,
@@ -1121,7 +1273,7 @@ describe('acquireForUser', () => {
     const result = await acquireForUser('u1', 'hiyori', {
       topicRepo,
       webRawRepo,
-      messageRepo,
+      researchAllowance,
       studyTopicRepo,
       researchClient,
       changeDetector,
@@ -1193,7 +1345,7 @@ describe('acquireForUser', () => {
     const result = await acquireForUser('u1', 'hiyori', {
       topicRepo,
       webRawRepo,
-      messageRepo,
+      researchAllowance,
       studyTopicRepo,
       researchClient,
       changeDetector,
@@ -1236,7 +1388,7 @@ describe('acquireForUser', () => {
     const result = await acquireForUser('u1', 'hiyori', {
       topicRepo,
       webRawRepo,
-      messageRepo,
+      researchAllowance,
       studyTopicRepo,
       researchClient,
       changeDetector,
@@ -1270,7 +1422,7 @@ describe('acquireForUser', () => {
     const result = await acquireForUser('u1', 'hiyori', {
       topicRepo,
       webRawRepo,
-      messageRepo,
+      researchAllowance,
       studyTopicRepo,
       researchClient,
       changeDetector,
@@ -1313,7 +1465,7 @@ describe('acquireForUser', () => {
     const result = await acquireForUser('u1', 'hiyori', {
       topicRepo,
       webRawRepo,
-      messageRepo,
+      researchAllowance,
       studyTopicRepo,
       researchClient,
       changeDetector: makeChangeDetector(),
@@ -1348,7 +1500,7 @@ describe('acquireForUser', () => {
     const result = await acquireForUser('u1', 'hiyori', {
       topicRepo,
       webRawRepo,
-      messageRepo,
+      researchAllowance,
       studyTopicRepo,
       researchClient: makeResearchClient(),
       changeDetector: makeChangeDetector(),
@@ -1392,7 +1544,7 @@ describe('acquireForUser', () => {
     const result = await acquireForUser('u1', 'hiyori', {
       topicRepo,
       webRawRepo,
-      messageRepo,
+      researchAllowance,
       studyTopicRepo,
       researchClient,
       changeDetector,
@@ -1444,7 +1596,7 @@ describe('acquireForUser', () => {
     const result = await acquireForUser('u1', 'hiyori', {
       topicRepo,
       webRawRepo,
-      messageRepo,
+      researchAllowance,
       studyTopicRepo,
       researchClient,
       changeDetector,
@@ -1474,7 +1626,6 @@ describe('acquireForUser', () => {
     );
 
     const result = await acquireForUser('u1', 'hiyori', {
-      messageRepo,
       topicRepo,
       webRawRepo,
       studyTopicRepo,
@@ -1482,6 +1633,7 @@ describe('acquireForUser', () => {
       changeDetector: makeChangeDetector(),
       character,
       lifecycle: makeLifecycle(),
+      researchAllowance: { tryConsume: async () => true },
       now: () => awakeNonPeak,
     });
 
@@ -1496,7 +1648,7 @@ describe('acquireForUser', () => {
     const result = await acquireForUser('u1', 'hiyori', {
       topicRepo,
       webRawRepo,
-      messageRepo,
+      researchAllowance,
       studyTopicRepo,
       researchClient,
       changeDetector,

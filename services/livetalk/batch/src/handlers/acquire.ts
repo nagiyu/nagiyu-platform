@@ -13,6 +13,7 @@ import {
   createStudyTopicRepository,
   createLifecycleRepository,
   createMessageRepository,
+  createStudyUsageRepository,
   createProfileRepository,
   OpenAIResearchClient,
   OpenAIClient,
@@ -33,6 +34,7 @@ export const handler = createScheduledHandler<ScheduledEvent, HandlerResponse>(
     const topicRepo = createTopicRepository(docClient, tableName);
     const webRawRepo = createWebRawRepository(docClient, tableName);
     const studyTopicRepo = createStudyTopicRepository(docClient, tableName);
+    const studyUsageRepo = createStudyUsageRepository(docClient, tableName);
     const lifecycleRepo = createLifecycleRepository(docClient, tableName);
     const messageRepo = createMessageRepository(docClient, tableName);
     const profileRepo = createProfileRepository(docClient, tableName);
@@ -47,6 +49,7 @@ export const handler = createScheduledHandler<ScheduledEvent, HandlerResponse>(
       topicRepo,
       webRawRepo,
       studyTopicRepo,
+      studyUsageRepo,
       researchClient,
       changeDetector,
       ulidFactory: defaultUlidFactory,
