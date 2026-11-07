@@ -2,7 +2,7 @@ import { createHmac, randomBytes } from 'node:crypto';
 import type { JobRepository } from '../repositories/job.repository.interface.js';
 import type { UsageRepository } from '../repositories/usage.repository.interface.js';
 import type { Job, UsageKind, UsageRecord } from '../types.js';
-import { toDayTtlSeconds, toJstDayKey, toJstMonthKey, toMonthTtlSeconds } from './usage-period.js';
+import { toDayTtlSeconds, toJstDayKey, toJstMonthKey, toMonthTtlSeconds } from '@nagiyu/common';
 import { getUsageLimit, type UsageLimit, type UsageTier } from './usage-plan.js';
 
 /**
