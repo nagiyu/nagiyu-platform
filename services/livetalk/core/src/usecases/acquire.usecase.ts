@@ -222,9 +222,7 @@ export async function acquireForUser(
         });
 
         const result = await researchClient.research(studyTopic.topic, character);
-
         // 後続の書き込みが失敗しても検索は課金済みのため、research 直後に加算する。
-
         webSearchCalls += result.webSearchCalls?.total ?? 0;
 
         await webRawRepo.put({
