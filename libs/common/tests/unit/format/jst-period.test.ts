@@ -3,7 +3,7 @@ import {
   toJstDayKey,
   toJstMonthKey,
   toMonthTtlSeconds,
-} from '../../../src/libs/usage-period.js';
+} from '../../../src/format/jst-period.js';
 
 describe('日本時間の期間', () => {
   it('UTC では前月でも、日本時間で翌月 1 日になった時刻は翌月として扱う', () => {

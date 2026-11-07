@@ -1,9 +1,10 @@
-import type { InMemorySingleTableStore } from '@nagiyu/aws';
+import { InMemoryUsageCounter, type InMemorySingleTableStore } from '@nagiyu/aws';
 import type { UsageKind } from '../types.js';
 import type { UsageCounts, UsageRepository } from './usage.repository.interface.js';
 import {
   COUNTER_ATTRIBUTES,
   COUNTER_ITEM_TYPE,
+  IP_COUNT_ATTRIBUTE,
   IP_ITEM_TYPE,
   SALT_ITEM_TYPE,
   buildCounterKey,
@@ -24,9 +25,11 @@ const timestamps = (): { CreatedAt: number; UpdatedAt: number } => {
  */
 export class InMemoryUsageRepository implements UsageRepository {
   private readonly store: InMemorySingleTableStore;
+  private readonly counter: InMemoryUsageCounter;
 
   constructor(store: InMemorySingleTableStore) {
     this.store = store;
+    this.counter = new InMemoryUsageCounter(store);
   }
 
   public async tryConsume(input: {
@@ -36,32 +39,28 @@ export class InMemoryUsageRepository implements UsageRepository {
     limit: number;
     ttlSec: number;
   }): Promise<boolean> {
-    return this.increment(
-      buildCounterKey(input.subject, input.month),
-      COUNTER_ATTRIBUTES[input.kind],
-      COUNTER_ITEM_TYPE,
-      input.limit,
-      input.ttlSec
-    );
+    return this.counter.tryIncrement({
+      key: buildCounterKey(input.subject, input.month),
+      attribute: COUNTER_ATTRIBUTES[input.kind],
+      itemType: COUNTER_ITEM_TYPE,
+      limit: input.limit,
+      ttlSec: input.ttlSec,
+    });
   }
 
   public async release(input: { subject: string; month: string; kind: UsageKind }): Promise<void> {
-    const key = buildCounterKey(input.subject, input.month);
-    const attributeName = COUNTER_ATTRIBUTES[input.kind];
-    const item = this.store.get(key.PK, key.SK);
-    const current = Number(item?.[attributeName] ?? 0);
-    if (item && current > 0) {
-      this.store.put({ ...item, [attributeName]: current - 1 });
-    }
+    await this.counter.decrement({
+      key: buildCounterKey(input.subject, input.month),
+      attribute: COUNTER_ATTRIBUTES[input.kind],
+    });
   }
 
   public async getCounts(subject: string, month: string): Promise<UsageCounts> {
-    const key = buildCounterKey(subject, month);
-    const item = this.store.get(key.PK, key.SK);
-    return {
-      ai: Number(item?.[COUNTER_ATTRIBUTES.ai] ?? 0),
-      noAi: Number(item?.[COUNTER_ATTRIBUTES.noAi] ?? 0),
-    };
+    const counts = await this.counter.read(buildCounterKey(subject, month), [
+      COUNTER_ATTRIBUTES.ai,
+      COUNTER_ATTRIBUTES.noAi,
+    ]);
+    return { ai: counts[COUNTER_ATTRIBUTES.ai], noAi: counts[COUNTER_ATTRIBUTES.noAi] };
   }
 
   public async tryConsumeIp(input: {
@@ -70,13 +69,13 @@ export class InMemoryUsageRepository implements UsageRepository {
     limit: number;
     ttlSec: number;
   }): Promise<boolean> {
-    return this.increment(
-      buildIpKey(input.day, input.ipHash),
-      'Count',
-      IP_ITEM_TYPE,
-      input.limit,
-      input.ttlSec
-    );
+    return this.counter.tryIncrement({
+      key: buildIpKey(input.day, input.ipHash),
+      attribute: IP_COUNT_ATTRIBUTE,
+      itemType: IP_ITEM_TYPE,
+      limit: input.limit,
+      ttlSec: input.ttlSec,
+    });
   }
 
   public async getOrCreateDailySalt(
@@ -97,24 +96,5 @@ export class InMemoryUsageRepository implements UsageRepository {
       TTL: ttlSec,
     });
     return candidateSalt;
-  }
-
-  private increment(
-    key: { PK: string; SK: string },
-    attributeName: string,
-    itemType: string,
-    limit: number,
-    ttlSec: number
-  ): boolean {
-    const item = this.store.get(key.PK, key.SK);
-    const current = Number(item?.[attributeName] ?? 0);
-    if (limit <= 0 || current >= limit) {
-      return false;
-    }
-    this.store.put({
-      ...(item ?? { ...key, ...timestamps(), Type: itemType, TTL: ttlSec }),
-      [attributeName]: current + 1,
-    });
-    return true;
   }
 }
