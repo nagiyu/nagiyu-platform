@@ -4,7 +4,7 @@
  * 会話や通知で Topic が使われたとき、その Topic に期限切れの WEB fact があれば記録する。
  * acquire バッチが古い順に処理し、調べ終えたら削除する。
  * 期限ごとに全 Topic を走査すると会話に出ない Topic まで調べ直してしまうため、使われた Topic だけを対象にする。
- * 同じ Topic への依頼は同じキーに上書きされる (冪等)。
+ * 同じ Topic への依頼が既にあれば最初の依頼を残す (冪等)。依頼時刻を新しくすると、よく使われる Topic ほど処理が後回しになるため。
  *
  * DynamoDB SK: `CHAR#<charId>#FRESHCHECK#<topicId>`
  */

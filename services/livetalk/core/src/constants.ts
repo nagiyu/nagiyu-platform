@@ -300,12 +300,12 @@ export const WEBFACT_REVIEW_INTERVAL_MS: Record<'low' | 'medium' | 'high', numbe
 
 /**
  * acquire バッチ: 1 実行あたりに発行する Web 取得クエリの最大数（暴走防止）。
- * 依頼（StudyTopic）・鮮度確認の依頼・care 自発リサーチの合算で消費する。
+ * 依頼 (StudyTopic)・鮮度確認の依頼・care 自発リサーチの合算で消費する。
  */
 export const ACQUIRE_MAX_QUERIES_PER_RUN = 3;
 
 /**
- * 鮮度確認の依頼に付与する DynamoDB TTL（秒）。7 日後に自動削除。
+ * 鮮度確認の依頼に付与する DynamoDB TTL (秒)。7 日後に自動削除。
  * 枠・予算で処理が後回しになり続けた依頼が溜まり続けないようにする。
  * 消えても、その Topic が次に使われたとき再び依頼される。
  */

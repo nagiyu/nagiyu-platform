@@ -47,7 +47,7 @@ export interface AcquireAllUsersResult {
   /** 依頼（StudyTopic pending）を処理した総件数 */
   requestsProcessed: number;
   /**
-   * 鮮度確認の依頼の処理で実行した research の総回数（トピック単位。変化の有無を問わない）。
+   * 鮮度確認の依頼の処理で実行した research の総回数 (トピック単位。変化の有無を問わない)。
    * 期限切れ WEB fact の件数とは一致しない（fact 件数は `staleFactsReviewed` を参照）。
    */
   staleRefreshed: number;

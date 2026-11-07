@@ -666,6 +666,84 @@ describe('acquireForUser', () => {
   });
 
   describe('鮮度確認の依頼の処理', () => {
+    async function seedStaleTopic(topicId: string): Promise<void> {
+      await freshnessCheckRequestRepo.put({ userId: 'u1', characterId: 'hiyori', topicId });
+      await topicRepo.putTopic({
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId,
+        subject: '桜まつり',
+        canonicalSummary: '桜まつりの話題',
+        category: 'イベント',
+        care: 1,
+        embedding: [0.1],
+      });
+      await topicRepo.putWebFact({
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId,
+        factId: `${topicId}-fact`,
+        text: '去年の桜まつりは3月下旬でした。',
+        sourceUrls: [],
+        volatility: 'high',
+        observedAt: NOW_MS - 100_000,
+        nextReview: NOW_MS - 1000,
+      });
+    }
+
+    it('Topic の読み取りに失敗した依頼は、調べずに残す', async () => {
+      await seedStaleTopic('topic-1');
+      jest.spyOn(topicRepo, 'getTopic').mockRejectedValueOnce(new Error('一時的な障害'));
+      const researchClient = makeResearchClient();
+
+      const result = await acquireForUser('u1', 'hiyori', {
+        topicRepo,
+        webRawRepo,
+        freshnessCheckRequestRepo,
+        researchAllowance,
+        studyTopicRepo,
+        researchClient,
+        changeDetector: makeChangeDetector(true),
+        character,
+        lifecycle: makeLifecycle(),
+        now: () => awakeNonPeak,
+        maxQueriesPerRun: 1,
+      });
+
+      expect(researchClient.research).not.toHaveBeenCalled();
+      expect(result.staleRefreshed).toBe(0);
+      const remaining = await freshnessCheckRequestRepo.listByCharacter('u1', 'hiyori');
+      expect(remaining.map((r) => r.topicId)).toEqual(['topic-1']);
+    });
+
+    it('依頼の削除に失敗しても、処理を続ける', async () => {
+      await seedStaleTopic('topic-1');
+      jest
+        .spyOn(freshnessCheckRequestRepo, 'delete')
+        .mockRejectedValueOnce(new Error('削除の障害'));
+      const researchClient = makeResearchClient();
+
+      const result = await acquireForUser('u1', 'hiyori', {
+        topicRepo,
+        webRawRepo,
+        freshnessCheckRequestRepo,
+        researchAllowance,
+        studyTopicRepo,
+        researchClient,
+        changeDetector: makeChangeDetector(true),
+        character,
+        lifecycle: makeLifecycle(),
+        now: () => awakeNonPeak,
+        maxQueriesPerRun: 1,
+      });
+
+      expect(result.outcome).toBe('acquired');
+      expect(result.staleRefreshed).toBe(1);
+      // 消せなかった依頼は残るが、fact の期限は前進済みのため次の回では調べ直さない
+      const facts = await topicRepo.listWebFacts('u1', 'hiyori', 'topic-1');
+      expect(facts.every((f) => (f.nextReview ?? 0) > NOW_MS)).toBe(true);
+    });
+
     it('同一トピックの複数期限切れ fact をまとめて research 1 回にする', async () => {
       await freshnessCheckRequestRepo.put({
         userId: 'u1',
