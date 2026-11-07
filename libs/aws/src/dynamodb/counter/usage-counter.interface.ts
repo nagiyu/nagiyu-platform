@@ -13,7 +13,7 @@ export interface UsageCounterIncrementInput {
   limit: number;
   /** TTL (エポック秒)。アイテムの初回作成時だけ設定し、期間内の自然な満了を保つ */
   ttlSec: number;
-  /** アイテムの Type。初回作成時だけ設定する */
+  /** アイテムの Type */
   itemType: string;
 }
 
