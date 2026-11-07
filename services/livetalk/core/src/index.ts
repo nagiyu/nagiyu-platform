@@ -80,7 +80,7 @@ export {
 } from './usecases/learn-user-activity.usecase.js';
 
 // Research（Phase 5a）
-export type { IResearchClient, ResearchResult } from './research/index.js';
+export type { IResearchClient, ResearchResult, WebSearchCallCounts } from './research/index.js';
 export {
   OpenAIResearchClient,
   RESEARCH_ERROR_MESSAGES,
