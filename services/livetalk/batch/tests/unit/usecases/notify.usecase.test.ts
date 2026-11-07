@@ -61,6 +61,10 @@ jest.mock('@nagiyu/livetalk-core', () => ({
     notificationName: id === 'hiyori' ? 'ひより' : 'アゲハ',
   })),
   selectNotificationsToSend: jest.fn(),
+  // 勉強停止の判定は純粋関数なので実物を使う（判定条件そのものを通知側から確かめるため）
+  isStudyPaused: jest.requireActual('../../../../core/src/study/active-window.js').isStudyPaused,
+  findLastUserMessageAt: jest.requireActual('../../../../core/src/study/active-window.js')
+    .findLastUserMessageAt,
   computeIntensityFactor: jest.fn(() => 1),
   computeDailyNormalCap: jest.fn(() => 1),
   extractSessionStartTimes: jest.fn(() => []),
@@ -98,7 +102,7 @@ function makeLifecycleRepo(
   return { get: jest.fn().mockResolvedValue(lifecycle) };
 }
 
-function makeMessageRepo(messages = [{ role: 'user', createdAt: 1000 }]) {
+function makeMessageRepo(messages = [{ role: 'user', createdAt: Date.now() - 1000 }]) {
   return {
     listSince: jest.fn().mockResolvedValue(messages),
   };
@@ -1102,3 +1106,107 @@ describe('notifyAllUsers', () => {
 });
 
 const DAY = 24 * 60 * 60 * 1000;
+
+describe('勉強が止まっている組の通知', () => {
+  const NOW = new Date('2026-06-10T05:00:00Z');
+  const PAUSE_MS = 72 * 60 * 60 * 1000;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockGetAllCharacterIds.mockReturnValue(['hiyori']);
+    mockSendWebPush.mockResolvedValue(true);
+    mockDetectCriticalTopic.mockResolvedValue({ isCritical: false, topicId: null, factId: null });
+  });
+
+  async function run(messages: Array<{ role: string; createdAt: number }>) {
+    mockShouldNotifyNow.mockReturnValue({
+      notify: true,
+      kind: 'normal',
+      toneBucket: 'normal',
+      elapsedMs: DAY,
+    });
+    mockSelectNotificationsToSend.mockReturnValue({
+      criticalCharacterIds: [],
+      normalCharacterId: 'hiyori',
+    });
+    const topicRepo = makeTopicRepo();
+    const notifEventRepo = makeNotifEventRepo();
+    const { notifyAllUsers } = await import('../../../src/usecases/notify.usecase.js');
+    await notifyAllUsers(
+      makeParams({
+        messageRepo: makeMessageRepo(messages) as never,
+        topicRepo: topicRepo as never,
+        notifEventRepo: notifEventRepo as never,
+        now: () => NOW,
+      })
+    );
+    return { topicRepo, notifEventRepo };
+  }
+
+  it('最後の発話からちょうど 3 日: 話題を選ばず、重要通知の候補も作らない', async () => {
+    const { topicRepo, notifEventRepo } = await run([
+      { role: 'user', createdAt: NOW.getTime() - PAUSE_MS },
+    ]);
+
+    expect(topicRepo.listTopicHeadersByCareDesc).not.toHaveBeenCalled();
+    expect(mockDetectCriticalTopic).toHaveBeenCalledWith(
+      expect.objectContaining({ candidates: [] })
+    );
+    expect(core.buildNotificationMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ knowledgeTopic: undefined }),
+      expect.any(Number)
+    );
+    expect(notifEventRepo.put).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 'normal', topicId: undefined })
+    );
+    expect(core.buildSuggestedReply).toHaveBeenCalledWith(undefined);
+  });
+
+  it('発話が一度もない組も止まっている', async () => {
+    const { topicRepo } = await run([]);
+    expect(topicRepo.listTopicHeadersByCareDesc).not.toHaveBeenCalled();
+  });
+
+  it('アシスタントの発話だけが最近にある組は止まっている', async () => {
+    const { topicRepo } = await run([
+      { role: 'user', createdAt: NOW.getTime() - 5 * DAY },
+      { role: 'assistant', createdAt: NOW.getTime() - 1000 },
+    ]);
+    expect(topicRepo.listTopicHeadersByCareDesc).not.toHaveBeenCalled();
+  });
+
+  it('3 日に 1 ミリ秒足りないうちは止まらず、話題を使う', async () => {
+    const { topicRepo, notifEventRepo } = await run([
+      { role: 'user', createdAt: NOW.getTime() - PAUSE_MS + 1 },
+    ]);
+
+    expect(topicRepo.listTopicHeadersByCareDesc).toHaveBeenCalled();
+    expect(core.buildNotificationMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ knowledgeTopic: 'TypeScript' }),
+      expect.any(Number)
+    );
+    expect(notifEventRepo.put).toHaveBeenCalledWith(expect.objectContaining({ topicId: 't1' }));
+  });
+
+  it('止まっていた組が話しかけると、重要通知の候補が再び作られる', async () => {
+    mockDetectCriticalTopic.mockResolvedValue({ isCritical: true, topicId: 't1', factId: 'f1' });
+    mockShouldNotifyNow.mockReturnValue({ notify: true, kind: 'critical', topicId: 't1' });
+    mockSelectNotificationsToSend.mockReturnValue({
+      criticalCharacterIds: ['hiyori'],
+      normalCharacterId: null,
+    });
+    const topicRepo = makeTopicRepo([{ topicId: 't1', subject: '大会', care: 5 }]);
+    const { notifyAllUsers } = await import('../../../src/usecases/notify.usecase.js');
+    await notifyAllUsers(
+      makeParams({
+        messageRepo: makeMessageRepo([{ role: 'user', createdAt: NOW.getTime() - 1000 }]) as never,
+        topicRepo: topicRepo as never,
+        now: () => NOW,
+      })
+    );
+
+    const input = mockDetectCriticalTopic.mock.calls[0][0] as { candidates: unknown[] };
+    expect(input.candidates).toHaveLength(1);
+    expect(core.buildCriticalNotificationMessage).toHaveBeenCalledWith('大会', 'ひより');
+  });
+});

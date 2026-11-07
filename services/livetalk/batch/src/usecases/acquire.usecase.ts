@@ -6,6 +6,7 @@ import {
   type IResearchClient,
   type IWebFactChangeDetector,
   type LifecycleRepository,
+  type MessageRepository,
   type ProfileRepository,
   type StudyTopicRepository,
   type TopicRepository,
@@ -16,6 +17,7 @@ import {
 export interface AcquireAllUsersParams {
   profileRepo: ProfileRepository;
   lifecycleRepo: LifecycleRepository;
+  messageRepo: MessageRepository;
   topicRepo: TopicRepository;
   webRawRepo: WebRawRepository;
   studyTopicRepo: StudyTopicRepository;
@@ -61,6 +63,7 @@ export async function acquireAllUsers(
   const {
     profileRepo,
     lifecycleRepo,
+    messageRepo,
     topicRepo,
     webRawRepo,
     studyTopicRepo,
@@ -111,6 +114,7 @@ export async function acquireAllUsers(
           }
 
           const outcome = await acquireForUser(userId, characterId, {
+            messageRepo,
             topicRepo,
             webRawRepo,
             studyTopicRepo,

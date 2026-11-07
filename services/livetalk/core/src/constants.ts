@@ -67,6 +67,13 @@ export const LIFECYCLE_DEFAULT_WAKE_UP_TIME = '09:30';
 export const STUDY_INACTIVE_WINDOW_HOURS = 2;
 
 /**
+ * 最後にユーザーが話してから、キャラクターの勉強 (Web リサーチ) と重要通知を止めるまでの時間 (時間)。
+ * 3 日 = 72 時間。話しかけると次のバッチから再開する。
+ * 離れている利用者のためにリサーチ費用をかけず、情報が更新されないまま重要通知を出さないための値。
+ */
+export const STUDY_PAUSE_AFTER_HOURS = 72;
+
+/**
  * StudyTopic に付与する DynamoDB TTL（秒）。30 日後に自動削除。
  */
 export const STUDY_TOPIC_TTL_SECONDS = 30 * 24 * 60 * 60;

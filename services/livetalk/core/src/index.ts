@@ -191,6 +191,11 @@ export { NoteLetterSchema, type NoteLetterRaw } from './llm-client/schemas/note-
 // 知識ゲート（Phase 5b / #3344。P5 で searchKnowledge/evaluateKnowledgeGate/KnowledgeMatcher は撤去、classifyTopic のみ残置）
 export { classifyTopic } from './study/knowledge-gate.js';
 export { buildStudyDeferralMessage } from './study/templates.js';
+export {
+  isStudyPaused,
+  findLastUserMessageAt,
+  resolveLastUserMessageAt,
+} from './study/active-window.js';
 
 // Token counter
 export {
@@ -214,6 +219,7 @@ export {
   AFFECTION_TIME_CONTINUITY_BONUS,
   AFFECTION_BIDIRECTIONALITY_WEIGHT,
   STUDY_INACTIVE_WINDOW_HOURS,
+  STUDY_PAUSE_AFTER_HOURS,
   STUDY_TOPIC_TTL_SECONDS,
   STUDY_TOPIC_GATE_PRIORITY,
   NOTE_CARE_THRESHOLD,

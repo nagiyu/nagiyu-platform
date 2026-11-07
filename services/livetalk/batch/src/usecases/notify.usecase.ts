@@ -8,6 +8,8 @@ import {
   detectCriticalTopic,
   shouldNotifyNow,
   getAllCharacterIds,
+  isStudyPaused,
+  findLastUserMessageAt,
   getCharacterDefinitionById,
   selectNotificationsToSend,
   computeIntensityFactor,
@@ -365,8 +367,15 @@ async function evaluateCharacter(params: {
   // 通知履歴をこのキャラ単位でフィルタ（他キャラの通知が interval/cap/missedCount に混入しない）
   const charNotifEvents = allUserEvents.filter((e) => e.characterId === characterId);
 
-  // care 降順で Topic ヘッダを取得（ネタ源・critical 判定の候補）
-  const topics = await topicRepo.listTopicHeadersByCareDesc(userId, characterId, 10);
+  // 勉強が止まっている組は話題を使わない。止まると情報が更新されず、延期や中止を拾えないまま
+  // 「もうすぐある」と重要通知しうるうえ、話題入りの文面は勉強したことを前提にしているため。
+  // 強度サンプリングの窓 (7 日) は停止期間 (3 日) を含むので、その読み取りで最後の発話を求められる。
+  const studyPaused = isStudyPaused(findLastUserMessageAt(userMessages), now);
+
+  // care 降順で Topic ヘッダを取得（ネタ源・critical 判定の候補）。止まっている間は使わない。
+  const topics = studyPaused
+    ? []
+    : await topicRepo.listTopicHeadersByCareDesc(userId, characterId, 10);
 
   // critical 判定用に「高 care」の Topic のみ上位から WEB fact を取得する。
   // care 閾値未満は detectCriticalTopic 側でも LLM をスキップするため、
@@ -381,6 +390,7 @@ async function evaluateCharacter(params: {
     }))
   );
 
+  // topics が空なら候補も空になり、LLM は呼ばれず critical は発火しない。
   const escalation = await detectCriticalTopic({
     candidates: criticalCandidates,
     careThreshold: NOTIFY_CRITICAL_CARE_THRESHOLD,
