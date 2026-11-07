@@ -1474,6 +1474,7 @@ describe('acquireForUser', () => {
     );
 
     const result = await acquireForUser('u1', 'hiyori', {
+      messageRepo,
       topicRepo,
       webRawRepo,
       studyTopicRepo,

@@ -219,6 +219,7 @@ export async function acquireForUser(
       staleFactsReviewed: 0,
       selfStudied: 0,
       webRawWritten: 0,
+      webSearchCalls: 0,
     };
   }
 
