@@ -196,6 +196,17 @@ export {
   findLastUserMessageAt,
   resolveLastUserMessageAt,
 } from './study/active-window.js';
+export {
+  computePerCharacterResearchLimit,
+  createDailyResearchAllowance,
+  type ResearchAllowance,
+} from './study/research-allowance.js';
+export type {
+  StudyUsageRepository,
+  TryConsumeStudyUsageInput,
+} from './repositories/study-usage.repository.interface.js';
+export { InMemoryStudyUsageRepository } from './repositories/in-memory-study-usage.repository.js';
+export { DynamoDBStudyUsageRepository } from './repositories/dynamodb-study-usage.repository.js';
 
 // Token counter
 export {
@@ -453,5 +464,6 @@ export {
   createConsolidationCursorRepository,
   createWebRawRepository,
   createSafetyEventRepository,
+  createStudyUsageRepository,
   resetRepositoryFactories,
 } from './repositories/factory.js';

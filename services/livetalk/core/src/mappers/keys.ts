@@ -208,6 +208,24 @@ export function buildChatRateLimitSK(window: string, bucket: string): string {
   return `RATELIMIT#${window}#${bucket}`;
 }
 
+// ---- 勉強の 1 日あたりの回数 ----
+
+/**
+ * 勉強 (Web リサーチ) の 1 日の回数を数えるアイテムの SK。
+ * 利用者 × 日本時間の暦日 (YYYYMMDD) で 1 アイテム。
+ */
+export function buildStudyUsageSK(dayKey: string): string {
+  return `STUDYUSAGE#${dayKey}`;
+}
+
+/**
+ * 勉強の回数アイテム内の、キャラクターごとの回数の属性名。
+ * 利用者の枠をキャラクターで分けて数えるため、キャラクターごとに属性を分ける。
+ */
+export function buildStudyUsageCountAttribute(characterId: string): string {
+  return `Count#${characterId}`;
+}
+
 // ---- Topic 中心モデル（リブトーク知識再設計 P1 / #3697、shadow build）----
 //
 // 1 Topic = ヘッダ(META) + SELF fact 群 + WEB fact 群。
