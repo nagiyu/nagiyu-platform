@@ -74,16 +74,23 @@ describe('NotificationEventMapper', () => {
 
     it('任意項目があれば書き、なければ書かない', () => {
       const withOptionals = mapper.toItem(
-        buildEntity({ topicId: 'tp1', suggestedReply: '教えて', consumedAt: TIMESTAMP + 1000 })
+        buildEntity({
+          topicId: 'tp1',
+          eventDate: '2026-06-12',
+          suggestedReply: '教えて',
+          consumedAt: TIMESTAMP + 1000,
+        })
       );
       expect(withOptionals).toMatchObject({
         TopicID: 'tp1',
+        EventDate: '2026-06-12',
         SuggestedReply: '教えて',
         ConsumedAt: TIMESTAMP + 1000,
       });
 
       const without = mapper.toItem(buildEntity());
       expect(without).not.toHaveProperty('TopicID');
+      expect(without).not.toHaveProperty('EventDate');
       expect(without).not.toHaveProperty('SuggestedReply');
       expect(without).not.toHaveProperty('ConsumedAt');
     });
@@ -104,9 +111,15 @@ describe('NotificationEventMapper', () => {
 
     it('任意項目の null は属性の削除にする', () => {
       expect(
-        mapper.toUpdateAttributes({ topicId: null, suggestedReply: null, consumedAt: null })
+        mapper.toUpdateAttributes({
+          topicId: null,
+          eventDate: null,
+          suggestedReply: null,
+          consumedAt: null,
+        })
       ).toEqual({
         TopicID: REMOVE_ATTRIBUTE,
+        EventDate: REMOVE_ATTRIBUTE,
         SuggestedReply: REMOVE_ATTRIBUTE,
         ConsumedAt: REMOVE_ATTRIBUTE,
       });
@@ -140,6 +153,7 @@ describe('NotificationEventMapper', () => {
       const entity = mapper.toEntity(
         buildItem({
           TopicID: 'tp1',
+          EventDate: '2026-06-12',
           SuggestedReply: '教えて',
           ConsumedAt: TIMESTAMP + 1000,
         })
@@ -147,9 +161,14 @@ describe('NotificationEventMapper', () => {
 
       expect(entity).toMatchObject({
         topicId: 'tp1',
+        eventDate: '2026-06-12',
         suggestedReply: '教えて',
         consumedAt: TIMESTAMP + 1000,
       });
+    });
+
+    it('EventDate が無い旧データは eventDate なしで読む', () => {
+      expect(mapper.toEntity(buildItem({ TopicID: 'tp1' }))).not.toHaveProperty('eventDate');
     });
 
     it('CharacterID が欠落した旧データは hiyori として読む', () => {

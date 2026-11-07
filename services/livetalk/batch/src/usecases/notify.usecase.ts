@@ -139,6 +139,8 @@ interface NotificationCandidate {
   characterId: string;
   kind: 'normal' | 'critical';
   topicId: string | undefined;
+  /** 重要通知の根拠にした予定の日付。送り済みの照合のため通知の記録に残す */
+  eventDate: string | undefined;
   title: string;
   body: string;
   /** 通知タップ起動時に入力欄へプリフィルするユーザー発話 */
@@ -258,7 +260,7 @@ async function processUser(params: ProcessUserParams): Promise<boolean> {
     const candidate = candidateMap.get(characterId);
     if (!candidate) continue;
 
-    const { title, body, topicId, kind, suggestedReply } = candidate;
+    const { title, body, topicId, eventDate, kind, suggestedReply } = candidate;
 
     // B-2: payload に characterId と URL を含める（from=push で通知タップ由来であることをフロントに伝える）
     const payload = {
@@ -310,6 +312,7 @@ async function processUser(params: ProcessUserParams): Promise<boolean> {
       title,
       body,
       topicId,
+      ...(eventDate !== undefined && { eventDate }),
       suggestedReply,
       expiresAt,
     });
@@ -390,12 +393,19 @@ async function evaluateCharacter(params: {
     }))
   );
 
+  // 送り済みの重要通知は、同じ話題・同じ予定を再び選ばないよう判定へ渡す。
+  // 予定の日付が記録に無い旧データは、判定側で話題ごと送り済みとして扱われる。
+  const sentCriticals = charNotifEvents
+    .filter((e) => e.kind === 'critical' && e.topicId !== undefined)
+    .map((e) => ({ topicId: e.topicId as string, eventDate: e.eventDate }));
+
   // topics が空なら候補も空になり、LLM は呼ばれず critical は発火しない。
   const escalation = await detectCriticalTopic({
     candidates: criticalCandidates,
     careThreshold: NOTIFY_CRITICAL_CARE_THRESHOLD,
     llmClient,
     now,
+    sentCriticals,
   });
   const criticalTopicId = escalation.isCritical ? (escalation.topicId ?? undefined) : undefined;
 
@@ -425,6 +435,7 @@ async function evaluateCharacter(params: {
   let title: string;
   let body: string;
   let topicId: string | undefined;
+  let eventDate: string | undefined;
   let suggestedReply: string;
 
   if (decision.kind === 'critical') {
@@ -436,6 +447,8 @@ async function evaluateCharacter(params: {
     title = msg.title;
     body = msg.body;
     topicId = decision.topicId;
+    eventDate =
+      escalation.topicId === decision.topicId ? (escalation.eventDate ?? undefined) : undefined;
     suggestedReply = buildSuggestedReply(topic?.subject);
   } else {
     // 直近で使用済みの TopicID を避けてネタを選ぶ（同じ話題の連発を抑制）
@@ -467,6 +480,7 @@ async function evaluateCharacter(params: {
     characterId,
     kind: decision.kind,
     topicId,
+    eventDate,
     title,
     body,
     suggestedReply,

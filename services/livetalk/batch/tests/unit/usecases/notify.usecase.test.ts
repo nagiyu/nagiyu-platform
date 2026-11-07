@@ -256,6 +256,60 @@ describe('notifyAllUsers', () => {
     expect(core.buildCriticalNotificationMessage).toHaveBeenCalled();
   });
 
+  it('critical 通知は予定の日付を記録に残す', async () => {
+    mockDetectCriticalTopic.mockResolvedValue({
+      isCritical: true,
+      topicId: 't1',
+      factId: 'f1',
+      eventDate: '2026-06-12',
+    });
+    mockShouldNotifyNow.mockReturnValue({ notify: true, kind: 'critical', topicId: 't1' });
+    mockSelectNotificationsToSend.mockReturnValue({
+      criticalCharacterIds: ['hiyori'],
+      normalCharacterId: null,
+    });
+    mockSendWebPush.mockResolvedValue(true);
+
+    const notifEventRepo = makeNotifEventRepo();
+    const { notifyAllUsers } = await import('../../../src/usecases/notify.usecase.js');
+    await notifyAllUsers(makeParams({ notifEventRepo: notifEventRepo as never }));
+
+    expect(notifEventRepo.put).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 'critical', topicId: 't1', eventDate: '2026-06-12' })
+    );
+  });
+
+  it('送り済みの重要通知だけを、予定の日付つきで判定に渡す', async () => {
+    mockDetectCriticalTopic.mockResolvedValue({
+      isCritical: false,
+      topicId: null,
+      factId: null,
+      eventDate: null,
+    });
+    mockShouldNotifyNow.mockReturnValue({ notify: false, reason: 'test' });
+
+    const base = { userId: 'u1', characterId: 'hiyori', title: 't', body: 'b' };
+    const notifEventRepo = makeNotifEventRepo();
+    notifEventRepo.listByUser.mockResolvedValue([
+      { ...base, notifId: 'n1', kind: 'critical', topicId: 't1', eventDate: '2026-06-12' },
+      { ...base, notifId: 'n2', kind: 'critical', topicId: 't2' },
+      { ...base, notifId: 'n3', kind: 'normal', topicId: 't3' },
+      { ...base, notifId: 'n4', kind: 'critical', characterId: 'ageha', topicId: 't4' },
+    ]);
+
+    const { notifyAllUsers } = await import('../../../src/usecases/notify.usecase.js');
+    await notifyAllUsers(makeParams({ notifEventRepo: notifEventRepo as never }));
+
+    expect(mockDetectCriticalTopic).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sentCriticals: [
+          { topicId: 't1', eventDate: '2026-06-12' },
+          { topicId: 't2', eventDate: undefined },
+        ],
+      })
+    );
+  });
+
   it('Push 送信が false を返す（無効サブスクリプション）→ サブスクリプションを削除', async () => {
     mockDetectCriticalTopic.mockResolvedValue({ isCritical: false, topicId: null, factId: null });
     mockShouldNotifyNow.mockReturnValue({

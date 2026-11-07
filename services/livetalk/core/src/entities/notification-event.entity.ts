@@ -28,6 +28,11 @@ export interface NotificationEventEntity {
   /** クリティカル/通常通知の元となった TopicID（Topic 中心モデル、P5〜） */
   topicId?: string;
   /**
+   * 重要通知の根拠にした予定の日付 (YYYY-MM-DD)。
+   * 同じ話題・同じ予定の再通知を止める照合に使う。旧データや平常通知には無い。
+   */
+  eventDate?: string;
+  /**
    * 通知タップ起動時に入力欄へプリフィルするユーザー発話。
    * バッチで生成し、first-word API 経由でフロントへ渡す。
    * 例: 「TypeScriptについて教えて」
