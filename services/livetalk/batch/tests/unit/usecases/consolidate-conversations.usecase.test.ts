@@ -6,6 +6,7 @@ import {
   InMemoryConsolidationCursorRepository,
   InMemoryProfileRepository,
   InMemoryNoteRepository,
+  InMemoryNoteSkipRepository,
   type ILLMClient,
   type IEmbeddingClient,
 } from '@nagiyu/livetalk-core';
@@ -82,6 +83,7 @@ const makeRepos = (sharedStore?: InMemorySingleTableStore) => {
     cursorRepo: new InMemoryConsolidationCursorRepository(store, nowMs),
     profileRepo: new InMemoryProfileRepository(store, nowMs),
     noteRepo: new InMemoryNoteRepository(store, nowMs),
+    noteSkipRepo: new InMemoryNoteSkipRepository(store, nowMs),
   };
 };
 
@@ -102,7 +104,8 @@ const makeProfileRepoWithUsers = async (userIds: string[]): Promise<InMemoryProf
 const makeParams = (
   overrides: Partial<ConsolidateAllConversationsParams> = {}
 ): ConsolidateAllConversationsParams => {
-  const { topicRepo, messageRepo, webRawRepo, cursorRepo, profileRepo, noteRepo } = makeRepos();
+  const { topicRepo, messageRepo, webRawRepo, cursorRepo, profileRepo, noteRepo, noteSkipRepo } =
+    makeRepos();
   return {
     profileRepo,
     topicRepo,
@@ -110,6 +113,7 @@ const makeParams = (
     webRawRepo,
     cursorRepo,
     noteRepo,
+    noteSkipRepo,
     llmClient: makeLLMClient(),
     embeddingClient: makeEmbeddingClient(),
     ...overrides,
@@ -137,7 +141,7 @@ describe('consolidateAllConversations', () => {
   it('hiyori に未集約メッセージのあるユーザー分だけ LLM を呼ぶ', async () => {
     const llmClient = makeLLMClient();
     const store = new InMemorySingleTableStore();
-    const { topicRepo, messageRepo, webRawRepo, cursorRepo, profileRepo, noteRepo } =
+    const { topicRepo, messageRepo, webRawRepo, cursorRepo, profileRepo, noteRepo, noteSkipRepo } =
       makeRepos(store);
     tick = fixedNow;
     await messageRepo.create({ userId: 'u1', characterId: 'hiyori', role: 'user', text: 'hello' });
@@ -151,6 +155,7 @@ describe('consolidateAllConversations', () => {
       webRawRepo,
       cursorRepo,
       noteRepo,
+      noteSkipRepo,
       llmClient,
       embeddingClient: makeEmbeddingClient(),
     });
@@ -181,7 +186,7 @@ describe('consolidateAllConversations', () => {
     };
 
     const store = new InMemorySingleTableStore();
-    const { topicRepo, messageRepo, webRawRepo, cursorRepo, profileRepo, noteRepo } =
+    const { topicRepo, messageRepo, webRawRepo, cursorRepo, profileRepo, noteRepo, noteSkipRepo } =
       makeRepos(store);
     tick = fixedNow;
     await messageRepo.create({ userId: 'u1', characterId: 'hiyori', role: 'user', text: 'hi' });
@@ -197,6 +202,7 @@ describe('consolidateAllConversations', () => {
       webRawRepo,
       cursorRepo,
       noteRepo,
+      noteSkipRepo,
       llmClient: errorClient,
       embeddingClient: makeEmbeddingClient(),
     });
@@ -227,7 +233,7 @@ describe('consolidateAllConversations', () => {
     };
 
     const store = new InMemorySingleTableStore();
-    const { topicRepo, messageRepo, webRawRepo, cursorRepo, profileRepo, noteRepo } =
+    const { topicRepo, messageRepo, webRawRepo, cursorRepo, profileRepo, noteRepo, noteSkipRepo } =
       makeRepos(store);
     tick = fixedNow;
     await messageRepo.create({ userId: 'u1', characterId: 'hiyori', role: 'user', text: 'hi' });
@@ -242,6 +248,7 @@ describe('consolidateAllConversations', () => {
       webRawRepo,
       cursorRepo,
       noteRepo,
+      noteSkipRepo,
       llmClient: partialErrorClient,
       embeddingClient: makeEmbeddingClient(),
     });
@@ -255,7 +262,7 @@ describe('consolidateAllConversations', () => {
   it('複数キャラ（hiyori と ageha）両方に未集約データがある場合 LLM が 2 回呼ばれる', async () => {
     const llmClient = makeLLMClient();
     const store = new InMemorySingleTableStore();
-    const { topicRepo, messageRepo, webRawRepo, cursorRepo, profileRepo, noteRepo } =
+    const { topicRepo, messageRepo, webRawRepo, cursorRepo, profileRepo, noteRepo, noteSkipRepo } =
       makeRepos(store);
     tick = fixedNow;
     await messageRepo.create({
@@ -280,6 +287,7 @@ describe('consolidateAllConversations', () => {
       webRawRepo,
       cursorRepo,
       noteRepo,
+      noteSkipRepo,
       llmClient,
       embeddingClient: makeEmbeddingClient(),
     });
@@ -309,7 +317,7 @@ describe('consolidateAllConversations', () => {
     };
 
     const store = new InMemorySingleTableStore();
-    const { topicRepo, messageRepo, webRawRepo, cursorRepo, profileRepo, noteRepo } =
+    const { topicRepo, messageRepo, webRawRepo, cursorRepo, profileRepo, noteRepo, noteSkipRepo } =
       makeRepos(store);
     tick = fixedNow;
     await messageRepo.create({ userId: 'u1', characterId: 'hiyori', role: 'user', text: 'hello' });
@@ -324,6 +332,7 @@ describe('consolidateAllConversations', () => {
       webRawRepo,
       cursorRepo,
       noteRepo,
+      noteSkipRepo,
       llmClient: spyClient,
       embeddingClient: makeEmbeddingClient(),
     });
@@ -335,7 +344,7 @@ describe('consolidateAllConversations', () => {
   it('未集約データのあるユーザーは processedUsers、ないユーザーは skippedUsers に計上される（混在ケース）', async () => {
     const llmClient = makeLLMClient();
     const store = new InMemorySingleTableStore();
-    const { topicRepo, messageRepo, webRawRepo, cursorRepo, profileRepo, noteRepo } =
+    const { topicRepo, messageRepo, webRawRepo, cursorRepo, profileRepo, noteRepo, noteSkipRepo } =
       makeRepos(store);
     tick = fixedNow;
     await messageRepo.create({ userId: 'u1', characterId: 'hiyori', role: 'user', text: 'hello' });
@@ -349,6 +358,7 @@ describe('consolidateAllConversations', () => {
       webRawRepo,
       cursorRepo,
       noteRepo,
+      noteSkipRepo,
       llmClient,
       embeddingClient: makeEmbeddingClient(),
     });
@@ -415,8 +425,15 @@ describe('consolidateAllConversations', () => {
 
     it('集約後に care 閾値以上・WEB ありの Topic はノートを生成し generatedNotes に集計する', async () => {
       const store = new InMemorySingleTableStore();
-      const { topicRepo, messageRepo, webRawRepo, cursorRepo, profileRepo, noteRepo } =
-        makeRepos(store);
+      const {
+        topicRepo,
+        messageRepo,
+        webRawRepo,
+        cursorRepo,
+        profileRepo,
+        noteRepo,
+        noteSkipRepo,
+      } = makeRepos(store);
       tick = fixedNow;
       await preseedTopic(topicRepo);
       await messageRepo.create({
@@ -440,6 +457,7 @@ describe('consolidateAllConversations', () => {
         webRawRepo,
         cursorRepo,
         noteRepo,
+        noteSkipRepo,
         llmClient,
         embeddingClient: makeEmbeddingClient(),
       });
@@ -453,8 +471,15 @@ describe('consolidateAllConversations', () => {
 
     it('ノート生成が失敗しても集約バッチ全体は継続する（fail-warn）', async () => {
       const store = new InMemorySingleTableStore();
-      const { topicRepo, messageRepo, webRawRepo, cursorRepo, profileRepo, noteRepo } =
-        makeRepos(store);
+      const {
+        topicRepo,
+        messageRepo,
+        webRawRepo,
+        cursorRepo,
+        profileRepo,
+        noteRepo,
+        noteSkipRepo,
+      } = makeRepos(store);
       tick = fixedNow;
       await preseedTopic(topicRepo);
       await messageRepo.create({
@@ -480,6 +505,7 @@ describe('consolidateAllConversations', () => {
         webRawRepo,
         cursorRepo,
         noteRepo,
+        noteSkipRepo,
         llmClient,
         embeddingClient: makeEmbeddingClient(),
       });

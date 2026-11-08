@@ -182,6 +182,19 @@ export function buildNoteSK(characterId: string, noteId: string): string {
   return `${buildNoteSKPrefix(characterId)}${noteId}`;
 }
 
+/**
+ * 「生成しない」と判断した Topic の記録の SK プレフィックス。
+ * Topic の束 (`CHAR#<c>#TOPIC#<tid>#`) の外に置き、`getTopicBundle` の begins_with に混ざらないようにする。
+ * ノートのプレフィックス (`CHAR#<c>#NOTE#`) は `NOTE` の直後が `#` で、ここは `S` のため、ノート一覧の begins_with にも混ざらない。
+ */
+export function buildNoteSkipSKPrefix(characterId: string): string {
+  return `CHAR#${characterId}#NOTESKIP#`;
+}
+
+export function buildNoteSkipSK(characterId: string, topicId: string): string {
+  return `${buildNoteSkipSKPrefix(characterId)}${topicId}`;
+}
+
 export function buildPushSubscriptionSKPrefix(): string {
   return 'PUSH_SUBSCRIPTION#';
 }
