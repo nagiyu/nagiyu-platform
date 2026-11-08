@@ -2,7 +2,7 @@
  * TopicRepository 契約テスト（実装非依存の振る舞い仕様）
  *
  * InMemory実装と実DynamoDB実装（DynamoDB Local）の双方に同一の仕様を通し、
- * 実装間の乖離（GSI3/GSI4射影・ソート順など）を機械的に検知する。
+ * 実装間の乖離（GSI3射影・ソート順など）を機械的に検知する。
  * 各テストは決定的で単一の結末を持ち（実行時分岐で結末を変えない・自己スキップしない）、
  * 形骸化テストは書かない。
  */
@@ -246,173 +246,46 @@ export function defineTopicRepositoryContract(
       });
     });
 
-    describe('listStaleWebFacts（GSI4）', () => {
-      // GSI4SK（NextReview）は NUMBER 型で、実DynamoDBは数値順にソートする。
-      // 現状の InMemoryTopicRepository.listStaleWebFacts も取得後に
-      // JS 側で NextReview の数値差分によるソートを明示的に行っており、
-      // InMemorySingleTableStore.queryByAttribute の sk 条件（String()比較の辞書順）には
-      // 依存していないため、このブロックのテストは現状どちらの実装でも数値順どおりに通る。
-      // それでも NextReview の値の桁数を意図的に不揃いにしているのは、この経路が将来
-      // store の GSI ソートキー経由のソート（sk 条件付き queryByAttribute）に
-      // 乗せ替えられた場合に、辞書順ソートへ退行したことを検知するガードとして機能させるため。
-      // ObservedAt は NextReview と同じ小さいスケールに揃え、
-      // 「観測より前に再検証期限が来る」という非現実的な数値の混在を避けている。
+    describe('updateWebFactNextReview', () => {
       const nowMs = 1_000_000;
-      const OBSERVED_AT_MS = 1;
 
-      it('NextReview<=nowMs のものだけを昇順・limit件で返し、stable/未来分は除外する', async () => {
-        // 数値昇順: 2, 20, 100。辞書昇順だと "100" < "2" < "20" になり順序が入れ替わる。
-        await repository.putWebFact(
+      it('存在しない WEB fact は何もせず成功する', async () => {
+        await expect(
+          repository.updateWebFactNextReview(
+            { userId: 'u1', characterId: 'hiyori', topicId: 'TOPIC-001', factId: 'missing' },
+            nowMs
+          )
+        ).resolves.toBeUndefined();
+      });
+
+      it('NextReview だけを前方更新し、他の属性は保たれる', async () => {
+        const created = await repository.putWebFact(
           buildWebFactInput({
-            factId: 'FACT-100',
+            factId: 'FACT-ADVANCE',
             volatility: 'high',
-            nextReview: 100,
-            observedAt: OBSERVED_AT_MS,
-          })
-        );
-        await repository.putWebFact(
-          buildWebFactInput({
-            factId: 'FACT-2',
-            volatility: 'high',
-            nextReview: 2,
-            observedAt: OBSERVED_AT_MS,
-          })
-        );
-        await repository.putWebFact(
-          buildWebFactInput({
-            factId: 'FACT-20',
-            volatility: 'medium',
-            nextReview: 20,
-            observedAt: OBSERVED_AT_MS,
-          })
-        );
-        // 未来（まだ再検証不要）は対象外
-        await repository.putWebFact(
-          buildWebFactInput({
-            factId: 'FACT-FUTURE',
-            volatility: 'low',
-            nextReview: nowMs + 10_000,
-            observedAt: OBSERVED_AT_MS,
-          })
-        );
-        // stable（NextReview未設定）は対象外
-        await repository.putWebFact(
-          buildWebFactInput({
-            factId: 'FACT-STABLE',
-            volatility: 'stable',
-            observedAt: OBSERVED_AT_MS,
+            nextReview: nowMs - 1_000,
+            observedAt: 1,
           })
         );
 
-        const result = await repository.listStaleWebFacts('u1', 'hiyori', nowMs, 10);
+        await repository.updateWebFactNextReview(
+          {
+            userId: created.userId,
+            characterId: created.characterId,
+            topicId: created.topicId,
+            factId: created.factId,
+          },
+          nowMs + 10_000
+        );
 
-        // 数値昇順（期限が古い順）：FACT-2(2) → FACT-20(20) → FACT-100(100)。
-        // 辞書昇順だと FACT-100, FACT-2, FACT-20 になり、この期待値とは一致しない。
-        expect(result.map((f) => f.factId)).toEqual(['FACT-2', 'FACT-20', 'FACT-100']);
-      });
-
-      it('limit で件数を絞る（古い順の先頭からlimit件、数値順と辞書順で結果が変わる値で検証する）', async () => {
-        // 数値昇順: 7, 8, 9, 10, 11。
-        // 辞書昇順だと "10" < "11" < "7" < "8" < "9" になり、limit=2 の結果が全く別物になる。
-        const nextReviews = [7, 8, 9, 10, 11];
-        for (const value of nextReviews) {
-          await repository.putWebFact(
-            buildWebFactInput({
-              factId: `FACT-${value}`,
-              volatility: 'high',
-              nextReview: value,
-              observedAt: OBSERVED_AT_MS,
-            })
-          );
-        }
-
-        const result = await repository.listStaleWebFacts('u1', 'hiyori', nowMs, 2);
-
-        // 数値順なら先頭2件は FACT-7(7), FACT-8(8)。
-        // 辞書順だと FACT-10("10"), FACT-11("11") になり、この期待値とは一致しない。
-        expect(result.map((f) => f.factId)).toEqual(['FACT-7', 'FACT-8']);
-      });
-
-      it('GSI4 の射影だけで WebFactEntity を完全に復元できる', async () => {
-        const input = buildWebFactInput({
-          factId: 'FACT-RESTORE',
-          text: '復元確認用のfact本文',
-          sourceUrls: ['https://example.com/a', 'https://example.com/b'],
-          volatility: 'high',
-          nextReview: nowMs - 1_000,
-          observedAt: OBSERVED_AT_MS,
-        });
-        const created = await repository.putWebFact(input);
-
-        const [restored] = await repository.listStaleWebFacts('u1', 'hiyori', nowMs, 10);
-
-        expect(restored).toEqual(created);
-      });
-
-      describe('updateWebFactNextReview（GSI4SKの追従）', () => {
-        it('存在しない WEB fact は何もせず成功する', async () => {
-          await expect(
-            repository.updateWebFactNextReview(
-              { userId: 'u1', characterId: 'hiyori', topicId: 'TOPIC-001', factId: 'missing' },
-              nowMs
-            )
-          ).resolves.toBeUndefined();
-        });
-
-        it('NextReviewを窓の外（未来）から窓の中に更新すると、GSI4SKが追従しlistStaleWebFactsの結果に現れる', async () => {
-          const created = await repository.putWebFact(
-            buildWebFactInput({
-              factId: 'FACT-FOLLOW-IN',
-              volatility: 'high',
-              nextReview: nowMs + 10_000,
-              observedAt: OBSERVED_AT_MS,
-            })
-          );
-
-          // 更新前は窓の外（未来）のため対象外
-          const before = await repository.listStaleWebFacts('u1', 'hiyori', nowMs, 10);
-          expect(before.map((f) => f.factId)).not.toContain('FACT-FOLLOW-IN');
-
-          await repository.updateWebFactNextReview(
-            {
-              userId: created.userId,
-              characterId: created.characterId,
-              topicId: created.topicId,
-              factId: created.factId,
-            },
-            nowMs - 1_000
-          );
-
-          const after = await repository.listStaleWebFacts('u1', 'hiyori', nowMs, 10);
-          expect(after.map((f) => f.factId)).toContain('FACT-FOLLOW-IN');
-        });
-
-        it('NextReviewを窓の中から窓の外（未来）に更新すると、GSI4SKが追従しlistStaleWebFactsの結果から消える', async () => {
-          const created = await repository.putWebFact(
-            buildWebFactInput({
-              factId: 'FACT-FOLLOW-OUT',
-              volatility: 'high',
-              nextReview: nowMs - 1_000,
-              observedAt: OBSERVED_AT_MS,
-            })
-          );
-
-          // 更新前は窓の中のため対象に含まれる
-          const before = await repository.listStaleWebFacts('u1', 'hiyori', nowMs, 10);
-          expect(before.map((f) => f.factId)).toContain('FACT-FOLLOW-OUT');
-
-          await repository.updateWebFactNextReview(
-            {
-              userId: created.userId,
-              characterId: created.characterId,
-              topicId: created.topicId,
-              factId: created.factId,
-            },
-            nowMs + 10_000
-          );
-
-          const after = await repository.listStaleWebFacts('u1', 'hiyori', nowMs, 10);
-          expect(after.map((f) => f.factId)).not.toContain('FACT-FOLLOW-OUT');
+        const facts = await repository.listWebFacts(
+          created.userId,
+          created.characterId,
+          created.topicId
+        );
+        expect(facts.find((f) => f.factId === 'FACT-ADVANCE')).toEqual({
+          ...created,
+          nextReview: nowMs + 10_000,
         });
       });
     });

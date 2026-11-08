@@ -57,59 +57,49 @@ describe('WebFactMapper', () => {
   });
 
   describe('toItem', () => {
-    it('nextReview がなければ GSI4 属性を付けない (sparse)', () => {
+    it('nextReview がなければ NextReview を付けない', () => {
       const item = mapper.toItem(buildEntity({ volatility: 'stable' }));
 
       expect(item).toEqual(buildItem({ Volatility: 'stable' }));
       expect(item).not.toHaveProperty('NextReview');
-      expect(item).not.toHaveProperty('GSI4PK');
-      expect(item).not.toHaveProperty('GSI4SK');
       expect(item).not.toHaveProperty('UpdatedAt');
     });
 
-    it('nextReview があれば NextReview と GSI4PK / GSI4SK を付ける', () => {
-      expect(mapper.toItem(buildEntity({ nextReview: TIMESTAMP + 5 }))).toEqual(
-        buildItem({
-          NextReview: TIMESTAMP + 5,
-          GSI4PK: 'hiyori#STALE#u1',
-          GSI4SK: TIMESTAMP + 5,
-        })
-      );
+    it('nextReview があれば NextReview だけを付け、GSI4 の属性は付けない', () => {
+      const item = mapper.toItem(buildEntity({ nextReview: TIMESTAMP + 5 }));
+
+      expect(item).toEqual(buildItem({ NextReview: TIMESTAMP + 5 }));
+      expect(item).not.toHaveProperty('GSI4PK');
+      expect(item).not.toHaveProperty('GSI4SK');
     });
   });
 
   describe('toUpdateAttributes', () => {
-    it('nextReview を変えるときは NextReview と GSI4PK / GSI4SK を key から付け直す', () => {
-      expect(mapper.toUpdateAttributes({ nextReview: TIMESTAMP + 9 }, KEY)).toEqual({
+    it('nextReview を変えるときは NextReview だけを更新する', () => {
+      expect(mapper.toUpdateAttributes({ nextReview: TIMESTAMP + 9 })).toEqual({
         NextReview: TIMESTAMP + 9,
-        GSI4PK: 'hiyori#STALE#u1',
-        GSI4SK: TIMESTAMP + 9,
       });
     });
 
-    it('nextReview を null にすると NextReview と GSI4 属性を削除する', () => {
-      expect(mapper.toUpdateAttributes({ nextReview: null }, KEY)).toEqual({
+    it('nextReview を null にすると NextReview を削除する', () => {
+      expect(mapper.toUpdateAttributes({ nextReview: null })).toEqual({
         NextReview: REMOVE_ATTRIBUTE,
-        GSI4PK: REMOVE_ATTRIBUTE,
-        GSI4SK: REMOVE_ATTRIBUTE,
       });
     });
 
-    it('nextReview を変えないときは GSI4 属性に触れない', () => {
-      const attributes = mapper.toUpdateAttributes({ text: '更新' }, KEY);
+    it('nextReview を変えないときは NextReview に触れない', () => {
+      const attributes = mapper.toUpdateAttributes({ text: '更新' });
 
       expect(attributes.Text).toBe('更新');
       expect(attributes.NextReview).toBeUndefined();
-      expect(attributes.GSI4PK).toBeUndefined();
-      expect(attributes.GSI4SK).toBeUndefined();
+      expect(attributes).not.toHaveProperty('GSI4PK');
+      expect(attributes).not.toHaveProperty('GSI4SK');
     });
 
     it.each(['text', 'sourceUrls', 'volatility', 'observedAt'] as const)(
       '必須項目 %s を null にすると InvalidEntityDataError をスローする',
       (field) => {
-        expect(() => mapper.toUpdateAttributes({ [field]: null }, KEY)).toThrow(
-          InvalidEntityDataError
-        );
+        expect(() => mapper.toUpdateAttributes({ [field]: null })).toThrow(InvalidEntityDataError);
       }
     );
 
@@ -122,7 +112,7 @@ describe('WebFactMapper', () => {
     ] as const)(
       '変更不可の項目 %s を含めると、値が同じでも InvalidEntityDataError をスローする',
       (_field, changes) => {
-        expect(() => mapper.toUpdateAttributes(changes, KEY)).toThrow(InvalidEntityDataError);
+        expect(() => mapper.toUpdateAttributes(changes)).toThrow(InvalidEntityDataError);
       }
     );
   });
@@ -136,9 +126,12 @@ describe('WebFactMapper', () => {
       expect(mapper.toEntity(buildItem())).not.toHaveProperty('nextReview');
     });
 
-    it('GSI4 の射影には NextReview が無いため GSI4SK から復元する', () => {
-      expect(mapper.toEntity(buildItem({ GSI4PK: 'hiyori#STALE#u1', GSI4SK: 7 })).nextReview).toBe(
-        7
+    it('既存 item に残る GSI4PK / GSI4SK は読み出しに影響しない', () => {
+      const legacy = buildItem({ NextReview: 7, GSI4PK: 'hiyori#STALE#u1', GSI4SK: 7 });
+
+      expect(mapper.toEntity(legacy)).toEqual(buildEntity({ nextReview: 7 }));
+      expect(mapper.toEntity({ ...buildItem(), GSI4PK: 'hiyori#STALE#u1', GSI4SK: 7 })).toEqual(
+        buildEntity()
       );
     });
 

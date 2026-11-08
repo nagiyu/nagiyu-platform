@@ -421,9 +421,6 @@ export {
   // GSI3（GSI-TOPIC）: Topic ヘッダ(META) 列挙・care 降順取得用 sparse GSI（#3697）
   TOPIC_GSI_INDEX_NAME,
   buildTopicGSI3PK,
-  // GSI4（GSI-STALE）: 揮発 WEB fact の鮮度掃引用 sparse GSI（リブトーク知識再設計 P3 / #3699）
-  STALE_GSI_INDEX_NAME,
-  buildTopicStaleGSI4PK,
 } from './mappers/keys.js';
 
 export type { TopicRepository, TopicBundle } from './repositories/topic.repository.interface.js';

@@ -22,8 +22,6 @@ import { createTable as createTableBase } from '@nagiyu/aws/testing';
  * - GSI2: SafetyEvent 横断レビュー用 sparse GSI。INCLUDE 射影（PII を除くメタデータのみ）。
  * - GSI3（GSI-TOPIC）: Topic ヘッダ(META) 列挙用 sparse GSI。GSI3SK は Care（Number 型）。
  *   INCLUDE 射影（Care は GSI3SK と重複するため除外、RequestText/RequestedAt も意図的に除外）。
- * - GSI4（GSI-STALE）: 揮発性のある WEB fact の鮮度掃引用 sparse GSI。GSI4SK は NextReview（Number 型）。
- *   INCLUDE 射影（NextReview は GSI4SK と重複するため除外）。
  */
 export const LOCAL_TABLE_SCHEMA: CreateTableCommandInput = {
   TableName: '__placeholder__',
@@ -41,8 +39,6 @@ export const LOCAL_TABLE_SCHEMA: CreateTableCommandInput = {
     { AttributeName: 'GSI2SK', AttributeType: 'S' },
     { AttributeName: 'GSI3PK', AttributeType: 'S' },
     { AttributeName: 'GSI3SK', AttributeType: 'N' },
-    { AttributeName: 'GSI4PK', AttributeType: 'S' },
-    { AttributeName: 'GSI4SK', AttributeType: 'N' },
   ],
   GlobalSecondaryIndexes: [
     {
@@ -89,27 +85,6 @@ export const LOCAL_TABLE_SCHEMA: CreateTableCommandInput = {
           'Embedding',
           'CreatedAt',
           'UpdatedAt',
-        ],
-      },
-    },
-    {
-      IndexName: 'GSI4',
-      KeySchema: [
-        { AttributeName: 'GSI4PK', KeyType: 'HASH' },
-        { AttributeName: 'GSI4SK', KeyType: 'RANGE' },
-      ],
-      Projection: {
-        ProjectionType: 'INCLUDE',
-        NonKeyAttributes: [
-          'UserID',
-          'CharacterID',
-          'TopicID',
-          'FactID',
-          'Text',
-          'SourceUrls',
-          'Volatility',
-          'ObservedAt',
-          'CreatedAt',
         ],
       },
     },

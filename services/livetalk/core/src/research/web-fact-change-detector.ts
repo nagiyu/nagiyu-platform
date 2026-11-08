@@ -5,7 +5,7 @@ import type { ResearchResult } from './types.js';
 
 /**
  * 鮮度切れ WEB fact の再取得結果が「実質的に変化したか」を判定するインターフェース
- * （リブトーク知識再設計 P3 / #3699、acquire バッチの鮮度掃引で使用）。
+ * （acquire バッチの鮮度確認で使用）。
  *
  * 変化なしと判定された場合、acquire は WEBRAW を書かずに陳腐な再要約を止める。
  * `NextReview` はいずれの判定結果でも前方更新する（acquire 側の責務）。
