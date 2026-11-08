@@ -168,6 +168,26 @@ export { DynamoDBStudyTopicRepository } from './repositories/dynamodb-study-topi
 export { StudyTopicMapper } from './mappers/study-topic.mapper.js';
 export { buildStudyTopicSK, buildStudyTopicSKPrefix } from './mappers/keys.js';
 
+// 鮮度確認の依頼
+export type {
+  FreshnessCheckRequestEntity,
+  FreshnessCheckRequestKey,
+  PutFreshnessCheckRequestInput,
+} from './entities/freshness-check-request.entity.js';
+export type { FreshnessCheckRequestRepository } from './repositories/freshness-check-request.repository.interface.js';
+export { InMemoryFreshnessCheckRequestRepository } from './repositories/in-memory-freshness-check-request.repository.js';
+export { DynamoDBFreshnessCheckRequestRepository } from './repositories/dynamodb-freshness-check-request.repository.js';
+export { FreshnessCheckRequestMapper } from './mappers/freshness-check-request.mapper.js';
+export {
+  buildFreshnessCheckRequestSK,
+  buildFreshnessCheckRequestSKPrefix,
+} from './mappers/keys.js';
+export {
+  hasStaleWebFact,
+  isStaleWebFact,
+  requestFreshnessChecks,
+} from './study/freshness-check.js';
+
 // Note（Phase 5c / #3345）
 export type { NoteEntity, NoteKey, CreateNoteInput } from './entities/note.entity.js';
 export type { NoteRepository } from './repositories/note.repository.interface.js';
@@ -253,7 +273,7 @@ export {
   type AcquireForUserParams,
   type AcquireForUserResult,
 } from './usecases/acquire.usecase.js';
-export { ACQUIRE_MAX_QUERIES_PER_RUN, ACQUIRE_STALE_SWEEP_LIMIT } from './constants.js';
+export { ACQUIRE_MAX_QUERIES_PER_RUN } from './constants.js';
 
 // PushSubscription（Phase 5d / #3346）
 export type {
@@ -464,6 +484,7 @@ export {
   createCharacterStateRepository,
   createLifecycleRepository,
   createStudyTopicRepository,
+  createFreshnessCheckRequestRepository,
   createNoteRepository,
   createNoteSkipRepository,
   createPushSubscriptionRepository,

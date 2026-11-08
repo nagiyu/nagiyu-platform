@@ -32,6 +32,9 @@ import { InMemoryLifecycleRepository } from './in-memory-lifecycle.repository.js
 import type { StudyTopicRepository } from './study-topic.repository.interface.js';
 import { DynamoDBStudyTopicRepository } from './dynamodb-study-topic.repository.js';
 import { InMemoryStudyTopicRepository } from './in-memory-study-topic.repository.js';
+import type { FreshnessCheckRequestRepository } from './freshness-check-request.repository.interface.js';
+import { DynamoDBFreshnessCheckRequestRepository } from './dynamodb-freshness-check-request.repository.js';
+import { InMemoryFreshnessCheckRequestRepository } from './in-memory-freshness-check-request.repository.js';
 import type { NoteRepository } from './note.repository.interface.js';
 import { DynamoDBNoteRepository } from './dynamodb-note.repository.js';
 import { InMemoryNoteRepository } from './in-memory-note.repository.js';
@@ -69,6 +72,7 @@ const repositoryRegistry = registerDynamoRepositories<
     characterState: CharacterStateRepository;
     lifecycle: LifecycleRepository;
     studyTopic: StudyTopicRepository;
+    freshnessCheckRequest: FreshnessCheckRequestRepository;
     note: NoteRepository;
     noteSkip: NoteSkipRepository;
     pushSubscription: PushSubscriptionRepository;
@@ -116,6 +120,11 @@ const repositoryRegistry = registerDynamoRepositories<
       createInMemoryRepository: (store) => new InMemoryStudyTopicRepository(store),
       createDynamoDBRepository: ({ docClient, tableName }) =>
         new DynamoDBStudyTopicRepository(docClient, tableName),
+    },
+    freshnessCheckRequest: {
+      createInMemoryRepository: (store) => new InMemoryFreshnessCheckRequestRepository(store),
+      createDynamoDBRepository: ({ docClient, tableName }) =>
+        new DynamoDBFreshnessCheckRequestRepository(docClient, tableName),
     },
     note: {
       createInMemoryRepository: (store) => new InMemoryNoteRepository(store),
@@ -224,6 +233,13 @@ export function createStudyTopicRepository(
   tableName?: string
 ): StudyTopicRepository {
   return repositoryRegistry.studyTopic.createRepository(docClient, tableName);
+}
+
+export function createFreshnessCheckRequestRepository(
+  docClient?: DynamoDBDocumentClient,
+  tableName?: string
+): FreshnessCheckRequestRepository {
+  return repositoryRegistry.freshnessCheckRequest.createRepository(docClient, tableName);
 }
 
 export function createNoteRepository(

@@ -12,6 +12,7 @@ import {
   createPushSubscriptionRepository,
   createSafetyEventRepository,
   createStudyTopicRepository,
+  createFreshnessCheckRequestRepository,
   createStudyUsageRepository,
   createTopicRepository,
   createWebRawRepository,
@@ -67,6 +68,7 @@ describe('repositories/factory', () => {
       createProfileRepository,
       createPushSubscriptionRepository,
       createStudyTopicRepository,
+      createFreshnessCheckRequestRepository,
       createStudyUsageRepository,
       createTopicRepository,
     ];

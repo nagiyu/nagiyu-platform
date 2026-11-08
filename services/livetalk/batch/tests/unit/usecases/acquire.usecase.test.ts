@@ -106,6 +106,7 @@ describe('acquireAllUsers', () => {
     topicRepo: {} as never,
     webRawRepo: {} as never,
     studyTopicRepo: {} as never,
+    freshnessCheckRequestRepo: {} as never,
     researchClient: {} as never,
     changeDetector: {} as never,
     ...overrides,

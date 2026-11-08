@@ -11,6 +11,7 @@ import {
   createTopicRepository,
   createWebRawRepository,
   createStudyTopicRepository,
+  createFreshnessCheckRequestRepository,
   createLifecycleRepository,
   createMessageRepository,
   createStudyUsageRepository,
@@ -34,6 +35,7 @@ export const handler = createScheduledHandler<ScheduledEvent, HandlerResponse>(
     const topicRepo = createTopicRepository(docClient, tableName);
     const webRawRepo = createWebRawRepository(docClient, tableName);
     const studyTopicRepo = createStudyTopicRepository(docClient, tableName);
+    const freshnessCheckRequestRepo = createFreshnessCheckRequestRepository(docClient, tableName);
     const studyUsageRepo = createStudyUsageRepository(docClient, tableName);
     const lifecycleRepo = createLifecycleRepository(docClient, tableName);
     const messageRepo = createMessageRepository(docClient, tableName);
@@ -49,6 +51,7 @@ export const handler = createScheduledHandler<ScheduledEvent, HandlerResponse>(
       topicRepo,
       webRawRepo,
       studyTopicRepo,
+      freshnessCheckRequestRepo,
       studyUsageRepo,
       researchClient,
       changeDetector,

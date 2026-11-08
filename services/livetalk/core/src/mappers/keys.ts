@@ -166,6 +166,14 @@ export function buildStudyTopicSK(characterId: string, topicId: string): string 
   return `${buildStudyTopicSKPrefix(characterId)}${topicId}`;
 }
 
+export function buildFreshnessCheckRequestSKPrefix(characterId: string): string {
+  return `CHAR#${characterId}#FRESHCHECK#`;
+}
+
+export function buildFreshnessCheckRequestSK(characterId: string, topicId: string): string {
+  return `${buildFreshnessCheckRequestSKPrefix(characterId)}${topicId}`;
+}
+
 export function buildNoteSKPrefix(characterId: string): string {
   return `CHAR#${characterId}#NOTE#`;
 }

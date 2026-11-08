@@ -5,16 +5,18 @@ import {
   ACQUIRE_MAX_QUERIES_PER_RUN,
   ACQUIRE_SELF_STUDY_CANDIDATE_LIMIT,
   ACQUIRE_SELF_STUDY_COOLDOWN_MS,
-  ACQUIRE_STALE_SWEEP_LIMIT,
   STUDY_INACTIVE_WINDOW_HOURS,
   WEBFACT_REVIEW_INTERVAL_MS,
 } from '../constants.js';
 import type { LifecycleEntity } from '../entities/lifecycle.entity.js';
+import type { TopicEntity } from '../entities/topic.entity.js';
 import type { WebFactEntity } from '../entities/web-fact.entity.js';
 import type { TopicRepository } from '../repositories/topic.repository.interface.js';
 import type { WebRawRepository } from '../repositories/webraw.repository.interface.js';
+import type { FreshnessCheckRequestRepository } from '../repositories/freshness-check-request.repository.interface.js';
 import type { StudyTopicRepository } from '../repositories/study-topic.repository.interface.js';
 import { resolveLifecycleState } from '../lifecycle/state-resolver.js';
+import { isStaleWebFact } from '../study/freshness-check.js';
 import type { ResearchAllowance } from '../study/research-allowance.js';
 import type { IResearchClient } from '../research/types.js';
 import type { IWebFactChangeDetector } from '../research/web-fact-change-detector.js';
@@ -24,6 +26,8 @@ export interface AcquireForUserParams {
   topicRepo: TopicRepository;
   webRawRepo: WebRawRepository;
   studyTopicRepo: StudyTopicRepository;
+  /** Topic が使われたときに記録された鮮度確認の依頼 */
+  freshnessCheckRequestRepo: FreshnessCheckRequestRepository;
   researchClient: IResearchClient;
   changeDetector: IWebFactChangeDetector;
   character: CharacterDefinition;
@@ -45,18 +49,16 @@ export interface AcquireForUserResult {
   /** 依頼（StudyTopic pending）を処理した件数 */
   requestsProcessed: number;
   /**
-   * 鮮度切れ再取得で実行した research 回数（トピック単位。変化の有無を問わない）。
+   * 鮮度確認の依頼の処理で実行した research 回数 (トピック単位。変化の有無を問わない)。
    * 1 トピックに複数の期限切れ WEB fact があっても research は 1 回にまとめるため、
    * 期限切れ fact の件数とは一致しない（fact 件数は `staleFactsReviewed` を参照）。
-   * トピック欠落（getTopic が null）のフォールバック時のみ fact 単位で 1 回とカウントする。
    */
   staleRefreshed: number;
-  /** 鮮度切れ再取得のうち、変化ありと判定され WEBRAW を書いた回数 */
+  /** 鮮度確認のうち、変化ありと判定され WEBRAW を書いた回数 */
   staleChanged: number;
   /**
-   * 鮮度切れ再取得で NextReview を前方更新した WEB fact の総数。
-   * トピックにまとめて 1 回 research した場合でも、対象となった期限切れ fact 全部
-   * （GSI-STALE の窓で拾った分に限らない、そのトピックの期限切れ fact 全部）を数える。
+   * 鮮度確認の依頼の処理で NextReview を前方更新した WEB fact の総数。
+   * トピックにまとめて 1 回 research した場合でも、対象となった期限切れ fact 全部を数える。
    */
   staleFactsReviewed: number;
   /** care 降順の自発リサーチを行った件数 */
@@ -77,7 +79,7 @@ export interface AcquireForUserResult {
 interface ShouldAcquireDecision {
   /** キャラが起床中か。false ならこの回は全スキップする。 */
   awake: boolean;
-  /** true の場合、care 自発リサーチのみスキップする（依頼・鮮度切れは実施） */
+  /** true の場合、care 自発リサーチのみスキップする (依頼・鮮度確認は実施) */
   skipSelfStudy: boolean;
   reason?: string;
 }
@@ -87,7 +89,7 @@ interface ShouldAcquireDecision {
  *
  * - キャラが就寝中なら全スキップ（Web 活動をしない）。
  * - 起床中でもユーザーのピーク活動時間帯は、自発 care リサーチのみスキップする
- *   （依頼・鮮度切れの再取得はユーザー起点/期限起点のため awake なら実施する）。
+ *   (依頼・鮮度確認はユーザーが使った Topic 起点のため awake なら実施する)。
  */
 export function shouldAcquireNow(lifecycle: LifecycleEntity, now: Date): ShouldAcquireDecision {
   const state = resolveLifecycleState(now, lifecycle.bedtime, lifecycle.wakeUpTime);
@@ -133,9 +135,9 @@ function computeNextReview(volatility: 'low' | 'medium' | 'high', readAt: number
 /**
  * Topic の Subject から「〜最新情報」形式のリサーチクエリを組み立てる。
  *
- * Subject の末尾（前後空白を除いた上で）が既に「最新情報」で終わっている場合は
- * 付け足さない（例: Subject が「〇〇の最新情報」だと「〇〇の最新情報 最新情報」という
- * 二重付与クエリになってしまうバグの修正）。鮮度切れ再取得・care 自発リサーチの
+ * Subject の末尾 (前後空白を除いた上で) が既に「最新情報」で終わっている場合は
+ * 付け足さない (例: Subject が「〇〇の最新情報」だと「〇〇の最新情報 最新情報」という
+ * 二重付与クエリになってしまうバグの修正)。鮮度確認・care 自発リサーチの
  * 両方のクエリ生成で共通して使う。
  */
 export function buildLatestInfoQuery(subject: string): string {
@@ -153,21 +155,20 @@ export function buildLatestInfoQuery(subject: string): string {
  * 既存の `study`（Phase 5a）を「取得だけ」に縮小した新バッチ。3 種の対象を Web 取得し
  * WEBRAW を書く（Topic への畳み込みは既存 consolidation に一切委ねる）。
  *
- * 処理順は 依頼（StudyTopic pending）→ 鮮度切れ（GSI-STALE 窓走査）→ care 自発リサーチ。
+ * 処理順は 依頼 (StudyTopic pending) → 鮮度確認の依頼 → care 自発リサーチ。
  * `maxQueriesPerRun`（既定 `ACQUIRE_MAX_QUERIES_PER_RUN`）を 3 ソース合算で消費する。
  *
- * 鮮度切れ再取得は **トピック単位に集約**して research する（#3781）。GSI-STALE を
- * `ACQUIRE_STALE_SWEEP_LIMIT` 件まで読み、取り出した期限切れ WEB fact を TopicID で束ね、
- * 窓の並び順（NextReview が古い順）でトピックを処理する。1 トピックに数十〜百件の
- * fact が付くケースがあり、fact 単位で research すると同一トピックへ同じクエリを
- * 何度も発行してしまうため、**research はトピックにつき 1 回**（= budget 1 消費）とし、
- * そのトピックの期限切れ fact 全部（窓で拾えなかった分も `listWebFacts` で取り直して含める）
- * の `NextReview` をまとめて前方更新する。トピックが既に存在しない場合（`getTopic` が null）
- * は束ねられないため、従来どおり fact 単位で `fact.text` をクエリにして処理する。
+ * 鮮度確認の依頼は、会話や通知で Topic が使われたときに、期限 (NextReview) 切れの WEB fact を
+ * 持つ Topic について記録される。期限ごとに全 Topic を走査すると会話に出ない Topic まで
+ * 調べ直してしまうため、使われた Topic だけを古い依頼から処理する。
+ * 1 Topic に数十〜百件の fact が付くケースがあり、fact 単位で research すると同一トピックへ
+ * 同じクエリを何度も発行してしまうため、**research はトピックにつき 1 回** (= budget 1 消費) とし、
+ * そのトピックの期限切れ fact 全部の `NextReview` をまとめて前方更新する。
+ * 枠・予算で止まった依頼は残し、次の回で処理する。
  *
- * 鮮度切れ再取得は、変化検知（`changeDetector`）で「変化があった時だけ」WEBRAW を書く
- * （陳腐な再要約を止める）。変化の有無に関わらず対象 fact 全部の `NextReview` は前方更新し、
- * 掃引窓（GSI-STALE）から外す（毎時再掃引の無限ループを防ぐ）。
+ * 鮮度確認は、変化検知 (`changeDetector`) で「変化があった時だけ」WEBRAW を書く
+ * (陳腐な再要約を止める)。変化の有無に関わらず (失敗時も) 対象 fact 全部の `NextReview` を
+ * 前方更新し、同じ fact を調べ直し続けないようにする。
  *
  * 個々の Web 取得失敗は fail-warn（握って継続）。run 全体は落とさない。
  */
@@ -180,6 +181,7 @@ export async function acquireForUser(
     topicRepo,
     webRawRepo,
     studyTopicRepo,
+    freshnessCheckRequestRepo,
     researchClient,
     changeDetector,
     character,
@@ -353,141 +355,55 @@ export async function acquireForUser(
     }
   }
 
-  // ---- 2. 鮮度切れ（staleness refresh）----
+  // ---- 2. 鮮度確認の依頼 (Topic が使われたときに記録されたもの) ----
+  // 依頼は古い順に処理する。Topic 単位で research を 1 回にまとめ (1 Topic に数十〜百件の
+  // WEB fact が付くことがあり、fact 単位だと同じクエリを何度も発行してしまう)、
+  // その Topic の期限切れ WEB fact 全部の NextReview をまとめて前進させる。
+  // 枠・予算で止まったときは依頼を残し、次の回で処理する。
   if (budget > 0) {
-    // 読み込みは budget と無関係に ACQUIRE_STALE_SWEEP_LIMIT 件まで読む。1 トピックに
-    // 複数の期限切れ fact が付くため、budget 件しか読まないとトピック単位に集約できない
-    // （budget=3 でも同一トピックの fact が 3 件読めれば research は本来 1 回で済む）。
-    const staleFacts = await topicRepo.listStaleWebFacts(
-      userId,
-      characterId,
-      nowMs,
-      ACQUIRE_STALE_SWEEP_LIMIT
-    );
+    const requests = await freshnessCheckRequestRepo.listByCharacter(userId, characterId);
 
-    // TopicID で束ねる。窓の並び順（NextReview が古い順）における各トピックの初出順を
-    // トピックの処理順とする。
-    const topicIdOrder: string[] = [];
-    const windowFactsByTopicId = new Map<string, WebFactEntity[]>();
-    for (const fact of staleFacts) {
-      if (fact.volatility === 'stable') {
-        // stable fact は NextReview を持たないため GSI4 に現れないはずだが、念のため防御的にスキップ
-        logger.warn('[acquire] stable fact が鮮度掃引の対象に含まれていました（スキップ）', {
+    /** 依頼を消す。消せなくても次の回に再処理されるだけなので、握って続行する */
+    const deleteRequest = async (topicId: string): Promise<void> => {
+      try {
+        await freshnessCheckRequestRepo.delete({ userId, characterId, topicId });
+      } catch (err) {
+        logger.warn('[acquire] 鮮度確認の依頼の削除に失敗しました（次回に再処理される）', {
           userId,
           characterId,
-          topicId: fact.topicId,
-          factId: fact.factId,
+          topicId,
+          err: toErrorMessage(err),
         });
-        continue;
       }
-      if (!windowFactsByTopicId.has(fact.topicId)) {
-        topicIdOrder.push(fact.topicId);
-        windowFactsByTopicId.set(fact.topicId, []);
-      }
-      windowFactsByTopicId.get(fact.topicId)?.push(fact);
-    }
+    };
 
-    for (const topicId of topicIdOrder) {
+    for (const request of requests) {
       if (budget <= 0) break;
 
-      const windowFacts = windowFactsByTopicId.get(topicId);
-      if (!windowFacts || windowFacts.length === 0) continue;
+      const { topicId } = request;
 
-      const topic = await topicRepo.getTopic({ userId, characterId, topicId });
-
-      if (!topic) {
-        // トピック欠落: 束ねられないため従来どおり fact 単位で処理する（フォールバック）。
-        for (const fact of windowFacts) {
-          if (budget <= 0) break;
-          if (!(await tryConsumeAllowance())) break;
-
-          try {
-            const query = fact.text;
-            const result = await researchClient.research(query, character);
-            // 後続の書き込みが失敗しても検索は課金済みのため、research 直後に加算する。
-            webSearchCalls += result.webSearchCalls?.total ?? 0;
-            const changed = await changeDetector.hasChanged(fact.text, result);
-
-            if (changed) {
-              await webRawRepo.put({
-                userId,
-                characterId,
-                query,
-                rawText: result.summary,
-                sourceUrls: result.sourceUrls,
-                origin: 'stale',
-              });
-              webRawWritten++;
-              staleChanged++;
-            }
-
-            // 変化の有無に関わらず NextReview を前方更新し、次回掃引の窓から外す
-            // （毎時再掃引の無限ループを防ぐ）。
-            await topicRepo.updateWebFactNextReview(
-              { userId, characterId, topicId: fact.topicId, factId: fact.factId },
-              computeNextReview(fact.volatility as 'low' | 'medium' | 'high', nowMs)
-            );
-            staleFactsReviewed++;
-
-            staleRefreshed++;
-            budget--;
-          } catch (err) {
-            logger.warn(
-              '[acquire] 鮮度切れ WEB fact の再取得に失敗しました（NextReview を前進させて次回に委ねる）',
-              {
-                userId,
-                characterId,
-                topicId: fact.topicId,
-                factId: fact.factId,
-                err: toErrorMessage(err),
-              }
-            );
-            // 失敗しても research を試行した以上は budget を消費する（GSI-STALE は budget と
-            // 無関係に読むため、消費しないと障害時に 1 実行で窓の件数ぶん research が走る）。
-            budget--;
-            // research が特定 fact で失敗し続けると、NextReview が前進せず毎時「最古」として
-            // 窓の先頭に居座り budget を占有し続ける（poison pill による starvation）。
-            // 失敗時も best-effort で NextReview を前進させ、掃引窓から外す
-            // （stable は上部で除外済みのため、ここは常に low/medium/high）。
-            try {
-              await topicRepo.updateWebFactNextReview(
-                { userId, characterId, topicId: fact.topicId, factId: fact.factId },
-                computeNextReview(fact.volatility as 'low' | 'medium' | 'high', nowMs)
-              );
-              staleFactsReviewed++;
-            } catch (bumpErr) {
-              logger.warn('[acquire] 鮮度切れ fact の NextReview 前進に失敗しました', {
-                userId,
-                characterId,
-                topicId: fact.topicId,
-                factId: fact.factId,
-                err: toErrorMessage(bumpErr),
-              });
-            }
-          }
-        }
-        continue;
-      }
-
-      // トピックが存在する場合、そのトピックの期限切れ WEB fact 全部（窓で拾った分に
-      // 限らない。GSI-STALE の limit で切り落とされた分も listWebFacts で取り直して含める）
-      // をまとめて 1 回の research で処理する。
+      let topic: TopicEntity | null;
       let targetFacts: WebFactEntity[];
       try {
+        topic = await topicRepo.getTopic({ userId, characterId, topicId });
+        if (!topic) {
+          // Topic が消えている。確認する対象が無いので依頼だけ片付ける。
+          await deleteRequest(topicId);
+          continue;
+        }
         const webFacts = await topicRepo.listWebFacts(userId, characterId, topicId);
-        targetFacts = webFacts.filter(
-          (f) => f.volatility !== 'stable' && f.nextReview !== undefined && f.nextReview <= nowMs
-        );
+        targetFacts = webFacts.filter((f) => isStaleWebFact(f, nowMs));
       } catch (err) {
         logger.warn(
-          '[acquire] 鮮度切れトピックの WEB fact 一覧取得に失敗しました（このトピックをスキップ）',
+          '[acquire] 鮮度確認の依頼の Topic 読み取りに失敗しました（依頼を残してスキップ）',
           { userId, characterId, topicId, err: toErrorMessage(err) }
         );
         continue;
       }
 
       if (targetFacts.length === 0) {
-        // 窓には出たが listWebFacts では既に対象外（他プロセスが先に前進させた等）。
+        // 依頼の後に他の経路で既に新しくなっている。
+        await deleteRequest(topicId);
         continue;
       }
 
@@ -537,8 +453,8 @@ export async function acquireForUser(
           staleChanged++;
         }
 
-        // 変化の有無に関わらず対象 fact 全部の NextReview を前方更新し、次回掃引の窓から
-        // 外す（毎時再掃引の無限ループを防ぐ）。
+        // 変化の有無に関わらず対象 fact 全部の NextReview を前方更新する。
+        // 期限が過ぎたままだと、次にこの Topic が使われるたびに同じ確認が依頼される。
         await bumpAllNextReview();
 
         staleRefreshed++;
@@ -554,13 +470,17 @@ export async function acquireForUser(
             err: toErrorMessage(err),
           }
         );
-        // 失敗しても research を試行した以上は budget を消費する（GSI-STALE は budget と
-        // 無関係に読むため、消費しないと障害時に 1 実行でトピック数ぶん research が走る）。
+        // 失敗しても research を試行した以上は budget を消費する (障害時に 1 実行で
+        // 依頼の件数ぶん research が走らないようにする)。
         budget--;
-        // research/検知/書き込みのいずれかで失敗しても、poison pill による budget
-        // starvation を防ぐため対象 fact 全部を best-effort で前進させる。
+        // research/検知/書き込みのいずれかで失敗しても、同じ fact を毎回「期限切れ」として
+        // 調べ直し続けて枠を占有しないよう (poison pill)、対象 fact 全部を best-effort で前進させる。
         await bumpAllNextReview();
       }
+
+      // 成否にかかわらず、試した依頼は消す (失敗した fact は NextReview を前進させてあり、
+      // 次に使われたときに期限が来ていれば再び依頼される)。
+      await deleteRequest(topicId);
     }
   }
 
@@ -579,7 +499,7 @@ export async function acquireForUser(
 
       // クールダウン判定: 直近この Topic を取得済み（最新 WEB fact の ObservedAt が
       // now - ACQUIRE_SELF_STUDY_COOLDOWN_MS 以降）なら自発リサーチをスキップする。
-      // 揮発 fact の鮮度追随は GSI-STALE 経路が別途担うため、ここでは穴埋めに限定する。
+      // 揮発 fact の鮮度追随は鮮度確認の依頼が別途担うため、ここでは穴埋めに限定する。
       try {
         const webFacts = await topicRepo.listWebFacts(userId, characterId, header.topicId);
         const latestObservedAt = webFacts.reduce((max, f) => Math.max(max, f.observedAt), 0);

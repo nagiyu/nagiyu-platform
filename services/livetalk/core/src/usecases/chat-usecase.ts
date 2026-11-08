@@ -7,6 +7,7 @@ import type { CharacterStateRepository } from '../repositories/character-state.r
 import type { LifecycleRepository } from '../repositories/lifecycle.repository.interface.js';
 import type { MessageRepository } from '../repositories/message.repository.interface.js';
 import type { SafetyEventRepository } from '../repositories/safety-event.repository.interface.js';
+import type { FreshnessCheckRequestRepository } from '../repositories/freshness-check-request.repository.interface.js';
 import type { StudyTopicRepository } from '../repositories/study-topic.repository.interface.js';
 import type { NoteRepository } from '../repositories/note.repository.interface.js';
 import type { ConsolidationCursorRepository } from '../repositories/consolidation-cursor.repository.interface.js';
@@ -42,6 +43,7 @@ import {
 } from '../observability/metrics.js';
 import { classifyTopic } from '../study/knowledge-gate.js';
 import { buildStudyDeferralMessage } from '../study/templates.js';
+import { requestFreshnessChecks } from '../study/freshness-check.js';
 import { defaultUlidFactory, type UlidFactory } from '../lib/ulid.js';
 import type { ITopicRetriever, RetrievedTopic } from '../knowledge/retrieval.js';
 
@@ -85,6 +87,11 @@ export interface ChatUseCaseParams {
   lifecycleRepository?: LifecycleRepository;
   /** StudyTopic リポジトリ。未指定時は知識ゲートの study 分岐で登録をスキップする */
   studyTopicRepository?: StudyTopicRepository;
+  /**
+   * 鮮度確認の依頼リポジトリ。未指定時は、想起した Topic の期限切れ WEB fact の確認依頼をスキップする。
+   * 会話中にその場で調べると応答が遅れるため、記録だけして acquire バッチが処理する。
+   */
+  freshnessCheckRequestRepository?: FreshnessCheckRequestRepository;
   /**
    * Note リポジトリ（Phase 5c / #3345）。未指定時はノートの感想連携をスキップする。
    * 指定時は直近 NOTE_RECENT_DAYS 日に提示したノートを取得し、prompt context に注入する。
@@ -224,6 +231,7 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
     characterStateRepository,
     lifecycleRepository,
     studyTopicRepository,
+    freshnessCheckRequestRepository,
     noteRepository,
     ulidFactory = defaultUlidFactory,
     topicRetriever,
@@ -353,6 +361,20 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
     characterId,
     retrievedTopicCount: retrievedTopics.length,
   });
+
+  // 3.65. 鮮度確認の依頼 (fail-warn: 記録に失敗しても会話は続行)
+  // 会話で直接使われた Topic だけが対象。関連展開で付いてきた Topic は、使われたとは言えない。
+  if (freshnessCheckRequestRepository) {
+    await requestFreshnessChecks({
+      repository: freshnessCheckRequestRepository,
+      userId,
+      characterId,
+      topics: retrievedTopics
+        .filter((rt) => rt.via === 'direct')
+        .map((rt) => ({ topicId: rt.topic.topicId, webFacts: rt.webFacts })),
+      nowMs: Date.now(),
+    });
+  }
 
   // 3.7. 知識ゲート（リブトーク知識・記憶再設計 P5 / #3697、回帰修正で Topic 想起の後段に移動）
   // classifyTopic による study 判定（旧 Knowledge ベースの knowledge_hit 経路は撤去済み）。
