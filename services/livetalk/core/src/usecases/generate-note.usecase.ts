@@ -4,6 +4,7 @@ import type { CreateNoteInput } from '../entities/note.entity.js';
 import { NoteLetterSchema } from '../llm-client/schemas/note-letter.schema.js';
 import type { ILLMClient } from '../llm-client/types.js';
 import type { NoteRepository } from '../repositories/note.repository.interface.js';
+import type { NoteSkipRepository } from '../repositories/note-skip.repository.interface.js';
 import type { TopicRepository } from '../repositories/topic.repository.interface.js';
 import { defaultUlidFactory, type UlidFactory } from '../lib/ulid.js';
 import { buildGenerateNotePrompt } from './generate-note.prompt.js';
@@ -11,6 +12,8 @@ import { buildGenerateNotePrompt } from './generate-note.prompt.js';
 export interface GenerateNotesParams {
   topicRepo: TopicRepository;
   noteRepo: NoteRepository;
+  /** 「生成しない」判断の記録。判断後に WEB fact が増えない Topic の再評価を避ける */
+  noteSkipRepo: NoteSkipRepository;
   llmClient: ILLMClient;
   characterName: string;
   /** ノート ID 採番に使う（テスト差し替え用）。既定は {@link defaultUlidFactory} */
@@ -44,7 +47,10 @@ export interface GenerateNotesResult {
  * 4. LLM（`buildGenerateNotePrompt` + `NoteLetterSchema`）に SELF フック候補＋WEB 中身を渡し、
  *    「手紙」として合成させる。捏造禁止・センシティブ SELF 回避の判断はプロンプト側のルールで
  *    LLM に委ねる（このレイヤーでは判定しない）
- * 5. `skip=true` ならそのノートは作らず次候補へ。`skip=false` なら NOTE を保存する
+ * 5. `skip=true` ならそのノートは作らず、判断時刻を記録して次候補へ。`skip=false` なら NOTE を保存する。
+ *    LLM の判断は渡した中身で決まるため、記録があり、記録後に作成された WEB fact が無い Topic は
+ *    LLM を呼ばずに飛ばす（期間では評価し直さない）。「作成」を基準にするのは、`observedAt` が
+ *    読んだ素材の時刻であって fact が Topic に加わった時刻ではないため
  * 6. `maxPerRun` に達したら終了。各 Topic の失敗は fail-warn でスキップし継続する
  *
  * 中身（出典・最新の調べた内容）はここでは保存しない。詳細画面が参照先 Topic の最新を
@@ -58,6 +64,7 @@ export async function generateNotesForUser(
   const {
     topicRepo,
     noteRepo,
+    noteSkipRepo,
     llmClient,
     characterName,
     ulidFactory = defaultUlidFactory,
@@ -67,10 +74,22 @@ export async function generateNotesForUser(
     candidateLimit = NOTE_CANDIDATE_LOOKBACK,
   } = params;
 
-  const [candidates, existingNotes] = await Promise.all([
+  const [candidates, existingNotes, skipRecords] = await Promise.all([
     topicRepo.listTopicHeadersByCareDesc(userId, characterId, candidateLimit),
     noteRepo.listAll(userId, characterId),
+    // 記録が読めなくても評価は進められる（再評価が増えるだけ）ため、ノート生成自体は止めない
+    noteSkipRepo.listAll(userId, characterId).catch((err: unknown) => {
+      logger.warn('[generate-note] 生成しない判断の記録の取得に失敗しました（記録なしで継続）', {
+        userId,
+        characterId,
+        err,
+      });
+      return [];
+    }),
   ]);
+  const decidedAtByTopicId = new Map(
+    skipRecords.map((record) => [record.topicId, record.decidedAt])
+  );
 
   // 既にノート化済みの Topic 集合（1 Topic につき既存ノートがあれば作らない＝乱発防止）
   const notedTopicIds = new Set(existingNotes.map((note) => note.topicId));
@@ -83,6 +102,8 @@ export async function generateNotesForUser(
     if (notedTopicIds.has(topic.topicId)) continue;
 
     try {
+      // 判断に使う中身を読む前の時刻。読んだ後・保存前に増えた fact を次回の再評価対象に残す
+      const judgedAt = now();
       const bundle = await topicRepo.getTopicBundle({
         userId,
         characterId,
@@ -90,6 +111,14 @@ export async function generateNotesForUser(
       });
       // WEB fact が無ければ贈る中身が無いのでスキップ
       if (bundle.webFacts.length === 0) continue;
+
+      const previousDecidedAt = decidedAtByTopicId.get(topic.topicId);
+      if (
+        previousDecidedAt !== undefined &&
+        !bundle.webFacts.some((fact) => fact.createdAt > previousDecidedAt)
+      ) {
+        continue;
+      }
 
       const promptMessages = buildGenerateNotePrompt({
         characterName,
@@ -103,7 +132,10 @@ export async function generateNotesForUser(
         purpose: 'summarize',
       });
 
-      if (result.skip) continue;
+      if (result.skip) {
+        await recordSkip(noteSkipRepo, { userId, characterId, topicId: topic.topicId, judgedAt });
+        continue;
+      }
 
       const input: CreateNoteInput = {
         userId,
@@ -115,6 +147,10 @@ export async function generateNotesForUser(
       };
       await noteRepo.put(input);
       generatedCount++;
+      // ノート化済みの Topic は以後候補から外れるため、残った記録は不要
+      if (previousDecidedAt !== undefined) {
+        await clearSkip(noteSkipRepo, { userId, characterId, topicId: topic.topicId });
+      }
     } catch (err) {
       logger.warn('[generate-note] ノート生成に失敗しました（スキップして継続）', {
         userId,
@@ -126,4 +162,37 @@ export async function generateNotesForUser(
   }
 
   return { generatedCount };
+}
+
+/** 記録の失敗は評価の結果に影響しないため、警告のみで継続する */
+async function recordSkip(
+  noteSkipRepo: NoteSkipRepository,
+  params: { userId: string; characterId: string; topicId: string; judgedAt: number }
+): Promise<void> {
+  const { userId, characterId, topicId, judgedAt } = params;
+  try {
+    await noteSkipRepo.put({ userId, characterId, topicId, decidedAt: judgedAt });
+  } catch (err) {
+    logger.warn('[generate-note] 生成しない判断の記録に失敗しました（スキップして継続）', {
+      userId,
+      characterId,
+      topicId,
+      err,
+    });
+  }
+}
+
+/** ノートは保存済みのため、記録の削除に失敗しても生成の成功は覆さない */
+async function clearSkip(
+  noteSkipRepo: NoteSkipRepository,
+  params: { userId: string; characterId: string; topicId: string }
+): Promise<void> {
+  try {
+    await noteSkipRepo.delete(params);
+  } catch (err) {
+    logger.warn('[generate-note] 生成しない判断の記録の削除に失敗しました（スキップして継続）', {
+      ...params,
+      err,
+    });
+  }
 }

@@ -6,6 +6,7 @@ import {
   generateNotesForUser,
   type ConsolidateParams,
   type NoteRepository,
+  type NoteSkipRepository,
   type ProfileRepository,
 } from '@nagiyu/livetalk-core';
 
@@ -13,6 +14,8 @@ export type ConsolidateAllConversationsParams = Omit<ConsolidateParams, 'charact
   profileRepo: ProfileRepository;
   /** ノート生成（リブトーク知識・記憶再設計 P4）に使う Note リポジトリ。 */
   noteRepo: NoteRepository;
+  /** ノート生成で「生成しない」と判断した Topic の記録 */
+  noteSkipRepo: NoteSkipRepository;
 };
 
 export interface ConsolidateAllConversationsResult {
@@ -48,6 +51,7 @@ export async function consolidateAllConversations(
     llmClient,
     embeddingClient,
     noteRepo,
+    noteSkipRepo,
     now,
     ulidFactory,
   } = params;
@@ -105,6 +109,7 @@ export async function consolidateAllConversations(
               const noteResult = await generateNotesForUser(userId, characterId, {
                 topicRepo,
                 noteRepo,
+                noteSkipRepo,
                 llmClient,
                 characterName: characterDef.displayName,
                 now,

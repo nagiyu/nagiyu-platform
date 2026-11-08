@@ -195,6 +195,12 @@ export { InMemoryNoteRepository } from './repositories/in-memory-note.repository
 export { DynamoDBNoteRepository } from './repositories/dynamodb-note.repository.js';
 export { NoteMapper } from './mappers/note.mapper.js';
 export { buildNoteSK, buildNoteSKPrefix } from './mappers/keys.js';
+export type { NoteSkipEntity, NoteSkipKey, PutNoteSkipInput } from './entities/note-skip.entity.js';
+export type { NoteSkipRepository } from './repositories/note-skip.repository.interface.js';
+export { InMemoryNoteSkipRepository } from './repositories/in-memory-note-skip.repository.js';
+export { DynamoDBNoteSkipRepository } from './repositories/dynamodb-note-skip.repository.js';
+export { NoteSkipMapper } from './mappers/note-skip.mapper.js';
+export { buildNoteSkipSK, buildNoteSkipSKPrefix } from './mappers/keys.js';
 export {
   generateNotesForUser,
   type GenerateNotesParams,
@@ -477,6 +483,7 @@ export {
   createStudyTopicRepository,
   createFreshnessCheckRequestRepository,
   createNoteRepository,
+  createNoteSkipRepository,
   createPushSubscriptionRepository,
   createNotificationEventRepository,
   createTopicRepository,

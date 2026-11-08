@@ -38,6 +38,9 @@ import { InMemoryFreshnessCheckRequestRepository } from './in-memory-freshness-c
 import type { NoteRepository } from './note.repository.interface.js';
 import { DynamoDBNoteRepository } from './dynamodb-note.repository.js';
 import { InMemoryNoteRepository } from './in-memory-note.repository.js';
+import type { NoteSkipRepository } from './note-skip.repository.interface.js';
+import { DynamoDBNoteSkipRepository } from './dynamodb-note-skip.repository.js';
+import { InMemoryNoteSkipRepository } from './in-memory-note-skip.repository.js';
 import type { PushSubscriptionRepository } from './push-subscription.repository.interface.js';
 import { DynamoDBPushSubscriptionRepository } from './dynamodb-push-subscription.repository.js';
 import { InMemoryPushSubscriptionRepository } from './in-memory-push-subscription.repository.js';
@@ -71,6 +74,7 @@ const repositoryRegistry = registerDynamoRepositories<
     studyTopic: StudyTopicRepository;
     freshnessCheckRequest: FreshnessCheckRequestRepository;
     note: NoteRepository;
+    noteSkip: NoteSkipRepository;
     pushSubscription: PushSubscriptionRepository;
     notificationEvent: NotificationEventRepository;
     topic: TopicRepository;
@@ -126,6 +130,11 @@ const repositoryRegistry = registerDynamoRepositories<
       createInMemoryRepository: (store) => new InMemoryNoteRepository(store),
       createDynamoDBRepository: ({ docClient, tableName }) =>
         new DynamoDBNoteRepository(docClient, tableName),
+    },
+    noteSkip: {
+      createInMemoryRepository: (store) => new InMemoryNoteSkipRepository(store),
+      createDynamoDBRepository: ({ docClient, tableName }) =>
+        new DynamoDBNoteSkipRepository(docClient, tableName),
     },
     pushSubscription: {
       createInMemoryRepository: (store) => new InMemoryPushSubscriptionRepository(store),
@@ -238,6 +247,13 @@ export function createNoteRepository(
   tableName?: string
 ): NoteRepository {
   return repositoryRegistry.note.createRepository(docClient, tableName);
+}
+
+export function createNoteSkipRepository(
+  docClient?: DynamoDBDocumentClient,
+  tableName?: string
+): NoteSkipRepository {
+  return repositoryRegistry.noteSkip.createRepository(docClient, tableName);
 }
 
 export function createPushSubscriptionRepository(
