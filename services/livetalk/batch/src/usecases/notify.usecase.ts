@@ -11,18 +11,22 @@ import {
   isStudyPaused,
   findLastUserMessageAt,
   getCharacterDefinitionById,
+  hasStaleWebFact,
+  requestFreshnessChecks,
   selectNotificationsToSend,
   computeIntensityFactor,
   computeDailyNormalCap,
   extractSessionStartTimes,
   type NotificationEventEntity,
   type ILLMClient,
+  type FreshnessCheckRequestRepository,
   type LifecycleRepository,
   type MessageRepository,
   type NotificationEventRepository,
   type ProfileRepository,
   type PushSubscriptionRepository,
   type TopicEntity,
+  type WebFactEntity,
   type TopicRepository,
   type UlidFactory,
   defaultUlidFactory,
@@ -44,6 +48,7 @@ export interface NotifyAllUsersParams {
   topicRepo: TopicRepository;
   pushSubscriptionRepo: PushSubscriptionRepository;
   notifEventRepo: NotificationEventRepository;
+  freshnessCheckRequestRepo: FreshnessCheckRequestRepository;
   llmClient: ILLMClient;
   ulidFactory?: UlidFactory;
   now?: () => Date;
@@ -70,6 +75,7 @@ export async function notifyAllUsers(params: NotifyAllUsersParams): Promise<Noti
     topicRepo,
     pushSubscriptionRepo,
     notifEventRepo,
+    freshnessCheckRequestRepo,
     llmClient,
     ulidFactory = defaultUlidFactory,
     now = () => new Date(),
@@ -96,6 +102,7 @@ export async function notifyAllUsers(params: NotifyAllUsersParams): Promise<Noti
         topicRepo,
         pushSubscriptionRepo,
         notifEventRepo,
+        freshnessCheckRequestRepo,
         llmClient,
         ulidFactory,
         vapidConfig,
@@ -128,6 +135,7 @@ interface ProcessUserParams {
   topicRepo: TopicRepository;
   pushSubscriptionRepo: PushSubscriptionRepository;
   notifEventRepo: NotificationEventRepository;
+  freshnessCheckRequestRepo: FreshnessCheckRequestRepository;
   llmClient: ILLMClient;
   ulidFactory: UlidFactory;
   vapidConfig: ReturnType<typeof getVapidConfig>;
@@ -160,6 +168,7 @@ async function processUser(params: ProcessUserParams): Promise<boolean> {
     topicRepo,
     pushSubscriptionRepo,
     notifEventRepo,
+    freshnessCheckRequestRepo,
     llmClient,
     ulidFactory,
     vapidConfig,
@@ -192,6 +201,7 @@ async function processUser(params: ProcessUserParams): Promise<boolean> {
         lifecycleRepo,
         messageRepo,
         topicRepo,
+        freshnessCheckRequestRepo,
         llmClient,
         allUserEvents,
         now: currentNow,
@@ -333,6 +343,7 @@ async function evaluateCharacter(params: {
   lifecycleRepo: LifecycleRepository;
   messageRepo: MessageRepository;
   topicRepo: TopicRepository;
+  freshnessCheckRequestRepo: FreshnessCheckRequestRepository;
   llmClient: ILLMClient;
   /** ユーザー全キャラの通知履歴（characterId フィルタに使用） */
   allUserEvents: NotificationEventEntity[];
@@ -344,6 +355,7 @@ async function evaluateCharacter(params: {
     lifecycleRepo,
     messageRepo,
     topicRepo,
+    freshnessCheckRequestRepo,
     llmClient,
     allUserEvents,
     now,
@@ -386,11 +398,28 @@ async function evaluateCharacter(params: {
   const criticalCandidateTopics = topics
     .filter((t) => t.care >= NOTIFY_CRITICAL_CARE_THRESHOLD)
     .slice(0, CRITICAL_CANDIDATE_TOPIC_LIMIT);
-  const criticalCandidates = await Promise.all(
+  const readCriticalCandidates = await Promise.all(
     criticalCandidateTopics.map(async (topic) => ({
       topic,
       webFacts: await topicRepo.listWebFacts(userId, characterId, topic.topicId),
     }))
+  );
+
+  // 判定の候補になった Topic は使われたとみなし、確認が要る WEB fact があれば確認を依頼する。
+  // 確認が済むまでは、延期や中止を拾えないまま「もうすぐある」と重要通知しうるので判定の候補から外す。
+  // NextReview が前進すれば、次の回で再び候補になる。
+  await requestFreshnessChecks({
+    repository: freshnessCheckRequestRepo,
+    userId,
+    characterId,
+    topics: readCriticalCandidates.map(({ topic, webFacts }) => ({
+      topicId: topic.topicId,
+      webFacts,
+    })),
+    nowMs: now.getTime(),
+  });
+  const criticalCandidates = readCriticalCandidates.filter(
+    ({ webFacts }) => !hasStaleWebFact(webFacts, now.getTime())
   );
 
   // 送り済みの重要通知は、同じ話題・同じ予定を再び選ばないよう判定へ渡す。
@@ -474,6 +503,26 @@ async function evaluateCharacter(params: {
     body = msg.body;
     topicId = freshTopic?.topicId;
     suggestedReply = buildSuggestedReply(freshTopic?.subject);
+
+    // ネタに使う Topic の確認を依頼する。通知は確認を待たずに送る (平常通知は延期や中止の影響が小さい)。
+    // 重要通知の判定の候補だった Topic は、上で依頼済みなので読み直さない。
+    if (freshTopic && !readCriticalCandidates.some((c) => c.topic.topicId === freshTopic.topicId)) {
+      const webFacts = await readWebFactsForFreshness(
+        topicRepo,
+        userId,
+        characterId,
+        freshTopic.topicId
+      );
+      if (webFacts) {
+        await requestFreshnessChecks({
+          repository: freshnessCheckRequestRepo,
+          userId,
+          characterId,
+          topics: [{ topicId: freshTopic.topicId, webFacts }],
+          nowMs: now.getTime(),
+        });
+      }
+    }
   }
 
   return {
@@ -486,6 +535,29 @@ async function evaluateCharacter(params: {
     suggestedReply,
     lastNormalAt,
   };
+}
+
+/**
+ * 鮮度の判定に使う Topic の WEB fact を読む。
+ * 読み取りに失敗したら null を返す (通知を止めず、依頼は次に使われたときに回す)。
+ */
+async function readWebFactsForFreshness(
+  topicRepo: TopicRepository,
+  userId: string,
+  characterId: string,
+  topicId: string
+): Promise<WebFactEntity[] | null> {
+  try {
+    return await topicRepo.listWebFacts(userId, characterId, topicId);
+  } catch (error) {
+    logger.warn('[notifyAllUsers] 鮮度確認のための WEB fact 読み取り失敗（スキップして継続）', {
+      userId,
+      characterId,
+      topicId,
+      error: toErrorMessage(error),
+    });
+    return null;
+  }
 }
 
 /**

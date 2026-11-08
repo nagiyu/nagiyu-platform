@@ -65,6 +65,11 @@ jest.mock('@nagiyu/livetalk-core', () => ({
   isStudyPaused: jest.requireActual('../../../../core/src/study/active-window.js').isStudyPaused,
   findLastUserMessageAt: jest.requireActual('../../../../core/src/study/active-window.js')
     .findLastUserMessageAt,
+  // 鮮度確認の依頼も純粋関数 + 渡したリポジトリへの記録だけなので実物を使う
+  hasStaleWebFact: jest.requireActual('../../../../core/src/study/freshness-check.js')
+    .hasStaleWebFact,
+  requestFreshnessChecks: jest.requireActual('../../../../core/src/study/freshness-check.js')
+    .requestFreshnessChecks,
   computeIntensityFactor: jest.fn(() => 1),
   computeDailyNormalCap: jest.fn(() => 1),
   extractSessionStartTimes: jest.fn(() => []),
@@ -143,6 +148,10 @@ function makeNotifEventRepo() {
   };
 }
 
+function makeFreshnessRepo() {
+  return { put: jest.fn().mockResolvedValue(undefined) };
+}
+
 function makeLlmClient() {
   return {};
 }
@@ -155,6 +164,7 @@ function makeParams(overrides = {}) {
     topicRepo: makeTopicRepo() as never,
     pushSubscriptionRepo: makePushSubscriptionRepo() as never,
     notifEventRepo: makeNotifEventRepo() as never,
+    freshnessCheckRequestRepo: makeFreshnessRepo() as never,
     llmClient: makeLlmClient() as never,
     ...overrides,
   };
@@ -1262,5 +1272,174 @@ describe('勉強が止まっている組の通知', () => {
     const input = mockDetectCriticalTopic.mock.calls[0][0] as { candidates: unknown[] };
     expect(input.candidates).toHaveLength(1);
     expect(core.buildCriticalNotificationMessage).toHaveBeenCalledWith('大会', 'ひより');
+  });
+});
+
+describe('通知で使われた Topic の鮮度確認', () => {
+  const NOW = new Date('2026-06-10T05:00:00Z');
+  const nowMs = NOW.getTime();
+  const staleFact = {
+    factId: 'f1',
+    volatility: 'medium',
+    nextReview: nowMs - 1000,
+  };
+  const freshFact = { factId: 'f2', volatility: 'medium', nextReview: nowMs + DAY };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockGetAllCharacterIds.mockReturnValue(['hiyori']);
+    mockSendWebPush.mockResolvedValue(true);
+    mockDetectCriticalTopic.mockResolvedValue({ isCritical: false, topicId: null, factId: null });
+  });
+
+  async function run(options: {
+    kind: 'normal' | 'critical';
+    topics?: Array<{ topicId: string; subject: string; care: number }>;
+    listWebFacts?: jest.Mock;
+    freshnessRepo?: { put: jest.Mock };
+    messages?: Array<{ role: string; createdAt: number }>;
+  }) {
+    const topicRepo = {
+      ...makeTopicRepo(options.topics ?? [{ topicId: 't1', subject: '大会', care: 5 }]),
+      ...(options.listWebFacts && { listWebFacts: options.listWebFacts }),
+    };
+    const freshnessRepo = options.freshnessRepo ?? makeFreshnessRepo();
+    mockShouldNotifyNow.mockReturnValue(
+      options.kind === 'critical'
+        ? { notify: true, kind: 'critical', topicId: 't1' }
+        : { notify: true, kind: 'normal', toneBucket: 'normal', elapsedMs: DAY }
+    );
+    mockSelectNotificationsToSend.mockReturnValue({
+      criticalCharacterIds: options.kind === 'critical' ? ['hiyori'] : [],
+      normalCharacterId: options.kind === 'normal' ? 'hiyori' : null,
+    });
+    const { notifyAllUsers } = await import('../../../src/usecases/notify.usecase.js');
+    const result = await notifyAllUsers(
+      makeParams({
+        topicRepo: topicRepo as never,
+        freshnessCheckRequestRepo: freshnessRepo as never,
+        messageRepo: makeMessageRepo(
+          options.messages ?? [{ role: 'user', createdAt: nowMs - 1000 }]
+        ) as never,
+        now: () => NOW,
+      })
+    );
+    return { topicRepo, freshnessRepo, result };
+  }
+
+  it('重要通知の候補に期限切れの WEB fact があると、確認を依頼して判定の候補から外す', async () => {
+    const { freshnessRepo } = await run({
+      kind: 'normal',
+      listWebFacts: jest.fn().mockResolvedValue([staleFact]),
+    });
+
+    expect(freshnessRepo.put).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: 'u1', characterId: 'hiyori', topicId: 't1' })
+    );
+    expect(mockDetectCriticalTopic).toHaveBeenCalledWith(
+      expect.objectContaining({ candidates: [] })
+    );
+  });
+
+  it('期限切れの Topic だけが候補から外れ、期限内の Topic は判定に渡る', async () => {
+    const listWebFacts = jest.fn(async (_u: string, _c: string, topicId: string) =>
+      topicId === 't1' ? [staleFact] : [freshFact]
+    );
+    const { freshnessRepo } = await run({
+      kind: 'normal',
+      topics: [
+        { topicId: 't1', subject: 'A', care: 5 },
+        { topicId: 't2', subject: 'B', care: 4 },
+      ],
+      listWebFacts,
+    });
+
+    const input = mockDetectCriticalTopic.mock.calls[0][0] as {
+      candidates: Array<{ topic: { topicId: string } }>;
+    };
+    expect(input.candidates.map((c) => c.topic.topicId)).toEqual(['t2']);
+    expect(freshnessRepo.put).toHaveBeenCalledTimes(1);
+  });
+
+  it('期限内なら依頼せず、今どおり判定の候補に渡して重要通知を出す', async () => {
+    mockDetectCriticalTopic.mockResolvedValue({ isCritical: true, topicId: 't1', factId: 'f2' });
+    const { freshnessRepo, result } = await run({
+      kind: 'critical',
+      listWebFacts: jest.fn().mockResolvedValue([freshFact]),
+    });
+
+    expect(freshnessRepo.put).not.toHaveBeenCalled();
+    const input = mockDetectCriticalTopic.mock.calls[0][0] as { candidates: unknown[] };
+    expect(input.candidates).toHaveLength(1);
+    expect(result.notifiedUsers).toBe(1);
+  });
+
+  it('stable な fact は期限切れ扱いにならない', async () => {
+    const { freshnessRepo } = await run({
+      kind: 'normal',
+      listWebFacts: jest.fn().mockResolvedValue([{ factId: 'f3', volatility: 'stable' }]),
+    });
+    expect(freshnessRepo.put).not.toHaveBeenCalled();
+  });
+
+  it('平常通知のネタが期限切れなら、確認を依頼したうえで通知は送る', async () => {
+    // care 閾値未満なので重要通知の候補にはならず、ネタとして読まれる
+    const listWebFacts = jest.fn().mockResolvedValue([staleFact]);
+    const { freshnessRepo, result } = await run({
+      kind: 'normal',
+      topics: [{ topicId: 't9', subject: '低 care', care: 1 }],
+      listWebFacts,
+    });
+
+    expect(listWebFacts).toHaveBeenCalledWith('u1', 'hiyori', 't9');
+    expect(freshnessRepo.put).toHaveBeenCalledWith(expect.objectContaining({ topicId: 't9' }));
+    expect(result.notifiedUsers).toBe(1);
+  });
+
+  it('重要通知の候補だったネタは、WEB fact を読み直さず依頼も重ねない', async () => {
+    const listWebFacts = jest.fn().mockResolvedValue([staleFact]);
+    const { freshnessRepo } = await run({ kind: 'normal', listWebFacts });
+
+    expect(listWebFacts).toHaveBeenCalledTimes(1);
+    expect(freshnessRepo.put).toHaveBeenCalledTimes(1);
+  });
+
+  it('依頼の記録に失敗しても通知は止まらない', async () => {
+    const freshnessRepo = { put: jest.fn().mockRejectedValue(new Error('DynamoDB 障害')) };
+    const { result } = await run({
+      kind: 'normal',
+      topics: [{ topicId: 't9', subject: '低 care', care: 1 }],
+      listWebFacts: jest.fn().mockResolvedValue([staleFact]),
+      freshnessRepo,
+    });
+
+    expect(freshnessRepo.put).toHaveBeenCalled();
+    expect(result.notifiedUsers).toBe(1);
+    expect(result.failedUsers).toBe(0);
+  });
+
+  it('平常通知のネタの WEB fact 読み取りに失敗しても通知は止まらず、依頼もしない', async () => {
+    const { freshnessRepo, result } = await run({
+      kind: 'normal',
+      topics: [{ topicId: 't9', subject: '低 care', care: 1 }],
+      listWebFacts: jest.fn().mockRejectedValue(new Error('読み取り失敗')),
+    });
+
+    expect(freshnessRepo.put).not.toHaveBeenCalled();
+    expect(result.notifiedUsers).toBe(1);
+    expect(logger.warn).toHaveBeenCalled();
+  });
+
+  it('止まっている間は Topic を使わないので、何も依頼しない', async () => {
+    const listWebFacts = jest.fn().mockResolvedValue([staleFact]);
+    const { freshnessRepo, topicRepo } = await run({
+      kind: 'normal',
+      listWebFacts,
+      messages: [{ role: 'user', createdAt: nowMs - 4 * DAY }],
+    });
+
+    expect(topicRepo.listTopicHeadersByCareDesc).not.toHaveBeenCalled();
+    expect(listWebFacts).not.toHaveBeenCalled();
+    expect(freshnessRepo.put).not.toHaveBeenCalled();
   });
 });
