@@ -1,16 +1,9 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import {
-  Container,
-  Typography,
-  Box,
-  Card,
-  CardActionArea,
-  CardContent,
-  Divider,
-} from '@mui/material';
+import { Container, Typography, Box, Card, CardContent, Divider } from '@mui/material';
 import { Chip, Link } from '@nagiyu/ui';
 import { getAllArticles, getArticle, getRelatedArticles, getCategoryLabel } from '@/lib/content';
+import ArticleCardLink from '@/components/ArticleCardLink';
 import MarkdownContent from '@/components/MarkdownContent';
 import { buildBlogPostingJsonLd, buildBreadcrumbJsonLd, jsonLdScript } from '@/lib/jsonLd';
 import { AUTHOR } from '@/lib/author';
@@ -163,7 +156,7 @@ export default async function TechArticlePage({ params }: Params) {
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             {relatedArticles.map((related) => (
               <Card key={related.slug} variant="outlined">
-                <CardActionArea href={`/tech/${related.slug}`}>
+                <ArticleCardLink slug={related.slug} hideReadMore>
                   <CardContent>
                     <Typography variant="subtitle1" component="h3" gutterBottom>
                       {related.title}
@@ -179,7 +172,7 @@ export default async function TechArticlePage({ params }: Params) {
                       ))}
                     </Box>
                   </CardContent>
-                </CardActionArea>
+                </ArticleCardLink>
               </Card>
             ))}
           </Box>

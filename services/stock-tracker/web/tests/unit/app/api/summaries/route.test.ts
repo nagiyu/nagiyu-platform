@@ -179,6 +179,7 @@ describe('GET /api/summaries', () => {
           summaries: [
             {
               tickerId: 'NSDQ:AAPL',
+              exchangeId: 'NASDAQ',
               date: '2024-01-15',
               symbol: 'AAPL',
               name: 'Apple Inc.',

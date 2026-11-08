@@ -37,7 +37,7 @@
 | DynamoDB Table      | `nagiyu-auth-users-dev`   | `nagiyu-auth-users-prod`   |
 | Secrets Manager     | `nagiyu/auth/dev/*`       | `nagiyu/auth/prod/*`       |
 | CloudFront          | `auth-dev-distribution`   | `auth-prod-distribution`   |
-| CloudWatch Logs     | `/aws/lambda/auth-dev`    | `/aws/lambda/auth-prod`    |
+| CloudWatch Logs     | `/aws/lambda/nagiyu-auth-lambda-dev` | `/aws/lambda/nagiyu-auth-lambda-prod` |
 
 ---
 
@@ -392,24 +392,24 @@ aws lambda update-function-configuration \
 
 **Lambda ログ**:
 
-- ロググループ: `/aws/lambda/auth-{env}`
-- 保持期間: 30日 (dev), 90日 (prod)
+- ロググループ: `/aws/lambda/nagiyu-auth-lambda-{env}`
+- 保持期間: 30日
 
 **ログの確認方法**:
 
 ```bash
 # ログのリアルタイム確認
-aws logs tail /aws/lambda/auth-dev --follow
+aws logs tail /aws/lambda/nagiyu-auth-lambda-dev --follow
 
 # 特定期間のログ検索
 aws logs filter-log-events \
-    --log-group-name /aws/lambda/auth-dev \
+    --log-group-name /aws/lambda/nagiyu-auth-lambda-dev \
     --start-time $(date -d '1 hour ago' +%s)000 \
     --filter-pattern "ERROR"
 
 # エラーログのみ抽出
 aws logs filter-log-events \
-    --log-group-name /aws/lambda/auth-dev \
+    --log-group-name /aws/lambda/nagiyu-auth-lambda-dev \
     --filter-pattern "ERROR" \
     --max-items 50
 ```

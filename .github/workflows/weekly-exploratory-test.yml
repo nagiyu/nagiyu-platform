@@ -2,8 +2,8 @@ name: Weekly Exploratory Test
 
 on:
   schedule:
-    # 毎週月曜日 8:00 JST (日曜日 23:00 UTC)
-    - cron: '0 23 * * 0'
+    # 毎週土曜日 3:17 JST (金曜日 18:17 UTC)
+    - cron: '17 18 * * 5'
   workflow_dispatch:
 
 permissions:
@@ -17,7 +17,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 実行時刻 (日曜 23:00 UTC) は UTC では前日にあたるため、日付は JST で決める
+      # 実行時刻 (金曜 18:17 UTC) は UTC では前日にあたるため、日付は JST で決める
       - name: Get current date info
         id: date_info
         run: |
@@ -30,8 +30,8 @@ jobs:
       - name: Calculate next issue date
         id: next_date
         run: |
-          NEXT_MONDAY=$(TZ=Asia/Tokyo date -d "next monday" +%Y-%m-%d)
-          echo "next_date=$NEXT_MONDAY" >> "$GITHUB_OUTPUT"
+          NEXT_SATURDAY=$(TZ=Asia/Tokyo date -d "next saturday" +%Y-%m-%d)
+          echo "next_date=$NEXT_SATURDAY" >> "$GITHUB_OUTPUT"
 
       - name: Ensure exploratory-test label exists
         env:

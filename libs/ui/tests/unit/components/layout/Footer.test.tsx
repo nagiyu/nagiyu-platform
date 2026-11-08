@@ -413,4 +413,38 @@ describe('Footer', () => {
       expect(screen.getByText('© 2026–2027 nagiyu')).toBeInTheDocument();
     });
   });
+
+  describe('showLegalLinks props（法務リンクの表示切替）', () => {
+    it('既定ではプライバシーポリシー・利用規約が表示される', () => {
+      render(<Footer />);
+
+      expect(screen.getByRole('button', { name: 'プライバシーポリシー' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: '利用規約' })).toBeInTheDocument();
+    });
+
+    it('false の場合、プライバシーポリシー・利用規約と区切りが表示されない', () => {
+      render(<Footer showLegalLinks={false} />);
+
+      expect(screen.queryByText('プライバシーポリシー')).not.toBeInTheDocument();
+      expect(screen.queryByText('利用規約')).not.toBeInTheDocument();
+      expect(screen.getByText('v1.0.0').textContent).toBe('v1.0.0');
+    });
+
+    it('false かつ contactHref 指定の場合、バージョンとお問い合わせが区切りで並ぶ', () => {
+      render(<Footer showLegalLinks={false} contactHref="/contact" />);
+
+      const contact = screen.getByRole('link', { name: 'お問い合わせ' });
+      expect(contact).toHaveAttribute('href', '/contact');
+      expect(screen.queryByText('プライバシーポリシー')).not.toBeInTheDocument();
+      expect(contact.parentElement?.textContent).toBe('v1.0.0 | お問い合わせ');
+    });
+
+    it('下段のリンクは語の途中で折り返さない指定になっている', () => {
+      render(<Footer contactHref="/contact" />);
+
+      for (const name of ['プライバシーポリシー', '利用規約', 'お問い合わせ']) {
+        expect(screen.getByText(name)).toHaveStyle({ whiteSpace: 'nowrap' });
+      }
+    });
+  });
 });

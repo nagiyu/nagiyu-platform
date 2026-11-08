@@ -92,6 +92,26 @@ describe('ListService', () => {
     expect(listRepository.createPersonalList).not.toHaveBeenCalled();
   });
 
+  it('個人リスト一覧はデフォルト先頭、残りは作成の古い順で返す', async () => {
+    const make = (listId: string, isDefault: boolean, createdAt: number): PersonalList => ({
+      listId,
+      userId: 'user-1',
+      name: listId,
+      isDefault,
+      createdAt,
+      updatedAt: createdAt,
+    });
+    listRepository.getPersonalListsByUserId.mockResolvedValue([
+      make('c', false, 300),
+      make('a', false, 100),
+      make('d', true, 200),
+    ]);
+
+    const result = await listService.getPersonalListsByUserId('user-1');
+
+    expect(result.map((l) => l.listId)).toEqual(['d', 'a', 'c']);
+  });
+
   it('個人リスト一覧を取得できる', async () => {
     const lists: PersonalList[] = [
       {

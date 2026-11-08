@@ -856,10 +856,10 @@ Lambda関数は以前のバージョンへ即座にロールバック可能:
 
 **CloudWatch Logs**:
 
-- Lambda: 自動的に出力、保持期間7日
+- Lambda: 自動的に出力、保持期間30日
 - Batch Worker: 標準出力をCloudWatch Logsに送信、保持期間7日
 - ロググループ:
-  - `/aws/lambda/codec-converter-{env}`
+  - `/aws/lambda/nagiyu-codec-converter-{env}`
   - `/aws/batch/job/codec-converter-{env}`
 
 ### モニタリング

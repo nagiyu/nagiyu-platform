@@ -4,12 +4,16 @@ export const ERROR_MESSAGES = {
   INVALID_TIMEZONE: '無効なタイムゾーンです。',
 } as const;
 
-export const STOCK_TRACKER_TIMEZONE_OPTIONS = [
+/**
+ * 主要な取引所のタイムゾーン選択肢。
+ * value は IANA 名でなければ変換時に無効なタイムゾーンとして弾かれる。
+ */
+export const TIMEZONE_OPTIONS = [
   { value: 'America/New_York', label: 'America/New_York (NYSE, NASDAQ)' },
   { value: 'America/Chicago', label: 'America/Chicago (CME)' },
   { value: 'Europe/London', label: 'Europe/London (LSE)' },
   { value: 'Europe/Paris', label: 'Europe/Paris (Euronext)' },
-  { value: 'Europe/Frankfurt', label: 'Europe/Frankfurt (FWB)' },
+  { value: 'Europe/Berlin', label: 'Europe/Berlin (FWB)' },
   { value: 'Asia/Tokyo', label: 'Asia/Tokyo (TSE)' },
   { value: 'Asia/Hong_Kong', label: 'Asia/Hong_Kong (HKEX)' },
   { value: 'Asia/Shanghai', label: 'Asia/Shanghai (SSE)' },

@@ -38,6 +38,8 @@ const ERROR_MESSAGES = {
   CREATE_ERROR: 'アラートの登録に失敗しました',
   SUBSCRIPTION_REQUIRED: 'Web Push サブスクリプション情報が必要です',
   EXCHANGE_NOT_FOUND: '取引所情報が見つかりません',
+  TICKER_NOT_FOUND: '指定された銘柄が見つかりません',
+  EXCHANGE_ID_MISMATCH: '指定された取引所IDが銘柄の取引所と一致しません',
 } as const;
 
 /**
@@ -46,6 +48,7 @@ const ERROR_MESSAGES = {
 interface AlertResponse {
   alertId: string;
   tickerId: string;
+  exchangeId: string;
   symbol: string;
   name: string;
   mode: string;
@@ -91,6 +94,7 @@ function mapAlertToResponse(
   const response: AlertResponse = {
     alertId: alert.alertId,
     tickerId: alert.tickerId,
+    exchangeId: alert.exchangeId,
     symbol: tickerSymbol,
     name: tickerName,
     mode: alert.mode,
@@ -218,8 +222,32 @@ export const POST = withApiErrorReporting(
         );
       }
 
-      // exchangeId の自動取得（tickerId から）
-      const exchangeId = requestedExchangeId || tickerId?.split(':')[0] || '';
+      // ティッカーID の先頭は取引所の API キーで取引所 ID とは限らないため、取引所 ID はティッカーマスタから引く
+      // tickerId が未指定の場合は検証に任せる
+      const tickerRepo = createTickerRepository();
+      let exchangeId = requestedExchangeId || '';
+      if (tickerId) {
+        const masterTicker = await tickerRepo.getById(tickerId);
+        if (!masterTicker) {
+          return NextResponse.json(
+            {
+              error: 'INVALID_REQUEST',
+              message: ERROR_MESSAGES.TICKER_NOT_FOUND,
+            },
+            { status: 400 }
+          );
+        }
+        if (requestedExchangeId && requestedExchangeId !== masterTicker.exchangeId) {
+          return NextResponse.json(
+            {
+              error: 'INVALID_REQUEST',
+              message: ERROR_MESSAGES.EXCHANGE_ID_MISMATCH,
+            },
+            { status: 400 }
+          );
+        }
+        exchangeId = masterTicker.exchangeId;
+      }
 
       // 条件は想定外の項目を取り込まずに取り出す。
       // 取り出せない場合も、バリデーションの指摘を返すため元の値を検証にかける
@@ -293,7 +321,6 @@ export const POST = withApiErrorReporting(
 
       // リポジトリの初期化
       const alertRepo = createAlertRepository();
-      const tickerRepo = createTickerRepository();
       const exchangeRepo = createExchangeRepository();
 
       // アラートを作成（新しいリポジトリの形式に合わせる）

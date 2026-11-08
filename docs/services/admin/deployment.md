@@ -33,7 +33,7 @@
 | Lambda 関数        | `admin-dev`                       | `admin-prod`                       |
 | ECR リポジトリ     | `admin-dev`                       | `admin-prod`                       |
 | CloudFront         | `admin.dev.nagiyu.com`            | `admin.nagiyu.com`                 |
-| CloudWatch Logs    | `/aws/lambda/admin-dev`           | `/aws/lambda/admin-prod`           |
+| CloudWatch Logs    | `/aws/lambda/nagiyu-admin-lambda-dev` | `/aws/lambda/nagiyu-admin-lambda-prod` |
 
 ---
 
@@ -315,18 +315,18 @@ aws lambda update-function-configuration \
 
 **Lambda ログ**:
 
-- ロググループ: `/aws/lambda/admin-{env}`
-- 保持期間: 7日
+- ロググループ: `/aws/lambda/nagiyu-admin-lambda-{env}`
+- 保持期間: 30日
 
 **ログの確認方法**:
 
 ```bash
 # ログのリアルタイム確認
-aws logs tail /aws/lambda/admin-dev --follow
+aws logs tail /aws/lambda/nagiyu-admin-lambda-dev --follow
 
 # 特定期間のログ検索
 aws logs filter-log-events \
-    --log-group-name /aws/lambda/admin-dev \
+    --log-group-name /aws/lambda/nagiyu-admin-lambda-dev \
     --start-time $(date -d '1 hour ago' +%s)000 \
     --filter-pattern "ERROR"
 ```

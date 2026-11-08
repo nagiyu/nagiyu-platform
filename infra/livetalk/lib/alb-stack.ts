@@ -3,7 +3,7 @@ import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
-import { Environment, SSM_PARAMETERS } from '@nagiyu/infra-common';
+import { Environment, SSM_PARAMETERS, importSharedVpc } from '@nagiyu/infra-common';
 
 export interface LiveTalkAlbStackProps extends cdk.StackProps {
   environment: Environment;
@@ -32,23 +32,7 @@ export class LiveTalkAlbStack extends cdk.Stack {
 
     const { environment } = props;
 
-    const vpcId = ssm.StringParameter.valueForStringParameter(
-      this,
-      SSM_PARAMETERS.VPC_ID(environment)
-    );
-    const publicSubnetIdsStr = ssm.StringParameter.valueForStringParameter(
-      this,
-      SSM_PARAMETERS.PUBLIC_SUBNET_IDS(environment)
-    );
-
-    // ALB は最低 2 つの AZ の Subnet が必要。
-    // Phase 0 で dev / prod ともに us-east-1a + us-east-1b が整備済み。
-    const publicSubnetIds = cdk.Fn.split(',', publicSubnetIdsStr);
-    const vpc = ec2.Vpc.fromVpcAttributes(this, 'ImportedVpc', {
-      vpcId,
-      availabilityZones: ['us-east-1a', 'us-east-1b'],
-      publicSubnetIds: [cdk.Fn.select(0, publicSubnetIds), cdk.Fn.select(1, publicSubnetIds)],
-    });
+    const { vpc } = importSharedVpc(this, 'ImportedVpc', environment);
 
     this.albSecurityGroup = new ec2.SecurityGroup(this, 'AlbSecurityGroup', {
       vpc,

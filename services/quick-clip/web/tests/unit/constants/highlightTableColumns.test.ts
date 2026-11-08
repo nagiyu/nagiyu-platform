@@ -54,9 +54,9 @@ describe('HIGHLIGHT_TABLE_COLUMNS', () => {
     expect(col?.label).toBe('No.');
   });
 
-  it('time 列のラベルは "開始〜終了(秒)" である', () => {
+  it('time 列のラベルは "開始〜終了" である', () => {
     const col = HIGHLIGHT_TABLE_COLUMNS.find((c) => c.id === 'time');
-    expect(col?.label).toBe('開始〜終了(秒)');
+    expect(col?.label).toBe('開始〜終了');
   });
 
   it('status 列のラベルは "採否" である', () => {

@@ -71,47 +71,12 @@ export class InMemoryUserSettingRepository implements UserSettingRepository {
   }
 
   /**
-   * ユーザーの動画設定を取得（フィルタリング対応）
+   * ユーザーの動画設定を全件取得
    */
-  public async getByUserIdWithFilters(
-    userId: string,
-    filters: {
-      isFavorite?: boolean;
-      isSkip?: boolean;
-    },
-    options?: { limit?: number; offset?: number }
-  ): Promise<{ settings: UserSettingEntity[]; total: number }> {
-    const limit = options?.limit || 50;
-    const offset = options?.offset || 0;
-
-    // インメモリストアから全件取得してフィルタリング
-    const allSettings = this.store
+  public async listAllByUserId(userId: string): Promise<UserSettingEntity[]> {
+    return this.store
       .queryAll({ pk: `USER#${userId}`, sk: { operator: 'begins_with', value: 'VIDEO#' } })
       .map((item) => this.mapper.toEntity(item));
-
-    // フィルタリング適用
-    let filteredSettings = allSettings;
-
-    if (filters.isFavorite !== undefined) {
-      filteredSettings = filteredSettings.filter(
-        (setting) => setting.isFavorite === filters.isFavorite
-      );
-    }
-
-    if (filters.isSkip !== undefined) {
-      filteredSettings = filteredSettings.filter((setting) => setting.isSkip === filters.isSkip);
-    }
-
-    // 総件数
-    const total = filteredSettings.length;
-
-    // ページネーション適用
-    const paginatedSettings = filteredSettings.slice(offset, offset + limit);
-
-    return {
-      settings: paginatedSettings,
-      total,
-    };
   }
 
   /**

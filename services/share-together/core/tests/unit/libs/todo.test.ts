@@ -176,4 +176,15 @@ describe('TodoService', () => {
 
     await expect(todoService.getTodosByListId('list-1')).resolves.toEqual(todos);
   });
+
+  it('リポジトリが順不同で返しても作成の古い順で返す', async () => {
+    const base = { listId: 'list-1', title: 't', isCompleted: false, createdBy: 'user-1' };
+    const newer = { ...base, todoId: 'a', createdAt: 200, updatedAt: 200 };
+    const older = { ...base, todoId: 'z', createdAt: 100, updatedAt: 100 };
+    todoRepository.getByListId.mockResolvedValue([newer, older]);
+
+    const result = await todoService.getTodosByListId('list-1');
+
+    expect(result.map((t) => t.todoId)).toEqual(['z', 'a']);
+  });
 });

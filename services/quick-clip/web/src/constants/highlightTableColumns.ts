@@ -25,7 +25,7 @@ export const HIGHLIGHT_TABLE_COLUMNS: readonly ColumnDefinition[] = [
   },
   {
     id: 'time',
-    label: '開始〜終了(秒)',
+    label: '開始〜終了',
     fixed: true,
     defaultVisible: true,
   },

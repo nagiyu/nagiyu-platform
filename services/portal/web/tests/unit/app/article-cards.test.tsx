@@ -41,6 +41,18 @@ describe('記事カードのリンク', () => {
     expect(link.querySelector('a, button')).toBeNull();
   });
 
+  it('hideReadMore を指定すると「記事を読む」を表示しない', () => {
+    render(
+      <ArticleCardLink slug="sample" hideReadMore>
+        <span>中身</span>
+      </ArticleCardLink>
+    );
+    const link = screen.getByRole('link');
+    expect(link).toHaveAttribute('href', '/tech/sample');
+    expect(link).toHaveTextContent('中身');
+    expect(link).not.toHaveTextContent('記事を読む');
+  });
+
   it('最新記事セクションはカード全体がリンクで、説明文が公開日順の並びに合う', () => {
     render(<HomeLatestArticlesSection articles={[article]} />);
     const link = screen.getByRole('link', { name: /サンプル記事/ });

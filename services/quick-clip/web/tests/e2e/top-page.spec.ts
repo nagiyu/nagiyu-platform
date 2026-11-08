@@ -41,4 +41,54 @@ test.describe('QuickClip Top Page', () => {
 
     await expect(page.getByRole('heading', { level: 1, name: '処理状況' })).toBeVisible();
   });
+
+  test('アップロード中にページを閉じようとすると離脱確認が出る', async ({ page }) => {
+    await page.goto('/');
+    let releaseJobResponse: () => void = () => {};
+    const jobResponseGate = new Promise<void>((resolve) => {
+      releaseJobResponse = resolve;
+    });
+    await page.route('**/api/jobs', async (route) => {
+      await jobResponseGate;
+      await route.fulfill({
+        status: 201,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          jobId: 'e2e-job-id',
+          status: 'PENDING',
+          uploadUrl: 'https://example.com/upload',
+          expiresIn: 3600,
+        }),
+      });
+    });
+
+    await page
+      .locator('input[type="file"]')
+      .setInputFiles(path.join(__dirname, '../fixtures/sample.mp4'));
+    await page.getByRole('button', { name: 'アップロードして処理開始' }).click();
+    // 送信状態に入ったことを待ってから閉じる。入る前だと警告が未登録で判定が揺れる
+    await expect(page.getByText(/アップロード中\.\.\./).first()).toBeVisible();
+
+    const dialogPromise = page.waitForEvent('dialog');
+    await page.close({ runBeforeUnload: true });
+    const dialog = await dialogPromise;
+    expect(dialog.type()).toBe('beforeunload');
+    await dialog.dismiss();
+    releaseJobResponse();
+  });
+
+  test('送信前はページを閉じても離脱確認が出ない', async ({ page }) => {
+    await page.goto('/');
+    await page
+      .locator('input[type="file"]')
+      .setInputFiles(path.join(__dirname, '../fixtures/sample.mp4'));
+
+    let dialogShown = false;
+    page.on('dialog', () => {
+      dialogShown = true;
+    });
+    await page.close({ runBeforeUnload: true });
+
+    expect(dialogShown).toBe(false);
+  });
 });

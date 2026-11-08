@@ -317,18 +317,18 @@ aws lambda update-function-configuration \
 
 **Lambda ログ**:
 
-- ロググループ: `/aws/lambda/nagiyu-tools-app-{env}`
-- 保持期間: 7日
+- ロググループ: `/aws/lambda/nagiyu-tools-lambda-{env}`
+- 保持期間: 30日
 
 **ログの確認方法**:
 
 ```bash
 # ログのリアルタイム確認
-aws logs tail /aws/lambda/nagiyu-tools-app-dev --follow
+aws logs tail /aws/lambda/nagiyu-tools-lambda-dev --follow
 
 # 特定期間のログ検索
 aws logs filter-log-events \
-    --log-group-name /aws/lambda/nagiyu-tools-app-dev \
+    --log-group-name /aws/lambda/nagiyu-tools-lambda-dev \
     --start-time $(date -d '1 hour ago' +%s)000 \
     --filter-pattern "ERROR"
 ```
@@ -765,7 +765,7 @@ Lambda のログは CloudWatch Logs に自動的に保存されます。
 
 ```bash
 # ログの確認
-aws logs tail /aws/lambda/tools-app-dev --follow
+aws logs tail /aws/lambda/nagiyu-tools-lambda-dev --follow
 ```
 
 ---

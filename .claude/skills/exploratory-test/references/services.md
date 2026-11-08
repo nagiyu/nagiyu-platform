@@ -41,17 +41,18 @@
 
 ## tools (段階 A)
 
-- 認証なし。環境変数も不要。
+- 認証なし。環境変数も不要。`.env.test` が無いので、起動の形から `DOTENV_CONFIG_PATH` と `NODE_OPTIONS` の指定を外す。
 - 数十万文字の入力は value setter で流す。クリップボードを使うツールは permissions を許可する。
 
 ## portal (段階 A)
 
-- 環境変数も seed もモックも不要。
-- 記事の描画の不具合は CSS (MarkdownContent の sx と globals.css) に集中している。`html, body { overflow-x: hidden }` がはみ出しを隠すので、`scrollWidth` ではなく要素ごとの右端で見る。
+- 環境変数も seed もモックも不要。`.env.test` が無いので、起動の形から `DOTENV_CONFIG_PATH` と `NODE_OPTIONS` の指定を外す。
+- 記事の描画の不具合は CSS (MarkdownContent の sx) に集中している。はみ出しを `document.documentElement.scrollWidth` で見られる (`html` や `body` に `overflow-x: hidden` は無い)。併せて要素ごとの右端 (`getBoundingClientRect().right`) も測ると、はみ出している要素まで特定できる。閉じたドロワーの Paper は画面の外に置かれているので、測定から除く。
 - dev (https://dev.nagiyu.com) は認証不要で、ローカルと見比べられる。
 
 ## share-together (段階 A)
 
+- API を `page.route` でモックしても効かないことがあり、`context.route` では効いた (原因は未特定)。モックが効かないときは `context.route` に替える。
 - 別ユーザーとしてログインする仕組みは無い。`TEST_USER_ID` は起動時の環境変数で固定で、ヘッダで替えられるのはロールだけ。
 - `POST /api/test/reset` に seed (users / groups / memberships / lists / todos。形は `tests/e2e/helpers` の `ResetSeedData`) を渡すと、他ユーザーのデータを作れる。招待する側とされる側、メンバーと非メンバーの状況を作れる。
 - reset はユーザーを作り直さない。同じタブで reset すると、sessionStorage の登録済みフラグのせいでデフォルトリストが無いままになる。毎回新しい browser context を使う。
@@ -60,7 +61,11 @@
 ## stock-tracker (段階 A)
 
 - ロールは `x-test-user-roles` ヘッダ (stock-viewer / stock-user / stock-admin)。
-- `/api/test/reset` で初期化できる。DailySummary は seed できないので、サマリーの詳細と確度の表示は探索できない。
+- `/api/test/reset` で初期化できる。seed は exchanges / tickers / holdings / alerts で、各リポジトリの `create` の入力をそのまま渡す。
+    - alerts は `conditions` ではなく `conditionList` (配列) と `subscription` を渡す。`userId` は `test-user-id`。
+    - holdings も `userId: "test-user-id"` が要る。
+    - exchanges に `market: "JP" | "US"` を付ける。付けないと、保有株式の登録フォームの通貨の初期値が空になる。
+- DailySummary は seed できないので、サマリーの詳細と確度の表示は探索できない。
 - アラートの作成には Web Push の購読のモックが要る (`tests/e2e/alert-management.spec.ts` の `mockPushSubscription`)。
 - チャート (TradingView) は TSE (例: `TSE:7203`) なら取得できる。NASDAQ は API キーを `NASDAQ` にする (`NSDQ` は無効)。
 - 「サマリー更新」は Lambda を呼ぶので、ローカルでは 500 になる。
@@ -83,6 +88,7 @@
 
 ## livetalk (段階 B)
 
+- 起動時の環境変数に `TZ=Asia/Tokyo` を足す。本番の ECS は `TZ=Asia/Tokyo` で動いていて、ローカルは UTC のままだと、生活サイクルの時間帯が UTC で判定される。
 - `.env.test` に足す: `USE_IN_MEMORY_DB=true`、`VOICEVOX_URL=http://127.0.0.1:59999` (実在しない宛先にして外に出ないようにする)。OpenAI のキーは無いので、チャットの実 API は常にエラーになる。
 - Live2D と sprite の画像は、本番では CloudFront 経由の S3 なので、ローカルでは 404 になる (ひよりは描画されない)。
 - 同意は一度 POST すると保持される。リセットはサーバーの再起動か、`/api/consent` の GET のモック。
@@ -94,7 +100,7 @@
 `.env.test` に `USE_IN_MEMORY_DB` が無く、足してもエラー履歴の seed 手段が無い。偽の DynamoDB に向けて履歴を投入する。
 
 1. 偽の DynamoDB を起動する: `FAKE_DDB_PORT=<F> node <SCRIPTS>/fake-aws/admin-fake-ddb.js` (`setsid` で起動し、グループ ID を控える)
-2. 履歴を投入する: `FAKE_DDB_URL=http://127.0.0.1:<F> node <SCRIPTS>/fake-aws/admin-seed.js`
+2. 履歴を投入する: `FAKE_DDB_URL=http://127.0.0.1:<F> node <SCRIPTS>/fake-aws/admin-seed.js`。既定は mapper が受け付ける値だけ (source は `application`)。範囲外の severity を 1 件入れて不正データの挙動を見るときは、`SEED_INVALID=1` を付ける。範囲外の値が 1 件でもあると、一覧 API は全件 500 になる
 3. web を、`.env.test` に次を足して起動する。
 
     ```
@@ -110,6 +116,7 @@
     VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY=ダミーの鍵の組 (自分で生成する)
     ```
 
+- 偽の DynamoDB は GetItem に対応していて、詳細ページと詳細 API も動く。`POST /__reset` で全テーブルを空にできる (入れ直すときに使う)。
 - キー: PK=`ERROR_EVENT#<サービス>`、SK と GSI1SK=`OCCURRED#<iso>#<id>`、GSI1PK=`ERROR_EVENT_ALL`、GSI 名 `AllByOccurredAt`。
 - ロールは `x-test-user-roles` でサーバーとクライアントのセッションの両方に効く。空のロールは表現できず、既定の admin に戻る。
 - Push は headless の chromium では使えない。`PushManager.prototype.subscribe` を `addInitScript` でモックする。
@@ -129,11 +136,13 @@
     ```
 
 - ブラウザから署名付き URL へ直接 PUT するので、偽のサーバーは CORS に応える。
-- 管理用: `POST /__admin/job` (seed)、`POST /__admin/patch {jobId,status,outputFile}` (状態の遷移)、`POST /__admin/toggles` (障害注入: s3PutFail / s3HeadFail / batchFail / ddbFail / delayMs)。
+- job と patch の引数は camelCase (`status` / `outputFile` / `errorMessage` / `expiresAt` など。`expiresAt` は秒)。偽のサーバーが保存時に、実データと同じ PascalCase (`Status` / `OutputFile` / `ErrorMessage` / `TTL` など) に直す。キーの `jobId` だけは camelCase のまま。
+- 管理用: `POST /__admin/job` (seed)、`POST /__admin/patch {jobId,status,outputFile,errorMessage}` (状態の遷移)、`POST /__admin/toggles` (障害注入: s3PutFail / s3HeadFail / batchFail / ddbFail / delayMs)。
 
 ## quick-clip (段階 C、偽の AWS)
 
 - 偽の AWS を起動する: `FAKE_PORT=<F> node <SCRIPTS>/fake-aws/quick-clip-fake-aws.js`。DynamoDB / S3 (マルチパートを含む) / Batch / Lambda を 1 ポートで動かす。
+- `.env.test` が無いので、`DOTENV_CONFIG_PATH` と `NODE_OPTIONS` の指定は外し、環境変数を直接渡す。
 - web は次の環境変数を渡して起動する。ETag を CORS で expose する必要があるが、偽のサーバーは既定で expose する。
 
     ```
@@ -145,8 +154,10 @@
     CLIP_REGENERATE_FUNCTION_NAME / ZIP_GENERATOR_FUNCTION_NAME=ダミー
     ```
 
-- seed (`POST /__admin/...`): `seedJob {jobId,batchStatus,batchStage,analysisProgress,errorMessage}`、`seedHighlight {jobId,highlightId,order,startSec,endSec,status,clipStatus}`。文字起こしは `putObject {key,body}`。状態の遷移は `setBatch`、障害注入は `behavior {ddbFail,lambdaFail,s3PutFail,noEtagExpose,clipDelayMs,zipDelayMs}`。
-- ジョブの状態は DynamoDB の `batchJobId` と Batch の DescribeJobs で決まる。ポーリング間隔は、処理中画面が 5 秒、見どころが 3 秒、ZIP が 3 秒。
+- seed (`POST /__admin/...`): `seedJob {jobId,batchStatus,batchStage,analysisProgress,errorMessage}`、`seedHighlight {jobId,highlightId,order,startSec,endSec,status,clipStatus,dominantEmotion}`。引数は camelCase で、偽のサーバーが実データと同じ PascalCase (`BatchJobID` / `ClipStatus` など) に直して保存する。API が作ったジョブにも `setBatch` が効く。
+- `dominantEmotion` は `laugh` / `excite` / `touch` / `tension` のどれか。範囲外の値が 1 件でもあると、見どころの一覧 API 全体が 500 になる。
+- 文字起こしは `putObject {key,body}`。状態の遷移は `setBatch`、障害注入は `behavior {ddbFail,lambdaFail,s3PutFail,noEtagExpose,clipDelayMs,zipDelayMs}`。
+- ジョブの状態は DynamoDB の `BatchJobID` と Batch の DescribeJobs で決まる。ポーリング間隔は、処理中画面が 5 秒、見どころが 3 秒、ZIP が 3 秒。
 - `tests/fixtures/sample.mp4` は 14 バイトのダミー。マルチパートを試すなら、100MB 以上のファイルを作業ディレクトリに作り、使い終わったら消す。
 - 広告は `NEXT_PUBLIC_VAST_TAG_URL` を付けて再起動する (コンパイル時に埋め込まれる)。`page.route('https://imasdk.googleapis.com/**')` で abort や hang を制御する。
 - 見どころ画面は PC のみの仕様。採否のラジオは楽観更新ではないので、`check()` ではなく `click()`。

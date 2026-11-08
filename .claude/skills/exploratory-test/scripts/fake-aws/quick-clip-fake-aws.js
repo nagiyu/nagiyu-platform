@@ -8,9 +8,15 @@
 //       ホストは IP にすること (localhost だと S3 が virtual-host 形式になる)。
 //       ブラウザが署名付き URL へ直接 PUT するので CORS にも応える。
 //       マルチパートの ETag は CORS で expose しないと取れないため、既定で expose する (noEtagExpose で外せる)。
-// 対応 API: DynamoDB の GetItem / PutItem / UpdateItem / Query、Batch の SubmitJob / DescribeJobs、
+// 対応 API: DynamoDB の GetItem / PutItem / UpdateItem / DeleteItem / Query、Batch の SubmitJob / DescribeJobs、
 //           Lambda の Invoke (ZIP 生成とクリップ再生成の完了を、遅延つきで S3 / DynamoDB に反映する)、
 //           S3 の PUT / HEAD / GET / DELETE とマルチパート
+//   UpdateItem は SET / REMOVE、ReturnValues: ALL_NEW、ConditionExpression (attribute_exists / attribute_not_exists /
+//   `#x = :v` を AND でつないだもの) に対応する。条件に外れると 400 の ConditionalCheckFailedException を返し、
+//   ReturnValuesOnConditionCheckFailure: ALL_OLD ならその Item も添える。
+// 属性名: 保存する項目は実データと同じ PascalCase (JobID / BatchJobID / BatchStage / ClipStatus / TTL など)。
+//   seedJob / seedHighlight / setBatch は従来どおり camelCase の引数で受け、保存時に PascalCase へ直す。
+//   アプリの mapper は PascalCase を優先して読むため、camelCase のまま保存すると API で作ったジョブの状態が反映されない。
 // 環境変数 FAKE_BUCKET: seed や Lambda が置く先のバケット名 (既定 qc-bucket)。web の S3_BUCKET と揃える。
 // 環境変数 SAMPLE_MP4: seedHighlight が置くクリップの実体 (既定 web の tests/fixtures/sample.mp4。無ければ短いダミー)
 // 管理用エンドポイント (POST、JSON。応答は現在の状態):
@@ -29,6 +35,8 @@ const { unmarshall, marshall } = require('@aws-sdk/util-dynamodb');
 
 const PORT = Number(process.env.FAKE_PORT || 13206);
 const BUCKET = process.env.FAKE_BUCKET || 'qc-bucket';
+// このファイルはリポジトリ内に置いたまま実行すると、@aws-sdk/util-dynamodb をルートの node_modules から解決できる。
+// 別の場所へ写して実行するなら、リポジトリ内から node を起動するか NODE_PATH にルートの node_modules を渡す。
 const SAMPLE_MP4 = process.env.SAMPLE_MP4 || path.resolve(__dirname, '../../../../../services/quick-clip/web/tests/fixtures/sample.mp4');
 
 /** クリップの実体。フィクスチャが無い環境でも seed が落ちないようにする */
@@ -76,15 +84,47 @@ function readBody(req) {
 }
 
 // ---- DynamoDB ----
-function parseSet(expr, names, values) {
-  const body = expr.replace(/^\s*SET\s+/i, '');
-  const out = {};
-  for (const part of body.split(',')) {
-    const [lhs, rhs] = part.split('=').map((s) => s.trim());
-    const name = names?.[lhs] ?? lhs;
-    out[name] = values[rhs];
+/** SET と REMOVE の両方を含む更新式を、設定する項目と消す属性名に分ける */
+function parseUpdate(expr, names, values) {
+  const set = {};
+  const remove = [];
+  const setMatch = expr.match(/SET\s+(.*?)(?=\s+REMOVE\s+|$)/i);
+  if (setMatch) {
+    for (const part of setMatch[1].split(',')) {
+      const [lhs, rhs] = part.split('=').map((x) => x.trim());
+      set[names?.[lhs] ?? lhs] = values[rhs];
+    }
   }
-  return out;
+  const removeMatch = expr.match(/REMOVE\s+(.*?)(?=\s+SET\s+|$)/i);
+  if (removeMatch) {
+    for (const n of removeMatch[1].split(',')) remove.push(names?.[n.trim()] ?? n.trim());
+  }
+  return { set, remove };
+}
+
+function conditionFailed(item, returnOld) {
+  const e = new Error('The conditional request failed');
+  e.conditionFailed = true;
+  e.item = returnOld && item ? marshall(item, { removeUndefinedValues: true }) : undefined;
+  throw e;
+}
+
+/** ConditionExpression を AND で分けて評価し、外れたら ConditionalCheckFailedException 用の例外を投げる */
+function checkCondition(cur, cond, names, values, returnOld) {
+  if (!cond) return;
+  for (const c of cond.split(/\s+AND\s+/i)) {
+    let m;
+    if ((m = c.match(/attribute_exists\((#?\w+)\)/))) {
+      const n = names?.[m[1]] ?? m[1];
+      if (!cur || cur[n] === undefined) conditionFailed(cur, returnOld);
+    } else if ((m = c.match(/attribute_not_exists\((#?\w+)\)/))) {
+      const n = names?.[m[1]] ?? m[1];
+      if (cur && cur[n] !== undefined) conditionFailed(cur, returnOld);
+    } else if ((m = c.match(/(#?\w+)\s*=\s*(:\w+)/))) {
+      const n = names?.[m[1]] ?? m[1];
+      if (!cur || cur[n] !== values[m[2]]) conditionFailed(cur, returnOld);
+    }
+  }
 }
 
 function ddb(target, input) {
@@ -93,6 +133,9 @@ function ddb(target, input) {
     e.code = 500;
     throw e;
   }
+  const values = input.ExpressionAttributeValues ? unmarshall(input.ExpressionAttributeValues) : {};
+  const names = input.ExpressionAttributeNames;
+  const returnOld = input.ReturnValuesOnConditionCheckFailure === 'ALL_OLD';
   switch (target) {
     case 'GetItem': {
       const key = unmarshall(input.Key);
@@ -101,19 +144,28 @@ function ddb(target, input) {
     }
     case 'PutItem': {
       const item = unmarshall(input.Item);
+      checkCondition(table.get(k(item.PK, item.SK)), input.ConditionExpression, names, values, returnOld);
       table.set(k(item.PK, item.SK), item);
+      return {};
+    }
+    case 'DeleteItem': {
+      const key = unmarshall(input.Key);
+      checkCondition(table.get(k(key.PK, key.SK)), input.ConditionExpression, names, values, returnOld);
+      table.delete(k(key.PK, key.SK));
       return {};
     }
     case 'UpdateItem': {
       const key = unmarshall(input.Key);
-      const values = input.ExpressionAttributeValues ? unmarshall(input.ExpressionAttributeValues) : {};
-      const set = parseSet(input.UpdateExpression, input.ExpressionAttributeNames, values);
-      const cur = table.get(k(key.PK, key.SK)) || { ...key };
-      table.set(k(key.PK, key.SK), { ...cur, ...set });
-      return {};
+      const existing = table.get(k(key.PK, key.SK));
+      checkCondition(existing, input.ConditionExpression, names, values, returnOld);
+      const { set, remove } = parseUpdate(input.UpdateExpression, names, values);
+      const next = { ...(existing || { ...key }), ...set };
+      for (const n of remove) delete next[n];
+      table.set(k(key.PK, key.SK), next);
+      // 呼び出し側は ALL_NEW の Attributes から更新後の Entity を組み立てる。返さないと 500 になる
+      return input.ReturnValues === 'ALL_NEW' ? { Attributes: marshall(next, { removeUndefinedValues: true }) } : {};
     }
     case 'Query': {
-      const values = unmarshall(input.ExpressionAttributeValues);
       const pk = values[':pk'];
       const prefix = values[':highlightPrefix'] ?? '';
       const items = [...table.values()].filter((i) => i.PK === pk && String(i.SK).startsWith(prefix));
@@ -131,36 +183,50 @@ function seedJob({ jobId, batchStatus, batchStage, analysisProgress, errorMessag
     PK: `JOB#${jobId}`,
     SK: `JOB#${jobId}`,
     Type: 'JOB',
-    jobId,
-    originalFileName: fileName,
-    fileSize: 1024,
-    createdAt: now,
-    expiresAt: expiresAt ?? now + 86400,
+    JobID: jobId,
+    OriginalFileName: fileName,
+    FileSize: 1024,
+    CreatedAt: now,
+    TTL: expiresAt ?? now + 86400,
   };
   if (batchStatus) {
     const bid = 'batch-' + jobId;
     batchJobs.set(bid, { status: batchStatus, jobName: 'seed' });
-    item.batchJobId = bid;
+    item.BatchJobID = bid;
   }
-  if (batchStage) item.batchStage = batchStage;
-  if (analysisProgress) item.analysisProgress = analysisProgress;
-  if (errorMessage) item.errorMessage = errorMessage;
+  if (batchStage) item.BatchStage = batchStage;
+  if (analysisProgress) item.AnalysisProgress = analysisProgress;
+  if (errorMessage) item.ErrorMessage = errorMessage;
   table.set(k(item.PK, item.SK), item);
 }
 
 function seedHighlight(h) {
-  const item = {
-    PK: `JOB#${h.jobId}`,
-    SK: `HIGHLIGHT#${h.highlightId}`,
-    Type: 'HIGHLIGHT',
+  const merged = {
     source: 'motion',
     status: 'unconfirmed',
     clipStatus: 'GENERATED',
     expiresAt: Math.floor(Date.now() / 1000) + 86400,
     ...h,
   };
+  // 引数は camelCase、保存は PascalCase。TTL だけ属性名が expiresAt と対応しない
+  const item = {
+    PK: `JOB#${h.jobId}`,
+    SK: `HIGHLIGHT#${h.highlightId}`,
+    Type: 'HIGHLIGHT',
+    HighlightID: merged.highlightId,
+    JobID: merged.jobId,
+    Order: merged.order,
+    StartSec: merged.startSec,
+    EndSec: merged.endSec,
+    Source: merged.source,
+    Status: merged.status,
+    ClipStatus: merged.clipStatus,
+    TTL: merged.expiresAt,
+  };
+  if (merged.dominantEmotion !== undefined) item.DominantEmotion = merged.dominantEmotion;
+  if (merged.clipGeneratingStartedAt !== undefined) item.ClipGeneratingStartedAt = merged.clipGeneratingStartedAt;
   table.set(k(item.PK, item.SK), item);
-  if (item.clipStatus === 'GENERATED') {
+  if (item.ClipStatus === 'GENERATED') {
     s3.set(`${BUCKET}/outputs/${h.jobId}/clips/${h.highlightId}.mp4`, {
       body: sampleMp4(),
       contentType: 'video/mp4',
@@ -195,10 +261,11 @@ const server = http.createServer(async (req, res) => {
       else if (cmd === 'seedHighlight') seedHighlight(payload);
       else if (cmd === 'setBatch') {
         const job = table.get(k(`JOB#${payload.jobId}`, `JOB#${payload.jobId}`));
-        if (job?.batchJobId) batchJobs.get(job.batchJobId).status = payload.status;
-        if (payload.batchStage && job) job.batchStage = payload.batchStage;
-        if (payload.analysisProgress && job) job.analysisProgress = payload.analysisProgress;
-        if (payload.errorMessage && job) job.errorMessage = payload.errorMessage;
+        const batch = job?.BatchJobID && batchJobs.get(job.BatchJobID);
+        if (batch && payload.status) batch.status = payload.status;
+        if (payload.batchStage && job) job.BatchStage = payload.batchStage;
+        if (payload.analysisProgress && job) job.AnalysisProgress = payload.analysisProgress;
+        if (payload.errorMessage && job) job.ErrorMessage = payload.errorMessage;
       } else if (cmd === 'behavior') Object.assign(behavior, payload);
       else if (cmd === 'putObject') s3.set(payload.key, { body: Buffer.from(payload.body ?? ''), contentType: payload.contentType || 'application/octet-stream', etag: '"x"' });
       res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -260,7 +327,7 @@ const server = http.createServer(async (req, res) => {
         setTimeout(() => {
           const item = table.get(k(`JOB#${payload.jobId}`, `HIGHLIGHT#${payload.highlightId}`));
           if (item) {
-            item.clipStatus = behavior.clipResult;
+            item.ClipStatus = behavior.clipResult;
             if (behavior.clipResult === 'GENERATED') {
               s3.set(`${BUCKET}/outputs/${payload.jobId}/clips/${payload.highlightId}.mp4`, { body: sampleMp4(), contentType: 'video/mp4', etag: '"c"' });
             }
@@ -331,6 +398,10 @@ const server = http.createServer(async (req, res) => {
     res.end('unsupported');
   } catch (e) {
     entry.error = String(e);
+    if (e.conditionFailed) {
+      res.writeHead(400, { 'Content-Type': 'application/x-amz-json-1.0' });
+      return res.end(JSON.stringify({ __type: 'com.amazonaws.dynamodb.v20120810#ConditionalCheckFailedException', message: e.message, ...(e.item ? { Item: e.item } : {}) }));
+    }
     res.writeHead(500, { 'Content-Type': 'application/x-amz-json-1.0' });
     res.end(JSON.stringify({ __type: 'com.amazonaws#InternalFailure', message: String(e) }));
   }

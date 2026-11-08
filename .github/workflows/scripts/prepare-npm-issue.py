@@ -21,7 +21,8 @@ import base64
 import json
 import os
 import sys
-from datetime import datetime, timezone
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 ERROR_MESSAGES = {
     'DECODE_FAILED': 'Base64のデコードに失敗しました（{name}）: {error}',
@@ -142,7 +143,7 @@ def main():
     next_date = os.environ.get('NEXT_DATE', '未定')
     create_time = os.environ.get(
         'CREATE_TIME',
-        datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC'),
+        datetime.now(ZoneInfo('Asia/Tokyo')).strftime('%Y-%m-%d %H:%M JST'),
     )
 
     try:

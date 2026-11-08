@@ -2,6 +2,7 @@ import { EntityNotFoundError } from '@nagiyu/aws';
 import { InvalidInputError } from '@nagiyu/common';
 import type { ListRepository } from '../repositories/list/list-repository.interface.js';
 import type { TodoRepository } from '../repositories/todo/todo-repository.interface.js';
+import { sortPersonalLists } from './sort.js';
 import type { PersonalList } from '../types/index.js';
 
 /**
@@ -33,7 +34,7 @@ export class ListService {
 
   public async getPersonalListsByUserId(userId: string): Promise<PersonalList[]> {
     this.assertRequiredValue(userId, LIST_ERROR_MESSAGES.USER_ID_REQUIRED);
-    return this.listRepository.getPersonalListsByUserId(userId);
+    return sortPersonalLists(await this.listRepository.getPersonalListsByUserId(userId));
   }
 
   public async getPersonalListById(userId: string, listId: string): Promise<PersonalList> {

@@ -72,10 +72,15 @@ describe('POST /api/alerts のリクエストボディ', () => {
       createdAt: 1704067200000,
       updatedAt: 1704067200000,
     }));
-    mockGetTickerById.mockResolvedValue({ symbol: 'AAPL', name: 'Apple Inc.' });
+    mockGetTickerById.mockResolvedValue({
+      tickerId: 'NASDAQ:AAPL',
+      exchangeId: 'NASDAQ',
+      symbol: 'AAPL',
+      name: 'Apple Inc.',
+    });
   });
 
-  it('取引所 ID をティッカー ID から補い、想定外の項目を取り込まずに作成する', async () => {
+  it('取引所 ID をティッカーマスタから補い、想定外の項目を取り込まずに作成する', async () => {
     const response = await POST(
       createRequest({
         ...validBody,
@@ -101,6 +106,57 @@ describe('POST /api/alerts のリクエストボディ', () => {
       customMessage: undefined,
       subscription,
     });
+  });
+
+  it('取引所 ID と API キーが異なる取引所では、ティッカーマスタの取引所 ID で作成する', async () => {
+    mockGetTickerById.mockResolvedValue({
+      tickerId: 'OSE:6758',
+      exchangeId: 'JPX-EX',
+      symbol: '6758',
+      name: 'ソニーグループ',
+    });
+
+    const response = await POST(createRequest({ ...validBody, tickerId: 'OSE:6758' }));
+    const body = await response.json();
+
+    expect(response.status).toBe(201);
+    expect(body.exchangeId).toBe('JPX-EX');
+    expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({ exchangeId: 'JPX-EX' }));
+  });
+
+  it('指定された取引所 ID がティッカーマスタと異なる場合は 400 を返す', async () => {
+    mockGetTickerById.mockResolvedValue({
+      tickerId: 'OSE:6758',
+      exchangeId: 'JPX-EX',
+      symbol: '6758',
+      name: 'ソニーグループ',
+    });
+
+    const response = await POST(
+      createRequest({ ...validBody, tickerId: 'OSE:6758', exchangeId: 'OSE' })
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body).toEqual({
+      error: 'INVALID_REQUEST',
+      message: '指定された取引所IDが銘柄の取引所と一致しません',
+    });
+    expect(mockCreate).not.toHaveBeenCalled();
+  });
+
+  it('ティッカーが存在しない場合は 400 を返す', async () => {
+    mockGetTickerById.mockResolvedValue(null);
+
+    const response = await POST(createRequest(validBody));
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body).toEqual({
+      error: 'INVALID_REQUEST',
+      message: '指定された銘柄が見つかりません',
+    });
+    expect(mockCreate).not.toHaveBeenCalled();
   });
 
   it('範囲指定の条件とパーセンテージ情報を取り込む', async () => {

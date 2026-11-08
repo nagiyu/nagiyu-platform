@@ -35,12 +35,16 @@ export {
 } from './utils/arn';
 export { SSM_PARAMETERS } from './utils/ssm';
 export { SECRET_NAMES } from './utils/secrets';
+export { importSharedVpc } from './utils/vpc';
+export type { ImportedSharedVpc } from './utils/vpc';
 
 // Default configurations
 export {
   DEFAULT_LAMBDA_CONFIG,
   DEFAULT_ECR_CONFIG,
   DEFAULT_CLOUDFRONT_CONFIG,
+  DEFAULT_LAMBDA_LOG_RETENTION,
+  DEFAULT_LAMBDA_TRACING,
   mergeConfig,
 } from './constants/defaults';
 
@@ -57,6 +61,10 @@ export {
 
 // IAM grant helpers
 export { grantErrorEventsWrite } from './grants/error-events-writer';
+
+// Lambda function factory
+export { createEcrImageFunction } from './functions/ecr-image-function';
+export type { EcrImageFunctionProps } from './functions/ecr-image-function';
 
 // Stack base classes
 export { EcrStackBase } from './stacks/ecr-stack-base';

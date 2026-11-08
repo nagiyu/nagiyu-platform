@@ -10,7 +10,11 @@
 // 管理用エンドポイント:
 //   GET  /__admin/log | /__admin/items | /__admin/objects   記録 / ジョブ一覧 / S3 オブジェクト
 //   POST /__admin/job      ジョブを seed する (jobId を含む JSON)
-//   POST /__admin/patch    {jobId, status, outputFile, ...} で既存ジョブを更新し、状態遷移を作る
+//   POST /__admin/patch    {jobId, status, outputFile, errorMessage, ...} で既存ジョブを更新し、状態遷移を作る
+//   job / patch は camelCase (status / inputFile / outputFile / outputCodec / fileName / fileSize / createdAt /
+//   updatedAt / expiresAt / errorMessage) で渡す。保存時に実データと同じ PascalCase (Status / OutputFile ... / TTL) に
+//   直し、旧形式の camelCase の項目は消す。アプリの mapper は PascalCase を優先して読むため、直さないと反映されない。
+//   キー jobId だけは camelCase のまま。TTL の値は秒で渡す。
 //   POST /__admin/toggles  障害注入 {batchFail: 'jobdef'|'all', s3HeadFail, s3PutFail, ddbFail, delayMs}
 const http = require('http');
 const PORT = Number(process.env.FAKE_PORT || 43207);
@@ -25,6 +29,20 @@ function marshall(v) {
   if (typeof v === 'boolean') return { BOOL: v };
   if (v === null) return { NULL: true };
   if (typeof v === 'object') return { M: Object.fromEntries(Object.entries(v).map(([k, x]) => [k, marshall(x)])) };
+}
+// 実データの属性名 (PascalCase)。camelCase で渡された項目をこれに直して保存する
+const ATTRIBUTE_NAMES = {
+  status: 'Status', inputFile: 'InputFile', outputFile: 'OutputFile', outputCodec: 'OutputCodec',
+  fileName: 'FileName', fileSize: 'FileSize', createdAt: 'CreatedAt', updatedAt: 'UpdatedAt',
+  errorMessage: 'ErrorMessage', expiresAt: 'TTL',
+};
+function toStoredAttributes(obj) {
+  return Object.fromEntries(Object.entries(obj).map(([k, v]) => [ATTRIBUTE_NAMES[k] || k, v]));
+}
+/** 旧形式の項目が PascalCase の値を隠さないよう、置き換えた側の旧名を取り除く */
+function dropLegacy(item, obj) {
+  for (const k of Object.keys(obj)) if (ATTRIBUTE_NAMES[k]) delete item[k];
+  return item;
 }
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -63,14 +81,14 @@ http
         }
         if (req.url === '/__admin/job' && req.method === 'POST') {
           const job = JSON.parse(body);
-          const m = marshall(job).M;
+          const m = marshall(toStoredAttributes({ Type: 'Job', ...job })).M;
           items.set(job.jobId, m);
           return send(200, { ok: true });
         }
         if (req.url === '/__admin/patch' && req.method === 'POST') {
           const { jobId, ...rest } = JSON.parse(body);
           const cur = items.get(jobId) || {};
-          items.set(jobId, { ...cur, ...marshall(rest).M });
+          items.set(jobId, { ...dropLegacy({ ...cur }, rest), ...marshall(toStoredAttributes(rest)).M });
           return send(200, { ok: true });
         }
         return send(404, { error: 'admin' });
