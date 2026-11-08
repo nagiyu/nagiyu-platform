@@ -17,8 +17,11 @@ RUN npm run build --workspace=@nagiyu/quick-clip-lambda-clip
 FROM public.ecr.aws/lambda/nodejs:24 AS runner
 WORKDIR ${LAMBDA_TASK_ROOT}
 
-COPY --from=builder /app/node_modules/ffmpeg-static/ffmpeg /usr/local/bin/ffmpeg
-RUN chmod +x /usr/local/bin/ffmpeg
+# ffmpeg は npm 経由ではなく、ビルド済みの静的バイナリのイメージから取り込む。
+# npm のインストール時に外部 (GitHub のリリース) からバイナリを取得させると、
+# その障害で全サービスの npm ci が失敗するため。
+# タグだけでは差し替わりうるので、ダイジェストで固定する (マルチアーキの index)。
+COPY --from=mwader/static-ffmpeg:6.1.1@sha256:a44cd22b260c527f54e99517186a209b805d0a2319e0886d356e840f62a72132 /ffmpeg /usr/local/bin/ffmpeg
 
 ENV NODE_ENV=production
 
