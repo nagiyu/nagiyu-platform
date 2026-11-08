@@ -19,7 +19,6 @@
     "@aws-sdk/lib-dynamodb": "^3.1063.0",
     "@aws-sdk/s3-request-presigner": "^3.1063.0",
     "@nagiyu/aws": "*",
-    "@nagiyu/quick-clip-core": "*",
-    "ffmpeg-static": "^5.2.0"
+    "@nagiyu/quick-clip-core": "*"
   }
 }
