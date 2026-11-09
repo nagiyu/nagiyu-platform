@@ -10,6 +10,17 @@ export interface ConsolidatePromptCandidateTopic {
   subject: string;
   category: string;
   canonicalSummary: string;
+  /**
+   * この Topic の既存 WEB fact（新しい順に絞り込み済み）。
+   * `index` はプロンプト全体で通しの番号で、LLM が existingFactIndices に返す。
+   */
+  existingWebFacts: Array<{
+    index: number;
+    text: string;
+    volatility: string;
+    /** 観測日ラベル（"M月D日" 表記） */
+    observedAtLabel: string;
+  }>;
 }
 
 /**
@@ -57,7 +68,17 @@ export function buildConsolidatePrompt(input: ConsolidatePromptInput): ChatMessa
       ? candidateTopics
           .map(
             (t) =>
-              `- topicId: ${t.topicId} / subject: ${t.subject} / category: ${t.category}\n  既存要約: ${t.canonicalSummary}`
+              `- topicId: ${t.topicId} / subject: ${t.subject} / category: ${t.category}\n  既存要約: ${t.canonicalSummary}\n  既存の事実: ${
+                t.existingWebFacts.length > 0
+                  ? '\n' +
+                    t.existingWebFacts
+                      .map(
+                        (f) =>
+                          `    [事実 #${f.index}] ${f.text}（揮発性: ${f.volatility}、観測日: ${f.observedAtLabel}）`
+                      )
+                      .join('\n')
+                  : 'なし'
+              }`
           )
           .join('\n')
       : 'なし';
@@ -113,6 +134,16 @@ export function buildConsolidatePrompt(input: ConsolidatePromptInput): ChatMessa
   sourceRequestIndices に入れてください。依頼由来でない Topic の sourceRequestIndices は
   空配列（[]）にしてください。番号以外（依頼文そのものの文字列など）は返さないでください。
   憶測で番号を作らないでください。
+- webFacts の各要素は、統合先 Topic の候補に表示された「既存の事実」（[事実 #N]）と見比べて、
+  action に add / replace / duplicate のいずれかを指定してください。
+  - 既存の事実と同じ内容（言い回しの違いだけ）の場合は duplicate とし、existingFactIndices に
+    その既存の事実の番号を入れてください。
+  - 同じ事柄についての新しい情報で、既存の事実が古くなった場合（日付・状況の更新、訂正など）は
+    replace とし、existingFactIndices に古くなった既存の事実の番号をすべて入れてください。
+  - それ以外（既存の事実と関係のない新しい事実、既存の事実が無い場合を含む）は add とし、
+    existingFactIndices は空配列（[]）にしてください。
+  - 番号は統合先 Topic の「既存の事実」に表示された [事実 #N] の N だけを使ってください。
+    新規 Topic（targetTopicId が空文字）の webFacts は常に add です。憶測で番号を作らないでください。
 - 出力はすべて日本語で書いてください。`;
 
   const userPrompt = `候補 Topic 一覧（埋め込み近傍で絞り込み済み）：

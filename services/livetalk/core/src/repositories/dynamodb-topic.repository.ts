@@ -217,6 +217,43 @@ export class DynamoDBTopicRepository implements TopicRepository {
     return this.queryByPrefix(pk, prefix, this.webFactMapper);
   }
 
+  public async deleteWebFact(key: WebFactKey): Promise<void> {
+    try {
+      await this.webFactStore.delete(key);
+    } catch (error) {
+      if (error instanceof EntityNotFoundError) {
+        logger.warn('[DynamoDBTopicRepository] deleteWebFact: 対象 WEB fact が存在しません', {
+          key,
+        });
+        return;
+      }
+      throw error;
+    }
+  }
+
+  public async updateWebFactObservation(
+    key: WebFactKey,
+    update: { observedAt: number; nextReview?: number }
+  ): Promise<void> {
+    try {
+      await this.webFactStore.update(key, {
+        observedAt: update.observedAt,
+        ...(update.nextReview !== undefined ? { nextReview: update.nextReview } : {}),
+      });
+    } catch (error) {
+      if (error instanceof EntityNotFoundError) {
+        logger.warn(
+          '[DynamoDBTopicRepository] updateWebFactObservation: 対象 WEB fact が存在しません',
+          {
+            key,
+          }
+        );
+        return;
+      }
+      throw error;
+    }
+  }
+
   public async updateWebFactNextReview(key: WebFactKey, nextReview: number): Promise<void> {
     try {
       await this.webFactStore.update(key, { nextReview });

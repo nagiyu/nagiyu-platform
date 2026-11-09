@@ -86,6 +86,7 @@ describe('buildConsolidatePrompt', () => {
           subject: '蒸し料理',
           category: '料理',
           canonicalSummary: 'ユーザーはせいろ蒸しが好き',
+          existingWebFacts: [],
         },
       ],
       newMessages: [],
@@ -96,6 +97,75 @@ describe('buildConsolidatePrompt', () => {
     expect(userMessage?.content).toContain('topic-1');
     expect(userMessage?.content).toContain('蒸し料理');
     expect(userMessage?.content).toContain('ユーザーはせいろ蒸しが好き');
+  });
+
+  it('候補 Topic の既存の事実が番号付きで本文・揮発性・観測日とともに表示される', () => {
+    const messages = buildConsolidatePrompt({
+      characterName: '早瀬アゲハ',
+      candidateTopics: [
+        {
+          topicId: 'topic-1',
+          subject: '蒸し料理',
+          category: '料理',
+          canonicalSummary: '要約',
+          existingWebFacts: [
+            { index: 3, text: '強火で蒸す', volatility: 'low', observedAtLabel: '3月5日' },
+            { index: 4, text: '蒸し時間は10分', volatility: 'stable', observedAtLabel: '3月1日' },
+          ],
+        },
+        {
+          topicId: 'topic-2',
+          subject: '紅茶',
+          category: '飲み物',
+          canonicalSummary: '要約2',
+          existingWebFacts: [
+            { index: 5, text: '茶葉は95度', volatility: 'high', observedAtLabel: '2月1日' },
+          ],
+        },
+      ],
+      newMessages: [],
+      webRaws: [],
+    });
+
+    const content = messages.find((m) => m.role === 'user')?.content ?? '';
+    expect(content).toContain('[事実 #3] 強火で蒸す（揮発性: low、観測日: 3月5日）');
+    expect(content).toContain('[事実 #4] 蒸し時間は10分（揮発性: stable、観測日: 3月1日）');
+    expect(content).toContain('[事実 #5] 茶葉は95度（揮発性: high、観測日: 2月1日）');
+  });
+
+  it('既存の事実が無い候補 Topic は「既存の事実: なし」と表示する', () => {
+    const messages = buildConsolidatePrompt({
+      characterName: '早瀬アゲハ',
+      candidateTopics: [
+        {
+          topicId: 'topic-1',
+          subject: '蒸し料理',
+          category: '料理',
+          canonicalSummary: '要約',
+          existingWebFacts: [],
+        },
+      ],
+      newMessages: [],
+      webRaws: [],
+    });
+
+    const content = messages.find((m) => m.role === 'user')?.content ?? '';
+    expect(content).toContain('既存の事実: なし');
+  });
+
+  it('system メッセージに webFacts の見比べ基準が追記され、振り分け基準の文言も残っている', () => {
+    const messages = buildConsolidatePrompt({
+      characterName: '早瀬アゲハ',
+      candidateTopics: [],
+      newMessages: [],
+      webRaws: [],
+    });
+
+    const system = messages.find((m) => m.role === 'system')?.content ?? '';
+    expect(system).toContain('duplicate');
+    expect(system).toContain('replace');
+    expect(system).toContain('憶測で番号を作らないでください');
+    expect(system).toContain('明確に一致する候補がない場合は、targetTopicId を空文字（""）にして');
   });
 
   it('候補 Topic が空なら candidateSection に「なし」と表示する', () => {

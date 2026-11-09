@@ -246,6 +246,90 @@ export function defineTopicRepositoryContract(
       });
     });
 
+    describe('deleteWebFact', () => {
+      it('WEB fact を削除し、同じ fact をもう一度削除しても no-op で成功する', async () => {
+        const created = await repository.putWebFact(buildWebFactInput({ factId: 'FACT-DEL' }));
+        const other = await repository.putWebFact(buildWebFactInput({ factId: 'FACT-KEEP' }));
+        const key = {
+          userId: created.userId,
+          characterId: created.characterId,
+          topicId: created.topicId,
+          factId: created.factId,
+        };
+
+        await repository.deleteWebFact(key);
+        await expect(repository.deleteWebFact(key)).resolves.toBeUndefined();
+
+        const facts = await repository.listWebFacts(
+          created.userId,
+          created.characterId,
+          created.topicId
+        );
+        expect(facts.map((f) => f.factId)).toEqual([other.factId]);
+      });
+    });
+
+    describe('updateWebFactObservation', () => {
+      it('存在しない WEB fact は何もせず成功する', async () => {
+        await expect(
+          repository.updateWebFactObservation(
+            { userId: 'u1', characterId: 'hiyori', topicId: 'TOPIC-001', factId: 'missing' },
+            { observedAt: 10, nextReview: 20 }
+          )
+        ).resolves.toBeUndefined();
+      });
+
+      it('ObservedAt と NextReview を更新し、他の属性は保たれる', async () => {
+        const created = await repository.putWebFact(
+          buildWebFactInput({
+            factId: 'FACT-OBS',
+            volatility: 'high',
+            nextReview: 5,
+            observedAt: 1,
+          })
+        );
+        const key = {
+          userId: created.userId,
+          characterId: created.characterId,
+          topicId: created.topicId,
+          factId: created.factId,
+        };
+
+        await repository.updateWebFactObservation(key, { observedAt: 100, nextReview: 200 });
+
+        const facts = await repository.listWebFacts(key.userId, key.characterId, key.topicId);
+        expect(facts.find((f) => f.factId === 'FACT-OBS')).toEqual({
+          ...created,
+          observedAt: 100,
+          nextReview: 200,
+        });
+      });
+
+      it('NextReview を省略すると ObservedAt だけを更新し、NextReview を持たない fact は持たないまま', async () => {
+        const created = await repository.putWebFact(
+          buildWebFactInput({
+            factId: 'FACT-STABLE',
+            volatility: 'stable',
+            nextReview: undefined,
+            observedAt: 1,
+          })
+        );
+        const key = {
+          userId: created.userId,
+          characterId: created.characterId,
+          topicId: created.topicId,
+          factId: created.factId,
+        };
+
+        await repository.updateWebFactObservation(key, { observedAt: 100 });
+
+        const facts = await repository.listWebFacts(key.userId, key.characterId, key.topicId);
+        const updated = facts.find((f) => f.factId === 'FACT-STABLE');
+        expect(updated?.observedAt).toBe(100);
+        expect(updated?.nextReview).toBeUndefined();
+      });
+    });
+
     describe('updateWebFactNextReview', () => {
       const nowMs = 1_000_000;
 

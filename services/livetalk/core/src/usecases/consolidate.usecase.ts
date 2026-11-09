@@ -5,18 +5,20 @@ import {
   TOPIC_ROUTING_MAX_CANDIDATES,
   CONSOLIDATION_ROUTING_TEXT_MAX_CHARS,
   WEBFACT_REVIEW_INTERVAL_MS,
+  WEB_FACT_TOPIC_LIMIT,
 } from '../constants.js';
 import { cosineSimilarity } from '../memory/embedding.js';
 import { emitBatchMetricsLog, emitBatchMetricsEMF } from '../observability/metrics.js';
 import { defaultUlidFactory, type UlidFactory } from '../lib/ulid.js';
 import { formatJstMonthDay } from '../lib/format-date.js';
+import { selectRecentWebFacts } from '../knowledge/recent-web-facts.js';
 import { ConsolidationSchema } from '../llm-client/schemas/consolidation.schema.js';
 import { buildConsolidatePrompt } from './consolidate.prompt.js';
 import type { WebRawEntity } from '../entities/webraw.entity.js';
 import type { IEmbeddingClient, ILLMClient } from '../llm-client/types.js';
 import type { ConsolidationRaw } from '../llm-client/schemas/consolidation.schema.js';
 import type { TopicEntity } from '../entities/topic.entity.js';
-import type { WebFactVolatility } from '../entities/web-fact.entity.js';
+import type { WebFactEntity, WebFactVolatility } from '../entities/web-fact.entity.js';
 import type { TopicRepository } from '../repositories/topic.repository.interface.js';
 import type { MessageRepository } from '../repositories/message.repository.interface.js';
 import type { WebRawRepository } from '../repositories/webraw.repository.interface.js';
@@ -166,7 +168,34 @@ function countSelfFacts(entries: TopicResult[]): number {
 }
 
 /**
+ * 統合先 Topic の既存 WEB fact のうち、LLM に番号付きで見せたもの（番号 → 事実）。
+ * この Map に載っている番号だけが、そのグループの replace / duplicate の有効な参照先になる。
+ */
+type ExistingFactRefs = ReadonlyMap<number, WebFactEntity>;
+
+/** WEB fact の適用結果の件数。 */
+interface WebFactCounts {
+  added: number;
+  replaced: number;
+  duplicated: number;
+}
+
+/**
+ * LLM が返した番号を、統合先 Topic の既存の事実を指す有効な番号だけに絞る。
+ * 範囲外・非整数・別 Topic の事実を指す番号（LLM の捏造・取り違え）は無視する。重複は畳む。
+ */
+function filterValidFactIndices(indices: number[], refs: ExistingFactRefs): number[] {
+  return [...new Set(indices.filter((i) => Number.isInteger(i) && refs.has(i)))];
+}
+
+/**
  * 1 Topic 分の selfFacts/webFacts をグループ内の全エントリ分連結して追記する。
+ *
+ * webFacts は既存の事実との見比べ結果（add / replace / duplicate）に従って適用する。
+ * 有効な番号が残らない replace / duplicate は add として扱う（溜まりすぎは上限が受け止める）。
+ * 適用順は「作成 → 重複の観測日更新 → 古い事実の削除」で、途中で落ちても事実が失われず、
+ * 多い側に倒れる。同じ既存の事実を複数のエントリが指しても、削除・更新はそれぞれ 1 回だけ行い、
+ * 削除予定の事実は重複の更新対象から外す。
  */
 async function appendTopicFacts(
   topicRepo: TopicRepository,
@@ -174,10 +203,17 @@ async function appendTopicFacts(
   characterId: string,
   topicId: string,
   entries: TopicResult[],
-  readAt: number
-): Promise<{ selfFactCount: number; webFactCount: number }> {
+  readAt: number,
+  existingFacts: ExistingFactRefs
+): Promise<{ selfFactCount: number } & WebFactCounts> {
   let selfFactCount = 0;
-  let webFactCount = 0;
+
+  type Planned = {
+    wf: TopicResult['webFacts'][number];
+    action: 'add' | 'replace' | 'duplicate';
+    indices: number[];
+  };
+  const planned: Planned[] = [];
 
   for (const entry of entries) {
     for (const sf of entry.selfFacts) {
@@ -192,21 +228,102 @@ async function appendTopicFacts(
     }
 
     for (const wf of entry.webFacts) {
-      await topicRepo.putWebFact({
-        userId,
-        characterId,
-        topicId,
-        text: wf.text,
-        sourceUrls: wf.sourceUrls,
-        volatility: wf.volatility,
-        observedAt: readAt,
-        nextReview: computeNextReview(wf.volatility, readAt),
+      const indices =
+        wf.action === 'add' ? [] : filterValidFactIndices(wf.existingFactIndices, existingFacts);
+      planned.push({
+        wf,
+        action: indices.length === 0 ? 'add' : wf.action,
+        indices,
       });
-      webFactCount++;
     }
   }
 
-  return { selfFactCount, webFactCount };
+  // 置き換えで消える事実は、他のエントリの duplicate の更新対象から外す
+  const deleteIndices = new Set<number>(
+    planned.filter((p) => p.action === 'replace').flatMap((p) => p.indices)
+  );
+  for (const p of planned) {
+    if (p.action !== 'duplicate') continue;
+    p.indices = p.indices.filter((i) => !deleteIndices.has(i));
+    if (p.indices.length === 0) p.action = 'add';
+  }
+
+  const counts: WebFactCounts = { added: 0, replaced: 0, duplicated: 0 };
+  const touchIndices = new Set<number>();
+
+  for (const p of planned) {
+    if (p.action === 'duplicate') {
+      counts.duplicated++;
+      p.indices.forEach((i) => touchIndices.add(i));
+      continue;
+    }
+    await topicRepo.putWebFact({
+      userId,
+      characterId,
+      topicId,
+      text: p.wf.text,
+      sourceUrls: p.wf.sourceUrls,
+      volatility: p.wf.volatility,
+      observedAt: readAt,
+      nextReview: computeNextReview(p.wf.volatility, readAt),
+    });
+    if (p.action === 'replace') counts.replaced++;
+    else counts.added++;
+  }
+
+  for (const i of touchIndices) {
+    const fact = existingFacts.get(i);
+    if (!fact) continue;
+    const nextReview = computeNextReview(fact.volatility, readAt);
+    await topicRepo.updateWebFactObservation(
+      { userId, characterId, topicId, factId: fact.factId },
+      { observedAt: readAt, ...(nextReview !== undefined ? { nextReview } : {}) }
+    );
+  }
+
+  for (const i of deleteIndices) {
+    const fact = existingFacts.get(i);
+    if (!fact) continue;
+    await topicRepo.deleteWebFact({ userId, characterId, topicId, factId: fact.factId });
+  }
+
+  return { selfFactCount, ...counts };
+}
+
+/**
+ * Topic の WEB fact が `WEB_FACT_TOPIC_LIMIT` を超えていれば、超えた分を削除する。
+ * 消す順は「stable 以外の観測日の古いもの」→「stable の観測日の古いもの」。stable も件数に数える
+ * （stable は再検証されず溜まり続けるため、数えないと上限が効かない）。
+ *
+ * @returns 削除した件数
+ */
+async function trimWebFacts(
+  topicRepo: TopicRepository,
+  userId: string,
+  characterId: string,
+  topicId: string
+): Promise<number> {
+  const facts = await topicRepo.listWebFacts(userId, characterId, topicId);
+  const excess = facts.length - WEB_FACT_TOPIC_LIMIT;
+  if (excess <= 0) return 0;
+
+  const oldestFirst = (a: WebFactEntity, b: WebFactEntity): number =>
+    a.observedAt !== b.observedAt
+      ? a.observedAt - b.observedAt
+      : a.factId < b.factId
+        ? -1
+        : a.factId > b.factId
+          ? 1
+          : 0;
+  const victims = [
+    ...facts.filter((f) => f.volatility !== 'stable').sort(oldestFirst),
+    ...facts.filter((f) => f.volatility === 'stable').sort(oldestFirst),
+  ].slice(0, excess);
+
+  for (const fact of victims) {
+    await topicRepo.deleteWebFact({ userId, characterId, topicId, factId: fact.factId });
+  }
+  return victims.length;
 }
 
 /**
@@ -309,14 +426,43 @@ export async function consolidate(
   const requestWebRaws = buildRequestWebRaws(webraws);
   const requestIndexByRawId = new Map<string, number>(requestWebRaws.map((w, i) => [w.rawId, i]));
 
-  const promptMessages = buildConsolidatePrompt({
-    characterName,
-    candidateTopics: scored.map((s) => ({
+  // 候補 Topic ごとの既存 WEB fact を新しい側に絞って読み、プロンプト全体で通しの番号を振る
+  // （index 参照方式。LLM には番号だけを返させ、実体は必ずこちらの配列から引く）。
+  const candidateFacts = await Promise.all(
+    scored.map(async (s) =>
+      selectRecentWebFacts(
+        await topicRepo.listWebFacts(userId, characterId, s.header.topicId),
+        WEB_FACT_TOPIC_LIMIT
+      )
+    )
+  );
+  const existingFactRefsByTopic = new Map<string, Map<number, WebFactEntity>>();
+  let nextFactIndex = 0;
+  const candidateTopics = scored.map((s, i) => {
+    const refs = new Map<number, WebFactEntity>();
+    const existingWebFacts = candidateFacts[i].map((fact) => {
+      const index = nextFactIndex++;
+      refs.set(index, fact);
+      return {
+        index,
+        text: fact.text,
+        volatility: fact.volatility,
+        observedAtLabel: formatJstMonthDay(fact.observedAt),
+      };
+    });
+    existingFactRefsByTopic.set(s.header.topicId, refs);
+    return {
       topicId: s.header.topicId,
       subject: s.header.subject,
       category: s.header.category,
       canonicalSummary: s.header.canonicalSummary,
-    })),
+      existingWebFacts,
+    };
+  });
+
+  const promptMessages = buildConsolidatePrompt({
+    characterName,
+    candidateTopics,
     newMessages: messages.map((m) => ({ role: m.role, text: m.text })),
     webRaws: webraws.map((w) => ({
       query: w.query,
@@ -342,6 +488,10 @@ export async function consolidate(
   let updatedTopicCount = 0;
   let selfFactCount = 0;
   let webFactCount = 0;
+  let replacedWebFactCount = 0;
+  let duplicateWebFactCount = 0;
+  // 上限の適用対象にするため、META を書いた Topic（新規・既存とも）を覚える
+  const touchedTopicIds = new Set<string>();
 
   const groups = groupTopicResults(result.topics, candidateMap);
 
@@ -376,10 +526,14 @@ export async function consolidate(
         characterId,
         topicId,
         [topicResult],
-        readAt
+        readAt,
+        new Map()
       );
+      touchedTopicIds.add(topicId);
       selfFactCount += counts.selfFactCount;
-      webFactCount += counts.webFactCount;
+      webFactCount += counts.added + counts.replaced;
+      replacedWebFactCount += counts.replaced;
+      duplicateWebFactCount += counts.duplicated;
       continue;
     }
 
@@ -449,10 +603,21 @@ export async function consolidate(
       characterId,
       topicId,
       group.entries,
-      readAt
+      readAt,
+      // 番号は統合先 Topic の事実だけを指せる。META が消えていて新規扱いにした場合は参照先が無い
+      current ? (existingFactRefsByTopic.get(group.topicId) ?? new Map()) : new Map()
     );
+    touchedTopicIds.add(topicId);
     selfFactCount += counts.selfFactCount;
-    webFactCount += counts.webFactCount;
+    webFactCount += counts.added + counts.replaced;
+    replacedWebFactCount += counts.replaced;
+    duplicateWebFactCount += counts.duplicated;
+  }
+
+  // ---- 上限の適用（その実行で触れた Topic すべて。溜まりきった Topic もここで減る）----
+  let trimmedWebFactCount = 0;
+  for (const topicId of touchedTopicIds) {
+    trimmedWebFactCount += await trimWebFacts(topicRepo, userId, characterId, topicId);
   }
 
   // ---- カーソル前進（ストリーム別・条件付き。空ストリームは据え置き）----
@@ -494,6 +659,10 @@ export async function consolidate(
     updatedTopicCount,
     selfFactCount,
     webFactCount,
+    addedWebFactCount: webFactCount - replacedWebFactCount,
+    replacedWebFactCount,
+    duplicateWebFactCount,
+    trimmedWebFactCount,
   });
 
   return 'consolidated';

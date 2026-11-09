@@ -444,4 +444,124 @@ describe('DynamoDBTopicRepository', () => {
       ).rejects.toBeInstanceOf(DatabaseError);
     });
   });
+
+  describe('deleteWebFact', () => {
+    it('対象の WEB fact を DeleteCommand で削除する', async () => {
+      const sent: unknown[] = [];
+      const repo = makeRepo(async (cmd) => {
+        sent.push(cmd);
+        return {};
+      });
+
+      await repo.deleteWebFact(webFactKey);
+
+      expect((sent[0] as { input: { Key: unknown } }).input.Key).toEqual({
+        PK: 'USER#u1',
+        SK: 'CHAR#hiyori#TOPIC#TOPIC-001#WEB#F1',
+      });
+    });
+
+    it('対象が存在しなければ warn を出して何もしない', async () => {
+      const warn = jest.spyOn(logger, 'warn').mockImplementation(() => undefined);
+      const repo = makeRepo(async () => {
+        throw conditionalFailure(false);
+      });
+
+      await expect(repo.deleteWebFact(webFactKey)).resolves.toBeUndefined();
+      expect(warn).toHaveBeenCalledTimes(1);
+      warn.mockRestore();
+    });
+
+    it('その他のエラーは DatabaseError でラップする', async () => {
+      const repo = makeRepo(async () => {
+        throw new Error('boom');
+      });
+
+      await expect(repo.deleteWebFact(webFactKey)).rejects.toBeInstanceOf(DatabaseError);
+    });
+  });
+
+  describe('updateWebFactObservation', () => {
+    it('observedAt と nextReview を UpdateCommand で更新する', async () => {
+      const sent: unknown[] = [];
+      const repo = makeRepo(async (cmd) => {
+        sent.push(cmd);
+        return {
+          Attributes: {
+            PK: 'USER#u1',
+            SK: 'CHAR#hiyori#TOPIC#TOPIC-001#WEB#F1',
+            UserID: 'u1',
+            CharacterID: 'hiyori',
+            TopicID: 'TOPIC-001',
+            FactID: 'F1',
+            Text: 't',
+            SourceUrls: [],
+            Volatility: 'high',
+            ObservedAt: FIXED_NOW + 5,
+            CreatedAt: FIXED_NOW,
+          },
+        };
+      });
+
+      await repo.updateWebFactObservation(webFactKey, {
+        observedAt: FIXED_NOW + 5,
+        nextReview: FIXED_NOW + 100_000,
+      });
+
+      const input = (sent[0] as UpdateCommand).input;
+      const values = Object.values(input.ExpressionAttributeValues ?? {});
+      expect(values).toEqual(expect.arrayContaining([FIXED_NOW + 5, FIXED_NOW + 100_000]));
+    });
+
+    it('nextReview を省略したときは observedAt だけを更新する', async () => {
+      const sent: unknown[] = [];
+      const repo = makeRepo(async (cmd) => {
+        sent.push(cmd);
+        return {
+          Attributes: {
+            PK: 'USER#u1',
+            SK: 'CHAR#hiyori#TOPIC#TOPIC-001#WEB#F1',
+            UserID: 'u1',
+            CharacterID: 'hiyori',
+            TopicID: 'TOPIC-001',
+            FactID: 'F1',
+            Text: 't',
+            SourceUrls: [],
+            Volatility: 'stable',
+            ObservedAt: 123_456_789,
+            CreatedAt: FIXED_NOW,
+          },
+        };
+      });
+
+      await repo.updateWebFactObservation(webFactKey, { observedAt: 123_456_789 });
+
+      const input = (sent[0] as UpdateCommand).input;
+      expect(JSON.stringify(input)).not.toContain('NextReview');
+      expect(Object.values(input.ExpressionAttributeValues ?? {})).toContain(123_456_789);
+    });
+
+    it('対象が存在しなければ warn を出して何もしない', async () => {
+      const warn = jest.spyOn(logger, 'warn').mockImplementation(() => undefined);
+      const repo = makeRepo(async () => {
+        throw conditionalFailure(false);
+      });
+
+      await expect(
+        repo.updateWebFactObservation(webFactKey, { observedAt: 1 })
+      ).resolves.toBeUndefined();
+      expect(warn).toHaveBeenCalledTimes(1);
+      warn.mockRestore();
+    });
+
+    it('その他のエラーは DatabaseError でラップする', async () => {
+      const repo = makeRepo(async () => {
+        throw new Error('boom');
+      });
+
+      await expect(
+        repo.updateWebFactObservation(webFactKey, { observedAt: 1 })
+      ).rejects.toBeInstanceOf(DatabaseError);
+    });
+  });
 });
