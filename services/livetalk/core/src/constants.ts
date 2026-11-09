@@ -347,11 +347,20 @@ export const TOPIC_RECALL_RELATED_MAX = 2;
 // ---- WEB fact の読み出し件数 ----
 
 /**
- * Topic あたりの WEB fact の上限件数。
- * 読む側（会話・ノート生成・鮮度確認・要約の作り直し）が観測日時の新しい順にこの件数までを使う
- * 最大件数であり、集約が 1 Topic に保持する WEB fact の上限でもある。
+ * WEB fact の「新しい順に使う最大件数」と「集約が保持する stable 以外の上限」を兼ねる件数。
+ * 読む側 (会話・ノート生成・鮮度確認・要約の作り直し・集約の見比べ) は、全区分から
+ * 観測日時の新しい順にこの件数までを使う。集約は stable 以外 (low / medium / high) をこの件数まで
+ * 保持する。stable は別の上限 (`WEB_FACT_STABLE_LIMIT`) を持つ。
  */
 export const WEB_FACT_TOPIC_LIMIT = 20;
+
+/**
+ * 集約が 1 Topic に保持する stable の WEB fact の上限件数 (仮の値)。
+ * stable は再検証されず溜まり続ける。また stable は LLM が付ける区分で付け間違えがありうるため、
+ * stable にも上限を置く。stable 以外と別枠にして、stable で埋まった Topic でも
+ * 新しく足した stable 以外の事実が消えないようにする。
+ */
+export const WEB_FACT_STABLE_LIMIT = 10;
 
 /** 会話のプロンプトに渡す WEB fact の 1 Topic あたりの件数（新しい順）。 */
 export const WEB_FACT_CHAT_LIMIT = 5;

@@ -3,7 +3,8 @@ import type { WebRawOrigin } from '../entities/webraw.entity.js';
 
 /**
  * `consolidate` usecase に渡す候補 Topic 1 件分。
- * 埋め込み近傍で粗く絞った既存 Topic のヘッダ情報のみを渡す（座標・fact 本文は渡さない）。
+ * 埋め込み近傍で粗く絞った既存 Topic のヘッダ情報と、新しい WEB fact との見比べに使う既存の WEB fact
+ * (新しい側に絞った分を番号付きで) を渡す。座標と SELF fact は渡さない。
  */
 export interface ConsolidatePromptCandidateTopic {
   topicId: string;
@@ -11,14 +12,14 @@ export interface ConsolidatePromptCandidateTopic {
   category: string;
   canonicalSummary: string;
   /**
-   * この Topic の既存 WEB fact（新しい順に絞り込み済み）。
+   * この Topic の既存 WEB fact (新しい順に絞り込み済み)。
    * `index` はプロンプト全体で通しの番号で、LLM が existingFactIndices に返す。
    */
   existingWebFacts: Array<{
     index: number;
     text: string;
     volatility: string;
-    /** 観測日ラベル（"M月D日" 表記） */
+    /** 観測日ラベル ("M月D日" 表記) */
     observedAtLabel: string;
   }>;
 }

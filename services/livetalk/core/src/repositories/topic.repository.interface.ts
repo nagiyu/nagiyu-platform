@@ -78,14 +78,14 @@ export interface TopicRepository {
   updateWebFactNextReview(key: WebFactKey, nextReview: number): Promise<void>;
 
   /**
-   * WEB fact を削除する（集約の置き換え・上限整理用）。
+   * WEB fact を削除する (集約の置き換え・上限整理用)。
    * 集約の再実行で同じ削除が来うるため、対象が存在しなければ no-op。
    */
   deleteWebFact(key: WebFactKey): Promise<void>;
 
   /**
-   * 既存 WEB fact の `observedAt` を更新する（集約が重複と判断した事実の観測日の更新用）。
-   * `nextReview` を渡したときだけ併せて更新し、省略時は触らない（stable は `nextReview` を持たない）。
+   * 既存 WEB fact の `observedAt` を更新する (集約が重複と判断した事実の観測日の更新用)。
+   * `nextReview` を渡したときだけ併せて更新し、省略時は触らない (stable は `nextReview` を持たない)。
    * 対象が存在しなければ no-op。
    */
   updateWebFactObservation(
