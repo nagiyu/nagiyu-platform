@@ -454,7 +454,7 @@ export {
 export { consolidate, type ConsolidateParams } from './usecases/consolidate.usecase.js';
 
 // Topic 想起（関連度 only）＋決定的忘却（リブトーク知識再設計 P2 / #3698）
-export { TopicRetriever } from './knowledge/index.js';
+export { TopicRetriever, selectRecentWebFacts } from './knowledge/index.js';
 export type { ITopicRetriever, RetrievedTopic, TopicRetrieveOptions } from './knowledge/index.js';
 export { forgetSelfFact, type ForgetSelfFactDeps } from './usecases/forget-self-fact.usecase.js';
 export {
@@ -470,6 +470,9 @@ export {
   TOPIC_RECALL_TOP_K,
   TOPIC_RECALL_RELATED_THRESHOLD,
   TOPIC_RECALL_RELATED_MAX,
+  WEB_FACT_TOPIC_LIMIT,
+  WEB_FACT_CHAT_LIMIT,
+  WEB_FACT_NOTE_LIMIT,
 } from './constants.js';
 
 // Repository factory (registry 経由。web / batch はここから生成する)
