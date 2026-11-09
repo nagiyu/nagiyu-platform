@@ -330,6 +330,18 @@ export const ACQUIRE_SELF_STUDY_COOLDOWN_MS = 24 * 60 * 60 * 1000;
  */
 export const ACQUIRE_SELF_STUDY_CANDIDATE_LIMIT = 20;
 
+/**
+ * 自発リサーチの起点ごとに覚える「最近の角度」の件数。
+ * 角度の生成に渡して重複を避けさせる。多いほどプロンプトが膨らむため直近数件にとどめる。
+ */
+export const EXPLORATION_RECENT_ANGLES_LIMIT = 5;
+
+/** 角度の生成に渡す、すでに知っている WEB fact の件数 (新しい側から)。プロンプトの肥大を避けるため数件にする */
+export const EXPLORATION_KNOWN_WEB_FACT_LIMIT = 5;
+
+/** 角度の生成に渡す、利用者の発言由来の SELF fact の件数。プロンプトの肥大を避けるため数件にする */
+export const EXPLORATION_SELF_FACT_LIMIT = 5;
+
 // ---- Topic 想起（関連度 only）（リブトーク知識再設計 P2 / #3698）----
 
 /** 発話埋め込みと Topic 座標の cosine がこの値以上を想起候補とする（要調整・要観測）。 */

@@ -89,6 +89,14 @@ export {
 
 // WEB fact 変化検知（リブトーク知識再設計 P3 / #3699、acquire バッチ用）
 export { LLMWebFactChangeDetector, type IWebFactChangeDetector } from './research/index.js';
+export {
+  LLMExplorationAngleGenerator,
+  buildExplorationAnglePrompt,
+  type IExplorationAngleGenerator,
+  type ExplorationAnglePromptInput,
+} from './research/index.js';
+export { ExplorationAngleSchema } from './llm-client/schemas/exploration-angle.schema.js';
+export type { ExplorationAngleRaw } from './llm-client/schemas/exploration-angle.schema.js';
 export { WebFactChangeSchema } from './llm-client/schemas/web-fact-change.schema.js';
 export type { WebFactChangeRaw } from './llm-client/schemas/web-fact-change.schema.js';
 
@@ -201,6 +209,16 @@ export { InMemoryNoteSkipRepository } from './repositories/in-memory-note-skip.r
 export { DynamoDBNoteSkipRepository } from './repositories/dynamodb-note-skip.repository.js';
 export { NoteSkipMapper } from './mappers/note-skip.mapper.js';
 export { buildNoteSkipSK, buildNoteSkipSKPrefix } from './mappers/keys.js';
+export type {
+  ExplorationEntity,
+  ExplorationKey,
+  PutExplorationInput,
+} from './entities/exploration.entity.js';
+export type { ExplorationRepository } from './repositories/exploration.repository.interface.js';
+export { InMemoryExplorationRepository } from './repositories/in-memory-exploration.repository.js';
+export { DynamoDBExplorationRepository } from './repositories/dynamodb-exploration.repository.js';
+export { ExplorationMapper } from './mappers/exploration.mapper.js';
+export { buildExplorationSK, buildExplorationSKPrefix } from './mappers/keys.js';
 export {
   generateNotesForUser,
   type GenerateNotesParams,
@@ -488,6 +506,7 @@ export {
   createFreshnessCheckRequestRepository,
   createNoteRepository,
   createNoteSkipRepository,
+  createExplorationRepository,
   createPushSubscriptionRepository,
   createNotificationEventRepository,
   createTopicRepository,

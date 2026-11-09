@@ -109,6 +109,8 @@ describe('acquireAllUsers', () => {
     freshnessCheckRequestRepo: {} as never,
     researchClient: {} as never,
     changeDetector: {} as never,
+    angleGenerator: {} as never,
+    explorationRepo: {} as never,
     ...overrides,
   });
 
@@ -135,6 +137,16 @@ describe('acquireAllUsers', () => {
 
     // u1, u2 × hiyori, ageha = 4 回
     expect(mockAcquireForUser).toHaveBeenCalledTimes(4);
+    // 角度の生成器と探索の記録は呼び出し側から acquireForUser へそのまま渡る
+    const params = makeParams();
+    expect(mockAcquireForUser).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({
+        angleGenerator: params.angleGenerator,
+        explorationRepo: params.explorationRepo,
+      })
+    );
     expect(result.processedUsers).toBe(2);
     expect(result.skippedUsers).toBe(0);
     expect(result.failedUsers).toBe(0);

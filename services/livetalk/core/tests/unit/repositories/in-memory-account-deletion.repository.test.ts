@@ -21,6 +21,7 @@
  */
 
 import { InMemorySingleTableStore } from '@nagiyu/aws';
+import { InMemoryExplorationRepository } from '../../../src/repositories/in-memory-exploration.repository.js';
 import { InMemoryAccountDeletionRepository } from '../../../src/repositories/in-memory-account-deletion.repository.js';
 
 const FIXED_NOW = 1_700_000_000_000;
@@ -118,6 +119,26 @@ describe('InMemoryAccountDeletionRepository', () => {
       // 削除されていること
       expect(store.get(USER_PK, 'PROFILE')).toBeUndefined();
       expect(store.get(USER_PK, 'CHAR#hiyori#MSG#MSG001')).toBeUndefined();
+    });
+
+    it('自発リサーチの探索の記録も削除される', async () => {
+      const store = new InMemorySingleTableStore();
+      const { repo } = makeRepo(store);
+      const explorationRepo = new InMemoryExplorationRepository(store, () => FIXED_NOW);
+      await explorationRepo.put({
+        userId: USER_ID,
+        characterId: 'hiyori',
+        topicId: 't1',
+        exploredAt: FIXED_NOW,
+        recentAngles: ['ボカロ ライブ 2026'],
+      });
+      expect(store.get(USER_PK, 'CHAR#hiyori#EXPLORE#t1')).toBeDefined();
+
+      const result = await repo.deleteAccount(USER_ID);
+
+      expect(result.deletedCount).toBe(1);
+      expect(store.get(USER_PK, 'CHAR#hiyori#EXPLORE#t1')).toBeUndefined();
+      expect(await explorationRepo.listAll(USER_ID, 'hiyori')).toEqual([]);
     });
 
     it('SafetyEvent のみの場合（非SafetyEvent の削除は 0件）', async () => {

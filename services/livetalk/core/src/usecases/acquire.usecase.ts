@@ -5,6 +5,9 @@ import {
   ACQUIRE_MAX_QUERIES_PER_RUN,
   ACQUIRE_SELF_STUDY_CANDIDATE_LIMIT,
   ACQUIRE_SELF_STUDY_COOLDOWN_MS,
+  EXPLORATION_KNOWN_WEB_FACT_LIMIT,
+  EXPLORATION_RECENT_ANGLES_LIMIT,
+  EXPLORATION_SELF_FACT_LIMIT,
   STUDY_INACTIVE_WINDOW_HOURS,
   WEB_FACT_TOPIC_LIMIT,
   WEBFACT_REVIEW_INTERVAL_MS,
@@ -14,6 +17,8 @@ import type { TopicEntity } from '../entities/topic.entity.js';
 import type { WebFactEntity } from '../entities/web-fact.entity.js';
 import type { TopicRepository } from '../repositories/topic.repository.interface.js';
 import type { WebRawRepository } from '../repositories/webraw.repository.interface.js';
+import type { ExplorationEntity } from '../entities/exploration.entity.js';
+import type { ExplorationRepository } from '../repositories/exploration.repository.interface.js';
 import type { FreshnessCheckRequestRepository } from '../repositories/freshness-check-request.repository.interface.js';
 import type { StudyTopicRepository } from '../repositories/study-topic.repository.interface.js';
 import { resolveLifecycleState } from '../lifecycle/state-resolver.js';
@@ -22,6 +27,7 @@ import { isStaleWebFact } from '../study/freshness-check.js';
 import type { ResearchAllowance } from '../study/research-allowance.js';
 import type { IResearchClient } from '../research/types.js';
 import type { IWebFactChangeDetector } from '../research/web-fact-change-detector.js';
+import type { IExplorationAngleGenerator } from '../research/exploration-angle-generator.js';
 import type { UlidFactory } from '../lib/ulid.js';
 
 export interface AcquireForUserParams {
@@ -32,6 +38,10 @@ export interface AcquireForUserParams {
   freshnessCheckRequestRepo: FreshnessCheckRequestRepository;
   researchClient: IResearchClient;
   changeDetector: IWebFactChangeDetector;
+  /** care 自発リサーチで、起点の Topic から広げた探索の角度を作る */
+  angleGenerator: IExplorationAngleGenerator;
+  /** 起点の Topic ごとの探索の記録 (最後に探索した時刻と最近の角度) */
+  explorationRepo: ExplorationRepository;
   character: CharacterDefinition;
   lifecycle: LifecycleEntity;
   /**
@@ -150,6 +160,70 @@ export function buildLatestInfoQuery(subject: string): string {
   return `${trimmed} 最新情報`;
 }
 
+interface ResolveExplorationQueryParams {
+  userId: string;
+  characterId: string;
+  header: Pick<TopicEntity, 'topicId' | 'subject' | 'canonicalSummary'>;
+  webFacts: readonly WebFactEntity[];
+  recentAngles: readonly string[];
+  topicRepo: TopicRepository;
+  angleGenerator: IExplorationAngleGenerator;
+  today: Date;
+}
+
+/**
+ * 自発リサーチの検索クエリ（探索の角度）を決める。
+ *
+ * 角度の生成に失敗しても勉強を止めないよう、起点の「最新情報」の検索に落とす。
+ * 例外は投げない。選んだ角度は、dev で質を確かめられるようログに出す。
+ */
+async function resolveExplorationQuery(params: ResolveExplorationQueryParams): Promise<string> {
+  const { userId, characterId, header, webFacts, recentAngles, topicRepo, angleGenerator } = params;
+  let angle: string | null = null;
+  try {
+    let selfFactTexts: string[] = [];
+    try {
+      const selfFacts = await topicRepo.listSelfFacts(userId, characterId, header.topicId);
+      selfFactTexts = selfFacts.slice(0, EXPLORATION_SELF_FACT_LIMIT).map((f) => f.text);
+    } catch (err) {
+      // SELF fact は手がかりにすぎないため、読めなくても角度の生成は続ける
+      logger.warn('[acquire] 角度の生成用の SELF fact の読み取りに失敗しました（なしで続行）', {
+        userId,
+        characterId,
+        topicId: header.topicId,
+        err: toErrorMessage(err),
+      });
+    }
+    angle = await angleGenerator.generate({
+      subject: header.subject,
+      canonicalSummary: header.canonicalSummary,
+      selfFactTexts,
+      knownWebFactTexts: selectRecentWebFacts(webFacts, EXPLORATION_KNOWN_WEB_FACT_LIMIT).map(
+        (f) => f.text
+      ),
+      recentAngles,
+      today: params.today,
+    });
+  } catch (err) {
+    logger.warn('[acquire] 探索の角度の生成に失敗しました（最新情報の検索に代替）', {
+      userId,
+      characterId,
+      topicId: header.topicId,
+      err: toErrorMessage(err),
+    });
+  }
+
+  const query = angle ?? buildLatestInfoQuery(header.subject);
+  logger.info('[acquire] care 自発リサーチの探索の角度を選びました', {
+    userId,
+    characterId,
+    subject: header.subject,
+    query,
+    fallback: angle === null,
+  });
+  return query;
+}
+
 /**
  * 1 ユーザー × 1 キャラの acquire バッチ（Web「取得だけ」）
  * （リブトーク知識再設計 P3 / #3699）。
@@ -186,6 +260,8 @@ export async function acquireForUser(
     freshnessCheckRequestRepo,
     researchClient,
     changeDetector,
+    angleGenerator,
+    explorationRepo,
     character,
     lifecycle,
     researchAllowance,
@@ -490,8 +566,9 @@ export async function acquireForUser(
   }
 
   // ---- 3. care 自発リサーチ ----
-  // budget より広めに候補を取り、クールダウン中（直近取得済み）の Topic を読み飛ばして
+  // budget より広めに候補を取り、クールダウン中（直近取得・探索済み）の Topic を読み飛ばして
   // 未研究・古い Topic に budget を割り当てる（冗長な WEB fact の線形増加を防ぐ）。
+  // 検索の角度は起点の話題そのものではなく、そこから広げた周辺にする（research は 1 回のまま）。
   if (budget > 0 && !decision.skipSelfStudy) {
     const headers = await topicRepo.listTopicHeadersByCareDesc(
       userId,
@@ -499,14 +576,36 @@ export async function acquireForUser(
       ACQUIRE_SELF_STUDY_CANDIDATE_LIMIT
     );
 
+    // 探索の記録は候補ごとに読まず、キャラ単位で 1 回にまとめて読む。
+    // 読めなくても勉強は止めない（観測日時の判定だけで続行する）。
+    const explorations = new Map<string, ExplorationEntity>();
+    try {
+      for (const e of await explorationRepo.listAll(userId, characterId)) {
+        explorations.set(e.topicId, e);
+      }
+    } catch (err) {
+      logger.warn('[acquire] 探索の記録の読み取りに失敗しました（記録なしで続行）', {
+        userId,
+        characterId,
+        err: toErrorMessage(err),
+      });
+    }
+
     for (const header of headers) {
       if (budget <= 0) break;
 
       // クールダウン判定: 直近この Topic を取得済み（最新 WEB fact の ObservedAt が
       // now - ACQUIRE_SELF_STUDY_COOLDOWN_MS 以降）なら自発リサーチをスキップする。
+      // 探索の結果は別の Topic に集約されうるため、起点の観測日時が進まない。
+      // 起点ごとの最後の探索時刻でも同じ期間を空ける。
       // 揮発 fact の鮮度追随は鮮度確認の依頼が別途担うため、ここでは穴埋めに限定する。
+      const previous = explorations.get(header.topicId);
+      if (previous && nowMs - previous.exploredAt < ACQUIRE_SELF_STUDY_COOLDOWN_MS) {
+        continue;
+      }
+      let webFacts: WebFactEntity[] = [];
       try {
-        const webFacts = await topicRepo.listWebFacts(userId, characterId, header.topicId);
+        webFacts = await topicRepo.listWebFacts(userId, characterId, header.topicId);
         const latestObservedAt = webFacts.reduce((max, f) => Math.max(max, f.observedAt), 0);
         if (latestObservedAt > 0 && nowMs - latestObservedAt < ACQUIRE_SELF_STUDY_COOLDOWN_MS) {
           continue;
@@ -523,8 +622,20 @@ export async function acquireForUser(
 
       if (!(await tryConsumeAllowance())) break;
 
+      // 枠を使えると決まってから角度を作る（止まる回に LLM を呼ばないため）。
+      const recentAngles = previous?.recentAngles ?? [];
+      const query = await resolveExplorationQuery({
+        userId,
+        characterId,
+        header,
+        webFacts,
+        recentAngles,
+        topicRepo,
+        angleGenerator,
+        today: nowDate,
+      });
+
       try {
-        const query = buildLatestInfoQuery(header.subject);
         // 成否にかかわらず試した時点で 1 回の実行の予算を使う（依頼と同じ理由）。
         budget--;
         const result = await researchClient.research(query, character);
@@ -547,6 +658,27 @@ export async function acquireForUser(
           characterId,
           topicId: header.topicId,
           subject: header.subject,
+          err: toErrorMessage(err),
+        });
+      }
+
+      // 失敗した起点を毎回試し続けないよう、成否にかかわらず試した事実を残す。
+      try {
+        await explorationRepo.put({
+          userId,
+          characterId,
+          topicId: header.topicId,
+          exploredAt: nowMs,
+          recentAngles: [query, ...recentAngles.filter((a) => a !== query)].slice(
+            0,
+            EXPLORATION_RECENT_ANGLES_LIMIT
+          ),
+        });
+      } catch (err) {
+        logger.warn('[acquire] 探索の記録の保存に失敗しました（続行）', {
+          userId,
+          characterId,
+          topicId: header.topicId,
           err: toErrorMessage(err),
         });
       }

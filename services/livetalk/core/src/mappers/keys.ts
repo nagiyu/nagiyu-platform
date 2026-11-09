@@ -166,6 +166,18 @@ export function buildNoteSkipSK(characterId: string, topicId: string): string {
   return `${buildNoteSkipSKPrefix(characterId)}${topicId}`;
 }
 
+/**
+ * 自発リサーチの探索の記録の SK プレフィックス。
+ * Topic の束 (`CHAR#<c>#TOPIC#<tid>#`) の外に置き、`getTopicBundle` の begins_with に混ざらないようにする。
+ */
+export function buildExplorationSKPrefix(characterId: string): string {
+  return `CHAR#${characterId}#EXPLORE#`;
+}
+
+export function buildExplorationSK(characterId: string, topicId: string): string {
+  return `${buildExplorationSKPrefix(characterId)}${topicId}`;
+}
+
 export function buildPushSubscriptionSKPrefix(): string {
   return 'PUSH_SUBSCRIPTION#';
 }

@@ -15,6 +15,7 @@ jest.mock('@nagiyu/livetalk-core', () => ({
   createWebRawRepository: jest.fn(),
   createStudyTopicRepository: jest.fn(),
   createFreshnessCheckRequestRepository: jest.fn(),
+  createExplorationRepository: jest.fn(() => ({ kind: 'exploration-repo' })),
   createLifecycleRepository: jest.fn(),
   createMessageRepository: jest.fn(),
   createStudyUsageRepository: jest.fn(),
@@ -22,6 +23,7 @@ jest.mock('@nagiyu/livetalk-core', () => ({
   OpenAIResearchClient: jest.fn(),
   OpenAIClient: jest.fn(),
   LLMWebFactChangeDetector: jest.fn(),
+  LLMExplorationAngleGenerator: jest.fn(() => ({ kind: 'angle-generator' })),
   defaultUlidFactory: jest.fn(),
 }));
 
@@ -71,6 +73,13 @@ describe('acquire handler', () => {
     expect(body.processedUsers).toBe(5);
     expect(body.webRawWritten).toBe(5);
     expect(body.webSearchCalls).toBe(9);
+    // 探索の角度の生成器と記録のリポジトリを acquire に渡す
+    expect(mockAcquireAll).toHaveBeenCalledWith(
+      expect.objectContaining({
+        angleGenerator: { kind: 'angle-generator' },
+        explorationRepo: { kind: 'exploration-repo' },
+      })
+    );
   });
 
   it('例外発生時に throw する', async () => {
