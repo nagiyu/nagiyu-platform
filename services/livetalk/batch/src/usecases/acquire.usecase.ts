@@ -10,6 +10,8 @@ import {
   type CharacterDefinition,
   type IResearchClient,
   type IWebFactChangeDetector,
+  type IExplorationAngleGenerator,
+  type ExplorationRepository,
   type LifecycleEntity,
   type FreshnessCheckRequestRepository,
   type LifecycleRepository,
@@ -35,6 +37,10 @@ export interface AcquireAllUsersParams {
   studyUsageRepo: StudyUsageRepository;
   researchClient: IResearchClient;
   changeDetector: IWebFactChangeDetector;
+  /** care 自発リサーチの探索の角度を作る */
+  angleGenerator: IExplorationAngleGenerator;
+  /** 起点の Topic ごとの探索の記録 */
+  explorationRepo: ExplorationRepository;
   ulidFactory?: UlidFactory;
   now?: () => Date;
 }
@@ -96,6 +102,8 @@ export async function acquireAllUsers(
     studyUsageRepo,
     researchClient,
     changeDetector,
+    angleGenerator,
+    explorationRepo,
     ulidFactory,
     now = () => new Date(),
   } = params;
@@ -179,6 +187,8 @@ export async function acquireAllUsers(
             freshnessCheckRequestRepo,
             researchClient,
             changeDetector,
+            angleGenerator,
+            explorationRepo,
             character: characterDef,
             lifecycle,
             researchAllowance: createDailyResearchAllowance({

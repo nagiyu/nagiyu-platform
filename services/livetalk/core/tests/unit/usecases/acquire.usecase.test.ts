@@ -10,6 +10,8 @@ import type { ResearchAllowance } from '../../../src/study/research-allowance.js
 import { InMemoryTopicRepository } from '../../../src/repositories/in-memory-topic.repository.js';
 import { InMemoryWebRawRepository } from '../../../src/repositories/in-memory-webraw.repository.js';
 import { InMemoryFreshnessCheckRequestRepository } from '../../../src/repositories/in-memory-freshness-check-request.repository.js';
+import { InMemoryExplorationRepository } from '../../../src/repositories/in-memory-exploration.repository.js';
+import type { IExplorationAngleGenerator } from '../../../src/research/exploration-angle-generator.js';
 import { InMemoryStudyTopicRepository } from '../../../src/repositories/in-memory-study-topic.repository.js';
 import type { LifecycleEntity } from '../../../src/entities/lifecycle.entity.js';
 import type { CharacterDefinition } from '../../../src/characters/types.js';
@@ -60,6 +62,11 @@ function makeChangeDetector(defaultResult = true): IWebFactChangeDetector {
   return {
     hasChanged: jest.fn(async () => defaultResult),
   };
+}
+
+/** 角度を作れなかった (null) ときは起点の最新情報の検索に落ちる */
+function makeAngleGenerator(angle: string | null = null): IExplorationAngleGenerator {
+  return { generate: jest.fn(async () => angle) };
 }
 
 describe('shouldAcquireNow', () => {
@@ -118,6 +125,8 @@ describe('acquireForUser', () => {
   let webRawRepo: InMemoryWebRawRepository;
   let studyTopicRepo: InMemoryStudyTopicRepository;
   let freshnessCheckRequestRepo: InMemoryFreshnessCheckRequestRepository;
+  let explorationRepo: InMemoryExplorationRepository;
+  let angleGenerator: IExplorationAngleGenerator;
   /** 上限なしの枠。上限の挙動を見ないケースで使う */
   const researchAllowance: ResearchAllowance = { tryConsume: async () => true };
 
@@ -140,6 +149,11 @@ describe('acquireForUser', () => {
       new InMemorySingleTableStore(),
       () => NOW_MS
     );
+    explorationRepo = new InMemoryExplorationRepository(
+      new InMemorySingleTableStore(),
+      () => NOW_MS
+    );
+    angleGenerator = makeAngleGenerator();
   });
 
   it('就寝中は全スキップする', async () => {
@@ -155,6 +169,8 @@ describe('acquireForUser', () => {
       studyTopicRepo,
       researchClient,
       changeDetector,
+      angleGenerator,
+      explorationRepo,
       character,
       lifecycle: makeLifecycle(),
       now: () => sleeping,
@@ -200,6 +216,8 @@ describe('acquireForUser', () => {
         studyTopicRepo,
         researchClient,
         changeDetector: makeChangeDetector(),
+        angleGenerator,
+        explorationRepo,
         character,
         lifecycle: makeLifecycle(),
         researchAllowance: allowance,
@@ -356,6 +374,8 @@ describe('acquireForUser', () => {
         studyTopicRepo,
         researchClient: failing,
         changeDetector: makeChangeDetector(),
+        angleGenerator,
+        explorationRepo,
         character,
         lifecycle: makeLifecycle(),
         researchAllowance: allowance,
@@ -395,6 +415,8 @@ describe('acquireForUser', () => {
         studyTopicRepo,
         researchClient: second,
         changeDetector: makeChangeDetector(),
+        angleGenerator,
+        explorationRepo,
         character,
         lifecycle: makeLifecycle(),
         researchAllowance: allowanceFor(20),
@@ -522,6 +544,8 @@ describe('acquireForUser', () => {
       studyTopicRepo,
       researchClient,
       changeDetector,
+      angleGenerator,
+      explorationRepo,
       character,
       lifecycle: makeLifecycle(),
       now: () => awakeNonPeak,
@@ -585,6 +609,8 @@ describe('acquireForUser', () => {
       studyTopicRepo,
       researchClient,
       changeDetector,
+      angleGenerator,
+      explorationRepo,
       character,
       lifecycle: makeLifecycle(),
       now: () => awakeNonPeak,
@@ -646,6 +672,8 @@ describe('acquireForUser', () => {
       studyTopicRepo,
       researchClient,
       changeDetector,
+      angleGenerator,
+      explorationRepo,
       character,
       lifecycle: makeLifecycle(),
       now: () => awakeNonPeak,
@@ -704,6 +732,8 @@ describe('acquireForUser', () => {
         studyTopicRepo,
         researchClient,
         changeDetector: makeChangeDetector(true),
+        angleGenerator,
+        explorationRepo,
         character,
         lifecycle: makeLifecycle(),
         now: () => awakeNonPeak,
@@ -731,6 +761,8 @@ describe('acquireForUser', () => {
         studyTopicRepo,
         researchClient,
         changeDetector: makeChangeDetector(true),
+        angleGenerator,
+        explorationRepo,
         character,
         lifecycle: makeLifecycle(),
         now: () => awakeNonPeak,
@@ -770,6 +802,8 @@ describe('acquireForUser', () => {
         studyTopicRepo,
         researchClient,
         changeDetector: makeChangeDetector(true),
+        angleGenerator,
+        explorationRepo,
         character,
         lifecycle: makeLifecycle(),
         now: () => awakeNonPeak,
@@ -832,6 +866,8 @@ describe('acquireForUser', () => {
         studyTopicRepo,
         researchClient,
         changeDetector,
+        angleGenerator,
+        explorationRepo,
         character,
         lifecycle: makeLifecycle(),
         now: () => awakeNonPeak,
@@ -901,6 +937,8 @@ describe('acquireForUser', () => {
         studyTopicRepo,
         researchClient,
         changeDetector,
+        angleGenerator,
+        explorationRepo,
         character,
         lifecycle: makeLifecycle(),
         now: () => awakeNonPeak,
@@ -966,6 +1004,8 @@ describe('acquireForUser', () => {
         studyTopicRepo,
         researchClient,
         changeDetector,
+        angleGenerator,
+        explorationRepo,
         character,
         lifecycle: makeLifecycle(),
         now: () => awakeNonPeak,
@@ -1055,6 +1095,8 @@ describe('acquireForUser', () => {
         studyTopicRepo,
         researchClient,
         changeDetector,
+        angleGenerator,
+        explorationRepo,
         character,
         lifecycle: makeLifecycle(),
         now: () => awakeNonPeak,
@@ -1102,6 +1144,8 @@ describe('acquireForUser', () => {
       studyTopicRepo,
       researchClient: makeResearchClient(),
       changeDetector: makeChangeDetector(false),
+      angleGenerator,
+      explorationRepo,
       character,
       lifecycle: makeLifecycle(),
       now: () => awakeNonPeak,
@@ -1282,6 +1326,8 @@ describe('acquireForUser', () => {
         studyTopicRepo,
         researchClient,
         changeDetector,
+        angleGenerator,
+        explorationRepo,
         character,
         lifecycle: makeLifecycle(),
         now: () => awakeNonPeak,
@@ -1343,6 +1389,8 @@ describe('acquireForUser', () => {
         studyTopicRepo,
         researchClient,
         changeDetector: makeChangeDetector(),
+        angleGenerator,
+        explorationRepo,
         character,
         lifecycle: makeLifecycle(),
         now: () => awakeNonPeak,
@@ -1392,6 +1440,8 @@ describe('acquireForUser', () => {
         studyTopicRepo,
         researchClient,
         changeDetector,
+        angleGenerator,
+        explorationRepo,
         character,
         lifecycle: makeLifecycle(),
         now: () => awakeNonPeak,
@@ -1435,6 +1485,8 @@ describe('acquireForUser', () => {
       studyTopicRepo,
       researchClient,
       changeDetector,
+      angleGenerator,
+      explorationRepo,
       character,
       lifecycle: makeLifecycle(),
       now: () => awakeNonPeak,
@@ -1495,6 +1547,8 @@ describe('acquireForUser', () => {
       studyTopicRepo,
       researchClient,
       changeDetector,
+      angleGenerator,
+      explorationRepo,
       character,
       lifecycle: makeLifecycle(),
       now: () => awakeNonPeak,
@@ -1573,6 +1627,8 @@ describe('acquireForUser', () => {
       studyTopicRepo,
       researchClient,
       changeDetector,
+      angleGenerator,
+      explorationRepo,
       character,
       lifecycle,
       now: () => awakeNonPeak,
@@ -1617,6 +1673,8 @@ describe('acquireForUser', () => {
       studyTopicRepo,
       researchClient,
       changeDetector,
+      angleGenerator,
+      explorationRepo,
       character,
       lifecycle: makeLifecycle(),
       now: () => awakeNonPeak,
@@ -1652,6 +1710,8 @@ describe('acquireForUser', () => {
       studyTopicRepo,
       researchClient,
       changeDetector,
+      angleGenerator,
+      explorationRepo,
       character,
       lifecycle: makeLifecycle(),
       now: () => awakeNonPeak,
@@ -1696,6 +1756,8 @@ describe('acquireForUser', () => {
       studyTopicRepo,
       researchClient,
       changeDetector: makeChangeDetector(),
+      angleGenerator,
+      explorationRepo,
       character,
       lifecycle: makeLifecycle(),
       now: () => awakeNonPeak,
@@ -1732,6 +1794,8 @@ describe('acquireForUser', () => {
       studyTopicRepo,
       researchClient: makeResearchClient(),
       changeDetector: makeChangeDetector(),
+      angleGenerator,
+      explorationRepo,
       character,
       lifecycle: makeLifecycle(),
       now: () => awakeNonPeak,
@@ -1782,6 +1846,8 @@ describe('acquireForUser', () => {
       studyTopicRepo,
       researchClient,
       changeDetector,
+      angleGenerator,
+      explorationRepo,
       character,
       lifecycle: makeLifecycle(),
       now: () => awakeNonPeak,
@@ -1835,6 +1901,8 @@ describe('acquireForUser', () => {
       studyTopicRepo,
       researchClient,
       changeDetector,
+      angleGenerator,
+      explorationRepo,
       character,
       lifecycle: makeLifecycle(),
       now: () => awakeNonPeak,
@@ -1867,6 +1935,8 @@ describe('acquireForUser', () => {
       studyTopicRepo,
       researchClient,
       changeDetector: makeChangeDetector(),
+      angleGenerator,
+      explorationRepo,
       character,
       lifecycle: makeLifecycle(),
       researchAllowance: { tryConsume: async () => true },
@@ -1889,6 +1959,8 @@ describe('acquireForUser', () => {
       studyTopicRepo,
       researchClient,
       changeDetector,
+      angleGenerator,
+      explorationRepo,
       character,
       lifecycle: makeLifecycle(),
       // now は未指定 → 既定値（実時刻）を使う
@@ -1896,5 +1968,307 @@ describe('acquireForUser', () => {
 
     // 実行時刻に応じて awake/skipped どちらもあり得るため、例外なく完了することのみ検証する
     expect(['acquired', 'skipped']).toContain(result.outcome);
+  });
+});
+
+describe('acquireForUser: care 自発リサーチの探索の角度', () => {
+  const awakeNonPeak = new Date(2026, 5, 1, 14, 0, 0);
+  const NOW_MS = awakeNonPeak.getTime();
+  const COOLDOWN_MS = 24 * 60 * 60 * 1000;
+  const researchAllowance: ResearchAllowance = { tryConsume: async () => true };
+
+  let topicRepo: InMemoryTopicRepository;
+  let webRawRepo: InMemoryWebRawRepository;
+  let studyTopicRepo: InMemoryStudyTopicRepository;
+  let freshnessCheckRequestRepo: InMemoryFreshnessCheckRequestRepository;
+  let explorationRepo: InMemoryExplorationRepository;
+
+  beforeEach(() => {
+    topicRepo = new InMemoryTopicRepository(
+      new InMemorySingleTableStore(),
+      () => 'ulid-topic',
+      () => NOW_MS
+    );
+    webRawRepo = new InMemoryWebRawRepository(
+      new InMemorySingleTableStore(),
+      () => 'ulid-webraw',
+      () => NOW_MS
+    );
+    studyTopicRepo = new InMemoryStudyTopicRepository(new InMemorySingleTableStore(), () => NOW_MS);
+    freshnessCheckRequestRepo = new InMemoryFreshnessCheckRequestRepository(
+      new InMemorySingleTableStore(),
+      () => NOW_MS
+    );
+    explorationRepo = new InMemoryExplorationRepository(
+      new InMemorySingleTableStore(),
+      () => NOW_MS
+    );
+  });
+
+  async function seedTopic(topicId = 'topic-1', subject = 'ボカロ', care = 5): Promise<void> {
+    await topicRepo.putTopic({
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId,
+      subject,
+      canonicalSummary: `${subject}の要約`,
+      category: 'テスト',
+      care,
+      embedding: [0.1],
+    });
+  }
+
+  function run(
+    overrides: {
+      angleGenerator?: IExplorationAngleGenerator;
+      researchClient?: IResearchClient;
+      explorationRepo?: InMemoryExplorationRepository;
+      maxQueriesPerRun?: number;
+      now?: Date;
+    } = {}
+  ) {
+    return acquireForUser('u1', 'hiyori', {
+      topicRepo,
+      webRawRepo,
+      studyTopicRepo,
+      freshnessCheckRequestRepo,
+      researchAllowance,
+      researchClient: overrides.researchClient ?? makeResearchClient(),
+      changeDetector: makeChangeDetector(),
+      angleGenerator: overrides.angleGenerator ?? makeAngleGenerator('ボカロ ライブ 2026'),
+      explorationRepo: overrides.explorationRepo ?? explorationRepo,
+      character,
+      lifecycle: makeLifecycle(),
+      now: () => overrides.now ?? awakeNonPeak,
+      maxQueriesPerRun: overrides.maxQueriesPerRun,
+    });
+  }
+
+  it('角度のクエリで research を 1 回呼び、WEBRAW の query にも角度を使う', async () => {
+    await seedTopic();
+    const researchClient = makeResearchClient();
+
+    const result = await run({ researchClient });
+
+    expect(researchClient.research).toHaveBeenCalledTimes(1);
+    expect(researchClient.research).toHaveBeenCalledWith('ボカロ ライブ 2026', character);
+    const webraws = await webRawRepo.listSince('u1', 'hiyori', 0);
+    expect(webraws).toHaveLength(1);
+    expect(webraws[0].query).toBe('ボカロ ライブ 2026');
+    expect(webraws[0].origin).toBe('auto');
+    expect(result.selfStudied).toBe(1);
+  });
+
+  it('角度の生成に Topic・SELF fact・WEB fact・最近の角度・今日の日付を渡す', async () => {
+    await seedTopic();
+    await topicRepo.putSelfFact({
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: 'topic-1',
+      text: 'ボカロが好き',
+      provenance: '',
+    });
+    await topicRepo.putWebFact({
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: 'topic-1',
+      text: '既知の WEB 事実',
+      sourceUrls: [],
+      volatility: 'stable',
+      observedAt: NOW_MS - 2 * COOLDOWN_MS,
+    });
+    await explorationRepo.put({
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: 'topic-1',
+      exploredAt: NOW_MS - 2 * COOLDOWN_MS,
+      recentAngles: ['ボカロ 新作'],
+    });
+    const angleGenerator = makeAngleGenerator('ボカロ ライブ 2026');
+
+    await run({ angleGenerator });
+
+    expect(angleGenerator.generate).toHaveBeenCalledWith({
+      subject: 'ボカロ',
+      canonicalSummary: 'ボカロの要約',
+      selfFactTexts: ['ボカロが好き'],
+      knownWebFactTexts: ['既知の WEB 事実'],
+      recentAngles: ['ボカロ 新作'],
+      today: awakeNonPeak,
+    });
+  });
+
+  it('角度を作れなかったときは起点の最新情報の検索に落とし、勉強は続ける', async () => {
+    await seedTopic();
+    const researchClient = makeResearchClient();
+
+    const result = await run({ researchClient, angleGenerator: makeAngleGenerator(null) });
+
+    expect(researchClient.research).toHaveBeenCalledWith('ボカロ 最新情報', character);
+    expect(result.selfStudied).toBe(1);
+  });
+
+  it('角度の生成が例外を投げても最新情報の検索に落とす', async () => {
+    await seedTopic();
+    const researchClient = makeResearchClient();
+    const angleGenerator: IExplorationAngleGenerator = {
+      generate: jest.fn(async () => {
+        throw new Error('LLM 障害');
+      }),
+    };
+
+    const result = await run({ researchClient, angleGenerator });
+
+    expect(researchClient.research).toHaveBeenCalledWith('ボカロ 最新情報', character);
+    expect(result.selfStudied).toBe(1);
+  });
+
+  it('SELF fact の読み取りに失敗しても角度の生成は続ける', async () => {
+    await seedTopic();
+    jest.spyOn(topicRepo, 'listSelfFacts').mockRejectedValue(new Error('読み取り失敗'));
+    const angleGenerator = makeAngleGenerator('ボカロ ライブ 2026');
+
+    await run({ angleGenerator });
+
+    expect(angleGenerator.generate).toHaveBeenCalledWith(
+      expect.objectContaining({ selfFactTexts: [] })
+    );
+  });
+
+  it('探索の記録を残す (探索時刻と角度)', async () => {
+    await seedTopic();
+
+    await run();
+
+    const records = await explorationRepo.listAll('u1', 'hiyori');
+    expect(records).toHaveLength(1);
+    expect(records[0]).toMatchObject({
+      topicId: 'topic-1',
+      exploredAt: NOW_MS,
+      recentAngles: ['ボカロ ライブ 2026'],
+    });
+  });
+
+  it('最後の探索から期間内の起点は、観測日時が進んでいなくても読み飛ばす', async () => {
+    await seedTopic('topic-recent', '最近探索した話題', 9);
+    await seedTopic('topic-other', '別の話題', 1);
+    await explorationRepo.put({
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: 'topic-recent',
+      exploredAt: NOW_MS - 1000,
+      recentAngles: ['最近探索した話題 ライブ'],
+    });
+    const researchClient = makeResearchClient();
+    const angleGenerator = makeAngleGenerator('別の話題 新作');
+
+    await run({ researchClient, angleGenerator, maxQueriesPerRun: 1 });
+
+    expect(researchClient.research).toHaveBeenCalledTimes(1);
+    expect(researchClient.research).toHaveBeenCalledWith('別の話題 新作', character);
+  });
+
+  it('最後の探索から期間が過ぎた起点は再び探索する', async () => {
+    await seedTopic();
+    await explorationRepo.put({
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: 'topic-1',
+      exploredAt: NOW_MS - COOLDOWN_MS - 1,
+      recentAngles: ['ボカロ 新作'],
+    });
+    const researchClient = makeResearchClient();
+
+    await run({ researchClient });
+
+    expect(researchClient.research).toHaveBeenCalledTimes(1);
+    const records = await explorationRepo.listAll('u1', 'hiyori');
+    expect(records[0].recentAngles).toEqual(['ボカロ ライブ 2026', 'ボカロ 新作']);
+  });
+
+  it('最近の角度は上限件数で切り詰め、同じ角度は重ねない', async () => {
+    await seedTopic();
+    const existing = ['a1', 'a2', 'a3', 'a4', 'a5'];
+    await explorationRepo.put({
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: 'topic-1',
+      exploredAt: NOW_MS - 2 * COOLDOWN_MS,
+      recentAngles: existing,
+    });
+
+    await run({ angleGenerator: makeAngleGenerator('新しい角度') });
+
+    let records = await explorationRepo.listAll('u1', 'hiyori');
+    expect(records[0].recentAngles).toEqual(['新しい角度', 'a1', 'a2', 'a3', 'a4']);
+
+    // 期間を空けて、既にある角度が再び選ばれても重複させない
+    await run({
+      angleGenerator: makeAngleGenerator('a3'),
+      now: new Date(NOW_MS + 2 * COOLDOWN_MS),
+    });
+    records = await explorationRepo.listAll('u1', 'hiyori');
+    expect(records[0].recentAngles).toEqual(['a3', '新しい角度', 'a1', 'a2', 'a4']);
+  });
+
+  it('research が失敗しても探索の記録は残す', async () => {
+    await seedTopic();
+    const researchClient = makeResearchClient(async () => {
+      throw new Error('research 失敗');
+    });
+
+    const result = await run({ researchClient });
+
+    expect(result.selfStudied).toBe(0);
+    const records = await explorationRepo.listAll('u1', 'hiyori');
+    expect(records).toHaveLength(1);
+    expect(records[0].exploredAt).toBe(NOW_MS);
+  });
+
+  it('探索の記録の読み取りに失敗しても勉強は続ける', async () => {
+    await seedTopic();
+    jest.spyOn(explorationRepo, 'listAll').mockRejectedValue(new Error('読み取り失敗'));
+    const researchClient = makeResearchClient();
+
+    const result = await run({ researchClient });
+
+    expect(researchClient.research).toHaveBeenCalledTimes(1);
+    expect(result.selfStudied).toBe(1);
+  });
+
+  it('探索の記録の保存に失敗しても握って続行する', async () => {
+    await seedTopic('topic-a', '話題A', 9);
+    await seedTopic('topic-b', '話題B', 1);
+    jest.spyOn(explorationRepo, 'put').mockRejectedValue(new Error('書き込み失敗'));
+    const researchClient = makeResearchClient();
+
+    const result = await run({ researchClient, maxQueriesPerRun: 2 });
+
+    expect(researchClient.research).toHaveBeenCalledTimes(2);
+    expect(result.selfStudied).toBe(2);
+  });
+
+  it('枠が使えない回は角度の生成も探索の記録もしない', async () => {
+    await seedTopic();
+    const angleGenerator = makeAngleGenerator('ボカロ ライブ 2026');
+
+    const result = await acquireForUser('u1', 'hiyori', {
+      topicRepo,
+      webRawRepo,
+      studyTopicRepo,
+      freshnessCheckRequestRepo,
+      researchAllowance: { tryConsume: async () => false },
+      researchClient: makeResearchClient(),
+      changeDetector: makeChangeDetector(),
+      angleGenerator,
+      explorationRepo,
+      character,
+      lifecycle: makeLifecycle(),
+      now: () => awakeNonPeak,
+    });
+
+    expect(result.dailyLimitReached).toBe(true);
+    expect(angleGenerator.generate).not.toHaveBeenCalled();
+    expect(await explorationRepo.listAll('u1', 'hiyori')).toHaveLength(0);
   });
 });

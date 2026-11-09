@@ -9,3 +9,11 @@ export {
   LLMWebFactChangeDetector,
   type IWebFactChangeDetector,
 } from './web-fact-change-detector.js';
+export {
+  LLMExplorationAngleGenerator,
+  type IExplorationAngleGenerator,
+} from './exploration-angle-generator.js';
+export {
+  buildExplorationAnglePrompt,
+  type ExplorationAnglePromptInput,
+} from './exploration-angle.prompt.js';

@@ -38,6 +38,9 @@ import { InMemoryFreshnessCheckRequestRepository } from './in-memory-freshness-c
 import type { NoteRepository } from './note.repository.interface.js';
 import { DynamoDBNoteRepository } from './dynamodb-note.repository.js';
 import { InMemoryNoteRepository } from './in-memory-note.repository.js';
+import type { ExplorationRepository } from './exploration.repository.interface.js';
+import { DynamoDBExplorationRepository } from './dynamodb-exploration.repository.js';
+import { InMemoryExplorationRepository } from './in-memory-exploration.repository.js';
 import type { NoteSkipRepository } from './note-skip.repository.interface.js';
 import { DynamoDBNoteSkipRepository } from './dynamodb-note-skip.repository.js';
 import { InMemoryNoteSkipRepository } from './in-memory-note-skip.repository.js';
@@ -75,6 +78,7 @@ const repositoryRegistry = registerDynamoRepositories<
     freshnessCheckRequest: FreshnessCheckRequestRepository;
     note: NoteRepository;
     noteSkip: NoteSkipRepository;
+    exploration: ExplorationRepository;
     pushSubscription: PushSubscriptionRepository;
     notificationEvent: NotificationEventRepository;
     topic: TopicRepository;
@@ -135,6 +139,11 @@ const repositoryRegistry = registerDynamoRepositories<
       createInMemoryRepository: (store) => new InMemoryNoteSkipRepository(store),
       createDynamoDBRepository: ({ docClient, tableName }) =>
         new DynamoDBNoteSkipRepository(docClient, tableName),
+    },
+    exploration: {
+      createInMemoryRepository: (store) => new InMemoryExplorationRepository(store),
+      createDynamoDBRepository: ({ docClient, tableName }) =>
+        new DynamoDBExplorationRepository(docClient, tableName),
     },
     pushSubscription: {
       createInMemoryRepository: (store) => new InMemoryPushSubscriptionRepository(store),
@@ -254,6 +263,13 @@ export function createNoteSkipRepository(
   tableName?: string
 ): NoteSkipRepository {
   return repositoryRegistry.noteSkip.createRepository(docClient, tableName);
+}
+
+export function createExplorationRepository(
+  docClient?: DynamoDBDocumentClient,
+  tableName?: string
+): ExplorationRepository {
+  return repositoryRegistry.exploration.createRepository(docClient, tableName);
 }
 
 export function createPushSubscriptionRepository(

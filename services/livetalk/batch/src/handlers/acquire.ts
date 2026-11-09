@@ -12,6 +12,7 @@ import {
   createWebRawRepository,
   createStudyTopicRepository,
   createFreshnessCheckRequestRepository,
+  createExplorationRepository,
   createLifecycleRepository,
   createMessageRepository,
   createStudyUsageRepository,
@@ -19,6 +20,7 @@ import {
   OpenAIResearchClient,
   OpenAIClient,
   LLMWebFactChangeDetector,
+  LLMExplorationAngleGenerator,
   defaultUlidFactory,
 } from '@nagiyu/livetalk-core';
 import { acquireAllUsers } from '../usecases/acquire.usecase.js';
@@ -36,6 +38,7 @@ export const handler = createScheduledHandler<ScheduledEvent, HandlerResponse>(
     const webRawRepo = createWebRawRepository(docClient, tableName);
     const studyTopicRepo = createStudyTopicRepository(docClient, tableName);
     const freshnessCheckRequestRepo = createFreshnessCheckRequestRepository(docClient, tableName);
+    const explorationRepo = createExplorationRepository(docClient, tableName);
     const studyUsageRepo = createStudyUsageRepository(docClient, tableName);
     const lifecycleRepo = createLifecycleRepository(docClient, tableName);
     const messageRepo = createMessageRepository(docClient, tableName);
@@ -43,6 +46,7 @@ export const handler = createScheduledHandler<ScheduledEvent, HandlerResponse>(
     const researchClient = new OpenAIResearchClient({ apiKey });
     const llmClient = new OpenAIClient({ apiKey });
     const changeDetector = new LLMWebFactChangeDetector(llmClient);
+    const angleGenerator = new LLMExplorationAngleGenerator(llmClient);
 
     const result = await acquireAllUsers({
       profileRepo,
@@ -55,6 +59,8 @@ export const handler = createScheduledHandler<ScheduledEvent, HandlerResponse>(
       studyUsageRepo,
       researchClient,
       changeDetector,
+      angleGenerator,
+      explorationRepo,
       ulidFactory: defaultUlidFactory,
     });
 
