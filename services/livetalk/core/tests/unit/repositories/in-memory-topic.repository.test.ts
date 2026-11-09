@@ -355,4 +355,12 @@ describe('InMemoryTopicRepository', () => {
       ).resolves.toBeUndefined();
     });
   });
+
+  describe('deleteWebFact / updateWebFactObservation', () => {
+    it('存在しない fact への削除・更新は no-op（例外を投げない）', async () => {
+      const key = { userId: 'u1', characterId: 'hiyori', topicId: 'missing', factId: 'missing' };
+      await expect(repo.deleteWebFact(key)).resolves.toBeUndefined();
+      await expect(repo.updateWebFactObservation(key, { observedAt: 1 })).resolves.toBeUndefined();
+    });
+  });
 });
