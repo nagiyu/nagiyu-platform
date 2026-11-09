@@ -37,6 +37,7 @@ const baseOptions: TopicRetrieveOptions = {
   topK: 5,
   relatedThreshold: 0.8,
   relatedMax: 2,
+  webFactLimit: 5,
 };
 
 describe('TopicRetriever', () => {
@@ -176,6 +177,35 @@ describe('TopicRetriever', () => {
     expect(directIds).toEqual(['A']);
     // relatedMax=2 のため類似度上位 2 件（C2, C1）のみ。C3 は除外される
     expect(relatedIds).toEqual(['C2', 'C1']);
+  });
+
+  it('WEB fact は観測日時の新しい順に webFactLimit 件へ絞り、SELF fact は絞らない', async () => {
+    await putTopicAt('A', 0);
+    for (let i = 0; i < 8; i++) {
+      await repo.putWebFact({
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId: 'A',
+        factId: `F-${i}`,
+        text: `fact ${i}`,
+        sourceUrls: [],
+        volatility: 'stable',
+        observedAt: 1000 + i,
+      });
+      await repo.putSelfFact({
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId: 'A',
+        text: `self ${i}`,
+        provenance: 'p',
+      });
+    }
+    const retriever = new TopicRetriever(repo, makeEmbeddingClient(vecAtDegrees(0)));
+
+    const result = await retriever.retrieve('u1', 'hiyori', { ...baseOptions, webFactLimit: 3 });
+
+    expect(result[0].webFacts.map((f) => f.factId)).toEqual(['F-7', 'F-6', 'F-5']);
+    expect(result[0].selfFacts).toHaveLength(8);
   });
 
   it('direct と related は重複しない', async () => {

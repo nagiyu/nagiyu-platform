@@ -6,6 +6,7 @@ import type { TopicEntity } from '../entities/topic.entity.js';
 import type { SelfFactEntity } from '../entities/self-fact.entity.js';
 import type { WebFactEntity } from '../entities/web-fact.entity.js';
 import { cosineSimilarity } from '../memory/embedding.js';
+import { selectRecentWebFacts } from './recent-web-facts.js';
 
 /**
  * 想起の失敗は会話を止めずに「想起なし」で続行するため、握りつぶす箇所でその場で報告する。
@@ -39,6 +40,8 @@ export interface TopicRetrieveOptions {
   topK: number;
   relatedThreshold: number;
   relatedMax: number;
+  /** 1 Topic あたりに返す WEB fact の最大件数（観測日時の新しい順） */
+  webFactLimit: number;
 }
 
 /**
@@ -86,7 +89,7 @@ export class TopicRetriever implements ITopicRetriever {
     characterId: string,
     options: TopicRetrieveOptions
   ): Promise<RetrievedTopic[]> {
-    const { userInput, threshold, topK, relatedThreshold, relatedMax } = options;
+    const { userInput, threshold, topK, relatedThreshold, relatedMax, webFactLimit } = options;
 
     // 1. ユーザー入力の embedding 生成（失敗時は fail-warn で空配列、会話はブロックしない）
     let queryEmbedding: number[];
@@ -157,7 +160,7 @@ export class TopicRetriever implements ITopicRetriever {
         results.push({
           topic: bundle.topic ?? header,
           selfFacts: bundle.selfFacts,
-          webFacts: bundle.webFacts,
+          webFacts: selectRecentWebFacts(bundle.webFacts, webFactLimit),
           similarity,
           via,
         });

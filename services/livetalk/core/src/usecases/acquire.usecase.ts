@@ -6,6 +6,7 @@ import {
   ACQUIRE_SELF_STUDY_CANDIDATE_LIMIT,
   ACQUIRE_SELF_STUDY_COOLDOWN_MS,
   STUDY_INACTIVE_WINDOW_HOURS,
+  WEB_FACT_TOPIC_LIMIT,
   WEBFACT_REVIEW_INTERVAL_MS,
 } from '../constants.js';
 import type { LifecycleEntity } from '../entities/lifecycle.entity.js';
@@ -16,6 +17,7 @@ import type { WebRawRepository } from '../repositories/webraw.repository.interfa
 import type { FreshnessCheckRequestRepository } from '../repositories/freshness-check-request.repository.interface.js';
 import type { StudyTopicRepository } from '../repositories/study-topic.repository.interface.js';
 import { resolveLifecycleState } from '../lifecycle/state-resolver.js';
+import { selectRecentWebFacts } from '../knowledge/recent-web-facts.js';
 import { isStaleWebFact } from '../study/freshness-check.js';
 import type { ResearchAllowance } from '../study/research-allowance.js';
 import type { IResearchClient } from '../research/types.js';
@@ -392,7 +394,10 @@ export async function acquireForUser(
           continue;
         }
         const webFacts = await topicRepo.listWebFacts(userId, characterId, topicId);
-        targetFacts = webFacts.filter((f) => isStaleWebFact(f, nowMs));
+        // 古い事実の再確認に枠を使わないよう、読む側が使う新しい側の事実だけを対象にする。
+        // 変化検知へ渡す本文の並びを変えないよう、元の並びのまま絞る
+        const recent = new Set(selectRecentWebFacts(webFacts, WEB_FACT_TOPIC_LIMIT));
+        targetFacts = webFacts.filter((f) => recent.has(f) && isStaleWebFact(f, nowMs));
       } catch (err) {
         logger.warn(
           '[acquire] 鮮度確認の依頼の Topic 読み取りに失敗しました（依頼を残してスキップ）',

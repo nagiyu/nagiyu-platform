@@ -744,6 +744,44 @@ describe('acquireForUser', () => {
       expect(facts.every((f) => (f.nextReview ?? 0) > NOW_MS)).toBe(true);
     });
 
+    it('期限切れでも新しい 20 件の外にある fact は対象にしない（対象が無ければ依頼を消す）', async () => {
+      await seedStaleTopic('topic-1');
+      // seedStaleTopic の期限切れ fact より新しい、期限内の fact を 20 件足す
+      for (let i = 0; i < 20; i++) {
+        await topicRepo.putWebFact({
+          userId: 'u1',
+          characterId: 'hiyori',
+          topicId: 'topic-1',
+          factId: `fresh-${i}`,
+          text: `新しい事実${i}`,
+          sourceUrls: [],
+          volatility: 'high',
+          observedAt: NOW_MS - 50_000 + i,
+          nextReview: NOW_MS + 100_000,
+        });
+      }
+      const researchClient = makeResearchClient();
+
+      const result = await acquireForUser('u1', 'hiyori', {
+        topicRepo,
+        webRawRepo,
+        freshnessCheckRequestRepo,
+        researchAllowance,
+        studyTopicRepo,
+        researchClient,
+        changeDetector: makeChangeDetector(true),
+        character,
+        lifecycle: makeLifecycle(),
+        now: () => awakeNonPeak,
+        maxQueriesPerRun: 1,
+      });
+
+      expect(researchClient.research).not.toHaveBeenCalled();
+      expect(result.staleRefreshed).toBe(0);
+      const remaining = await freshnessCheckRequestRepo.listByCharacter('u1', 'hiyori');
+      expect(remaining).toHaveLength(0);
+    });
+
     it('同一トピックの複数期限切れ fact をまとめて research 1 回にする', async () => {
       await freshnessCheckRequestRepo.put({
         userId: 'u1',

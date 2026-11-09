@@ -343,3 +343,18 @@ export const TOPIC_RECALL_RELATED_THRESHOLD = 0.8;
 
 /** 1ホップ関連展開で追加する Topic の最大件数（暴発防止、要調整・要観測）。 */
 export const TOPIC_RECALL_RELATED_MAX = 2;
+
+// ---- WEB fact の読み出し件数 ----
+
+/**
+ * Topic あたりの WEB fact の上限件数。
+ * 読む側（会話・ノート生成・鮮度確認・要約の作り直し）が観測日時の新しい順にこの件数までを使う
+ * 最大件数であり、集約が 1 Topic に保持する WEB fact の上限でもある。
+ */
+export const WEB_FACT_TOPIC_LIMIT = 20;
+
+/** 会話のプロンプトに渡す WEB fact の 1 Topic あたりの件数（新しい順）。 */
+export const WEB_FACT_CHAT_LIMIT = 5;
+
+/** ノート生成のプロンプトに渡す WEB fact の件数（新しい順）。 */
+export const WEB_FACT_NOTE_LIMIT = 10;

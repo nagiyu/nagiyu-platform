@@ -1,5 +1,10 @@
 import { logger } from '@nagiyu/common';
-import { NOTE_CANDIDATE_LOOKBACK, NOTE_CARE_THRESHOLD, NOTE_MAX_PER_RUN } from '../constants.js';
+import {
+  NOTE_CANDIDATE_LOOKBACK,
+  NOTE_CARE_THRESHOLD,
+  NOTE_MAX_PER_RUN,
+  WEB_FACT_NOTE_LIMIT,
+} from '../constants.js';
 import type { CreateNoteInput } from '../entities/note.entity.js';
 import { NoteLetterSchema } from '../llm-client/schemas/note-letter.schema.js';
 import type { ILLMClient } from '../llm-client/types.js';
@@ -7,6 +12,7 @@ import type { NoteRepository } from '../repositories/note.repository.interface.j
 import type { NoteSkipRepository } from '../repositories/note-skip.repository.interface.js';
 import type { TopicRepository } from '../repositories/topic.repository.interface.js';
 import { defaultUlidFactory, type UlidFactory } from '../lib/ulid.js';
+import { selectRecentWebFacts } from '../knowledge/recent-web-facts.js';
 import { buildGenerateNotePrompt } from './generate-note.prompt.js';
 
 export interface GenerateNotesParams {
@@ -125,7 +131,10 @@ export async function generateNotesForUser(
         subject: topic.subject,
         canonicalSummary: topic.canonicalSummary,
         selfFacts: bundle.selfFacts.map((f) => ({ text: f.text, provenance: f.provenance })),
-        webFacts: bundle.webFacts.map((f) => ({ text: f.text, sourceUrls: f.sourceUrls })),
+        webFacts: selectRecentWebFacts(bundle.webFacts, WEB_FACT_NOTE_LIMIT).map((f) => ({
+          text: f.text,
+          sourceUrls: f.sourceUrls,
+        })),
       });
 
       const result = await llmClient.chatStructured(promptMessages, NoteLetterSchema, {

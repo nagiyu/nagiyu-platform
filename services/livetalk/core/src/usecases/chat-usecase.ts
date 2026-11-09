@@ -30,6 +30,7 @@ import {
   TOPIC_RECALL_TOP_K,
   TOPIC_RECALL_RELATED_THRESHOLD,
   TOPIC_RECALL_RELATED_MAX,
+  WEB_FACT_CHAT_LIMIT,
 } from '../constants.js';
 import { detectSafetyRisk } from '../safety/detector.js';
 import { buildModerationReplacementMessage, buildSafetyMessage } from '../safety/templates.js';
@@ -349,6 +350,7 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
       topK: TOPIC_RECALL_TOP_K,
       relatedThreshold: TOPIC_RECALL_RELATED_THRESHOLD,
       relatedMax: TOPIC_RECALL_RELATED_MAX,
+      webFactLimit: WEB_FACT_CHAT_LIMIT,
     });
     timer.end('retrieve');
   } catch (err) {

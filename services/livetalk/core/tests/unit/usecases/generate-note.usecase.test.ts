@@ -116,6 +116,59 @@ describe('generateNotesForUser', () => {
     expect(notes[0].reaction).toBeUndefined();
   });
 
+  it('プロンプトに渡す WEB fact は観測日時の新しい 10 件に絞る', async () => {
+    await putTopic({ care: 3 });
+    for (let i = 0; i < 12; i++) {
+      await putWebFact('topic-001', { text: `事実${i}`, observedAt: fixedNow + i });
+    }
+    const llmClient = makeLLMClient([makeLetter()]);
+    const spy = jest.spyOn(llmClient, 'chatStructured');
+
+    await generateNotesForUser('u1', 'hiyori', {
+      topicRepo,
+      noteRepo,
+      noteSkipRepo,
+      llmClient,
+      characterName: '桃瀬ひより',
+      ulidFactory,
+    });
+
+    const prompt = JSON.stringify(spy.mock.calls[0][0]);
+    // 新しい 10 件（事実2〜事実11）だけが載り、古い 2 件（事実0・事実1）は載らない
+    expect(prompt).toContain('事実11');
+    expect(prompt).toContain('事実2（出典');
+    expect(prompt).not.toContain('事実1（出典');
+    expect(prompt).not.toContain('事実0');
+  });
+
+  it('絞られて見えなくなった WEB fact の追加でも、判断後に増えたかは全件で判定する', async () => {
+    await putTopic({ care: 3 });
+    await putWebFact('topic-001', { observedAt: fixedNow + 1000 });
+    tick = fixedNow + 1000;
+    await noteSkipRepo.put({
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: 'topic-001',
+      decidedAt: tick,
+    });
+    tick += 1000;
+    // 観測日時は最古でプロンプトの対象外になるが、判断後に作られた fact
+    await putWebFact('topic-001', { observedAt: 1 });
+    const llmClient = makeLLMClient([makeLetter({ skip: true })]);
+
+    await generateNotesForUser('u1', 'hiyori', {
+      topicRepo,
+      noteRepo,
+      noteSkipRepo,
+      llmClient,
+      characterName: '桃瀬ひより',
+      ulidFactory,
+      now: () => tick,
+    });
+
+    expect(llmClient.chatStructuredCalls).toBe(1);
+  });
+
   it('care が閾値未満の Topic は生成しない', async () => {
     await putTopic({ care: 2 });
     await putWebFact('topic-001');
