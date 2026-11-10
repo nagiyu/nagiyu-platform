@@ -49,7 +49,7 @@ jobs:
 
       # docs サイトの確認に他 workspace の依存は要らないため、docs-site だけ入れる
       - name: 依存をインストール
-        run: npm ci --workspace=docs-site
+        run: npm ci --workspace=docs-site --include-workspace-root
 
       - name: サイトのテスト
         run: npm run test -w docs-site
