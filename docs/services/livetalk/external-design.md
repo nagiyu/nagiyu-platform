@@ -186,7 +186,7 @@ Live2D アバターが常時表示され、ユーザーがテキストを入力�
 | Message           | 会話 1 件（集約前の元データ） | 発言者、本文、タイムスタンプ                        |
 | Topic             | 話題の集約体               | 話題名、要約、カテゴリ、care、想起用の座標             |
 | SELF fact         | 会話由来のユーザー事実     | 本文、出所メモ、作成日時                               |
-| WEB fact          | 勉強由来の知識             | 本文、ソース URL、揮発性、再確認期限、観測日時         |
+| WEB fact          | 勉強由来の知識             | 本文、ソース URL、揮発性、再確認期限、観測日時 (Topic あたり区分ごとに件数の上限あり) |
 | Note（共有ログ）  | 贈ったギフトの記録         | 見出し（SELF フック＋WEB 合成）、参照 Topic、共有日時、感想 |
 | 集約カーソル      | 集約の進捗                 | ストリーム別のウォーターマーク                        |
 | Affection         | 親密度                     | 値、変動履歴（累積接触量として保持。現状は体験へ未反映、ADR-2.23） |
@@ -236,6 +236,11 @@ erDiagram
 | ADR-2.22    | セーフティ横断レビュー（sparse GSI + admin） | architecture.md |
 | ADR-2.23    | 親密度は保持のみで体験へ未反映（現状明文化） | architecture.md |
 | ADR-2.24    | 知識・記憶を Topic 中心モデルに再設計       | architecture.md |
+| ADR-2.25    | 勉強の利用者単位の 1 日の回数の上限と 3 日ルール | architecture.md |
+| ADR-2.26    | 鮮度は使われたときだけ確認、WEB fact は件数で保つ | architecture.md |
+| ADR-2.27    | 重要通知の重複抑止と停止                   | architecture.md |
+| ADR-2.28    | 自発リサーチの探索化                       | architecture.md |
+| ADR-2.29    | ノート生成の見送り判断の記録               | architecture.md |
 
 ---
 
