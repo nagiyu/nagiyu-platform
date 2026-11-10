@@ -15,6 +15,8 @@ const mockReportErrorEvent = jest.fn().mockResolvedValue(null);
 
 jest.mock('@nagiyu/auth-core', () => ({
   BILLING_ERROR_MESSAGES: { BILLING_DISABLED: '課金は有効になっていません' },
+  canStartCheckout: jest.requireActual('../../../../../../core/src/billing/checkout-policy')
+    .canStartCheckout,
   getBillingConfig: () => mockGetBillingConfig(),
   createBillingStripe: jest.fn(() => ({ marker: 'stripe' })),
   createUserRepository: jest.fn(() => ({
@@ -44,6 +46,7 @@ describe('POST /api/billing/checkout', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     process.env.AUTH_URL = 'https://auth.nagiyu.com';
+    process.env.NAGIYU_ENV = 'prod';
     mockReportErrorEvent.mockResolvedValue(null);
     mockGetSession.mockResolvedValue({ user: { id: 'u1', roles: [] } });
     mockGetBillingConfig.mockReturnValue({ secretKey: 'sk', webhookSecret: 'wh' });
@@ -58,6 +61,50 @@ describe('POST /api/billing/checkout', () => {
     const response = await POST(buildRequest({ roleId: 'livetalk-standard' }));
 
     expect(response.status).toBe(401);
+  });
+
+  describe('本番以外の制限', () => {
+    afterEach(() => {
+      process.env.NAGIYU_ENV = 'prod';
+    });
+
+    it.each(['dev', undefined])(
+      'テスト用ロールが無ければ決済画面を作らず 403 (NAGIYU_ENV=%s)',
+      async (env) => {
+        if (env === undefined) {
+          delete process.env.NAGIYU_ENV;
+        } else {
+          process.env.NAGIYU_ENV = env;
+        }
+
+        const response = await POST(buildRequest({ roleId: 'livetalk-standard' }));
+
+        expect(response.status).toBe(403);
+        expect((await response.json()).error).toBe(
+          'この環境では、テスト用のロールを持つ人だけが申し込めます'
+        );
+        expect(mockCreateCheckoutSession).not.toHaveBeenCalled();
+      }
+    );
+
+    it('テスト用ロールがあれば進める', async () => {
+      process.env.NAGIYU_ENV = 'dev';
+      mockGetSession.mockResolvedValue({ user: { id: 'u1', roles: ['billing-tester'] } });
+
+      const response = await POST(buildRequest({ roleId: 'livetalk-standard' }));
+
+      expect(response.status).toBe(200);
+      expect(mockCreateCheckoutSession).toHaveBeenCalled();
+    });
+
+    it('未認証は環境によらず 401', async () => {
+      process.env.NAGIYU_ENV = 'dev';
+      mockGetSession.mockResolvedValue(null);
+
+      const response = await POST(buildRequest({ roleId: 'livetalk-standard' }));
+
+      expect(response.status).toBe(401);
+    });
   });
 
   it('課金が無効なら 503', async () => {

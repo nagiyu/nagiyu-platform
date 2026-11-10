@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
   BILLING_ERROR_MESSAGES,
+  canStartCheckout,
   createBillingStripe,
   createCheckoutSession,
   createUserRepository,
@@ -20,6 +21,7 @@ const ERROR_MESSAGES = {
   UNAUTHORIZED: COMMON_ERROR_MESSAGES.UNAUTHORIZED,
   USER_NOT_FOUND: COMMON_ERROR_MESSAGES.USER_NOT_FOUND,
   BILLING_DISABLED: BILLING_ERROR_MESSAGES.BILLING_DISABLED,
+  CHECKOUT_RESTRICTED: 'この環境では、テスト用のロールを持つ人だけが申し込めます',
   INVALID_BODY: 'リクエストの内容が正しくありません',
   INVALID_ROLE: '申し込めないプランです',
   ALREADY_SUBSCRIBED_IN_SERVICE: 'このサービスは既に契約中です。段の変更はプランの画面から行えます',
@@ -34,6 +36,11 @@ export const POST = withApiErrorReporting(
     const session = await getSession();
     if (!session) {
       return NextResponse.json({ error: ERROR_MESSAGES.UNAUTHORIZED }, { status: 401 });
+    }
+
+    // 決済画面を作る前に断る。Stripe に顧客や Session を作らせないため
+    if (!canStartCheckout(process.env.NAGIYU_ENV, session.user.roles)) {
+      return NextResponse.json({ error: ERROR_MESSAGES.CHECKOUT_RESTRICTED }, { status: 403 });
     }
 
     const config = getBillingConfig();
