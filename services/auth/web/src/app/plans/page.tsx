@@ -1,6 +1,11 @@
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { createBillingStripe, createUserRepository, getBillingConfig } from '@nagiyu/auth-core';
+import {
+  canStartCheckout,
+  createBillingStripe,
+  createUserRepository,
+  getBillingConfig,
+} from '@nagiyu/auth-core';
 import { getSession } from '@/lib/auth/session';
 import { buildRefreshPath } from '@/lib/billing-urls';
 import { sanitizeCallbackUrl } from '@/lib/callback-url';
@@ -36,5 +41,8 @@ export default async function PlansPage({ searchParams }: PlansPageProps) {
 
   const data = deps ? await loadPlansPageData(deps, session?.user.id ?? null) : null;
 
-  return <PlansView data={data} callbackUrl={callbackUrl} />;
+  // 判定はサーバー側で行い、ビューにはフラグだけを渡す
+  const checkoutAllowed = canStartCheckout(process.env.NAGIYU_ENV, session?.user.roles);
+
+  return <PlansView data={data} callbackUrl={callbackUrl} checkoutAllowed={checkoutAllowed} />;
 }

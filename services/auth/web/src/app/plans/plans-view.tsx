@@ -10,16 +10,20 @@ interface PlansViewProps {
   /** 課金が無効で読めないときは null */
   data: PlansPageData | null;
   callbackUrl: string | null;
+  /** 新規の申し込みを始めてよいか。false のとき申し込みの導線を出さない */
+  checkoutAllowed: boolean;
 }
 
 function PlanTierCard({
   tier,
   serviceId,
   callbackUrl,
+  checkoutAllowed,
 }: {
   tier: PlanTier;
   serviceId: string;
   callbackUrl: string | null;
+  checkoutAllowed: boolean;
 }) {
   return (
     <Card component="section" aria-label={tier.name} sx={{ height: '100%' }}>
@@ -57,12 +61,12 @@ function PlanTierCard({
           </Typography>
         )}
         <Box sx={{ mt: 2 }}>
-          {tier.action === 'sign-in' && (
+          {checkoutAllowed && tier.action === 'sign-in' && (
             <Button asChild variant="solid">
               <Link href={buildSignInPath(callbackUrl)}>ログインして申し込む</Link>
             </Button>
           )}
-          {tier.action === 'subscribe' && (
+          {checkoutAllowed && tier.action === 'subscribe' && (
             <PlanActionButton
               endpoint="/api/billing/checkout"
               body={{ roleId: tier.roleId, ...(callbackUrl ? { callbackUrl } : {}) }}
@@ -94,9 +98,11 @@ function PlanTierCard({
 function PlanServiceSection({
   service,
   callbackUrl,
+  checkoutAllowed,
 }: {
   service: PlanService;
   callbackUrl: string | null;
+  checkoutAllowed: boolean;
 }) {
   return (
     <Box component="section" aria-label={service.name}>
@@ -117,6 +123,7 @@ function PlanServiceSection({
             tier={tier}
             serviceId={service.serviceId}
             callbackUrl={callbackUrl}
+            checkoutAllowed={checkoutAllowed}
           />
         ))}
       </Box>
@@ -125,7 +132,7 @@ function PlanServiceSection({
 }
 
 /** プランの画面の描画。データは props で受け、取得や認証は持たない */
-export function PlansView({ data, callbackUrl }: PlansViewProps) {
+export function PlansView({ data, callbackUrl, checkoutAllowed }: PlansViewProps) {
   return (
     <Container maxWidth="md">
       <Box sx={{ py: 4 }}>
@@ -145,11 +152,17 @@ export function PlansView({ data, callbackUrl }: PlansViewProps) {
               </Typography>
             ) : (
               <Box sx={{ display: 'grid', gap: 4, mt: 2 }}>
+                {!checkoutAllowed && (
+                  <Typography variant="body1" role="note">
+                    {PLANS_MESSAGES.CHECKOUT_RESTRICTED}
+                  </Typography>
+                )}
                 {data.services.map((service) => (
                   <PlanServiceSection
                     key={service.serviceId}
                     service={service}
                     callbackUrl={callbackUrl}
+                    checkoutAllowed={checkoutAllowed}
                   />
                 ))}
               </Box>

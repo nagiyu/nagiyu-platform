@@ -592,6 +592,16 @@ describe('UserEditForm', () => {
       ]);
     });
 
+    it('quick-clip-unlimited は手動ロールの選択肢に出るが、権利の選択肢には出ない', async () => {
+      mockLoad();
+      await renderForm();
+      expect(screen.getByText('Quick Clip 使い放題')).toBeInTheDocument();
+      const options = within(screen.getByLabelText('ロール')).getAllByRole('option');
+      expect(options.map((o) => (o as HTMLOptionElement).value)).not.toContain(
+        'quick-clip-unlimited'
+      );
+    });
+
     it('権利を追加して保存できる (メモ付き)', async () => {
       mockLoad();
       await renderForm();
