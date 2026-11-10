@@ -2098,6 +2098,33 @@ describe('acquireForUser: care 自発リサーチの探索の角度', () => {
     });
   });
 
+  it('care 0 の Topic は起点にならない', async () => {
+    await seedTopic('topic-zero', '集約で増えた話題', 0);
+    const researchClient = makeResearchClient();
+    const angleGenerator = makeAngleGenerator('ボカロ ライブ 2026');
+
+    const result = await run({ researchClient, angleGenerator });
+
+    expect(angleGenerator.generate).not.toHaveBeenCalled();
+    expect(researchClient.research).not.toHaveBeenCalled();
+    expect(result.selfStudied).toBe(0);
+  });
+
+  it('care が下限ちょうどの Topic は起点になり、下限未満に達したら以降は読まない', async () => {
+    await seedTopic('topic-one', '利用者が触れた話題', 1);
+    await seedTopic('topic-zero', '集約で増えた話題', 0);
+    const researchClient = makeResearchClient();
+    const angleGenerator = makeAngleGenerator('ボカロ ライブ 2026');
+
+    const result = await run({ researchClient, angleGenerator });
+
+    expect(result.selfStudied).toBe(1);
+    expect(angleGenerator.generate).toHaveBeenCalledTimes(1);
+    expect(angleGenerator.generate).toHaveBeenCalledWith(
+      expect.objectContaining({ subject: '利用者が触れた話題' })
+    );
+  });
+
   it('角度を作れなかったときは起点の最新情報の検索に落とし、勉強は続ける', async () => {
     await seedTopic();
     const researchClient = makeResearchClient();

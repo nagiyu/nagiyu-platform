@@ -331,6 +331,13 @@ export const ACQUIRE_SELF_STUDY_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 export const ACQUIRE_SELF_STUDY_CANDIDATE_LIMIT = 20;
 
 /**
+ * acquire バッチ: care 自発リサーチの起点にする Topic の care 下限。
+ * care は利用者起点 (SELF fact が出たとき) でしか上がらないため、1 以上は利用者が会話で触れた Topic を表す。
+ * 探索の結果として集約された care 0 の Topic まで起点にすると、利用者の興味から離れた探索が連鎖する。
+ */
+export const ACQUIRE_SELF_STUDY_MIN_CARE = 1;
+
+/**
  * 自発リサーチの起点ごとに覚える「最近の角度」の件数。
  * 角度の生成に渡して重複を避けさせる。多いほどプロンプトが膨らむため直近数件にとどめる。
  */
