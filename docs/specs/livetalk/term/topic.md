@@ -3,7 +3,6 @@ id: livetalk/term/topic
 title: Topic (話題)
 kind: term
 service: livetalk
-status: active
 sources:
   - services/livetalk/core/src/entities/topic.entity.ts
   - services/livetalk/core/src/knowledge/retrieval.ts

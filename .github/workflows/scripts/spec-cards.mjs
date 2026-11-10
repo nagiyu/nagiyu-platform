@@ -24,7 +24,6 @@ const DOCS_DIR = join(REPO_ROOT, 'docs');
 const SPECS_DIR = join(DOCS_DIR, 'specs');
 
 const KINDS = ['batch', 'flow', 'term'];
-const TERM_STATUSES = ['active', 'deprecated'];
 const REQUIRED_FIELDS = ['id', 'title', 'kind', 'service', 'sources', 'sources_hash'];
 
 const MESSAGES = {
@@ -208,21 +207,7 @@ function validateCard(card, knownIds) {
     problems.push(`kind (${fields.kind}) は ${KINDS.join(' / ')} のいずれかにしてください`);
   }
 
-  if (fields.kind === 'term') {
-    if (!TERM_STATUSES.includes(fields.status)) {
-      problems.push(`term は status に ${TERM_STATUSES.join(' / ')} のいずれかが必要です`);
-    }
-    if (fields.status === 'deprecated' && asArray(fields.replaced_by).length === 0) {
-      problems.push('deprecated の term には replaced_by (置き換え先のカード) が必要です');
-    }
-  } else if (fields.status !== undefined || fields.replaced_by !== undefined) {
-    problems.push('status と replaced_by は term カードだけに書けます');
-  }
-  if (fields.status === 'active' && fields.replaced_by !== undefined) {
-    problems.push('replaced_by は status が deprecated のときだけ書けます');
-  }
-
-  for (const key of ['terms', 'related_cards', 'replaced_by']) {
+  for (const key of ['terms', 'related_cards']) {
     for (const ref of asArray(fields[key])) {
       if (!knownIds.has(ref)) problems.push(`${key} の ${ref} に対応するカードがありません`);
     }

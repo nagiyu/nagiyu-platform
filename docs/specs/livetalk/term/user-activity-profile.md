@@ -3,7 +3,6 @@ id: livetalk/term/user-activity-profile
 title: 活動時間プロファイル
 kind: term
 service: livetalk
-status: active
 sources:
   - services/livetalk/core/src/entities/lifecycle.entity.ts
   - services/livetalk/core/src/constants.ts
