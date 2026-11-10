@@ -30,7 +30,7 @@ export type UsageDenial = {
 };
 
 export type UsageReservation = {
-  /** 数えた 1 回の記録。数えられなかったとき (記録先の障害で通した場合) は無い */
+  /** 数えた 1 回の記録。数えなかったとき (上限なしの段、記録先の障害で通した場合) は無い */
   record?: UsageRecord;
   /** この申し込みで AI 解析を行うか */
   aiAnalysis: boolean;
@@ -80,7 +80,7 @@ export const reserveUsage = async (
     }
     return {
       record: consumed.record,
-      aiAnalysis: consumed.record.kind === 'ai',
+      aiAnalysis: consumed.aiAnalysis,
       limit,
     };
   } catch (error) {

@@ -34,3 +34,4 @@ export {
   type PlanChangeResult,
   type PortalResult,
 } from './checkout';
+export { canStartCheckout } from './checkout-policy';

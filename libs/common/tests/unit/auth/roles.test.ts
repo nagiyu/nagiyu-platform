@@ -188,6 +188,46 @@ describe('ROLES', () => {
   });
 });
 
+describe('quick-clip-unlimited ロール', () => {
+  it('手動ロールとして VALID_ROLES に含まれ、quick-clip:unlimited だけを持つべき', () => {
+    expect(VALID_ROLES).toContain('quick-clip-unlimited');
+    expect(ROLES['quick-clip-unlimited']).toMatchObject({
+      id: 'quick-clip-unlimited',
+      name: 'Quick Clip 使い放題',
+      permissions: ['quick-clip:unlimited'],
+    });
+  });
+
+  it('billing を持たず、PAID_ROLES に入らないべき', () => {
+    expect('billing' in ROLES['quick-clip-unlimited']).toBe(false);
+    expect(PAID_ROLES).not.toContain('quick-clip-unlimited');
+    expect(getBillingServiceId('quick-clip-unlimited')).toBeUndefined();
+    expect(getBillingTierRoleIds('quick-clip')).not.toContain('quick-clip-unlimited');
+  });
+});
+
+describe('billing-tester ロール', () => {
+  it('手動ロールとして VALID_ROLES に含まれ、billing:test だけを持つべき', () => {
+    expect(VALID_ROLES).toContain('billing-tester');
+    expect(ROLES['billing-tester']).toMatchObject({
+      id: 'billing-tester',
+      name: '課金のテスト',
+      permissions: ['billing:test'],
+    });
+  });
+
+  it('billing を持たず、PAID_ROLES に入らないべき', () => {
+    expect('billing' in ROLES['billing-tester']).toBe(false);
+    expect(PAID_ROLES).not.toContain('billing-tester');
+    expect(getBillingServiceId('billing-tester')).toBeUndefined();
+  });
+
+  it('管理者の権限とは分かれているべき', () => {
+    expect(ROLES.admin.permissions).not.toContain('billing:test');
+    expect(ROLES['billing-tester'].permissions).not.toContain('roles:assign');
+  });
+});
+
 describe('有料ロール', () => {
   it('3 つの有料ロールの構造と権限を持つべき', () => {
     expect(ROLES['livetalk-standard']).toMatchObject({

@@ -566,7 +566,7 @@ describe('POST /api/jobs', () => {
     });
 
     it('AI なしの上限に達したら 429 と AI なしの上限のコードを返す', async () => {
-      for (let i = 0; i < USAGE_LIMITS.free.noAiPerMonth; i += 1) {
+      for (let i = 0; i < (USAGE_LIMITS.free.noAiPerMonth as number); i += 1) {
         await POST(createRequest({ ...validBody, aiAnalysis: false }));
       }
 

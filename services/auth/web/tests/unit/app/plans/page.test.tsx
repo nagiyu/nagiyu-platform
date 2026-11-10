@@ -9,6 +9,8 @@ const mockRedirect = jest.fn((url: string) => {
 });
 
 jest.mock('@nagiyu/auth-core', () => ({
+  canStartCheckout: jest.requireActual('../../../../../core/src/billing/checkout-policy')
+    .canStartCheckout,
   getBillingConfig: () => mockGetBillingConfig(),
   createBillingStripe: jest.fn(() => ({})),
   createUserRepository: jest.fn(() => ({})),
@@ -66,6 +68,7 @@ describe('PlansPage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     process.env.AUTH_URL = 'https://auth.nagiyu.com';
+    process.env.NAGIYU_ENV = 'prod';
     mockGetBillingConfig.mockReturnValue({ secretKey: 'sk', webhookSecret: 'wh' });
     (getSession as jest.Mock).mockResolvedValue({ user: { id: 'u1', roles: [] } });
   });
@@ -383,5 +386,118 @@ describe('PlansPage', () => {
     expect(syncUserForPlans).not.toHaveBeenCalled();
     expect(mockRedirect).not.toHaveBeenCalled();
     expect(loadPlansPageData).toHaveBeenCalled();
+  });
+
+  describe('本番以外の申し込みの制限', () => {
+    const subscribeData = {
+      billingEnabled: true,
+      hasCustomer: false,
+      services: [baseService],
+    };
+
+    afterEach(() => {
+      process.env.NAGIYU_ENV = 'prod';
+    });
+
+    it.each(['dev', undefined])(
+      'テスト用ロールが無ければ申し込みを出さず、制限の旨を出す (NAGIYU_ENV=%s)',
+      async (env) => {
+        if (env === undefined) {
+          delete process.env.NAGIYU_ENV;
+        } else {
+          process.env.NAGIYU_ENV = env;
+        }
+        (loadPlansPageData as jest.Mock).mockResolvedValue(subscribeData);
+
+        render(await render_());
+
+        expect(screen.queryByText('申し込む')).not.toBeInTheDocument();
+        expect(
+          screen.getByText('この環境ではテスト用の申し込みに限っています')
+        ).toBeInTheDocument();
+      }
+    );
+
+    it('未ログインはログインへの導線も出さず、制限の旨を出す', async () => {
+      process.env.NAGIYU_ENV = 'dev';
+      (getSession as jest.Mock).mockResolvedValue(null);
+      (loadPlansPageData as jest.Mock).mockResolvedValue({
+        ...subscribeData,
+        services: [
+          { ...baseService, tiers: [{ ...baseCard, state: 'guest', action: 'sign-in' as const }] },
+        ],
+      });
+
+      render(await render_());
+
+      expect(screen.queryByRole('link', { name: 'ログインして申し込む' })).not.toBeInTheDocument();
+      expect(screen.getByText('この環境ではテスト用の申し込みに限っています')).toBeInTheDocument();
+    });
+
+    it('テスト用ロールがあれば申し込みを出し、制限の旨は出さない', async () => {
+      process.env.NAGIYU_ENV = 'dev';
+      (getSession as jest.Mock).mockResolvedValue({
+        user: { id: 'u1', roles: ['billing-tester'] },
+      });
+      (loadPlansPageData as jest.Mock).mockResolvedValue(subscribeData);
+
+      render(await render_());
+
+      expect(screen.getByText('申し込む')).toBeInTheDocument();
+      expect(
+        screen.queryByText('この環境ではテスト用の申し込みに限っています')
+      ).not.toBeInTheDocument();
+    });
+
+    it('契約の管理と段の変更・予約の取り消しは変えずに出す', async () => {
+      process.env.NAGIYU_ENV = 'dev';
+      (loadPlansPageData as jest.Mock).mockResolvedValue({
+        billingEnabled: true,
+        hasCustomer: true,
+        services: [
+          {
+            ...baseService,
+            tiers: [
+              {
+                ...baseCard,
+                state: 'subscribed' as const,
+                action: null,
+                scheduledChangeLabel: '2026年12月3日に変わります',
+              },
+              {
+                ...baseCard,
+                roleId: 'quick-clip-standard',
+                action: 'upgrade' as const,
+              },
+              {
+                ...baseCard,
+                roleId: 'quick-clip-pro',
+                action: 'downgrade' as const,
+                downgradeConfirmMessage: '確認',
+              },
+            ],
+          },
+        ],
+      });
+
+      render(await render_());
+
+      expect(screen.getByText('契約を管理')).toBeInTheDocument();
+      expect(screen.getByText('予約を取り消す')).toBeInTheDocument();
+      expect(screen.getAllByText('この段に変える')).toHaveLength(2);
+      expect(screen.queryByText('申し込む')).not.toBeInTheDocument();
+    });
+
+    it('課金が無効なら制限の旨は出さず準備中だけを出す', async () => {
+      process.env.NAGIYU_ENV = 'dev';
+      mockGetBillingConfig.mockReturnValue(null);
+
+      render(await render_());
+
+      expect(screen.getByText('準備中です')).toBeInTheDocument();
+      expect(
+        screen.queryByText('この環境ではテスト用の申し込みに限っています')
+      ).not.toBeInTheDocument();
+    });
   });
 });

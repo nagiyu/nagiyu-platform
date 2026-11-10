@@ -131,6 +131,22 @@ test.describe('QuickClip 利用回数の制限', () => {
     ).toBeChecked();
   });
 
+  test('上限なしの段は残りを無制限と表示し、AI 解析を選べる', async ({ page }) => {
+    await mockUsage(page, {
+      month: '2026-11',
+      tier: 'unlimited',
+      limits: { aiPerMonth: null, noAiPerMonth: null, maxDurationSec: 14400 },
+      used: { ai: 0, noAi: 0 },
+      remaining: { ai: null, noAi: null },
+    });
+    await page.goto('/');
+
+    await expect(page.getByText('今月の残り: 無制限')).toBeVisible();
+    await expect(
+      page.getByRole('switch', { name: 'AI 解析 (文字起こし・感情分析) を使う' })
+    ).toBeEnabled();
+  });
+
   test('スイッチの選択をジョブ作成に渡す', async ({ page }) => {
     await mockUsage(page, usageBody());
     let requestBody: Record<string, unknown> = {};

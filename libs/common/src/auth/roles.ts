@@ -110,6 +110,20 @@ export const ROLES = {
     permissions: ['quick-clip:standard', 'quick-clip:pro'],
     billing: { service: 'quick-clip', rank: 2 },
   },
+  'quick-clip-unlimited': {
+    id: 'quick-clip-unlimited',
+    name: 'Quick Clip 使い放題',
+    description:
+      '運営者が自分で使うための手動ロール。Quick Clip の月の利用回数に上限を設けない。売らず課金とも結びつけないため billing を持たない',
+    permissions: ['quick-clip:unlimited'],
+  },
+  'billing-tester': {
+    id: 'billing-tester',
+    name: '課金のテスト',
+    description:
+      '本番以外の環境で、テスト用の決済 (Stripe のサンドボックス) による申し込みを始められる手動ロール。売らず課金とも結びつけないため billing を持たない。管理者の権限とは分けてある',
+    permissions: ['billing:test'],
+  },
 } as const satisfies Record<string, RoleDefinition>;
 
 /**
