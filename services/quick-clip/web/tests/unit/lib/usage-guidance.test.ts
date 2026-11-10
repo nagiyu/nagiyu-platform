@@ -82,6 +82,51 @@ describe('残り回数', () => {
   });
 });
 
+describe('上限なし (unlimited)', () => {
+  const unlimited = usage({
+    tier: 'unlimited',
+    limits: { aiPerMonth: null, noAiPerMonth: null, maxDurationSec: 14400 },
+    remaining: { ai: null, noAi: null },
+  });
+
+  it('/api/usage の null を上限なしとして受け入れる', () => {
+    expect(
+      parseUsageSummary({
+        month: '2026-11',
+        tier: 'unlimited',
+        limits: { aiPerMonth: null, noAiPerMonth: null, maxDurationSec: 14400 },
+        used: { ai: 0, noAi: 0 },
+        remaining: { ai: null, noAi: null },
+      })
+    ).toEqual(unlimited);
+  });
+
+  it('null 以外の数でない値は受け入れない', () => {
+    expect(
+      parseUsageSummary({
+        tier: 'unlimited',
+        limits: { aiPerMonth: null, noAiPerMonth: null, maxDurationSec: 14400 },
+        remaining: { ai: 'x', noAi: null },
+      })
+    ).toBeNull();
+  });
+
+  it('AI ありは常に選べる', () => {
+    expect(hasAiRemaining(unlimited)).toBe(true);
+    expect(resolveAiUnavailableMessage(unlimited)).toBeNull();
+  });
+
+  it('残りの表示文は無制限と分かる', () => {
+    expect(formatRemaining(unlimited)).toBe('今月の残り: 無制限');
+  });
+
+  it('片方だけ上限なしなら、その種類だけ無制限と表示する', () => {
+    expect(formatRemaining(usage({ remaining: { ai: 2, noAi: null } }))).toBe(
+      '今月の残り: AI 解析あり 2 回 / なし 無制限'
+    );
+  });
+});
+
 describe('resolveAiUnavailableMessage', () => {
   it('残りがあれば null', () => {
     expect(resolveAiUnavailableMessage(usage())).toBeNull();
@@ -108,6 +153,13 @@ describe('resolveLimitGuidance', () => {
     }
   );
 
+  it('unlimited にはプランの画面を案内しない', () => {
+    expect(resolveLimitGuidance('DURATION_LIMIT_EXCEEDED', 'unlimited')).toEqual({
+      plans: false,
+      signIn: false,
+    });
+  });
+
   it('未ログインはログインの案内も添える', () => {
     expect(resolveLimitGuidance('AI_LIMIT_EXCEEDED', 'anonymous')).toEqual({
       plans: true,
@@ -125,8 +177,9 @@ describe('resolveLimitGuidance', () => {
 });
 
 describe('一番上の段', () => {
-  it('pro だけが上の段を持たない', () => {
+  it('pro と unlimited は上の段を持たない', () => {
     expect(hasHigherTier('pro')).toBe(false);
+    expect(hasHigherTier('unlimited')).toBe(false);
     expect(hasHigherTier('standard')).toBe(true);
     expect(hasHigherTier('free')).toBe(true);
     expect(hasHigherTier('anonymous')).toBe(true);

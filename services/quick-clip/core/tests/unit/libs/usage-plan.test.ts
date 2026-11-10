@@ -21,6 +21,17 @@ describe('resolveUsageTier', () => {
   });
 });
 
+describe('resolveUsageTier (unlimited)', () => {
+  it('quick-clip:unlimited を持つロールがあれば unlimited になる', () => {
+    expect(resolveUsageTier(['quick-clip-unlimited'])).toBe('unlimited');
+  });
+
+  it('プロと両方持っていても unlimited になる', () => {
+    expect(resolveUsageTier(['quick-clip-pro', 'quick-clip-unlimited'])).toBe('unlimited');
+    expect(resolveUsageTier(['quick-clip-unlimited', 'quick-clip-standard'])).toBe('unlimited');
+  });
+});
+
 describe('getUsageLimit', () => {
   it('段ごとの上限を返す', () => {
     expect(getUsageLimit('anonymous')).toEqual({
@@ -30,5 +41,16 @@ describe('getUsageLimit', () => {
     });
     expect(getUsageLimit('free')).toBe(USAGE_LIMITS.free);
     expect(getUsageLimit('standard').maxDurationSec).toBe(180 * 60);
+  });
+
+  it('unlimited は月の回数が上限なし (null) で、長さはプロを参照する', () => {
+    expect(getUsageLimit('unlimited')).toEqual({
+      aiPerMonth: null,
+      noAiPerMonth: null,
+      maxDurationSec: USAGE_LIMITS.pro.maxDurationSec,
+    });
+    expect(JSON.parse(JSON.stringify(getUsageLimit('unlimited')))).toEqual(
+      getUsageLimit('unlimited')
+    );
   });
 });

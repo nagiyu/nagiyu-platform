@@ -110,6 +110,13 @@ export const ROLES = {
     permissions: ['quick-clip:standard', 'quick-clip:pro'],
     billing: { service: 'quick-clip', rank: 2 },
   },
+  'quick-clip-unlimited': {
+    id: 'quick-clip-unlimited',
+    name: 'Quick Clip 使い放題',
+    description:
+      '運営者が自分で使うための手動ロール。Quick Clip の月の利用回数に上限を設けない。売らず課金とも結びつけないため billing を持たない',
+    permissions: ['quick-clip:unlimited'],
+  },
 } as const satisfies Record<string, RoleDefinition>;
 
 /**
