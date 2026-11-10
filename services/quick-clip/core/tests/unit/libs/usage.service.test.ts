@@ -26,8 +26,9 @@ describe('UsageService.consume', () => {
         subject: 'USER#u1',
         month: '202611',
         kind: 'ai',
-        noAiLimit: USAGE_LIMITS.free.noAiPerMonth,
+        noAiLimit: USAGE_LIMITS.free.noAiPerMonth as number,
       },
+      aiAnalysis: true,
       limit: USAGE_LIMITS.free,
     });
   });
@@ -72,7 +73,7 @@ describe('UsageService.consume', () => {
 
   it('AI なしの上限に達したら断る', async () => {
     const service = createService();
-    for (let i = 0; i < USAGE_LIMITS.anonymous.noAiPerMonth; i += 1) {
+    for (let i = 0; i < (USAGE_LIMITS.anonymous.noAiPerMonth as number); i += 1) {
       await service.consume({ subject: 'ANON#a1', tier: 'anonymous', aiAnalysis: false });
     }
 
@@ -84,7 +85,7 @@ describe('UsageService.consume', () => {
   it('省略時に AI あり・なしの両方が尽きていれば AI なしの上限として断る', async () => {
     const service = createService();
     await service.consume({ subject: 'USER#u1', tier: 'free', aiAnalysis: true });
-    for (let i = 0; i < USAGE_LIMITS.free.noAiPerMonth; i += 1) {
+    for (let i = 0; i < (USAGE_LIMITS.free.noAiPerMonth as number); i += 1) {
       await service.consume({ subject: 'USER#u1', tier: 'free', aiAnalysis: false });
     }
 
@@ -221,7 +222,7 @@ describe('UsageService.consume', () => {
     const repository = new InMemoryUsageRepository(new InMemorySingleTableStore());
     let nowMs = Date.UTC(2026, 10, 30, 14, 59, 59); // 11/30 23:59:59 JST
     const service = new UsageService(repository, { now: () => nowMs });
-    for (let i = 0; i < USAGE_LIMITS.free.noAiPerMonth; i += 1) {
+    for (let i = 0; i < (USAGE_LIMITS.free.noAiPerMonth as number); i += 1) {
       await service.consume({ subject: 'USER#u1', tier: 'free', aiAnalysis: false });
     }
     expect(
@@ -241,7 +242,7 @@ describe('UsageService の取り消しと取得', () => {
     const repository = new InMemoryUsageRepository(new InMemorySingleTableStore());
     const service = createService(repository);
     const consumed = await service.consume({ subject: 'USER#u1', tier: 'free', aiAnalysis: true });
-    if (!consumed.ok) {
+    if (!consumed.ok || !consumed.record) {
       throw new Error('数えられるはず');
     }
 
@@ -259,7 +260,7 @@ describe('UsageService の取り消しと取得', () => {
         tier: 'free',
         aiAnalysis: true,
       });
-      if (!consumed.ok) {
+      if (!consumed.ok || !consumed.record) {
         throw new Error('数えられるはず');
       }
 
@@ -277,17 +278,17 @@ describe('UsageService の取り消しと取得', () => {
         tier: 'free',
         aiAnalysis: true,
       });
-      for (let i = 0; i < USAGE_LIMITS.free.noAiPerMonth; i += 1) {
+      for (let i = 0; i < (USAGE_LIMITS.free.noAiPerMonth as number); i += 1) {
         await service.consume({ subject: 'USER#u1', tier: 'free', aiAnalysis: false });
       }
-      if (!consumed.ok) {
+      if (!consumed.ok || !consumed.record) {
         throw new Error('数えられるはず');
       }
 
       expect(await service.moveToNoAi(consumed.record)).toBeUndefined();
       expect(await repository.getCounts('USER#u1', '202611')).toEqual({
         ai: 0,
-        noAi: USAGE_LIMITS.free.noAiPerMonth,
+        noAi: USAGE_LIMITS.free.noAiPerMonth as number,
       });
     });
   });
@@ -308,7 +309,7 @@ describe('UsageService の取り消しと取得', () => {
         tier: 'free',
         aiAnalysis: true,
       });
-      if (!consumed.ok) {
+      if (!consumed.ok || !consumed.record) {
         throw new Error('数えられるはず');
       }
       const job = await jobRepository.create({
@@ -384,7 +385,7 @@ describe('UsageService の取り消しと取得', () => {
 
     it('AI なしの上限に達していれば AI ありを戻すだけにし、ジョブは戻し済みになる', async () => {
       const { repository, service, jobRepository, job } = await setup();
-      for (let i = 0; i < USAGE_LIMITS.free.noAiPerMonth; i += 1) {
+      for (let i = 0; i < (USAGE_LIMITS.free.noAiPerMonth as number); i += 1) {
         await service.consume({ subject: 'USER#u1', tier: 'free', aiAnalysis: false });
       }
 
@@ -392,7 +393,7 @@ describe('UsageService の取り消しと取得', () => {
 
       expect(await repository.getCounts('USER#u1', '202611')).toEqual({
         ai: 0,
-        noAi: USAGE_LIMITS.free.noAiPerMonth,
+        noAi: USAGE_LIMITS.free.noAiPerMonth as number,
       });
       expect((await jobRepository.getById('job-1'))?.usageReleased).toBe(true);
     });
@@ -421,7 +422,7 @@ describe('UsageService の取り消しと取得', () => {
       tier: 'free',
       limits: USAGE_LIMITS.free,
       used: { ai: 1, noAi: 1 },
-      remaining: { ai: 0, noAi: USAGE_LIMITS.free.noAiPerMonth - 1 },
+      remaining: { ai: 0, noAi: (USAGE_LIMITS.free.noAiPerMonth as number) - 1 },
     });
   });
 
@@ -431,5 +432,83 @@ describe('UsageService の取り消しと取得', () => {
     const service = createService(repository);
 
     expect((await service.getUsage('USER#u1', 'free')).remaining).toEqual({ ai: 0, noAi: 0 });
+  });
+});
+
+describe('UsageService (unlimited)', () => {
+  it('consume はカウンターに触れず、記録なしで受け付ける', async () => {
+    const repository = new InMemoryUsageRepository(new InMemorySingleTableStore());
+    const tryConsume = jest.spyOn(repository, 'tryConsume');
+    const getCounts = jest.spyOn(repository, 'getCounts');
+    const service = createService(repository);
+
+    const result = await service.consume({ subject: 'USER#u1', tier: 'unlimited' });
+
+    expect(result).toEqual({ ok: true, aiAnalysis: true, limit: USAGE_LIMITS.unlimited });
+    expect(tryConsume).not.toHaveBeenCalled();
+    expect(getCounts).not.toHaveBeenCalled();
+  });
+
+  it('AI なしの希望なら AI 解析を行わない', async () => {
+    const service = createService();
+
+    const result = await service.consume({
+      subject: 'USER#u1',
+      tier: 'unlimited',
+      aiAnalysis: false,
+    });
+
+    expect(result).toMatchObject({ ok: true, aiAnalysis: false });
+  });
+
+  it('何回でも受け付ける', async () => {
+    const service = createService();
+
+    for (let i = 0; i < 50; i += 1) {
+      const result = await service.consume({ subject: 'USER#u1', tier: 'unlimited' });
+      expect(result.ok).toBe(true);
+    }
+  });
+
+  it('動画の長さの上限はプロと同じで、超えれば断る', async () => {
+    const service = createService();
+
+    expect(USAGE_LIMITS.unlimited.maxDurationSec).toBe(USAGE_LIMITS.pro.maxDurationSec);
+    expect(
+      await service.consume({
+        subject: 'USER#u1',
+        tier: 'unlimited',
+        durationSec: USAGE_LIMITS.pro.maxDurationSec + 1,
+      })
+    ).toEqual({ ok: false, code: 'DURATION_LIMIT_EXCEEDED' });
+  });
+
+  it('記録の無いジョブは releaseForJob・switchToNoAiForJob で何もしない', async () => {
+    const service = createService();
+    const jobRepository = new InMemoryJobRepository(new InMemorySingleTableStore());
+    const job = { jobId: 'j1' } as Job;
+    const markReleased = jest.spyOn(jobRepository, 'markUsageReleased');
+    const markSwitched = jest.spyOn(jobRepository, 'markUsageSwitched');
+
+    expect(await service.releaseForJob(job, jobRepository)).toBe(false);
+    await service.switchToNoAiForJob(job, jobRepository);
+
+    expect(markReleased).not.toHaveBeenCalled();
+    expect(markSwitched).not.toHaveBeenCalled();
+  });
+
+  it('getUsage はカウンターを読まず、残りを上限なし (null) で返す', async () => {
+    const repository = new InMemoryUsageRepository(new InMemorySingleTableStore());
+    const getCounts = jest.spyOn(repository, 'getCounts');
+    const service = createService(repository);
+
+    expect(await service.getUsage('USER#u1', 'unlimited')).toEqual({
+      month: '202611',
+      tier: 'unlimited',
+      limits: USAGE_LIMITS.unlimited,
+      used: { ai: 0, noAi: 0 },
+      remaining: { ai: null, noAi: null },
+    });
+    expect(getCounts).not.toHaveBeenCalled();
   });
 });

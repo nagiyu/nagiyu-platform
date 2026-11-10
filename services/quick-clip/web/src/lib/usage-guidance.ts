@@ -10,8 +10,9 @@ export type { UsageTier };
 /** `GET /api/usage` の応答 */
 export type UsageSummary = {
   tier: UsageTier;
-  limits: { aiPerMonth: number; noAiPerMonth: number; maxDurationSec: number };
-  remaining: { ai: number; noAi: number };
+  /** aiPerMonth・noAiPerMonth・remaining の null は上限なし */
+  limits: { aiPerMonth: number | null; noAiPerMonth: number | null; maxDurationSec: number };
+  remaining: { ai: number | null; noAi: number | null };
 };
 
 /** ジョブ作成が上限で断られたときのエラーコード */
@@ -29,6 +30,7 @@ export type LimitGuidance = {
 export const USAGE_MESSAGES = {
   AI_LABEL: 'AI 解析 (文字起こし・感情分析) を使う',
   REMAINING_PREFIX: '今月の残り',
+  REMAINING_UNLIMITED: '無制限',
   AI_UNAVAILABLE_ANONYMOUS: 'ログインすると AI 解析を月 1 回お試しできます',
   AI_UNAVAILABLE_EXHAUSTED: '今月の AI 解析の回数を使い切りました',
   SIGN_IN_ACTION: 'ログインする',
@@ -48,6 +50,7 @@ const TIERS: Readonly<Record<UsageTier, true>> = {
   free: true,
   standard: true,
   pro: true,
+  unlimited: true,
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -55,6 +58,10 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 
 const isCount = (value: unknown): value is number =>
   typeof value === 'number' && Number.isFinite(value) && value >= 0;
+
+/** 回数、または上限なしを表す null */
+const isCountOrUnlimited = (value: unknown): value is number | null =>
+  value === null || isCount(value);
 
 /**
  * `/api/usage` の応答を検証して取り出す。
@@ -69,11 +76,11 @@ export const parseUsageSummary = (body: unknown): UsageSummary | null => {
     return null;
   }
   if (
-    !isCount(limits.aiPerMonth) ||
-    !isCount(limits.noAiPerMonth) ||
+    !isCountOrUnlimited(limits.aiPerMonth) ||
+    !isCountOrUnlimited(limits.noAiPerMonth) ||
     !isCount(limits.maxDurationSec) ||
-    !isCount(remaining.ai) ||
-    !isCount(remaining.noAi)
+    !isCountOrUnlimited(remaining.ai) ||
+    !isCountOrUnlimited(remaining.noAi)
   ) {
     return null;
   }
@@ -89,11 +96,18 @@ export const parseUsageSummary = (body: unknown): UsageSummary | null => {
 };
 
 /** AI 解析ありの残りがあるか */
-export const hasAiRemaining = (usage: UsageSummary): boolean => usage.remaining.ai > 0;
+export const hasAiRemaining = (usage: UsageSummary): boolean =>
+  usage.remaining.ai === null || usage.remaining.ai > 0;
 
 /** 残り回数の表示文 */
-export const formatRemaining = (usage: UsageSummary): string =>
-  `${USAGE_MESSAGES.REMAINING_PREFIX}: AI 解析あり ${usage.remaining.ai} 回 / なし ${usage.remaining.noAi} 回`;
+export const formatRemaining = (usage: UsageSummary): string => {
+  if (usage.remaining.ai === null && usage.remaining.noAi === null) {
+    return `${USAGE_MESSAGES.REMAINING_PREFIX}: ${USAGE_MESSAGES.REMAINING_UNLIMITED}`;
+  }
+  const format = (count: number | null): string =>
+    count === null ? USAGE_MESSAGES.REMAINING_UNLIMITED : `${count} 回`;
+  return `${USAGE_MESSAGES.REMAINING_PREFIX}: AI 解析あり ${format(usage.remaining.ai)} / なし ${format(usage.remaining.noAi)}`;
+};
 
 /**
  * AI ありが選べないときの理由。選べるなら null。
@@ -112,7 +126,8 @@ export const resolveAiUnavailableMessage = (usage: UsageSummary): string | null 
  * 段の上に、さらに上限の広い段があるか。
  * 段の値の大小ではなく、一番上の段かどうかで決める (上限の値は変わる前提のため)。
  */
-export const hasHigherTier = (tier: UsageTier | null): boolean => tier !== 'pro';
+export const hasHigherTier = (tier: UsageTier | null): boolean =>
+  tier !== 'pro' && tier !== 'unlimited';
 
 /**
  * 上限のときの誘導先を決める。

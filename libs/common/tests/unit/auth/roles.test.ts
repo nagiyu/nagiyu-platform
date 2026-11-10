@@ -188,6 +188,24 @@ describe('ROLES', () => {
   });
 });
 
+describe('quick-clip-unlimited ロール', () => {
+  it('手動ロールとして VALID_ROLES に含まれ、quick-clip:unlimited だけを持つべき', () => {
+    expect(VALID_ROLES).toContain('quick-clip-unlimited');
+    expect(ROLES['quick-clip-unlimited']).toMatchObject({
+      id: 'quick-clip-unlimited',
+      name: 'Quick Clip 使い放題',
+      permissions: ['quick-clip:unlimited'],
+    });
+  });
+
+  it('billing を持たず、PAID_ROLES に入らないべき', () => {
+    expect('billing' in ROLES['quick-clip-unlimited']).toBe(false);
+    expect(PAID_ROLES).not.toContain('quick-clip-unlimited');
+    expect(getBillingServiceId('quick-clip-unlimited')).toBeUndefined();
+    expect(getBillingTierRoleIds('quick-clip')).not.toContain('quick-clip-unlimited');
+  });
+});
+
 describe('有料ロール', () => {
   it('3 つの有料ロールの構造と権限を持つべき', () => {
     expect(ROLES['livetalk-standard']).toMatchObject({
