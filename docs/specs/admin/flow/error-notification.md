@@ -47,6 +47,18 @@ related_adr:
 
 ## 経路
 
+```mermaid
+flowchart TD
+    A[① 書き込み<br/>error-events テーブル] --> B[② 保存<br/>180 日・Streams 有効]
+    B --> C{③ 新しく書かれた項目か}
+    C -->|いいえ| X([無視])
+    C -->|はい| D[stream-handler が受ける]
+    D --> E[④ Admin の購読すべてに<br/>Web Push を送る]
+    E --> F{購読が無効 404・410}
+    F -->|はい| G[購読を削除]
+    F -->|いいえ| H([届く])
+```
+
 1. **書き込み**: error-events テーブル (`nagiyu-error-events-{env}`) に、1 件ずつ書く
     - アプリの報告: Lambda や Web が、直接書く
     - アラームと Batch の失敗: 本流の SNS トピック (`nagiyu-admin-alarms-{env}`) から alarm-ingest が受け、書く。ALARM への遷移だけを書き、OK や INSUFFICIENT_DATA は捨てる。Batch のジョブ状態は、失敗したものだけを書く
@@ -76,7 +88,7 @@ related_adr:
 - Admin に購読がなければ、Push は送られない。テーブルと画面には残る
 - 通知の仕組み自身の障害は、別の SNS トピック (`nagiyu-admin-self-monitoring-{env}`) で知らせる。alarm-ingest と stream-handler の Errors、stream-handler の DLQ の滞留、テーブルの SystemErrors と ThrottledRequests が対象。このトピックは Admin の `/api/notify/sns` に HTTPS で送り、そこから Push を出す。記録は残さない。受け付けるのはこのトピックからのメッセージだけ
 
-## 図
+## つながり
 
 ```mermaid
 flowchart TD
