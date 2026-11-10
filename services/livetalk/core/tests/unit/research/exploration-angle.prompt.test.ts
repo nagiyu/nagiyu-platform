@@ -32,6 +32,13 @@ describe('buildExplorationAnglePrompt', () => {
     expect(system).toContain('外れてもかまいません');
   });
 
+  it('system に気分・体調の話題から気分転換へ広げる指示が入る', () => {
+    const system = buildExplorationAnglePrompt(base)[0].content;
+
+    expect(system).toContain('気分・体調・悩み');
+    expect(system).toContain('気分転換になる軽い話題');
+  });
+
   it('材料が空のときは (なし) と表示する', () => {
     const user = buildExplorationAnglePrompt({
       ...base,

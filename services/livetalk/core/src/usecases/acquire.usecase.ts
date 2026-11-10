@@ -5,6 +5,7 @@ import {
   ACQUIRE_MAX_QUERIES_PER_RUN,
   ACQUIRE_SELF_STUDY_CANDIDATE_LIMIT,
   ACQUIRE_SELF_STUDY_COOLDOWN_MS,
+  ACQUIRE_SELF_STUDY_MIN_CARE,
   EXPLORATION_KNOWN_WEB_FACT_LIMIT,
   EXPLORATION_RECENT_ANGLES_LIMIT,
   EXPLORATION_SELF_FACT_LIMIT,
@@ -593,6 +594,8 @@ export async function acquireForUser(
 
     for (const header of headers) {
       if (budget <= 0) break;
+      // care 降順のため、下限未満に達したら以降も満たさない。
+      if (header.care < ACQUIRE_SELF_STUDY_MIN_CARE) break;
 
       // クールダウン判定: 直近この Topic を取得済み（最新 WEB fact の ObservedAt が
       // now - ACQUIRE_SELF_STUDY_COOLDOWN_MS 以降）なら自発リサーチをスキップする。
