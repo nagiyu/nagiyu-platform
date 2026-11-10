@@ -35,14 +35,23 @@ export type ConsumeInput = {
 };
 
 export type ConsumeResult =
-  { ok: true; record: UsageRecord; limit: UsageLimit } | { ok: false; code: UsageDenyCode };
+  | {
+      ok: true;
+      /** 数えた 1 回の記録。上限なしの段では数えないため無い */
+      record?: UsageRecord;
+      /** この申し込みで AI 解析を行うか */
+      aiAnalysis: boolean;
+      limit: UsageLimit;
+    }
+  | { ok: false; code: UsageDenyCode };
 
 export type UsageSnapshot = {
   month: string;
   tier: UsageTier;
   limits: UsageLimit;
   used: { ai: number; noAi: number };
-  remaining: { ai: number; noAi: number };
+  /** 残り回数。null は上限なし */
+  remaining: { ai: number | null; noAi: number | null };
 };
 
 export type UsageServiceOptions = {
@@ -78,6 +87,12 @@ export class UsageService {
       return { ok: false, code: 'DURATION_LIMIT_EXCEEDED' };
     }
 
+    const { aiPerMonth, noAiPerMonth } = limit;
+    if (aiPerMonth === null || noAiPerMonth === null) {
+      // カウンターは上限を守るためだけのものなので、上限なしの段では触れず記録も残さない
+      return { ok: true, aiAnalysis: input.aiAnalysis !== false, limit };
+    }
+
     const nowMs = this.now();
     const month = toJstMonthKey(nowMs);
     const monthTtl = toMonthTtlSeconds(nowMs);
@@ -87,7 +102,7 @@ export class UsageService {
         subject: input.subject,
         month,
         kind,
-        limit: kind === 'ai' ? limit.aiPerMonth : limit.noAiPerMonth,
+        limit: kind === 'ai' ? aiPerMonth : noAiPerMonth,
         ttlSec: monthTtl,
       });
 
@@ -111,7 +126,7 @@ export class UsageService {
       subject: input.subject,
       month,
       kind,
-      noAiLimit: limit.noAiPerMonth,
+      noAiLimit: noAiPerMonth,
     };
 
     if (input.tier === 'anonymous' && input.ip) {
@@ -129,7 +144,7 @@ export class UsageService {
       }
     }
 
-    return { ok: true, record, limit };
+    return { ok: true, record, aiAnalysis: kind === 'ai', limit };
   }
 
   /** 数えた 1 回を戻す */
@@ -201,6 +216,10 @@ export class UsageService {
   public async getUsage(subject: string, tier: UsageTier): Promise<UsageSnapshot> {
     const month = toJstMonthKey(this.now());
     const limits = getUsageLimit(tier);
+    if (limits.aiPerMonth === null || limits.noAiPerMonth === null) {
+      // 数えていないため、カウンターは読まない
+      return { month, tier, limits, used: { ai: 0, noAi: 0 }, remaining: { ai: null, noAi: null } };
+    }
     const used = await this.repository.getCounts(subject, month);
     return {
       month,
