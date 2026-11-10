@@ -206,6 +206,28 @@ describe('quick-clip-unlimited ロール', () => {
   });
 });
 
+describe('billing-tester ロール', () => {
+  it('手動ロールとして VALID_ROLES に含まれ、billing:test だけを持つべき', () => {
+    expect(VALID_ROLES).toContain('billing-tester');
+    expect(ROLES['billing-tester']).toMatchObject({
+      id: 'billing-tester',
+      name: '課金のテスト',
+      permissions: ['billing:test'],
+    });
+  });
+
+  it('billing を持たず、PAID_ROLES に入らないべき', () => {
+    expect('billing' in ROLES['billing-tester']).toBe(false);
+    expect(PAID_ROLES).not.toContain('billing-tester');
+    expect(getBillingServiceId('billing-tester')).toBeUndefined();
+  });
+
+  it('管理者の権限とは分かれているべき', () => {
+    expect(ROLES.admin.permissions).not.toContain('billing:test');
+    expect(ROLES['billing-tester'].permissions).not.toContain('roles:assign');
+  });
+});
+
 describe('有料ロール', () => {
   it('3 つの有料ロールの構造と権限を持つべき', () => {
     expect(ROLES['livetalk-standard']).toMatchObject({
