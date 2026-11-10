@@ -38,6 +38,7 @@ jest.mock('@nagiyu/livetalk-core', () => ({
   createCharacterStateRepository: jest.fn().mockReturnValue({}),
   createLifecycleRepository: jest.fn().mockReturnValue({}),
   createStudyTopicRepository: jest.fn().mockReturnValue({}),
+  createFreshnessCheckRequestRepository: jest.fn().mockReturnValue({}),
   createNoteRepository: jest.fn().mockReturnValue({}),
   createConsolidationCursorRepository: jest.fn().mockReturnValue({}),
   createSafetyEventRepository: jest.fn().mockReturnValue({}),

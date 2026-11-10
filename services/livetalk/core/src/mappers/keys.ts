@@ -19,15 +19,6 @@
  * - GSI3SK は Care（Number 型）。care 降順 Query と全件列挙の両方を賄う
  * - `#META` は SK の接尾辞のため begins_with では列挙できない。
  *   Topic ヘッダの列挙は必ずこの GSI3 経由で行う。
- *
- * GSI4（GSI-STALE）: 揮発性のある WEB fact（NextReview を持つもの）のみを
- * sparse 索引化する鮮度掃引用 GSI（リブトーク知識再設計 P3 / #3699）
- * - GSI4PK=`<characterId>#STALE#<userId>` の WEB fact アイテムのみを索引化する
- *   （`NextReview` が undefined の stable fact には GSI4PK/GSI4SK を付与しない）
- * - GSI4SK は NextReview（Number 型、Unix ms）。acquire は
- *   `GSI4SK <= now` の**窓走査**（ページングして期限到来分をまとめて拾う）で
- *   鮮度切れ fact を列挙する。`begins_with` や現在時刻バケットのみの参照では
- *   停止・遅延分を取りこぼすため使わない。
  */
 
 import type { AttributeProjection } from '@nagiyu/aws';
@@ -40,9 +31,6 @@ export const SAFETY_EVENT_GSI_INDEX_NAME = 'GSI2';
 
 /** Topic ヘッダ列挙用 GSI-TOPIC のインデックス名（リブトーク知識再設計 P1 / #3697） */
 export const TOPIC_GSI_INDEX_NAME = 'GSI3';
-
-/** 鮮度掃引用 GSI-STALE のインデックス名（リブトーク知識再設計 P3 / #3699） */
-export const STALE_GSI_INDEX_NAME = 'GSI4';
 
 /**
  * 各GSIの射影定義（`infra/livetalk/lib/dynamodb-stack.ts` の本番CDKスタック定義と一致させる）。
@@ -81,23 +69,6 @@ export const TOPIC_GSI_PROJECTION: AttributeProjection = {
     'Embedding',
     'CreatedAt',
     'UpdatedAt',
-  ],
-};
-
-/** GSI4（GSI-STALE、鮮度掃引）の射影。INCLUDE。 */
-export const STALE_GSI_PROJECTION: AttributeProjection = {
-  type: 'INCLUDE',
-  keyAttributeNames: ['GSI4PK', 'GSI4SK'],
-  nonKeyAttributes: [
-    'UserID',
-    'CharacterID',
-    'TopicID',
-    'FactID',
-    'Text',
-    'SourceUrls',
-    'Volatility',
-    'ObservedAt',
-    'CreatedAt',
   ],
 };
 
@@ -166,12 +137,45 @@ export function buildStudyTopicSK(characterId: string, topicId: string): string 
   return `${buildStudyTopicSKPrefix(characterId)}${topicId}`;
 }
 
+export function buildFreshnessCheckRequestSKPrefix(characterId: string): string {
+  return `CHAR#${characterId}#FRESHCHECK#`;
+}
+
+export function buildFreshnessCheckRequestSK(characterId: string, topicId: string): string {
+  return `${buildFreshnessCheckRequestSKPrefix(characterId)}${topicId}`;
+}
+
 export function buildNoteSKPrefix(characterId: string): string {
   return `CHAR#${characterId}#NOTE#`;
 }
 
 export function buildNoteSK(characterId: string, noteId: string): string {
   return `${buildNoteSKPrefix(characterId)}${noteId}`;
+}
+
+/**
+ * 「生成しない」と判断した Topic の記録の SK プレフィックス。
+ * Topic の束 (`CHAR#<c>#TOPIC#<tid>#`) の外に置き、`getTopicBundle` の begins_with に混ざらないようにする。
+ * ノートのプレフィックス (`CHAR#<c>#NOTE#`) は `NOTE` の直後が `#` で、ここは `S` のため、ノート一覧の begins_with にも混ざらない。
+ */
+export function buildNoteSkipSKPrefix(characterId: string): string {
+  return `CHAR#${characterId}#NOTESKIP#`;
+}
+
+export function buildNoteSkipSK(characterId: string, topicId: string): string {
+  return `${buildNoteSkipSKPrefix(characterId)}${topicId}`;
+}
+
+/**
+ * 自発リサーチの探索の記録の SK プレフィックス。
+ * Topic の束 (`CHAR#<c>#TOPIC#<tid>#`) の外に置き、`getTopicBundle` の begins_with に混ざらないようにする。
+ */
+export function buildExplorationSKPrefix(characterId: string): string {
+  return `CHAR#${characterId}#EXPLORE#`;
+}
+
+export function buildExplorationSK(characterId: string, topicId: string): string {
+  return `${buildExplorationSKPrefix(characterId)}${topicId}`;
 }
 
 export function buildPushSubscriptionSKPrefix(): string {
@@ -206,6 +210,29 @@ export function buildChatLockSK(): string {
  */
 export function buildChatRateLimitSK(window: string, bucket: string): string {
   return `RATELIMIT#${window}#${bucket}`;
+}
+
+// ---- 勉強の 1 日あたりの回数 ----
+
+/**
+ * 勉強 (Web リサーチ) の 1 日の回数を数えるアイテムの SK。
+ * 利用者 × 日本時間の暦日 (YYYYMMDD) で 1 アイテム。
+ */
+export function buildStudyUsageSK(dayKey: string): string {
+  return `STUDYUSAGE#${dayKey}`;
+}
+
+/**
+ * 勉強の回数アイテム内の、キャラクターごとの回数の属性名。
+ * 利用者の枠をキャラクターで分けて数えるため、キャラクターごとに属性を分ける。
+ */
+export function buildStudyUsageCountAttribute(characterId: string): string {
+  return `Count#${characterId}`;
+}
+
+/** 勉強の回数アイテム内の、利用者の全キャラクター合計の回数の属性名 */
+export function buildStudyUsageTotalAttribute(): string {
+  return 'Count#total';
 }
 
 // ---- Topic 中心モデル（リブトーク知識再設計 P1 / #3697、shadow build）----
@@ -278,12 +305,4 @@ export function buildConsolidationCursorSK(characterId: string): string {
  */
 export function buildTopicGSI3PK(characterId: string, userId: string): string {
   return `${characterId}#TOPICS#${userId}`;
-}
-
-/**
- * GSI4（GSI-STALE）のパーティションキー値を返す。
- * 揮発性のある WEB fact（`NextReview` を持つもの）のみに付与する（sparse GSI）。
- */
-export function buildTopicStaleGSI4PK(characterId: string, userId: string): string {
-  return `${characterId}#STALE#${userId}`;
 }

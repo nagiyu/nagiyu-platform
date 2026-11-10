@@ -4,6 +4,7 @@ import {
   OpenAIResearchClient,
   RESEARCH_ERROR_MESSAGES,
 } from '../../../src/research/openai-research-client.js';
+import { WEB_SEARCH_USAGE_LOG_MESSAGE } from '../../../src/research/web-search-usage.js';
 import { LLM_REASONING_EFFORT } from '../../../src/llm-client/models.js';
 import type { CharacterDefinition } from '../../../src/characters/types.js';
 
@@ -93,7 +94,10 @@ describe('OpenAIResearchClient', () => {
     const researchClient = new OpenAIResearchClient({ client: mockClient });
     const result = await researchClient.research('コーヒー', character);
 
-    expect(result).toEqual(expected);
+    expect(result).toEqual({
+      ...expected,
+      webSearchCalls: { total: 0, search: 0, openPage: 0, findInPage: 0, other: 0 },
+    });
     expect(mockParse).toHaveBeenCalledWith(
       expect.objectContaining({
         tools: [{ type: 'web_search' }],
@@ -158,6 +162,98 @@ describe('OpenAIResearchClient', () => {
     infoSpy.mockRestore();
   });
 
+  describe('Web 検索回数の計測', () => {
+    const expected = {
+      topic: 'コーヒー',
+      summary: 'コーヒーの説明。'.repeat(10),
+      sourceUrls: ['https://example.com'],
+      rawComment: 'コメント',
+    };
+    const output = [
+      { type: 'reasoning', id: 'r1', summary: [] },
+      { type: 'web_search_call', id: 'w1', status: 'completed', action: { type: 'search' } },
+      { type: 'web_search_call', id: 'w2', status: 'completed', action: { type: 'search' } },
+      { type: 'web_search_call', id: 'w3', status: 'completed', action: { type: 'open_page' } },
+      { type: 'web_search_call', id: 'w4', status: 'completed', action: { type: 'find_in_page' } },
+      { type: 'web_search_call', id: 'w5', status: 'completed', action: { type: 'unknown_new' } },
+      { type: 'web_search_call', id: 'w6', status: 'completed' },
+      { type: 'message', id: 'm1', role: 'assistant', content: [] },
+    ];
+
+    it('web_search_call を action 別に数えて戻り値に載せる', async () => {
+      const mockParse = jest.fn().mockResolvedValue({ output_parsed: expected, output });
+      const mockClient = { responses: { parse: mockParse } } as unknown as OpenAI;
+
+      const result = await new OpenAIResearchClient({ client: mockClient }).research(
+        'コーヒー',
+        character
+      );
+
+      expect(result.webSearchCalls).toEqual({
+        total: 6,
+        search: 2,
+        openPage: 1,
+        findInPage: 1,
+        other: 2,
+      });
+    });
+
+    it('usage ログと突き合わせられるキーで回数ログを出す', async () => {
+      const infoSpy = jest.spyOn(logger, 'info').mockImplementation(() => undefined);
+      const mockParse = jest
+        .fn()
+        .mockResolvedValue({ output_parsed: expected, output, status: 'completed' });
+      const mockClient = { responses: { parse: mockParse } } as unknown as OpenAI;
+
+      await new OpenAIResearchClient({ client: mockClient, model: 'gpt-test' }).research(
+        'コーヒー',
+        character
+      );
+
+      expect(infoSpy).toHaveBeenCalledWith(WEB_SEARCH_USAGE_LOG_MESSAGE, {
+        service: 'livetalk',
+        purpose: 'research',
+        model: 'gpt-test',
+        reasoningEffort: LLM_REASONING_EFFORT.research,
+        outcome: 'completed',
+        webSearchCalls: 6,
+        webSearchSearch: 2,
+        webSearchOpenPage: 1,
+        webSearchFindInPage: 1,
+        webSearchOther: 2,
+      });
+      infoSpy.mockRestore();
+    });
+
+    it('output_parsed が null で throw する場合でも、回数ログは throw より前に出ている', async () => {
+      const infoSpy = jest.spyOn(logger, 'info').mockImplementation(() => undefined);
+      const mockParse = jest.fn().mockResolvedValue({ output_parsed: null, output });
+      const mockClient = { responses: { parse: mockParse } } as unknown as OpenAI;
+
+      await expect(
+        new OpenAIResearchClient({ client: mockClient }).research('コーヒー', character)
+      ).rejects.toThrow(RESEARCH_ERROR_MESSAGES.INVALID_RESPONSE);
+
+      expect(infoSpy).toHaveBeenCalledWith(
+        WEB_SEARCH_USAGE_LOG_MESSAGE,
+        expect.objectContaining({ webSearchCalls: 6 })
+      );
+      infoSpy.mockRestore();
+    });
+
+    it('output が無くても 0 件として扱い throw しない', async () => {
+      const mockParse = jest.fn().mockResolvedValue({ output_parsed: expected });
+      const mockClient = { responses: { parse: mockParse } } as unknown as OpenAI;
+
+      const result = await new OpenAIResearchClient({ client: mockClient }).research(
+        'コーヒー',
+        character
+      );
+
+      expect(result.webSearchCalls?.total).toBe(0);
+    });
+  });
+
   describe('リトライ動作', () => {
     it('429 エラー後に成功すれば ResearchResult を返す（一過性エラーはリトライされる）', async () => {
       jest.useFakeTimers();
@@ -180,7 +276,7 @@ describe('OpenAIResearchClient', () => {
         await jest.runAllTimersAsync();
         const result = await resultPromise;
 
-        expect(result).toEqual(expected);
+        expect(result).toMatchObject(expected);
         expect(mockParse).toHaveBeenCalledTimes(2);
       } finally {
         jest.useRealTimers();

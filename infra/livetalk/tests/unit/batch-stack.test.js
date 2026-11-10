@@ -263,7 +263,7 @@ describe('LiveTalkBatchStack', () => {
     template.hasOutput('AcquireDlqUrl', Match.anyValue());
   });
 
-  it('acquire ロールの DynamoDB grant に GSI4（index/*）への Query 権限が含まれる（鮮度掃引用）', () => {
+  it('acquire ロールの DynamoDB grant に GSI（index/*）への Query 権限が含まれる', () => {
     const { template } = synth();
     const roles = template.findResources('AWS::IAM::Role', {
       Properties: {

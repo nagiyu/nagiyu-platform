@@ -12,7 +12,7 @@ import {
   type EntityPatch,
 } from '@nagiyu/aws';
 import type { WebFactEntity, WebFactKey, WebFactVolatility } from '../entities/web-fact.entity.js';
-import { buildUserPK, buildWebFactSK, buildTopicStaleGSI4PK } from './keys.js';
+import { buildUserPK, buildWebFactSK } from './keys.js';
 
 const WEB_FACT_VOLATILITIES: readonly WebFactVolatility[] = [
   'stable',
@@ -24,7 +24,7 @@ const WEB_FACT_VOLATILITIES: readonly WebFactVolatility[] = [
 /**
  * `WebFactEntity ↔ DynamoDB Item` の変換と PK/SK 組み立てを担当する Mapper。
  *
- * GSI4（GSI-STALE）は sparse GSI のため、`nextReview` があるときだけ GSI4PK/GSI4SK を付ける。
+ * `nextReview` は鮮度確認が要るかの判定に使うため、あるときだけ保存する。
  * Entity は更新日時を持たないため、`UpdatedAt` は store が書く値だけを保存する。
  */
 export class WebFactMapper implements EntityMapper<WebFactEntity, WebFactKey> {
@@ -59,24 +59,12 @@ export class WebFactMapper implements EntityMapper<WebFactEntity, WebFactKey> {
       Volatility: entity.volatility,
       ObservedAt: entity.observedAt,
       CreatedAt: entity.createdAt,
-      // stable な fact は NextReview を持たず、GSI4 にも現れない (鮮度掃引の対象外)
-      ...(entity.nextReview !== undefined && {
-        NextReview: entity.nextReview,
-        GSI4PK: buildTopicStaleGSI4PK(entity.characterId, entity.userId),
-        GSI4SK: entity.nextReview,
-      }),
+      // stable な fact は NextReview を持たず、再確認の対象外
+      ...(entity.nextReview !== undefined && { NextReview: entity.nextReview }),
     };
   }
 
-  /**
-   * GSI4 の属性は NextReview を変えるときだけ付け直し、PK は key から組み立てる。
-   * NextReview を消すときは GSI4 からも外し、鮮度掃引の対象から外す。
-   */
-  public toUpdateAttributes(
-    changes: EntityPatch<WebFactEntity>,
-    key: WebFactKey
-  ): DynamoDBAttributes {
-    const nextReview = optionalPatchValue(changes.nextReview);
+  public toUpdateAttributes(changes: EntityPatch<WebFactEntity>): DynamoDBAttributes {
     return {
       UserID: immutablePatchValue(changes.userId, 'UserID'),
       CharacterID: immutablePatchValue(changes.characterId, 'CharacterID'),
@@ -87,18 +75,11 @@ export class WebFactMapper implements EntityMapper<WebFactEntity, WebFactKey> {
       SourceUrls: requiredPatchValue(changes.sourceUrls, 'SourceUrls'),
       Volatility: requiredPatchValue(changes.volatility, 'Volatility'),
       ObservedAt: requiredPatchValue(changes.observedAt, 'ObservedAt'),
-      NextReview: nextReview,
-      GSI4PK:
-        typeof nextReview === 'number'
-          ? buildTopicStaleGSI4PK(key.characterId, key.userId)
-          : nextReview,
-      GSI4SK: nextReview,
+      NextReview: optionalPatchValue(changes.nextReview),
     };
   }
 
   public toEntity(item: DynamoDBAttributes): WebFactEntity {
-    // GSI4 の Query 結果は NextReview を投影しないため、同値の GSI4SK から復元する
-    const nextReviewSource = item.NextReview ?? item.GSI4SK;
     return {
       userId: validateStringField(item.UserID, 'UserID'),
       characterId: validateStringField(item.CharacterID, 'CharacterID'),
@@ -109,8 +90,8 @@ export class WebFactMapper implements EntityMapper<WebFactEntity, WebFactKey> {
       volatility: validateEnumField(item.Volatility, 'Volatility', WEB_FACT_VOLATILITIES),
       observedAt: validateTimestampField(item.ObservedAt, 'ObservedAt'),
       createdAt: readTimestamp(item, 'CreatedAt'),
-      ...(nextReviewSource !== undefined && {
-        nextReview: validateTimestampField(nextReviewSource, 'NextReview'),
+      ...(item.NextReview !== undefined && {
+        nextReview: validateTimestampField(item.NextReview, 'NextReview'),
       }),
     };
   }

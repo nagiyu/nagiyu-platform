@@ -62,6 +62,16 @@ export const ConsolidationSchema = z.object({
             text: z.string(),
             sourceUrls: z.array(z.string()),
             volatility: z.enum(['stable', 'low', 'medium', 'high']),
+            action: z
+              .enum(['add', 'replace', 'duplicate'])
+              .describe(
+                '統合先 Topic の「既存の事実」と見比べた判断。add は既存の事実と関係のない新しい事実、replace は同じ事柄についての新しい情報で既存の事実が古くなったとき、duplicate は既存の事実と同じ内容（言い回しの違いだけ）のとき。新規 Topic では常に add。'
+              ),
+            existingFactIndices: z
+              .array(z.number().int())
+              .describe(
+                'replace なら古くなった既存の事実、duplicate なら同じ内容の既存の事実の番号 N（プロンプトの「既存の事実」に表示された [事実 #N] の N）をすべて入れる。add なら空配列。統合先 Topic の「既存の事実」に表示された番号だけを使い、憶測で番号を作らない。'
+              ),
           })
         )
         .describe(

@@ -55,17 +55,17 @@ export class LiveTalkBatchStack extends cdk.Stack {
     // DynamoDB テーブル
     const dynamoTableName = getDynamoDBTableName('livetalk', environment);
     const dynamoTableArn = getDynamoDBTableArn(this.region, this.account, dynamoTableName);
-    // GSI1（Profile 列挙用）・GSI3（Topic ヘッダ列挙用）・GSI4（鮮度掃引用）への Query 権限を
+    // GSI1（Profile 列挙用）・GSI3（Topic ヘッダ列挙用）への Query 権限を
     // grant に含めるため、インデックス情報付きでインポートする。`fromTableArn` だけだと
     // hasIndex=false となり grantReadWriteData が `table/.../index/*` を付与せず、
     // batch ロールが GSI を Query できず AccessDenied になる（#3527）。
     // globalIndexes を渡すことで grant にインデックス ARN を含める。
-    // consolidate ロールが GSI3（GSI-TOPIC）、acquire ロールが GSI3・GSI4（GSI-STALE）を
+    // consolidate ロールと acquire ロールが GSI3（GSI-TOPIC）を
     // Query するため、ここに追加している（ADR-2.22 の教訓：後から grant だけ直しても
     // index/* が付与されないため、必ずここで宣言する）。
     const dynamoTable = dynamodb.Table.fromTableAttributes(this, 'DynamoTable', {
       tableArn: dynamoTableArn,
-      globalIndexes: ['GSI1', 'GSI3', 'GSI4'],
+      globalIndexes: ['GSI1', 'GSI3'],
     });
 
     // ---- ユーザー活動時間学習バッチ（Phase 4c / Issue #3329）----
@@ -257,8 +257,8 @@ export class LiveTalkBatchStack extends cdk.Stack {
 
     // ---- acquire バッチ（リブトーク知識再設計 P3 / Issue #3699）----
     //
-    // 既存 study を「取得だけ」に縮小した新バッチ。依頼（StudyTopic）・鮮度切れ
-    // （GSI4/GSI-STALE 窓走査）・care 自発（GSI3 降順）の 3 種を Web 取得し WEBRAW を書く。
+    // 既存 study を「取得だけ」に縮小した新バッチ。依頼（StudyTopic）・鮮度確認の
+    // 依頼（FreshnessCheckRequest）・care 自発（GSI3 降順）の 3 種を Web 取得し WEBRAW を書く。
     // Topic への畳み込みは既存 consolidation に委ねる。
 
     // acquire バッチ専用 DLQ
@@ -267,7 +267,7 @@ export class LiveTalkBatchStack extends cdk.Stack {
       retentionPeriod: cdk.Duration.days(7),
     });
 
-    // acquire バッチ専用 IAM Role（OpenAI 権限が必要。GSI3/GSI4 Query は dynamoTable の
+    // acquire バッチ専用 IAM Role（OpenAI 権限が必要。GSI3 Query は dynamoTable の
     // globalIndexes 宣言（本ファイル冒頭）に含めているため、ここでは grantReadWriteData だけでよい）
     const acquireRole = new iam.Role(this, 'AcquireExecutionRole', {
       roleName: `nagiyu-livetalk-acquire-role-${environment}`,

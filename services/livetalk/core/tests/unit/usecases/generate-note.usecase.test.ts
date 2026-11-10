@@ -1,6 +1,7 @@
 import { InMemorySingleTableStore } from '@nagiyu/aws';
 import { InMemoryTopicRepository } from '../../../src/repositories/in-memory-topic.repository.js';
 import { InMemoryNoteRepository } from '../../../src/repositories/in-memory-note.repository.js';
+import { InMemoryNoteSkipRepository } from '../../../src/repositories/in-memory-note-skip.repository.js';
 import { generateNotesForUser } from '../../../src/usecases/generate-note.usecase.js';
 import type { ILLMClient } from '../../../src/llm-client/types.js';
 import type { NoteLetterRaw } from '../../../src/llm-client/schemas/note-letter.schema.js';
@@ -42,6 +43,7 @@ describe('generateNotesForUser', () => {
   let store: InMemorySingleTableStore;
   let topicRepo: InMemoryTopicRepository;
   let noteRepo: InMemoryNoteRepository;
+  let noteSkipRepo: InMemoryNoteSkipRepository;
   let ulidSeq: number;
   const ulidFactory = () => `note-${(ulidSeq++).toString().padStart(3, '0')}`;
 
@@ -51,6 +53,7 @@ describe('generateNotesForUser', () => {
     const nowMs = () => tick;
     topicRepo = new InMemoryTopicRepository(store, () => `topic-${tick++}`, nowMs);
     noteRepo = new InMemoryNoteRepository(store, nowMs);
+    noteSkipRepo = new InMemoryNoteSkipRepository(store, nowMs);
     ulidSeq = 1;
   });
 
@@ -98,6 +101,7 @@ describe('generateNotesForUser', () => {
     const result = await generateNotesForUser('u1', 'hiyori', {
       topicRepo,
       noteRepo,
+      noteSkipRepo,
       llmClient,
       characterName: '桃瀬ひより',
       ulidFactory,
@@ -112,6 +116,59 @@ describe('generateNotesForUser', () => {
     expect(notes[0].reaction).toBeUndefined();
   });
 
+  it('プロンプトに渡す WEB fact は観測日時の新しい 10 件に絞る', async () => {
+    await putTopic({ care: 3 });
+    for (let i = 0; i < 12; i++) {
+      await putWebFact('topic-001', { text: `事実${i}`, observedAt: fixedNow + i });
+    }
+    const llmClient = makeLLMClient([makeLetter()]);
+    const spy = jest.spyOn(llmClient, 'chatStructured');
+
+    await generateNotesForUser('u1', 'hiyori', {
+      topicRepo,
+      noteRepo,
+      noteSkipRepo,
+      llmClient,
+      characterName: '桃瀬ひより',
+      ulidFactory,
+    });
+
+    const prompt = JSON.stringify(spy.mock.calls[0][0]);
+    // 新しい 10 件（事実2〜事実11）だけが載り、古い 2 件（事実0・事実1）は載らない
+    expect(prompt).toContain('事実11');
+    expect(prompt).toContain('事実2（出典');
+    expect(prompt).not.toContain('事実1（出典');
+    expect(prompt).not.toContain('事実0');
+  });
+
+  it('絞られて見えなくなった WEB fact の追加でも、判断後に増えたかは全件で判定する', async () => {
+    await putTopic({ care: 3 });
+    await putWebFact('topic-001', { observedAt: fixedNow + 1000 });
+    tick = fixedNow + 1000;
+    await noteSkipRepo.put({
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: 'topic-001',
+      decidedAt: tick,
+    });
+    tick += 1000;
+    // 観測日時は最古でプロンプトの対象外になるが、判断後に作られた fact
+    await putWebFact('topic-001', { observedAt: 1 });
+    const llmClient = makeLLMClient([makeLetter({ skip: true })]);
+
+    await generateNotesForUser('u1', 'hiyori', {
+      topicRepo,
+      noteRepo,
+      noteSkipRepo,
+      llmClient,
+      characterName: '桃瀬ひより',
+      ulidFactory,
+      now: () => tick,
+    });
+
+    expect(llmClient.chatStructuredCalls).toBe(1);
+  });
+
   it('care が閾値未満の Topic は生成しない', async () => {
     await putTopic({ care: 2 });
     await putWebFact('topic-001');
@@ -120,6 +177,7 @@ describe('generateNotesForUser', () => {
     const result = await generateNotesForUser('u1', 'hiyori', {
       topicRepo,
       noteRepo,
+      noteSkipRepo,
       llmClient,
       characterName: '桃瀬ひより',
       ulidFactory,
@@ -146,6 +204,7 @@ describe('generateNotesForUser', () => {
     const result = await generateNotesForUser('u1', 'hiyori', {
       topicRepo,
       noteRepo,
+      noteSkipRepo,
       llmClient,
       characterName: '桃瀬ひより',
       ulidFactory,
@@ -162,6 +221,7 @@ describe('generateNotesForUser', () => {
     const result = await generateNotesForUser('u1', 'hiyori', {
       topicRepo,
       noteRepo,
+      noteSkipRepo,
       llmClient,
       characterName: '桃瀬ひより',
       ulidFactory,
@@ -179,6 +239,7 @@ describe('generateNotesForUser', () => {
     const result = await generateNotesForUser('u1', 'hiyori', {
       topicRepo,
       noteRepo,
+      noteSkipRepo,
       llmClient,
       characterName: '桃瀬ひより',
       ulidFactory,
@@ -198,6 +259,7 @@ describe('generateNotesForUser', () => {
     const result = await generateNotesForUser('u1', 'hiyori', {
       topicRepo,
       noteRepo,
+      noteSkipRepo,
       llmClient,
       characterName: '桃瀬ひより',
       ulidFactory,
@@ -216,6 +278,7 @@ describe('generateNotesForUser', () => {
     const result = await generateNotesForUser('u1', 'hiyori', {
       topicRepo,
       noteRepo,
+      noteSkipRepo,
       llmClient,
       characterName: '桃瀬ひより',
       ulidFactory,
@@ -230,6 +293,7 @@ describe('generateNotesForUser', () => {
     const result = await generateNotesForUser('u1', 'hiyori', {
       topicRepo,
       noteRepo,
+      noteSkipRepo,
       llmClient,
       characterName: '桃瀬ひより',
       ulidFactory,
@@ -261,6 +325,7 @@ describe('generateNotesForUser', () => {
     const result = await generateNotesForUser('u1', 'hiyori', {
       topicRepo,
       noteRepo,
+      noteSkipRepo,
       llmClient,
       characterName: '桃瀬ひより',
       ulidFactory,
@@ -280,6 +345,7 @@ describe('generateNotesForUser', () => {
     const result = await generateNotesForUser('u1', 'hiyori', {
       topicRepo,
       noteRepo,
+      noteSkipRepo,
       llmClient,
       characterName: '桃瀬ひより',
       ulidFactory,
@@ -298,6 +364,7 @@ describe('generateNotesForUser', () => {
     const result = await generateNotesForUser('u1', 'hiyori', {
       topicRepo,
       noteRepo,
+      noteSkipRepo,
       llmClient,
       characterName: '桃瀬ひより',
       ulidFactory,
@@ -306,5 +373,123 @@ describe('generateNotesForUser', () => {
     });
 
     expect(result.generatedCount).toBe(1);
+  });
+
+  describe('「生成しない」判断の記憶', () => {
+    const key = { userId: 'u1', characterId: 'hiyori', topicId: 'topic-001' };
+    const run = (llmClient: ILLMClient, extra: Record<string, unknown> = {}) =>
+      generateNotesForUser('u1', 'hiyori', {
+        topicRepo,
+        noteRepo,
+        noteSkipRepo,
+        llmClient,
+        characterName: '桃瀬ひより',
+        ulidFactory,
+        now: () => tick,
+        ...extra,
+      });
+
+    it('skip=true の判断を、中身を読む前の時刻で記録する', async () => {
+      await putTopic({ care: 3 });
+      await putWebFact('topic-001');
+      tick = fixedNow + 1000;
+      const judgedAt = tick;
+
+      await run(makeLLMClient([makeLetter({ skip: true })]));
+
+      const records = await noteSkipRepo.listAll('u1', 'hiyori');
+      expect(records).toHaveLength(1);
+      expect(records[0]).toMatchObject({ topicId: 'topic-001', decidedAt: judgedAt });
+    });
+
+    it('記録があり、その後に WEB fact が増えていなければ LLM を呼ばない', async () => {
+      await putTopic({ care: 3 });
+      await putWebFact('topic-001');
+      tick = fixedNow + 1000;
+      await run(makeLLMClient([makeLetter({ skip: true })]));
+      tick += 1000;
+      const llmClient = makeLLMClient([makeLetter()]);
+
+      const result = await run(llmClient);
+
+      expect(llmClient.chatStructuredCalls).toBe(0);
+      expect(result.generatedCount).toBe(0);
+    });
+
+    it('判断時刻と同時刻に作られた fact では評価し直さない（後に増えたものだけが対象）', async () => {
+      await putTopic({ care: 3 });
+      tick = fixedNow + 1000;
+      const fact = await putWebFact('topic-001');
+      await noteSkipRepo.put({ ...key, decidedAt: fact.createdAt });
+      const llmClient = makeLLMClient([makeLetter()]);
+
+      await run(llmClient);
+
+      expect(llmClient.chatStructuredCalls).toBe(0);
+    });
+
+    it('記録後に WEB fact が増えたら評価し直し、ノートを作れば記録を消す', async () => {
+      await putTopic({ care: 3 });
+      await putWebFact('topic-001');
+      await noteSkipRepo.put({ ...key, decidedAt: fixedNow + 10 });
+      tick = fixedNow + 1000;
+      await putWebFact('topic-001', { text: '新しい事実' });
+      const llmClient = makeLLMClient([makeLetter()]);
+
+      const result = await run(llmClient);
+
+      expect(llmClient.chatStructuredCalls).toBe(1);
+      expect(result.generatedCount).toBe(1);
+      expect(await noteSkipRepo.listAll('u1', 'hiyori')).toEqual([]);
+    });
+
+    it('再評価でも skip=true なら判断時刻を上書きする', async () => {
+      await putTopic({ care: 3 });
+      await putWebFact('topic-001');
+      await noteSkipRepo.put({ ...key, decidedAt: fixedNow + 10 });
+      tick = fixedNow + 1000;
+      await putWebFact('topic-001', { text: '新しい事実' });
+      tick = fixedNow + 2000;
+
+      await run(makeLLMClient([makeLetter({ skip: true })]));
+
+      const records = await noteSkipRepo.listAll('u1', 'hiyori');
+      expect(records).toHaveLength(1);
+      expect(records[0].decidedAt).toBe(fixedNow + 2000);
+    });
+
+    it('記録の取得に失敗しても記録なしで評価を続ける', async () => {
+      await putTopic({ care: 3 });
+      await putWebFact('topic-001');
+      jest.spyOn(noteSkipRepo, 'listAll').mockRejectedValueOnce(new Error('boom'));
+
+      const result = await run(makeLLMClient([makeLetter()]));
+
+      expect(result.generatedCount).toBe(1);
+    });
+
+    it('記録の保存に失敗しても次の候補の評価を続ける', async () => {
+      await putTopic({ topicId: 'topic-001', care: 4 });
+      await putWebFact('topic-001');
+      await putTopic({ topicId: 'topic-002', care: 3 });
+      await putWebFact('topic-002');
+      jest.spyOn(noteSkipRepo, 'put').mockRejectedValueOnce(new Error('boom'));
+
+      const result = await run(makeLLMClient([makeLetter({ skip: true }), makeLetter()]));
+
+      expect(result.generatedCount).toBe(1);
+      expect((await noteRepo.listAll('u1', 'hiyori'))[0].topicId).toBe('topic-002');
+    });
+
+    it('記録の削除に失敗しても、保存済みのノートは生成として数える', async () => {
+      await putTopic({ care: 3 });
+      await putWebFact('topic-001');
+      await noteSkipRepo.put({ ...key, decidedAt: fixedNow - 1 });
+      jest.spyOn(noteSkipRepo, 'delete').mockRejectedValueOnce(new Error('boom'));
+
+      const result = await run(makeLLMClient([makeLetter()]));
+
+      expect(result.generatedCount).toBe(1);
+    });
   });
 });

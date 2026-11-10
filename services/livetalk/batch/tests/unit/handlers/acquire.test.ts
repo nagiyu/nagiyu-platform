@@ -14,11 +14,16 @@ jest.mock('@nagiyu/livetalk-core', () => ({
   createTopicRepository: jest.fn(),
   createWebRawRepository: jest.fn(),
   createStudyTopicRepository: jest.fn(),
+  createFreshnessCheckRequestRepository: jest.fn(),
+  createExplorationRepository: jest.fn(() => ({ kind: 'exploration-repo' })),
   createLifecycleRepository: jest.fn(),
+  createMessageRepository: jest.fn(),
+  createStudyUsageRepository: jest.fn(),
   createProfileRepository: jest.fn(),
   OpenAIResearchClient: jest.fn(),
   OpenAIClient: jest.fn(),
   LLMWebFactChangeDetector: jest.fn(),
+  LLMExplorationAngleGenerator: jest.fn(() => ({ kind: 'angle-generator' })),
   defaultUlidFactory: jest.fn(),
 }));
 
@@ -57,6 +62,7 @@ describe('acquire handler', () => {
       staleFactsReviewed: 4,
       selfStudied: 1,
       webRawWritten: 5,
+      webSearchCalls: 9,
     });
 
     const { handler } = await import('../../../src/handlers/acquire.js');
@@ -66,6 +72,14 @@ describe('acquire handler', () => {
     const body = JSON.parse(response.body);
     expect(body.processedUsers).toBe(5);
     expect(body.webRawWritten).toBe(5);
+    expect(body.webSearchCalls).toBe(9);
+    // 探索の角度の生成器と記録のリポジトリを acquire に渡す
+    expect(mockAcquireAll).toHaveBeenCalledWith(
+      expect.objectContaining({
+        angleGenerator: { kind: 'angle-generator' },
+        explorationRepo: { kind: 'exploration-repo' },
+      })
+    );
   });
 
   it('例外発生時に throw する', async () => {

@@ -30,3 +30,6 @@ export const IP_ITEM_TYPE = 'USAGE_IP';
 
 /** 回数の属性名。AI 解析の種類ごとに分ける */
 export const COUNTER_ATTRIBUTES = { ai: 'AiCount', noAi: 'NoAiCount' } as const;
+
+/** IP ごとの日次ジョブ数の属性名 */
+export const IP_COUNT_ATTRIBUTE = 'Count';
