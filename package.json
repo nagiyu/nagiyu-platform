@@ -14,7 +14,8 @@
     "services/*/api",
     "libs/*",
     "infra",
-    "infra/*"
+    "infra/*",
+    "docs-site"
   ],
   "scripts": {
     "build:libs": "npm run build --workspace=@nagiyu/common --workspace=@nagiyu/aws --workspace=@nagiyu/browser --workspace=@nagiyu/nextjs --workspace=@nagiyu/react --workspace=@nagiyu/ui",

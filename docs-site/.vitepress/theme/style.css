@@ -1,0 +1,62 @@
+.spec-meta {
+  margin: 0 0 24px;
+  padding: 12px 16px;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 8px;
+  background: var(--vp-c-bg-soft);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.spec-meta-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.spec-meta-badge {
+  padding: 0 8px;
+  border-radius: 10px;
+  background: var(--vp-c-brand-soft);
+  color: var(--vp-c-brand-1);
+  font-weight: 600;
+}
+
+.spec-meta-row {
+  margin-top: 6px;
+}
+
+.spec-meta-title {
+  display: block;
+  color: var(--vp-c-text-2);
+  font-weight: 600;
+}
+
+.spec-meta ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.spec-meta li {
+  margin: 0;
+  /* 長いパスでスマホ幅からはみ出さないため */
+  overflow-wrap: anywhere;
+}
+
+.spec-meta a {
+  color: var(--vp-c-brand-1);
+  text-decoration: none;
+}
+
+.spec-meta a:hover {
+  text-decoration: underline;
+}
+
+.spec-meta summary {
+  cursor: pointer;
+}

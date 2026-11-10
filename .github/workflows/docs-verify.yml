@@ -2,7 +2,8 @@ name: Verify - docs のリンク
 
 # docs/ だけを公開する先 (GitHub Pages など) でもリンクが壊れないよう、
 # docs/ の中で閉じていること (docs/ の外へのリンクがなく、リンク切れもないこと) を検査する。
-# 依存を足さずランナーの python3 で動かすため、setup-python は使わない。
+# リンク検査は依存を足さずランナーの python3 で動かすため、setup-python は使わない。
+# サイトのビルドは、docs/ の書き方が VitePress で通ること (壊れたリンク、Vue と衝突する記法) を確かめる。
 
 on:
   pull_request:
@@ -12,6 +13,7 @@ on:
       - 'integration/**'
     paths:
       - 'docs/**'
+      - 'docs-site/**'
       - '.github/workflows/scripts/check-doc-links.py'
       - '.github/workflows/docs-verify.yml'
 
@@ -33,11 +35,33 @@ jobs:
       - name: docs/ の相対リンクを検査
         run: python3 .github/workflows/scripts/check-doc-links.py
 
+  site-build:
+    name: サイトのビルド
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      # docs サイトの確認に他 workspace の依存は要らないため、docs-site だけ入れる
+      - name: 依存をインストール
+        run: npm ci --workspace=docs-site
+
+      - name: サイトのテスト
+        run: npm run test -w docs-site
+
+      - name: サイトをビルド
+        run: npm run build -w docs-site
+
   report:
     name: Report Results to PR
     runs-on: ubuntu-latest
     if: always()
-    needs: [link-check]
+    needs: [link-check, site-build]
     permissions:
       contents: read
       pull-requests: write
@@ -47,7 +71,10 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const results = { 'リンク検査': '${{ needs.link-check.result }}' };
+            const results = {
+              'リンク検査': '${{ needs.link-check.result }}',
+              'サイトのビルド': '${{ needs.site-build.result }}',
+            };
             const statusEmoji = { 'success': '✅', 'failure': '❌', 'cancelled': '⚠️', 'skipped': '⏭️' };
             const allSuccess = Object.values(results).every(r => r === 'success');
             const header = allSuccess
@@ -61,7 +88,7 @@ jobs:
               body += `| ${job} | ${emoji} ${result} |\n`;
             }
             if (!allSuccess) {
-              body += '\n> docs/ の外へのリンクか、リンク切れがあります。docs/ の外のファイルはリンクにせずコード表記のパスで書き、リンク切れは直してください。詳細はワークフローのログを参照してください。\n';
+              body += '\n> docs/ の外へのリンクか、リンク切れ、またはサイトのビルドの失敗があります。docs/ の外のファイルはリンクにせずコード表記のパスで書き、リンク切れは直してください。詳細はワークフローのログを参照してください。\n';
             }
             body += `\n[View workflow run](${context.payload.repository.html_url}/actions/runs/${context.runId})`;
             github.rest.issues.createComment({ issue_number: context.issue.number, owner: context.repo.owner, repo: context.repo.repo, body: body });
