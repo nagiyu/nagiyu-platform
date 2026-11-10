@@ -1,11 +1,6 @@
----
-name: spec-card
-description: 仕様カード (docs/specs/) を作る・作り直す。カードの sources に含まれるコードを変えたとき、新しいバッチや通知経路などを足したとき、spec-cards の check が落ちたときに使う。カードは今のコードの写しで、手で直さずこの手順で作り直す。
----
-
 # 仕様カードの作成・作り直し
 
-仕様カードは `docs/specs/` にある、**今のコードがどう動くか**の要約である。正本はコードで、「なぜ」は ADR・docs が持つ。カードは人が手で直さず、コードを変える PR の中でこの手順に沿って作り直す。仕様・配置・frontmatter・本文の型は [docs/specs/README.md](../../../docs/specs/README.md) を正とし、ここには手順と書き方の要点だけを置く。
+仕様カードは `docs/specs/` にある、**今のコードがどう動くか**の要約である。正本はコードで、「なぜ」は ADR・docs が持つ。カードの文面だけを単独で直さず、コードを変える PR の中で、コードを読んでこの手順に沿って作り直す。仕様・配置・frontmatter・本文の型は [docs/specs/README.md](../../../docs/specs/README.md) を正とし、ここには手順と書き方の要点だけを置く。
 
 ## 使うとき
 
@@ -56,4 +51,4 @@ description: 仕様カード (docs/specs/) を作る・作り直す。カード�
 ## 関連
 
 - [docs/specs/README.md](../../../docs/specs/README.md): カードの仕様・型・一覧
-- [docs-write スキル](../docs-write/SKILL.md): ADR・設計ドキュメントを書くとき (カードとは別)
+- [SKILL.md](SKILL.md): ADR・設計ドキュメントを書くとき (カードとは別)
