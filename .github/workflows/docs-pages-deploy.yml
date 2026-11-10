@@ -1,8 +1,5 @@
 name: Deploy - docs サイト (GitHub Pages)
 
-# docs/ を VitePress でビルドして GitHub Pages に公開する。
-# PR では公開しない (ビルドが通るかは docs-verify.yml で確かめる)。
-
 on:
   push:
     branches:
@@ -36,7 +33,7 @@ jobs:
           cache: 'npm'
           cache-dependency-path: './package-lock.json'
 
-      # docs サイトの公開に他 workspace の依存は要らないため、docs-site だけ入れる
+      # テストやビルドの道具 (jest など) はルートにあるため、ルートと docs-site だけを入れる
       - name: 依存をインストール
         run: npm ci --workspace=docs-site --include-workspace-root
 
