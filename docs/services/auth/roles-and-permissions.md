@@ -149,9 +149,12 @@ Phase 2 以降で追加されるサービス（Logs, Tools 等）の権限も同
 | ロールID | ロール名 | 権限 |
 |---------|---------|------|
 | `quick-clip-unlimited` | Quick Clip 使い放題 | `quick-clip:unlimited` |
+| `billing-tester` | 課金のテスト | `billing:test` |
 
 - **`billing` を持たない**: 有料ロールの印である `billing` を付けないことで、`PAID_ROLES` に入らない。プランの画面、Stripe の価格の lookup_key、課金の権利の選択肢に出ず、契約や支援の付与で付くことがない。売らず、Stripe と結びつけないため
 - **上の段として他の権限を含めない**: 有料の段の並び (standard → pro) の外にあり、`quick-clip:standard` や `quick-clip:pro` を含まない。Quick Clip は `quick-clip:unlimited` を先に見て、プランの権限と両方持っていても使い放題として扱う
+- **`billing-tester` は課金の入口を開けるテスト用のロール**: 本番以外では、`billing:test` を持たない利用者は申し込みができない。dev のサンドボックスで、テスト用のカードによって無料のまま有料の段が付くのを防ぎつつ、動作確認する人には決済までの流れを通せるようにする。本番では制限をかけないので、このロールは意味を持たない。`billing` を持たないので有料ロールではなく、契約や支援の付与で付くことはない
+- **`admin` に含めない**: テスト用の別アカウントに、ユーザー管理やロール割り当てを含む管理者権限を渡さずに付けられるようにするため (→ [アーキテクチャ](./architecture.md) の ADR-014)
 
 ## 実装ガイドライン
 

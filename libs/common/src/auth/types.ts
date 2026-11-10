@@ -91,6 +91,9 @@ export interface Session {
  * - quick-clip:standard - Use Quick Clip standard features (paid role)
  * - quick-clip:pro - Use Quick Clip pro features (paid role, includes standard)
  * - quick-clip:unlimited - Use Quick Clip without a monthly usage limit (manual role, not paid)
+ *
+ * Billing permissions:
+ * - billing:test - Start a checkout in non-production environments (manual role, not paid)
  */
 export type Permission =
   | 'users:read'
@@ -108,7 +111,8 @@ export type Permission =
   | 'livetalk:standard'
   | 'quick-clip:standard'
   | 'quick-clip:pro'
-  | 'quick-clip:unlimited';
+  | 'quick-clip:unlimited'
+  | 'billing:test';
 
 /**
  * Valid role IDs defined in ROLES constant
