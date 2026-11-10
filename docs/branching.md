@@ -44,7 +44,7 @@ develop を「いつでもリリース可能」に保つためである。完成
 
 開発環境に資材が出ない軽量な変更 (CLAUDE.md や docs の更新、小さなワークフローの改修など) は、integration を切らず `develop` へ直接 PR を出してよい。開発環境で検証するものがないためである。
 
-例外として、**Portal の技術記事は Markdown だが integration を経由する**。原稿の差分では良し悪しが判断できず、開発環境の描画を見て初めて検証できるためである。書き方は [`portal-article`](../.claude/skills/portal-article/SKILL.md) スキルに従う。
+例外として、**Portal の技術記事は Markdown だが integration を経由する**。原稿の差分では良し悪しが判断できず、開発環境の描画を見て初めて検証できるためである。書き方は portal-article スキル (`.claude/skills/portal-article/SKILL.md`) に従う。
 
 ---
 
@@ -74,7 +74,7 @@ develop を「いつでもリリース可能」に保つためである。完成
 
 本番の不具合修正も、急ぎかどうかにかかわらずリリースとして扱う。「hotfix」という別の手順は設けない。個別の事情がある場合は、上の「守ること」の範囲で都度判断する。
 
-手順の詳細は [`release`](../.claude/skills/release/SKILL.md) スキルを参照する。
+手順の詳細は release スキル (`.claude/skills/release/SKILL.md`) を参照する。
 
 ---
 

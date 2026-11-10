@@ -78,7 +78,7 @@ E2E の再利用ワークフロー (アップロード先) と各 verify の報�
 - CloudFront Distribution（OAC 経由で S3 を参照）
 - Route53 ALIAS レコード（`reports.nagiyu.com` / `reports.dev.nagiyu.com` → 各アカウントの CloudFront）
 - 各アカウントの wildcard ACM 証明書を流用
-- CDK 定義: [`infra/shared/lib/reports-hosting-stack.ts`](../../infra/shared/lib/reports-hosting-stack.ts)
+- CDK 定義: `infra/shared/lib/reports-hosting-stack.ts`
 
 ## アップロードフロー
 
