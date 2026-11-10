@@ -12,7 +12,7 @@
 | **Skill（段階的開示）** | `.claude/skills/<name>/` | 関連したときだけ本文がロードされる（`description` のみ常時） | たまに使う手順・道具（スクリプト / テンプレ同梱可） |
 | **サブエージェント** | `.claude/agents/` | spawn 時に別コンテキスト | コンテキスト隔離が必要な作業を本体の文脈から切り離す（実装 / fresh-eyes レビュー。別モデル指定可） |
 | **永続ドキュメント** | `docs/` | 必要時に参照 | 「なぜ」（背景・意思決定・設計判断） |
-| **仕様カード** | `docs/specs/` | 必要時に参照 | 今のコードの挙動の写し。手で直さず、コードを変える PR で `spec-card` スキルに沿って作り直す（→ [`docs/specs/README.md`](../specs/README.md)） |
+| **仕様カード** | `docs/specs/` | 必要時に参照 | 今のコードの挙動の写し。文面だけを単独で直さず、コードを変える PR で `docs-write` スキルに沿って作り直す（→ [`docs/specs/README.md`](../specs/README.md)） |
 | **Copilot / Codex 用** | `.github/agents/` / `.github/copilot-instructions.md` / `.specify/` | 別ツール側 | Copilot Agent / spec-kit 用の指示。Claude 運用とは別系統 |
 
 ---
