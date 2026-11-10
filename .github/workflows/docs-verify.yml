@@ -1,0 +1,67 @@
+name: Verify - docs のリンク
+
+# docs/ だけを公開する先 (GitHub Pages など) でもリンクが壊れないよう、
+# docs/ の中で閉じていること (docs/ の外へのリンクがなく、リンク切れもないこと) を検査する。
+# 依存を足さずランナーの python3 で動かすため、setup-python は使わない。
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - master
+      - 'integration/**'
+    paths:
+      - 'docs/**'
+      - '.github/workflows/scripts/check-doc-links.py'
+      - '.github/workflows/docs-verify.yml'
+
+env:
+  SERVICE_DISPLAY_NAME: Docs
+
+# 同じ PR の古いコミットに対する検証は不要なため、新しい run が来たら打ち切る。
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  link-check:
+    name: リンク検査
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: docs/ の相対リンクを検査
+        run: python3 .github/workflows/scripts/check-doc-links.py
+
+  report:
+    name: Report Results to PR
+    runs-on: ubuntu-latest
+    if: always()
+    needs: [link-check]
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Create PR Comment
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const results = { 'リンク検査': '${{ needs.link-check.result }}' };
+            const statusEmoji = { 'success': '✅', 'failure': '❌', 'cancelled': '⚠️', 'skipped': '⏭️' };
+            const allSuccess = Object.values(results).every(r => r === 'success');
+            const header = allSuccess
+              ? '## ✅ [${{ env.SERVICE_DISPLAY_NAME }}] Verification Passed'
+              : '## ❌ [${{ env.SERVICE_DISPLAY_NAME }}] Verification Failed';
+            let body = `${header}\n\n`;
+            body += '| Job | Status |\n';
+            body += '|-----|--------|\n';
+            for (const [job, result] of Object.entries(results)) {
+              const emoji = statusEmoji[result] || '❓';
+              body += `| ${job} | ${emoji} ${result} |\n`;
+            }
+            if (!allSuccess) {
+              body += '\n> docs/ の外へのリンクか、リンク切れがあります。docs/ の外のファイルはリンクにせずコード表記のパスで書き、リンク切れは直してください。詳細はワークフローのログを参照してください。\n';
+            }
+            body += `\n[View workflow run](${context.payload.repository.html_url}/actions/runs/${context.runId})`;
+            github.rest.issues.createComment({ issue_number: context.issue.number, owner: context.repo.owner, repo: context.repo.repo, body: body });

@@ -147,7 +147,7 @@ react    ← browser, common
 ui       ← browser, common
 ```
 
-**ローカルで `next dev` や E2E を起動する前にも `npm run build:libs` を実行する**（`build-shared-libs` スキル（[`.claude/skills/build-shared-libs/`](../../.claude/skills/build-shared-libs/SKILL.md)）も同じコマンドを使う）。ビルド順は `build:libs` の `--workspace` の並びで決まる。lib を増やしたり依存を変えたりしたら、この並びを依存順に直す。
+**ローカルで `next dev` や E2E を起動する前にも `npm run build:libs` を実行する**（`build-shared-libs` スキル（`.claude/skills/build-shared-libs/SKILL.md`）も同じコマンドを使う）。ビルド順は `build:libs` の `--workspace` の並びで決まる。lib を増やしたり依存を変えたりしたら、この並びを依存順に直す。
 
 ### libs だけでは足りない：サービスの core も必要
 

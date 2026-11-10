@@ -110,7 +110,7 @@ PR マージ
 |------------|------|
 | `tasks/templates/design.md` | 開発時技術設計（API・データモデル・コンポーネント） |
 
-`requirements.md` と `external-design.md` は `docs/templates/services/` のテンプレートを流用する（→ [tasks/templates/README.md](../../tasks/templates/README.md)）。
+`requirements.md` と `external-design.md` は `docs/templates/services/` のテンプレートを流用する（→ `tasks/templates/README.md`）。
 
 ### docs/ テンプレート
 
@@ -189,7 +189,7 @@ A: トピックブランチを分けて作業するため、`tasks/` の内容�
 
 ## 関連ドキュメント
 
-- [tasks/templates/README.md](../../tasks/templates/README.md) — tasks/ テンプレートの使い方
+- `tasks/templates/README.md` — tasks/ テンプレートの使い方
 - [docs/templates/services/](../templates/services/) — サービスドキュメントテンプレート
 - [docs/branching.md](../branching.md) — ブランチ戦略・CI/CD
 - [docs/development/testing.md](testing.md) — テスト戦略
