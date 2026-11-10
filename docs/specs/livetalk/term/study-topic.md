@@ -3,7 +3,6 @@ id: livetalk/term/study-topic
 title: 勉強の依頼 (StudyTopic)
 kind: term
 service: livetalk
-status: active
 sources:
   - services/livetalk/core/src/entities/study-topic.entity.ts
   - services/livetalk/core/src/study/knowledge-gate.ts

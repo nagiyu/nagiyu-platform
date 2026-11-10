@@ -3,7 +3,6 @@ id: platform/term/error-event
 title: ErrorEvent (エラーイベント)
 kind: term
 service: platform
-status: active
 sources:
   - libs/common/src/error-event/types.ts
   - libs/aws/src/error-events/mapper.ts

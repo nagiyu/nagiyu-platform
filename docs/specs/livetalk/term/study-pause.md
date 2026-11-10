@@ -3,7 +3,6 @@ id: livetalk/term/study-pause
 title: 勉強の停止 (3 日ルール)
 kind: term
 service: livetalk
-status: active
 sources:
   - services/livetalk/core/src/study/active-window.ts
   - services/livetalk/core/src/constants.ts

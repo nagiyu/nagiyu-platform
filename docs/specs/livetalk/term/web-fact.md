@@ -3,7 +3,6 @@ id: livetalk/term/web-fact
 title: WEB fact
 kind: term
 service: livetalk
-status: active
 sources:
   - services/livetalk/core/src/entities/web-fact.entity.ts
   - services/livetalk/core/src/study/freshness-check.ts

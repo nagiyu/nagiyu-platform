@@ -3,7 +3,6 @@ id: livetalk/term/webraw
 title: WebRaw (Web 取得の生データ)
 kind: term
 service: livetalk
-status: active
 sources:
   - services/livetalk/core/src/entities/webraw.entity.ts
   - services/livetalk/core/src/constants.ts

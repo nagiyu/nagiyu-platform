@@ -29,7 +29,7 @@ related_adr:
 
 キャラクターが Web で調べものをして、結果を [WebRaw](../term/webraw.md) に書くバッチ。[Topic](../term/topic.md) への畳み込みは[集約バッチ](./consolidate-conversations.md)が行う。
 
-## いつ動くか
+## 起点
 
 - 毎時 45 分 (EventBridge: `cron(45 * * * ? *)`)
 - 全利用者 × 全キャラクター (hiyori、ageha) を順に処理する

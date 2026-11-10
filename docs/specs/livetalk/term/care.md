@@ -3,7 +3,6 @@ id: livetalk/term/care
 title: care (話題への注目度)
 kind: term
 service: livetalk
-status: active
 sources:
   - services/livetalk/core/src/entities/topic.entity.ts
   - services/livetalk/core/src/usecases/consolidate.usecase.ts

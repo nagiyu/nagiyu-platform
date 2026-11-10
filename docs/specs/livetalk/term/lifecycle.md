@@ -3,7 +3,6 @@ id: livetalk/term/lifecycle
 title: lifecycle (生活サイクル)
 kind: term
 service: livetalk
-status: active
 sources:
   - services/livetalk/core/src/entities/lifecycle.entity.ts
   - services/livetalk/core/src/lifecycle/state-resolver.ts

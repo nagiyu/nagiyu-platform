@@ -39,7 +39,7 @@ docs/specs/{service}/{kind}/{name}.md
 |---|---|
 | `batch` | 定期実行されるバッチ |
 | `flow` | 通知経路など、サービスをまたぐ流れ |
-| `term` | 用語 (廃止した用語も残す) |
+| `term` | 用語 |
 
 `api` や `screen` など、種別は必要になったら足す。
 
@@ -51,8 +51,6 @@ id: livetalk/batch/acquire        # docs/specs/ からの相対パスから .md 
 title: 勉強バッチ (acquire)
 kind: batch                       # batch | flow | term
 service: livetalk
-status: active                    # term のみ。active | deprecated
-replaced_by: [livetalk/term/topic] # term で deprecated のときのみ
 sources:                          # 元にしたファイル。リポジトリルートからのパスで、ファイルだけ (glob は不可)
   - services/livetalk/batch/src/handlers/acquire.ts
 sources_hash: <sha256>            # スクリプトが計算して書く。手で書かない
@@ -69,10 +67,8 @@ related_adr:                      # docs/ からの相対パス + アンカー
 | `title` | 必須 | 見出しにも使う名前 |
 | `kind` | 必須 | ディレクトリの `kind` と一致させる |
 | `service` | 必須 | ディレクトリの `service` と一致させる |
-| `sources` | 必須 | 元にしたファイル。空配列 (`[]`) は、コードが残っていない廃止用語だけに使う |
+| `sources` | 必須 | 元にしたファイル |
 | `sources_hash` | 必須 | `sources` から計算した値 |
-| `status` | term のみ | `active` または `deprecated` |
-| `replaced_by` | deprecated の term のみ | 置き換え先のカード |
 | `terms` | 任意 | 本文で使う用語カード |
 | `related_cards` | 任意 | 併せて読むカード |
 | `related_adr` | 任意 | 「なぜ」の参照先。アンカーは見出しの先頭の語 (節番号 `2.24`、`ADR-003` など) |
@@ -86,22 +82,34 @@ related_adr:                      # docs/ からの相対パス + アンカー
 
 ### batch
 
+この型は livetalk と Admin の少数のカードから作った仮の型で、ほかのサービスへ広げるときに見直す。
+
+必須の節:
+
 1. 概要 (1〜2 文)
-2. `## いつ動くか`
-3. `## 対象から外れる条件`
-4. `## 処理` (フロー図 + 表・箇条書き)
-5. `## 上限`
-6. `## 失敗したとき`
-7. `## つながり` (mermaid)
+2. `## 起点` (スケジュール、または起動のきっかけ。利用者の操作などで 1 件ずつ起動するジョブは、何が起動するかを書く)
+3. `## 処理` (フロー図 + 表・箇条書き)
+4. `## 失敗したとき`
+5. `## つながり` (mermaid)
+
+任意の節 (持っているバッチだけ書く。書くときは、処理の前後で次の位置に置く):
+
+- `## 対象から外れる条件`: `## 起点` の次。対象になる条件 (最低発話数・見る期間など) もここに書く
+- `## 上限`: `## 処理` の次。処理を止める仕組みとしての上限 (回数・件数の上限など) だけを書く。処理のパラメータ (候補の上位件数・保持件数・文字数など) は、処理の表・箇条書きに書く
 
 ### flow
+
+必須の節 (どの経路にもあるもの):
 
 1. 概要
 2. `## 起点`
 3. `## 経路` (フロー図またはシーケンス図 + 補足)
 4. `## 届く先`
-5. `## 失敗・取りこぼしのとき`
-6. `## つながり` (mermaid)。経路の図が起点・データ・届く先との関係まで描いていて重なるなら、省いてよい
+
+任意の節:
+
+- `## 失敗・取りこぼしのとき`: 失敗や取りこぼしの扱いが決まっているときに書く
+- `## つながり` (mermaid): 経路の図が起点・データ・届く先との関係まで描いていて重なるなら、省いてよい
 
 ### 図の書き方
 
@@ -118,7 +126,7 @@ related_adr:                      # docs/ からの相対パス + アンカー
 2. `## 説明` (数行)
 3. `## 関連するカード`
 
-廃止した用語は `status: deprecated` にして、何に置き換わったかを説明に書く。
+廃止した用語のカードは作らない (置き換えの経緯は ADR に、昔の中身は git の履歴にある)。
 
 ## 書き方
 
@@ -137,7 +145,7 @@ node .github/workflows/scripts/spec-cards.mjs check              # 整合を確�
 
 - 必須項目がある。`id` が位置と一致する。`kind` と `service` がディレクトリと一致する
 - `sources` のファイルが存在する。`sources_hash` が今のコードと一致する
-- `terms`・`related_cards`・`replaced_by` が実在するカードを指す。`related_adr` が実在する節を指す
+- `terms`・`related_cards` が実在するカードを指す。`related_adr` が実在する節を指す
 - すべてのカードが下の索引に載っている
 
 ## カード一覧
@@ -162,9 +170,6 @@ node .github/workflows/scripts/spec-cards.mjs check              # 整合を確�
 | `livetalk/term/freshness-check-request` | [鮮度確認の依頼](./livetalk/term/freshness-check-request.md) |
 | `livetalk/term/exploration` | [探索の記録](./livetalk/term/exploration.md) |
 | `livetalk/term/note` | [ノート](./livetalk/term/note.md) |
-| `livetalk/term/memory-tier` | [Memory Tier (廃止)](./livetalk/term/memory-tier.md) |
-| `livetalk/term/interest-category` | [InterestCategory (廃止)](./livetalk/term/interest-category.md) |
-| `livetalk/term/knowledge` | [Knowledge (廃止)](./livetalk/term/knowledge.md) |
 
 ### admin
 

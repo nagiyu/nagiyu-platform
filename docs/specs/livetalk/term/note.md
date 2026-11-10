@@ -3,7 +3,6 @@ id: livetalk/term/note
 title: ノート
 kind: term
 service: livetalk
-status: active
 sources:
   - services/livetalk/core/src/entities/note.entity.ts
   - services/livetalk/core/src/constants.ts

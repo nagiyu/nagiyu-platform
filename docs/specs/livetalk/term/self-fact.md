@@ -3,7 +3,6 @@ id: livetalk/term/self-fact
 title: SELF fact
 kind: term
 service: livetalk
-status: active
 sources:
   - services/livetalk/core/src/entities/self-fact.entity.ts
   - services/livetalk/core/src/usecases/forget-self-fact.usecase.ts

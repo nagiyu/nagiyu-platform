@@ -3,7 +3,6 @@ id: livetalk/term/exploration
 title: 探索の記録
 kind: term
 service: livetalk
-status: active
 sources:
   - services/livetalk/core/src/entities/exploration.entity.ts
   - services/livetalk/core/src/research/exploration-angle-generator.ts

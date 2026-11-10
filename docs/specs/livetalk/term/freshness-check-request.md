@@ -3,7 +3,6 @@ id: livetalk/term/freshness-check-request
 title: 鮮度確認の依頼
 kind: term
 service: livetalk
-status: active
 sources:
   - services/livetalk/core/src/entities/freshness-check-request.entity.ts
   - services/livetalk/core/src/study/freshness-check.ts
