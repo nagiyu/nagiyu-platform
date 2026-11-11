@@ -58,7 +58,7 @@ export const SITE_STRUCTURE: readonly StructureNode[] = [
     items: [
       { type: 'directory', path: 'specs/platform/term', title: '共通の用語' },
       { type: 'directory', path: 'libs', title: 'ライブラリ' },
-      { type: 'directory', path: 'infra' },
+      { type: 'directory', path: 'infra', title: 'インフラ' },
     ],
   },
   {
