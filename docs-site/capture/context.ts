@@ -6,7 +6,6 @@ import type { ScenarioContext, ServiceCapture, ShotOptions } from './types';
 
 /** サービスがテスト用ロールを受け取るヘッダー。E2E のフィクスチャと同じ */
 const ROLES_HEADER = 'x-test-user-roles';
-const DEFAULT_ROLES = ['stock-admin'];
 const DEFAULT_TIMEOUT_MS = 60_000;
 const DEFAULT_SETTLE_MS = 300;
 
@@ -70,7 +69,7 @@ export async function createScenarioContext(options: Options): Promise<CreatedSc
   }
 
   async function freshPage(opts: { roles?: string[] } = {}): Promise<Page> {
-    const created = await newBrowserContext(opts.roles ?? DEFAULT_ROLES);
+    const created = await newBrowserContext(opts.roles ?? config.defaultRoles);
     const page = await created.newPage();
     // 開始時刻だけを固定し、その後は実時間で進める。時刻を止めると、チャートの描画アニメーションが進まず空のまま撮れる
     await page.clock.install({ time: new Date(config.fixedTime) });

@@ -13,12 +13,14 @@ import { parse } from 'dotenv';
 import { chromium } from '@playwright/test';
 import { assertUniqueImages, resolveDevices } from '../src/spec-screenshot';
 import { createScenarioContext } from './context';
+import { admin } from './admin';
 import { stockTracker } from './stock-tracker';
-import type { ServiceCapture } from './types';
+import type { CompanionProcess, ServiceCapture } from './types';
 
 const REPO_ROOT = resolve(__dirname, '../..');
 
 const SERVICES: Record<string, ServiceCapture> = {
+  admin,
   'stock-tracker': stockTracker,
 };
 
@@ -26,6 +28,7 @@ const MESSAGES = {
   USAGE: `使い方: npm run capture:specs -w @nagiyu/docs-site -- <${Object.keys(SERVICES).join('|')}> [--screen <画面名>]...`,
   UNKNOWN_SERVICE: (name: string) => `撮影の設定がないサービスです: ${name}`,
   UNKNOWN_SCREEN: (name: string) => `撮影シナリオにない画面です: ${name}`,
+  MISSING_COMPANION_FILE: (path: string) => `補助のプロセスに必要なファイルがありません: ${path}`,
   MISSING_BUILD: (path: string) =>
     `ビルド成果物がありません: ${path}\n共通ライブラリとサービスの core を先にビルドしてください (build-shared-libs スキル)`,
   BUILD_FAILED: 'サービスのビルドに失敗しました',
@@ -53,6 +56,7 @@ function serverEnv(config: ServiceCapture): NodeJS.ProcessEnv {
   return {
     ...process.env,
     ...parse(readFileSync(resolve(REPO_ROOT, config.server.envFile))),
+    ...config.server.extraEnv,
   };
 }
 
@@ -78,6 +82,22 @@ function startServer(config: ServiceCapture): ChildProcess {
     env,
     stdio: 'ignore',
     // 子プロセス (next dev) までまとめて止めるため、専用のプロセスグループにする
+    detached: true,
+  });
+}
+
+/** サービスの前に起動する補助のプロセスを立ち上げる。プロセスグループごと止められるようにしておく */
+function startCompanion(companion: CompanionProcess): ChildProcess {
+  for (const file of companion.requiredFiles ?? []) {
+    if (!existsSync(resolve(REPO_ROOT, file))) {
+      throw new Error(MESSAGES.MISSING_COMPANION_FILE(file));
+    }
+  }
+  const [command, ...args] = companion.command;
+  return spawn(command, args, {
+    cwd: REPO_ROOT,
+    env: { ...process.env, ...companion.env },
+    stdio: 'ignore',
     detached: true,
   });
 }
@@ -119,6 +139,7 @@ async function main(): Promise<void> {
 
   let baseUrl = process.env.CAPTURE_BASE_URL;
   let server: ChildProcess | undefined;
+  const companions: ChildProcess[] = [];
   if (!baseUrl) {
     for (const build of config.server.requiredBuilds) {
       if (!existsSync(resolve(REPO_ROOT, build))) {
@@ -127,14 +148,19 @@ async function main(): Promise<void> {
     }
     buildServer(config);
     baseUrl = `http://localhost:${config.server.port}`;
+    for (const companion of config.server.companions ?? []) {
+      companions.push(startCompanion(companion));
+    }
     server = startServer(config);
   }
   const stopServer = () => {
-    if (server?.pid) {
-      try {
-        process.kill(-server.pid, 'SIGTERM');
-      } catch {
-        // すでに止まっている
+    for (const child of [server, ...companions]) {
+      if (child?.pid) {
+        try {
+          process.kill(-child.pid, 'SIGTERM');
+        } catch {
+          // すでに止まっている
+        }
       }
     }
   };
@@ -142,6 +168,9 @@ async function main(): Promise<void> {
 
   const written: string[] = [];
   try {
+    for (const companion of config.server.companions ?? []) {
+      if (!process.env.CAPTURE_BASE_URL) await waitForServer(companion.healthUrl);
+    }
     await waitForServer(new URL(config.server.healthPath, baseUrl).toString());
     const browser = await chromium.launch({
       ...(process.env.CAPTURE_CHROMIUM_PATH

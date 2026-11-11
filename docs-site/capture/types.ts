@@ -32,6 +32,17 @@ export interface Scenario {
   run(ctx: ScenarioContext): Promise<void>;
 }
 
+export interface CompanionProcess {
+  /** リポジトリルートで実行するコマンド。ポートは `env` で渡す */
+  command: string[];
+  /** 補助のプロセスに渡す環境変数 */
+  env?: Record<string, string>;
+  /** 起動を待つ URL */
+  healthUrl: string;
+  /** 起動に必要なファイル (リポジトリルートからのパス)。無ければ起動の前に止める */
+  requiredFiles?: string[];
+}
+
 export interface ServiceCapture {
   service: string;
   /** 撮る端末。要件で決まるサービスごとの幅 */
@@ -51,7 +62,13 @@ export interface ServiceCapture {
     envFile: string;
     /** 起動前に必要なビルド成果物 (リポジトリルートからのパス) */
     requiredBuilds: string[];
+    /** 環境変数ファイルの値に足す (または上書きする) 環境変数。E2E の設定だけでは足りないサービス向け */
+    extraEnv?: Record<string, string>;
+    /** サービスの前に起動する補助のプロセス (偽の外部サーバーなど)。撮影の終わりにまとめて止める */
+    companions?: CompanionProcess[];
   };
+  /** `freshPage` でロールを指定しなかったときに使うロール */
+  defaultRoles: string[];
   /** 画面の日時として固定する時刻 */
   fixedTime: string;
   scenarios: Scenario[];
