@@ -252,15 +252,6 @@ function runCheck() {
   const problems = [...errors];
   for (const card of cards) problems.push(...validateCard(card, knownIds));
 
-  // 索引にないカードは、読み手に見つけてもらえない
-  const readmePath = join(SPECS_DIR, 'README.md');
-  const readme = existsSync(readmePath) ? readFileSync(readmePath, 'utf8') : '';
-  for (const id of knownIds) {
-    if (!readme.includes(`\`${id}\``)) {
-      problems.push(`docs/specs/README.md: カード ${id} が索引にありません (\`${id}\` の形で載せてください)`);
-    }
-  }
-
   if (problems.length > 0) {
     console.error(`仕様カードに ${problems.length} 件の問題があります。`);
     for (const problem of problems) console.error(`❌ ${problem}`);

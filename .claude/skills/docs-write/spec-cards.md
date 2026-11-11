@@ -17,7 +17,6 @@
 4. **sources を決める**: そのカードの挙動を決めるファイルだけを、リポジトリルートからのパスで列挙する (glob は不可)。挙動に関係しないファイルを入れると、無関係な変更でカードの確認が要る
 5. **ハッシュを計算する**: `node .github/workflows/scripts/spec-cards.mjs update <card の id かパス>`
 6. **確かめる**: `node .github/workflows/scripts/spec-cards.mjs check` と `python3 .github/workflows/scripts/check-doc-links.py`
-7. **索引に足す**: 新しいカードは `docs/specs/README.md` のカード一覧に足す (`check` が漏れを検出する)
 
 ## 画面カードのスクリーンショット
 
@@ -68,7 +67,6 @@ npm run capture:specs -w @nagiyu/docs-site -- stock-tracker --screen tickers  # 
 - [ ] 使う用語の term カードがあり、`terms` に書いてある
 - [ ] `sources` が実在するファイルだけで、挙動に関係するものに絞れている
 - [ ] `spec-cards.mjs check` と `check-doc-links.py` が通る
-- [ ] 新しいカードを README の一覧に足した
 - [ ] 画面カードは、撮影スクリプトで撮り直した画像を載せ、状態の名前がシナリオと合っている
 
 ## 関連
