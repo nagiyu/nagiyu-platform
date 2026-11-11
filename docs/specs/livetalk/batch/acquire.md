@@ -16,7 +16,7 @@ sources:
   - services/livetalk/core/src/constants.ts
 sources_hash: 32bd4c392c222615bc6d6fa765919040e51881fdc46dc853671171d8f22142d0
 terms: [livetalk/term/care, livetalk/term/topic, livetalk/term/web-fact, livetalk/term/webraw, livetalk/term/lifecycle, livetalk/term/user-activity-profile, livetalk/term/study-pause, livetalk/term/study-topic, livetalk/term/freshness-check-request, livetalk/term/exploration]
-related_cards: [admin/flow/error-notification, livetalk/batch/consolidate-conversations, livetalk/batch/notify]
+related_cards: [admin/flow/error-notification, livetalk/batch/consolidate-conversations, livetalk/batch/notify, livetalk/flow/conversation]
 related_adr:
   - services/livetalk/architecture.md#2.12
   - services/livetalk/architecture.md#2.24
@@ -34,6 +34,7 @@ related_adr:
 - 毎時 45 分 (EventBridge: `cron(45 * * * ? *)`)
 - 全利用者 × 全キャラクター (hiyori、ageha) を順に処理する
 - Lambda は最長 15 分。時刻の判定は日本時間
+- 会話から登録される勉強の依頼と鮮度確認の依頼は、[会話の経路](../flow/conversation.md)にある
 
 ## 対象から外れる条件
 

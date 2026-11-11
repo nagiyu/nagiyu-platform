@@ -8,7 +8,7 @@ sources:
   - services/livetalk/core/src/usecases/forget-self-fact.usecase.ts
 sources_hash: 6ecac58677d5a6b288b5ef90cc8ce71f3b5e97116aec58d087ac4b4998e960cb
 terms: [livetalk/term/topic, livetalk/term/care]
-related_cards: [livetalk/batch/consolidate-conversations]
+related_cards: [livetalk/batch/consolidate-conversations, livetalk/api/memory, livetalk/screen/memory]
 related_adr:
   - services/livetalk/architecture.md#2.24
 ---
@@ -26,3 +26,4 @@ related_adr:
 ## 関連するカード
 
 - [集約バッチ](../batch/consolidate-conversations.md): SELF fact を作る
+- [記憶 API](../api/memory.md)、[記憶画面](../screen/memory.md): 見せる・削除する
