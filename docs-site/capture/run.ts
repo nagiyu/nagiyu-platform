@@ -19,6 +19,7 @@ import { codecConverter } from './codec-converter';
 import { quickClip } from './quick-clip';
 import { portal } from './portal';
 import { stockTracker } from './stock-tracker';
+import { tools } from './tools';
 import type { CompanionProcess, ServiceCapture } from './types';
 
 const REPO_ROOT = resolve(__dirname, '../..');
@@ -30,6 +31,7 @@ const SERVICES: Record<string, ServiceCapture> = {
   'quick-clip': quickClip,
   portal,
   'stock-tracker': stockTracker,
+  tools,
 };
 
 const MESSAGES = {
