@@ -223,6 +223,13 @@ node .github/workflows/scripts/spec-cards.mjs check              # 整合を確�
 
 | id | カード |
 |---|---|
+| `stock-tracker/batch/minute` | [分次バッチ (minute)](./stock-tracker/batch/minute.md) |
+| `stock-tracker/batch/hourly` | [時間次バッチ (hourly)](./stock-tracker/batch/hourly.md) |
+| `stock-tracker/batch/summary` | [サマリーバッチ (summary)](./stock-tracker/batch/summary.md) |
+| `stock-tracker/batch/temporary-alert-expiry` | [一時通知アラート失効バッチ (temporary-alert-expiry)](./stock-tracker/batch/temporary-alert-expiry.md) |
+| `stock-tracker/batch/forecast` | [確度算出バッチ (forecast)](./stock-tracker/batch/forecast.md) |
+| `stock-tracker/batch/daily` | [日次バッチ (daily)](./stock-tracker/batch/daily.md) |
+| `stock-tracker/flow/alert-notification` | [アラート通知の経路](./stock-tracker/flow/alert-notification.md) |
 | `stock-tracker/screen/home` | [トップ画面 (チャート)](./stock-tracker/screen/home.md) |
 | `stock-tracker/screen/tickers` | [ティッカー管理画面](./stock-tracker/screen/tickers.md) |
 | `stock-tracker/screen/holdings` | [保有株式画面](./stock-tracker/screen/holdings.md) |
@@ -247,6 +254,10 @@ node .github/workflows/scripts/spec-cards.mjs check              # 整合を確�
 | `stock-tracker/term/axis` | [判断軸](./stock-tracker/term/axis.md) |
 | `stock-tracker/term/forecast` | [確度](./stock-tracker/term/forecast.md) |
 | `stock-tracker/term/temporary-alert` | [一時通知](./stock-tracker/term/temporary-alert.md) |
+| `stock-tracker/term/trading-hours` | [取引時間と最新取引日](./stock-tracker/term/trading-hours.md) |
+| `stock-tracker/term/price-source` | [価格の取得元](./stock-tracker/term/price-source.md) |
+| `stock-tracker/term/push-subscription` | [Web Push の購読](./stock-tracker/term/push-subscription.md) |
+| `stock-tracker/term/daily-summary` | [日次サマリー](./stock-tracker/term/daily-summary.md) |
 
 ### platform
 

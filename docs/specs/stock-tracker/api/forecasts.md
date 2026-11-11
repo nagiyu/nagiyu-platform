@@ -9,7 +9,7 @@ sources:
   - services/stock-tracker/web/lib/forecast/date.ts
 sources_hash: 8c376721233ac2585d57354e72a5bcd20773f16d92379e6a6f784e841802f38f
 terms: [stock-tracker/term/permission, stock-tracker/term/api-error, stock-tracker/term/forecast, stock-tracker/term/axis, stock-tracker/term/question]
-related_cards: [stock-tracker/api/summaries, stock-tracker/screen/summaries]
+related_cards: [stock-tracker/api/summaries, stock-tracker/screen/summaries, stock-tracker/batch/forecast]
 ---
 
 # 確度 API
@@ -64,7 +64,9 @@ related_cards: [stock-tracker/api/summaries, stock-tracker/screen/summaries]
 ```mermaid
 flowchart TD
     S[サマリー画面<br/>銘柄の詳細] -->|銘柄と日付| A[確度 API]
-    A --> F[(確度)]
-    A --> M[(軸の成績の記録)]
+    B[確度算出バッチ] --> F[(確度)]
+    B --> M[(軸の成績の記録)]
+    A --> F
+    A --> M
     A --> D[(日次サマリー<br/>日付の決定)]
 ```

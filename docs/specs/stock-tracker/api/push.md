@@ -10,13 +10,13 @@ sources:
   - services/stock-tracker/web/app/api/push/vapid-public-key/route.ts
   - libs/nextjs/src/push.ts
 sources_hash: cf2dd57eddf08519db18bd10b3354b4bc870e7a46191698b99e1322ddc3ab072
-terms: [stock-tracker/term/permission, stock-tracker/term/api-error]
-related_cards: [stock-tracker/api/alerts, stock-tracker/screen/alerts]
+terms: [stock-tracker/term/permission, stock-tracker/term/api-error, stock-tracker/term/push-subscription]
+related_cards: [stock-tracker/api/alerts, stock-tracker/screen/alerts, stock-tracker/flow/alert-notification, stock-tracker/batch/daily]
 ---
 
 # Push 通知 API
 
-アラートの通知を受け取るための Web Push の購読まわり。購読の情報はアラートが持つので、購読 API 自体はデータを保存しない。
+アラートの通知を受け取るための Web Push の購読まわり。[購読](../term/push-subscription.md)の情報はアラートが持つので、購読 API 自体はデータを保存しない。通知が届くまでの流れは[アラート通知の経路](../flow/alert-notification.md)にある。
 
 ## エンドポイント
 
