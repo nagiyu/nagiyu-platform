@@ -15,6 +15,7 @@ import { assertUniqueImages, resolveDevices } from '../src/spec-screenshot';
 import { createScenarioContext } from './context';
 import { admin } from './admin';
 import { auth } from './auth';
+import { codecConverter } from './codec-converter';
 import { stockTracker } from './stock-tracker';
 import type { CompanionProcess, ServiceCapture } from './types';
 
@@ -23,6 +24,7 @@ const REPO_ROOT = resolve(__dirname, '../..');
 const SERVICES: Record<string, ServiceCapture> = {
   admin,
   auth,
+  'codec-converter': codecConverter,
   'stock-tracker': stockTracker,
 };
 
@@ -57,7 +59,9 @@ function serverEnv(config: ServiceCapture): NodeJS.ProcessEnv {
   // E2E と同じく、環境変数ファイルの値をサービスのプロセスへ渡す
   return {
     ...process.env,
-    ...parse(readFileSync(resolve(REPO_ROOT, config.server.envFile))),
+    ...(config.server.envFile
+      ? parse(readFileSync(resolve(REPO_ROOT, config.server.envFile)))
+      : {}),
     ...config.server.extraEnv,
   };
 }
