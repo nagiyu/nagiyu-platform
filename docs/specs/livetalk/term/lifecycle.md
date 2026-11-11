@@ -9,7 +9,7 @@ sources:
   - services/livetalk/core/src/constants.ts
 sources_hash: 44b42e3c6280856c8c81092c843a0784f04d4b8e9fce6c87841dbd0d81544a73
 terms: [livetalk/term/user-activity-profile]
-related_cards: [livetalk/batch/learn-user-activity, livetalk/batch/acquire, livetalk/batch/notify]
+related_cards: [livetalk/batch/learn-user-activity, livetalk/batch/acquire, livetalk/batch/notify, livetalk/api/lifecycle]
 related_adr:
   - services/livetalk/architecture.md#2.6
 ---
@@ -29,3 +29,4 @@ related_adr:
 
 - [活動時間学習バッチ](../batch/learn-user-activity.md): 作る・更新する
 - [勉強バッチ](../batch/acquire.md)、[通知バッチ](../batch/notify.md): 就寝中の判定に使う
+- [生活サイクル API](../api/lifecycle.md): 今の状態を返す

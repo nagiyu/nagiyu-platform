@@ -8,7 +8,7 @@ sources:
   - services/livetalk/core/src/constants.ts
 sources_hash: fc200cc035466dc24a9b07aa231e5555b777e92cf3bf3f90da298c8f78c8d668
 terms: [livetalk/term/topic, livetalk/term/care]
-related_cards: [livetalk/batch/consolidate-conversations]
+related_cards: [livetalk/batch/consolidate-conversations, livetalk/api/notes, livetalk/screen/notes, livetalk/screen/note-detail]
 related_adr:
   - services/livetalk/architecture.md#2.24
   - services/livetalk/architecture.md#2.29
@@ -29,3 +29,4 @@ related_adr:
 ## 関連するカード
 
 - [集約バッチ](../batch/consolidate-conversations.md): 作る
+- [ノート API](../api/notes.md)、[ノート一覧画面](../screen/notes.md)、[ノート詳細画面](../screen/note-detail.md): 見せる

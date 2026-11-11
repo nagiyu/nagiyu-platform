@@ -12,7 +12,7 @@ sources:
   - services/livetalk/core/src/constants.ts
 sources_hash: 835348911622f5bdeb0b4f150e8e3f1964acb73c9485c026000a1c2dd2107569
 terms: [livetalk/term/topic, livetalk/term/care, livetalk/term/self-fact, livetalk/term/web-fact, livetalk/term/webraw, livetalk/term/note]
-related_cards: [admin/flow/error-notification, livetalk/batch/acquire]
+related_cards: [admin/flow/error-notification, livetalk/batch/acquire, livetalk/flow/conversation, livetalk/screen/memory, livetalk/screen/notes]
 related_adr:
   - services/livetalk/architecture.md#2.24
   - services/livetalk/architecture.md#2.26
@@ -27,6 +27,7 @@ related_adr:
 
 - 毎時 15 分 (EventBridge: `cron(15 * * * ? *)`)
 - 全利用者 × 全キャラクターを処理する。Lambda は最長 15 分
+- 畳む会話は[会話の経路](../flow/conversation.md)で保存される。結果は[記憶画面](../screen/memory.md)と[ノート一覧画面](../screen/notes.md)で見られる
 
 ## 対象から外れる条件
 
