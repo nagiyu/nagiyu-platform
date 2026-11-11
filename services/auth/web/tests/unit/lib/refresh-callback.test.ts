@@ -3,6 +3,7 @@
  *
  * auth の redirect コールバックと同じ許可基準を検証:
  *   - 同一オリジン（baseUrl で始まる URL）は許可
+ *   - auth 内の相対パスは絶対 URL にして許可
  *   - *.nagiyu.com 配下の URL は許可
  *   - 外部 URL は baseUrl にフォールバック
  *   - 空 / 未指定のフォールバック
@@ -80,10 +81,25 @@ describe('resolveRefreshCallbackUrl', () => {
       expect(result).toBe(BASE_URL);
     });
 
-    it('相対パスはフォールバックする', () => {
-      // 相対パスは baseUrl で始まらず *.nagiyu.com にもマッチしない
-      const result = resolveRefreshCallbackUrl('/relative/path', BASE_URL);
-      expect(result).toBe(BASE_URL);
+    it.each(['//evil.com', '/\\evil.com', '/\t/evil.com', '/\n/evil.com'])(
+      'オリジンを変えうる相対パス %j はフォールバックする',
+      (raw) => {
+        expect(resolveRefreshCallbackUrl(raw, BASE_URL)).toBe(BASE_URL);
+      }
+    );
+  });
+
+  describe('auth 内の相対パス', () => {
+    it('相対パスは絶対 URL にして返す', () => {
+      expect(resolveRefreshCallbackUrl('/dashboard/users', BASE_URL)).toBe(
+        `${BASE_URL}/dashboard/users`
+      );
+    });
+
+    it('相対パスのクエリを残す', () => {
+      expect(resolveRefreshCallbackUrl('/plans?plan=pro', BASE_URL)).toBe(
+        `${BASE_URL}/plans?plan=pro`
+      );
     });
   });
 
