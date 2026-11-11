@@ -21,7 +21,6 @@ export const DEFAULT_LAMBDA_CONFIG: Required<
   memorySize: 512,
   timeout: 30,
   architecture: 'X86_64',
-  runtime: 'nodejs20.x',
 };
 
 /**

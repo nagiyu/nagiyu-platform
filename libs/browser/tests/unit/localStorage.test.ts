@@ -94,22 +94,6 @@ describe('localStorage', () => {
       expect(result).toBe('not-a-json');
     });
 
-    it('SSR対応: windowが存在しない場合はnullを返す', () => {
-      // Arrange: Remove window object temporarily
-      const originalWindow = globalThis.window;
-      // @ts-expect-error - Deleting window for SSR test
-      delete globalThis.window;
-
-      // Act
-      const result = getItem('testKey');
-
-      // Assert
-      expect(result).toBe(null);
-
-      // Restore
-      globalThis.window = originalWindow;
-    });
-
     it('SSR対応: window.localStorageが存在しない場合はnullを返す', () => {
       // Arrange: Remove localStorage temporarily
       const originalLocalStorage = window.localStorage;

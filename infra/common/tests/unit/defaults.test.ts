@@ -11,7 +11,6 @@ describe('defaults', () => {
       expect(DEFAULT_LAMBDA_CONFIG.memorySize).toBe(512);
       expect(DEFAULT_LAMBDA_CONFIG.timeout).toBe(30);
       expect(DEFAULT_LAMBDA_CONFIG.architecture).toBe('X86_64');
-      expect(DEFAULT_LAMBDA_CONFIG.runtime).toBe('nodejs20.x');
     });
   });
 
@@ -58,7 +57,6 @@ describe('defaults', () => {
       expect(result.memorySize).toBe(1024);
       expect(result.timeout).toBe(60);
       expect(result.architecture).toBe('X86_64'); // Keep default
-      expect(result.runtime).toBe('nodejs20.x'); // Keep default
     });
 
     it('should handle empty user config', () => {

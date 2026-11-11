@@ -42,7 +42,7 @@ Export 名は `infra/shared/libs/utils/exports.ts` で一元管理されてい�
 ## デプロイ
 
 ### 前提条件
-- Node.js 22 以上
+- Node.js 26 以上
 - AWS CLI 設定済み
 - CDK Bootstrap 実行済み
 
