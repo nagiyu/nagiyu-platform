@@ -14,6 +14,7 @@ import { chromium } from '@playwright/test';
 import { assertUniqueImages, resolveDevices } from '../src/spec-screenshot';
 import { createScenarioContext } from './context';
 import { admin } from './admin';
+import { auth } from './auth';
 import { stockTracker } from './stock-tracker';
 import type { CompanionProcess, ServiceCapture } from './types';
 
@@ -21,6 +22,7 @@ const REPO_ROOT = resolve(__dirname, '../..');
 
 const SERVICES: Record<string, ServiceCapture> = {
   admin,
+  auth,
   'stock-tracker': stockTracker,
 };
 
