@@ -17,4 +17,9 @@ export const SIDEBAR_EXCLUDED = ['templates/**'];
 
 export const ERROR_MESSAGES = {
   DOCS_DIR_NOT_FOUND: (dir: string) => `docs ディレクトリが見つかりません: ${dir}`,
+  PAGE_NOT_FOUND: (path: string) => `章立てに指定されたページが docs にありません: ${path}`,
+  UNLISTED_PAGES: (paths: readonly string[]) =>
+    `サイドバーに載っていないページがあります。site-structure.ts の章立てに当てるか、除外に加えてください:\n${paths.map((p) => `  - ${p}`).join('\n')}`,
+  DUPLICATE_PAGES: (paths: readonly string[]) =>
+    `サイドバーの複数の場所に載っているページがあります:\n${paths.map((p) => `  - ${p}`).join('\n')}`,
 } as const;

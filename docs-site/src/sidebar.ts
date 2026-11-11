@@ -1,6 +1,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { ERROR_MESSAGES } from './constants';
+import { CARD_KINDS, type StructureNode } from './site-structure';
 
 export interface SidebarItem {
   text: string;
@@ -70,56 +71,182 @@ function readTitle(file: string, fallback: string): string {
   return extractTitle(stripFrontmatter(readFileSync(file, 'utf8'))) ?? fallback;
 }
 
-function buildDirectory(
-  docsDir: string,
+/** 生成中に、どのページを載せたかを集める。漏れと重複の検出に使う。 */
+interface BuildContext {
+  docsDir: string;
+  excluded: readonly string[];
+  claimed: Set<string>;
+  duplicates: Set<string>;
+}
+
+function claim(ctx: BuildContext, relativePath: string): void {
+  if (ctx.claimed.has(relativePath)) ctx.duplicates.add(relativePath);
+  ctx.claimed.add(relativePath);
+}
+
+function sortedNames(dir: string): string[] {
+  return existsSync(dir) ? readdirSync(dir).sort((a, b) => a.localeCompare(b)) : [];
+}
+
+function isDirectory(path: string): boolean {
+  return existsSync(path) && statSync(path).isDirectory();
+}
+
+function pageItem(ctx: BuildContext, relativePath: string, title?: string): SidebarItem {
+  const abs = join(ctx.docsDir, relativePath);
+  if (!existsSync(abs)) throw new Error(ERROR_MESSAGES.PAGE_NOT_FOUND(relativePath));
+  claim(ctx, relativePath);
+  const fallback = relativePath.replace(/^.*\//, '').replace(/\.md$/, '');
+  return { text: title ?? readTitle(abs, fallback), link: toLink(relativePath) };
+}
+
+function buildFiles(
+  ctx: BuildContext,
   relativeDir: string,
-  excluded: readonly string[]
+  exclude: readonly string[] = []
 ): SidebarItem[] {
-  const absDir = join(docsDir, relativeDir);
-  const entries = readdirSync(absDir).sort((a, b) => a.localeCompare(b));
+  return sortedNames(join(ctx.docsDir, relativeDir))
+    .filter((name) => name.endsWith('.md') && name !== INDEX_FILE)
+    .map((name) => `${relativeDir}/${name}`)
+    .filter((path) => !exclude.includes(path) && !isExcluded(path, ctx.excluded))
+    .map((path) => pageItem(ctx, path));
+}
+
+function buildDirectory(ctx: BuildContext, relativeDir: string): SidebarItem[] {
   const files: SidebarItem[] = [];
   const dirs: SidebarItem[] = [];
 
-  for (const name of entries) {
+  for (const name of sortedNames(join(ctx.docsDir, relativeDir))) {
     const relativePath = relativeDir ? `${relativeDir}/${name}` : name;
-    if (isExcluded(relativePath, excluded)) continue;
-    const abs = join(docsDir, relativePath);
+    if (isExcluded(relativePath, ctx.excluded)) continue;
+    const abs = join(ctx.docsDir, relativePath);
 
     if (statSync(abs).isDirectory()) {
-      const items = buildDirectory(docsDir, relativePath, excluded);
-      const indexPath = join(abs, INDEX_FILE);
-      const hasIndex = existsSync(indexPath);
-      if (!hasIndex && items.length === 0) continue;
-      dirs.push({
-        text: hasIndex ? readTitle(indexPath, name) : name,
-        ...(hasIndex ? { link: toLink(`${relativePath}/${INDEX_FILE}`) } : {}),
-        collapsed: true,
-        items,
-      });
+      const item = buildDirectoryItem(ctx, relativePath);
+      if (item) dirs.push(item);
     } else if (name.endsWith('.md') && name !== INDEX_FILE) {
-      files.push({
-        text: readTitle(abs, name.replace(/\.md$/, '')),
-        link: toLink(relativePath),
-      });
+      files.push(pageItem(ctx, relativePath));
     }
   }
   return [...files, ...dirs];
 }
 
+/** ディレクトリ 1 つ分の入れ子の項目。入口も配下も無ければ undefined。 */
+function buildDirectoryItem(
+  ctx: BuildContext,
+  relativePath: string,
+  title?: string
+): SidebarItem | undefined {
+  const items = buildDirectory(ctx, relativePath);
+  const indexRelative = `${relativePath}/${INDEX_FILE}`;
+  const hasIndex = existsSync(join(ctx.docsDir, indexRelative));
+  if (!hasIndex && items.length === 0) return undefined;
+  if (hasIndex) claim(ctx, indexRelative);
+  const name = relativePath.replace(/^.*\//, '');
+  return {
+    text: title ?? (hasIndex ? readTitle(join(ctx.docsDir, indexRelative), name) : name),
+    ...(hasIndex ? { link: toLink(indexRelative) } : {}),
+    collapsed: true,
+    items,
+  };
+}
+
+function group(title: string, collapsed: boolean, items: SidebarItem[]): SidebarItem[] {
+  return items.length === 0 ? [] : [{ text: title, collapsed, items }];
+}
+
+function buildServices(
+  ctx: BuildContext,
+  node: Extract<StructureNode, { type: 'services' }>
+): SidebarItem[] {
+  const dirNames = (dir: string) =>
+    sortedNames(join(ctx.docsDir, dir)).filter((name) => isDirectory(join(ctx.docsDir, dir, name)));
+  const services = [...new Set([...dirNames(node.designDir), ...dirNames(node.cardsDir)])]
+    .filter((name) => !node.excludeServices.includes(name))
+    .sort((a, b) => a.localeCompare(b));
+
+  return services.map((name) => {
+    const designDir = `${node.designDir}/${name}`;
+    const indexRelative = `${designDir}/${INDEX_FILE}`;
+    const hasIndex = existsSync(join(ctx.docsDir, indexRelative));
+    if (hasIndex) claim(ctx, indexRelative);
+
+    const design = [
+      ...buildFiles(ctx, designDir),
+      ...(node.extraDesign[name] ?? []).map((path) => pageItem(ctx, path)),
+    ];
+    const items = [
+      ...group(node.designTitle, false, design),
+      ...CARD_KINDS.flatMap((kind) =>
+        group(kind.title, false, buildFiles(ctx, `${node.cardsDir}/${name}/${kind.dir}`))
+      ),
+    ];
+    return {
+      text: hasIndex ? readTitle(join(ctx.docsDir, indexRelative), name) : name,
+      ...(hasIndex ? { link: toLink(indexRelative) } : {}),
+      collapsed: true,
+      items,
+    };
+  });
+}
+
+function buildNode(ctx: BuildContext, node: StructureNode): SidebarItem[] {
+  switch (node.type) {
+    case 'page':
+      return [pageItem(ctx, node.path, node.title)];
+    case 'files':
+      return buildFiles(ctx, node.dir, node.exclude);
+    case 'directory': {
+      const item = buildDirectoryItem(ctx, node.path, node.title);
+      if (!item) return [];
+      return [node.collapsed === undefined ? item : { ...item, collapsed: node.collapsed }];
+    }
+    case 'group':
+      return group(
+        node.title,
+        node.collapsed,
+        node.items.flatMap((child) => buildNode(ctx, child))
+      );
+    case 'services':
+      return buildServices(ctx, node);
+  }
+}
+
+/** docs 配下の .md を docs 直下からの相対パスで列挙する。 */
+function listMarkdown(docsDir: string, relativeDir = ''): string[] {
+  return sortedNames(join(docsDir, relativeDir)).flatMap((name) => {
+    const relativePath = relativeDir ? `${relativeDir}/${name}` : name;
+    if (isDirectory(join(docsDir, relativePath))) return listMarkdown(docsDir, relativePath);
+    return name.endsWith('.md') ? [relativePath] : [];
+  });
+}
+
 /**
- * docs のディレクトリ構成からサイドバーを作る。手で一覧を保守しないための生成。
- * 各ディレクトリの README.md が入口になり、見出しは各ファイルの最初の `# 見出し` を使う。
+ * 章立て (structure) と docs の中身からサイドバーを作る。手で一覧を保守しないための生成。
+ * どの章にも当たらない .md を黙って落とすと読み手から消えるため、載らないページ・
+ * 2 か所に載るページがあれば例外で止める。
  *
  * @param docsDir docs ディレクトリの絶対パス
  * @param excluded サイトに載せない docs 直下からの相対パス (`dir/**`)
+ * @param structure 章立て
  */
-export function buildSidebar(docsDir: string, excluded: readonly string[]): SidebarItem[] {
+export function buildSidebar(
+  docsDir: string,
+  excluded: readonly string[],
+  structure: readonly StructureNode[]
+): SidebarItem[] {
   if (!existsSync(docsDir)) throw new Error(ERROR_MESSAGES.DOCS_DIR_NOT_FOUND(docsDir));
-  const rootIndex = join(docsDir, INDEX_FILE);
-  const top: SidebarItem[] = existsSync(rootIndex)
-    ? [{ text: readTitle(rootIndex, 'docs'), link: '/' }]
-    : [];
-  return [...top, ...buildDirectory(docsDir, '', excluded)];
+  const ctx: BuildContext = { docsDir, excluded, claimed: new Set(), duplicates: new Set() };
+  const sidebar = structure.flatMap((node) => buildNode(ctx, node));
+
+  if (ctx.duplicates.size > 0) {
+    throw new Error(ERROR_MESSAGES.DUPLICATE_PAGES([...ctx.duplicates].sort()));
+  }
+  const unlisted = listMarkdown(docsDir).filter(
+    (path) => !ctx.claimed.has(path) && !isExcluded(path, excluded)
+  );
+  if (unlisted.length > 0) throw new Error(ERROR_MESSAGES.UNLISTED_PAGES(unlisted));
+  return sidebar;
 }
 
 /**
