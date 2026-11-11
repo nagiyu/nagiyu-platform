@@ -9,7 +9,7 @@ sources:
   - services/stock-tracker/web/lib/axis-performance-view/constants.ts
 sources_hash: c1e351c7bd98e75b5283b4d199c5da767f38b6e366bb36412f88393eb542c2c6
 terms: [stock-tracker/term/forecast, stock-tracker/term/axis]
-related_cards: [stock-tracker/api/axis-performance, stock-tracker/api/forecasts]
+related_cards: [stock-tracker/api/axis-performance, stock-tracker/api/forecasts, stock-tracker/batch/forecast]
 related_adr:
   - services/stock-tracker/architecture.md#2.26
 ---
@@ -35,3 +35,4 @@ related_adr:
 
 - [確度 API](../api/forecasts.md): 方向と荒れの内訳を返す
 - [成績 API](../api/axis-performance.md): 3 つの問いの成績を返す
+- [確度算出バッチ](../batch/forecast.md): 問いごとに採点し、重みを更新する

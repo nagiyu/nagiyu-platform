@@ -9,8 +9,8 @@ sources:
   - services/stock-tracker/web/lib/request-guards.ts
   - services/stock-tracker/core/src/validation/index.ts
 sources_hash: 0c66cfb08eaa07eecb455ae6a3e236fa94931495d85171cc09aa1fe0b0c5ad5d
-terms: [stock-tracker/term/permission, stock-tracker/term/api-error]
-related_cards: [stock-tracker/api/tickers, stock-tracker/screen/exchanges]
+terms: [stock-tracker/term/permission, stock-tracker/term/api-error, stock-tracker/term/trading-hours, stock-tracker/term/price-source]
+related_cards: [stock-tracker/api/tickers, stock-tracker/screen/exchanges, stock-tracker/batch/minute, stock-tracker/batch/hourly, stock-tracker/batch/summary]
 ---
 
 # 取引所 API

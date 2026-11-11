@@ -12,15 +12,15 @@ sources:
   - services/stock-tracker/web/lib/summary/pattern-summary.ts
   - services/stock-tracker/web/lib/constants.ts
 sources_hash: c4c7b44c64f5693760cf007262acf54dd073233c64356a3bd6914d5be77a88cd
-terms: [stock-tracker/term/permission, stock-tracker/term/api-error, stock-tracker/term/forecast]
-related_cards: [stock-tracker/api/forecasts, stock-tracker/screen/summaries, stock-tracker/screen/home]
+terms: [stock-tracker/term/permission, stock-tracker/term/api-error, stock-tracker/term/forecast, stock-tracker/term/daily-summary]
+related_cards: [stock-tracker/api/forecasts, stock-tracker/screen/summaries, stock-tracker/screen/home, stock-tracker/batch/summary, stock-tracker/batch/forecast]
 related_adr:
   - services/stock-tracker/architecture.md#2.3
 ---
 
 # サマリー API
 
-取引所ごとの日次サマリー (その日の足、パターン、確度、保有、アラート数) の取得と、サマリーバッチの手動実行。
+取引所ごとの[日次サマリー](../term/daily-summary.md) (その日の足、パターン、確度、保有、アラート数) の取得と、サマリーバッチの手動実行。
 
 ## エンドポイント
 
@@ -48,7 +48,7 @@ related_adr:
 
 - 保有は最大 100 件、アラートは最大 1,000 件を読んで数える。ティッカーの `symbol` と `name` はマスタから補い、なければティッカー ID から作る
 - 銘柄指定 (`/api/summaries/{tickerId}`) は、そのティッカーの取引所の最新の日付に、そのティッカーのサマリーがあれば 1 件を一覧の銘柄と同じ項目 (`symbol`、`name`、`exchangeId` を含む) で返す
-- 更新 (`/api/summaries/refresh`) は、サマリーバッチ (Lambda) を待たずに起動して 202 を返す。関数名は環境変数 `STOCK_TRACKER_SUMMARY_BATCH_FUNCTION_NAME` で決め、なければ本番の実行では `prod`、それ以外では `dev` の名前になる
+- 更新 (`/api/summaries/refresh`) は、[サマリーバッチ](../batch/summary.md) (Lambda) を待たずに起動して 202 を返す。関数名は環境変数 `STOCK_TRACKER_SUMMARY_BATCH_FUNCTION_NAME` で決め、なければ本番の実行では `prod`、それ以外では `dev` の名前になる
 
 ## 処理
 
@@ -85,6 +85,7 @@ flowchart TD
     A -->|更新を起動| B[サマリーバッチ]
     B --> D[(日次サマリー)]
     A --> D
-    A --> F[(確度)]
+    B2[確度算出バッチ] --> F[(確度)]
+    A --> F
     A --> H[(保有・アラート)]
 ```

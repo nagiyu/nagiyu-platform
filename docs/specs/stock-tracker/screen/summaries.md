@@ -12,7 +12,7 @@ sources:
   - services/stock-tracker/web/lib/forecast-view/labels.ts
 sources_hash: b77b1112f17b567614c05cdadc6438e91e6ec901c261698ebf3de11241fbd348
 terms: [stock-tracker/term/permission, stock-tracker/term/forecast, stock-tracker/term/axis, stock-tracker/term/question]
-related_cards: [stock-tracker/api/summaries, stock-tracker/api/forecasts, stock-tracker/screen/home]
+related_cards: [stock-tracker/api/summaries, stock-tracker/api/forecasts, stock-tracker/screen/home, stock-tracker/batch/summary, stock-tracker/batch/forecast]
 ---
 
 # サマリー画面
@@ -57,7 +57,7 @@ related_cards: [stock-tracker/api/summaries, stock-tracker/api/forecasts, stock-
 | 操作 | 結果 |
 |---|---|
 | 開く・取引所を絞る | [サマリー API](../api/summaries.md) の一覧を読む。絞り込みは画面側で行う |
-| 「サマリー更新」を押す | [サマリー API](../api/summaries.md) でサマリーバッチを起動し、「サマリーバッチを実行しました」を出して一覧を読み直す。バッチの完了は待たない |
+| 「サマリー更新」を押す | [サマリー API](../api/summaries.md) で[サマリーバッチ](../batch/summary.md)を起動し、「サマリーバッチを実行しました」を出して一覧を読み直す。バッチの完了は待たない |
 | 銘柄の行を押す | 詳細ダイアログを開く |
 | 詳細で内訳のタブを切り替える | 「方向の内訳」「荒れの内訳」を切り替える。点灯していない点灯型の軸は、折りたたみにまとまる |
 | 詳細で買い・売りのアラートを設定する | アラート設定ダイアログを開く。目標価格の初期値は終値。登録は[アラート API](../api/alerts.md) |

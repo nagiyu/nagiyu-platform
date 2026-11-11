@@ -12,13 +12,13 @@ sources:
   - services/stock-tracker/core/src/validation/index.ts
   - services/stock-tracker/core/src/repositories/dynamodb-alert.repository.ts
 sources_hash: e7b45c2691b461fa6d40b182b6724e28258dbe03bc805b46ba3f78ae4c591ca5
-terms: [stock-tracker/term/permission, stock-tracker/term/api-error, stock-tracker/term/ticker-id, stock-tracker/term/temporary-alert]
-related_cards: [stock-tracker/api/push, stock-tracker/screen/alerts, stock-tracker/screen/home]
+terms: [stock-tracker/term/permission, stock-tracker/term/api-error, stock-tracker/term/ticker-id, stock-tracker/term/temporary-alert, stock-tracker/term/push-subscription]
+related_cards: [stock-tracker/api/push, stock-tracker/screen/alerts, stock-tracker/screen/home, stock-tracker/flow/alert-notification, stock-tracker/batch/minute, stock-tracker/batch/hourly, stock-tracker/batch/temporary-alert-expiry]
 ---
 
 # アラート API
 
-ログインした利用者自身の価格アラートの一覧、作成、更新、削除。条件を満たすと Web Push で通知する。
+ログインした利用者自身の価格アラートの一覧、作成、更新、削除。条件を満たすと Web Push で通知する ([アラート通知の経路](../flow/alert-notification.md))。
 
 ## エンドポイント
 
@@ -45,7 +45,7 @@ related_cards: [stock-tracker/api/push, stock-tracker/screen/alerts, stock-track
 | `enabled` | 任意。省略すると有効 |
 | `temporary` | 任意。`true` で[一時通知](../term/temporary-alert.md) |
 | `customMessage` | 任意。前後の空白を除いて 500 文字以内。空なら保存しない |
-| `subscription` | 必須。Web Push の購読 (`endpoint` は URL、`keys.p256dh`、`keys.auth`) |
+| `subscription` | 必須。[Web Push の購読](../term/push-subscription.md) (`endpoint` は URL、`keys.p256dh`、`keys.auth`) |
 
 - 条件が 2 件のとき、2 件の `operator` は `gte` と `lte` を 1 つずつ。`AND` は範囲内で `gte` の値が `lte` の値より小さく、`OR` は範囲外で `lte` の値が `gte` の値より小さい
 - 条件には、画面が割合で入力した記録として `isPercentage`、`percentageValue`、`basePrice` を付けられる。判定には `value` を使う
@@ -84,5 +84,5 @@ flowchart TD
     A --> D[(アラート)]
     A -->|symbol と name を補う| T[(ティッカーマスタ)]
     A -->|一時の期限の算出| E[(取引所マスタ)]
-    D --> B[アラートバッチ]
+    D --> B[分次バッチ<br/>時間次バッチ]
 ```

@@ -10,7 +10,7 @@ sources:
   - services/stock-tracker/web/lib/alert-filter.ts
 sources_hash: 3a8524dc1b231d37beaea859c959449c9860afaaaba70f02dc7138ea84c3dfbd
 terms: [stock-tracker/term/permission, stock-tracker/term/temporary-alert]
-related_cards: [stock-tracker/api/alerts, stock-tracker/api/push, stock-tracker/screen/home, stock-tracker/screen/holdings]
+related_cards: [stock-tracker/api/alerts, stock-tracker/api/push, stock-tracker/screen/home, stock-tracker/screen/holdings, stock-tracker/flow/alert-notification, stock-tracker/batch/temporary-alert-expiry]
 ---
 
 # アラート一覧画面

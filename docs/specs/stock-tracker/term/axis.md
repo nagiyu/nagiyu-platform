@@ -8,7 +8,7 @@ sources:
   - services/stock-tracker/core/src/forecast/constants.ts
 sources_hash: daa93498a6239baa7664ae87f71ce182c0910de235addeefea8c3667e21a8f7d
 terms: [stock-tracker/term/question, stock-tracker/term/forecast]
-related_cards: [stock-tracker/api/forecasts, stock-tracker/api/axis-performance, stock-tracker/screen/axis-performance]
+related_cards: [stock-tracker/api/forecasts, stock-tracker/api/axis-performance, stock-tracker/screen/axis-performance, stock-tracker/batch/forecast]
 related_adr:
   - services/stock-tracker/architecture.md#2.21
   - services/stock-tracker/architecture.md#2.26
@@ -38,3 +38,4 @@ related_adr:
 - [確度 API](../api/forecasts.md): 銘柄の確度の軸別内訳を返す
 - [成績 API](../api/axis-performance.md): 軸ごとの成績と現在の重みを返す
 - [判断軸の成績画面](../screen/axis-performance.md): 軸の成績を表にする
+- [確度算出バッチ](../batch/forecast.md): 軸の値を記録し、成績で重みを更新する

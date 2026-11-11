@@ -14,7 +14,7 @@ sources:
   - services/stock-tracker/web/lib/axis-performance-view/use-axis-performance.ts
 sources_hash: 375cdc8b7eed905819b019a0fe23e08ea4c55998cb23d10b7b38383e81221463
 terms: [stock-tracker/term/permission, stock-tracker/term/axis, stock-tracker/term/question, stock-tracker/term/forecast]
-related_cards: [stock-tracker/api/axis-performance]
+related_cards: [stock-tracker/api/axis-performance, stock-tracker/batch/forecast]
 ---
 
 # 判断軸の成績画面
