@@ -38,7 +38,13 @@
     "path-to-regexp": "^8.4.0",
     "picomatch": "^4.0.4",
     "axios": ">=1.15.0",
-    "playwright-core": "$@playwright/test"
+    "playwright-core": "$@playwright/test",
+    "vitepress": {
+      "vite": "6.4.6",
+      "@vitejs/plugin-vue": {
+        "vite": "6.4.6"
+      }
+    }
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.11.0",
