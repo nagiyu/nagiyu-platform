@@ -60,7 +60,8 @@ export async function createScenarioContext(options: Options): Promise<CreatedSc
       reducedMotion: 'reduce',
       // 実際の Service Worker が通信を仲介すると、通信の差し替えが効かなくなる
       serviceWorkers: 'block',
-      extraHTTPHeaders: { [ROLES_HEADER]: roles.join(',') },
+      // ロールを持たないサービスでは、ヘッダーを付けない (外部 URL への通信に余計な事前確認を増やさないため)
+      extraHTTPHeaders: roles.length > 0 ? { [ROLES_HEADER]: roles.join(',') } : {},
     });
     created.setDefaultTimeout(DEFAULT_TIMEOUT_MS);
     created.setDefaultNavigationTimeout(DEFAULT_TIMEOUT_MS);
