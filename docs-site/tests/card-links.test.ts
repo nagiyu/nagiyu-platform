@@ -23,6 +23,8 @@ describe('card-links', () => {
 
   it('kind の表示名。未知の値はそのまま返す', () => {
     expect(kindLabel('batch')).toBe('バッチ');
+    expect(kindLabel('screen')).toBe('画面');
+    expect(kindLabel('api')).toBe('API');
     expect(kindLabel('other')).toBe('other');
   });
 
