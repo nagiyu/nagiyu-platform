@@ -1,14 +1,14 @@
 # ベースイメージ: Playwright公式イメージ（ブラウザ含む）
 FROM mcr.microsoft.com/playwright:v1.60.0-jammy AS base
 
-# このイメージ同梱の Node は 24.15.0 で固定されており、セキュリティ修正の入った版を含む
-# Playwright のイメージがまだ無い。Node だけ公式バイナリに差し替える。
-# sha256 は https://nodejs.org/dist/v24.22.1/SHASUMS256.txt (署名付き) の値。
+# このイメージ同梱の Node は 24 系で、Node 26 に対応した Playwright のイメージが無い。
+# Node だけ公式バイナリの 26 に差し替える。
+# sha256 は https://nodejs.org/dist/v26.13.0/SHASUMS256.txt (署名付き) の値。
 # xz が入っていないため .tar.gz を使う。
 # CI は BuildKit を使わずビルドするため TARGETARCH が空になる。アーキテクチャは dpkg で判定する。
-ARG NODE_VERSION=24.22.1
-ARG NODE_SHA256_X64=eb6728e77c576a35162c122c45ccadf224d89ff00abc8dae46cc2897c6002d7c
-ARG NODE_SHA256_ARM64=33c37be234ba8bee041961047b19160f4d7d0f164e8e246f78bdd10feff148b3
+ARG NODE_VERSION=26.13.0
+ARG NODE_SHA256_X64=5848553868b402d3fabb5b09270649977780a390f832155721025a08b5104455
+ARG NODE_SHA256_ARM64=439e9c438acdf6a6ffe47418da709153d66c4bed812e30a473faacb107dd2791
 RUN set -eux; \
     case "$(dpkg --print-architecture)" in \
       amd64) node_arch=x64; node_sha256="${NODE_SHA256_X64}" ;; \

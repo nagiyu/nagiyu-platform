@@ -1,7 +1,7 @@
 # Multi-stage build for dev-sync Batch Lambda（汎用 DynamoDB 同期）
-# AWS Lambda 公式 Node.js 24 ベースイメージを使用
+# AWS Lambda 公式 Node.js 26 ベースイメージを使用
 
-FROM public.ecr.aws/lambda/nodejs:24 AS base
+FROM public.ecr.aws/lambda/nodejs:26 AS base
 
 # ビルドステージ
 FROM base AS builder

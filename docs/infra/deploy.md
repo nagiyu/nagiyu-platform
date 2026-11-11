@@ -189,7 +189,7 @@ Shared インフラ (VPC, ACM, IAM) を CDK で自動デプロイします。
 - **手動実行**: GitHub Actions から環境 (dev/prod) を選択して実行可能
 
 #### デプロイフロー
-1. Node.js 22 セットアップと依存関係インストール
+1. Node.js 26 セットアップと依存関係インストール
 2. AWS 認証情報設定
 3. 環境判定 (develop → dev, master → prod)
 4. CDK Bootstrap (初回のみ)

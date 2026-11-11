@@ -229,7 +229,7 @@ CDK スタックは以下の構成で管理します。
 
 ### 5.2 バックエンド
 
-- Node.js 22 + TypeScript
+- Node.js 26 + TypeScript
 - Next.js API Routes
 - NextAuth v5（Auth Consumer パターン、JWT 検証のみ）
 

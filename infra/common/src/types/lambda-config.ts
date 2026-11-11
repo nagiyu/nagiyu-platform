@@ -37,12 +37,6 @@ export interface LambdaConfig {
   architecture?: 'X86_64' | 'ARM_64';
 
   /**
-   * ランタイム
-   * @default nodejs20.x
-   */
-  runtime?: string;
-
-  /**
    * 環境変数
    */
   environment?: Record<string, string>;
