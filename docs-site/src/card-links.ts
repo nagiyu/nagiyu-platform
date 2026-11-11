@@ -20,6 +20,8 @@ const KIND_LABELS: Record<string, string> = {
   batch: 'バッチ',
   flow: 'フロー',
   term: '用語',
+  screen: '画面',
+  api: 'API',
 };
 
 /** kind の表示名。未知の値はそのまま返す。 */

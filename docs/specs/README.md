@@ -31,7 +31,7 @@
 docs/specs/{service}/{kind}/{name}.md
 ```
 
-- `service`: サービスのディレクトリ名 (`livetalk`、`admin`)。どのサービスにも属さないものは `platform`
+- `service`: サービスのディレクトリ名 (`livetalk`、`admin`、`stock-tracker`)。どのサービスにも属さないものは `platform`
 - `kind`: 下の表のいずれか
 - `name`: ハンドラ名・用語など、探すときの名前
 
@@ -40,8 +40,10 @@ docs/specs/{service}/{kind}/{name}.md
 | `batch` | 定期実行されるバッチ |
 | `flow` | 通知経路など、サービスをまたぐ流れ |
 | `term` | 用語 |
+| `screen` | 画面 (1 画面 1 枚) |
+| `api` | API (リソース単位で 1 枚。同じリソースへの GET / POST / PUT / DELETE と `[id]` 配下をまとめる) |
 
-`api` や `screen` など、種別は必要になったら足す。
+種別は必要になったら足す。
 
 ## frontmatter
 
@@ -49,9 +51,9 @@ docs/specs/{service}/{kind}/{name}.md
 ---
 id: livetalk/batch/acquire        # docs/specs/ からの相対パスから .md を除いたもの
 title: 勉強バッチ (acquire)
-kind: batch                       # batch | flow | term
+kind: batch                       # batch | flow | term | screen | api
 service: livetalk
-sources:                          # 元にしたファイル。リポジトリルートからのパスで、ファイルだけ (glob は不可)
+sources:                          # 元にしたファイル。リポジトリルートからのパスで、ファイルだけ (glob は不可。`[id]` のような動的ルートの括弧は、ファイル名としてそのまま書く)
   - services/livetalk/batch/src/handlers/acquire.ts
 sources_hash: <sha256>            # スクリプトが計算して書く。手で書かない
 terms: [livetalk/term/care]       # 本文で使う用語カードの id
@@ -110,6 +112,39 @@ related_adr:                      # docs/ からの相対パス + アンカー
 
 - `## 失敗・取りこぼしのとき`: 失敗や取りこぼしの扱いが決まっているときに書く
 - `## つながり` (mermaid): 経路の図が起点・データ・届く先との関係まで描いていて重なるなら、省いてよい
+
+### screen
+
+この型は stock-tracker の画面から作った仮の型で、ほかのサービスへ広げるときに見直す。
+
+必須の節:
+
+1. 概要
+2. `## 入口` (URL のパスと、どこから来るか)
+3. `## 表示するもの`
+4. `## 操作` (操作 → 結果の表。呼ぶ API のカードへリンクする)
+5. `## つながり` (mermaid。この画面と API・ほかの画面の関係)
+
+任意の節 (持っている画面だけ書く):
+
+- `## 表示の条件`: `## 入口` の次。権限・ログインなどで見え方が変わるとき
+- `## 状態`: `## 表示するもの` の次。空・読み込み中・エラーのときの表示が決まっているとき
+
+### api
+
+この型は stock-tracker の API から作った仮の型で、ほかのサービスへ広げるときに見直す。
+
+必須の節:
+
+1. 概要
+2. `## エンドポイント` (メソッド・パス・権限の表)
+3. `## 入力と出力` (主な項目と制約。型定義の写しではなく、利用者が知りたい条件や上限を書く)
+4. `## エラー` (どの条件で何が返るか)
+5. `## つながり` (mermaid。呼び出し元の画面・読み書きするデータ)
+
+任意の節:
+
+- `## 処理`: `## 入力と出力` の次。分岐や副作用があるときだけ、フロー図で書く
 
 ### 図の書き方
 
@@ -176,6 +211,35 @@ node .github/workflows/scripts/spec-cards.mjs check              # 整合を確�
 | id | カード |
 |---|---|
 | `admin/flow/error-notification` | [エラー通知の経路](./admin/flow/error-notification.md) |
+
+### stock-tracker
+
+| id | カード |
+|---|---|
+| `stock-tracker/screen/home` | [トップ画面 (チャート)](./stock-tracker/screen/home.md) |
+| `stock-tracker/screen/tickers` | [ティッカー管理画面](./stock-tracker/screen/tickers.md) |
+| `stock-tracker/screen/holdings` | [保有株式画面](./stock-tracker/screen/holdings.md) |
+| `stock-tracker/screen/exchanges` | [取引所管理画面](./stock-tracker/screen/exchanges.md) |
+| `stock-tracker/screen/alerts` | [アラート一覧画面](./stock-tracker/screen/alerts.md) |
+| `stock-tracker/screen/summaries` | [サマリー画面](./stock-tracker/screen/summaries.md) |
+| `stock-tracker/screen/axis-performance` | [判断軸の成績画面](./stock-tracker/screen/axis-performance.md) |
+| `stock-tracker/api/exchanges` | [取引所 API](./stock-tracker/api/exchanges.md) |
+| `stock-tracker/api/tickers` | [ティッカー API](./stock-tracker/api/tickers.md) |
+| `stock-tracker/api/holdings` | [保有株式 API](./stock-tracker/api/holdings.md) |
+| `stock-tracker/api/alerts` | [アラート API](./stock-tracker/api/alerts.md) |
+| `stock-tracker/api/summaries` | [サマリー API](./stock-tracker/api/summaries.md) |
+| `stock-tracker/api/forecasts` | [確度 API](./stock-tracker/api/forecasts.md) |
+| `stock-tracker/api/axis-performance` | [判断軸の成績 API](./stock-tracker/api/axis-performance.md) |
+| `stock-tracker/api/chart` | [チャート API](./stock-tracker/api/chart.md) |
+| `stock-tracker/api/push` | [Push 通知 API](./stock-tracker/api/push.md) |
+| `stock-tracker/api/system` | [システム系の API](./stock-tracker/api/system.md) |
+| `stock-tracker/term/permission` | [権限とロール](./stock-tracker/term/permission.md) |
+| `stock-tracker/term/api-error` | [API のエラー応答](./stock-tracker/term/api-error.md) |
+| `stock-tracker/term/ticker-id` | [ティッカー ID と保有 ID](./stock-tracker/term/ticker-id.md) |
+| `stock-tracker/term/question` | [問い (方向・荒れ・市場の荒れ)](./stock-tracker/term/question.md) |
+| `stock-tracker/term/axis` | [判断軸](./stock-tracker/term/axis.md) |
+| `stock-tracker/term/forecast` | [確度](./stock-tracker/term/forecast.md) |
+| `stock-tracker/term/temporary-alert` | [一時通知](./stock-tracker/term/temporary-alert.md) |
 
 ### platform
 

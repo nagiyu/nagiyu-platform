@@ -23,7 +23,7 @@ const REPO_ROOT = resolve(SCRIPT_DIR, '..', '..', '..');
 const DOCS_DIR = join(REPO_ROOT, 'docs');
 const SPECS_DIR = join(DOCS_DIR, 'specs');
 
-const KINDS = ['batch', 'flow', 'term'];
+const KINDS = ['batch', 'flow', 'term', 'screen', 'api'];
 const REQUIRED_FIELDS = ['id', 'title', 'kind', 'service', 'sources', 'sources_hash'];
 
 const MESSAGES = {
@@ -221,7 +221,9 @@ function validateCard(card, knownIds) {
   const sources = asArray(fields.sources);
   let sourcesReadable = true;
   for (const path of sources) {
-    if (/[*?[\]{}]/.test(path)) {
+    // Next.js の動的ルート (`[id]` など) は実在するファイル名なので、`[` `]` は glob として扱わない。
+    // glob のつもりの `[abc]` は、次の存在確認で落ちる
+    if (/[*?{}]/.test(path)) {
       problems.push(`sources には glob を書けません (ファイルのパスを列挙してください): ${path}`);
       sourcesReadable = false;
     } else if (!existsSync(join(REPO_ROOT, path)) || statSync(join(REPO_ROOT, path)).isDirectory()) {
