@@ -23,7 +23,7 @@ sources_hash: d7df5ad3e06b76eebdbb525c2cb5f5b39573eae031a1982fcaa86cb16bdfe521
 terms: [codec-converter/term/job, codec-converter/term/output-codec, codec-converter/term/job-definition-size, platform/term/error-event]
 related_cards: [codec-converter/screen/upload, codec-converter/screen/job-detail, codec-converter/batch/convert, codec-converter/flow/conversion, codec-converter/flow/error-reporting]
 related_adr:
-  - services/codec-converter/architecture.md#S3
+  - services/codec-converter/architecture.md#S3 Presigned URL
   - services/codec-converter/architecture.md#動的リソース配分
 ---
 

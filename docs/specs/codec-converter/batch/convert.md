@@ -15,7 +15,7 @@ sources_hash: be38245e5eb8b2751d4c60fafe9888e47eeb626c2ab6da8a357e8da5dd9880aa
 terms: [codec-converter/term/job, codec-converter/term/output-codec, codec-converter/term/job-definition-size, platform/term/error-event]
 related_cards: [codec-converter/api/jobs, codec-converter/flow/conversion, codec-converter/flow/error-reporting, admin/flow/error-notification]
 related_adr:
-  - services/codec-converter/architecture.md#Batch
+  - services/codec-converter/architecture.md#Batch Worker 実装詳細
   - services/codec-converter/architecture.md#動的リソース配分
 ---
 

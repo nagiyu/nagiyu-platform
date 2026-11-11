@@ -12,7 +12,7 @@ sources_hash: 1fcec88d39a22844648231ac7226c1db805d0e47d8aeb75ffb7ca1df07b5314e
 terms: [codec-converter/term/output-codec, codec-converter/term/job]
 related_cards: [codec-converter/api/jobs, codec-converter/screen/job-detail, codec-converter/flow/conversion]
 related_adr:
-  - services/codec-converter/ui-design.md#1.
+  - services/codec-converter/ui-design.md#1. トップ/アップロード画面
 ---
 
 # アップロード画面
