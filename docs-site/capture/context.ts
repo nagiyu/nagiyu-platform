@@ -88,10 +88,14 @@ export async function createScenarioContext(options: Options): Promise<CreatedSc
   }
 
   async function resetData(seed?: unknown): Promise<void> {
-    const response = await (currentPage ?? (await freshPage())).request.post(
-      new URL('/api/test/reset', baseUrl).toString(),
-      { data: seed ?? {} }
-    );
+    const request = (currentPage ?? (await freshPage())).request;
+    if (config.resetData) {
+      await config.resetData(request, baseUrl, seed ?? {});
+      return;
+    }
+    const response = await request.post(new URL('/api/test/reset', baseUrl).toString(), {
+      data: seed ?? {},
+    });
     if (!response.ok()) {
       throw new Error(`データの初期化に失敗しました: ${response.status()}`);
     }
