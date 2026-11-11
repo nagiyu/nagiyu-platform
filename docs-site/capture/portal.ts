@@ -135,7 +135,7 @@ export const portal: ServiceCapture = {
     cwd: 'services/portal/web',
     build: ['npm', 'run', 'build'],
     command: ['npm', 'run', 'start', '--'],
-    port: 3400,
+    port: 3403,
     healthPath: '/api/health',
     requiredBuilds: ['libs/ui/dist', 'libs/nextjs/dist', 'libs/common/dist', 'libs/browser/dist'],
   },
