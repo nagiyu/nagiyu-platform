@@ -58,7 +58,7 @@ jobs:
       - name: Setup Node.js and install dependencies
         uses: ./.github/actions/setup-node
         with:
-          node-version: '24'
+          node-version: '26'
 
       - name: Setup deployment environment
         id: setup-environment
@@ -228,7 +228,7 @@ jobs:
       - name: Setup Node.js and install dependencies
         uses: ./.github/actions/setup-node
         with:
-          node-version: '24'
+          node-version: '26'
 
       - name: Build common infrastructure package
         run: npm run build --workspace=@nagiyu/infra-common
@@ -324,7 +324,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '24'
+          node-version: '26'
           cache: 'npm'
 
       - name: Configure AWS credentials

@@ -1,4 +1,4 @@
-FROM node:24-slim AS base
+FROM node:26-slim AS base
 
 FROM base AS builder
 WORKDIR /app
@@ -13,7 +13,7 @@ RUN npm run build --workspace=@nagiyu/common
 RUN npm run build --workspace=@nagiyu/aws
 RUN npm run build --workspace=@nagiyu/quick-clip-lambda-zip
 
-FROM public.ecr.aws/lambda/nodejs:24 AS runner
+FROM public.ecr.aws/lambda/nodejs:26 AS runner
 WORKDIR ${LAMBDA_TASK_ROOT}
 
 ENV NODE_ENV=production

@@ -1,4 +1,4 @@
-FROM node:24-slim AS base
+FROM node:26-slim AS base
 
 FROM base AS builder
 WORKDIR /app
@@ -14,7 +14,7 @@ RUN npm run build --workspace=@nagiyu/aws
 RUN npm run build --workspace=@nagiyu/quick-clip-core
 RUN npm run build --workspace=@nagiyu/quick-clip-lambda-clip
 
-FROM public.ecr.aws/lambda/nodejs:24 AS runner
+FROM public.ecr.aws/lambda/nodejs:26 AS runner
 WORKDIR ${LAMBDA_TASK_ROOT}
 
 # ffmpeg は npm 経由ではなく、ビルド済みの静的バイナリのイメージから取り込む。

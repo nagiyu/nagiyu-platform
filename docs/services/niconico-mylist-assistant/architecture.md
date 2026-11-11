@@ -218,7 +218,7 @@ USER#bob   / VIDEO#sm123  → 残る（orphan）
 
 ### 3.2 バックエンド
 
-- Node.js 22 + TypeScript
+- Node.js 26 + TypeScript
 - Next.js API Routes
 
 ### 3.3 インフラ

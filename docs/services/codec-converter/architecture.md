@@ -358,11 +358,11 @@ Phase 1（MVP）では単一のジョブ定義を使用します:
 
 #### Batch Worker 実装詳細
 
-**ベースイメージ**: `node:20-alpine`
+**ベースイメージ**: `node:26-slim`
 
 **インストールパッケージ**:
 
-- FFmpeg（apk経由）
+- FFmpeg（apt経由）
 - Node.js依存関係（`@nagiyu-platform/codec-converter-common`, AWS SDK v3）
 
 **処理フロー**:

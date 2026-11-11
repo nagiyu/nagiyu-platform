@@ -18,7 +18,7 @@
 **主要リソース**:
 
 - **ECR Repository**: Docker イメージ保存（`nagiyu/tools`）
-- **Lambda Function**: Next.js 実行環境（Node.js 22 コンテナ、1024MB、30秒タイムアウト）
+- **Lambda Function**: Next.js 実行環境（Node.js 26 コンテナ、1024MB、30秒タイムアウト）
 - **Lambda Function URL**: HTTP(S) エンドポイント（認証なし）
 - **CloudFront Distribution**: CDN、カスタムドメイン
 - **ACM Certificate**: SSL/TLS証明書（共通基盤）
