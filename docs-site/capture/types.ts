@@ -58,8 +58,8 @@ export interface ServiceCapture {
     port: number;
     /** 起動を待つパス */
     healthPath: string;
-    /** 読み込む環境変数ファイル (リポジトリルートからのパス)。E2E と同じ設定を使う */
-    envFile: string;
+    /** 読み込む環境変数ファイル (リポジトリルートからのパス)。E2E と同じ設定を使う。E2E に環境変数ファイルがないサービスは省略し、`extraEnv` だけで起動する */
+    envFile?: string;
     /** 起動前に必要なビルド成果物 (リポジトリルートからのパス) */
     requiredBuilds: string[];
     /** 環境変数ファイルの値に足す (または上書きする) 環境変数。E2E の設定だけでは足りないサービス向け */
