@@ -54,6 +54,78 @@ related_cards: [stock-tracker/screen/home, stock-tracker/screen/alerts, stock-tr
 
 - 一覧の取得は 1 回だけで、最初の 50 件までを表示する (続きは取りにいかない)
 
+## 画面の見た目
+
+### 通常表示
+
+売りアラートがある銘柄は「アラート設定済」、ない銘柄は「売りアラート」のボタンになる。
+
+| スマホ | PC |
+|---|---|
+| ![保有株式画面 通常表示 (スマホ)](../../../images/specs/stock-tracker/screen/holdings-default-mobile.png) | ![保有株式画面 通常表示 (PC)](../../../images/specs/stock-tracker/screen/holdings-default-desktop.png) |
+
+### 保有株式がないとき
+
+「保有株式がありません」を出す。
+
+| スマホ | PC |
+|---|---|
+| ![保有株式画面 保有株式がないとき (スマホ)](../../../images/specs/stock-tracker/screen/holdings-empty-mobile.png) | ![保有株式画面 保有株式がないとき (PC)](../../../images/specs/stock-tracker/screen/holdings-empty-desktop.png) |
+
+### 登録ダイアログ
+
+取引所を選ぶとティッカーが絞られる。
+
+| スマホ | PC |
+|---|---|
+| ![保有株式画面 登録ダイアログ (スマホ)](../../../images/specs/stock-tracker/screen/holdings-create-dialog-mobile.png) | ![保有株式画面 登録ダイアログ (PC)](../../../images/specs/stock-tracker/screen/holdings-create-dialog-desktop.png) |
+
+### 入力エラーのとき
+
+範囲外の保有数と平均取得価格で保存した例。欄ごとにエラーを出す。
+
+| スマホ | PC |
+|---|---|
+| ![保有株式画面 入力エラーのとき (スマホ)](../../../images/specs/stock-tracker/screen/holdings-create-error-mobile.png) | ![保有株式画面 入力エラーのとき (PC)](../../../images/specs/stock-tracker/screen/holdings-create-error-desktop.png) |
+
+### 編集ダイアログ
+
+保有数と平均取得価格だけ変えられる。
+
+| スマホ | PC |
+|---|---|
+| ![保有株式画面 編集ダイアログ (スマホ)](../../../images/specs/stock-tracker/screen/holdings-edit-dialog-mobile.png) | ![保有株式画面 編集ダイアログ (PC)](../../../images/specs/stock-tracker/screen/holdings-edit-dialog-desktop.png) |
+
+### 削除の確認
+
+その銘柄の売りアラートも合わせて削除されることを並べる。
+
+| スマホ | PC |
+|---|---|
+| ![保有株式画面 削除の確認 (スマホ)](../../../images/specs/stock-tracker/screen/holdings-delete-dialog-mobile.png) | ![保有株式画面 削除の確認 (PC)](../../../images/specs/stock-tracker/screen/holdings-delete-dialog-desktop.png) |
+
+### 売りアラートの設定
+
+| スマホ | PC |
+|---|---|
+| ![保有株式画面 売りアラートの設定 (スマホ)](../../../images/specs/stock-tracker/screen/holdings-alert-dialog-mobile.png) | ![保有株式画面 売りアラートの設定 (PC)](../../../images/specs/stock-tracker/screen/holdings-alert-dialog-desktop.png) |
+
+### 一覧の取得に失敗したとき
+
+エラーを出す。
+
+| スマホ | PC |
+|---|---|
+| ![保有株式画面 一覧の取得に失敗したとき (スマホ)](../../../images/specs/stock-tracker/screen/holdings-fetch-error-mobile.png) | ![保有株式画面 一覧の取得に失敗したとき (PC)](../../../images/specs/stock-tracker/screen/holdings-fetch-error-desktop.png) |
+
+### 閲覧だけできるロール (`stock-viewer`)
+
+「新規登録」と、アラート・操作の列が出ない。
+
+| スマホ | PC |
+|---|---|
+| ![保有株式画面 閲覧だけできるロール (`stock-viewer`) (スマホ)](../../../images/specs/stock-tracker/screen/holdings-viewer-mobile.png) | ![保有株式画面 閲覧だけできるロール (`stock-viewer`) (PC)](../../../images/specs/stock-tracker/screen/holdings-viewer-desktop.png) |
+
 ## つながり
 
 ```mermaid

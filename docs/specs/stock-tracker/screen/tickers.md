@@ -47,6 +47,78 @@ related_cards: [stock-tracker/screen/exchanges, stock-tracker/api/tickers]
 
 取引所の選択肢は[取引所 API](../api/exchanges.md) から読む。
 
+## 画面の見た目
+
+### 通常表示
+
+全取引所のティッカーを一覧にする。
+
+| スマホ | PC |
+|---|---|
+| ![ティッカー管理画面 通常表示 (スマホ)](../../../images/specs/stock-tracker/screen/tickers-default-mobile.png) | ![ティッカー管理画面 通常表示 (PC)](../../../images/specs/stock-tracker/screen/tickers-default-desktop.png) |
+
+### 取引所で絞り込んだ状態
+
+選んだ取引所のティッカーだけにする。
+
+| スマホ | PC |
+|---|---|
+| ![ティッカー管理画面 取引所で絞り込んだ状態 (スマホ)](../../../images/specs/stock-tracker/screen/tickers-filtered-mobile.png) | ![ティッカー管理画面 取引所で絞り込んだ状態 (PC)](../../../images/specs/stock-tracker/screen/tickers-filtered-desktop.png) |
+
+### ティッカーがないとき
+
+「ティッカーが登録されていません」を出す。
+
+| スマホ | PC |
+|---|---|
+| ![ティッカー管理画面 ティッカーがないとき (スマホ)](../../../images/specs/stock-tracker/screen/tickers-empty-mobile.png) | ![ティッカー管理画面 ティッカーがないとき (PC)](../../../images/specs/stock-tracker/screen/tickers-empty-desktop.png) |
+
+### 登録ダイアログ
+
+シンボル、銘柄名、取引所を入力する。
+
+| スマホ | PC |
+|---|---|
+| ![ティッカー管理画面 登録ダイアログ (スマホ)](../../../images/specs/stock-tracker/screen/tickers-create-dialog-mobile.png) | ![ティッカー管理画面 登録ダイアログ (PC)](../../../images/specs/stock-tracker/screen/tickers-create-dialog-desktop.png) |
+
+### 登録に失敗したとき
+
+登録済みのティッカーを作ろうとした例。API が返したエラーを、ダイアログの裏の画面に出す。
+
+| スマホ | PC |
+|---|---|
+| ![ティッカー管理画面 登録に失敗したとき (スマホ)](../../../images/specs/stock-tracker/screen/tickers-create-error-mobile.png) | ![ティッカー管理画面 登録に失敗したとき (PC)](../../../images/specs/stock-tracker/screen/tickers-create-error-desktop.png) |
+
+### 編集ダイアログ
+
+銘柄名だけ変えられる。
+
+| スマホ | PC |
+|---|---|
+| ![ティッカー管理画面 編集ダイアログ (スマホ)](../../../images/specs/stock-tracker/screen/tickers-edit-dialog-mobile.png) | ![ティッカー管理画面 編集ダイアログ (PC)](../../../images/specs/stock-tracker/screen/tickers-edit-dialog-desktop.png) |
+
+### 削除の確認
+
+| スマホ | PC |
+|---|---|
+| ![ティッカー管理画面 削除の確認 (スマホ)](../../../images/specs/stock-tracker/screen/tickers-delete-dialog-mobile.png) | ![ティッカー管理画面 削除の確認 (PC)](../../../images/specs/stock-tracker/screen/tickers-delete-dialog-desktop.png) |
+
+### 一覧の取得に失敗したとき
+
+エラーを出し、一覧は空になる。
+
+| スマホ | PC |
+|---|---|
+| ![ティッカー管理画面 一覧の取得に失敗したとき (スマホ)](../../../images/specs/stock-tracker/screen/tickers-fetch-error-mobile.png) | ![ティッカー管理画面 一覧の取得に失敗したとき (PC)](../../../images/specs/stock-tracker/screen/tickers-fetch-error-desktop.png) |
+
+### 権限がないとき (`stock-viewer`)
+
+「権限エラー」だけを出す。
+
+| スマホ | PC |
+|---|---|
+| ![ティッカー管理画面 権限がないとき (`stock-viewer`) (スマホ)](../../../images/specs/stock-tracker/screen/tickers-no-permission-mobile.png) | ![ティッカー管理画面 権限がないとき (`stock-viewer`) (PC)](../../../images/specs/stock-tracker/screen/tickers-no-permission-desktop.png) |
+
 ## つながり
 
 ```mermaid

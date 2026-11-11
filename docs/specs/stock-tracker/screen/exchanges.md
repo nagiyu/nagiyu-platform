@@ -46,6 +46,60 @@ related_cards: [stock-tracker/screen/tickers, stock-tracker/api/exchanges]
 | 編集する | 取引所名、タイムゾーン、取引時間、データソース、市場を変えられる。取引所 ID と API キーは表示のみ。市場を未設定に戻すと、既存の市場の設定を消す |
 | 削除する | 確認のあとに削除する。その取引所のティッカーなどは確認しない |
 
+## 画面の見た目
+
+### 通常表示
+
+| スマホ | PC |
+|---|---|
+| ![取引所管理画面 通常表示 (スマホ)](../../../images/specs/stock-tracker/screen/exchanges-default-mobile.png) | ![取引所管理画面 通常表示 (PC)](../../../images/specs/stock-tracker/screen/exchanges-default-desktop.png) |
+
+### 取引所がないとき
+
+「取引所が登録されていません」を出す。
+
+| スマホ | PC |
+|---|---|
+| ![取引所管理画面 取引所がないとき (スマホ)](../../../images/specs/stock-tracker/screen/exchanges-empty-mobile.png) | ![取引所管理画面 取引所がないとき (PC)](../../../images/specs/stock-tracker/screen/exchanges-empty-desktop.png) |
+
+### 登録ダイアログ
+
+縦に長いため、下の取引時間の欄はダイアログの中をスクロールして入力する。
+
+| スマホ | PC |
+|---|---|
+| ![取引所管理画面 登録ダイアログ (スマホ)](../../../images/specs/stock-tracker/screen/exchanges-create-dialog-mobile.png) | ![取引所管理画面 登録ダイアログ (PC)](../../../images/specs/stock-tracker/screen/exchanges-create-dialog-desktop.png) |
+
+### 入力エラーのとき
+
+必須のタイムゾーンを選ばずに保存した例。API が返したエラーを、ダイアログの裏の画面に出す。
+
+| スマホ | PC |
+|---|---|
+| ![取引所管理画面 入力エラーのとき (スマホ)](../../../images/specs/stock-tracker/screen/exchanges-create-error-mobile.png) | ![取引所管理画面 入力エラーのとき (PC)](../../../images/specs/stock-tracker/screen/exchanges-create-error-desktop.png) |
+
+### 編集ダイアログ
+
+取引所 ID と API キーは表示のみ。
+
+| スマホ | PC |
+|---|---|
+| ![取引所管理画面 編集ダイアログ (スマホ)](../../../images/specs/stock-tracker/screen/exchanges-edit-dialog-mobile.png) | ![取引所管理画面 編集ダイアログ (PC)](../../../images/specs/stock-tracker/screen/exchanges-edit-dialog-desktop.png) |
+
+### 削除の確認
+
+| スマホ | PC |
+|---|---|
+| ![取引所管理画面 削除の確認 (スマホ)](../../../images/specs/stock-tracker/screen/exchanges-delete-dialog-mobile.png) | ![取引所管理画面 削除の確認 (PC)](../../../images/specs/stock-tracker/screen/exchanges-delete-dialog-desktop.png) |
+
+### 権限がないとき (`stock-viewer`)
+
+「権限エラー」だけを出す。
+
+| スマホ | PC |
+|---|---|
+| ![取引所管理画面 権限がないとき (`stock-viewer`) (スマホ)](../../../images/specs/stock-tracker/screen/exchanges-no-permission-mobile.png) | ![取引所管理画面 権限がないとき (`stock-viewer`) (PC)](../../../images/specs/stock-tracker/screen/exchanges-no-permission-desktop.png) |
+
 ## つながり
 
 ```mermaid

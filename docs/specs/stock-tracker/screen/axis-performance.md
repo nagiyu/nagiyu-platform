@@ -56,6 +56,56 @@ related_cards: [stock-tracker/api/axis-performance]
 | 問い・期間・市場を切り替える | 選んだ値で[判断軸の成績 API](../api/axis-performance.md) を読み直す |
 | 軸の表の見出しを押す | その列で並べ替える。同じ列をもう一度押すと昇順と降順が入れ替わる |
 
+## 画面の見た目
+
+### 通常表示
+
+確度の成績と、軸ごとの成績を出す。
+
+| スマホ | PC |
+|---|---|
+| ![判断軸の成績画面 通常表示 (スマホ)](../../../images/specs/stock-tracker/screen/axis-performance-default-mobile.png) | ![判断軸の成績画面 通常表示 (PC)](../../../images/specs/stock-tracker/screen/axis-performance-default-desktop.png) |
+
+### 「ふだん」の説明
+
+見出しの「？」で、ふだんの意味を見られる。
+
+| スマホ | PC |
+|---|---|
+| ![判断軸の成績画面 「ふだん」の説明 (スマホ)](../../../images/specs/stock-tracker/screen/axis-performance-baseline-help-mobile.png) | ![判断軸の成績画面 「ふだん」の説明 (PC)](../../../images/specs/stock-tracker/screen/axis-performance-baseline-help-desktop.png) |
+
+### 問い・期間・市場を切り替えた状態
+
+市場の荒れ、30 日、JP を選んだ例。
+
+| スマホ | PC |
+|---|---|
+| ![判断軸の成績画面 問い・期間・市場を切り替えた状態 (スマホ)](../../../images/specs/stock-tracker/screen/axis-performance-market-30d-mobile.png) | ![判断軸の成績画面 問い・期間・市場を切り替えた状態 (PC)](../../../images/specs/stock-tracker/screen/axis-performance-market-30d-desktop.png) |
+
+### 採点済みの予測がないとき
+
+「この期間に採点済みの予測はありません」を出す。
+
+| スマホ | PC |
+|---|---|
+| ![判断軸の成績画面 採点済みの予測がないとき (スマホ)](../../../images/specs/stock-tracker/screen/axis-performance-empty-mobile.png) | ![判断軸の成績画面 採点済みの予測がないとき (PC)](../../../images/specs/stock-tracker/screen/axis-performance-empty-desktop.png) |
+
+### 取得に失敗したとき
+
+エラーを出す。
+
+| スマホ | PC |
+|---|---|
+| ![判断軸の成績画面 取得に失敗したとき (スマホ)](../../../images/specs/stock-tracker/screen/axis-performance-fetch-error-mobile.png) | ![判断軸の成績画面 取得に失敗したとき (PC)](../../../images/specs/stock-tracker/screen/axis-performance-fetch-error-desktop.png) |
+
+### 権限がないとき
+
+「権限エラー」だけを出す。
+
+| スマホ | PC |
+|---|---|
+| ![判断軸の成績画面 権限がないとき (スマホ)](../../../images/specs/stock-tracker/screen/axis-performance-no-permission-mobile.png) | ![判断軸の成績画面 権限がないとき (PC)](../../../images/specs/stock-tracker/screen/axis-performance-no-permission-desktop.png) |
+
 ## つながり
 
 ```mermaid

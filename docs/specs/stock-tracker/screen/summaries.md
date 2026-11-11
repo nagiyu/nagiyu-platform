@@ -64,6 +64,70 @@ related_cards: [stock-tracker/api/summaries, stock-tracker/api/forecasts, stock-
 
 詳細ダイアログの中身は、方向・荒れの確度と軸別の内訳 ([確度 API](../api/forecasts.md))、日足 50 本のチャート ([チャート API](../api/chart.md))、始値・高値・安値・終値・出来高・保有数・平均取得価格・更新日時。確度がないときは、その理由 (確度なし、または履歴不足) を出す。
 
+## 画面の見た目
+
+### 通常表示
+
+市場の荒れ予報と、取引所ごとのカードを並べる。確度がない銘柄は「—」になる。
+
+| スマホ | PC |
+|---|---|
+| ![サマリー画面 通常表示 (スマホ)](../../../images/specs/stock-tracker/screen/summaries-default-mobile.png) | ![サマリー画面 通常表示 (PC)](../../../images/specs/stock-tracker/screen/summaries-default-desktop.png) |
+
+### 方向の列で並べ替えた状態
+
+見出しを押すと確率順に並ぶ。
+
+| スマホ | PC |
+|---|---|
+| ![サマリー画面 方向の列で並べ替えた状態 (スマホ)](../../../images/specs/stock-tracker/screen/summaries-sorted-mobile.png) | ![サマリー画面 方向の列で並べ替えた状態 (PC)](../../../images/specs/stock-tracker/screen/summaries-sorted-desktop.png) |
+
+### 銘柄の詳細ダイアログ
+
+方向と荒れの確度、方向の内訳、日足チャートを出す。縦に長いため、チャートはダイアログの中をスクロールして見る。
+
+| スマホ | PC |
+|---|---|
+| ![サマリー画面 銘柄の詳細ダイアログ (スマホ)](../../../images/specs/stock-tracker/screen/summaries-detail-dialog-mobile.png) | ![サマリー画面 銘柄の詳細ダイアログ (PC)](../../../images/specs/stock-tracker/screen/summaries-detail-dialog-desktop.png) |
+
+### 荒れの内訳に切り替えた状態
+
+| スマホ | PC |
+|---|---|
+| ![サマリー画面 荒れの内訳に切り替えた状態 (スマホ)](../../../images/specs/stock-tracker/screen/summaries-detail-dialog-vol-mobile.png) | ![サマリー画面 荒れの内訳に切り替えた状態 (PC)](../../../images/specs/stock-tracker/screen/summaries-detail-dialog-vol-desktop.png) |
+
+### 確度がない銘柄の詳細
+
+確度がない理由を出す。
+
+| スマホ | PC |
+|---|---|
+| ![サマリー画面 確度がない銘柄の詳細 (スマホ)](../../../images/specs/stock-tracker/screen/summaries-detail-dialog-no-forecast-mobile.png) | ![サマリー画面 確度がない銘柄の詳細 (PC)](../../../images/specs/stock-tracker/screen/summaries-detail-dialog-no-forecast-desktop.png) |
+
+### 銘柄がない取引所
+
+「データがありません」を出す。
+
+| スマホ | PC |
+|---|---|
+| ![サマリー画面 銘柄がない取引所 (スマホ)](../../../images/specs/stock-tracker/screen/summaries-empty-mobile.png) | ![サマリー画面 銘柄がない取引所 (PC)](../../../images/specs/stock-tracker/screen/summaries-empty-desktop.png) |
+
+### 取得に失敗したとき
+
+エラーを出し、表は空にする。
+
+| スマホ | PC |
+|---|---|
+| ![サマリー画面 取得に失敗したとき (スマホ)](../../../images/specs/stock-tracker/screen/summaries-fetch-error-mobile.png) | ![サマリー画面 取得に失敗したとき (PC)](../../../images/specs/stock-tracker/screen/summaries-fetch-error-desktop.png) |
+
+### 書き込みの権限だけを持つロール (`stock-user`)
+
+「サマリー更新」のボタンが出ない。
+
+| スマホ | PC |
+|---|---|
+| ![サマリー画面 書き込みの権限だけを持つロール (`stock-user`) (スマホ)](../../../images/specs/stock-tracker/screen/summaries-user-role-mobile.png) | ![サマリー画面 書き込みの権限だけを持つロール (`stock-user`) (PC)](../../../images/specs/stock-tracker/screen/summaries-user-role-desktop.png) |
+
 ## つながり
 
 ```mermaid

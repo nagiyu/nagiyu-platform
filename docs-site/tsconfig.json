@@ -5,6 +5,12 @@
     "types": ["jest", "node"],
     "noEmit": true
   },
-  "include": ["src/**/*", "tests/**/*", ".vitepress/**/*.ts", ".vitepress/**/*.mts"],
+  "include": [
+    "src/**/*",
+    "tests/**/*",
+    "capture/**/*",
+    ".vitepress/**/*.ts",
+    ".vitepress/**/*.mts"
+  ],
   "exclude": ["node_modules", ".vitepress/dist", ".vitepress/cache"]
 }

@@ -55,6 +55,70 @@ related_cards: [stock-tracker/api/alerts, stock-tracker/api/push, stock-tracker/
 - 編集では、モードと頻度は表示のみ。条件、有効・無効、一時通知、カスタムメッセージを変えられる。カスタムメッセージを空にしても、送るのは中身があるときだけなので、既存のメッセージは消えない
 - 価格は 0.01〜1,000,000、カスタムメッセージは 500 文字以内
 
+## 画面の見た目
+
+### 通常表示
+
+買い・売り、範囲指定、無効、一時通知の例を並べる。
+
+| スマホ | PC |
+|---|---|
+| ![アラート一覧画面 通常表示 (スマホ)](../../../images/specs/stock-tracker/screen/alerts-default-mobile.png) | ![アラート一覧画面 通常表示 (PC)](../../../images/specs/stock-tracker/screen/alerts-default-desktop.png) |
+
+### 絞り込んだ状態
+
+取引所とモードで絞る。
+
+| スマホ | PC |
+|---|---|
+| ![アラート一覧画面 絞り込んだ状態 (スマホ)](../../../images/specs/stock-tracker/screen/alerts-filtered-mobile.png) | ![アラート一覧画面 絞り込んだ状態 (PC)](../../../images/specs/stock-tracker/screen/alerts-filtered-desktop.png) |
+
+### 絞り込みで 0 件のとき
+
+「フィルタ条件に一致するアラートがありません」を出す。
+
+| スマホ | PC |
+|---|---|
+| ![アラート一覧画面 絞り込みで 0 件のとき (スマホ)](../../../images/specs/stock-tracker/screen/alerts-filtered-empty-mobile.png) | ![アラート一覧画面 絞り込みで 0 件のとき (PC)](../../../images/specs/stock-tracker/screen/alerts-filtered-empty-desktop.png) |
+
+### アラートがないとき
+
+「アラートがありません」を出す。
+
+| スマホ | PC |
+|---|---|
+| ![アラート一覧画面 アラートがないとき (スマホ)](../../../images/specs/stock-tracker/screen/alerts-empty-mobile.png) | ![アラート一覧画面 アラートがないとき (PC)](../../../images/specs/stock-tracker/screen/alerts-empty-desktop.png) |
+
+### 編集ダイアログ
+
+縦に長いため、条件などの入力欄はダイアログの中をスクロールして入力する。
+
+| スマホ | PC |
+|---|---|
+| ![アラート一覧画面 編集ダイアログ (スマホ)](../../../images/specs/stock-tracker/screen/alerts-edit-dialog-mobile.png) | ![アラート一覧画面 編集ダイアログ (PC)](../../../images/specs/stock-tracker/screen/alerts-edit-dialog-desktop.png) |
+
+### 削除の確認
+
+| スマホ | PC |
+|---|---|
+| ![アラート一覧画面 削除の確認 (スマホ)](../../../images/specs/stock-tracker/screen/alerts-delete-dialog-mobile.png) | ![アラート一覧画面 削除の確認 (PC)](../../../images/specs/stock-tracker/screen/alerts-delete-dialog-desktop.png) |
+
+### 一覧の取得に失敗したとき
+
+エラーを出す。
+
+| スマホ | PC |
+|---|---|
+| ![アラート一覧画面 一覧の取得に失敗したとき (スマホ)](../../../images/specs/stock-tracker/screen/alerts-fetch-error-mobile.png) | ![アラート一覧画面 一覧の取得に失敗したとき (PC)](../../../images/specs/stock-tracker/screen/alerts-fetch-error-desktop.png) |
+
+### 閲覧だけできるロール (`stock-viewer`)
+
+操作の列が出ない。
+
+| スマホ | PC |
+|---|---|
+| ![アラート一覧画面 閲覧だけできるロール (`stock-viewer`) (スマホ)](../../../images/specs/stock-tracker/screen/alerts-viewer-mobile.png) | ![アラート一覧画面 閲覧だけできるロール (`stock-viewer`) (PC)](../../../images/specs/stock-tracker/screen/alerts-viewer-desktop.png) |
+
 ## つながり
 
 ```mermaid

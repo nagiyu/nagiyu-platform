@@ -9,9 +9,10 @@
     "preview": "vitepress preview",
     "test": "jest",
     "test:coverage": "jest --coverage",
-    "lint": "eslint 'src/**/*.ts' 'tests/**/*.ts'",
+    "lint": "eslint 'src/**/*.ts' 'tests/**/*.ts' 'capture/**/*.ts'",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "capture:specs": "ts-node --transpile-only --project capture/tsconfig.json capture/run.ts"
   },
   "devDependencies": {
     "mermaid": "^11.17.2",
