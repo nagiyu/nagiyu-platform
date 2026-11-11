@@ -17,6 +17,7 @@ import { admin } from './admin';
 import { auth } from './auth';
 import { codecConverter } from './codec-converter';
 import { niconicoMylistAssistant } from './niconico-mylist-assistant';
+import { quickClip } from './quick-clip';
 import { portal } from './portal';
 import { stockTracker } from './stock-tracker';
 import { tools } from './tools';
@@ -29,6 +30,7 @@ const SERVICES: Record<string, ServiceCapture> = {
   auth,
   'codec-converter': codecConverter,
   'niconico-mylist-assistant': niconicoMylistAssistant,
+  'quick-clip': quickClip,
   portal,
   'stock-tracker': stockTracker,
   tools,
