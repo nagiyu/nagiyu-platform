@@ -36,7 +36,7 @@ function renderSources(links: CardLink[]): VNode | null {
   ]);
 }
 
-/** 仕様カード (frontmatter に kind があるページ) の本文の上に、種別と関連情報を小さく出す。 */
+/** frontmatter に kind があるページ (仕様カード) の本文の上に、種別と関連情報を小さく出す。 */
 export default defineComponent({
   name: 'SpecCardMeta',
   setup() {
@@ -44,9 +44,9 @@ export default defineComponent({
     return () => {
       const meta = parseCardMeta(frontmatter.value);
       if (!meta) return null;
-      return h('aside', { class: 'spec-meta', 'aria-label': '仕様カードの情報' }, [
+      return h('aside', { class: 'spec-meta', 'aria-label': 'このページの情報' }, [
         h('div', { class: 'spec-meta-badges' }, [
-          h('span', { class: 'spec-meta-badge' }, `仕様カード: ${kindLabel(meta.kind ?? '')}`),
+          h('span', { class: 'spec-meta-badge' }, kindLabel(meta.kind ?? '')),
           meta.service ? h('span', { class: 'spec-meta-badge' }, meta.service) : null,
         ]),
         renderSources(meta.sources),

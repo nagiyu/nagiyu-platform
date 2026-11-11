@@ -1,4 +1,5 @@
 import { REPOSITORY_BLOB_URL } from './constants';
+import { CARD_KINDS } from './site-structure';
 
 export interface CardLink {
   label: string;
@@ -16,13 +17,9 @@ export interface CardMeta {
   terms: CardLink[];
 }
 
-const KIND_LABELS: Record<string, string> = {
-  batch: 'バッチ',
-  flow: 'フロー',
-  term: '用語',
-  screen: '画面',
-  api: 'API',
-};
+const KIND_LABELS: Record<string, string> = Object.fromEntries(
+  CARD_KINDS.map((kind) => [kind.dir, kind.title])
+);
 
 /** kind の表示名。未知の値はそのまま返す。 */
 export function kindLabel(kind: string): string {
