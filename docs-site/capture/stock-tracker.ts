@@ -636,5 +636,6 @@ export const stockTracker: ServiceCapture = {
     requiredBuilds: ['libs/ui/dist', 'libs/nextjs/dist', 'services/stock-tracker/core/dist'],
   },
   fixedTime: '2026-02-28T01:30:00Z',
+  defaultRoles: ['stock-admin'],
   scenarios: [home, tickers, exchanges, holdings, alerts, summaries, axisPerformance],
 };

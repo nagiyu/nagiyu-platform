@@ -67,8 +67,8 @@ export interface ServiceCapture {
     /** サービスの前に起動する補助のプロセス (偽の外部サーバーなど)。撮影の終わりにまとめて止める */
     companions?: CompanionProcess[];
   };
-  /** `freshPage` でロールを指定しなかったときに使うロール。省略時は `stock-admin` */
-  defaultRoles?: string[];
+  /** `freshPage` でロールを指定しなかったときに使うロール */
+  defaultRoles: string[];
   /** 画面の日時として固定する時刻 */
   fixedTime: string;
   scenarios: Scenario[];
