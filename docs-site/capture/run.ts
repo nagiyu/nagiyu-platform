@@ -16,6 +16,7 @@ import { createScenarioContext } from './context';
 import { admin } from './admin';
 import { auth } from './auth';
 import { codecConverter } from './codec-converter';
+import { quickClip } from './quick-clip';
 import { stockTracker } from './stock-tracker';
 import type { CompanionProcess, ServiceCapture } from './types';
 
@@ -25,6 +26,7 @@ const SERVICES: Record<string, ServiceCapture> = {
   admin,
   auth,
   'codec-converter': codecConverter,
+  'quick-clip': quickClip,
   'stock-tracker': stockTracker,
 };
 
