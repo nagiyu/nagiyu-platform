@@ -13,7 +13,7 @@ sources:
   - services/auth/web/src/lib/auth/auth.ts
   - services/auth/web/src/app/signin/page.tsx
   - services/auth/web/src/app/auth/error/page.tsx
-sources_hash: 52399280e66ccc3a8b676b6ee94ff00d7c5d7e0dd1d795b1b7618bc47d3c1989
+sources_hash: 33369706a1aebcf3b5d386ec1070d12ad376c4aa63459a9b885f1a7a0866967c
 terms: [auth/term/callback-url, auth/term/session-roles, platform/term/role]
 related_cards: [auth/screen/signin, auth/screen/auth-error, auth/screen/signout, auth/screen/refresh, auth/api/system, admin/flow/error-notification]
 related_adr:
@@ -29,7 +29,7 @@ related_adr:
 ## 起点
 
 - ログインが要る画面を未ログインで開く。各サービスのミドルウェア (`createAuthMiddleware`) が、Auth のサインイン画面 (`NEXT_PUBLIC_AUTH_URL` の `/signin`) へ、`callbackUrl=<開いた画面>` を付けてリダイレクトする
-    - 戻り先の既定は、環境変数 `APP_URL` があれば `{APP_URL}{パス}{検索語}`、なければパスだけ。Auth 自身は常にパスだけ
+    - 戻り先の既定は、環境変数 `APP_URL` があれば `{APP_URL}{パス}{検索語}`、なければパスだけ。Auth 自身は常にパスと検索語 (相対パス)
 - ログインが任意のサービスは、画面の中の導線から `buildSignInUrl` で同じサインイン画面へ送る
 
 ## 経路
@@ -56,7 +56,7 @@ sequenceDiagram
 
 | 段階 | 内容 |
 |---|---|
-| ④ 戻り先の検証 | 同一オリジン、または nagiyu.com とそのサブドメインの絶対 URL だけを通す。通らない値 (相対パスを含む) は Auth のトップ (`/`。そこからダッシュボード) にする。[戻り先](../term/callback-url.md)を参照 |
+| ④ 戻り先の検証 | 同一オリジン、または nagiyu.com とそのサブドメインの絶対 URL と、Auth 内の相対パスを通す。相対パスは絶対 URL にする。通らない値は Auth のトップ (`/`。そこからダッシュボード) にする。[戻り先](../term/callback-url.md)を参照 |
 | ⑦ ユーザーの保存 | Google のアカウント ID で探す。いなければ手動ロールなしで作り、いれば名前と画像を更新する。メールアドレスと名前が Google から返らなければサインインを拒否する |
 | ⑧ ロールの取得 | 手動ロールと、有効な課金の権利のロールを合わせた[セッションのロール](../term/session-roles.md)を JWT に入れる。最終ログイン時刻も更新する |
 | ⑨ Cookie | `.nagiyu.com` (dev は `.dev.nagiyu.com`) 全体で共有する。戻り先の Cookie も同様で、環境ごとに名前を分ける |

@@ -13,7 +13,7 @@ sources:
   - libs/nextjs/src/session.ts
   - libs/nextjs/src/auth-config.ts
   - libs/nextjs/src/middleware.ts
-sources_hash: 18a2ee930db14c6dad6a8969cf3965b7cc71d61fddcbf44b6b858b02a75bf6a9
+sources_hash: a70004bfb84db4fe7617dba256aaf1434494ba353e9960021f951d159d6f4288
 terms: [auth/term/session-roles, auth/term/callback-url]
 related_cards: [auth/flow/sign-in, auth/screen/signout, auth/screen/signin]
 related_adr:
@@ -53,7 +53,7 @@ related_adr:
 
 - 死活確認はエラーを決めていない
 - 認証の失敗は、[認証エラー画面](../screen/auth-error.md)へ移す
-- ミドルウェアは `/api`、`_next`、`favicon.ico`、`/auth` 配下を対象にしない。`/signin`、`/plans`、`/legal` 配下は通し、それ以外の画面は未ログインだと `/signin?callbackUrl=<パス>` へ移す
+- ミドルウェアは `/api`、`_next`、`favicon.ico`、`/auth` 配下を対象にしない。`/signin`、`/plans`、`/legal` 配下は通し、それ以外の画面は未ログインだと `/signin?callbackUrl=<パスと検索語>` へ移す
 
 ## つながり
 

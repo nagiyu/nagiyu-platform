@@ -9,7 +9,7 @@ sources:
   - services/auth/web/src/lib/signout.ts
   - services/auth/web/src/lib/auth/auth.ts
   - libs/ui/src/utils/auth.ts
-sources_hash: 6af651841e28de6dba501330b74237fc451f56b28b90454b6f815aa8929baa95
+sources_hash: 444d88b25a243f1d200060f3bc590ec5de052ff5e50134a9f677b7295402b568
 terms: [auth/term/callback-url]
 related_cards: [auth/flow/sign-in, auth/api/system]
 related_adr:

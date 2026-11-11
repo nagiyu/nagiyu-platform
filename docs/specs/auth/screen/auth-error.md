@@ -7,7 +7,7 @@ sources:
   - services/auth/web/src/app/auth/error/page.tsx
   - services/auth/web/src/lib/auth-error-message.ts
   - services/auth/web/src/lib/auth/auth.ts
-sources_hash: 5a95f58957023ed0578bc669fd749bdd4469f076940cc62b6cbca227bce3f217
+sources_hash: a0ae7f1e44cf33b385ca1ba5790b381568819000bd24200afe5ff109fb9f0bbd
 related_cards: [auth/screen/signin, auth/flow/sign-in]
 ---
 

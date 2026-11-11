@@ -8,7 +8,7 @@ sources:
   - services/auth/web/src/lib/refresh-callback.ts
   - services/auth/web/src/lib/navigate.ts
   - services/auth/web/src/lib/auth/auth.ts
-sources_hash: b2ada78d2e913731214c7d3599f0bdbc51d5684402e3ba47d58ed90837ce6a27
+sources_hash: 34e533c829a400eb7e12b9730b18ad37830c3d73b9b21d7f412e35841720db99
 terms: [auth/term/session-roles, auth/term/callback-url]
 related_cards: [auth/flow/billing-entitlement, auth/screen/plans, auth/screen/users]
 related_adr:
@@ -37,7 +37,7 @@ related_adr:
 ## 処理
 
 - セッションの読み込みが終わってから、1 回だけ更新を呼ぶ。更新はロールの強制再取得を起こす ([セッションのロール](../term/session-roles.md))
-- 更新が終わったら、成功でも失敗でも[戻り先](../term/callback-url.md)へ移る。`callbackUrl` が同一オリジンか nagiyu.com 配下でなければ、Auth のトップ (`/`。そこからダッシュボード) へ移る
+- 更新が終わったら、成功でも失敗でも[戻り先](../term/callback-url.md)へ移る。`callbackUrl` が同一オリジンか nagiyu.com 配下の絶対 URL、または Auth 内の相対パス (絶対 URL にして使う) でなければ、Auth のトップ (`/`。そこからダッシュボード) へ移る
 - 更新の通信が失敗しても、認証ライブラリがその失敗を握るので、画面は「更新できた」になる (「失敗した」の文は、更新の呼び出しが例外を投げたときだけ出る)
 
 ## 画面の見た目

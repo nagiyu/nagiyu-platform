@@ -7,7 +7,7 @@ sources:
   - services/auth/web/src/app/signin/page.tsx
   - services/auth/web/src/middleware.ts
   - services/auth/web/src/lib/auth/auth.ts
-sources_hash: 33b1235204212f7cd1b684f21db55a3dd4be79b7f004de12dcaecfbb6e47df26
+sources_hash: e1f1a4355bf77afff0837f6087cbfa5b370656c718efb3cb95f9e6aae7f5bad9
 terms: [auth/term/callback-url]
 related_cards: [auth/flow/sign-in, auth/screen/auth-error, auth/screen/dashboard]
 related_adr:
