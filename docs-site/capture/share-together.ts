@@ -414,8 +414,8 @@ export const shareTogether: ServiceCapture = {
     extraEnv: {
       TEST_USER_NAME,
       TEST_USER_EMAIL,
-      NEXTAUTH_URL: 'http://localhost:3400',
-      BASE_URL: 'http://localhost:3400',
+      NEXTAUTH_URL: 'http://localhost:3402',
+      BASE_URL: 'http://localhost:3402',
     },
   },
   // ロールで画面の出し分けをしないサービス
