@@ -18,7 +18,7 @@ sources:
   - services/admin/web/src/app/api/notify/sns/route.ts
 sources_hash: 79eec0dbb418f21b8ce609fe0bfef5ca4fc8bbb1eaf64d331fac0f884ff28ba4
 terms: [platform/term/error-event]
-related_cards: [livetalk/batch/acquire, livetalk/batch/consolidate-conversations, livetalk/batch/notify, livetalk/batch/learn-user-activity]
+related_cards: [livetalk/batch/acquire, livetalk/batch/consolidate-conversations, livetalk/batch/notify, livetalk/batch/learn-user-activity, admin/batch/alarm-ingest, admin/batch/stream-handler, admin/api/notify-sns, admin/api/errors, admin/screen/errors, admin/screen/error-detail, admin/flow/push-subscription]
 related_adr:
   - services/admin/architecture.md#ADR-003
   - services/admin/architecture.md#ADR-004
