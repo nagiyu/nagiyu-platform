@@ -16,6 +16,7 @@ import { createScenarioContext } from './context';
 import { admin } from './admin';
 import { auth } from './auth';
 import { codecConverter } from './codec-converter';
+import { niconicoMylistAssistant } from './niconico-mylist-assistant';
 import { shareTogether } from './share-together';
 import { quickClip } from './quick-clip';
 import { portal } from './portal';
@@ -29,6 +30,7 @@ const SERVICES: Record<string, ServiceCapture> = {
   admin,
   auth,
   'codec-converter': codecConverter,
+  'niconico-mylist-assistant': niconicoMylistAssistant,
   'share-together': shareTogether,
   'quick-clip': quickClip,
   portal,
