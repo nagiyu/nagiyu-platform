@@ -17,6 +17,7 @@ import { admin } from './admin';
 import { auth } from './auth';
 import { codecConverter } from './codec-converter';
 import { shareTogether } from './share-together';
+import { portal } from './portal';
 import { stockTracker } from './stock-tracker';
 import type { CompanionProcess, ServiceCapture } from './types';
 
@@ -27,6 +28,7 @@ const SERVICES: Record<string, ServiceCapture> = {
   auth,
   'codec-converter': codecConverter,
   'share-together': shareTogether,
+  portal,
   'stock-tracker': stockTracker,
 };
 
