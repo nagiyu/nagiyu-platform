@@ -19,6 +19,23 @@
 6. **確かめる**: `node .github/workflows/scripts/spec-cards.mjs check` と `python3 .github/workflows/scripts/check-doc-links.py`
 7. **索引に足す**: 新しいカードは `docs/specs/README.md` のカード一覧に足す (`check` が漏れを検出する)
 
+## 画面カードのスクリーンショット
+
+画面 (screen) カードの「画面の見た目」に載せる画像は、手で撮らず撮影スクリプトで撮る。画面カードを作り直すときは、画像も撮り直して同じ PR に含める。
+
+```bash
+npm run build:libs                                        # 共通ライブラリ (dist/) が無いとき
+npm run build -w @nagiyu/stock-tracker-core               # サービスの core が無いとき
+npm run capture:specs -w @nagiyu/docs-site -- stock-tracker                 # 全画面
+npm run capture:specs -w @nagiyu/docs-site -- stock-tracker --screen tickers  # 1 画面だけ
+```
+
+- サービスは E2E と同じ設定 (`.env.test` のインメモリ DB、認証スキップ) で起動される。外部への通信 (チャートの価格など) と API のエラーは、撮影の中で通信を差し替えて再現する
+- どの画面でどの状態を撮るかは、サービスごとの撮影シナリオ (`docs-site/capture/<service>.ts`) に書く。端末の幅もそこで決める。状態を足したら、カードの「画面の見た目」にも同じ名前で足す
+- 画像は `docs/images/specs/<service>/screen/` に出力される。撮り直して差分が出たら、画面が変わったかを画像で確かめる (見た目が変わっていないのに差分が出るなら、撮影が不安定なので原因を直す)
+- Playwright のブラウザが要求の版で入っていない環境では、`CAPTURE_CHROMIUM_PATH` に Chromium の実行ファイルを渡す (`/opt/pw-browsers/chromium` など)。日本語のフォントなど、環境によって描画が変わるため、画像を撮り直すのは同じ環境で行う
+- 新しいサービスに足すときは、`docs-site/capture/<service>.ts` に設定とシナリオを書き、`docs-site/capture/run.ts` の `SERVICES` に登録する
+
 ## 既存のカードの作り直し (check が落ちたとき)
 
 **ハッシュだけを更新しない。** `update` はカードの本文が正しいかを確かめない。通すためだけに更新すると、カードが嘘をつく。
@@ -52,6 +69,7 @@
 - [ ] `sources` が実在するファイルだけで、挙動に関係するものに絞れている
 - [ ] `spec-cards.mjs check` と `check-doc-links.py` が通る
 - [ ] 新しいカードを README の一覧に足した
+- [ ] 画面カードは、撮影スクリプトで撮り直した画像を載せ、状態の名前がシナリオと合っている
 
 ## 関連
 

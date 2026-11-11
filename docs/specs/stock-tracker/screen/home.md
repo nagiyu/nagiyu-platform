@@ -50,7 +50,7 @@ related_adr:
 ## 状態
 
 - 取引所・ティッカー・サマリー・保有株式・アラートは、それぞれ別に読み込む。1 つ失敗しても、ほかは表示する
-- サマリーがない銘柄は「サマリー情報がありません」を出す
+- サマリーがまだない銘柄は、API が 404 を返し、取得の失敗と同じく「サマリーの取得に失敗しました」を赤字で出す
 - 保有株式がない銘柄だけ「追加」できる (通貨は取引所の市場から初期値が決まる)。アラートの一覧が空のときは、その旨を出す
 
 ## 操作
@@ -66,6 +66,80 @@ related_adr:
 | アラートを編集・削除する | [アラート API](../api/alerts.md) で更新・削除し、読み直す |
 
 読み込みは、[取引所 API](../api/exchanges.md)、[ティッカー API](../api/tickers.md)、[チャート API](../api/chart.md)、[サマリー API](../api/summaries.md)、[保有株式 API](../api/holdings.md)、[アラート API](../api/alerts.md) を使う。
+
+## 画面の見た目
+
+### 選択前
+
+取引所とティッカーを選ぶ前。チャートの領域に選択を促す表示が出る。
+
+| スマホ | PC |
+|---|---|
+| ![トップ画面 選択前 (スマホ)](../../../images/specs/stock-tracker/screen/home-unselected-mobile.png) | ![トップ画面 選択前 (PC)](../../../images/specs/stock-tracker/screen/home-unselected-desktop.png) |
+
+### 銘柄を選んだ状態
+
+チャート、サマリー、保有株式、アラートが並ぶ。
+
+| スマホ | PC |
+|---|---|
+| ![トップ画面 銘柄を選んだ状態 (スマホ)](../../../images/specs/stock-tracker/screen/home-selected-mobile.png) | ![トップ画面 銘柄を選んだ状態 (PC)](../../../images/specs/stock-tracker/screen/home-selected-desktop.png) |
+
+### 保有株式もアラートもない銘柄
+
+保有株式は「保有なし」、アラートは「アラートなし」になり、「追加」から登録できる。サマリーが取れない銘柄では、サマリーの欄に取得失敗の表示が出る。
+
+| スマホ | PC |
+|---|---|
+| ![トップ画面 保有株式もアラートもない銘柄 (スマホ)](../../../images/specs/stock-tracker/screen/home-no-holding-no-alert-mobile.png) | ![トップ画面 保有株式もアラートもない銘柄 (PC)](../../../images/specs/stock-tracker/screen/home-no-holding-no-alert-desktop.png) |
+
+### 保有株式の登録ダイアログ
+
+保有株式の「追加」で開く。取引所とティッカーは選択中のものが入る。
+
+| スマホ | PC |
+|---|---|
+| ![トップ画面 保有株式の登録ダイアログ (スマホ)](../../../images/specs/stock-tracker/screen/home-holding-dialog-mobile.png) | ![トップ画面 保有株式の登録ダイアログ (PC)](../../../images/specs/stock-tracker/screen/home-holding-dialog-desktop.png) |
+
+### アラート設定ダイアログ
+
+「買い追加」「売り追加」で開く。株価チャートを見ながら条件を決める。
+
+| スマホ | PC |
+|---|---|
+| ![トップ画面 アラート設定ダイアログ (スマホ)](../../../images/specs/stock-tracker/screen/home-alert-dialog-mobile.png) | ![トップ画面 アラート設定ダイアログ (PC)](../../../images/specs/stock-tracker/screen/home-alert-dialog-desktop.png) |
+
+### サマリーの詳細ダイアログ
+
+サマリーの「詳細」で開く。確度の内訳と日足チャートを見られる。
+
+| スマホ | PC |
+|---|---|
+| ![トップ画面 サマリーの詳細ダイアログ (スマホ)](../../../images/specs/stock-tracker/screen/home-summary-dialog-mobile.png) | ![トップ画面 サマリーの詳細ダイアログ (PC)](../../../images/specs/stock-tracker/screen/home-summary-dialog-desktop.png) |
+
+### 保有株式の削除確認
+
+その銘柄の売りアラートも合わせて削除されることを、確認の中に並べる。
+
+| スマホ | PC |
+|---|---|
+| ![トップ画面 保有株式の削除確認 (スマホ)](../../../images/specs/stock-tracker/screen/home-holding-delete-dialog-mobile.png) | ![トップ画面 保有株式の削除確認 (PC)](../../../images/specs/stock-tracker/screen/home-holding-delete-dialog-desktop.png) |
+
+### チャートの取得に失敗したとき
+
+チャートの領域にエラーを出す。ほかの欄は表示する。
+
+| スマホ | PC |
+|---|---|
+| ![トップ画面 チャートの取得に失敗したとき (スマホ)](../../../images/specs/stock-tracker/screen/home-chart-error-mobile.png) | ![トップ画面 チャートの取得に失敗したとき (PC)](../../../images/specs/stock-tracker/screen/home-chart-error-desktop.png) |
+
+### 閲覧だけできるロール (`stock-viewer`)
+
+追加・編集・削除のボタンと、管理画面へのリンクが出ない。
+
+| スマホ | PC |
+|---|---|
+| ![トップ画面 閲覧だけできるロール (`stock-viewer`) (スマホ)](../../../images/specs/stock-tracker/screen/home-viewer-mobile.png) | ![トップ画面 閲覧だけできるロール (`stock-viewer`) (PC)](../../../images/specs/stock-tracker/screen/home-viewer-desktop.png) |
 
 ## つながり
 
