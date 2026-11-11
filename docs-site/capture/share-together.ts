@@ -398,7 +398,7 @@ export const shareTogether: ServiceCapture = {
     cwd: 'services/share-together/web',
     build: ['npm', 'run', 'build'],
     command: ['npm', 'run', 'start', '--'],
-    port: 3400,
+    port: 3402,
     healthPath: '/api/health',
     envFile: 'services/share-together/web/.env.test',
     requiredBuilds: [
