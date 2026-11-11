@@ -14,7 +14,7 @@ sources:
   - services/auth/core/src/billing/grant-diff.ts
   - services/auth/core/src/billing/checkout.ts
   - libs/common/src/auth/role-grants.ts
-sources_hash: d7df8d1e823b24e81d98ba299756fc5182d5ff08119c41ae8bf3e5388de23a9d
+sources_hash: 9356dc780289429d0aa519e49e8eec154cae88f33f6e2c254619c18b3e1a9ea3
 terms: [auth/term/role-grant, auth/term/plan-tier, auth/term/session-roles, platform/term/role]
 related_cards: [auth/screen/plans, auth/screen/refresh, auth/api/billing, auth/api/billing-webhook, auth/screen/user-edit]
 related_adr:

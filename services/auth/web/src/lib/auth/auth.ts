@@ -132,9 +132,9 @@ export const authConfig: NextAuthConfig = {
   callbacks: {
     ...sharedCallbacks,
     async redirect({ url, baseUrl }) {
-      // 同一オリジン、*.nagiyu.com、auth 内の相対パスのみ許可（オープンリダイレクト対策）。
-      // 戻り先は auth 内で相対パスのまま渡ってくるため、絶対 URL に直して返す
-      // （next-auth はこの戻り値をそのまま遷移先にする）。許可されない値は baseUrl にフォールバックする。
+      // オープンリダイレクト対策として、同一オリジン・*.nagiyu.com・auth 内の相対パスだけを通す。
+      // auth 内の戻り先は相対パスで渡ってくるため、絶対 URL に直して返す
+      // (next-auth はこの戻り値をそのまま遷移先にし、Cookie にも控える)。
       return sanitizeCallbackUrl(url, baseUrl) ?? baseUrl;
     },
     async signIn({ user, account }) {

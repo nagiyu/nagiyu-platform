@@ -10,7 +10,7 @@ sources:
   - services/auth/web/src/lib/signout.ts
   - services/auth/web/src/lib/billing-urls.ts
   - services/auth/web/src/lib/auth/auth.ts
-sources_hash: cedd21f53707480b768b00e8bee218b5a31913a03dbe63f1978b9276a30e1255
+sources_hash: b2d5a7b8872ff11942e913041703cd9dece9d7bb2f5478db53ac998eefc9e125
 related_cards: [auth/screen/signin, auth/screen/plans, auth/screen/refresh, auth/screen/signout, auth/api/billing, auth/flow/sign-in]
 related_adr:
   - services/auth/architecture.md#7.1 OAuth セキュリティ

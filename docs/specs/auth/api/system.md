@@ -13,7 +13,7 @@ sources:
   - libs/nextjs/src/session.ts
   - libs/nextjs/src/auth-config.ts
   - libs/nextjs/src/middleware.ts
-sources_hash: a70004bfb84db4fe7617dba256aaf1434494ba353e9960021f951d159d6f4288
+sources_hash: 1aab52a639f0b95f21e90b4405e9c907949b0ab880a005e5e7cd38bae3990c6a
 terms: [auth/term/session-roles, auth/term/callback-url]
 related_cards: [auth/flow/sign-in, auth/screen/signout, auth/screen/signin]
 related_adr:
