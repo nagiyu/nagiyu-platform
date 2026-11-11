@@ -17,6 +17,7 @@ import { admin } from './admin';
 import { auth } from './auth';
 import { codecConverter } from './codec-converter';
 import { stockTracker } from './stock-tracker';
+import { tools } from './tools';
 import type { CompanionProcess, ServiceCapture } from './types';
 
 const REPO_ROOT = resolve(__dirname, '../..');
@@ -26,6 +27,7 @@ const SERVICES: Record<string, ServiceCapture> = {
   auth,
   'codec-converter': codecConverter,
   'stock-tracker': stockTracker,
+  tools,
 };
 
 const MESSAGES = {
