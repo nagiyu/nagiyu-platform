@@ -16,6 +16,7 @@ import { createScenarioContext } from './context';
 import { admin } from './admin';
 import { auth } from './auth';
 import { codecConverter } from './codec-converter';
+import { niconicoMylistAssistant } from './niconico-mylist-assistant';
 import { stockTracker } from './stock-tracker';
 import type { CompanionProcess, ServiceCapture } from './types';
 
@@ -25,6 +26,7 @@ const SERVICES: Record<string, ServiceCapture> = {
   admin,
   auth,
   'codec-converter': codecConverter,
+  'niconico-mylist-assistant': niconicoMylistAssistant,
   'stock-tracker': stockTracker,
 };
 

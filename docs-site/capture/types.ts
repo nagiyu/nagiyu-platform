@@ -1,4 +1,4 @@
-import type { Locator, Page } from '@playwright/test';
+import type { APIRequestContext, Locator, Page } from '@playwright/test';
 import type { DeviceId } from '../src/spec-screenshot';
 
 export interface ShotOptions {
@@ -69,6 +69,11 @@ export interface ServiceCapture {
   };
   /** `freshPage` でロールを指定しなかったときに使うロール */
   defaultRoles: string[];
+  /**
+   * インメモリの DB を空にして `seed` を投入する処理。省略すると、サービスの `POST /api/test/reset` に `seed` をそのまま送る。
+   * 初期化用のエンドポイントが 1 本にまとまっていないサービス (テスト用の API が複数に分かれているなど) が差し替える
+   */
+  resetData?: (request: APIRequestContext, baseUrl: string, seed: unknown) => Promise<void>;
   /** 画面の日時として固定する時刻 */
   fixedTime: string;
   scenarios: Scenario[];
