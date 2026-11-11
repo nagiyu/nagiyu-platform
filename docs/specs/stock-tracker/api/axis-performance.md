@@ -10,7 +10,7 @@ sources:
   - services/stock-tracker/web/lib/forecast/constants.ts
 sources_hash: 49cbf0d70c7be91ef45790fb5db5aa41c9fbc8c109e5fb062f9439198d99ccc5
 terms: [stock-tracker/term/permission, stock-tracker/term/api-error, stock-tracker/term/axis, stock-tracker/term/question, stock-tracker/term/forecast]
-related_cards: [stock-tracker/api/forecasts, stock-tracker/screen/axis-performance]
+related_cards: [stock-tracker/api/forecasts, stock-tracker/screen/axis-performance, stock-tracker/batch/forecast]
 ---
 
 # 判断軸の成績 API
@@ -65,6 +65,8 @@ related_cards: [stock-tracker/api/forecasts, stock-tracker/screen/axis-performan
 ```mermaid
 flowchart TD
     S[判断軸の成績画面] -->|問い・期間・市場| A[判断軸の成績 API]
-    A --> P[(日ごとの採点の集計)]
-    A --> M[(軸の重みの記録)]
+    B[確度算出バッチ] --> P[(日ごとの採点の集計)]
+    B --> M[(軸の重みの記録)]
+    A --> P
+    A --> M
 ```

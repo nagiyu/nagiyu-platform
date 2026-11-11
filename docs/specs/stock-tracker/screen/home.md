@@ -17,7 +17,7 @@ sources:
   - services/stock-tracker/web/types/stock.ts
 sources_hash: d6d3290796e5468d845460b3a10e890787e400b38c928c42993881f1a82af270
 terms: [stock-tracker/term/permission, stock-tracker/term/ticker-id, stock-tracker/term/forecast]
-related_cards: [stock-tracker/screen/summaries, stock-tracker/screen/holdings, stock-tracker/screen/alerts]
+related_cards: [stock-tracker/screen/summaries, stock-tracker/screen/holdings, stock-tracker/screen/alerts, stock-tracker/flow/alert-notification]
 related_adr:
   - services/stock-tracker/architecture.md#2.9
 ---
@@ -30,6 +30,7 @@ related_adr:
 
 - パスは `/`。ヘッダーの「チャート」から来る
 - 問い合わせの `exchangeId`、`tickerId`、`timeframe` で、開いた時点の選択を決められる。存在しない取引所・銘柄は無視する
+- アラートの Web Push 通知をタップすると、通知の取引所とティッカーを付けて開く ([アラート通知の経路](../flow/alert-notification.md))
 - 利用者が選択を変えると、選択が問い合わせに反映される。`timeframe` は初期値の 1 時間足のときは付けない
 
 ## 表示するもの

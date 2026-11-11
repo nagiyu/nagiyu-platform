@@ -10,7 +10,7 @@ sources:
   - services/stock-tracker/web/lib/forecast/market-forecast.ts
 sources_hash: 456a07788cc95ddf3ee734fdcbd1dde048842a488ca073a163f9439b55e6e294
 terms: [stock-tracker/term/question, stock-tracker/term/axis]
-related_cards: [stock-tracker/api/forecasts, stock-tracker/api/summaries, stock-tracker/screen/summaries]
+related_cards: [stock-tracker/api/forecasts, stock-tracker/api/summaries, stock-tracker/screen/summaries, stock-tracker/batch/forecast]
 related_adr:
   - services/stock-tracker/architecture.md#2.22
   - services/stock-tracker/architecture.md#2.27
@@ -45,3 +45,4 @@ related_adr:
 - [確度 API](../api/forecasts.md): 銘柄の確度と内訳
 - [サマリー API](../api/summaries.md): 一覧と市場の荒れ予報
 - [サマリー画面](../screen/summaries.md): 確度を並べて見る
+- [確度算出バッチ](../batch/forecast.md): 確度を作る

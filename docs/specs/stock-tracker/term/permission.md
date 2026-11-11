@@ -8,7 +8,7 @@ sources:
   - libs/nextjs/src/auth.ts
 sources_hash: 25244a69494b920640b4d361b4a5dd77f5b878c22237d826283c159a1b3a1d59
 terms: [stock-tracker/term/api-error]
-related_cards: [stock-tracker/api/system]
+related_cards: [stock-tracker/api/system, stock-tracker/batch/summary]
 ---
 
 # 権限とロール
