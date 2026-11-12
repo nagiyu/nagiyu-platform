@@ -410,7 +410,8 @@ Profile item のみを索引化する sparse GSI（`GSI1`）を追加し、バ�
 
 レート制限と並行制御をアプリ層に実装し、状態は ADR-002 の Single Table に相乗りさせる（新テーブル・IAM 変更なし。既存の `grantReadWriteData` が必要アクションを網羅）。
 
-- レート制限はユーザー単位の固定ウィンドウ・カウンタ（窓と回数は[チャット API](../../specs/livetalk/api/chat.md)を参照）。`UpdateItem` の `ADD` でアトミックに加算し、超過時は HTTP 429（`Retry-After` 付き）。カウンタは TTL で自動掃除する。
+- レート制限はユーザー単位の固定ウィンドウ・カウンタ（窓と回数は[チャット API](../../specs/livetalk/api/chat.md)を参照）。`@nagiyu/aws` の上限付きの回数カウンターで、上限未満のときだけ加算する条件付き更新にし、判定と加算を 1 回の操作で行う。超過時は HTTP 429（`Retry-After` は断った窓で決める）。カウンタは TTL で自動掃除する。
+- 窓は 1 分 → 1 時間の順に数え、1 時間で断ったときは数えた 1 分を戻す。断った申し込みはどの窓も消費しない。断った分まで数えると、1 分の窓で断られ続けるあいだに 1 時間の窓が埋まり、短い連打だけで 1 時間止まってしまうため。1 分を先に数えるのは、断る理由の大半が 1 分の窓で、そのときは 1 時間に触れず戻しも要らないため。
 - 並行制御は in-flight ロック（SK=`CHATLOCK`）。同一ユーザーの並行リクエストは 2 本目以降を **拒否（429）** する（キャンセルではなく拒否。Message 生成が冪等でないため拒否が安全側）。取得は条件付き（`attribute_not_exists OR ExpiresAt < now`）で、失効判定は `ExpiresAt` に基づき、TTL の物理削除遅延（最大 48h）に依存しない。解放は誤削除防止のため `OwnerToken` 一致を条件とする。
 - ガード適用順は **ロック取得 → レート加算**。並行で 429 拒否されたリクエストがレート枠を消費しないようにする。
 - サーバ側の決定論的タイムアウトは **持たない**。`for await` の外側にデッドラインを置く方式は、ジェネレータが真にハングした場合に発火せず誤解を招くため撤去し、上流クライアントの既存タイムアウト（OpenAI SDK のリクエストタイムアウト / VOICEVOX クライアントの AbortController）に委譲する。
@@ -419,7 +420,8 @@ Profile item のみを索引化する sparse GSI（`GSI1`）を追加し、バ�
 
 **根拠・トレードオフ**
 
-- ✅ 新テーブル不要・IAM 変更不要で、`UpdateItem` の `ADD` によりアトミックにカウントできる。ロック→レート順でレート枠を保護する
+- ✅ 新テーブル不要・IAM 変更不要で、条件付きの `UpdateItem` によりアトミックに判定・加算できる。ロック→レート順でレート枠を保護する
+- ⚠️ 1 分の戻しに失敗すると、その 1 回を多く数えたままになる (止める側にずれる)。戻しの失敗はエラーイベントに warning で報告する
 - ⚠️ route 層に決定論的な上限を持たないため、実効上限は上流クライアントのタイムアウト依存（OpenAI SDK 既定は緩め）。必要なら将来クライアント側のタイムアウトを明示的に絞る
 - ⚠️ フェイルオープンのため、DynamoDB 障害時はガードが効かない（コスト保護より可用性を優先する判断）
 - ⚠️ クライアントが応答中にアプリを閉じても上流処理は中断されず、その間ロックを保持する（`ExpiresAt` が粗いフェイルセーフ）。閉じた直後の再送が並行ガードで 429 になるのはこの仕様による意図どおりの挙動。上流処理ごと中断するには `AbortSignal` を usecase へ伝播する必要があり、将来課題とする
@@ -690,7 +692,7 @@ DynamoDB Single Table（`nagiyu-livetalk-dynamodb-{env}`）。
   - `STUDYUSAGE#<YYYYMMDD>` (勉強の 1 日の回数。日本時間の暦日ごとに 1 item で、キャラクター別と利用者合計の回数を属性に持つ。TTL は日が終わった翌日、ADR-2.25)
   - `SAFETY#<ulid>`（SafetyEvent、TTL なし＝無期限保持。退会時も削除せず匿名化して残す、ADR-2.21 / 2.22）
   - `NOTIF#<ulid>`（NotificationEvent、TTL 30 日）/ `PUSH_SUBSCRIPTION#<id>`
-  - `RATELIMIT#<window>#<bucket>`（チャットのレート制限カウンタ。window=`1m`/`1h`、`Count` をアトミック加算・TTL で自動掃除、ADR-2.20）
+  - `RATELIMIT#<window>#<bucket>`（チャットのレート制限カウンタ。window=`1m`/`1h`、`Count` を上限付きで加算・TTL で自動掃除、ADR-2.20）
   - `CHATLOCK`（チャットの in-flight ロック。実行中のみ存在し `OwnerToken` / `ExpiresAt` / `TTL` 付き、ADR-2.20）
 - GSI1（Profile 列挙用 sparse GSI、ADR-2.19）:
   - `GSI1PK='PROFILE'` を Profile item にのみ付与（sparse）/ `GSI1SK` = 生の `UserID` / 射影は `KEYS_ONLY`
