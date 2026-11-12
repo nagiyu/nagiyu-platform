@@ -10,7 +10,7 @@ const authMiddlewareHandler = createAuthMiddleware({
     pathname.startsWith('/signin') ||
     pathname.startsWith('/plans') ||
     pathname.startsWith('/legal'),
-  getCallbackUrl: (request) => request.nextUrl.pathname,
+  getCallbackUrl: (request) => request.nextUrl.pathname + request.nextUrl.search,
 });
 
 export default async function middleware(req: NextRequest) {

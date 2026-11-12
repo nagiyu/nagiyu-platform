@@ -162,6 +162,24 @@ describe('redirect コールバック', () => {
     expect(result).toBe('https://admin.nagiyu.com/');
   });
 
+  it('auth 内の相対パスは絶対 URL にする', async () => {
+    const result = await redirect({ url: '/dashboard', baseUrl: 'https://auth.nagiyu.com' });
+    expect(result).toBe('https://auth.nagiyu.com/dashboard');
+  });
+
+  it('相対パスのクエリを残す', async () => {
+    const result = await redirect({ url: '/plans?plan=pro', baseUrl: 'https://auth.nagiyu.com' });
+    expect(result).toBe('https://auth.nagiyu.com/plans?plan=pro');
+  });
+
+  it.each(['//evil.com', '/\\evil.com', '/\t/evil.com', 'javascript:alert(1)'])(
+    '危険な値 %j は baseUrl にフォールバックする',
+    async (url) => {
+      const result = await redirect({ url, baseUrl: 'https://auth.nagiyu.com' });
+      expect(result).toBe('https://auth.nagiyu.com');
+    }
+  );
+
   it('外部 URL は baseUrl にフォールバックする', async () => {
     const result = await redirect({
       url: 'https://evil.example.com/',

@@ -1,16 +1,11 @@
 /**
  * /refresh ページの callbackUrl 解決ロジック
  *
- * 許可基準:
- *   - 同一オリジン（baseUrl と同一 origin）
- *   - nagiyu.com 本体、またはそのサブドメイン（*.nagiyu.com）
- * 許可されない URL は baseUrl（auth のトップ）にフォールバックする。
- *
- * 判定は文字列の前方一致ではなく URL パース＋ホスト名一致で行う
- * （前方一致だと `https://auth.nagiyu.com.evil.com` 等のオープンリダイレクトを許すため）。
+ * 許可の判定は auth の戻り先の検証 (sanitizeCallbackUrl) に揃える。
+ * 許可されない URL は baseUrl (auth のトップ) にフォールバックする。
  */
 
-import { isAllowedNagiyuRedirectUrl } from '@nagiyu/common';
+import { sanitizeCallbackUrl } from './callback-url';
 
 // エラーメッセージ定数
 export const ERROR_MESSAGES = {
@@ -34,7 +29,5 @@ export function resolveRefreshCallbackUrl(
     return baseUrl;
   }
 
-  // 許可判定（同一オリジン / *.nagiyu.com、オープンリダイレクト対策）は
-  // @nagiyu/common の共通バリデータに委譲する。
-  return isAllowedNagiyuRedirectUrl(rawCallbackUrl, baseUrl) ? rawCallbackUrl : baseUrl;
+  return sanitizeCallbackUrl(rawCallbackUrl, baseUrl) ?? baseUrl;
 }
