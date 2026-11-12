@@ -11,7 +11,6 @@
 
 import { InMemorySingleTableStore } from '@nagiyu/aws';
 import { InMemoryChatGuardRepository } from '../../../src/repositories/in-memory-chat-guard.repository.js';
-import type { RateLimitResult } from '../../../src/repositories/chat-guard.repository.interface.js';
 
 // テスト用に固定時刻を使う。
 // 時間・分の開始直後（00:00:01 相当）に設定し、境界値テストで確実に同一バケット内に収まるようにする。
@@ -23,6 +22,9 @@ const BASE_NOW_MS = BASE_HOUR_START_MS + 1_000; // 時間の開始から 1 秒�
 // 1 分バケット
 const BASE_MINUTE_BUCKET = String(Math.floor(BASE_NOW_MS / 60_000));
 
+const HOUR_BUCKET = String(Math.floor(BASE_NOW_MS / 3_600_000));
+const LIMITS = { perMinute: 3, perHour: 5 };
+
 describe('InMemoryChatGuardRepository - レート制限', () => {
   let store: InMemorySingleTableStore;
   let repo: InMemoryChatGuardRepository;
@@ -32,74 +34,79 @@ describe('InMemoryChatGuardRepository - レート制限', () => {
     repo = new InMemoryChatGuardRepository(store);
   });
 
-  it('初回インクリメントは count=1 を返す', async () => {
-    const result = await repo.incrementRateLimit('u1', '1m', BASE_NOW_MS);
-    expect(result.count).toBe(1);
-    expect(result.window).toBe('1m');
+  const consume = (userId = 'u1', nowMs = BASE_NOW_MS, limits = LIMITS) =>
+    repo.tryConsumeRateLimit(userId, nowMs, limits);
+
+  const countOf = (window: '1m' | '1h', bucket: string) =>
+    store.get('USER#u1', `RATELIMIT#${window}#${bucket}`)?.['Count'];
+
+  it('両方の窓が上限未満なら通し、両方を数える', async () => {
+    expect(await consume()).toEqual({ allowed: true });
+    expect(countOf('1m', BASE_MINUTE_BUCKET)).toBe(1);
+    expect(countOf('1h', HOUR_BUCKET)).toBe(1);
   });
 
-  it('同一ウィンドウ内での連続インクリメントは加算される', async () => {
-    await repo.incrementRateLimit('u1', '1m', BASE_NOW_MS);
-    await repo.incrementRateLimit('u1', '1m', BASE_NOW_MS);
-    const result = await repo.incrementRateLimit('u1', '1m', BASE_NOW_MS);
-    expect(result.count).toBe(3);
-  });
-
-  it('上限ちょうど（count=10）は超過しない', async () => {
-    let result: RateLimitResult = { count: 0, window: '1m' };
-    for (let i = 0; i < 10; i++) {
-      result = await repo.incrementRateLimit('u1', '1m', BASE_NOW_MS);
+  it('1 分の上限ちょうどまでは通し、その次は 1 分の窓で断る', async () => {
+    for (let i = 0; i < 3; i++) {
+      expect(await consume()).toEqual({ allowed: true });
     }
-    expect(result.count).toBe(10);
+    expect(await consume()).toEqual({ allowed: false, window: '1m' });
   });
 
-  it('上限+1（count=11）で超過判定できる', async () => {
-    for (let i = 0; i < 11; i++) {
-      await repo.incrementRateLimit('u1', '1m', BASE_NOW_MS);
-    }
-    const result = await repo.incrementRateLimit('u1', '1m', BASE_NOW_MS);
-    expect(result.count).toBe(12);
+  it('1 分で断られたとき、1 時間は増えない', async () => {
+    for (let i = 0; i < 3; i++) await consume();
+    await consume();
+    expect(countOf('1m', BASE_MINUTE_BUCKET)).toBe(3);
+    expect(countOf('1h', HOUR_BUCKET)).toBe(3);
   });
 
-  it('ウィンドウ跨ぎ（60 秒後）でカウントがリセットされる', async () => {
-    // 現在のウィンドウで 5 回インクリメント
-    for (let i = 0; i < 5; i++) {
-      await repo.incrementRateLimit('u1', '1m', BASE_NOW_MS);
+  it('1 時間で断られたとき、先に数えた 1 分を戻す', async () => {
+    // 分をまたいで 1 時間の上限 5 を使い切る
+    for (let minute = 0; minute < 5; minute++) {
+      await consume('u1', BASE_NOW_MS + minute * 60_000);
     }
-    // 60 秒後（新しいウィンドウ）にインクリメント
-    const nextWindowMs = BASE_NOW_MS + 60_000;
-    const result = await repo.incrementRateLimit('u1', '1m', nextWindowMs);
-    // 新しいバケットなので count=1 に戻る
-    expect(result.count).toBe(1);
+    const nowMs = BASE_NOW_MS + 5 * 60_000;
+    const bucket = String(Math.floor(nowMs / 60_000));
+
+    expect(await consume('u1', nowMs)).toEqual({ allowed: false, window: '1h' });
+    expect(countOf('1m', bucket)).toBe(0);
+    expect(countOf('1h', HOUR_BUCKET)).toBe(5);
   });
 
-  it('1h ウィンドウは別カウンタを持つ', async () => {
-    // 1m を 5 回インクリメント
-    for (let i = 0; i < 5; i++) {
-      await repo.incrementRateLimit('u1', '1m', BASE_NOW_MS);
-    }
-    // 1h のカウントは独立している
-    const result = await repo.incrementRateLimit('u1', '1h', BASE_NOW_MS);
-    expect(result.count).toBe(1);
+  it('断られ続けても 1 時間の回数が増えない', async () => {
+    for (let i = 0; i < 3; i++) await consume();
+    for (let i = 0; i < 20; i++) await consume();
+    expect(countOf('1h', HOUR_BUCKET)).toBe(3);
+  });
+
+  it('1 分の窓を跨ぐと 1 分の回数が戻る', async () => {
+    for (let i = 0; i < 3; i++) await consume();
+    expect(await consume('u1', BASE_NOW_MS + 60_000)).toEqual({ allowed: true });
   });
 
   it('異なるユーザー間でカウントは独立している', async () => {
-    await repo.incrementRateLimit('u1', '1m', BASE_NOW_MS);
-    await repo.incrementRateLimit('u1', '1m', BASE_NOW_MS);
-    const u2Result = await repo.incrementRateLimit('u2', '1m', BASE_NOW_MS);
-    expect(u2Result.count).toBe(1);
+    for (let i = 0; i < 3; i++) await consume();
+    expect(await consume('u2')).toEqual({ allowed: true });
   });
 
-  it('カウンタは DynamoDB 実装と同じキー・属性名で保存し、TTL は初回の値を保つ', async () => {
-    await repo.incrementRateLimit('u1', '1m', BASE_NOW_MS);
-    // 同じウィンドウの後続の呼び出しでは TTL を書き換えない
-    await repo.incrementRateLimit('u1', '1m', BASE_NOW_MS + 30_000);
+  it('DynamoDB 実装と同じキー・属性名・Type・TTL で保存する', async () => {
+    await consume();
+    // 同じ窓の後続の呼び出しでは TTL を書き換えない
+    await consume('u1', BASE_NOW_MS + 30_000);
 
-    expect(store.get('USER#u1', `RATELIMIT#1m#${BASE_MINUTE_BUCKET}`)).toEqual({
+    expect(store.get('USER#u1', `RATELIMIT#1m#${BASE_MINUTE_BUCKET}`)).toMatchObject({
       PK: 'USER#u1',
       SK: `RATELIMIT#1m#${BASE_MINUTE_BUCKET}`,
       Count: 2,
       TTL: (Number(BASE_MINUTE_BUCKET) + 1) * 60 + 120,
+      Type: 'ChatRateLimit',
+    });
+    expect(store.get('USER#u1', `RATELIMIT#1h#${HOUR_BUCKET}`)).toMatchObject({
+      PK: 'USER#u1',
+      SK: `RATELIMIT#1h#${HOUR_BUCKET}`,
+      Count: 2,
+      TTL: (Number(HOUR_BUCKET) + 1) * 3_600 + 7_200,
+      Type: 'ChatRateLimit',
     });
   });
 });
@@ -178,7 +185,7 @@ describe('InMemoryChatGuardRepository - ロック', () => {
     await repo.acquireLock('u1', 'token-a', LOCK_TTL_MS, BASE_NOW_MS);
 
     const expiresAt = BASE_NOW_MS + LOCK_TTL_MS;
-    expect(store.get('USER#u1', 'CHATLOCK')).toEqual({
+    expect(store.get('USER#u1', 'CHATLOCK')).toMatchObject({
       PK: 'USER#u1',
       SK: 'CHATLOCK',
       OwnerToken: 'token-a',
