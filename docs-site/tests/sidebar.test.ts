@@ -73,6 +73,8 @@ describe('buildSidebar', () => {
     write('services/alpha/README.md', '# アルファ\n');
     write('services/alpha/design.md', '# 設計\n');
     write('services/beta/design.md', '# ベータ設計\n');
+    write('services/beta/arch.md', '# ベータ アーキテクチャ\n');
+    write('services/beta/req.md', '# ベータ 要件\n');
     write('specs/alpha/screen/top.md', '# トップ画面\n');
     write('specs/alpha/flow/run.md', '# 実行\n');
     write('specs/gamma/batch/job.md', '# ジョブ\n');
@@ -100,6 +102,7 @@ describe('buildSidebar', () => {
       excludeServices: ['platform'],
       designTitle: '設計資料',
       extraDesign: { gamma: ['extra/ext.md'] },
+      designLabels: { 'req.md': '要件', 'arch.md': '構成' },
     },
   ];
 
@@ -167,6 +170,19 @@ describe('buildSidebar', () => {
     expect(gamma?.items?.map((item) => item.text)).toEqual(['設計資料', 'バッチ']);
   });
 
+  it('設計資料は対応表の名前と順で並べ、表に無いものは見出しのまま後ろに置く', () => {
+    const beta = run(everything).find((item) => item.text === 'beta');
+    expect(beta?.items?.[0]).toEqual({
+      text: '設計資料',
+      collapsed: false,
+      items: [
+        { text: '要件', link: '/services/beta/req' },
+        { text: '構成', link: '/services/beta/arch' },
+        { text: 'ベータ設計', link: '/services/beta/design' },
+      ],
+    });
+  });
+
   it('グループは空なら出さず、files は除外指定を除く', () => {
     const sidebar = run(
       [
@@ -223,5 +239,18 @@ describe('実際の docs の章立て', () => {
     const guide = JSON.stringify(sidebar[3]);
     expect(guide).not.toContain('/development/dev-sync');
     expect(guide).toContain('仕様カードの書き方');
+  });
+
+  it('サービスの設計資料にサービス名を繰り返さない', () => {
+    const sidebar = buildSidebar(realDocs, SIDEBAR_EXCLUDED, SITE_STRUCTURE);
+    const shareTogether = (sidebar[1].items ?? []).find((item) =>
+      item.link?.includes('/services/share-together/')
+    );
+    const design = shareTogether?.items?.find((item) => item.text === '設計資料');
+    expect(design?.items?.map((item) => item.text)).toEqual([
+      '要件定義',
+      '外部設計',
+      'アーキテクチャ',
+    ]);
   });
 });
