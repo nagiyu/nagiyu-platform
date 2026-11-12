@@ -171,9 +171,12 @@ describe('resolveLimitGuidance', () => {
     expect(resolveLimitGuidance('AI_LIMIT_EXCEEDED', null)).toEqual({ plans: true, signIn: false });
   });
 
-  it.each([['IP_LIMIT_EXCEEDED'], ['INVALID_FILE_TYPE'], ['toString'], [null]])('%s は案内しない', (code) => {
-    expect(resolveLimitGuidance(code, 'anonymous')).toEqual({ plans: false, signIn: false });
-  });
+  it.each([['IP_LIMIT_EXCEEDED'], ['INVALID_FILE_TYPE'], ['toString'], [null]])(
+    '%s は案内しない',
+    (code) => {
+      expect(resolveLimitGuidance(code, 'anonymous')).toEqual({ plans: false, signIn: false });
+    }
+  );
 });
 
 describe('一番上の段', () => {
@@ -232,10 +235,7 @@ describe('readLimitErrorCode', () => {
     [{ error: 1 }],
     [{ error: 'toString' }],
     [{ error: 'constructor' }],
-  ])(
-    '%j は null',
-    (body) => {
-      expect(readLimitErrorCode(body)).toBeNull();
-    }
-  );
+  ])('%j は null', (body) => {
+    expect(readLimitErrorCode(body)).toBeNull();
+  });
 });
