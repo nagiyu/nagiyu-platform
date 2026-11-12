@@ -16,8 +16,11 @@ Admin サービスは、nagiyu プラットフォームの管理機能を提供�
 | [architecture.md](./architecture.md) | システムアーキテクチャ、技術スタック、設計思想       |
 | [deployment.md](./deployment.md)     | デプロイ手順、CI/CD、監視、障害対応                  |
 | [testing.md](./testing.md)           | テスト戦略、カバレッジ目標、テストシナリオ           |
+| [仕様カード](../../specs/README.md)  | 今のコードの挙動 (画面・API・バッチ・通知の経路・用語)。このサービスの分は `docs/specs/admin/` |
 
-**注**: Admin サービスは Phase 1 では外部 API を提供しないため、api-spec.md は存在しません。将来的にユーザー管理 API などを提供する場合に作成されます。
+今の挙動は仕様カード、なぜそうしたかと何を満たすべきかはこの配下の文書に書く。
+
+**注**: Admin サービスは業務の外部 API を提供しないため、api-spec.md は存在しません。API の今の挙動は仕様カードにあります。
 
 ---
 
@@ -31,7 +34,8 @@ Admin サービスは、nagiyu プラットフォームの管理機能を提供�
 2. **設計を確認する**: [architecture.md](./architecture.md) を読む
     - Next.js + Material-UI + AWS Lambda 構成を理解
     - 認証フロー、JWT 検証の仕組みを確認
-3. **実装を確認する**: ソースコード (`services/admin/web/`) を参照
+3. **今の挙動を確認する**: [仕様カード](../../specs/README.md)
+4. **実装を確認する**: ソースコード (`services/admin/web/`) を参照
     - Middleware での JWT 検証実装
     - ダッシュボード UI の実装
 
