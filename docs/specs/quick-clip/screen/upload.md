@@ -21,7 +21,7 @@ related_adr:
   - services/quick-clip/architecture.md#ADR-003
   - services/quick-clip/architecture.md#ADR-012
   - services/quick-clip/architecture.md#ADR-018
-  - services/quick-clip/external-design.md#1.2
+  - services/quick-clip/external-design.md#1.2 画面の設計方針
 ---
 
 # アップロード画面

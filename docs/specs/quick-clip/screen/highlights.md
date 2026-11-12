@@ -19,7 +19,7 @@ related_adr:
   - services/quick-clip/architecture.md#ADR-014
   - services/quick-clip/architecture.md#ADR-015
   - services/quick-clip/architecture.md#ADR-017
-  - services/quick-clip/external-design.md#1.2
+  - services/quick-clip/external-design.md#1.2 画面の設計方針
 ---
 
 # 見どころ確認画面
