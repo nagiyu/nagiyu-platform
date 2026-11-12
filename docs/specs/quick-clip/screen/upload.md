@@ -14,7 +14,7 @@ sources:
   - services/quick-clip/web/src/components/AuthUrlProvider.tsx
   - libs/common/src/format/file-size.ts
   - libs/ui/src/utils/auth.ts
-sources_hash: 13fc45b454c21fd297981574b9fd972504c22e7b0af1b2cab67d0e9e6b5b43f9
+sources_hash: 48d8190b8402f629c07249ebf25bdcf3749ef1c9e9e3c70da88be3604003ff68
 terms: [quick-clip/term/usage-tier, quick-clip/term/ai-analysis, quick-clip/term/job]
 related_cards: [quick-clip/api/jobs, quick-clip/api/usage, quick-clip/screen/job-status, quick-clip/flow/extraction, quick-clip/flow/usage-metering]
 related_adr:
