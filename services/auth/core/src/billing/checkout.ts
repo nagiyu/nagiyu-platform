@@ -155,8 +155,7 @@ export type PlanChangeResult =
     };
 
 export type CancelScheduledChangeResult =
-  | { ok: true }
-  | { ok: false; reason: 'no-scheduled-change' };
+  { ok: true } | { ok: false; reason: 'no-scheduled-change' };
 
 /**
  * 今の請求期間の終わりに下の段の価格へ切り替わる予約を作る。
