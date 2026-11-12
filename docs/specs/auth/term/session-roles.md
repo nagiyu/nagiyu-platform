@@ -7,7 +7,7 @@ sources:
   - services/auth/web/src/lib/auth/auth.ts
   - libs/nextjs/src/auth-config.ts
   - libs/common/src/auth/role-grants.ts
-sources_hash: 363b99cd7911134625294a4429d4c9601f5e7d1a50a88d6bfd3a3d24e69a8b79
+sources_hash: f088a5d1d9f3e4cff088edb670379dceb5e0dc1bd549be6eeee30502d7519163
 terms: [platform/term/role, auth/term/role-grant]
 related_cards: [auth/flow/sign-in, auth/flow/billing-entitlement, auth/screen/refresh, auth/screen/dashboard]
 related_adr:

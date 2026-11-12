@@ -2,9 +2,10 @@ import NextAuth, { type NextAuthConfig } from 'next-auth';
 import Google from 'next-auth/providers/google';
 import { createAuthConfig } from '@nagiyu/nextjs';
 import { reportErrorEvent } from '@nagiyu/aws';
-import { getEffectiveRoles, isAllowedNagiyuRedirectUrl } from '@nagiyu/common';
+import { getEffectiveRoles } from '@nagiyu/common';
 import { createUserRepository } from '@nagiyu/auth-core';
 import { errorReporter } from '@/lib/api-error-reporting';
+import { sanitizeCallbackUrl } from '@/lib/callback-url';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
@@ -131,13 +132,10 @@ export const authConfig: NextAuthConfig = {
   callbacks: {
     ...sharedCallbacks,
     async redirect({ url, baseUrl }) {
-      // 同一オリジン または *.nagiyu.com のみ許可（オープンリダイレクト対策）。
-      // 判定は @nagiyu/common の共通バリデータに委譲する。
-      if (isAllowedNagiyuRedirectUrl(url, baseUrl)) {
-        return url;
-      }
-      // 外部 URL は拒否して baseUrl にフォールバック
-      return baseUrl;
+      // オープンリダイレクト対策として、同一オリジン・*.nagiyu.com・auth 内の相対パスだけを通す。
+      // auth 内の戻り先は相対パスで渡ってくるため、絶対 URL に直して返す
+      // (next-auth はこの戻り値をそのまま遷移先にし、Cookie にも控える)。
+      return sanitizeCallbackUrl(url, baseUrl) ?? baseUrl;
     },
     async signIn({ user, account }) {
       if (!account) {
