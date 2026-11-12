@@ -11,7 +11,7 @@ sources_hash: ac5f20f21a6dec491079bae73cee0896a0e3cba7dbef6d3980f688b739c8c7f7
 terms: [tools/term/snackbar, tools/term/clipboard-actions, tools/term/migration-dialog]
 related_cards: [tools/screen/home]
 related_adr:
-  - services/tools/tools-catalog.md#ツール一覧
+  - services/tools/tools-catalog.md#置くツールの方針
   - services/tools/requirements.md#フェーズ3: 追加ツール（実装済み）
 ---
 

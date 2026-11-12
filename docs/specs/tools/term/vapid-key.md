@@ -9,7 +9,7 @@ sources:
 sources_hash: c747927412220d8994b22e646836b9b06bce1998312acdad21096e27a51c7359
 related_cards: [tools/api/vapid, tools/screen/vapid-generator]
 related_adr:
-  - services/tools/tools-catalog.md#ツール一覧
+  - services/tools/tools-catalog.md#置くツールの方針
 ---
 
 # VAPID キー
