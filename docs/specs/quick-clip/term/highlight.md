@@ -10,7 +10,7 @@ sources:
   - services/quick-clip/core/src/libs/highlight-extractor.service.ts
   - services/quick-clip/web/src/lib/server/highlight-recovery.ts
   - services/quick-clip/web/src/lib/highlight-edit-lock.ts
-sources_hash: 5f564c6524698734b118d7c7ea53f21fea7ab7cbbc57052017da6ca970f1a371
+sources_hash: 9b65827b386faefdc6a11721a71da269719b3ec0bc4025385fbc0ead891b8dc5
 related_cards: [quick-clip/api/highlights, quick-clip/batch/extract, quick-clip/batch/clip-regenerate, quick-clip/screen/highlights, quick-clip/term/job]
 related_adr:
   - services/quick-clip/architecture.md#ADR-002
