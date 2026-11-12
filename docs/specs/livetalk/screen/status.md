@@ -14,7 +14,6 @@ sources_hash: 6e401b017f3a8a94bb529696c3e61cdacd8fd8412d4d542846b77cefe1971106
 terms: [livetalk/term/permission, livetalk/term/lifecycle, livetalk/term/notification-event, livetalk/term/user-activity-profile, livetalk/term/safety, livetalk/term/character]
 related_cards: [livetalk/api/status, livetalk/api/push-notification, livetalk/batch/notify, livetalk/screen/home]
 related_adr:
-  - services/livetalk/external-design.md#SCR-009: ステータス画面（運用者向け）
   - services/livetalk/architecture.md#2.22
 ---
 
