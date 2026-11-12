@@ -6,6 +6,7 @@ import type { UsageCounter, UsageCounterIncrementInput } from './usage-counter.i
 export type UsageCounterStep =
   UsageCounterIncrementInput | (() => Promise<UsageCounterIncrementInput>);
 
+/** 全段を通ったか。断られたときは、断った段の位置 (0 始まり) を deniedIndex に持つ */
 export type TryIncrementInOrderResult = { ok: true } | { ok: false; deniedIndex: number };
 
 export interface TryIncrementInOrderOptions {

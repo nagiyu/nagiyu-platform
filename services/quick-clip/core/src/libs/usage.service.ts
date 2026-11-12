@@ -102,8 +102,7 @@ export class UsageService {
     const monthTtl = toMonthTtlSeconds(nowMs);
 
     const ip = input.tier === 'anonymous' ? input.ip : undefined;
-    // 月の回数のあとに IP を数えるのは、断った申し込みが IP の数を消費しないようにするため。
-    // 塩の取得は月の回数が通ったあとに行う
+    // 月の上限で断る申し込みでは塩を作らないよう、IP の入力は月の回数が通ったあとに作る
     const tryKind = (kind: UsageKind) =>
       this.repository.tryConsumeWithIp({
         monthly: {

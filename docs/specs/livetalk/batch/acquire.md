@@ -14,7 +14,8 @@ sources:
   - services/livetalk/core/src/repositories/study-usage-counting.ts
   - services/livetalk/core/src/lifecycle/state-resolver.ts
   - services/livetalk/core/src/constants.ts
-sources_hash: cdbcc1b4e9236e51bdfc5a181bcf50639667295fa0aa045275aa80f678834682
+  - libs/aws/src/dynamodb/counter/try-increment-in-order.ts
+sources_hash: 63829b9e39e47361f14c59115ef7d1167c5bb05105e073cafda43a4ab8aa659e
 terms: [livetalk/term/care, livetalk/term/topic, livetalk/term/web-fact, livetalk/term/webraw, livetalk/term/lifecycle, livetalk/term/user-activity-profile, livetalk/term/study-pause, livetalk/term/study-topic, livetalk/term/freshness-check-request, livetalk/term/exploration]
 related_cards: [admin/flow/error-notification, livetalk/batch/consolidate-conversations, livetalk/batch/notify, livetalk/flow/conversation]
 related_adr:
