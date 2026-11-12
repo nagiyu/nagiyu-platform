@@ -280,7 +280,7 @@ claude/**, feature/**  →  integration/**  →  develop  →  master
 - ライブラリ内でパスエイリアス（`@/`）を使用しない
 - `dangerouslySetInnerHTML` を直接使用しない（DOMPurify 経由のみ）
 - コメントで、リポジトリ内のファイル・ドキュメントへの参照に説明を委ねない (外部仕様の URL は可)
-- コメントに Issue / PR 番号・Phase 名を書かない
+- コメントと docs に Issue / PR 番号・Phase 名を書かない
 
 ### SHOULD
 
