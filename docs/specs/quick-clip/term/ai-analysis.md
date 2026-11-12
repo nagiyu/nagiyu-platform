@@ -9,7 +9,7 @@ sources:
   - services/quick-clip/core/src/libs/transcription.service.ts
   - services/quick-clip/core/src/libs/emotion-highlight.service.ts
   - services/quick-clip/core/src/libs/usage.service.ts
-sources_hash: c003984aba4c2688fb4b5499c88de9f0e0faf893b4060e18a3a9d3b94999b778
+sources_hash: 3c65556d0a77a0f452c828bf85fc89c459274a1b3cce9621fbdd2af6c0183a8a
 terms: [quick-clip/term/transcript]
 related_cards: [quick-clip/batch/extract, quick-clip/api/jobs, quick-clip/flow/usage-metering, quick-clip/screen/upload, quick-clip/term/usage-tier]
 related_adr:

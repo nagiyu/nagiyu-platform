@@ -21,7 +21,8 @@ sources:
   - libs/common/src/format/jst-period.ts
   - libs/aws/src/dynamodb/counter/dynamodb-usage-counter.ts
   - infra/quick-clip/lib/cloudfront-stack.ts
-sources_hash: d2798fb59882325155bd74090e6e3569dc2d27e21160248a9732ca23f7403bc6
+  - libs/aws/src/dynamodb/counter/try-increment-in-order.ts
+sources_hash: ee7751dc7ca82f2bb458cc7b4d8a9c41dc3f344207fbc73dc7821f34ba93899d
 terms: [quick-clip/term/usage-tier, quick-clip/term/ai-analysis, quick-clip/term/job]
 related_cards: [quick-clip/api/jobs, quick-clip/api/usage, quick-clip/batch/extract, quick-clip/screen/upload, quick-clip/flow/extraction]
 related_adr:

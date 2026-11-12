@@ -1,4 +1,9 @@
-import type { EntityStore, UsageCounter } from '@nagiyu/aws';
+import {
+  tryIncrementInOrder,
+  type EntityStore,
+  type UsageCounter,
+  type UsageCounterIncrementInput,
+} from '@nagiyu/aws';
 import type { DailySalt, DailySaltKey, UsageKind } from '../types.js';
 import type { UsageCounts, UsageRepository } from './usage.repository.interface.js';
 import {
@@ -9,6 +14,32 @@ import {
   buildCounterKey,
   buildIpKey,
 } from '../mappers/usage-keys.js';
+
+type MonthlyInput = {
+  subject: string;
+  month: string;
+  kind: UsageKind;
+  limit: number;
+  ttlSec: number;
+};
+
+type IpInput = { day: string; ipHash: string; limit: number; ttlSec: number };
+
+const toMonthlyIncrement = (input: MonthlyInput): UsageCounterIncrementInput => ({
+  key: buildCounterKey(input.subject, input.month),
+  attribute: COUNTER_ATTRIBUTES[input.kind],
+  itemType: COUNTER_ITEM_TYPE,
+  limit: input.limit,
+  ttlSec: input.ttlSec,
+});
+
+const toIpIncrement = (input: IpInput): UsageCounterIncrementInput => ({
+  key: buildIpKey(input.day, input.ipHash),
+  attribute: IP_COUNT_ATTRIBUTE,
+  itemType: IP_ITEM_TYPE,
+  limit: input.limit,
+  ttlSec: input.ttlSec,
+});
 
 /**
  * 数え方とキーの組み立てを持つ UsageRepository。
@@ -25,20 +56,8 @@ export class CountingUsageRepository implements UsageRepository {
     this.saltStore = saltStore;
   }
 
-  public async tryConsume(input: {
-    subject: string;
-    month: string;
-    kind: UsageKind;
-    limit: number;
-    ttlSec: number;
-  }): Promise<boolean> {
-    return this.counter.tryIncrement({
-      key: buildCounterKey(input.subject, input.month),
-      attribute: COUNTER_ATTRIBUTES[input.kind],
-      itemType: COUNTER_ITEM_TYPE,
-      limit: input.limit,
-      ttlSec: input.ttlSec,
-    });
+  public async tryConsume(input: MonthlyInput): Promise<boolean> {
+    return this.counter.tryIncrement(toMonthlyIncrement(input));
   }
 
   public async release(input: { subject: string; month: string; kind: UsageKind }): Promise<void> {
@@ -56,19 +75,24 @@ export class CountingUsageRepository implements UsageRepository {
     return { ai: counts[COUNTER_ATTRIBUTES.ai], noAi: counts[COUNTER_ATTRIBUTES.noAi] };
   }
 
-  public async tryConsumeIp(input: {
-    day: string;
-    ipHash: string;
-    limit: number;
-    ttlSec: number;
-  }): Promise<boolean> {
-    return this.counter.tryIncrement({
-      key: buildIpKey(input.day, input.ipHash),
-      attribute: IP_COUNT_ATTRIBUTE,
-      itemType: IP_ITEM_TYPE,
-      limit: input.limit,
-      ttlSec: input.ttlSec,
-    });
+  public async tryConsumeWithIp(input: {
+    monthly: MonthlyInput;
+    ip?: () => Promise<IpInput>;
+    onRollbackError?: (error: unknown) => unknown;
+  }): Promise<{ ok: true } | { ok: false; denied: 'monthly' | 'ip' }> {
+    const { ip } = input;
+    const result = await tryIncrementInOrder(
+      this.counter,
+      [
+        toMonthlyIncrement(input.monthly),
+        ...(ip ? [async (): Promise<UsageCounterIncrementInput> => toIpIncrement(await ip())] : []),
+      ],
+      { onRollbackError: input.onRollbackError }
+    );
+    if (result.ok) {
+      return { ok: true };
+    }
+    return { ok: false, denied: result.deniedIndex === 0 ? 'monthly' : 'ip' };
   }
 
   public async getOrCreateDailySalt(

@@ -100,6 +100,12 @@ export type {
   UsageCounterKey,
   UsageCounterIncrementInput,
 } from './counter/usage-counter.interface.js';
+export { tryIncrementInOrder } from './counter/try-increment-in-order.js';
+export type {
+  UsageCounterStep,
+  TryIncrementInOrderResult,
+  TryIncrementInOrderOptions,
+} from './counter/try-increment-in-order.js';
 export { DynamoDBUsageCounter } from './counter/dynamodb-usage-counter.js';
 export { InMemoryUsageCounter } from './counter/in-memory-usage-counter.js';
 
