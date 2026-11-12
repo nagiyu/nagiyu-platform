@@ -10,6 +10,9 @@
 | [architecture.md](./architecture.md)       | アーキテクチャ設計と技術的な方針 |
 | [requirements.md](./requirements.md)       | 機能要件・ユースケース・ドメインオブジェクト |
 | [external-design.md](./external-design.md) | 画面設計・概念データモデル |
+| [仕様カード](../../specs/README.md)        | 今のコードの挙動 (画面・API・フロー・用語)。このサービスの分は `docs/specs/share-together/` |
+
+今の挙動は仕様カード、なぜそうしたかと何を満たすべきかはこの配下の文書に書く。
 
 ## プロジェクト情報
 
