@@ -1,5 +1,7 @@
 # アーキテクチャ
 
+この文書は、なぜそう設計したか (決定、根拠、捨てた案) を書く。今どう動くかは[仕様カード](../../specs/README.md)にある。ADR の決定は書き換えず、その後に変わった点は各 ADR の「更新」で補う。
+
 ## システム概要
 
 さくっとクリップ (QuickClip) はサーバーレスアーキテクチャを採用した動画見どころ抽出サービスです。
@@ -124,6 +126,10 @@ Motion スコアリストと Volume スコアリストをスコア降順にソ�
 - xlarge の `maxvCpus: 8` 設定により同時 2 ジョブまで対応する
 - トレードオフ: Job Definition が 3 つに増えるため CDK での管理コストが増加する。ティア境界値の妥当性は実運用で検証が必要
 
+**更新（ADR-009・ADR-016）**
+
+その後、境界値と各サイズの vCPU・メモリは ADR-009、ADR-013、ADR-016 で変わり、選び方もファイルサイズと動画の長さの 2 軸になった。上の表は決定時点の値で、今の値は[Batch ジョブ定義のサイズ](../../specs/quick-clip/term/job-definition-size.md)を参照する。
+
 ---
 
 ### ADR-005: Google IMA SDK による動画広告の採用
@@ -165,7 +171,7 @@ Google IMA SDK（HTML5）を CDN から動的ロードして使用する。VAST 
 
 ---
 
-### ADR-007: 感情スコアによる見どころ抽出（gpt-4o-mini-transcribe + gpt-5-mini Responses API）
+### ADR-007: 感情スコアによる見どころ抽出
 
 **背景・問題**
 
@@ -195,7 +201,7 @@ OpenAI の文字起こし API（gpt-4o-mini-transcribe）と感情分析（gpt-5
 
 `gpt-5-2025-08-07` / `gpt-5-mini-2025-08-07` の 2026-12-11 停止に伴い、感情分析のモデルを `gpt-5-mini` → `gpt-5.6-luna` へ移行した。
 
-また、本 ADR 本文の文字起こしモデル表記（`gpt-4o-mini-transcribe`）は実装（`whisper-1`）と一致していない。今回のモデル移行を機に乖離を確認したが、決定時点の記録を書き換えない方針のため本文は修正せず、この乖離を記録として明示するに留める。実装の変更は行わない。現行仕様は [`requirements.md`](./requirements.md) を参照。
+また、本 ADR 本文の文字起こしモデル表記（`gpt-4o-mini-transcribe`）は実装（`whisper-1`）と一致していない。今回のモデル移行を機に乖離を確認したが、決定時点の記録を書き換えない方針のため本文は修正せず、この乖離を記録として明示するに留める。実装の変更は行わない。その後、文字起こしは `whisper-1`、感情分析は `gpt-5.6-luna` が今のモデルになっている。今の挙動は[AI 解析](../../specs/quick-clip/term/ai-analysis.md)と[抽出バッチ](../../specs/quick-clip/batch/extract.md)を参照する。
 
 ---
 
@@ -277,6 +283,10 @@ DynamoDB に保存していた `batchStage` フィールドは引き続き保持
 - DynamoDB への書き込み責務を削減し、コンテナのコードをシンプルにできる
 - クライアントへの API レスポンスの `status` フィールドの値は変わらず、後方互換性を維持できる
 - トレードオフ: ポーリングのたびに `DescribeJobsCommand` を呼び出すため、AWS Batch API への呼び出し回数が増加する（ただし API rate limit に対して問題ないレベル）
+
+**更新（ADR-014）**
+
+その後、`batchStage` に `clipping` が加わり 4 つになった。また、Batch が `SUCCEEDED` でも、ジョブにエラーが記録されていれば `FAILED` として返す（動画の長さが上限を超えたジョブなど）。今のステータスの求め方は[ジョブとステータス](../../specs/quick-clip/term/job.md)を参照する。
 
 ---
 
