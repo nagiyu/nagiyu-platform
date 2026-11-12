@@ -10,7 +10,7 @@ sources_hash: 33158b79dbd78124c970a028ff71b9b7a0db7dec5a42fb5a5cc36c1d8e3eb52b
 terms: [tools/term/vapid-key, tools/term/snackbar, tools/term/clipboard-actions, tools/term/migration-dialog]
 related_cards: [tools/api/vapid, tools/screen/home]
 related_adr:
-  - services/tools/tools-catalog.md#ツール一覧
+  - services/tools/tools-catalog.md#置くツールの方針
   - services/tools/requirements.md#フェーズ3: 追加ツール（実装済み）
 ---
 

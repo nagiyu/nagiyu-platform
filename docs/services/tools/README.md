@@ -15,7 +15,10 @@ JSONフォーマッター、Base64エンコーダー、乗り換え案内変換�
 | [architecture.md](./architecture.md) | システムアーキテクチャ、技術スタック、設計思想 |
 | [deployment.md](./deployment.md) | デプロイ手順、CI/CD、監視、障害対応 |
 | [testing.md](./testing.md) | テスト戦略、カバレッジ目標、テストシナリオ |
-| [tools-catalog.md](./tools-catalog.md) | 実装済みツール一覧（サービス固有） |
+| [tools-catalog.md](./tools-catalog.md) | どのツールを置くかの方針 |
+| [仕様カード](../../specs/README.md) | 今のコードの挙動 (画面・API・共有シート経由の流れ・用語)。このサービスの分は `docs/specs/tools/` |
+
+今の挙動は仕様カード、なぜそうしたかと何を満たすべきかはこの配下の文書に書く。ツールの一覧は[ツール一覧画面](../../specs/tools/screen/home.md)のカードにある。
 
 ---
 
@@ -25,7 +28,8 @@ JSONフォーマッター、Base64エンコーダー、乗り換え案内変換�
 
 1. **要件を理解する**: [requirements.md](./requirements.md) を読む
 2. **設計を確認する**: [architecture.md](./architecture.md) を読む
-3. **実装を確認する**: ソースコード (`services/tools/`) を参照
+3. **今の挙動を確認する**: [仕様カード](../../specs/README.md)
+4. **実装を確認する**: ソースコード (`services/tools/`) を参照
 
 ### 運用担当者向け
 

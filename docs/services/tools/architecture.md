@@ -1,5 +1,7 @@
 # Tools アーキテクチャ設計書
 
+この文書は、なぜそう設計したか (構成、技術選定、制約) を書く。今どう動くか (画面・API・操作) は[仕様カード](../../specs/README.md)にある。このサービスの分は `docs/specs/tools/`。
+
 ---
 
 ## 1. システム概要
@@ -108,15 +110,7 @@ Lambda Function URL (Next.js SSR)
 - **レイアウト**: 共通レイアウトを `app/layout.tsx` で定義
 - **ページ**: 各ツールを動的ルートで実装
 
-**実装されているツールページ**:
-- `/` - ツール一覧ページ（トップページ）
-- `/transit-converter` - 乗り換え変換ツール
-- `/json-formatter` - JSON 整形ツール
-- `/base64` - Base64 エンコーダー/デコーダー
-- `/url-encoder` - URL エンコーダー/デコーダー
-- `/hash-generator` - ハッシュ生成ツール
-- `/vapid-generator` - VAPID キー生成ツール
-- `/timestamp-converter` - タイムスタンプ変換ツール
+**実装されているツールページ**: [ツール一覧画面](../../specs/tools/screen/home.md)から、各ツールの仕様カードへたどれる。
 
 **設計方針**:
 - 各ツールは独立したページとして実装
@@ -144,16 +138,7 @@ Lambda Function URL (Next.js SSR)
 - エラー表示は Snackbar で統一
 - レスポンシブ対応
 
-**JSON Formatter の設計要素**:
-- **入力コンポーネント**: `TextField`（Material UI）、複数行テキストエリア
-- **アクションボタン**:
-  - 「整形」ボタン: `JSON.stringify(JSON.parse(input), null, 2)` を実行
-  - 「圧縮」ボタン: `JSON.stringify(JSON.parse(input))` を実行
-  - 「クリア」ボタン: 入力・出力をリセット
-  - クリップボード読み取りボタン: Clipboard API 使用
-- **出力コンポーネント**: `TextField`（読み取り専用）、複数行テキストエリア
-- **エラーハンドリング**: `JSON.parse()` の例外を `try-catch` でキャッチし、Snackbar に表示
-- **コピー機能**: Clipboard API 使用、成功時に Snackbar でフィードバック
+**JSON Formatter**: 画面と操作は[JSON 整形ツール](../../specs/tools/screen/json-formatter.md)を参照する。
 
 **再利用可能なコンポーネント**:
 - クリップボード読み取りボタン（Transit Converter と共通化可能）
@@ -166,23 +151,16 @@ Lambda Function URL (Next.js SSR)
 - **Service Worker**: 自動生成
     - 静的アセットのキャッシュ
     - オフライン時のフォールバック
-- **Manifest**: `public/manifest.json`
-    - アプリ名: "Tools"
-    - 表示モード: standalone
-    - テーマカラー: #1976d2 (プライマリカラー)
-    - アイコン: 192x192, 512x512
-- **Web Share Target**: 他のアプリから共有されたコンテンツを受け取る
-    - アクション: `/transit-converter`
-    - メソッド: GET
-    - パラメータ: title, text, url
-    - 用途: 乗換案内URLや乗換案内テキストを他のアプリから直接受け取り、自動的に入力欄に挿入
-    - 制約: HTTPS環境でのみ動作、iOS Safariでは制限あり
+- **Manifest**: `public/manifest.json`。内容と Web Share Target の今の挙動は[共有シートからの取り込み](../../specs/tools/flow/share-target.md)を参照する
+- **Web Share Target の制約**: HTTPS環境でのみ動作、iOS Safariでは制限あり
 - **キャッシュ戦略**:
     - 静的ファイル: Cache First
     - API: Network First (オフライン時はキャッシュ)
 - **オフライン対応**:
     - 基本的なクライアントサイドツールはオフラインで動作
     - オンライン/オフライン状態の表示
+
+**現状**: マニフェストと Web Share Target は動いているが、next-pwa と Service Worker、キャッシュ戦略、オフライン対応は今は実装されていない。#4104 を参照する。[オフライン画面](../../specs/tools/screen/offline.md)は URL を直接開いたときだけ見える。
 
 ### 2.2 バックエンド構成
 
@@ -191,9 +169,7 @@ Lambda Function URL (Next.js SSR)
 Next.js の API Routes (`app/api/` ディレクトリ) を使用。
 現時点では、ほとんどの処理がクライアントサイドで完結するため、最小限の API を実装。
 
-**実装されている API:**
-- `/api/health` - ヘルスチェック (Lambda 稼働確認用)
-- `/api/vapid` - VAPID キーペア生成 (Web Push 通知用)
+**実装されている API**: [システム系の API](../../specs/tools/api/system.md)と[VAPID キー API](../../specs/tools/api/vapid.md)を参照する。
 
 ---
 
@@ -209,16 +185,7 @@ Next.js の API Routes (`app/api/` ディレクトリ) を使用。
 
 #### Health API
 
-**エンドポイント**: `/api/health`
-
-**レスポンス**:
-```typescript
-{
-  status: "ok",
-  timestamp: string,  // ISO 8601形式
-  version: string     // アプリケーションバージョン
-}
-```
+エンドポイントとレスポンスは[システム系の API](../../specs/tools/api/system.md)を参照する。
 
 #### JSON Formatter 型定義
 
