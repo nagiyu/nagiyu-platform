@@ -155,6 +155,21 @@ function group(title: string, collapsed: boolean, items: SidebarItem[]): Sidebar
   return items.length === 0 ? [] : [{ text: title, collapsed, items }];
 }
 
+/** 設計資料を、名前の対応表の順に、表の名前で並べる。表に無いものは見出しのまま後ろに並べる。 */
+function buildDesignFiles(
+  ctx: BuildContext,
+  relativeDir: string,
+  labels: Readonly<Record<string, string>>
+): SidebarItem[] {
+  const order = Object.keys(labels);
+  const rank = (name: string) => (order.includes(name) ? order.indexOf(name) : order.length);
+  return sortedNames(join(ctx.docsDir, relativeDir))
+    .filter((name) => name.endsWith('.md') && name !== INDEX_FILE)
+    .filter((name) => !isExcluded(`${relativeDir}/${name}`, ctx.excluded))
+    .sort((a, b) => rank(a) - rank(b))
+    .map((name) => pageItem(ctx, `${relativeDir}/${name}`, labels[name]));
+}
+
 function buildServices(
   ctx: BuildContext,
   node: Extract<StructureNode, { type: 'services' }>
@@ -172,7 +187,7 @@ function buildServices(
     if (hasIndex) claim(ctx, indexRelative);
 
     const design = [
-      ...buildFiles(ctx, designDir),
+      ...buildDesignFiles(ctx, designDir, node.designLabels),
       ...(node.extraDesign[name] ?? []).map((path) => pageItem(ctx, path)),
     ];
     const items = [

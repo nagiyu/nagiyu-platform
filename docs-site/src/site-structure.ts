@@ -31,6 +31,11 @@ export type StructureNode =
       designTitle: string;
       /** サービスの設計資料に追加で入れるページ (サービス名 → docs からの相対パス) */
       extraDesign: Readonly<Record<string, readonly string[]>>;
+      /**
+       * 設計資料のファイル名ごとのサイドバーの名前。この順に並べ、無いものは見出しのまま後ろに並べる。
+       * 見出しにはサービス名が入っており、サービスの群の中で繰り返すと読みにくいため。
+       */
+      designLabels: Readonly<Record<string, string>>;
     };
 
 export const SITE_STRUCTURE: readonly StructureNode[] = [
@@ -48,6 +53,18 @@ export const SITE_STRUCTURE: readonly StructureNode[] = [
         designTitle: '設計資料',
         // dev-sync は専用のサービスディレクトリを持たず、設計資料が開発の文書と同じ場所にある
         extraDesign: { 'dev-sync': ['development/dev-sync.md'] },
+        designLabels: {
+          'requirements.md': '要件定義',
+          'external-design.md': '外部設計',
+          'ui-design.md': 'UI 設計',
+          'architecture.md': 'アーキテクチャ',
+          'api-spec.md': 'API 仕様',
+          'roles-and-permissions.md': 'ロールと権限',
+          'tools-catalog.md': 'ツール一覧',
+          'deployment.md': 'デプロイ',
+          'testing.md': 'テスト',
+          'roadmap.md': 'ロードマップ',
+        },
       },
     ],
   },
