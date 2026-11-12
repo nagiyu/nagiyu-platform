@@ -12,6 +12,9 @@
 | [architecture.md](./architecture.md) | アーキテクチャ設計と技術的な方針 |
 | [deployment.md](./deployment.md)     | デプロイ手順と運用               |
 | [testing.md](./testing.md)           | テスト戦略                       |
+| [仕様カード](../../specs/README.md)  | 今のコードの挙動 (画面・API・バッチ・フロー・用語)。このサービスの分は `docs/specs/niconico-mylist-assistant/` |
+
+今の挙動は仕様カード、なぜそうしたかと何を満たすべきかはこの配下の文書に書く。
 
 ## プロジェクト情報
 
