@@ -1,6 +1,6 @@
 # Auth サービス デプロイ・運用マニュアル
 
-本ドキュメントは、Auth サービスのデプロイと運用に関する手順を説明します。
+本ドキュメントは、Auth サービスのデプロイと運用に関する手順を説明します。API や画面が今どう動くかは[仕様カード](../../specs/README.md)にあります。
 
 ---
 
@@ -203,17 +203,9 @@ aws lambda get-function \
 # ヘルスチェック
 curl https://auth.dev.nagiyu.com/api/health
 
-# 期待されるレスポンス:
-# {
-#   "status": "ok",
-#   "timestamp": "2024-01-15T12:34:56.789Z",
-#   "version": "1.0.0",
-#   "dependencies": {
-#     "dynamodb": "ok",
-#     "secretsManager": "ok"
-#   }
-# }
 ```
+
+期待されるレスポンスは[システム系の API](../../specs/auth/api/system.md)を参照する。
 
 ### 3.8 Stripe の鍵の登録
 

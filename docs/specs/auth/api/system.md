@@ -46,6 +46,8 @@ related_adr:
 - 死活確認は `{ status: 'ok', service: 'auth', version, timestamp }`。`version` は環境変数 `APP_VERSION`、なければ `1.0.0`
 - 認証の画面は `/signin`、`/auth/error`、`/auth/signout` に差し替えてある ([サインイン画面](../screen/signin.md)など)
 - セッションは JWT 方式で、有効期間は 30 日。Cookie は環境ごとに名前とドメインを分ける (本番 `.nagiyu.com`、dev `.dev.nagiyu.com` で名前に `.dev` が付く、ローカル開発はドメインなし)。全サービスがこの Cookie を読んで SSO する ([サインインの経路](../flow/sign-in.md))
+- JWT は Auth.js の既定のまま暗号化して Cookie に入れる (署名だけの JWT ではない)。セッションの Cookie 名は `__Secure-authjs.session-token` (dev は末尾に `.dev`)。JWT に入れるのは、ユーザー ID、Google のアカウント ID、メール、名前、画像、ロール、ロールを最後に読んだ時刻。ロールの扱いは[セッションのロール](../term/session-roles.md)
+- Cookie の属性は `HttpOnly`、`SameSite=Lax`、パス `/`。`Secure` は付く (ローカル開発だけ付かない)。サインインの途中で使う Cookie (戻り先、state、PKCE、nonce) も同じ属性・ドメインで、名前の末尾を環境ごとに分ける。CSRF トークンの Cookie だけは名前が `__Host-` で始まり、ドメインを持たない
 - ログイン時に Google の `prompt=consent`、`access_type=offline` を付ける
 - 環境変数 `SKIP_AUTH_CHECK` が `true` のテスト用の設定では、画面のセッションはテスト用のユーザー (ロールは `x-test-user-roles` ヘッダー、`TEST_USER_ROLES`、既定の `admin` の順) で決まり、ミドルウェアも未ログインを通す。`/api/auth/session` はこの設定でも本物の認証ライブラリの応答を返す (テスト用のセッションにならない)
 
