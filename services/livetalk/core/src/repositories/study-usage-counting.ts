@@ -54,6 +54,7 @@ export async function tryConsumeStudyUsage(
       onRollbackError: (error, rolledBack) =>
         errorReporter.report(STUDY_USAGE_ERROR_MESSAGES.ROLLBACK_FAILED, error, {
           context: { attribute: rolledBack.attribute },
+          severity: 'warning',
         }),
     }
   );

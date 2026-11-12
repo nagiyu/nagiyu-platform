@@ -20,7 +20,7 @@ sources:
   - infra/quick-clip/lib/monitoring-stack.ts
   - libs/aws/src/error-events/with-error-reporting.ts
   - libs/aws/src/error-events/report.ts
-sources_hash: f0e4a2af3f88f26440a1fddad8e515ae1bceee83b6b5061373b726fed5005e9b
+sources_hash: 96055a14a4ffed4dbde93092b5dd4f6af4be0d86f5443498c6802f009148812c
 terms: [quick-clip/term/job, quick-clip/term/highlight, quick-clip/term/job-definition-size, quick-clip/term/ai-analysis, quick-clip/term/transcript, platform/term/error-event]
 related_cards: [quick-clip/api/jobs, quick-clip/flow/extraction, quick-clip/flow/usage-metering, quick-clip/screen/job-status, quick-clip/batch/clip-regenerate, admin/flow/error-notification, admin/batch/alarm-ingest]
 related_adr:

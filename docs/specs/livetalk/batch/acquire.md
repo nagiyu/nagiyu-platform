@@ -14,7 +14,7 @@ sources:
   - services/livetalk/core/src/repositories/study-usage-counting.ts
   - services/livetalk/core/src/lifecycle/state-resolver.ts
   - services/livetalk/core/src/constants.ts
-sources_hash: 32bd4c392c222615bc6d6fa765919040e51881fdc46dc853671171d8f22142d0
+sources_hash: cdbcc1b4e9236e51bdfc5a181bcf50639667295fa0aa045275aa80f678834682
 terms: [livetalk/term/care, livetalk/term/topic, livetalk/term/web-fact, livetalk/term/webraw, livetalk/term/lifecycle, livetalk/term/user-activity-profile, livetalk/term/study-pause, livetalk/term/study-topic, livetalk/term/freshness-check-request, livetalk/term/exploration]
 related_cards: [admin/flow/error-notification, livetalk/batch/consolidate-conversations, livetalk/batch/notify, livetalk/flow/conversation]
 related_adr:
@@ -96,6 +96,7 @@ flowchart TD
 - 勉強中のキャラクターは、lifecycle があり、勉強の停止になっていないもの。就寝中も数える
 - 枠は検索の直前に 1 回分ずつ数え、失敗しても戻さない。枠を使い切ったら、その組はその回の残りの検索を止める
 - 回数の記録に失敗したときも、上限を守れないので勉強を止める
+- キャラクターあたりの枠を数えたあとに 1 日・利用者の枠で断られたら、キャラクターあたりの 1 回を戻す。戻せなければ、その枠を 1 回多く数えたまま続け、報告する (warning、題名は「勉強回数のキャラクター別の回数を戻せませんでした (1 回分多く数えたまま)」)
 
 ## 失敗したとき
 

@@ -103,7 +103,7 @@ describe('DynamoDBStudyUsageRepository', () => {
     expect(mockReport).toHaveBeenCalledWith(
       STUDY_USAGE_ERROR_MESSAGES.ROLLBACK_FAILED,
       expect.any(DatabaseError),
-      { context: { attribute: 'Count#hiyori' } }
+      { context: { attribute: 'Count#hiyori' }, severity: 'warning' }
     );
   });
 
