@@ -4,7 +4,7 @@ import {
   UpdateCommand,
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
-import { InMemorySingleTableStore } from '@nagiyu/aws';
+import { DatabaseError, InMemorySingleTableStore } from '@nagiyu/aws';
 import { DynamoDBUsageRepository } from '../../../src/repositories/dynamodb-usage.repository.js';
 import { InMemoryUsageRepository } from '../../../src/repositories/in-memory-usage.repository.js';
 import type { UsageRepository } from '../../../src/repositories/usage.repository.interface.js';
@@ -81,6 +81,42 @@ describe('InMemoryUsageRepository', () => {
     expect(await repository.getOrCreateDailySalt('20261105', 'salt-a', 1000)).toBe('salt-a');
     expect(await repository.getOrCreateDailySalt('20261105', 'salt-b', 1000)).toBe('salt-a');
     expect(await repository.getOrCreateDailySalt('20261106', 'salt-b', 1000)).toBe('salt-b');
+  });
+
+  it('同時に塩を作ろうとしても、全員が同じ塩を受け取る', async () => {
+    const salts = await Promise.all(
+      ['a', 'b', 'c'].map((candidate) => repository.getOrCreateDailySalt('20261105', candidate, 9))
+    );
+
+    expect(new Set(salts).size).toBe(1);
+  });
+
+  it('保存される塩の Item に Type・TTL・作成更新時刻が入る', async () => {
+    const store = new InMemorySingleTableStore();
+    await new InMemoryUsageRepository(store).getOrCreateDailySalt('20261105', 'salt-a', 1000);
+
+    expect(store.get('USAGE_SALT#20261105', 'USAGE_SALT#20261105')).toMatchObject({
+      Type: 'USAGE_SALT',
+      Salt: 'salt-a',
+      TTL: 1000,
+      CreatedAt: expect.any(Number),
+      UpdatedAt: expect.any(Number),
+    });
+  });
+
+  it('タイムスタンプの無い既存の塩 (旧版が書いた Item) も読める', async () => {
+    const store = new InMemorySingleTableStore();
+    store.put({
+      PK: 'USAGE_SALT#20261105',
+      SK: 'USAGE_SALT#20261105',
+      Type: 'USAGE_SALT',
+      Salt: 'legacy',
+      TTL: 1000,
+    } as unknown as Parameters<InMemorySingleTableStore['put']>[0]);
+
+    expect(
+      await new InMemoryUsageRepository(store).getOrCreateDailySalt('20261105', 'new', 1000)
+    ).toBe('legacy');
   });
 });
 
@@ -206,33 +242,94 @@ describe('DynamoDBUsageRepository', () => {
     ).toBe(false);
   });
 
-  it('塩が既にあればそれを返し、書き込まない', async () => {
-    send.mockResolvedValueOnce({ Item: { Salt: 'existing' } });
-
-    expect(await repository.getOrCreateDailySalt('20261105', 'new', 99)).toBe('existing');
-    expect(send).toHaveBeenCalledTimes(1);
-  });
-
-  it('塩が無ければ条件付きで作る', async () => {
+  it('塩が無ければ、タイムスタンプ付きで条件付きに作る', async () => {
     send.mockResolvedValueOnce({}).mockResolvedValueOnce({});
 
     expect(await repository.getOrCreateDailySalt('20261105', 'new', 99)).toBe('new');
 
+    expect(send).toHaveBeenCalledTimes(2);
+    const firstGet = send.mock.calls[0][0] as GetCommand;
+    expect(firstGet).toBeInstanceOf(GetCommand);
+    expect(firstGet.input).toMatchObject({
+      Key: { PK: 'USAGE_SALT#20261105', SK: 'USAGE_SALT#20261105' },
+      ConsistentRead: true,
+    });
     const put = send.mock.calls[1][0] as PutCommand;
     expect(put).toBeInstanceOf(PutCommand);
     expect(put.input).toMatchObject({
-      Item: { PK: 'USAGE_SALT#20261105', SK: 'USAGE_SALT#20261105', Salt: 'new', TTL: 99 },
-      ConditionExpression: 'attribute_not_exists(PK)',
+      TableName: 'test-table',
+      Item: {
+        PK: 'USAGE_SALT#20261105',
+        SK: 'USAGE_SALT#20261105',
+        Type: 'USAGE_SALT',
+        Salt: 'new',
+        TTL: 99,
+        CreatedAt: expect.any(Number),
+        UpdatedAt: expect.any(Number),
+      },
+      ConditionExpression: 'attribute_not_exists(#pk)',
     });
   });
 
-  it('同時に別のリクエストが塩を作っていたら、その塩を返す', async () => {
+  it('塩が既にあれば、強い整合性の Get 1 回だけで返し、書き込まない', async () => {
+    send.mockResolvedValueOnce({
+      Item: {
+        PK: 'USAGE_SALT#20261105',
+        SK: 'USAGE_SALT#20261105',
+        Salt: 'existing',
+        TTL: 99,
+        CreatedAt: 1,
+        UpdatedAt: 1,
+      },
+    });
+
+    expect(await repository.getOrCreateDailySalt('20261105', 'new', 99)).toBe('existing');
+
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(send.mock.calls[0][0]).toBeInstanceOf(GetCommand);
+    expect((send.mock.calls[0][0] as GetCommand).input.ConsistentRead).toBe(true);
+  });
+
+  it('同時に別のリクエストが塩を作っていたら、強い整合性で読み直してその塩を返す', async () => {
     send
       .mockResolvedValueOnce({})
       .mockRejectedValueOnce(conditionalCheckFailed())
-      .mockResolvedValueOnce({ Item: { Salt: 'winner' } });
+      .mockResolvedValueOnce({
+        Item: {
+          PK: 'USAGE_SALT#20261105',
+          SK: 'USAGE_SALT#20261105',
+          Salt: 'winner',
+          TTL: 99,
+          CreatedAt: 1,
+          UpdatedAt: 1,
+        },
+      });
 
     expect(await repository.getOrCreateDailySalt('20261105', 'loser', 99)).toBe('winner');
+
+    const get = send.mock.calls[2][0] as GetCommand;
+    expect(get).toBeInstanceOf(GetCommand);
+    expect(get.input).toMatchObject({
+      Key: { PK: 'USAGE_SALT#20261105', SK: 'USAGE_SALT#20261105' },
+      ConsistentRead: true,
+    });
+  });
+
+  it('タイムスタンプの無い既存の塩 (旧版が書いた Item) も読める', async () => {
+    send
+      .mockResolvedValueOnce({})
+      .mockRejectedValueOnce(conditionalCheckFailed())
+      .mockResolvedValueOnce({
+        Item: {
+          PK: 'USAGE_SALT#20261105',
+          SK: 'USAGE_SALT#20261105',
+          Type: 'USAGE_SALT',
+          Salt: 'legacy',
+          TTL: 99,
+        },
+      });
+
+    expect(await repository.getOrCreateDailySalt('20261105', 'new', 99)).toBe('legacy');
   });
 
   it('塩の作成が競合したのに読めなければ例外を投げる', async () => {
@@ -244,9 +341,22 @@ describe('DynamoDBUsageRepository', () => {
     await expect(repository.getOrCreateDailySalt('20261105', 'x', 99)).rejects.toThrow();
   });
 
-  it('塩の障害は例外として投げる', async () => {
-    send.mockRejectedValue(new Error('boom'));
+  it('塩が文字列でない既存の Item は例外として投げる', async () => {
+    send
+      .mockResolvedValueOnce({})
+      .mockRejectedValueOnce(conditionalCheckFailed())
+      .mockResolvedValueOnce({
+        Item: { PK: 'USAGE_SALT#20261105', SK: 'USAGE_SALT#20261105', Salt: 1, TTL: 99 },
+      });
 
     await expect(repository.getOrCreateDailySalt('20261105', 'x', 99)).rejects.toThrow();
+  });
+
+  it('塩の障害は DatabaseError として投げる', async () => {
+    send.mockRejectedValue(new Error('boom'));
+
+    await expect(repository.getOrCreateDailySalt('20261105', 'x', 99)).rejects.toBeInstanceOf(
+      DatabaseError
+    );
   });
 });

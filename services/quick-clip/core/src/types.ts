@@ -86,6 +86,21 @@ export type JobKey = {
   jobId: string;
 };
 
+/** 利用者の識別子をハッシュする、日ごとの塩 */
+export type DailySalt = {
+  /** 塩を使う日 (キーの値を写したもの) */
+  day: string;
+  salt: string;
+  /** 削除予定時刻 (エポック秒)。TTL 属性にそのまま書く */
+  ttlSec: number;
+  /** 保存形式が持つ作成時刻 (ミリ秒)。タイムスタンプを書く前の Item には無い */
+  createdAt?: number;
+};
+
+export type DailySaltKey = {
+  day: string;
+};
+
 export type HighlightKey = {
   jobId: string;
   highlightId: string;

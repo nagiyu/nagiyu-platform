@@ -13,13 +13,15 @@ sources:
   - services/quick-clip/core/src/libs/usage.service.ts
   - services/quick-clip/core/src/libs/usage-plan.ts
   - services/quick-clip/core/src/libs/quick-clip-batch-runner.ts
+  - services/quick-clip/core/src/repositories/counting-usage.repository.ts
   - services/quick-clip/core/src/repositories/dynamodb-usage.repository.ts
   - services/quick-clip/core/src/repositories/dynamodb-job.repository.ts
   - services/quick-clip/core/src/mappers/usage-keys.ts
+  - services/quick-clip/core/src/mappers/daily-salt.mapper.ts
   - libs/common/src/format/jst-period.ts
   - libs/aws/src/dynamodb/counter/dynamodb-usage-counter.ts
   - infra/quick-clip/lib/cloudfront-stack.ts
-sources_hash: 288b6905d7053fc15e8c53f19de6ec102b6faaec12b04e6a83d7a12cf015c36f
+sources_hash: d2798fb59882325155bd74090e6e3569dc2d27e21160248a9732ca23f7403bc6
 terms: [quick-clip/term/usage-tier, quick-clip/term/ai-analysis, quick-clip/term/job]
 related_cards: [quick-clip/api/jobs, quick-clip/api/usage, quick-clip/batch/extract, quick-clip/screen/upload, quick-clip/flow/extraction]
 related_adr:
