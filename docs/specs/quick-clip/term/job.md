@@ -8,7 +8,7 @@ sources:
   - services/quick-clip/core/src/mappers/job.mapper.ts
   - services/quick-clip/core/src/libs/job.service.ts
   - services/quick-clip/web/src/app/api/jobs/[jobId]/route.ts
-sources_hash: ceb0118caf842099567c9b8a5d64dcf5cbfbfeeedc459a1c15dc8cbe577e020e
+sources_hash: 760dace8fedb67403e96d2a666eb394cb441b6b59aeaf209b62b38d26380c234
 terms: [quick-clip/term/ai-analysis]
 related_cards: [quick-clip/api/jobs, quick-clip/batch/extract, quick-clip/flow/extraction, quick-clip/screen/upload, quick-clip/screen/job-status, quick-clip/screen/highlights, quick-clip/term/highlight]
 related_adr:
