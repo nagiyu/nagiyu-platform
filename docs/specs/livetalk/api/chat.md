@@ -9,7 +9,10 @@ sources:
   - services/livetalk/core/src/usecases/chat-usecase.ts
   - services/livetalk/core/src/study/knowledge-gate.ts
   - services/livetalk/core/src/constants.ts
-sources_hash: 812ba2ebfbfeb0ed5d0e8d6c343d39da48a98066bdf8eda2e626b74e9992a701
+  - services/livetalk/core/src/repositories/chat-guard-counting.ts
+  - services/livetalk/core/src/lib/chat-guard-window.ts
+  - libs/aws/src/dynamodb/counter/try-increment-in-order.ts
+sources_hash: a304056fbc975cfc59d35e21714c9af042cd2255ef31f4448ffd746929101f9c
 terms: [livetalk/term/permission, livetalk/term/api-error, livetalk/term/chat-event, livetalk/term/safety, livetalk/term/character, livetalk/term/topic, livetalk/term/study-topic, livetalk/term/note, livetalk/term/lifecycle, livetalk/term/freshness-check-request]
 related_cards: [livetalk/screen/home, livetalk/flow/conversation, livetalk/batch/consolidate-conversations, livetalk/batch/acquire, admin/flow/error-notification]
 related_adr:
@@ -40,7 +43,9 @@ related_adr:
 - 成功は 200。`Content-Type: application/x-ndjson`、`Cache-Control: no-store`。本文は 1 行 1 イベントで、`text` が先に流れ、LLM が終わったあとに `sentence` が文の順に並び、最後に `done`
 - 流れが始まったあとの失敗は、状態を変えられないので `error` イベントで伝える
 - 同じ利用者の同時の呼び出しは 1 本まで。ロックは 600 秒で自動的に外れる
-- 呼び出しの回数は、1 分あたり 10 回、1 時間あたり 100 回まで。超えると `Retry-After` (次の窓までの秒数) を付けて返す
+- 呼び出しの回数は、1 分あたり 10 回、1 時間あたり 100 回まで。1 分、1 時間の順に、上限に達していなければ 1 つ数える。断った呼び出しは、どちらの窓も数えない (1 時間で断ったときは、数えた 1 分を戻す)
+- 断ったときは `Retry-After` (断った窓の次の窓までの秒数) を付けて返す
+- 1 分を戻せなかったときは、1 回多く数えたまま、報告する (warning、題名は「チャットの 1 分の回数を戻せませんでした (1 回分多く数えたまま)」)
 - ロックとレートリミットの保存先が使えないときは、数えずに通す (障害時に会話を止めない)
 
 ## 処理
