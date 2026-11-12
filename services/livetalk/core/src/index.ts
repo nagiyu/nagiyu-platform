@@ -374,16 +374,13 @@ export {
 // チャット API 保護ガード（Issue #3528）
 export type {
   RateLimitWindow,
-  RateLimitResult,
+  RateLimitLimits,
+  TryConsumeRateLimitResult,
   AcquireLockResult,
   ChatGuardRepository,
 } from './repositories/chat-guard.repository.interface.js';
 export { InMemoryChatGuardRepository } from './repositories/in-memory-chat-guard.repository.js';
-export {
-  DynamoDBChatGuardRepository,
-  computeBucket,
-  computeWindowTtlSec,
-} from './repositories/dynamodb-chat-guard.repository.js';
+export { DynamoDBChatGuardRepository } from './repositories/dynamodb-chat-guard.repository.js';
 
 // アカウント削除（退会・データ削除 / Issue #3579）
 export type { AccountDeletionResult } from './entities/account-deletion.entity.js';

@@ -20,7 +20,7 @@ sources:
   - services/quick-clip/core/src/libs/usage.service.ts
   - libs/nextjs/src/request-body.ts
   - libs/common/src/constants/error-messages.ts
-sources_hash: f0f87e7ef42ef64e64b68da6e5b25fdeb61bae9f04289258e9aafa552cdc5940
+sources_hash: 0f09d6452755543a858ef733650f3b8fea6731e41add4e5a719993f894868f35
 terms: [quick-clip/term/job, quick-clip/term/job-definition-size, quick-clip/term/usage-tier, quick-clip/term/ai-analysis, quick-clip/term/api-error]
 related_cards: [quick-clip/screen/upload, quick-clip/screen/job-status, quick-clip/screen/highlights, quick-clip/batch/extract, quick-clip/flow/extraction, quick-clip/flow/usage-metering, quick-clip/api/usage]
 related_adr:

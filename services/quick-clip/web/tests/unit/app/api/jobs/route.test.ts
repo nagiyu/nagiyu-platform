@@ -712,7 +712,7 @@ describe('POST /api/jobs', () => {
     describe('数えられないとき', () => {
       const breakUsageRepository = (): void => {
         const repository = createUsageRepository();
-        jest.spyOn(repository, 'tryConsume').mockRejectedValue(new Error('dynamodb down'));
+        jest.spyOn(repository, 'tryConsumeWithIp').mockRejectedValue(new Error('dynamodb down'));
       };
 
       it('エラーを報告して通す (フェイルオープン)', async () => {

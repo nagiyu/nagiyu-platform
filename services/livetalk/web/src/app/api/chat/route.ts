@@ -151,17 +151,17 @@ export const POST = withApiErrorReporting(
     }
 
     // ---- ガード 2: レートリミット ----
-    // 1 分・1 時間の 2 ウィンドウをアトミックにインクリメントし、いずれか超過で 429 を返す。
+    // 1 分 → 1 時間の順に上限付きで数え、どちらかが断れば 429 を返す。
+    // 断られた申し込みはどちらの窓も消費しない (上限の判定はリポジトリが条件付き更新で行う)。
     // ロック取得後にチェックすることで、並行リクエスト（ロック競合で 429 拒否）が
     // レートカウンタを消費しないようにする。
     // DynamoDB 障害時はフェイルオープン（レート超過扱いにせず通す）し、警告ログを残す。
-    let limitPerMinResult;
-    let limitPerHourResult;
+    let rateResult;
     try {
-      [limitPerMinResult, limitPerHourResult] = await Promise.all([
-        chatGuardRepository.incrementRateLimit(userId, '1m', nowMs),
-        chatGuardRepository.incrementRateLimit(userId, '1h', nowMs),
-      ]);
+      rateResult = await chatGuardRepository.tryConsumeRateLimit(userId, nowMs, {
+        perMinute: CHAT_RATE_LIMIT_PER_MINUTE,
+        perHour: CHAT_RATE_LIMIT_PER_HOUR,
+      });
     } catch (rateErr) {
       // DynamoDB 障害: フェイルオープン（レートリミットをバイパスして通す）
       console.warn(
@@ -169,16 +169,10 @@ export const POST = withApiErrorReporting(
         rateErr
       );
       await errorReporter.report('Web API: チャットのレートリミット確認エラー (バイパス)', rateErr);
-      limitPerMinResult = null;
-      limitPerHourResult = null;
+      rateResult = null;
     }
 
-    if (
-      limitPerMinResult !== null &&
-      limitPerHourResult !== null &&
-      (limitPerMinResult.count > CHAT_RATE_LIMIT_PER_MINUTE ||
-        limitPerHourResult.count > CHAT_RATE_LIMIT_PER_HOUR)
-    ) {
+    if (rateResult !== null && !rateResult.allowed) {
       // レート超過時はロックを解放してから 429 を返す
       if (lockAcquired) {
         try {
@@ -196,9 +190,9 @@ export const POST = withApiErrorReporting(
         {
           status: 429,
           headers: {
-            // 1 分窓が超過している場合は次の分までの秒数、それ以外は次の時間までの秒数
+            // 1 分窓で断られた場合は次の分までの秒数、1 時間窓で断られた場合は次の時間までの秒数
             'Retry-After':
-              limitPerMinResult.count > CHAT_RATE_LIMIT_PER_MINUTE
+              rateResult.window === '1m'
                 ? String(60 - Math.floor((nowMs % 60_000) / 1000))
                 : String(3600 - Math.floor((nowMs % 3_600_000) / 1000)),
           },

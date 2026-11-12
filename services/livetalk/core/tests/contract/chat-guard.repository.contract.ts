@@ -46,35 +46,75 @@ export function defineChatGuardRepositoryContract(
       }
     });
 
-    describe('incrementRateLimit', () => {
-      it('初回は 1、同じウィンドウ内では加算される', async () => {
-        expect((await repository.incrementRateLimit('u1', '1m', NOW_MS)).count).toBe(1);
-        expect((await repository.incrementRateLimit('u1', '1m', NOW_MS + 5_000)).count).toBe(2);
-        expect((await repository.incrementRateLimit('u1', '1m', NOW_MS + 10_000)).count).toBe(3);
+    describe('tryConsumeRateLimit', () => {
+      const limits = { perMinute: 3, perHour: 5 };
+
+      it('上限までは通し、その次の 1 分の窓で断る', async () => {
+        for (let i = 0; i < 3; i++) {
+          expect(await repository.tryConsumeRateLimit('u1', NOW_MS + i, limits)).toEqual({
+            allowed: true,
+          });
+        }
+        expect(await repository.tryConsumeRateLimit('u1', NOW_MS + 5, limits)).toEqual({
+          allowed: false,
+          window: '1m',
+        });
       });
 
-      it('結果にウィンドウ種別を含む', async () => {
-        const result = await repository.incrementRateLimit('u1', '1h', NOW_MS);
-        expect(result).toEqual({ count: 1, window: '1h' });
+      it('1 分の窓を跨ぐと 1 分の回数が戻る', async () => {
+        for (let i = 0; i < 3; i++) {
+          await repository.tryConsumeRateLimit('u1', NOW_MS, limits);
+        }
+        expect(await repository.tryConsumeRateLimit('u1', NOW_MS + 60_000, limits)).toEqual({
+          allowed: true,
+        });
       });
 
-      it('ウィンドウを跨ぐとカウントが 1 に戻る', async () => {
-        await repository.incrementRateLimit('u1', '1m', NOW_MS);
-        await repository.incrementRateLimit('u1', '1m', NOW_MS);
-        const next = await repository.incrementRateLimit('u1', '1m', NOW_MS + 60_000);
-        expect(next.count).toBe(1);
+      it('1 時間の窓で断ったら 1 分の回数を戻す', async () => {
+        // 1 時間の上限 5 を、分をまたいで使い切る
+        for (let minute = 0; minute < 5; minute++) {
+          expect(
+            await repository.tryConsumeRateLimit('u1', NOW_MS + minute * 60_000, limits)
+          ).toEqual({ allowed: true });
+        }
+        const denied = NOW_MS + 5 * 60_000;
+        expect(await repository.tryConsumeRateLimit('u1', denied, limits)).toEqual({
+          allowed: false,
+          window: '1h',
+        });
+        // 断られた申し込みが 1 分を消費していれば、上限 1 でも通らなくなる
+        expect(
+          await repository.tryConsumeRateLimit('u1', denied, { perMinute: 1, perHour: 6 })
+        ).toEqual({ allowed: true });
       });
 
-      it('1m と 1h は別のカウンタを持つ', async () => {
-        await repository.incrementRateLimit('u1', '1m', NOW_MS);
-        await repository.incrementRateLimit('u1', '1m', NOW_MS);
-        expect((await repository.incrementRateLimit('u1', '1h', NOW_MS)).count).toBe(1);
-        expect((await repository.incrementRateLimit('u1', '1m', NOW_MS)).count).toBe(3);
+      it('断られ続けても 1 時間の回数は増えない', async () => {
+        for (let i = 0; i < 3; i++) {
+          await repository.tryConsumeRateLimit('u1', NOW_MS, limits);
+        }
+        for (let i = 0; i < 10; i++) {
+          await repository.tryConsumeRateLimit('u1', NOW_MS, limits);
+        }
+        // 1 時間は 3 回分だけ。次の分に入れば残り 2 回通る
+        expect(await repository.tryConsumeRateLimit('u1', NOW_MS + 60_000, limits)).toEqual({
+          allowed: true,
+        });
+        expect(await repository.tryConsumeRateLimit('u1', NOW_MS + 60_000, limits)).toEqual({
+          allowed: true,
+        });
+        expect(await repository.tryConsumeRateLimit('u1', NOW_MS + 60_000, limits)).toEqual({
+          allowed: false,
+          window: '1h',
+        });
       });
 
       it('ユーザーごとにカウンタが独立する', async () => {
-        await repository.incrementRateLimit('u1', '1m', NOW_MS);
-        expect((await repository.incrementRateLimit('u2', '1m', NOW_MS)).count).toBe(1);
+        for (let i = 0; i < 3; i++) {
+          await repository.tryConsumeRateLimit('u1', NOW_MS, limits);
+        }
+        expect(await repository.tryConsumeRateLimit('u2', NOW_MS, limits)).toEqual({
+          allowed: true,
+        });
       });
     });
 
