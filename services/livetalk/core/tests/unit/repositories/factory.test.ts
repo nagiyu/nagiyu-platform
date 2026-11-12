@@ -194,12 +194,14 @@ describe('repositories/factory', () => {
     expect(createChatGuardRepository()).toBe(guard);
 
     const nowMs = Date.now();
-    await guard.incrementRateLimit('u1', '1m', nowMs);
+    const limits = { perMinute: 1, perHour: 1 };
+    await guard.tryConsumeRateLimit('u1', nowMs, limits);
     await guard.acquireLock('u1', 'token-a', 60_000, nowMs);
 
     await createAccountDeletionRepository().deleteAccount('u1');
 
-    expect((await guard.incrementRateLimit('u1', '1m', nowMs)).count).toBe(1);
+    // 削除前は上限 1 に達していて通らず、削除後は通る
+    expect(await guard.tryConsumeRateLimit('u1', nowMs, limits)).toEqual({ allowed: true });
     expect((await guard.acquireLock('u1', 'token-b', 60_000, nowMs)).acquired).toBe(true);
   });
 

@@ -129,8 +129,7 @@ export function defineAccountDeletionRepositoryContract(
     });
 
     it('チャットガードのカウンタとロックも削除対象になる', async () => {
-      await chatGuard.incrementRateLimit(USER_ID, '1m', NOW_MS);
-      await chatGuard.incrementRateLimit(USER_ID, '1h', NOW_MS);
+      await chatGuard.tryConsumeRateLimit(USER_ID, NOW_MS, { perMinute: 10, perHour: 100 });
       await chatGuard.acquireLock(USER_ID, 'token-a', 60_000, NOW_MS);
 
       const result = await repository.deleteAccount(USER_ID);

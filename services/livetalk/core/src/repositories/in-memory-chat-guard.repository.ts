@@ -6,42 +6,32 @@
  * DynamoDB と挙動がずれる。スレッドセーフは保証しない（Node.js のシングルスレッドを前提とする）。
  */
 
-import { type DynamoDBKey, type InMemorySingleTableStore } from '@nagiyu/aws';
-import { computeBucket, computeLockTtlSec, computeWindowTtlSec } from '../lib/chat-guard-window.js';
-import { buildChatLockSK, buildChatRateLimitSK, buildUserPK } from '../mappers/keys.js';
+import { InMemoryUsageCounter, type DynamoDBKey, type InMemorySingleTableStore } from '@nagiyu/aws';
+import { computeLockTtlSec } from '../lib/chat-guard-window.js';
+import { buildChatLockSK, buildUserPK } from '../mappers/keys.js';
+import { tryConsumeChatRateLimit } from './chat-guard-counting.js';
 import type {
   AcquireLockResult,
   ChatGuardRepository,
-  RateLimitResult,
-  RateLimitWindow,
+  RateLimitLimits,
+  TryConsumeRateLimitResult,
 } from './chat-guard.repository.interface.js';
 
 export class InMemoryChatGuardRepository implements ChatGuardRepository {
   private readonly store: InMemorySingleTableStore;
+  private readonly counter: InMemoryUsageCounter;
 
   constructor(store: InMemorySingleTableStore) {
     this.store = store;
+    this.counter = new InMemoryUsageCounter(store);
   }
 
-  public async incrementRateLimit(
+  public async tryConsumeRateLimit(
     userId: string,
-    window: RateLimitWindow,
-    nowMs: number
-  ): Promise<RateLimitResult> {
-    const key: DynamoDBKey = {
-      PK: buildUserPK(userId),
-      SK: buildChatRateLimitSK(window, computeBucket(window, nowMs)),
-    };
-    const existing = this.store.getByKey(key);
-
-    // バケットがキーに含まれるため、ウィンドウが変わると別アイテムになる。
-    // DynamoDB 実装も TTL を参照せず加算するので、期限の判定は行わない。
-    const count = ((existing?.['Count'] as number | undefined) ?? 0) + 1;
-    // TTL は初回のみ設定し、ウィンドウ内の自然な満了を保つ（DynamoDB 実装の if_not_exists と同じ）
-    const ttlSec = (existing?.['TTL'] as number | undefined) ?? computeWindowTtlSec(window, nowMs);
-
-    this.store.putByKey(key, { ...key, Count: count, TTL: ttlSec });
-    return { count, window };
+    nowMs: number,
+    limits: RateLimitLimits
+  ): Promise<TryConsumeRateLimitResult> {
+    return tryConsumeChatRateLimit(this.counter, userId, nowMs, limits);
   }
 
   public async acquireLock(
