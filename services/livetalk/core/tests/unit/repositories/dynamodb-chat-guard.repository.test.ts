@@ -127,6 +127,22 @@ describe('DynamoDBChatGuardRepository - tryConsumeRateLimit()', () => {
       DatabaseError
     );
   });
+
+  it('1 時間の加算が障害なら、1 分を戻して DatabaseError を投げる', async () => {
+    const send = jest
+      .fn()
+      .mockResolvedValueOnce({})
+      .mockRejectedValueOnce(new Error('DynamoDB 接続エラー'))
+      .mockResolvedValueOnce({});
+    const repo = new DynamoDBChatGuardRepository({ send } as never, tableName, () => fixedNow);
+
+    await expect(repo.tryConsumeRateLimit('u1', fixedNow, limits)).rejects.toBeInstanceOf(
+      DatabaseError
+    );
+    const rollback = (send.mock.calls[2][0] as UpdateCommand).input;
+    expect(rollback.Key).toEqual({ PK: 'USER#u1', SK: `RATELIMIT#1m#${minuteBucket}` });
+    expect(rollback.ExpressionAttributeValues).toMatchObject({ ':minusOne': -1 });
+  });
 });
 
 describe('DynamoDBChatGuardRepository - acquireLock()', () => {

@@ -185,7 +185,7 @@ describe('InMemoryChatGuardRepository - ロック', () => {
     await repo.acquireLock('u1', 'token-a', LOCK_TTL_MS, BASE_NOW_MS);
 
     const expiresAt = BASE_NOW_MS + LOCK_TTL_MS;
-    expect(store.get('USER#u1', 'CHATLOCK')).toMatchObject({
+    expect(store.get('USER#u1', 'CHATLOCK')).toEqual({
       PK: 'USER#u1',
       SK: 'CHATLOCK',
       OwnerToken: 'token-a',
