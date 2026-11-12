@@ -67,14 +67,59 @@ describe('InMemoryUsageRepository', () => {
     expect(await repository.getCounts('USER#u1', '202611')).toEqual({ ai: 0, noAi: 0 });
   });
 
-  it('IP の数を上限まで数える', async () => {
-    const input = { day: '20261105', ipHash: 'h1', limit: 2, ttlSec: 1000 };
+  describe('tryConsumeWithIp', () => {
+    const ipInput = { day: '20261105', ipHash: 'h1', limit: 2, ttlSec: 1000 };
+    const monthly = { ...base, kind: 'noAi' as const, limit: 5 };
+    const ip = async () => ipInput;
 
-    expect(await repository.tryConsumeIp(input)).toBe(true);
-    expect(await repository.tryConsumeIp(input)).toBe(true);
-    expect(await repository.tryConsumeIp(input)).toBe(false);
-    expect(await repository.tryConsumeIp({ ...input, ipHash: 'h2' })).toBe(true);
-    expect(await repository.tryConsumeIp({ ...input, limit: 0, ipHash: 'h3' })).toBe(false);
+    it('ip を渡さなければ月の 1 回だけを数える', async () => {
+      expect(await repository.tryConsumeWithIp({ monthly })).toEqual({ ok: true });
+      expect(await repository.getCounts('USER#u1', '202611')).toEqual({ ai: 0, noAi: 1 });
+    });
+
+    it('月の 1 回と IP の 1 回を順に数え、IP の上限に達したら月の 1 回を戻して断る', async () => {
+      const otherUser = (n: number) => ({ ...monthly, subject: `USER#u${n}` });
+      expect(await repository.tryConsumeWithIp({ monthly: otherUser(1), ip })).toEqual({
+        ok: true,
+      });
+      expect(await repository.tryConsumeWithIp({ monthly: otherUser(2), ip })).toEqual({
+        ok: true,
+      });
+
+      expect(await repository.tryConsumeWithIp({ monthly: otherUser(3), ip })).toEqual({
+        ok: false,
+        denied: 'ip',
+      });
+      expect(await repository.getCounts('USER#u3', '202611')).toEqual({ ai: 0, noAi: 0 });
+      // IP のハッシュが違えば別に数える
+      expect(
+        await repository.tryConsumeWithIp({
+          monthly: otherUser(3),
+          ip: async () => ({ ...ipInput, ipHash: 'h2' }),
+        })
+      ).toEqual({ ok: true });
+    });
+
+    it('月の上限で断ったときは IP の入力を作らず、IP も数えない', async () => {
+      const makeIp = jest.fn(ip);
+
+      expect(
+        await repository.tryConsumeWithIp({ monthly: { ...monthly, limit: 0 }, ip: makeIp })
+      ).toEqual({ ok: false, denied: 'monthly' });
+      expect(makeIp).not.toHaveBeenCalled();
+    });
+
+    it('IP の入力を作る関数が失敗したら、月の 1 回を戻して例外を投げる', async () => {
+      await expect(
+        repository.tryConsumeWithIp({
+          monthly,
+          ip: async () => {
+            throw new Error('boom');
+          },
+        })
+      ).rejects.toThrow('boom');
+      expect(await repository.getCounts('USER#u1', '202611')).toEqual({ ai: 0, noAi: 0 });
+    });
   });
 
   it('その日の塩は最初に作られたものを全員が受け取る', async () => {
@@ -170,9 +215,12 @@ describe('DynamoDBUsageRepository', () => {
 
   it('上限 0 では DynamoDB を呼ばずに false を返す', async () => {
     expect(await repository.tryConsume({ ...base, kind: 'ai', limit: 0 })).toBe(false);
-    expect(await repository.tryConsumeIp({ day: 'd', ipHash: 'h', limit: 0, ttlSec: 1 })).toBe(
-      false
-    );
+    expect(
+      await repository.tryConsumeWithIp({
+        monthly: { ...base, kind: 'ai', limit: 0 },
+        ip: async () => ({ day: 'd', ipHash: 'h', limit: 20, ttlSec: 1 }),
+      })
+    ).toEqual({ ok: false, denied: 'monthly' });
     expect(send).not.toHaveBeenCalled();
   });
 
@@ -181,7 +229,7 @@ describe('DynamoDBUsageRepository', () => {
 
     await expect(repository.tryConsume({ ...base, kind: 'ai', limit: 3 })).rejects.toThrow();
     await expect(
-      repository.tryConsumeIp({ day: 'd', ipHash: 'h', limit: 3, ttlSec: 1 })
+      repository.tryConsumeWithIp({ monthly: { ...base, kind: 'ai', limit: 3 } })
     ).rejects.toThrow();
   });
 
@@ -224,22 +272,60 @@ describe('DynamoDBUsageRepository', () => {
     await expect(repository.getCounts('USER#u1', '202611')).rejects.toThrow();
   });
 
-  it('IP は日と IP のハッシュをキーにして数える', async () => {
+  it('月の回数のあとに、日と IP のハッシュをキーにして IP を数える', async () => {
     send.mockResolvedValue({});
+    const call = () =>
+      repository.tryConsumeWithIp({
+        monthly: { ...base, kind: 'ai', limit: 3 },
+        ip: async () => ({ day: '20261105', ipHash: 'h1', limit: 20, ttlSec: 9 }),
+      });
 
-    expect(
-      await repository.tryConsumeIp({ day: '20261105', ipHash: 'h1', limit: 20, ttlSec: 9 })
-    ).toBe(true);
+    expect(await call()).toEqual({ ok: true });
 
     expect((send.mock.calls[0][0] as UpdateCommand).input).toMatchObject({
+      Key: { PK: 'USAGE#USER#u1', SK: 'MONTH#202611' },
+    });
+    expect((send.mock.calls[1][0] as UpdateCommand).input).toMatchObject({
       Key: { PK: 'USAGE_IP#20261105', SK: 'IP#h1' },
       ExpressionAttributeNames: { '#cnt': 'Count' },
     });
+  });
 
-    send.mockRejectedValueOnce(conditionalCheckFailed());
+  it('IP が断ったら月の回数を戻して denied ip を返す', async () => {
+    send
+      .mockResolvedValueOnce({})
+      .mockRejectedValueOnce(conditionalCheckFailed())
+      .mockResolvedValueOnce({});
+
     expect(
-      await repository.tryConsumeIp({ day: '20261105', ipHash: 'h1', limit: 20, ttlSec: 9 })
-    ).toBe(false);
+      await repository.tryConsumeWithIp({
+        monthly: { ...base, kind: 'ai', limit: 3 },
+        ip: async () => ({ day: '20261105', ipHash: 'h1', limit: 20, ttlSec: 9 }),
+      })
+    ).toEqual({ ok: false, denied: 'ip' });
+
+    const rollback = send.mock.calls[2][0] as UpdateCommand;
+    expect(rollback.input).toMatchObject({
+      Key: { PK: 'USAGE#USER#u1', SK: 'MONTH#202611' },
+      ExpressionAttributeValues: { ':minusOne': -1, ':zero': 0 },
+    });
+  });
+
+  it('戻しが失敗しても握り、onRollbackError に渡す', async () => {
+    send
+      .mockResolvedValueOnce({})
+      .mockRejectedValueOnce(conditionalCheckFailed())
+      .mockRejectedValueOnce(new Error('release failed'));
+    const onRollbackError = jest.fn();
+
+    expect(
+      await repository.tryConsumeWithIp({
+        monthly: { ...base, kind: 'ai', limit: 3 },
+        ip: async () => ({ day: '20261105', ipHash: 'h1', limit: 20, ttlSec: 9 }),
+        onRollbackError,
+      })
+    ).toEqual({ ok: false, denied: 'ip' });
+    expect(onRollbackError).toHaveBeenCalledTimes(1);
   });
 
   it('塩が無ければ、タイムスタンプ付きで条件付きに作る', async () => {

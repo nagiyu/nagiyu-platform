@@ -6,7 +6,14 @@
 
 import { UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { DatabaseError } from '@nagiyu/aws';
+import { STUDY_USAGE_ERROR_MESSAGES } from '../../../src/repositories/study-usage-counting.js';
 import { DynamoDBStudyUsageRepository } from '../../../src/repositories/dynamodb-study-usage.repository.js';
+
+const mockReport = jest.fn().mockResolvedValue(null);
+jest.mock('@nagiyu/aws', () => ({
+  ...jest.requireActual('@nagiyu/aws'),
+  createErrorReporter: () => ({ report: (...args: unknown[]) => mockReport(...args) }),
+}));
 
 // 2026-11-05 12:00 JST
 const NOW_MS = Date.parse('2026-11-05T03:00:00Z');
@@ -84,7 +91,7 @@ describe('DynamoDBStudyUsageRepository', () => {
     expect(rollback.input.ExpressionAttributeNames).toMatchObject({ '#cnt': 'Count#hiyori' });
   });
 
-  it('戻しに失敗しても false を返す (1 回分多く数えたままになる)', async () => {
+  it('戻しに失敗しても false を返し、エラーイベントに報告する (1 回分多く数えたままになる)', async () => {
     const send = jest
       .fn()
       .mockResolvedValueOnce({})
@@ -93,6 +100,11 @@ describe('DynamoDBStudyUsageRepository', () => {
     const repo = new DynamoDBStudyUsageRepository(makeClient(send), tableName);
 
     expect(await repo.tryConsume(input)).toBe(false);
+    expect(mockReport).toHaveBeenCalledWith(
+      STUDY_USAGE_ERROR_MESSAGES.ROLLBACK_FAILED,
+      expect.any(DatabaseError),
+      { context: { attribute: 'Count#hiyori' } }
+    );
   });
 
   it('合計の加算が障害なら、キャラクター別を戻して投げる', async () => {

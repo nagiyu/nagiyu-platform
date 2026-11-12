@@ -28,16 +28,21 @@ export interface UsageRepository {
   getCounts(subject: string, month: string): Promise<UsageCounts>;
 
   /**
-   * 同じ IP の 1 日あたりのジョブ数を、上限に達していなければ 1 つ数える。
+   * 月の 1 回を数えたあと、続けて同じ IP の 1 日あたりのジョブ数を数える。
    *
-   * @returns 数えられたとき true、上限に達していたとき false
+   * IP を後に数えるのは、月の上限で断った申し込みが IP の数を消費しないようにするため。
+   * IP が断った (または障害になった) ときは、月の 1 回を戻す。戻しの失敗は呼び出し側へ伝えず握り、
+   * onRollbackError にだけ渡す。
+   *
+   * @param input.ip 省略時は月の 1 回だけを数える。塩の取得を挟むため、月の 1 回が通ったあとに入力を作る関数で渡す
+   * @returns 両方数えたとき ok、断られた側を denied に入れる
+   * @throws 記録先 (DynamoDB) や ip の入力作成の障害のとき (数えた分は戻す)
    */
-  tryConsumeIp(input: {
-    day: string;
-    ipHash: string;
-    limit: number;
-    ttlSec: number;
-  }): Promise<boolean>;
+  tryConsumeWithIp(input: {
+    monthly: { subject: string; month: string; kind: UsageKind; limit: number; ttlSec: number };
+    ip?: () => Promise<{ day: string; ipHash: string; limit: number; ttlSec: number }>;
+    onRollbackError?: (error: unknown) => unknown;
+  }): Promise<{ ok: true } | { ok: false; denied: 'monthly' | 'ip' }>;
 
   /**
    * その日の塩を返す。無ければ candidateSalt で作る。

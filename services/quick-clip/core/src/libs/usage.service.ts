@@ -11,6 +11,10 @@ import { getUsageLimit, type UsageLimit, type UsageTier } from './usage-plan.js'
  */
 export const IP_DAILY_JOB_LIMIT = 20;
 
+const ROLLBACK_FAILED_MESSAGE = 'QuickClip 利用回数を戻せませんでした';
+
+type IpCountInput = { day: string; ipHash: string; limit: number; ttlSec: number };
+
 /** 上限を超えて断るときの理由。画面が出し分けるため文字列を固定する */
 export type UsageDenyCode =
   'AI_LIMIT_EXCEEDED' | 'NO_AI_LIMIT_EXCEEDED' | 'DURATION_LIMIT_EXCEEDED' | 'IP_LIMIT_EXCEEDED';
@@ -97,29 +101,51 @@ export class UsageService {
     const month = toJstMonthKey(nowMs);
     const monthTtl = toMonthTtlSeconds(nowMs);
 
-    const tryKind = (kind: UsageKind): Promise<boolean> =>
-      this.repository.tryConsume({
-        subject: input.subject,
-        month,
-        kind,
-        limit: kind === 'ai' ? aiPerMonth : noAiPerMonth,
-        ttlSec: monthTtl,
+    const ip = input.tier === 'anonymous' ? input.ip : undefined;
+    // 月の回数のあとに IP を数えるのは、断った申し込みが IP の数を消費しないようにするため。
+    // 塩の取得は月の回数が通ったあとに行う
+    const tryKind = (kind: UsageKind) =>
+      this.repository.tryConsumeWithIp({
+        monthly: {
+          subject: input.subject,
+          month,
+          kind,
+          limit: kind === 'ai' ? aiPerMonth : noAiPerMonth,
+          ttlSec: monthTtl,
+        },
+        ip: ip ? (): Promise<IpCountInput> => this.buildIpCountInput(ip, nowMs) : undefined,
+        // 戻せなければ 1 回分を多く数えたままになるが、元の結果の扱いを優先して握り、報告にとどめる
+        onRollbackError: (error) => this.reportError(ROLLBACK_FAILED_MESSAGE, error),
       });
 
     let kind: UsageKind;
     if (input.aiAnalysis === false) {
-      if (!(await tryKind('noAi'))) {
-        return { ok: false, code: 'NO_AI_LIMIT_EXCEEDED' };
+      const result = await tryKind('noAi');
+      if (!result.ok) {
+        return {
+          ok: false,
+          code: result.denied === 'ip' ? 'IP_LIMIT_EXCEEDED' : 'NO_AI_LIMIT_EXCEEDED',
+        };
       }
       kind = 'noAi';
-    } else if (await tryKind('ai')) {
-      kind = 'ai';
-    } else if (input.aiAnalysis === true) {
-      return { ok: false, code: 'AI_LIMIT_EXCEEDED' };
-    } else if (await tryKind('noAi')) {
-      kind = 'noAi';
     } else {
-      return { ok: false, code: 'NO_AI_LIMIT_EXCEEDED' };
+      const aiResult = await tryKind('ai');
+      if (aiResult.ok) {
+        kind = 'ai';
+      } else if (aiResult.denied === 'ip') {
+        return { ok: false, code: 'IP_LIMIT_EXCEEDED' };
+      } else if (input.aiAnalysis === true) {
+        return { ok: false, code: 'AI_LIMIT_EXCEEDED' };
+      } else {
+        const noAiResult = await tryKind('noAi');
+        if (!noAiResult.ok) {
+          return {
+            ok: false,
+            code: noAiResult.denied === 'ip' ? 'IP_LIMIT_EXCEEDED' : 'NO_AI_LIMIT_EXCEEDED',
+          };
+        }
+        kind = 'noAi';
+      }
     }
 
     const record: UsageRecord = {
@@ -128,21 +154,6 @@ export class UsageService {
       kind,
       noAiLimit: noAiPerMonth,
     };
-
-    if (input.tier === 'anonymous' && input.ip) {
-      // 回数を数えたあとに確認するのは、断った申し込みが IP の数を消費しないようにするため
-      let ipAllowed: boolean;
-      try {
-        ipAllowed = await this.tryConsumeIp(input.ip, nowMs);
-      } catch (error) {
-        await this.releaseQuietly(record);
-        throw error;
-      }
-      if (!ipAllowed) {
-        await this.releaseQuietly(record);
-        return { ok: false, code: 'IP_LIMIT_EXCEEDED' };
-      }
-    }
 
     return { ok: true, record, aiAnalysis: kind === 'ai', limit };
   }
@@ -233,22 +244,12 @@ export class UsageService {
     };
   }
 
-  private async tryConsumeIp(ip: string, nowMs: number): Promise<boolean> {
+  private async buildIpCountInput(ip: string, nowMs: number): Promise<IpCountInput> {
     const day = toJstDayKey(nowMs);
     const dayTtl = toDayTtlSeconds(nowMs);
     const salt = await this.repository.getOrCreateDailySalt(day, this.generateSalt(), dayTtl);
     // IP をそのまま保存しないため、日ごとの塩を鍵にした HMAC にする
     const ipHash = createHmac('sha256', salt).update(ip).digest('hex');
-    return this.repository.tryConsumeIp({ day, ipHash, limit: IP_DAILY_JOB_LIMIT, ttlSec: dayTtl });
-  }
-
-  /** 元の例外を優先するため、戻す処理の失敗は握る */
-  private async releaseQuietly(record: UsageRecord): Promise<void> {
-    try {
-      await this.release(record);
-    } catch (error) {
-      // 戻せなければ 1 回分を多く数えたままになるが、元の障害の扱いを優先して握り、報告にとどめる
-      await this.reportError('QuickClip 利用回数を戻せませんでした', error);
-    }
+    return { day, ipHash, limit: IP_DAILY_JOB_LIMIT, ttlSec: dayTtl };
   }
 }

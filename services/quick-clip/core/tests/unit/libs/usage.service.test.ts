@@ -1,5 +1,5 @@
 import { createHmac } from 'node:crypto';
-import { InMemorySingleTableStore } from '@nagiyu/aws';
+import { InMemorySingleTableStore, InMemoryUsageCounter } from '@nagiyu/aws';
 import { IP_DAILY_JOB_LIMIT, UsageService } from '../../../src/libs/usage.service.js';
 import { USAGE_LIMITS } from '../../../src/libs/usage-plan.js';
 import { InMemoryJobRepository } from '../../../src/repositories/in-memory-job.repository.js';
@@ -118,6 +118,10 @@ describe('UsageService.consume', () => {
   });
 
   describe('IP の補助の上限', () => {
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
     it('日ごとの塩を鍵にした HMAC を保存し、IP をそのまま保存しない', async () => {
       const store = new InMemorySingleTableStore();
       const service = createService(new InMemoryUsageRepository(store));
@@ -190,7 +194,7 @@ describe('UsageService.consume', () => {
       const repository = new InMemoryUsageRepository(new InMemorySingleTableStore());
       jest.spyOn(repository, 'getOrCreateDailySalt').mockRejectedValue(new Error('boom'));
       const releaseError = new Error('release failed');
-      jest.spyOn(repository, 'release').mockRejectedValue(releaseError);
+      jest.spyOn(InMemoryUsageCounter.prototype, 'decrement').mockRejectedValue(releaseError);
       const reportError = jest.fn().mockResolvedValue(undefined);
       const service = new UsageService(repository, { now: () => NOW, reportError });
 
@@ -203,10 +207,51 @@ describe('UsageService.consume', () => {
       );
     });
 
+    it('IP の上限で断るときに戻す処理が失敗しても、断りを返し、戻せなかったことを報告する', async () => {
+      const repository = new InMemoryUsageRepository(new InMemorySingleTableStore());
+      const reportError = jest.fn().mockResolvedValue(undefined);
+      const service = new UsageService(repository, {
+        now: () => NOW,
+        generateSalt: () => 'fixed-salt',
+        reportError,
+      });
+      for (let i = 0; i < IP_DAILY_JOB_LIMIT; i += 1) {
+        await service.consume({ subject: `ANON#a${i}`, tier: 'anonymous', ip: '203.0.113.7' });
+      }
+      const releaseError = new Error('release failed');
+      jest.spyOn(InMemoryUsageCounter.prototype, 'decrement').mockRejectedValue(releaseError);
+
+      const rejected = await service.consume({
+        subject: 'ANON#extra',
+        tier: 'anonymous',
+        ip: '203.0.113.7',
+        aiAnalysis: false,
+      });
+
+      expect(rejected).toEqual({ ok: false, code: 'IP_LIMIT_EXCEEDED' });
+      expect(reportError).toHaveBeenCalledWith(
+        'QuickClip 利用回数を戻せませんでした',
+        releaseError
+      );
+    });
+
+    it('省略時の AI なしへの切り替えで IP の上限に達していれば、IP の理由で断る', async () => {
+      const service = createService();
+      for (let i = 0; i < IP_DAILY_JOB_LIMIT; i += 1) {
+        await service.consume({ subject: `ANON#a${i}`, tier: 'anonymous', ip: '198.51.100.9' });
+      }
+
+      expect(
+        await service.consume({ subject: 'ANON#x', tier: 'anonymous', ip: '198.51.100.9' })
+      ).toEqual({ ok: false, code: 'IP_LIMIT_EXCEEDED' });
+    });
+
     it('報告先を渡さなくても、戻す処理の失敗で元の例外が変わらない', async () => {
       const repository = new InMemoryUsageRepository(new InMemorySingleTableStore());
       jest.spyOn(repository, 'getOrCreateDailySalt').mockRejectedValue(new Error('boom'));
-      jest.spyOn(repository, 'release').mockRejectedValue(new Error('release failed'));
+      jest
+        .spyOn(InMemoryUsageCounter.prototype, 'decrement')
+        .mockRejectedValue(new Error('release failed'));
 
       await expect(
         createService(repository).consume({
