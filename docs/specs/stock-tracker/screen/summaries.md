@@ -6,11 +6,12 @@ service: stock-tracker
 sources:
   - services/stock-tracker/web/app/summaries/page.tsx
   - services/stock-tracker/web/components/SummaryDetailDialog.tsx
+  - services/stock-tracker/web/components/AxisBreakdownTable.tsx
   - services/stock-tracker/web/components/MarketForecastCards.tsx
   - services/stock-tracker/web/components/LitCell.tsx
   - services/stock-tracker/web/lib/forecast-view/sort.ts
   - services/stock-tracker/web/lib/forecast-view/labels.ts
-sources_hash: b77b1112f17b567614c05cdadc6438e91e6ec901c261698ebf3de11241fbd348
+sources_hash: 333636090b05ecf119c7b0760b1c74a076e59983e7a69968c2b21b8c7b2fc4ef
 terms: [stock-tracker/term/permission, stock-tracker/term/forecast, stock-tracker/term/axis, stock-tracker/term/question]
 related_cards: [stock-tracker/api/summaries, stock-tracker/api/forecasts, stock-tracker/screen/home, stock-tracker/batch/summary, stock-tracker/batch/forecast]
 ---
@@ -44,6 +45,8 @@ related_cards: [stock-tracker/api/summaries, stock-tracker/api/forecasts, stock-
 | 点灯 | 点灯したパターンの数と、買い・売りの内訳 |
 | 買いアラート数、売りアラート数 | 有効なアラートの数。無効のものがあれば `N (無効の数)` |
 
+- 銘柄の表は、幅が足りないときは横にスクロールする
+- 詳細の内訳の表は、幅 600px 未満では「軸名」「寄与」だけを出す。行を開くと、値と過去成績が下に出る
 - 「方向」「荒れ」の見出しを押すと、確率の降順、昇順、並べ替えなしの順に切り替わる。確度のない銘柄は末尾に残る
 
 ## 状態

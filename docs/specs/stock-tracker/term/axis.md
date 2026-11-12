@@ -6,7 +6,8 @@ service: stock-tracker
 sources:
   - services/stock-tracker/core/src/forecast/axes.ts
   - services/stock-tracker/core/src/forecast/constants.ts
-sources_hash: daa93498a6239baa7664ae87f71ce182c0910de235addeefea8c3667e21a8f7d
+  - services/stock-tracker/core/src/forecast/performance.ts
+sources_hash: 4ea6d9a5f8d910f695fac63acf6a929c83ac4741152bd1bdcea6fd1c4369e9e3
 terms: [stock-tracker/term/question, stock-tracker/term/forecast]
 related_cards: [stock-tracker/api/forecasts, stock-tracker/api/axis-performance, stock-tracker/screen/axis-performance, stock-tracker/batch/forecast]
 related_adr:
@@ -29,6 +30,7 @@ related_adr:
 | 市場平均値幅 (数値型) | 市場平均値幅の平常比 | 市場の荒れ |
 
 - 点灯型は、パターンが成立したとき (または合致数が 2 以上のとき) に「点灯」する。数値型は平常比 (倍) で表す。平常は直近 20 営業日の平均
+- 成績の集計 (件数・的中率) では、数値型の軸も平常比が 1 を超えた日を「点灯」として数える。確度の合成には値そのものを使う
 - 軸は、定義に書いた[問い](./question.md)にだけ使う
 - 確度への寄与は、軸ごとの「確率への上乗せ (pt)」で表す。全軸の寄与の合計が、確度と「ふだん」の差になる
 - 点灯型の軸は、採点済みの点灯が 30 件未満の間は「件数不足」として、参考扱いにする

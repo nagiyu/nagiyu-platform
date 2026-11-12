@@ -5,6 +5,7 @@ kind: screen
 service: stock-tracker
 sources:
   - services/stock-tracker/web/app/axis-performance/page.tsx
+  - services/stock-tracker/web/next.config.ts
   - services/stock-tracker/web/components/axis-performance/AxisTable.tsx
   - services/stock-tracker/web/components/axis-performance/CalibrationSection.tsx
   - services/stock-tracker/web/lib/axis-performance-view/constants.ts
@@ -12,7 +13,7 @@ sources:
   - services/stock-tracker/web/lib/axis-performance-view/params.ts
   - services/stock-tracker/web/lib/axis-performance-view/sort.ts
   - services/stock-tracker/web/lib/axis-performance-view/use-axis-performance.ts
-sources_hash: 375cdc8b7eed905819b019a0fe23e08ea4c55998cb23d10b7b38383e81221463
+sources_hash: 588a5c873506d7112b6ede92c4fc53349ffc76d02d4d44641490214da89be1b0
 terms: [stock-tracker/term/permission, stock-tracker/term/axis, stock-tracker/term/question, stock-tracker/term/forecast]
 related_cards: [stock-tracker/api/axis-performance, stock-tracker/batch/forecast]
 ---
@@ -24,6 +25,7 @@ related_cards: [stock-tracker/api/axis-performance, stock-tracker/batch/forecast
 ## 入口
 
 - パスは `/axis-performance`。ヘッダーの「判断軸の成績」から来る
+- 旧パス `/prediction-evaluation` は、このパスへ一時的にリダイレクトする
 
 ## 表示の条件
 
@@ -41,6 +43,7 @@ related_cards: [stock-tracker/api/axis-performance, stock-tracker/batch/forecast
 | 確度の成績 | 中立帯の説明、確率帯ごとの件数・予測の平均・実際の的中率の表、信頼度の図。件数が 30 件未満の帯は薄く出る |
 | 軸ごとの成績 | 列は軸名、種類、件数、的中率、ふだんとの差、平均超過リターン (方向のみ)、現在の重み。件数不足の軸には「件数不足」が付く |
 
+- 軸の表は、幅 900px 未満では「軸名」「件数」「ふだんとの差」「現在の重み」だけを出す
 - 軸の表は、列の見出しで並べ替えられる。初期の並びは API の順。名前と種類は昇順、それ以外は降順から始まる
 
 ## 状態
