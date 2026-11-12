@@ -35,7 +35,10 @@ jest.mock('../../../../../src/lib/auth/session', () => ({
 function buildRequest(body?: unknown) {
   return new NextRequest('https://auth.nagiyu.com/api/billing/portal', {
     method: 'POST',
-    body: body === undefined ? undefined : JSON.stringify(body),
+    body:
+      body === undefined || typeof body === 'string'
+        ? (body as string | undefined)
+        : JSON.stringify(body),
     headers: { host: 'auth.nagiyu.com' },
   });
 }
@@ -86,6 +89,16 @@ describe('POST /api/billing/portal', () => {
     expect(await response.json()).toEqual({ url: 'https://portal.test/p' });
     expect(mockCreatePortalSession.mock.calls[0][2]).toBe('https://auth.nagiyu.com/plans');
   });
+
+  it.each([['{'], ['null'], [[]]])(
+    '本文が壊れている・オブジェクトでなくても、戻り先なしとして扱う (%j)',
+    async (body) => {
+      const response = await POST(buildRequest(body));
+
+      expect(response.status).toBe(200);
+      expect(mockCreatePortalSession.mock.calls[0][2]).toBe('https://auth.nagiyu.com/plans');
+    }
+  );
 
   it('検証した戻り先を return_url に引き継ぐ。許可されない戻り先は無視する', async () => {
     await POST(buildRequest({ callbackUrl: 'https://quick-clip.nagiyu.com/a' }));

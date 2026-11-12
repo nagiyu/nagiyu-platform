@@ -7,6 +7,7 @@ import {
   getBillingConfig,
 } from '@nagiyu/auth-core';
 import { COMMON_ERROR_MESSAGES, getBillingTierRoleIds } from '@nagiyu/common';
+import { readJsonObjectBody } from '@nagiyu/nextjs';
 import { getSession } from '@/lib/auth/session';
 import { withApiErrorReporting } from '@/lib/api-error-reporting';
 
@@ -36,8 +37,12 @@ export const POST = withApiErrorReporting(
       return NextResponse.json({ error: ERROR_MESSAGES.BILLING_DISABLED }, { status: 503 });
     }
 
-    const body = await request.json().catch(() => null);
-    if (typeof body?.serviceId !== 'string' || getBillingTierRoleIds(body.serviceId).length === 0) {
+    const bodyResult = await readJsonObjectBody(request);
+    if (!bodyResult.ok) {
+      return NextResponse.json({ error: ERROR_MESSAGES.INVALID_SERVICE }, { status: 400 });
+    }
+    const body = bodyResult.body;
+    if (typeof body.serviceId !== 'string' || getBillingTierRoleIds(body.serviceId).length === 0) {
       return NextResponse.json({ error: ERROR_MESSAGES.INVALID_SERVICE }, { status: 400 });
     }
 

@@ -1,4 +1,4 @@
-import type { RoleGrant } from '@nagiyu/common';
+import { isRoleGrantActive, type RoleGrant } from '@nagiyu/common';
 
 export type DesiredStripeRole = {
   roleId: string;
@@ -35,10 +35,7 @@ export function computeStripeGrants(
 
   const handled = new Set<string>();
   const next = grants.map((grant): RoleGrant => {
-    const isActiveStripe =
-      grant.source === 'stripe' &&
-      grant.revokedAt === undefined &&
-      (grant.expiresAt === undefined || grant.expiresAt > now);
+    const isActiveStripe = grant.source === 'stripe' && isRoleGrantActive(grant, now);
     if (!isActiveStripe) {
       return grant;
     }
@@ -63,15 +60,17 @@ export function computeStripeGrants(
   const created = [...wanted.values()]
     .filter((entry) => !handled.has(entry.roleId))
     .sort((a, b) => (a.roleId < b.roleId ? -1 : 1))
-    .map((entry): RoleGrant => ({
-      grantId: generateId(),
-      roleId: entry.roleId,
-      source: 'stripe',
-      sourceRef: entry.subscriptionId,
-      expiresAt: entry.expiresAt,
-      createdAt: now,
-      updatedAt: now,
-    }));
+    .map(
+      (entry): RoleGrant => ({
+        grantId: generateId(),
+        roleId: entry.roleId,
+        source: 'stripe',
+        sourceRef: entry.subscriptionId,
+        expiresAt: entry.expiresAt,
+        createdAt: now,
+        updatedAt: now,
+      })
+    );
 
   return [...next, ...created];
 }

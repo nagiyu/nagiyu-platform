@@ -1,4 +1,4 @@
-import { PAID_ROLES, getBillingServiceId, getBillingTierRoleIds, logger } from '@nagiyu/common';
+import { PAID_ROLES, compareBillingTier, getBillingServiceId, logger } from '@nagiyu/common';
 import type { User } from '@nagiyu/common';
 import type { UserRepository } from '../repositories';
 import type { BillingOperationsStripe, BillingPrice } from './stripe-client';
@@ -155,7 +155,8 @@ export type PlanChangeResult =
     };
 
 export type CancelScheduledChangeResult =
-  { ok: true } | { ok: false; reason: 'no-scheduled-change' };
+  | { ok: true }
+  | { ok: false; reason: 'no-scheduled-change' };
 
 /**
  * 今の請求期間の終わりに下の段の価格へ切り替わる予約を作る。
@@ -265,9 +266,7 @@ export async function createPlanChangeSession(
     return { ok: false, reason: 'price-not-found' };
   }
 
-  // getBillingTierRoleIds は下の段から順に返すため、並びが段の順位になる
-  const tierRoleIds = getBillingTierRoleIds(serviceId);
-  if (tierRoleIds.indexOf(roleId) < tierRoleIds.indexOf(current.roleId)) {
+  if (compareBillingTier(roleId, current.roleId) < 0) {
     return scheduleDowngrade(stripe, current, price);
   }
 
