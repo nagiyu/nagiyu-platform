@@ -14,8 +14,6 @@ sources:
 sources_hash: d7f7fd81e228a5303b3e9407bc71433c01e3830f37501a99b81620a4be411a4d
 terms: [codec-converter/term/job, codec-converter/term/output-codec]
 related_cards: [codec-converter/api/jobs, codec-converter/screen/upload, codec-converter/flow/conversion]
-related_adr:
-  - services/codec-converter/ui-design.md#2. ジョブ詳細画面
 ---
 
 # ジョブ詳細画面
@@ -29,6 +27,8 @@ related_adr:
 - ジョブは作成の 24 時間後に消える。それ以降は「指定したジョブがないとき」になる
 
 ## 表示するもの
+
+内容は中央寄せで、最大幅は 900px (MUI の `md`)。
 
 | 部分 | 内容 |
 |---|---|

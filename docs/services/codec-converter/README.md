@@ -13,12 +13,13 @@ Codec Converterは、動画ファイルのコーデック変換を**ブラウザ
 
 | ドキュメント                         | 説明                                                 |
 | ------------------------------------ | ---------------------------------------------------- |
-| [requirements.md](./requirements.md) | ビジネス要件、機能要件、非機能要件、ユースケース     |
-| [architecture.md](./architecture.md) | システムアーキテクチャ、技術スタック、設計思想       |
-| [api-spec.md](./api-spec.md)         | API仕様（エンドポイント、リクエスト/レスポンス形式） |
+| [requirements.md](./requirements.md) | ビジネス要件、機能要件（何を満たすべきか）、非機能要件 |
+| [architecture.md](./architecture.md) | システムアーキテクチャ、技術スタック、設計判断の理由 |
 | [deployment.md](./deployment.md)     | デプロイ手順、CI/CD、監視、障害対応                  |
 | [testing.md](./testing.md)           | テスト戦略、カバレッジ目標、テストシナリオ           |
-| [ui-design.md](./ui-design.md)       | UI設計、画面遷移、コンポーネント構成                 |
+| [仕様カード](../../specs/README.md)  | 今のコードの挙動（画面・API・バッチ・用語）。このサービスの分は `docs/specs/codec-converter/` |
+
+今の挙動は仕様カード、なぜそうしたかと何を満たすべきかはこの配下の文書に書く。
 
 ---
 
@@ -28,7 +29,7 @@ Codec Converterは、動画ファイルのコーデック変換を**ブラウザ
 
 1. **要件を理解する**: [requirements.md](./requirements.md) を読む
 2. **設計を確認する**: [architecture.md](./architecture.md) を読む
-3. **API仕様を確認する**: [api-spec.md](./api-spec.md) を読む
+3. **今の挙動を確認する**: [仕様カード](../../specs/README.md)（`docs/specs/codec-converter/`）を読む
 4. **実装を確認する**: ソースコード (`services/codec-converter/`) を参照
 
 ### 運用担当者向け
