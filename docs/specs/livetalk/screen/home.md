@@ -35,8 +35,7 @@ related_cards: [livetalk/screen/memory, livetalk/screen/notes, livetalk/screen/s
 related_adr:
   - services/livetalk/external-design.md#SCR-001: チャット画面（メイン）
   - services/livetalk/external-design.md#SCR-008: セーフティ介入画面（モーダル）
-  - services/livetalk/external-design.md#SCR-010: キャラクター選択（モーダル）
-  - services/livetalk/external-design.md#SCR-011: 退会・データ削除（モーダル）
+  - services/livetalk/external-design.md#退会・データ削除（SCR-011）と設定画面
 ---
 
 # ホーム画面 (チャット)

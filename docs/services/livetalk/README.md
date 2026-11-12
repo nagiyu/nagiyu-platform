@@ -18,16 +18,20 @@ MVP（Phase 0〜5）が完成しており、描画・音声・AI 統合・記憶
 | [external-design.md](./external-design.md) | 画面設計・概念データモデル・設計上の決定事項 |
 | [architecture.md](./architecture.md) | アーキテクチャ設計決定記録（ADR） |
 | [roadmap.md](./roadmap.md) | Phase 6+ 将来拡張ロードマップ |
+| [仕様カード](../../specs/README.md) | 今のコードの挙動 (画面・API・バッチ・通知経路・用語)。このサービスの分は `docs/specs/livetalk/` |
+
+今の挙動は仕様カード、なぜそうしたかと何を満たすべきかはこの配下の文書に書く。
 
 ---
 
 ## クイックスタート
 
 1. **要件を理解する**: [requirements.md](./requirements.md) を読む
-2. **画面・データ構造を把握する**: [external-design.md](./external-design.md) を読む
-3. **設計の意図を確認する**: [architecture.md](./architecture.md) を読む
-4. **将来拡張を確認する**: [roadmap.md](./roadmap.md) を読む
-5. **実装を確認する**: ソースコード (`services/livetalk/`) を参照
+2. **今の挙動をつかむ**: [会話の経路](../../specs/livetalk/flow/conversation.md)や[ホーム画面](../../specs/livetalk/screen/home.md)の仕様カードから読む
+3. **画面設計の判断・データ構造を把握する**: [external-design.md](./external-design.md) を読む
+4. **設計の意図を確認する**: [architecture.md](./architecture.md) を読む
+5. **将来拡張を確認する**: [roadmap.md](./roadmap.md) を読む
+6. **実装を確認する**: ソースコード (`services/livetalk/`) を参照
 
 ---
 
@@ -50,7 +54,7 @@ MVP（Phase 0〜5）が完成しており、描画・音声・AI 統合・記憶
 - **LLM**: OpenAI GPT-4o / GPT-4o-mini（用途別振り分け）、要約・分類は Structured Outputs
 - **認可**: 既存 RBAC（`livetalk:chat` / `livetalk:admin`）
 
-詳細は [architecture.md](./architecture.md) を参照。
+設計の理由は [architecture.md](./architecture.md)、今の挙動は[仕様カード](../../specs/README.md)を参照。
 
 ---
 
