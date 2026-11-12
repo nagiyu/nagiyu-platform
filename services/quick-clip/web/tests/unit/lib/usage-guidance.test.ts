@@ -171,9 +171,12 @@ describe('resolveLimitGuidance', () => {
     expect(resolveLimitGuidance('AI_LIMIT_EXCEEDED', null)).toEqual({ plans: true, signIn: false });
   });
 
-  it.each([['IP_LIMIT_EXCEEDED'], ['INVALID_FILE_TYPE'], [null]])('%s は案内しない', (code) => {
-    expect(resolveLimitGuidance(code, 'anonymous')).toEqual({ plans: false, signIn: false });
-  });
+  it.each([['IP_LIMIT_EXCEEDED'], ['INVALID_FILE_TYPE'], ['toString'], [null]])(
+    '%s は案内しない',
+    (code) => {
+      expect(resolveLimitGuidance(code, 'anonymous')).toEqual({ plans: false, signIn: false });
+    }
+  );
 });
 
 describe('一番上の段', () => {
@@ -215,16 +218,24 @@ describe('動画の長さの判定', () => {
 });
 
 describe('readLimitErrorCode', () => {
-  it('上限のエラーコードを取り出す', () => {
-    expect(readLimitErrorCode({ error: 'IP_LIMIT_EXCEEDED', message: 'x' })).toBe(
-      'IP_LIMIT_EXCEEDED'
-    );
+  it.each([
+    'AI_LIMIT_EXCEEDED',
+    'NO_AI_LIMIT_EXCEEDED',
+    'IP_LIMIT_EXCEEDED',
+    'DURATION_LIMIT_EXCEEDED',
+  ])('%s を取り出す', (code) => {
+    expect(readLimitErrorCode({ error: code, message: 'x' })).toBe(code);
   });
 
-  it.each([[null], ['x'], [{}], [{ error: 'INVALID_REQUEST' }], [{ error: 1 }]])(
-    '%j は null',
-    (body) => {
-      expect(readLimitErrorCode(body)).toBeNull();
-    }
-  );
+  it.each([
+    [null],
+    ['x'],
+    [{}],
+    [{ error: 'INVALID_REQUEST' }],
+    [{ error: 1 }],
+    [{ error: 'toString' }],
+    [{ error: 'constructor' }],
+  ])('%j は null', (body) => {
+    expect(readLimitErrorCode(body)).toBeNull();
+  });
 });

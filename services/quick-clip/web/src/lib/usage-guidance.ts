@@ -3,21 +3,15 @@
  * 画面 (app/) に判定を持たせず、表示に依らないものをここに集める。
  */
 
-import type { UsageTier } from '@nagiyu/quick-clip-core';
+import type { UsageDenyCode, UsageSnapshot, UsageTier } from '@nagiyu/quick-clip-core';
 
 export type { UsageTier };
 
-/** `GET /api/usage` の応答 */
-export type UsageSummary = {
-  tier: UsageTier;
-  /** aiPerMonth・noAiPerMonth・remaining の null は上限なし */
-  limits: { aiPerMonth: number | null; noAiPerMonth: number | null; maxDurationSec: number };
-  remaining: { ai: number | null; noAi: number | null };
-};
+/** `GET /api/usage` の応答 (サーバー側の `UsageSnapshot` のうち画面が使う部分) */
+export type UsageSummary = Pick<UsageSnapshot, 'tier' | 'limits' | 'remaining'>;
 
 /** ジョブ作成が上限で断られたときのエラーコード */
-export type LimitErrorCode =
-  'AI_LIMIT_EXCEEDED' | 'NO_AI_LIMIT_EXCEEDED' | 'IP_LIMIT_EXCEEDED' | 'DURATION_LIMIT_EXCEEDED';
+export type LimitErrorCode = UsageDenyCode;
 
 /** 上限のとき、利用者を誘導する先 */
 export type LimitGuidance = {
@@ -37,12 +31,16 @@ export const USAGE_MESSAGES = {
   PLANS_ACTION: 'プランを見る',
 } as const;
 
-const LIMIT_ERROR_CODES: readonly string[] = [
-  'AI_LIMIT_EXCEEDED',
-  'NO_AI_LIMIT_EXCEEDED',
-  'IP_LIMIT_EXCEEDED',
-  'DURATION_LIMIT_EXCEEDED',
-];
+// 断る理由を足したときに判定から漏れないよう、サーバー側の型から全件を求める
+const LIMIT_ERROR_CODES: Readonly<Record<LimitErrorCode, true>> = {
+  AI_LIMIT_EXCEEDED: true,
+  NO_AI_LIMIT_EXCEEDED: true,
+  IP_LIMIT_EXCEEDED: true,
+  DURATION_LIMIT_EXCEEDED: true,
+};
+
+const isLimitErrorCode = (value: unknown): value is LimitErrorCode =>
+  typeof value === 'string' && Object.hasOwn(LIMIT_ERROR_CODES, value);
 
 // 段を足したときに検証から漏れないよう、サーバー側の段の型から全段を求める
 const TIERS: Readonly<Record<UsageTier, true>> = {
@@ -139,7 +137,7 @@ export const resolveLimitGuidance = (
   code: string | null,
   tier: UsageTier | null
 ): LimitGuidance => {
-  if (code === null || !LIMIT_ERROR_CODES.includes(code) || code === 'IP_LIMIT_EXCEEDED') {
+  if (!isLimitErrorCode(code) || code === 'IP_LIMIT_EXCEEDED') {
     return { plans: false, signIn: false };
   }
   return { plans: hasHigherTier(tier), signIn: tier === 'anonymous' };
@@ -170,8 +168,5 @@ export const buildDurationExceededMessage = (check: DurationCheck): string =>
 
 /** 失敗応答の本文から、上限のエラーコードを取り出す。該当しなければ null */
 export const readLimitErrorCode = (body: unknown): LimitErrorCode | null => {
-  if (isRecord(body) && typeof body.error === 'string' && LIMIT_ERROR_CODES.includes(body.error)) {
-    return body.error as LimitErrorCode;
-  }
-  return null;
+  return isRecord(body) && isLimitErrorCode(body.error) ? body.error : null;
 };
