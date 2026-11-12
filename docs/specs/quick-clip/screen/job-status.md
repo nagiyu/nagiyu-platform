@@ -16,7 +16,7 @@ related_adr:
   - services/quick-clip/architecture.md#ADR-006
   - services/quick-clip/architecture.md#ADR-011
   - services/quick-clip/architecture.md#ADR-013
-  - services/quick-clip/external-design.md#SCR-002
+  - services/quick-clip/external-design.md#1.2
 ---
 
 # 処理状況画面
