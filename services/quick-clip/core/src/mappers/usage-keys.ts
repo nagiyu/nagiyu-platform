@@ -14,9 +14,12 @@ export const buildCounterKey = (subject: string, month: string): { PK: string; S
   SK: `MONTH#${month}`,
 });
 
+/** 塩のキーの接頭辞。塩の mapper がキーから日付を読み戻すときにも使う */
+export const SALT_KEY_PREFIX = 'USAGE_SALT#';
+
 export const buildSaltKey = (day: string): { PK: string; SK: string } => ({
-  PK: `USAGE_SALT#${day}`,
-  SK: `USAGE_SALT#${day}`,
+  PK: `${SALT_KEY_PREFIX}${day}`,
+  SK: `${SALT_KEY_PREFIX}${day}`,
 });
 
 export const buildIpKey = (day: string, ipHash: string): { PK: string; SK: string } => ({

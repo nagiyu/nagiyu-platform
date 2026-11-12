@@ -11,10 +11,7 @@ import {
   type EntityPatch,
 } from '@nagiyu/aws';
 import type { DailySalt, DailySaltKey } from '../types.js';
-import { SALT_ITEM_TYPE, buildSaltKey } from './usage-keys.js';
-
-/** キー (PK) の接頭辞。日付はここから読み戻す */
-const SALT_PK_PREFIX = 'USAGE_SALT#';
+import { SALT_ITEM_TYPE, SALT_KEY_PREFIX, buildSaltKey } from './usage-keys.js';
 
 const ERROR_MESSAGES = {
   INVALID_KEY: '塩のキーから日付を読み取れませんでした',
@@ -80,9 +77,9 @@ export class DailySaltMapper implements EntityMapper<DailySalt, DailySaltKey> {
   }
 
   private readDay(pk: unknown): string {
-    if (typeof pk !== 'string' || !pk.startsWith(SALT_PK_PREFIX)) {
+    if (typeof pk !== 'string' || !pk.startsWith(SALT_KEY_PREFIX)) {
       throw new InvalidEntityDataError(ERROR_MESSAGES.INVALID_KEY);
     }
-    return pk.slice(SALT_PK_PREFIX.length);
+    return pk.slice(SALT_KEY_PREFIX.length);
   }
 }
