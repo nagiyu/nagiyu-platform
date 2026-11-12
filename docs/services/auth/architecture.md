@@ -1,10 +1,11 @@
 # Auth サービス アーキテクチャ設計書
 
-本ドキュメントでは、Auth サービスのシステムアーキテクチャ、技術スタック、設計思想を説明します。
+本ドキュメントでは、Auth サービスのシステムアーキテクチャ、技術スタック、設計思想を説明します。認証・セッション・ユーザー管理・ロールが今どう動くかは[仕様カード](../../specs/README.md)にあり、この文書はなぜそうしたかを書きます。
 
 **関連ドキュメント**:
 - [要件定義](./requirements.md) - ビジネス要件、機能要件、非機能要件
-- [API 仕様](./api-spec.md) - API エンドポイント詳細
+- [API 仕様](./api-spec.md) - API 全体の方針と仕様カードへの案内
+- [仕様カード](../../specs/README.md) - 今のコードの挙動 (このサービスの分は `docs/specs/auth/`)
 - [ロール・権限定義](./roles-and-permissions.md) - RBAC の詳細仕様
 - [デプロイ・運用](./deployment.md) - デプロイ手順、CI/CD、監視
 - [テスト仕様](./testing.md) - テスト戦略、カバレッジ目標
@@ -150,74 +151,22 @@ Auth サービスは、nagiyu プラットフォームの **認証・認可の�
 
 ### 4.1 OAuth 認証フロー
 
-```mermaid
-sequenceDiagram
-    participant User as ユーザー<br/>ブラウザ
-    participant Auth as Auth Service<br/>auth.nagiyu.com
-    participant Google as Google OAuth
-    participant DB as DynamoDB
+認証の手順は NextAuth.js に任せ、Auth はコールバックでユーザーの保存とロールの取得だけを足す (→ 2.1)。Google OAuth の経路 (ユーザーの作成・更新、ロールの取得、Cookie の発行、戻り先の検証) は[サインインの経路](../../specs/auth/flow/sign-in.md)を参照する。
 
-    User->>Auth: 1. /signin アクセス
-    Auth->>User: 2. Google OAuth URL へリダイレクト<br/>(client_id, redirect_uri, state)
-    User->>Google: 3. Google 認証画面へ
-    Note over Google: 4. Google アカウントで<br/>ログイン＆同意
-    Google->>User: 5. Authorization Code 発行<br/>callback へリダイレクト
-    User->>Auth: 6. /api/auth/callback/google<br/>?code=xxx&state=yyy
-    Auth->>Google: 7. code を access token に交換
-    Google-->>Auth: access token
-    Auth->>Google: 8. ユーザー情報取得<br/>(email, name)
-    Google-->>Auth: ユーザー情報
-    Auth->>DB: 9. googleId で検索/作成
-    DB-->>Auth: 10. ユーザー情報返却
-    Note over Auth: 11. JWT 生成<br/>(userId, email, roles)
-    Auth->>User: 12. JWT Cookie セット<br/>リダイレクト (dashboard)
-```
+### 4.2 JWT トークンの設計方針
 
-### 4.2 JWT トークン構造
+JWT に入る項目は[システム系の API](../../specs/auth/api/system.md)、ロールの扱いは[セッションのロール](../../specs/auth/term/session-roles.md)を参照する。
 
-```json
-{
-  "header": {
-    "alg": "HS256",
-    "typ": "JWT"
-  },
-  "payload": {
-    "sub": "user_01234567890abcdef",  // userId
-    "email": "user@example.com",
-    "name": "山田太郎",
-    "roles": ["admin"],
-    "iat": 1703001234,  // 発行時刻
-    "exp": 1705593234   // 有効期限 (30日後)
-  },
-  "signature": "..."
-}
-```
-
-#### JWT 設計方針
-
-- **最小限の情報**: ユーザーID、ロールのみ (詳細はDynamoDBから取得)
-- **短期有効期限**: 30日 (セキュリティとUXのバランス)
-- **自動更新**: NextAuth.js が自動的にトークンをリフレッシュ
+- **最小限の情報**: ユーザー ID、ロールなど。詳細は DynamoDB から取得する
+- **期限は 30 日**: セキュリティと UX のバランスで決めた固定値
 
 ### 4.3 セッション管理
-
-#### ステートレスJWT戦略
-
-- **保存場所**: 暗号化された HTTP-only クッキー
-- **検証方法**: JWT 署名検証 (NEXTAUTH_SECRET)
-- **有効期限**: 30日間 (アクセスごとに延長)
 
 #### クッキー設定
 
 NextAuth v5 (Auth.js) は認証フロー全体で複数のクッキー（`sessionToken`、`callbackUrl`、`csrfToken`、`state`、`pkceCodeVerifier`、`nonce`）を使用する。**すべてのクッキー**の `domain` とクッキー名のサフィックスを環境別に切り替えることで、ローカル開発・dev・prod の 3 環境を分離している（実装は `libs/nextjs/src/auth-config.ts`）。
 
-**環境ごとの値:**
-
-| 環境 | domain | クッキー名サフィックス |
-|---|---|---|
-| ローカル開発（`next dev`） | 未設定（`undefined`。localhost 専用） | なし |
-| dev | `.dev.nagiyu.com` | `.dev` |
-| prod | `.nagiyu.com` | なし |
+環境ごとの domain とクッキー名は[システム系の API](../../specs/auth/api/system.md)を参照する。
 
 - **SSO**: 同一 domain 配下では Cookie が共有されるため、dev は `auth.dev.nagiyu.com` / `admin.dev.nagiyu.com` / `stock-tracker.dev.nagiyu.com` などで、prod は `auth.nagiyu.com` / `admin.nagiyu.com` / `tools.nagiyu.com` などで SSO が成立する。
 - **なぜクッキー名まで変えるか**: prod の Cookie（`Domain=.nagiyu.com`）は `*.dev.nagiyu.com` にも送られるため、`domain` を分けるだけでは dev 側で prod の Cookie と同名になって衝突する。**すべてのクッキー名**を環境別に変えることで、dev と prod の認証フロー全体が混同されないようにしている。`sessionToken` だけでなく `callbackUrl` 等も揃えて変える必要がある。
@@ -228,28 +177,7 @@ NextAuth v5 (Auth.js) は認証フロー全体で複数のクッキー（`sessio
 
 ### 4.4 他サービスとの認証共有 (SSO)
 
-```mermaid
-sequenceDiagram
-    participant User as ユーザー<br/>ブラウザ
-    participant Auth as Auth Service<br/>auth.nagiyu.com
-    participant Admin as Admin Service<br/>admin.nagiyu.com
-    participant Tools as Tools Service<br/>tools.nagiyu.com
-
-    Note over User,Auth: 初回ログイン
-    User->>Auth: 1. auth.nagiyu.com へアクセス
-    Note over Auth: 2. Google OAuth ログイン
-    Auth->>User: 3. JWT Cookie セット<br/>(domain: .nagiyu.com)
-
-    Note over User,Admin: Admin へアクセス
-    User->>Admin: 4. admin.nagiyu.com へアクセス<br/>JWT Cookie 自動送信
-    Note over Admin: 5. JWT 検証<br/>(署名、有効期限、権限)
-    Admin->>User: 6. アクセス許可<br/>ダッシュボード表示
-
-    Note over User,Tools: Tools へアクセス (Phase 2+)
-    User->>Tools: 7. tools.nagiyu.com へアクセス<br/>JWT Cookie 自動送信
-    Note over Tools: 8. JWT 検証<br/>(署名、有効期限、権限)
-    Tools->>User: 9. アクセス許可<br/>ツール画面表示
-```
+Auth がクッキーを共有ドメインに発行し、各サービスはそれを読む。未ログインの利用者を Auth のサインインへ送って戻す経路は[サインインの経路](../../specs/auth/flow/sign-in.md)を参照する。
 
 #### SSO の仕組み
 
@@ -260,25 +188,6 @@ Cookie 名・domain の環境ごとの値は [4.3 のクッキー設定](#43-セ
 - ✓ 各サービスは独立して JWT を検証（Auth Service への問い合わせ不要）
 - ✓ 認証ロジックが Auth Service に集約され保守性向上
 - ✓ クッキー名が異なるため、dev 環境と prod 環境でクッキーが混同されない（セキュリティ向上）
-
-#### シナリオ: admin.nagiyu.com へのアクセス
-
-```
-1. ユーザーが admin.nagiyu.com にアクセス
-    ↓
-2. Admin サービスのミドルウェアがクッキーをチェック
-    - domain: .nagiyu.com なので admin でも読み取れる
-    ↓
-3. クッキーがない場合
-    → auth.nagiyu.com/api/auth/signin にリダイレクト
-    → OAuth ログイン後、admin.nagiyu.com に戻る
-    ↓
-4. クッキーがある場合
-    → JWT を検証 (NEXTAUTH_SECRET で署名確認)
-    → payload から userId, roles を取得
-    → 権限チェック (例: users:read が必要)
-    → OK なら画面表示、NG なら 403 Forbidden
-```
 
 ---
 
@@ -326,44 +235,9 @@ Cookie 名・domain の環境ごとの値は [4.3 のクッキー設定](#43-セ
 
 ### 5.2 ユーザーライフサイクル
 
-#### 新規ユーザー作成
-
-```
-Google OAuth 初回ログイン
-    ↓
-NextAuth.js signIn callback
-    ↓
-DynamoDB Query (googleId-index)
-    - 結果なし (新規ユーザー)
-    ↓
-userId 生成 (UUID v4)
-    ↓
-DynamoDB PutItem
-    - userId, googleId, email, name
-    - roles: [] (デフォルトは権限なし)
-    - createdAt, updatedAt
-    ↓
-JWT 発行 (roles: [])
-```
-
-#### ユーザー情報更新
-
-```
-管理者が /users/{userId} で編集
-    ↓
-API Route: PUT /api/users/{userId}
-    ↓
-DynamoDB UpdateItem
-    - 変更した項目と更新日時だけを書く (読んでから全体を書き直さない)
-    ↓
-次回ログイン時に新しい roles が JWT に反映
-```
-
-#### ロール変更の反映タイミング
-
-- **即座には反映されない**: JWT は既に発行済み
-- **反映タイミング**: 次回ログイン時、または JWT 有効期限切れ時
-- **強制反映**: ユーザーにサインアウト → サインインを依頼
+- **新規ユーザー**: Google OAuth の初回ログインで作る。ロールは空 (デフォルトは権限なし)。経路は[サインインの経路](../../specs/auth/flow/sign-in.md)を参照する
+- **ユーザー情報の更新**: 変更した項目と更新日時だけを書く (読んでから全体を書き直さない)。API は[ユーザー API](../../specs/auth/api/users.md)を参照する
+- **ロール変更の反映**: 発行済みの JWT には即座に反映されない。当初は次回ログイン時としていたが、その後、Auth がセッションを読むとき一定時間を過ぎていれば DB から読み直すようにした。今の挙動は[セッションのロール](../../specs/auth/term/session-roles.md)を参照する
 
 ---
 
@@ -378,31 +252,16 @@ Auth サービスは RBAC (Role-Based Access Control) を採用しています�
 - **最小権限の原則**: デフォルトは権限なし、明示的な割り当てが必要
 - **複数ロール対応**: ユーザーは複数のロールを持つことが可能
 
-### 6.2 Phase 1 で定義されるロール
+### 6.2 ロールと権限の定義
 
-| ロールID | ロール名 | 権限 |
-|---------|---------|------|
-| `admin` | 管理者 | `users:read`, `users:write`, `roles:assign` |
-| `user-manager` | ユーザー管理者 | `users:read`, `users:write` |
+今のロールと権限は[ロールと権限の定義](../../specs/platform/term/role.md)を参照する。
 
-### 6.3 権限チェックの実装
+### 6.3 権限チェックの方針
 
-**サーバーサイド** (必須):
-```typescript
-// API Route での権限チェック
-const session = await auth();
-if (!session || !hasPermission(session.user.roles, 'users:read')) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-}
-```
+- **サーバーサイド** (必須): すべての保護 API で、セッションの存在 (401) と操作ごとの権限 (403) を確認する。応答の形は[認証 API のエラー応答](../../specs/auth/term/api-error.md)を参照する
+- **クライアントサイド**: UI の表示制御のみに使う
 
-**クライアントサイド** (UI表示制御のみ):
-```typescript
-// UI コンポーネントでの表示制御
-const canManageUsers = hasPermission(user.roles, 'users:write');
-```
-
-**詳細**: ロール・権限の詳細仕様、将来の拡張計画については [roles-and-permissions.md](./roles-and-permissions.md) を参照してください。
+**詳細**: ロール・権限の設計方針と将来の拡張計画については [roles-and-permissions.md](./roles-and-permissions.md) を参照してください。
 
 ---
 
@@ -429,45 +288,25 @@ const canManageUsers = hasPermission(user.roles, 'users:write');
 
 ### 7.2 セッションセキュリティ
 
-#### JWT 署名
+#### JWT の保護
 
-- **アルゴリズム**: HS256 (HMAC + SHA-256)
-- **秘密鍵**: `NEXTAUTH_SECRET` (32文字以上のランダム文字列)
+- **方式**: Auth.js の既定のまま、秘密鍵 (`NEXTAUTH_SECRET`、32文字以上のランダム文字列) で JWT を暗号化する
 - **保存場所**: Secrets Manager
 
 #### クッキーセキュリティ
 
-| 属性 | 値 | 目的 |
-|------|---|------|
-| httpOnly | true | JavaScript からのアクセス防止 (XSS 対策) |
-| secure | true | HTTPS 通信のみ (中間者攻撃対策) |
-| sameSite | lax | CSRF 攻撃防止 |
-| domain | .nagiyu.com | サブドメイン全体で共有 (SSO) |
-| path | / | 全パスでアクセス可能 |
-| maxAge | 2592000 | 30日間 (秒単位) |
+属性 (`HttpOnly`、`Secure`、`SameSite=Lax`、パス、ドメイン) は[システム系の API](../../specs/auth/api/system.md)を参照する。目的は次のとおり。
+
+- `HttpOnly`: JavaScript からのアクセス防止 (XSS 対策)
+- `Secure`: HTTPS 通信のみ (中間者攻撃対策)
+- `SameSite=Lax`: CSRF 攻撃防止
+- `domain`: サブドメイン全体で共有 (SSO)
 
 ### 7.3 API セキュリティ
 
-#### 認証チェック
+#### 認証・権限チェック
 
-すべての保護APIで `auth()` を呼び出し、セッション存在を確認
-
-```typescript
-const session = await auth();
-if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-}
-```
-
-#### 権限チェック
-
-操作ごとに必要な権限を確認
-
-```typescript
-if (!hasPermission(session.user.roles, 'users:write')) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-}
-```
+すべての保護 API で、セッションの存在と、操作ごとに必要な権限を確認する。
 
 #### 入力検証
 
@@ -552,7 +391,7 @@ Policies:
 
 - **Google OAuth 認証情報**: 手動でSecrets Managerに登録
 - **初期管理者**: デプロイ後、手動でDynamoDBに登録
-- **ロール変更の即時反映**: 不可 (次回ログイン時に反映)
+- **ロール変更の即時反映**: 不可。反映されるタイミングは[セッションのロール](../../specs/auth/term/session-roles.md)を参照
 
 ---
 
