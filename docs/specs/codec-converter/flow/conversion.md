@@ -16,9 +16,8 @@ sources_hash: baeb543fa092e4062f922e3156867173e8f3a758b89f14c58114b7c8d9e65e8d
 terms: [codec-converter/term/job, codec-converter/term/output-codec, codec-converter/term/job-definition-size]
 related_cards: [codec-converter/screen/upload, codec-converter/screen/job-detail, codec-converter/api/jobs, codec-converter/batch/convert, codec-converter/flow/error-reporting]
 related_adr:
-  - services/codec-converter/architecture.md#1. アップロードフロー
-  - services/codec-converter/architecture.md#2. 変換処理フロー
-  - services/codec-converter/architecture.md#3. ダウンロードフロー
+  - services/codec-converter/architecture.md#データフロー
+  - services/codec-converter/architecture.md#S3 Presigned URL
 ---
 
 # 変換の経路

@@ -11,8 +11,6 @@ sources:
 sources_hash: 1fcec88d39a22844648231ac7226c1db805d0e47d8aeb75ffb7ca1df07b5314e
 terms: [codec-converter/term/output-codec, codec-converter/term/job]
 related_cards: [codec-converter/api/jobs, codec-converter/screen/job-detail, codec-converter/flow/conversion]
-related_adr:
-  - services/codec-converter/ui-design.md#1. トップ/アップロード画面
 ---
 
 # アップロード画面
@@ -26,12 +24,12 @@ related_adr:
 
 ## 表示するもの
 
-上から次の順に並ぶ。
+上から次の順に並ぶ。内容は中央寄せで、最大幅は 900px (MUI の `md`)。
 
 | 部分 | 内容 |
 |---|---|
 | 見出し | 「Codec Converter」と「動画ファイルのコーデックを変換します」 |
-| ファイル選択欄 | 破線の枠。「ファイルをドラッグ&ドロップ または クリックして選択」と「MP4ファイルのみ、最大500MB」。クリックか、Enter・Space でファイル選択を開く。ドラッグ中は枠の色と影が変わる |
+| ファイル選択欄 | 破線の枠 (高さ 200px 以上)。「ファイルをドラッグ&ドロップ または クリックして選択」と「MP4ファイルのみ、最大500MB」。クリックか、Enter・Space でファイル選択を開く。ドラッグ中は枠の色と影が変わる |
 | 選択されたファイル | ファイルを選んだあとだけ。ファイル名とサイズ。サイズは 1MB 未満なら KB、それ以上なら MB で、小数 1 桁 |
 | エラー | 検証や依頼に失敗したあとだけ |
 | 出力コーデック | ラジオボタン。H.264 (互換性重視、MP4)、VP9 (バランス型、WebM)、AV1 (高圧縮率、WebM)。初期値は H.264 |
