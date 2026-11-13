@@ -11,7 +11,7 @@ sources:
   - services/stock-tracker/batch/src/lib/error-reporter.ts
   - libs/aws/src/lambda/scheduled-handler.ts
   - services/stock-tracker/core/src/services/trading-hours-checker.ts
-sources_hash: 9cec3220256b15800a05c70f79512311d499682b93ed146fd4eb5afed2257f3d
+sources_hash: 480f86189f89cf1d7564650cd1ea5dd681789bf9888603450361e8627ba47fad
 terms: [stock-tracker/term/daily-summary, stock-tracker/term/trading-hours, stock-tracker/term/forecast]
 related_cards: [admin/flow/error-notification, stock-tracker/batch/forecast, stock-tracker/api/summaries, stock-tracker/screen/summaries, stock-tracker/screen/home]
 related_adr:
