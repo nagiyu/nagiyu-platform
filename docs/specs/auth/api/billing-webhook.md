@@ -9,7 +9,7 @@ sources:
   - services/auth/core/src/billing/sync.ts
   - services/auth/core/src/billing/grant-diff.ts
   - services/auth/core/src/billing/stripe-client.ts
-sources_hash: 276ef24975746f2c7d4f99d7dcc93ce1426294b7deb83272bea070976e29ea48
+sources_hash: b1c03f2488bfadd38c14110a5064dc17d0d94b82f7c82d1ef9b1850c0dd40689
 terms: [auth/term/role-grant, auth/term/api-error]
 related_cards: [auth/flow/billing-entitlement, auth/api/billing]
 related_adr:

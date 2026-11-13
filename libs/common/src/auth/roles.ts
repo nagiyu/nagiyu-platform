@@ -139,6 +139,12 @@ export const ROLES = {
  */
 export const VALID_ROLES = Object.keys(ROLES) as string[];
 
+/** 段の比較で使うエラーメッセージ */
+export const BILLING_TIER_ERROR_MESSAGES = {
+  NOT_BILLING_ROLE: '有料ロールではないため、段を比較できません',
+  DIFFERENT_SERVICE: '別のサービスの有料ロールどうしは、段を比較できません',
+} as const;
+
 /**
  * 有料サービスの ID と表示名
  * ロール定義の billing.service はここのキーを指す
@@ -180,4 +186,25 @@ export function getBillingServiceId(roleId: string): string | undefined {
  */
 export function getBillingTierRoleIds(serviceId: string): string[] {
   return BILLING_ROLES.filter((role) => role.billing.service === serviceId).map((role) => role.id);
+}
+
+/**
+ * 同じサービスの有料ロール 2 つの段を比べる。
+ *
+ * 負なら a が b より下の段、0 なら同じ段、正なら a が b より上の段。
+ *
+ * @param a - 有料ロールID
+ * @param b - 有料ロールID
+ * @throws どちらかが有料ロールでない、またはサービスが違うとき
+ */
+export function compareBillingTier(a: string, b: string): number {
+  const roleA = BILLING_ROLES.find((role) => role.id === a);
+  const roleB = BILLING_ROLES.find((role) => role.id === b);
+  if (!roleA || !roleB) {
+    throw new Error(BILLING_TIER_ERROR_MESSAGES.NOT_BILLING_ROLE);
+  }
+  if (roleA.billing.service !== roleB.billing.service) {
+    throw new Error(BILLING_TIER_ERROR_MESSAGES.DIFFERENT_SERVICE);
+  }
+  return roleA.billing.rank - roleB.billing.rank;
 }

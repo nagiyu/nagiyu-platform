@@ -1,4 +1,10 @@
-import { ROLES, BILLING_SERVICES, getBillingTierRoleIds } from '@nagiyu/common';
+import {
+  ROLES,
+  BILLING_SERVICES,
+  compareBillingTier,
+  getBillingTierRoleIds,
+  isRoleGrantActive,
+} from '@nagiyu/common';
 import type { RoleGrant } from '@nagiyu/common';
 
 export const PLANS_MESSAGES = {
@@ -115,10 +121,6 @@ export function formatPlanDescription(price: PlanPrice | undefined): string | nu
   return description ? description : null;
 }
 
-function isActiveGrant(grant: RoleGrant, now: number): boolean {
-  return grant.revokedAt === undefined && (grant.expiresAt === undefined || grant.expiresAt > now);
-}
-
 function pickSubscription(candidates: PlanSubscription[]): PlanSubscription | undefined {
   return [...candidates].sort((a, b) => {
     const aCanceling = a.endsAt !== null ? 1 : 0;
@@ -159,7 +161,7 @@ function resolveState(
   // Stripe から取れなかったときは、同期済みの権利から契約中かどうかだけ分かる
   const hasStripeGrant = input.grants.some(
     (grant) =>
-      grant.source === 'stripe' && grant.roleId === roleId && isActiveGrant(grant, input.now)
+      grant.source === 'stripe' && grant.roleId === roleId && isRoleGrantActive(grant, input.now)
   );
   return hasStripeGrant
     ? { state: 'subscribed', stateLabel: null, subscription: null }
@@ -172,7 +174,7 @@ function resolveManualLabel(roleId: string, input: BuildPlanServicesInput): stri
   }
   const manual = input.grants.filter(
     (grant) =>
-      grant.source === 'manual' && grant.roleId === roleId && isActiveGrant(grant, input.now)
+      grant.source === 'manual' && grant.roleId === roleId && isRoleGrantActive(grant, input.now)
   );
   if (manual.length === 0) {
     return null;
@@ -250,9 +252,8 @@ export function buildPlanServices(input: BuildPlanServicesInput): PlanService[] 
         if (!hasContract) {
           action = 'subscribe';
         } else if (canChange && serviceSubscription) {
-          // getBillingTierRoleIds は下の段から順に返すため、並びが段の順位になる
           action =
-            roleIds.indexOf(tier.roleId) > roleIds.indexOf(serviceSubscription.roleId)
+            compareBillingTier(tier.roleId, serviceSubscription.roleId) > 0
               ? 'upgrade'
               : 'downgrade';
         }

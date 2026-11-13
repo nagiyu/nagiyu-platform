@@ -63,7 +63,7 @@ describe('POST /api/billing/scheduled-change/cancel', () => {
     expect((await POST(buildRequest({ serviceId: 'quick-clip' }))).status).toBe(503);
   });
 
-  it.each([['{'], [{}], [{ serviceId: 'unknown' }], [{ serviceId: 1 }]])(
+  it.each([['{'], ['null'], [[]], [{}], [{ serviceId: 'unknown' }], [{ serviceId: 1 }]])(
     'サービス ID が不正なら 400 (%j)',
     async (body) => {
       const response = await POST(buildRequest(body));

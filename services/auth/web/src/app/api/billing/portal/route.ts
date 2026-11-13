@@ -7,6 +7,7 @@ import {
   getBillingConfig,
 } from '@nagiyu/auth-core';
 import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
+import { readJsonObjectBody } from '@nagiyu/nextjs';
 import { getSession } from '@/lib/auth/session';
 import { withApiErrorReporting } from '@/lib/api-error-reporting';
 import { buildPortalReturnUrl } from '@/lib/billing-urls';
@@ -40,8 +41,9 @@ export const POST = withApiErrorReporting(
     }
 
     // body 自体が無い呼び出しも許す。あれば callbackUrl だけを読む
-    const body = await request.json().catch(() => ({}));
-    if (body?.callbackUrl !== undefined && typeof body.callbackUrl !== 'string') {
+    const bodyResult = await readJsonObjectBody(request);
+    const body = bodyResult.ok ? bodyResult.body : {};
+    if (body.callbackUrl !== undefined && typeof body.callbackUrl !== 'string') {
       return NextResponse.json({ error: ERROR_MESSAGES.INVALID_BODY }, { status: 400 });
     }
 
@@ -51,10 +53,7 @@ export const POST = withApiErrorReporting(
     }
 
     const baseUrl = resolveBaseUrl(request.headers);
-    const returnUrl = buildPortalReturnUrl(
-      baseUrl,
-      sanitizeCallbackUrl(body?.callbackUrl, baseUrl)
-    );
+    const returnUrl = buildPortalReturnUrl(baseUrl, sanitizeCallbackUrl(body.callbackUrl, baseUrl));
     const result = await createPortalSession(
       createBillingStripe(config.secretKey),
       user,

@@ -1,8 +1,10 @@
 import {
   BILLING_SERVICES,
+  BILLING_TIER_ERROR_MESSAGES,
   PAID_ROLES,
   ROLES,
   VALID_ROLES,
+  compareBillingTier,
   getBillingServiceId,
   getBillingTierRoleIds,
 } from '../../../src/auth/roles';
@@ -290,5 +292,34 @@ describe('有料ロール', () => {
         expect(ROLES['quick-clip-pro'].permissions).toContain(p);
       }
     }
+  });
+});
+
+describe('compareBillingTier', () => {
+  it('同じサービスで a が下の段なら負を返すべき', () => {
+    expect(compareBillingTier('quick-clip-standard', 'quick-clip-pro')).toBeLessThan(0);
+  });
+
+  it('同じサービスで a が上の段なら正を返すべき', () => {
+    expect(compareBillingTier('quick-clip-pro', 'quick-clip-standard')).toBeGreaterThan(0);
+  });
+
+  it('同じロールなら 0 を返すべき', () => {
+    expect(compareBillingTier('livetalk-standard', 'livetalk-standard')).toBe(0);
+  });
+
+  it('有料ロールでないロールを含むと例外を投げるべき', () => {
+    expect(() => compareBillingTier('admin', 'quick-clip-pro')).toThrow(
+      BILLING_TIER_ERROR_MESSAGES.NOT_BILLING_ROLE
+    );
+    expect(() => compareBillingTier('quick-clip-pro', 'unknown-role')).toThrow(
+      BILLING_TIER_ERROR_MESSAGES.NOT_BILLING_ROLE
+    );
+  });
+
+  it('別サービスの有料ロールどうしなら例外を投げるべき', () => {
+    expect(() => compareBillingTier('livetalk-standard', 'quick-clip-standard')).toThrow(
+      BILLING_TIER_ERROR_MESSAGES.DIFFERENT_SERVICE
+    );
   });
 });

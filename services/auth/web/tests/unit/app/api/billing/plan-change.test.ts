@@ -68,15 +68,19 @@ describe('POST /api/billing/plan-change', () => {
     expect((await POST(buildRequest({ roleId: 'quick-clip-pro' }))).status).toBe(503);
   });
 
-  it.each([['{'], [{}], [{ roleId: 'admin' }], [{ roleId: 'quick-clip-pro', callbackUrl: 1 }]])(
-    '本文が不正なら 400 (%j)',
-    async (body) => {
-      const response = await POST(buildRequest(body));
+  it.each([
+    ['{'],
+    ['null'],
+    [[]],
+    [{}],
+    [{ roleId: 'admin' }],
+    [{ roleId: 'quick-clip-pro', callbackUrl: 1 }],
+  ])('本文が不正なら 400 (%j)', async (body) => {
+    const response = await POST(buildRequest(body));
 
-      expect(response.status).toBe(400);
-      expect(mockCreatePlanChangeSession).not.toHaveBeenCalled();
-    }
-  );
+    expect(response.status).toBe(400);
+    expect(mockCreatePlanChangeSession).not.toHaveBeenCalled();
+  });
 
   it('ユーザーがなければ 404', async () => {
     mockGetUserById.mockResolvedValue(null);
