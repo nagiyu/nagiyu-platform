@@ -1,3 +1,4 @@
+import { toJstDayStartMs } from '@nagiyu/common';
 import {
   selectNotificationsToSend,
   type SelectNotificationsInput,
@@ -5,11 +6,7 @@ import {
 import type { NotificationEventEntity } from '../../../src/entities/notification-event.entity.js';
 
 const NOW = new Date('2026-06-09T10:00:00.000Z');
-const TODAY_START = (() => {
-  const d = new Date(NOW);
-  d.setHours(0, 0, 0, 0);
-  return d.getTime();
-})();
+const TODAY_START = toJstDayStartMs(NOW.getTime());
 const DAY = 24 * 60 * 60 * 1000;
 
 /**

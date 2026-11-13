@@ -1,3 +1,4 @@
+import { toJstDayStartMs } from '@nagiyu/common';
 import {
   shouldNotifyNow,
   extractSessionStartTimes,
@@ -67,9 +68,7 @@ function makeNotifEvent(
 }
 
 function todayStartMs(): number {
-  const d = new Date(NOW_DATE);
-  d.setHours(0, 0, 0, 0);
-  return d.getTime();
+  return toJstDayStartMs(NOW_DATE.getTime());
 }
 
 describe('median', () => {
@@ -284,6 +283,26 @@ describe('countTodayNotifications', () => {
 
   it('イベントなしは 0', () => {
     expect(countTodayNotifications([], 'normal', NOW_DATE)).toBe(0);
+  });
+
+  it('日本時間 0 時 (UTC 15:00) の前後 1ms で今日かどうかが分かれる', () => {
+    const boundary = Date.UTC(2026, 5, 8, 15, 0, 0, 0);
+    const events = [
+      makeNotifEvent('normal', boundary - 1),
+      makeNotifEvent('normal', boundary),
+      makeNotifEvent('normal', boundary + 1),
+    ];
+    expect(countTodayNotifications(events, 'normal', new Date(boundary + 60_000))).toBe(2);
+  });
+
+  it('now が日本時間 0 時直前なら、前日の 0 時から数える', () => {
+    const boundary = Date.UTC(2026, 5, 8, 15, 0, 0, 0);
+    const events = [
+      makeNotifEvent('normal', boundary - 1),
+      makeNotifEvent('normal', boundary - 24 * 60 * 60 * 1000),
+      makeNotifEvent('normal', boundary - 24 * 60 * 60 * 1000 - 1),
+    ];
+    expect(countTodayNotifications(events, 'normal', new Date(boundary - 1))).toBe(2);
   });
 });
 

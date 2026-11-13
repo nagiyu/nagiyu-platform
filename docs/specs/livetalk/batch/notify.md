@@ -13,7 +13,7 @@ sources:
   - services/livetalk/core/src/study/active-window.ts
   - services/livetalk/core/src/study/freshness-check.ts
   - services/livetalk/core/src/constants.ts
-sources_hash: 879875f23d9acbe38e1277583f5b828f5a7b238016a4f82d92b4fe748a6b85e2
+sources_hash: c98f085568328af136bc34d269d6fbcec64713ebba63bfb55260f6343ef76690
 terms: [livetalk/term/care, livetalk/term/topic, livetalk/term/web-fact, livetalk/term/lifecycle, livetalk/term/user-activity-profile, livetalk/term/study-pause, livetalk/term/freshness-check-request]
 related_cards: [admin/flow/error-notification, livetalk/batch/acquire, livetalk/batch/learn-user-activity, livetalk/flow/notification-open, livetalk/api/push-notification]
 related_adr:
@@ -29,7 +29,7 @@ related_adr:
 ## 起点
 
 - 毎時 30 分 (EventBridge: `cron(30 * * * ? *)`)
-- 全利用者 × 全キャラクターを処理する。Lambda は最長 15 分。時刻と日付の判定は日本時間
+- 全利用者 × 全キャラクターを処理する。Lambda は最長 15 分。時刻と日付の判定は日本時間。1 日の通知件数は、日本時間の 0 時から数える
 - 送った[通知の記録](../term/notification-event.md)と、利用者が開くまでの流れは[通知から会話への経路](../flow/notification-open.md)にある
 
 ## 対象から外れる条件
