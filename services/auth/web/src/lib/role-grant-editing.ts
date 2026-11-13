@@ -1,4 +1,11 @@
-import { getRoleGrantStatus, type RoleGrant, type RoleGrantStatus } from '@nagiyu/common';
+import {
+  getRoleGrantStatus,
+  parseJstDateString,
+  toJstDateString,
+  toJstDayEndMs,
+  type RoleGrant,
+  type RoleGrantStatus,
+} from '@nagiyu/common';
 import type { GrantChanges } from '@/lib/role-grants';
 
 /**
@@ -17,11 +24,6 @@ export const GRANT_EDITING_ERROR_MESSAGES = {
 
 /** メモ (sourceRef) の最大文字数。API の検証と合わせる */
 export const GRANT_NOTE_MAX_LENGTH = 200;
-
-/** 日本時間 (UTC+9)。夏時間がないため固定のずれで換算できる */
-const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
-const DAY_MS = 24 * 60 * 60 * 1000;
-const DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 
 /** 保存前に追加する権利 */
 export type PendingAdd = {
@@ -51,27 +53,11 @@ export const EMPTY_PENDING_GRANT_CHANGES: PendingGrantChanges = {
 /**
  * `YYYY-MM-DD` を、その日の終わり (日本時間 23:59:59.999) の Unix ミリ秒へ換算する。
  *
- * ブラウザのタイムゾーンに依存させないため、Date のローカル時刻機能を使わず UTC の暦で計算する。
- *
  * @returns 換算結果。実在しない日付や形式違いは null
  */
 export function jstDateToExpiresAt(date: string): number | null {
-  const match = DATE_PATTERN.exec(date);
-  if (!match) {
-    return null;
-  }
-  const [year, month, day] = [Number(match[1]), Number(match[2]), Number(match[3])];
-  const midnightUtc = Date.UTC(year, month - 1, day);
-  // 2 月 30 日のような繰り上がる日付を弾く
-  const roundTrip = new Date(midnightUtc);
-  if (
-    roundTrip.getUTCFullYear() !== year ||
-    roundTrip.getUTCMonth() !== month - 1 ||
-    roundTrip.getUTCDate() !== day
-  ) {
-    return null;
-  }
-  return midnightUtc + DAY_MS - 1 - JST_OFFSET_MS;
+  const dayStartMs = parseJstDateString(date);
+  return dayStartMs === null ? null : toJstDayEndMs(dayStartMs);
 }
 
 /** 現在時刻 (Unix ミリ秒)。画面の操作時点の判定に使う。テストで差し替えられるよう関数にしている */
@@ -81,7 +67,7 @@ export function getCurrentTimeMs(): number {
 
 /** Unix ミリ秒を、日本時間の日付 (`YYYY-MM-DD`) にする */
 export function expiresAtToJstDate(expiresAt: number): string {
-  return new Date(expiresAt + JST_OFFSET_MS).toISOString().slice(0, 10);
+  return toJstDateString(expiresAt);
 }
 
 /** 現在時刻の、日本時間での日付 (`YYYY-MM-DD`)。期限に選べる最初の日 */
