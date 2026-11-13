@@ -7,6 +7,7 @@ import {
   getBillingConfig,
 } from '@nagiyu/auth-core';
 import { COMMON_ERROR_MESSAGES, PAID_ROLES } from '@nagiyu/common';
+import { readJsonObjectBody } from '@nagiyu/nextjs';
 import { getSession } from '@/lib/auth/session';
 import { withApiErrorReporting } from '@/lib/api-error-reporting';
 import { buildCheckoutUrls } from '@/lib/billing-urls';
@@ -46,8 +47,12 @@ export const POST = withApiErrorReporting(
       return NextResponse.json({ error: ERROR_MESSAGES.BILLING_DISABLED }, { status: 503 });
     }
 
-    const body = await request.json().catch(() => null);
-    if (typeof body?.roleId !== 'string' || !PAID_ROLES.includes(body.roleId)) {
+    const bodyResult = await readJsonObjectBody(request);
+    if (!bodyResult.ok) {
+      return NextResponse.json({ error: ERROR_MESSAGES.INVALID_ROLE }, { status: 400 });
+    }
+    const body = bodyResult.body;
+    if (typeof body.roleId !== 'string' || !PAID_ROLES.includes(body.roleId)) {
       return NextResponse.json({ error: ERROR_MESSAGES.INVALID_ROLE }, { status: 400 });
     }
     if (body.callbackUrl !== undefined && typeof body.callbackUrl !== 'string') {

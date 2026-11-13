@@ -8,7 +8,7 @@ sources:
   - libs/nextjs/src/auth.ts
   - libs/nextjs/src/middleware.ts
   - services/livetalk/web/src/middleware.ts
-sources_hash: 0cc9731ac19008eb8dac5a0fbab04fcf5d21259c4feff3578ab173353f3dadce
+sources_hash: a58b8907136ae0dc8c8de445ac0eb653ff372c6252ca94f419d21d088bfeaa9f
 terms: [livetalk/term/api-error]
 related_cards: [livetalk/screen/forbidden, livetalk/screen/status, platform/term/role]
 related_adr:

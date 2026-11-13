@@ -115,7 +115,7 @@ describe('POST /api/billing/checkout', () => {
     expect(response.status).toBe(503);
   });
 
-  it.each([['{'], [{}], [{ roleId: 'admin' }], [{ roleId: 1 }]])(
+  it.each([['{'], ['null'], [[]], [{}], [{ roleId: 'admin' }], [{ roleId: 1 }]])(
     '有料ロールでない・本文が不正なら 400 (%j)',
     async (body) => {
       const response = await POST(buildRequest(body));
