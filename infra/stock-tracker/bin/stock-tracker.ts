@@ -78,8 +78,7 @@ const vapidPrivateKey = app.node.tryGetContext('vapidPrivateKey') || 'PLACEHOLDE
 const finnhubApiKey = app.node.tryGetContext('finnhubApiKey') || 'PLACEHOLDER';
 // forecast バッチの通常モードで過去データ除外を適用する境界日。未指定なら適用しない
 const forecastLegacyExclusionBefore = app.node.tryGetContext('forecastLegacyExclusionBefore') as
-  | string
-  | undefined;
+  string | undefined;
 
 const lambdaStack = new LambdaStack(app, `NagiyuStockTrackerLambda${envSuffix}`, {
   environment: env,
