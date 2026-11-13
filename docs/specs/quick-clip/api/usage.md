@@ -10,7 +10,7 @@ sources:
   - services/quick-clip/core/src/libs/usage.service.ts
   - services/quick-clip/core/src/libs/usage-plan.ts
   - libs/common/src/format/jst-period.ts
-sources_hash: 6769d57f29dd190b55bba83de385f38ff8b3f3d7526a6b359dcd7440bc287a92
+sources_hash: 75cef46743e9b6e420dd897dccc56f9dcd00e5179ca2f066f8c31712624ed333
 terms: [quick-clip/term/usage-tier, quick-clip/term/api-error]
 related_cards: [quick-clip/screen/upload, quick-clip/api/jobs, quick-clip/flow/usage-metering]
 related_adr:
