@@ -14,7 +14,7 @@ sources:
   - libs/common/src/retry/retry.ts
   - services/stock-tracker/core/src/services/alert-evaluator.ts
   - services/stock-tracker/core/src/services/trading-hours-checker.ts
-sources_hash: fc6acc4e58b3e77596046950890a40e4b3b9b2254c172107102bce13b235f1ef
+sources_hash: dd0bb83d79472152cc67c3948cafad50e988e0d0f77958d0e1498354acd16790
 terms: [stock-tracker/term/trading-hours, stock-tracker/term/price-source, stock-tracker/term/push-subscription]
 related_cards: [admin/flow/error-notification, stock-tracker/flow/alert-notification, stock-tracker/batch/minute, stock-tracker/api/alerts, stock-tracker/api/exchanges, stock-tracker/screen/alerts]
 related_adr:

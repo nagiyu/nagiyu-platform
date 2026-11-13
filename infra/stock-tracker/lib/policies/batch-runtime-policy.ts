@@ -1,7 +1,6 @@
 import * as cdk from 'aws-cdk-lib';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
-import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import { Construct } from 'constructs';
 
 /**
@@ -12,11 +11,6 @@ export interface BatchRuntimePolicyProps {
    * DynamoDB テーブル
    */
   dynamoTable: dynamodb.ITable;
-
-  /**
-   * VAPID シークレット
-   */
-  vapidSecret: secretsmanager.ISecret;
 
   /**
    * 環境名 (例: 'dev', 'prod')
@@ -33,7 +27,6 @@ export interface BatchRuntimePolicyProps {
  * - DynamoDB: バッチ実行に必要なアクセス (Query, Scan, GetItem, UpdateItem, PutItem)
  *   - PutItem は日次サマリーデータ保存（Summary バッチ）で使用
  *   - DeleteItem は不可（最小権限の原則）
- * - Secrets Manager: VAPID キーの読み取り (Web Push 通知用)
  * - Lambda: forecast バッチの非同期起動 (Summary バッチが完了時に呼び出す)
  * - CloudWatch Logs: ログ書き込み（Lambda 実行ロールで自動付与されるため明示不要）
  */
@@ -61,16 +54,6 @@ export class BatchRuntimePolicy extends iam.ManagedPolicy {
           props.dynamoTable.tableArn,
           `${props.dynamoTable.tableArn}/index/*`, // GSI へのアクセス（AlertIndex）
         ],
-      })
-    );
-
-    // Secrets Manager 権限: VAPID キー読み取り（Web Push 通知用）
-    this.addStatements(
-      new iam.PolicyStatement({
-        sid: 'SecretsManagerVapidAccess',
-        effect: iam.Effect.ALLOW,
-        actions: ['secretsmanager:GetSecretValue'],
-        resources: [props.vapidSecret.secretArn],
       })
     );
 
