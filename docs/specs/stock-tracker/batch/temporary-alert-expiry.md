@@ -11,7 +11,7 @@ sources:
   - libs/aws/src/lambda/scheduled-handler.ts
   - services/stock-tracker/core/src/services/trading-hours-checker.ts
   - services/stock-tracker/core/src/repositories/dynamodb-alert.repository.ts
-sources_hash: e5b9ac4f9c658bdb8a07f037b216f0e5e7b0a9a5eca601b9af387125237b3b47
+sources_hash: 84b1c42914ba102ff18890892bc95921011dd176cd92021b208498ec85c20db6
 terms: [stock-tracker/term/temporary-alert, stock-tracker/term/trading-hours]
 related_cards: [admin/flow/error-notification, stock-tracker/api/alerts, stock-tracker/screen/alerts, stock-tracker/flow/alert-notification]
 related_adr:
