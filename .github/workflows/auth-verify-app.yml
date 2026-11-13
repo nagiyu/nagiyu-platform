@@ -16,6 +16,7 @@ on:
       - 'infra/common/**'
       - 'configs/**'
       - '.github/actions/**'
+      - '.node-version'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/auth-verify-app.yml'
