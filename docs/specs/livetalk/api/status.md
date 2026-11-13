@@ -7,7 +7,7 @@ sources:
   - services/livetalk/web/src/app/api/status/route.ts
   - services/livetalk/web/src/app/api/status/constants.ts
   - services/livetalk/core/src/notification/decision.ts
-sources_hash: 234af6e32d0a17f9cafe0b6f1525ee759f7098b46b3f71faedae49c7e197e943
+sources_hash: 1a42f81f3694cd4cff82fff9f606854971de1db00ce38f0c4153c1dff72a9a15
 terms: [livetalk/term/permission, livetalk/term/api-error, livetalk/term/lifecycle, livetalk/term/notification-event, livetalk/term/user-activity-profile, livetalk/term/character]
 related_cards: [livetalk/screen/status, livetalk/batch/notify]
 related_adr:

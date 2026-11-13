@@ -12,7 +12,7 @@ sources:
   - services/auth/web/src/lib/stripe-customer-client.ts
   - services/auth/web/src/lib/role-display.ts
   - libs/common/src/auth/role-grants.ts
-sources_hash: d7562dfa01721c2e2e51677817ca374b43aa699e85a502b9c50df91889eb9486
+sources_hash: 6fa41460909b0905702ef6fb6cb5589b9de723f732dda2ffeea485099c60a881
 terms: [platform/term/role, auth/term/role-grant, auth/term/api-error]
 related_cards: [auth/screen/users, auth/api/users, auth/flow/billing-entitlement]
 related_adr:

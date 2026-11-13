@@ -1,3 +1,4 @@
+import { toJstDayStartMs } from '@nagiyu/common';
 import type { LifecycleEntity } from '../entities/lifecycle.entity.js';
 import type { MessageEntity } from '../entities/message.entity.js';
 import type { NotificationEventEntity } from '../entities/notification-event.entity.js';
@@ -157,17 +158,15 @@ export function resolveToneBucket(elapsedMs: number): ToneBucket {
 }
 
 /**
- * 本日（JST 0時〜）以降に送った種別の通知件数を返す。
- * now は TZ=Asia/Tokyo 前提。
+ * 日本時間の本日 0 時以降に送った種別の通知件数を返す。
+ * 実行環境のタイムゾーンに依らず、日の境界は日本時間で決まる。
  */
 export function countTodayNotifications(
   events: NotificationEventEntity[],
   kind: 'normal' | 'critical',
   now: Date
 ): number {
-  const todayStart = new Date(now);
-  todayStart.setHours(0, 0, 0, 0);
-  const todayStartMs = todayStart.getTime();
+  const todayStartMs = toJstDayStartMs(now.getTime());
 
   return events.filter((e) => e.kind === kind && e.createdAt >= todayStartMs).length;
 }
