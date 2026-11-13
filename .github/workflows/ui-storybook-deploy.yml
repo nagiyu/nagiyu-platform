@@ -11,6 +11,7 @@ on:
       - 'infra/ui-storybook/**'
       - 'package.json'
       - 'package-lock.json'
+      - '.node-version'
       - '.github/workflows/ui-storybook-deploy.yml'
   workflow_dispatch:
     inputs:

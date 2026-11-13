@@ -14,6 +14,7 @@ on:
     paths:
       - 'docs/**'
       - 'docs-site/**'
+      - '.node-version'
       - '.github/workflows/scripts/check-doc-links.py'
       - '.github/workflows/docs-verify.yml'
 

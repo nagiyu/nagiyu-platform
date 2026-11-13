@@ -7,6 +7,7 @@ on:
     paths:
       - 'docs/**'
       - 'docs-site/**'
+      - '.node-version'
       - '.github/workflows/docs-pages-deploy.yml'
   workflow_dispatch:
 
