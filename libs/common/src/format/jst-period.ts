@@ -70,7 +70,7 @@ export const toJstDayKey = (nowMs: number): string => {
 /**
  * 月ごとの記録の TTL (エポック秒)。翌月末 + 余裕。
  *
- * 前の月の記録を参照・更新する処理が残るため、翌月までは確実に残す。
+ * 月が替わった直後も前の月の記録を読めるよう、翌月までは確実に残す。
  */
 export const toMonthTtlSeconds = (nowMs: number): number => {
   const jst = toJstDate(nowMs);
