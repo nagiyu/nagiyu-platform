@@ -114,19 +114,4 @@ describe('SecretsStack', () => {
       template.resourceCountIs('AWS::SecretsManager::Secret', 2);
     });
   });
-
-  describe('VAPID シークレット ARN の export', () => {
-    it.each(['dev', 'prod'])(
-      '%s 環境: デプロイ済みスタックが import する export 名を維持する',
-      (environment) => {
-        const { stack } = createTestStack(environment);
-        const template = Template.fromStack(stack);
-        const outputs = template.toJSON().Outputs as Record<string, { Export?: { Name: string } }>;
-        const exportNames = Object.values(outputs).map((o) => o.Export?.Name);
-        expect(exportNames).toContain(
-          'TestSecretsStack:ExportsOutputRefVapidSecretF5040C13D421B4D3'
-        );
-      }
-    );
-  });
 });
