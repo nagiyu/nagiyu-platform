@@ -7,7 +7,6 @@
 import * as cdk from 'aws-cdk-lib';
 import { Match, Template } from 'aws-cdk-lib/assertions';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
-import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import { LambdaStack } from '../../lib/lambda-stack';
 
 /**
@@ -30,15 +29,12 @@ function createTestStack(
     partitionKey: { name: 'PK', type: dynamodb.AttributeType.STRING },
   });
 
-  const vapidSecret = new secretsmanager.Secret(parentStack, 'VapidSecret');
-
   const stack = new LambdaStack(app, 'TestLambdaStack', {
     environment: 'dev',
     appVersion: '1.0.0',
     webEcrRepositoryName: 'web-ecr-dev',
     batchEcrRepositoryName: 'batch-ecr-dev',
     dynamoTable: table,
-    vapidSecret,
     vapidPublicKey: 'test-vapid-public',
     vapidPrivateKey: 'test-vapid-private',
     finnhubApiKey,
@@ -252,5 +248,21 @@ describe('LambdaStack', () => {
         }),
       });
     });
+  });
+
+  describe('実行時ポリシー', () => {
+    it.each(['WebRuntimePolicy', 'BatchRuntimePolicy'])(
+      '%s に Secrets Manager の読み取り権限が含まれない',
+      (policyId) => {
+        const { stack } = createTestStack('test-finnhub-key');
+        const template = Template.fromStack(stack);
+        const policies = Object.entries(template.findResources('AWS::IAM::ManagedPolicy')).filter(
+          ([logicalId]) => logicalId.startsWith(policyId)
+        );
+        expect(policies).toHaveLength(1);
+        const document = JSON.stringify(policies[0][1].Properties.PolicyDocument);
+        expect(document).not.toContain('secretsmanager:');
+      }
+    );
   });
 });
