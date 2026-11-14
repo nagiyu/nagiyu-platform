@@ -1,4 +1,8 @@
-import { sanitizeCallbackUrl } from '../../../src/lib/callback-url';
+import {
+  SIGNED_IN_FALLBACK_PATH,
+  resolveSignedInDestination,
+  sanitizeCallbackUrl,
+} from '../../../src/lib/callback-url';
 
 const BASE = 'https://auth.nagiyu.com';
 
@@ -55,5 +59,49 @@ describe('sanitizeCallbackUrl', () => {
 
   it('解釈できない相対パスは null', () => {
     expect(sanitizeCallbackUrl('/ok', 'not a url')).toBeNull();
+  });
+});
+
+describe('resolveSignedInDestination', () => {
+  it('許可された戻り先はそのまま返す', () => {
+    expect(resolveSignedInDestination('https://admin.nagiyu.com/', BASE)).toBe(
+      'https://admin.nagiyu.com/'
+    );
+  });
+
+  it('auth 内の相対パスは絶対 URL にして返す', () => {
+    expect(resolveSignedInDestination('/plans?x=1', BASE)).toBe(
+      'https://auth.nagiyu.com/plans?x=1'
+    );
+  });
+
+  it.each([null, undefined, '', 'https://example.com/', '//evil.example.com/'])(
+    '無い・許可されない値は既定の先 (%s)',
+    (raw) => {
+      expect(resolveSignedInDestination(raw, BASE)).toBe(SIGNED_IN_FALLBACK_PATH);
+    }
+  );
+
+  it.each([
+    '/signin',
+    '/signin?callbackUrl=%2Fplans',
+    '/signin/',
+    '/signin/xxx',
+    'https://auth.nagiyu.com/signin',
+    'https://AUTH.nagiyu.com:443/signin',
+  ])('サインイン画面自身は既定の先 (%s)', (raw) => {
+    expect(resolveSignedInDestination(raw, BASE)).toBe(SIGNED_IN_FALLBACK_PATH);
+  });
+
+  it('名前が似ているだけの別のパスは移す', () => {
+    expect(resolveSignedInDestination('/signin-foo', BASE)).toBe(
+      'https://auth.nagiyu.com/signin-foo'
+    );
+  });
+
+  it('他サービスの /signin は自身ではないので移す', () => {
+    expect(resolveSignedInDestination('https://admin.nagiyu.com/signin', BASE)).toBe(
+      'https://admin.nagiyu.com/signin'
+    );
   });
 });
