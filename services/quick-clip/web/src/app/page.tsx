@@ -475,9 +475,7 @@ export default function Home() {
           )}
 
           {durationCheck?.exceeded && (
-            <>
-              <ErrorAlert message={buildDurationExceededMessage(durationCheck)} />
-            </>
+            <ErrorAlert message={buildDurationExceededMessage(durationCheck)} />
           )}
 
           {errorMessage && <ErrorAlert message={errorMessage} />}
