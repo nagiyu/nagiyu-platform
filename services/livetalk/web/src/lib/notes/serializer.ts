@@ -1,4 +1,9 @@
-import type { NoteEntity, TopicBundle } from '@nagiyu/livetalk-core';
+import {
+  selectRecentWebFacts,
+  WEB_FACT_NOTE_LIMIT,
+  type NoteEntity,
+  type TopicBundle,
+} from '@nagiyu/livetalk-core';
 import { encodeNoteId } from './note-id';
 import type { NoteListItem } from './types';
 
@@ -24,6 +29,8 @@ export function toNoteListItem(entity: NoteEntity): NoteListItem {
  * `headline` は贈った瞬間の不変記録（entity.headline）をそのまま返す。
  * `webFacts`/`sources` は参照先 Topic の最新状態（`bundle`）から都度組み立てるため、
  * 中身は生きる（詳細を開くたびに最新の調べた内容・出典を反映する）。
+ * WEB fact は観測日時の新しい順にノート生成と同じ件数までに絞る。古い事実が混ざって
+ * 表示されるのと、取得順（古い順）のまま全件が並ぶのを避けるため。出典も絞った fact からだけ作る。
  * `bundle` が null（Topic 取得失敗・Topic 削除済み等）でも headline のみ返す（fail-soft）。
  */
 export function toNoteDetail(entity: NoteEntity, bundle: TopicBundle | null): NoteListItem {
@@ -36,11 +43,12 @@ export function toNoteDetail(entity: NoteEntity, bundle: TopicBundle | null): No
     return item;
   }
 
-  item.webFacts = bundle.webFacts.map((fact) => fact.text);
+  const webFacts = selectRecentWebFacts(bundle.webFacts, WEB_FACT_NOTE_LIMIT);
+  item.webFacts = webFacts.map((fact) => fact.text);
   // 出典はリンク化するため、http(s) スキームのみ許可する（`javascript:` 等を弾く）。
   // SourceUrls はリサーチ結果由来でユーザー入力ではないが、詳細画面で href に渡すため念のため防御する。
-  item.sources = Array.from(new Set(bundle.webFacts.flatMap((fact) => fact.sourceUrls))).filter(
-    (url) => /^https?:\/\//i.test(url)
+  item.sources = Array.from(new Set(webFacts.flatMap((fact) => fact.sourceUrls))).filter((url) =>
+    /^https?:\/\//i.test(url)
   );
   return item;
 }
