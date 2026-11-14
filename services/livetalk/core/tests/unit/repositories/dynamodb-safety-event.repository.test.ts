@@ -1,3 +1,4 @@
+import { SAFETY_EVENT_TTL_SECONDS } from '../../../src/constants.js';
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { DynamoDBSafetyEventRepository } from '../../../src/repositories/dynamodb-safety-event.repository.js';
 import type { SafetyEventSummary } from '../../../src/entities/safety-event.entity.js';
@@ -74,6 +75,25 @@ describe('DynamoDBSafetyEventRepository', () => {
       expect(putItem.CharacterID).toBe('hiyori');
       // PII を含む属性はベーステーブルには保持されるが、後述の listRecent では射影されない
       expect(putItem.InputText).toBe('死にたい');
+    });
+
+    it('TTL を作成時刻から 3 年後 (エポック秒) に設定する', async () => {
+      const mockSend = jest.fn().mockResolvedValue({});
+      const repo = makeRepo(mockSend);
+
+      const entity = await repo.create({
+        userId: 'u1',
+        characterId: 'hiyori',
+        trigger: 'input_keyword',
+        detectedPattern: '[自殺念慮] 死にたい',
+        inputText: '死にたい',
+        responseText: 'ねえ、今すごく心配しちゃった…',
+      });
+
+      const putItem = mockSend.mock.calls[0][0].input.Item;
+      expect(putItem.TTL).toBe(Math.floor(FIXED_NOW / 1000) + SAFETY_EVENT_TTL_SECONDS);
+      expect(entity.expiresAt).toBe(FIXED_NOW + SAFETY_EVENT_TTL_SECONDS * 1000);
+      expect(SAFETY_EVENT_TTL_SECONDS).toBe(3 * 365 * 24 * 60 * 60);
     });
 
     it('明示的な EventID を使用する', async () => {

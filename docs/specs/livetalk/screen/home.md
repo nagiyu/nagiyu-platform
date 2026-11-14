@@ -29,7 +29,7 @@ sources:
   - services/livetalk/web/src/lib/pwa/standalone.ts
   - services/livetalk/web/src/lib/pwa/messages.ts
   - services/livetalk/web/src/lib/account/useAccountDeletion.ts
-sources_hash: 699e3cfc659fe6099cbc98875acc60942a610ae679b2ade00fdd942afbd3a826
+sources_hash: 62d5620ff7dfa2114d96770b205969f0f015b0ab6eebb9d37c5ed24fccf72ac8
 terms: [livetalk/term/permission, livetalk/term/character, livetalk/term/consent, livetalk/term/chat-event, livetalk/term/safety, livetalk/term/notification-event, livetalk/term/lifecycle]
 related_cards: [livetalk/screen/memory, livetalk/screen/notes, livetalk/screen/status, livetalk/screen/terms, livetalk/screen/privacy, livetalk/api/chat, livetalk/api/consent, livetalk/api/lifecycle, livetalk/api/push, livetalk/api/push-notification, livetalk/api/account, livetalk/api/client-log, livetalk/flow/conversation, livetalk/flow/notification-open]
 related_adr:
@@ -98,7 +98,7 @@ related_adr:
 | 「お知らせを受け取る」「通知を許可する」 | 通知を許可させ、購読を[購読の API](../api/push.md) へ登録する |
 | メニューの項目 | 記憶画面、ノート一覧画面、ステータス画面を開く |
 | ログアウト | Auth サービスのサインアウトへ移る |
-| 退会・データ削除 | 確認のダイアログを開く。削除する範囲 (会話履歴、記憶データ、親密度、ノート、その他すべての個人データ) と、自傷・自殺に関する検出ログだけは匿名化して残すことを示す。「削除範囲を理解し、復元できないことに同意します」にチェックすると「退会・削除する」が押せる。押すと[アカウント API](../api/account.md) で削除し、成功したら Auth のサインアウトへ移る。失敗したときは、ダイアログの中に「退会処理に失敗しました。時間を置いて再度お試しください。」を出し、閉じない |
+| 退会・データ削除 | 確認のダイアログを開く。削除する範囲 (会話履歴、記憶データ、親密度、ノート、その他すべての個人データ) と、セーフティ機能が検出した会話の記録だけは、匿名化して検出から 3 年間残し、期間が過ぎたら自動で削除することを示す。「削除範囲を理解し、復元できないことに同意します」にチェックすると「退会・削除する」が押せる。押すと[アカウント API](../api/account.md) で削除し、成功したら Auth のサインアウトへ移る。失敗したときは、ダイアログの中に「退会処理に失敗しました。時間を置いて再度お試しください。」を出し、閉じない |
 
 - 応答に `safety` があると、「相談できる場所があるよ」のダイアログを出す ([セーフティ](../term/safety.md))。相談先は名前、説明、電話 (`tel:` のリンク)、詳細のリンクで並べ、緊急時 (119) は赤い枠で別に出す。「閉じる」で会話に戻る。出力の検査で止めたときは、応答の文を差し替え文に置き換える
 - 第一声: 画面を開いたとき、キャラクターを切り替えたときに、そのキャラクターの未消化の通知があれば、本文を応答の欄に出し、消化済みにする。`from=push` で開き、返信の下書きがあれば入力欄に入れる (送信は利用者が押す)。発言を送ると、第一声は消える
