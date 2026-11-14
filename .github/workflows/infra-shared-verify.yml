@@ -41,8 +41,8 @@ jobs:
       dirs: infra/shared
       # アカウント ID が未知だと synth が落ちるため、スコープに対応する ID を渡す
       synth-args: |
-        CDK_DEFAULT_ACCOUNT=166562222746 DOMAIN_NAME=example.com --all --context env=dev
-        CDK_DEFAULT_ACCOUNT=253388243634 DOMAIN_NAME=example.com --all --context env=dev --context accountScope=dev
+        DOMAIN_NAME=example.com --all --context env=dev
+        DOMAIN_NAME=example.com --all --context env=dev --context accountScope=dev
     permissions:
       contents: read
 

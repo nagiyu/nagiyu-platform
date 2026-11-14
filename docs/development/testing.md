@@ -355,7 +355,6 @@ infra のビルド (tsc) と `cdk synth` は、lint などとは別の再利用�
 - **対象**: `infra` 配下 (`infra` 自体を含む) で、`build` を持つワークスペース。`synth` を持つものだけ synth をかける。`dirs` がワークスペースそのものを指すときは、その配下のワークスペースを拾わない (`dirs: infra` でルートの infra だけを検査し、`infra/*` は拾わない)
 - **synth の引数**: `synth-args` に 1 行 1 回で渡す。省略時は `--context env=dev` の 1 回。行の先頭の `KEY=VALUE` は環境変数として渡し、残りを `cdk synth` の引数にする (例: livetalk の `ENVIRONMENT=prod`)
 - **synth の前に別のビルドが要るとき**: `pre-synth-scripts` に `<ワークスペース名> <npm script 名>` を 1 行ずつ渡す。指定すると、共有ライブラリのビルド後に流す (ui-storybook は、synth が読む `libs/ui/storybook-static` を作るために使う)
-- **アカウント ID**: synth は `CDK_DEFAULT_ACCOUNT` にダミーの `000000000000` を渡して流す。この ID を許さないスタック (infra-shared はスコープの判定に使う) は、`synth-args` の行で本来の ID を渡す
 
 **検査の流し方**:
 

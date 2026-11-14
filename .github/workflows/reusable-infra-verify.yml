@@ -73,9 +73,6 @@ jobs:
       WORKSPACE_NAME: ${{ matrix.workspace.name }}
       SYNTH_ARGS: ${{ inputs.synth-args }}
       PRE_SYNTH_SCRIPTS: ${{ inputs.pre-synth-scripts }}
-      # synth はアカウントとリージョンを解決できないと落ちるスタックがある (livetalk など)。ダミー値で足りる
-      CDK_DEFAULT_ACCOUNT: '000000000000'
-      CDK_DEFAULT_REGION: us-east-1
 
     steps:
       - name: Checkout code

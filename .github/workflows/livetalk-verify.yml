@@ -48,8 +48,8 @@ jobs:
     with:
       dirs: infra/livetalk
       synth-args: |
-        ENVIRONMENT=dev
-        ENVIRONMENT=prod
+        CDK_DEFAULT_ACCOUNT=000000000000 ENVIRONMENT=dev
+        CDK_DEFAULT_ACCOUNT=000000000000 ENVIRONMENT=prod
     permissions:
       contents: read
 
