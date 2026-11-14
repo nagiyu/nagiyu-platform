@@ -138,6 +138,23 @@ describe('PATCH /api/users/[userId]', () => {
     });
   });
 
+  describe('手動ロールの検証', () => {
+    it.each([
+      ['重複したロール', ['admin', 'admin'], '重複', 'admin'],
+      ['有料の段のロール', ['quick-clip-pro'], '有料ロール', 'quick-clip-pro'],
+    ])('%sが含まれる場合は 400 を返し、保存しない', async (_label, roles, message, roleId) => {
+      const response = await patchJson({ roles });
+
+      expect(response.status).toBe(400);
+      const data = (await response.json()) as { details: { field: string; message: string }[] };
+      expect(data.details).toHaveLength(1);
+      expect(data.details[0].field).toBe('roles');
+      expect(data.details[0].message).toContain(message);
+      expect(data.details[0].message).toContain(roleId);
+      expect(mockUpdateUser).not.toHaveBeenCalled();
+    });
+  });
+
   describe('Zod の検証エラーメッセージ', () => {
     it.each([
       ['name が数値', { name: 1 }, 'name', USER_VALIDATION_ERROR_MESSAGES.NAME_NOT_STRING],
