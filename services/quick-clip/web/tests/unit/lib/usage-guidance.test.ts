@@ -4,10 +4,12 @@ import {
   formatRemaining,
   hasAiRemaining,
   hasHigherTier,
+  hasLimitGuidance,
   parseUsageSummary,
   readLimitErrorCode,
   isUsageExhaustedForSelection,
   resolveUsageNotice,
+  resolveErrorGuidance,
   resolveLimitGuidance,
   type UsageSummary,
 } from '@/lib/usage-guidance';
@@ -239,6 +241,57 @@ describe('resolveLimitGuidance', () => {
       expect(resolveLimitGuidance(code, 'anonymous')).toEqual({ plans: false, signIn: false });
     }
   );
+});
+
+describe('hasLimitGuidance', () => {
+  it('どちらかの案内があれば true', () => {
+    expect(hasLimitGuidance({ plans: true, signIn: false })).toBe(true);
+    expect(hasLimitGuidance({ plans: false, signIn: true })).toBe(true);
+  });
+
+  it('どちらも無ければ false', () => {
+    expect(hasLimitGuidance({ plans: false, signIn: false })).toBe(false);
+  });
+});
+
+describe('resolveErrorGuidance', () => {
+  it('長さ超過もエラーも無ければ案内しない', () => {
+    expect(resolveErrorGuidance(false, null, 'anonymous')).toEqual({ plans: false, signIn: false });
+  });
+
+  it('長さ超過だけなら、長さ超過の案内になる', () => {
+    expect(resolveErrorGuidance(true, null, 'free')).toEqual({ plans: true, signIn: false });
+    expect(resolveErrorGuidance(true, null, 'anonymous')).toEqual({ plans: true, signIn: true });
+  });
+
+  it('エラーのコードだけなら、そのコードの案内になる', () => {
+    expect(resolveErrorGuidance(false, 'AI_LIMIT_EXCEEDED', 'free')).toEqual({
+      plans: true,
+      signIn: false,
+    });
+    expect(resolveErrorGuidance(false, 'IP_LIMIT_EXCEEDED', 'anonymous')).toEqual({
+      plans: false,
+      signIn: false,
+    });
+  });
+
+  it('両方あれば plans と signIn をそれぞれ OR で合わせる', () => {
+    expect(resolveErrorGuidance(true, 'IP_LIMIT_EXCEEDED', 'anonymous')).toEqual({
+      plans: true,
+      signIn: true,
+    });
+    expect(resolveErrorGuidance(true, 'NO_AI_LIMIT_EXCEEDED', 'free')).toEqual({
+      plans: true,
+      signIn: false,
+    });
+  });
+
+  it('一番上の段ではどちらも案内しない', () => {
+    expect(resolveErrorGuidance(true, 'AI_LIMIT_EXCEEDED', 'pro')).toEqual({
+      plans: false,
+      signIn: false,
+    });
+  });
 });
 
 describe('一番上の段', () => {

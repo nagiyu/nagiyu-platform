@@ -1020,8 +1020,8 @@ describe('Home', () => {
       selectFile();
       await screen.findByText(/ご利用の上限/);
 
-      expect(screen.getAllByRole('link', { name: 'ログインする' }).length).toBeGreaterThan(0);
-      expect(screen.getAllByRole('link', { name: 'プランを見る' }).length).toBeGreaterThan(0);
+      expect(screen.getAllByRole('link', { name: 'ログインする' })).toHaveLength(1);
+      expect(screen.getAllByRole('link', { name: 'プランを見る' })).toHaveLength(1);
     });
 
     it('別のファイルを選び直したら、前のファイルの長さ超過の警告は消える', async () => {
@@ -1095,8 +1095,113 @@ describe('Home', () => {
       fireEvent.click(submitButton());
 
       await screen.findByText('上限です');
-      expect(screen.getAllByRole('link', { name: 'ログインする' }).length).toBeGreaterThan(0);
-      expect(screen.getAllByRole('link', { name: 'プランを見る' }).length).toBeGreaterThan(0);
+      expect(screen.getAllByRole('link', { name: 'ログインする' })).toHaveLength(1);
+      expect(screen.getAllByRole('link', { name: 'プランを見る' })).toHaveLength(1);
+    });
+
+    describe('案内のボタンは画面に 1 組だけ出す', () => {
+      const countLinks = (name: string) => screen.queryAllByRole('link', { name }).length;
+
+      /** 1 回目の読み込みと、上限で断られた後の読み直しで、別の残りを返す */
+      const mockRejectedWithUsages = (
+        code: string,
+        first: ReturnType<typeof buildUsage>,
+        reloaded: ReturnType<typeof buildUsage>
+      ) => {
+        let usageCalls = 0;
+        global.fetch = jest.fn((input: RequestInfo | URL) => {
+          if (input === '/api/usage') {
+            usageCalls += 1;
+            const body = usageCalls === 1 ? first : reloaded;
+            return Promise.resolve({ ok: true, status: 200, json: async () => body });
+          }
+          return Promise.resolve({
+            ok: false,
+            status: 429,
+            json: async () => ({ error: code, message: '上限です' }),
+          });
+        }) as jest.Mock;
+      };
+
+      it('未ログインで長さ超過 (残りの案内もある) でも、各ボタンは 1 つ', async () => {
+        (getVideoDurationSec as jest.Mock).mockResolvedValue(3660);
+        global.fetch = withUsage(
+          jest.fn(),
+          buildUsage({ tier: 'anonymous', remaining: { ai: 0, noAi: 3 }, maxDurationSec: 3600 })
+        );
+        render(<HomeWithAuth />);
+        await screen.findByText(/今月の残り/);
+
+        selectFile();
+        await screen.findByText(/ご利用の上限/);
+
+        expect(countLinks('ログインする')).toBe(1);
+        expect(countLinks('プランを見る')).toBe(1);
+      });
+
+      it('未ログインで NO_AI_LIMIT_EXCEEDED で断られ、読み直した残りが両方 0 でも、各ボタンは 1 つ', async () => {
+        mockRejectedWithUsages(
+          'NO_AI_LIMIT_EXCEEDED',
+          buildUsage({ tier: 'anonymous', remaining: { ai: 0, noAi: 3 } }),
+          buildUsage({ tier: 'anonymous', remaining: { ai: 0, noAi: 0 } })
+        );
+        render(<HomeWithAuth />);
+        await screen.findByText(/今月の残り/);
+
+        selectFile();
+        fireEvent.click(submitButton());
+
+        await screen.findByText('上限です');
+        await screen.findByText(/今月の利用回数を使い切りました/);
+        expect(countLinks('ログインする')).toBe(1);
+        expect(countLinks('プランを見る')).toBe(1);
+      });
+
+      it('free で AI_LIMIT_EXCEEDED で断られ、読み直した残りが ai=0 でも、プランを見るは 1 つ', async () => {
+        mockRejectedWithUsages(
+          'AI_LIMIT_EXCEEDED',
+          buildUsage(),
+          buildUsage({ remaining: { ai: 0, noAi: 10 } })
+        );
+        render(<HomeWithAuth />);
+        await screen.findByText(/今月の残り/);
+
+        selectFile();
+        fireEvent.click(submitButton());
+
+        await screen.findByText('上限です');
+        await screen.findByText(/今月の AI 解析の回数を使い切りました/);
+        expect(countLinks('プランを見る')).toBe(1);
+        expect(countLinks('ログインする')).toBe(0);
+      });
+
+      it('エラーが無いときは、残りの案内の側にボタンを出す', async () => {
+        global.fetch = withUsage(
+          jest.fn(),
+          buildUsage({ tier: 'anonymous', remaining: { ai: 0, noAi: 3 } })
+        );
+        render(<HomeWithAuth />);
+        await screen.findByText(/ログインすると AI 解析を月 1 回お試しできます/);
+
+        expect(countLinks('ログインする')).toBe(1);
+        expect(countLinks('プランを見る')).toBe(0);
+      });
+
+      it('IP の上限で断られたときは、残りの案内の側にボタンを出す', async () => {
+        mockRejectedWithUsages(
+          'IP_LIMIT_EXCEEDED',
+          buildUsage({ tier: 'anonymous', remaining: { ai: 0, noAi: 3 } }),
+          buildUsage({ tier: 'anonymous', remaining: { ai: 0, noAi: 3 } })
+        );
+        render(<HomeWithAuth />);
+        await screen.findByText(/今月の残り/);
+
+        selectFile();
+        fireEvent.click(submitButton());
+
+        await screen.findByText('上限です');
+        expect(countLinks('ログインする')).toBe(1);
+      });
     });
 
     it('上限が返ったら残りを取り直す', async () => {
