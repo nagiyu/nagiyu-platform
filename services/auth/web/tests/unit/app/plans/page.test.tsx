@@ -49,6 +49,7 @@ const baseCard = {
   manualLabel: null,
   action: 'subscribe' as const,
   scheduledChangeLabel: null,
+  paymentPastDueLabel: null,
   downgradeConfirmMessage: null,
 };
 
@@ -337,6 +338,30 @@ describe('PlansPage', () => {
       screen.getByText('2026年12月3日からQuick Clip スタンダードに変わります')
     ).toBeInTheDocument();
     expect(screen.getByText('予約を取り消す')).toHaveAttribute('data-service', 'quick-clip');
+  });
+
+  it('支払い遅延の文言があれば契約中のカードに出す', async () => {
+    (loadPlansPageData as jest.Mock).mockResolvedValue({
+      billingEnabled: true,
+      hasCustomer: true,
+      services: [
+        {
+          ...baseService,
+          tiers: [
+            {
+              ...baseCard,
+              state: 'subscribed' as const,
+              action: null,
+              paymentPastDueLabel: '支払いを確認できていないため段を変えられません',
+            },
+          ],
+        },
+      ],
+    });
+
+    render(await render_());
+
+    expect(screen.getByText('支払いを確認できていないため段を変えられません')).toBeInTheDocument();
   });
 
   it('決済成功なら同期してから /refresh へ送る。戻り先が無ければプランの画面に戻す', async () => {
