@@ -14,7 +14,7 @@ sources:
   - services/auth/web/src/lib/callback-url.ts
   - services/auth/core/src/billing/checkout-policy.ts
   - libs/common/src/auth/roles.ts
-sources_hash: 87fcfa5f012de00d7b1d62bfac19f12763325da0c7e340cae5644b0640768369
+sources_hash: e29715184cef478fca2491d09a7b47ce3ba64ed65730779562c7ce27e55ee9d9
 terms: [auth/term/plan-tier, auth/term/role-grant, auth/term/callback-url, platform/term/role]
 related_cards: [auth/api/billing, auth/flow/billing-entitlement, auth/screen/refresh, auth/screen/tokushoho, auth/screen/signin]
 related_adr:
@@ -58,7 +58,8 @@ related_adr:
 | 未契約 (サービスに契約がない) | 価格 | 「申し込む」 |
 | 契約中 | 「契約中」の札、「次の更新日: 日付」 | なし |
 | 解約予約中 | 「解約予約中」の札、「日付に終了します」 | なし |
-| 同じサービスの他の段 (契約があり、解約予約も下げの予約もない) | 価格 | 上の段は「この段に変える」(上げ)、下の段は「この段に変える」(下げ。確認ダイアログを出す) |
+| 同じサービスの他の段 (契約があり、解約予約も下げの予約も支払いの遅れもない) | 価格 | 上の段は「この段に変える」(上げ)、下の段は「この段に変える」(下げ。確認ダイアログを出す) |
+| 支払いの遅れ (契約の状態が `past_due`) の段 (契約中の段) | 「契約中」の札と次の更新日に加えて、「支払いを確認できていないため段を変えられません。「契約を管理」から支払い方法を更新してください」 | なし (他の段にも「この段に変える」は出ない) |
 | 下げの予約中の段 (契約中の段) | 「日付から{段の名前}に変わります」 | 「予約を取り消す」 |
 | 運営による付与がある | 「運営による付与があります (日付まで)」または「(期限なし)」を、状態に足して出す | 付与は契約ではないので、契約の状態で決まる操作 (「申し込む」など) もそのまま出る |
 
@@ -151,6 +152,14 @@ Stripe に価格がないので、準備中を出す。
 | スマホ | PC |
 |---|---|
 | ![プラン画面 解約予約中 (スマホ)](../../../images/specs/auth/screen/plans-canceling-mobile.png) | ![プラン画面 解約予約中 (PC)](../../../images/specs/auth/screen/plans-canceling-desktop.png) |
+
+### 支払いが遅れているとき
+
+段を変えられない理由と「契約を管理」への案内が出て、他の段への切り替えは出ない。
+
+| スマホ | PC |
+|---|---|
+| ![プラン画面 支払いが遅れているとき (スマホ)](../../../images/specs/auth/screen/plans-payment-past-due-mobile.png) | ![プラン画面 支払いが遅れているとき (PC)](../../../images/specs/auth/screen/plans-payment-past-due-desktop.png) |
 
 ### 運営による付与があるとき
 
