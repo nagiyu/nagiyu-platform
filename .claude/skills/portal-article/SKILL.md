@@ -73,7 +73,7 @@ Portal（`services/portal/web/src/content/tech/`）の技術記事は、**AI に
 
 1. `integration/{issue-number}-{slug}` ブランチへ**直接コミット**する（`services/portal/**` 変更で dev へ自動デプロイ）。
 2. push したら、描画の確認を待たずに `develop` へ **Draft PR** を作る (→ [`pr-create`](../pr-create/SKILL.md)。作る前に人へ確かめるのは変わらない)。
-    - 描画への指摘を、人が PR の差分に行単位でコメントできるようにするため。チャットで「何段落目の、どの文」と伝えるのはやりにくい。
+   - 描画への指摘を、人が PR の差分に行単位でコメントできるようにするため。チャットで「何段落目の、どの文」と伝えるのはやりにくい。
 3. 人は `https://dev.nagiyu.com/tech/{slug}` で**レンダリング結果を確認**し、指摘を PR にコメントする。薄いと感じたら ② に戻るか ④ の破棄へ。
 4. 指摘を直して integration へ push する。PR の差分と dev の描画が一緒に更新される。スレッドには返信までにとどめ、閉じるのは指摘した人に任せる。
 
