@@ -9,7 +9,7 @@ sources:
   - services/livetalk/web/src/app/api/notes/constants.ts
   - services/livetalk/web/src/lib/notes/serializer.ts
   - services/livetalk/web/src/lib/notes/note-id.ts
-sources_hash: 1749642020f26f3e59f3a09be60b216b48d362d25951d56e5e638b6bb3e97637
+sources_hash: 244192afe7c082e18b099fb8233f24c946b4cc8dcff236de27412c0042b3cd4c
 terms: [livetalk/term/permission, livetalk/term/api-error, livetalk/term/note, livetalk/term/topic, livetalk/term/web-fact, livetalk/term/character]
 related_cards: [livetalk/screen/notes, livetalk/screen/note-detail, livetalk/batch/consolidate-conversations]
 related_adr:
@@ -33,7 +33,7 @@ related_adr:
 - 一覧の問い合わせ `characterId` は任意で、省略すると `hiyori`。出力は `{ notes: [{ id, subject, sharedAt }] }` を、贈った日時 (`sharedAt`) の新しい順で返す。本文は含めない
 - 詳細は `{ note: { id, subject, sharedAt, headline, webFacts, sources } }`
     - `headline` は贈った時点の手紙の文面で、変わらない
-    - `webFacts` と `sources` は、参照先の[話題](../term/topic.md)の今の [WEB fact](../term/web-fact.md)から、開くたびに作る。`sources` は重複を除き、`http` か `https` の URL だけを残す
+    - `webFacts` と `sources` は、参照先の[話題](../term/topic.md)の今の [WEB fact](../term/web-fact.md)から、開くたびに作る。`webFacts` は観測日時の新しい順に 10 件までで、`sources` はその 10 件の出典だけから作る。`sources` は重複を除き、`http` か `https` の URL だけを残す
     - 参照先の話題を読めなかったときは、`headline` だけを返す (失敗は Admin へ報告する)
 - `id` は、ノートの保存位置を URL に載せられる形 (base64url) にしたもの。利用者の部分はセッションで決まる
 
