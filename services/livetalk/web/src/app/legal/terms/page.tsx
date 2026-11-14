@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
 import { Container, Typography, Box } from '@mui/material';
 import { Link, LegalSections } from '@nagiyu/ui';
-import { liveTalkTermsSections, LIVETALK_TERMS_VERSION } from '@/lib/legal/terms-data';
+import { LIVETALK_TERMS_VERSION } from '@nagiyu/livetalk-core';
+import { liveTalkTermsSections } from '@/lib/legal/terms-data';
 
 export const metadata: Metadata = {
   title: '利用規約 | リブトーク',

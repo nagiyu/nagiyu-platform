@@ -35,8 +35,8 @@ export const TOKEN_BUDGETED_QUERY_PAGE_SIZE = 50;
  * 利用規約・プライバシーポリシーのバージョン。
  * 改定時にインクリメントし、ユーザーの再同意を促す。
  */
-export const LIVETALK_TERMS_VERSION = '1.0.0';
-export const LIVETALK_PRIVACY_VERSION = '1.0.0';
+export const LIVETALK_TERMS_VERSION = '1.1.0';
+export const LIVETALK_PRIVACY_VERSION = '1.1.0';
 
 /**
  * 親密度: 1 件の C→B 昇格（情報開示）に対する加算量（Phase 3f）。

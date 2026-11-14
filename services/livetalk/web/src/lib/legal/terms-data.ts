@@ -1,13 +1,11 @@
 /**
  * LiveTalk 専用 利用規約テキストデータ
  *
- * バージョン: 1.0.0
- * 施行日: 2026年5月26日
+ * バージョン: 1.1.0
+ * 施行日: 2026年11月15日
  */
 
 import type { LegalSection } from '@nagiyu/ui';
-
-export const LIVETALK_TERMS_VERSION = '1.0.0';
 
 export const LIVETALK_LICENSE_TEXT =
   'VOICEVOX:冥鳴ひまり / Live2D キャラクター: 桃瀬ひより ©2010 Live2D Inc.';
@@ -175,14 +173,14 @@ export const liveTalkTermsSections: LegalSection[] = [
           },
           {
             subContent:
-              'AI 記憶データ: AI キャラクターがユーザーを記憶するためのデータ（Tier A: 永続、Tier B: 180日、Tier C: 30日）',
+              '記憶データ: AI キャラクターが覚える話題・あなたについての事実・調べた内容（期限なし。記憶画面での削除またはアカウント削除まで）',
           },
-          { subContent: 'プロフィール情報: ユーザーが設定したニックネーム・誕生日等' },
+          { subContent: '利用状況: 生活サイクル・親密度・通知の購読情報・同意の記録など' },
         ],
       },
       {
         mainContent:
-          '会話テキストは、AI の応答生成のために OpenAI または Anthropic の API に送信される場合があります。詳細はプライバシーポリシーをご確認ください。',
+          '会話テキストは、AI の応答生成のために OpenAI の API に送信されます。詳細はプライバシーポリシーをご確認ください。',
       },
       {
         mainContent:
@@ -203,7 +201,7 @@ export const liveTalkTermsSections: LegalSection[] = [
       },
       {
         mainContent:
-          'データ削除請求は、本サービス内の設定画面またはお問い合わせ窓口（otonagiyu@gmail.com）よりご申請ください。',
+          'ホーム画面の「退会・データ削除」からアカウントとデータをすべて削除できます。利用者についての事実は、ヘッダーのメニュー「私が覚えていること」から1件ずつ削除できます。そのほかの請求は、お問い合わせ窓口（otonagiyu@gmail.com）よりご申請ください。',
       },
       {
         mainContent:
@@ -211,7 +209,7 @@ export const liveTalkTermsSections: LegalSection[] = [
       },
       {
         mainContent:
-          'アカウントを削除した場合、会話履歴・記憶データ・プロフィール情報等、アカウントに紐づくすべてのデータが削除されます。ただし、安全管理上の理由で保存されているセーフティログについては、別途定める保管ポリシーに従います。',
+          'アカウントを削除した場合、会話履歴・記憶データ・生活サイクル等、アカウントに紐づくすべてのデータがただちに削除されます。ただし、安全管理上の理由で保存されているセーフティログは、あなたを特定する情報を切り離した匿名の記録として、検出から3年間保管したのち削除されます。',
       },
     ],
   },
@@ -289,7 +287,7 @@ export const liveTalkTermsSections: LegalSection[] = [
           '本規約に関する一切の紛争については、東京地方裁判所を第一審の専属的合意管轄裁判所とします。',
       },
       {
-        mainContent: '施行日: 2026年5月26日\nバージョン: 1.0.0',
+        mainContent: '施行日: 2026年11月15日\nバージョン: 1.1.0',
       },
     ],
   },
