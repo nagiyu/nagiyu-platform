@@ -1,4 +1,4 @@
-import webpush from 'web-push';
+import * as webpush from 'web-push';
 import { logger } from '../../../src/logger/index.js';
 import { sendWebPushNotification } from '../../../src/push/client.js';
 import type {
@@ -6,6 +6,12 @@ import type {
   PushSubscription,
   VapidConfig,
 } from '../../../src/push/types.js';
+
+// web-push 4 は ESM 専用で名前空間の各エクスポートが書き換えられないため、モジュールごと差し替える
+jest.mock('web-push', () => ({
+  setVapidDetails: jest.fn(),
+  sendNotification: jest.fn(),
+}));
 
 describe('sendWebPushNotification', () => {
   const subscription: PushSubscription = {
@@ -31,12 +37,12 @@ describe('sendWebPushNotification', () => {
   };
 
   afterEach(() => {
-    jest.restoreAllMocks();
+    jest.resetAllMocks();
   });
 
   test('送信成功時に true を返し info ログを出力する', async () => {
-    jest.spyOn(webpush, 'setVapidDetails').mockImplementation();
-    jest.spyOn(webpush, 'sendNotification').mockResolvedValue({
+    jest.mocked(webpush.setVapidDetails).mockImplementation();
+    jest.mocked(webpush.sendNotification).mockResolvedValue({
       statusCode: 201,
       headers: {},
       body: '',
@@ -59,8 +65,8 @@ describe('sendWebPushNotification', () => {
   });
 
   test('404 エラー時に warn ログを出して false を返す', async () => {
-    jest.spyOn(webpush, 'setVapidDetails').mockImplementation();
-    jest.spyOn(webpush, 'sendNotification').mockRejectedValue({
+    jest.mocked(webpush.setVapidDetails).mockImplementation();
+    jest.mocked(webpush.sendNotification).mockRejectedValue({
       statusCode: 404,
       message: 'Not Found',
     });
@@ -78,8 +84,8 @@ describe('sendWebPushNotification', () => {
   });
 
   test('410 エラー時に warn ログを出して false を返す', async () => {
-    jest.spyOn(webpush, 'setVapidDetails').mockImplementation();
-    jest.spyOn(webpush, 'sendNotification').mockRejectedValue({
+    jest.mocked(webpush.setVapidDetails).mockImplementation();
+    jest.mocked(webpush.sendNotification).mockRejectedValue({
       statusCode: 410,
       message: 'Gone: subscription is invalid',
     });
@@ -95,8 +101,8 @@ describe('sendWebPushNotification', () => {
   });
 
   test('404/410 以外のエラー時に error ログを出して例外をスローする', async () => {
-    jest.spyOn(webpush, 'setVapidDetails').mockImplementation();
-    jest.spyOn(webpush, 'sendNotification').mockRejectedValue(new Error('network timeout'));
+    jest.mocked(webpush.setVapidDetails).mockImplementation();
+    jest.mocked(webpush.sendNotification).mockRejectedValue(new Error('network timeout'));
     const warnSpy = jest.spyOn(logger, 'warn').mockImplementation();
     const errorSpy = jest.spyOn(logger, 'error').mockImplementation();
 
@@ -111,8 +117,8 @@ describe('sendWebPushNotification', () => {
   });
 
   test('statusCode が無い場合でも message が 404/410 を含む場合は warn ログを出して false を返す', async () => {
-    jest.spyOn(webpush, 'setVapidDetails').mockImplementation();
-    jest.spyOn(webpush, 'sendNotification').mockRejectedValue({
+    jest.mocked(webpush.setVapidDetails).mockImplementation();
+    jest.mocked(webpush.sendNotification).mockRejectedValue({
       message: 'HTTP 404 Not Found',
     });
     const warnSpy = jest.spyOn(logger, 'warn').mockImplementation();

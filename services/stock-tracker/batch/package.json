@@ -20,7 +20,6 @@
     "@nagiyu/aws": "*",
     "@nagiyu/common": "*",
     "@nagiyu/stock-tracker-core": "*",
-    "ts-jest": "^29.4.11",
-    "web-push": "^3.6.7"
+    "ts-jest": "^29.4.11"
   }
 }
