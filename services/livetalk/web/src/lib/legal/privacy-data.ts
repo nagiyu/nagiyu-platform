@@ -108,7 +108,7 @@ export const liveTalkPrivacySections: LegalSection[] = [
             subContent: '利用状況に関する情報の利用目的',
             subItems: [
               'キャラクターの生活リズムの再現と、通知を送る時間帯・頻度の調整',
-              '親密度に応じた会話の演出',
+              'キャラクターとの関係の積み重ねの記録（現在は会話の内容や演出には反映していません）',
             ],
           },
           {
@@ -179,7 +179,7 @@ export const liveTalkPrivacySections: LegalSection[] = [
           {
             subContent: 'ブラウザのプッシュサービス',
             subItems: [
-              '通知はお使いのブラウザのプッシュサービス（Google・Apple・Mozilla 等が運営）を経由して届くため、通知のタイトルと本文が渡ります',
+              '通知は、お使いのブラウザのプッシュサービス（Google・Apple・Mozilla 等が運営）を経由して届きます。通知の内容は暗号化して送るため、プッシュサービスが内容を読むことはできません',
             ],
           },
         ],
