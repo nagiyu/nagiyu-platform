@@ -23,7 +23,8 @@ import {
   isUsageExhaustedForSelection,
   parseUsageSummary,
   readLimitErrorCode,
-  resolveLimitGuidance,
+  hasLimitGuidance,
+  resolveErrorGuidance,
   type LimitErrorCode,
   type UsageSummary,
 } from '@/lib/usage-guidance';
@@ -158,6 +159,8 @@ export default function Home() {
   const signInHref = buildSignInUrl(authUrl, currentUrl);
   const plansHref = buildPlansUrl(authUrl, currentUrl);
   const tier = usage?.tier ?? null;
+  // ボタンは画面に 1 組だけにするため、長さ超過とサーバーのエラーの案内を合わせてエラー表示の下に出す
+  const errorGuidance = resolveErrorGuidance(durationCheck?.exceeded === true, limitCode, tier);
 
   const setSelectedFile = (selected: File | null) => {
     setFile(selected);
@@ -472,19 +475,12 @@ export default function Home() {
           )}
 
           {durationCheck?.exceeded && (
-            <>
-              <ErrorAlert message={buildDurationExceededMessage(durationCheck)} />
-              <LimitGuidanceActions
-                guidance={resolveLimitGuidance('DURATION_LIMIT_EXCEEDED', tier)}
-                signInHref={signInHref}
-                plansHref={plansHref}
-              />
-            </>
+            <ErrorAlert message={buildDurationExceededMessage(durationCheck)} />
           )}
 
           {errorMessage && <ErrorAlert message={errorMessage} />}
           <LimitGuidanceActions
-            guidance={resolveLimitGuidance(limitCode, tier)}
+            guidance={errorGuidance}
             signInHref={signInHref}
             plansHref={plansHref}
           />
@@ -495,6 +491,7 @@ export default function Home() {
               aiAnalysis={aiAnalysis}
               disabled={isSubmitting}
               onAiAnalysisChange={setAiAnalysis}
+              showGuidanceActions={!hasLimitGuidance(errorGuidance)}
               signInHref={signInHref}
               plansHref={plansHref}
             />
