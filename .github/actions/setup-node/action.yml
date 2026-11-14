@@ -2,10 +2,6 @@ name: Setup Node.js
 description: Setup Node.js with npm cache and install dependencies
 
 inputs:
-  node-version:
-    description: Node.js version to setup
-    required: false
-    default: '26'
   cache-dependency-path:
     description: Path to dependency lock file for npm cache
     required: false
@@ -17,7 +13,7 @@ runs:
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: ${{ inputs.node-version }}
+        node-version-file: .node-version
         cache: 'npm'
         cache-dependency-path: ${{ inputs.cache-dependency-path }}
 

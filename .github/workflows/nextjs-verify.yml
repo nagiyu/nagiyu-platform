@@ -9,6 +9,7 @@ on:
       - 'libs/**'
       - 'configs/**'
       - '.github/actions/**'
+      - '.node-version'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/nextjs-verify.yml'

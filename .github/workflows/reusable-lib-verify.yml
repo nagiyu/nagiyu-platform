@@ -24,7 +24,6 @@ jobs:
       - name: Setup Node.js and install dependencies
         uses: ./.github/actions/setup-node
         with:
-          node-version: '26'
           cache-dependency-path: './package-lock.json'
 
       # 依存する lib の dist が無いとビルドやテストが解決に失敗するため、全 lib で先に作る
@@ -45,7 +44,6 @@ jobs:
       - name: Setup Node.js and install dependencies
         uses: ./.github/actions/setup-node
         with:
-          node-version: '26'
           cache-dependency-path: './package-lock.json'
 
       # 依存する lib の dist が無いとビルドやテストが解決に失敗するため、全 lib で先に作る
@@ -66,7 +64,6 @@ jobs:
       - name: Setup Node.js and install dependencies
         uses: ./.github/actions/setup-node
         with:
-          node-version: '26'
           cache-dependency-path: './package-lock.json'
 
       # 依存する lib の dist が無いとビルドやテストが解決に失敗するため、全 lib で先に作る
@@ -87,7 +84,6 @@ jobs:
       - name: Setup Node.js and install dependencies
         uses: ./.github/actions/setup-node
         with:
-          node-version: '26'
           cache-dependency-path: './package-lock.json'
 
       # 依存する lib の dist が無いとビルドやテストが解決に失敗するため、全 lib で先に作る
@@ -108,7 +104,6 @@ jobs:
       - name: Setup Node.js and install dependencies
         uses: ./.github/actions/setup-node
         with:
-          node-version: '26'
           cache-dependency-path: './package-lock.json'
 
       # 依存する lib の dist が無いとビルドやテストが解決に失敗するため、全 lib で先に作る
