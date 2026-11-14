@@ -1,8 +1,11 @@
 import {
+  TTL_ATTRIBUTE_NAME,
   immutablePatchValue,
   optionalPatchValue,
+  readOptionalTimestamp,
   readTimestamp,
   requiredPatchValue,
+  toTtlSeconds,
   validateStringField,
   type DynamoDBAttributes,
   type DynamoDBKey,
@@ -47,6 +50,9 @@ export class SafetyEventMapper implements EntityMapper<SafetyEventEntity, Safety
       ...(entity.moderationCategories !== undefined && {
         ModerationCategories: entity.moderationCategories,
       }),
+      ...(entity.expiresAt !== undefined && {
+        [TTL_ATTRIBUTE_NAME]: toTtlSeconds(entity.expiresAt),
+      }),
     };
   }
 
@@ -65,12 +71,17 @@ export class SafetyEventMapper implements EntityMapper<SafetyEventEntity, Safety
       ResponseText: requiredPatchValue(changes.responseText, 'ResponseText'),
       CharacterID: optionalPatchValue(changes.characterId),
       ModerationCategories: optionalPatchValue(changes.moderationCategories),
+      [TTL_ATTRIBUTE_NAME]:
+        typeof changes.expiresAt === 'number'
+          ? toTtlSeconds(changes.expiresAt)
+          : optionalPatchValue(changes.expiresAt),
       GSI2PK: buildSafetyEventGSI2PK(),
       GSI2SK: key.eventId,
     };
   }
 
   public toEntity(item: DynamoDBAttributes): SafetyEventEntity {
+    const expiresAt = readOptionalTimestamp(item, TTL_ATTRIBUTE_NAME);
     return {
       userId: validateStringField(item.UserID, 'UserID'),
       eventId: validateStringField(item.EventID, 'EventID'),
@@ -92,6 +103,7 @@ export class SafetyEventMapper implements EntityMapper<SafetyEventEntity, Safety
           }
         ),
       }),
+      ...(expiresAt !== undefined && { expiresAt }),
     };
   }
 

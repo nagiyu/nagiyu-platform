@@ -10,6 +10,7 @@ import type {
   SafetyEventKey,
   SafetyEventSummary,
 } from '../entities/safety-event.entity.js';
+import { SAFETY_EVENT_TTL_SECONDS } from '../constants.js';
 import { defaultUlidFactory, type UlidFactory } from '../lib/ulid.js';
 import { buildSafetyEventGSI2PK, SAFETY_EVENT_GSI_PROJECTION } from '../mappers/keys.js';
 import { SafetyEventMapper } from '../mappers/safety-event.mapper.js';
@@ -39,6 +40,8 @@ export class InMemorySafetyEventRepository implements SafetyEventRepository {
       ...input,
       eventId: input.eventId ?? this.ulidFactory(now),
       createdAt: now,
+      // 検出から 3 年後に DynamoDB が自動削除する
+      expiresAt: now + SAFETY_EVENT_TTL_SECONDS * 1000,
     });
   }
 

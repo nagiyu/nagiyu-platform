@@ -60,8 +60,8 @@ export default function AccountDeletionModal({
         <li>その他すべての個人データ</li>
       </Typography>
       <Alert severity="info" data-testid="safety-log-notice" sx={{ mb: 2 }}>
-        安全のため、自傷・自殺に関する検出ログのみ、匿名化したうえで一定期間保持します。
-        保持期間が過ぎた後は自動的に削除されます。
+        安全のため、セーフティ機能が検出した会話の記録のみ、匿名化したうえで検出から 3
+        年間保持します。期間が過ぎた後は自動的に削除されます。
       </Alert>
       <Checkbox
         checked={confirmed}

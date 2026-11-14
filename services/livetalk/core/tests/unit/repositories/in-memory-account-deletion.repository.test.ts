@@ -71,7 +71,7 @@ function seedSafetyEvent(
   store: InMemorySingleTableStore,
   userId: string,
   eventId: string,
-  opts?: { characterId?: string; moderationCategories?: string }
+  opts?: { characterId?: string; moderationCategories?: string; ttl?: number }
 ) {
   store.put({
     PK: `USER#${userId}`,
@@ -89,6 +89,7 @@ function seedSafetyEvent(
     CreatedAt: FIXED_NOW,
     UpdatedAt: FIXED_NOW,
     ...(opts?.moderationCategories ? { ModerationCategories: opts.moderationCategories } : {}),
+    ...(opts?.ttl !== undefined ? { TTL: opts.ttl } : {}),
   });
 }
 
@@ -215,6 +216,19 @@ describe('InMemoryAccountDeletionRepository', () => {
       const newPk = `USER#${ANON_TOKEN}`;
       const movedItem = store.get(newPk, 'SAFETY#EVT001');
       expect(movedItem!.CharacterID).toBe('ageha');
+    });
+
+    it('TTL が匿名化後もそのまま引き継がれる', async () => {
+      const store = new InMemorySingleTableStore();
+      const { repo } = makeRepo(store);
+      const ttl = Math.floor(FIXED_NOW / 1000) + 3 * 365 * 24 * 60 * 60;
+
+      seedSafetyEvent(store, USER_ID, 'EVT001', { ttl });
+
+      await repo.deleteAccount(USER_ID);
+
+      const movedItem = store.get(`USER#${ANON_TOKEN}`, 'SAFETY#EVT001');
+      expect(movedItem!.TTL).toBe(ttl);
     });
 
     it('ModerationCategories が保持される', async () => {
