@@ -5,7 +5,7 @@ import { COMMON_ERROR_MESSAGES, VALID_ROLES, hasPermission } from '@nagiyu/commo
 import { readJsonObjectBody } from '@nagiyu/nextjs';
 import { z } from 'zod';
 import { applyGrantChanges, GrantChangeError } from '@/lib/role-grants';
-import { getManualRolesErrorMessage, validateManualRoles } from '@/lib/manual-roles';
+import { MANUAL_ROLES, getManualRolesErrorMessage, validateManualRoles } from '@/lib/manual-roles';
 import { omitStripeCustomerId } from '@/lib/user-view';
 import { getSession } from '@/lib/auth/session';
 import { withApiErrorReporting } from '@/lib/api-error-reporting';
@@ -129,7 +129,7 @@ export const POST = withApiErrorReporting(
         return NextResponse.json(
           {
             error: `${ERROR_MESSAGES.INVALID_ROLES}: ${invalidRoles.join(', ')}`,
-            validRoles: VALID_ROLES,
+            validRoles: MANUAL_ROLES,
           },
           { status: 400 }
         );

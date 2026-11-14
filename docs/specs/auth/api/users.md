@@ -19,7 +19,7 @@ sources:
   - services/auth/core/src/repositories/user-repository.ts
   - libs/nextjs/src/pagination.ts
   - libs/common/src/auth/role-grants.ts
-sources_hash: dc930757289e32b7ce754a8896dbffe1b06c029c8ea57cea990149a63b7fabe9
+sources_hash: 4d2ddf806fa5a3590505c571623e7fb0d89cecc3fea9fe55662cc2a3475d7c98
 terms: [platform/term/role, auth/term/role-grant, auth/term/api-error]
 related_cards: [auth/screen/users, auth/screen/user-edit, auth/flow/billing-entitlement]
 related_adr:
@@ -104,7 +104,7 @@ related_adr:
 | 権限がない | 403 | この操作を実行する権限がありません (`details` に必要な権限) |
 | 一覧の `limit` が範囲外・数字でない | 400 | リクエストパラメータが不正です (`details` に `limit` の文) |
 | 本文が JSON のオブジェクトでない、項目の検証に失敗 (更新・ロール変更) | 400 | リクエストボディが不正です (`details` に項目ごとの文) |
-| `roles` に定義にないロール (ロール変更) | 400 | 無効なロールが含まれています: {ID} (`validRoles` を付ける) |
+| `roles` に定義にないロール (ロール変更) | 400 | 無効なロールが含まれています: {ID} (`validRoles` に手動ロールの一覧を付ける) |
 | `roles` に重複したロール (更新・ロール変更) | 400 | ロールが重複しています: {ID}。更新では `details` の文、ロール変更では `error` |
 | `roles` に有料ロール (更新・ロール変更) | 400 | 有料ロールは手動ロールでは付けられません。課金の権利から付けてください: {ID}。更新では `details` の文、ロール変更では `error` |
 | 権利の変更が今の状態に合わない (対象なし、手動でない、取り消し済み、重複、期限が過去、有料でないロール) | 400 | 原因ごとの文 |

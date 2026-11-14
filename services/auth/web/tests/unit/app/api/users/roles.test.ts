@@ -7,6 +7,7 @@
 import { NextRequest } from 'next/server';
 import { EntityNotFoundError, OptimisticLockError } from '@nagiyu/aws';
 import { POST } from '../../../../../src/app/api/users/[userId]/roles/route';
+import { MANUAL_ROLES } from '../../../../../src/lib/manual-roles';
 import { USER_VALIDATION_ERROR_MESSAGES } from '../../../../../src/app/api/users/schemas';
 
 const mockGetSession = jest.fn();
@@ -111,7 +112,8 @@ describe('POST /api/users/[userId]/roles', () => {
       expect(response.status).toBe(400);
       const data = await response.json();
       expect(data.error).toContain('無効なロールが含まれています');
-      expect(data.validRoles).toEqual(['admin', 'user-manager', 'quick-clip-pro']);
+      expect(data.validRoles).toEqual(MANUAL_ROLES);
+      expect(data.validRoles).not.toContain('quick-clip-pro');
     });
 
     it.each([
