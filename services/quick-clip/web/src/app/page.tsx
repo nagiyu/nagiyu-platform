@@ -114,6 +114,8 @@ export default function Home() {
   const [currentUrl, setCurrentUrl] = useState('');
   // 選択直後に読んだ長さを送信時にも使い、同じ動画を二度読まない
   const durationPromiseRef = useRef<Promise<number | undefined> | null>(null);
+  // スイッチの既定値は初めて残りを読めたときだけ入れる。読み直しのたびに入れると、利用者が off にした選択が戻る
+  const hasLoadedUsageRef = useRef(false);
 
   const loadUsage = useCallback(async () => {
     try {
@@ -124,8 +126,13 @@ export default function Home() {
       const loaded = parseUsageSummary(await response.json());
       if (loaded) {
         setUsage(loaded);
-        // 残りが無い間は off に固定し、残りが戻れば既定の on にする
-        setAiAnalysis(hasAiRemaining(loaded));
+        if (hasLoadedUsageRef.current) {
+          // 2 回目以降は利用者の選択を残し、AI ありの残りが尽きたときだけ off に固定する
+          setAiAnalysis((prev) => prev && hasAiRemaining(loaded));
+        } else {
+          hasLoadedUsageRef.current = true;
+          setAiAnalysis(hasAiRemaining(loaded));
+        }
       }
     } catch (error) {
       console.error(LOG_MESSAGES.USAGE_FETCH_FAILED, error);
