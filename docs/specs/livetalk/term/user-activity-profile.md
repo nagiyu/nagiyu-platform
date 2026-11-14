@@ -6,7 +6,7 @@ service: livetalk
 sources:
   - services/livetalk/core/src/entities/lifecycle.entity.ts
   - services/livetalk/core/src/constants.ts
-sources_hash: e468b8e737deb346148267576066e950ec3b9ae677dd3cfa6fd09b6013f41de7
+sources_hash: 623ea780e0092d63c48d3b40e4b53953b850103e464e755db0a87e5a08a8fb18
 terms: [livetalk/term/lifecycle]
 related_cards: [livetalk/batch/learn-user-activity, livetalk/batch/acquire, livetalk/batch/notify]
 related_adr:

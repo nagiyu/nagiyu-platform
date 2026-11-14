@@ -8,7 +8,7 @@ sources:
   - services/livetalk/web/src/lib/characters/registry.ts
   - services/livetalk/web/src/lib/characters/client-profiles.ts
   - services/livetalk/web/src/lib/characters/CharacterContext.tsx
-sources_hash: 62237b9ac1a965c7d79883c7d63d5054aeca4c5a8e0a8c72e6e4e7905396326c
+sources_hash: f9e5462569a575f94d381ca84a998a5f9a02f8e022ba5f1c103c4485f6bc937c
 related_cards: [livetalk/screen/home, livetalk/api/chat, livetalk/flow/conversation]
 related_adr:
   - services/livetalk/architecture.md#2.15
