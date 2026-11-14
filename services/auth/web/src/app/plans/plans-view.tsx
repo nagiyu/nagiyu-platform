@@ -55,6 +55,11 @@ function PlanTierCard({
             {tier.scheduledChangeLabel}
           </Typography>
         )}
+        {tier.paymentPastDueLabel && (
+          <Typography variant="body1" sx={{ mt: 1 }}>
+            {tier.paymentPastDueLabel}
+          </Typography>
+        )}
         {tier.manualLabel && (
           <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
             {tier.manualLabel}

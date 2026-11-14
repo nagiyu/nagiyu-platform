@@ -319,6 +319,18 @@ const plans: Scenario = {
     await open(BILLING_TESTER_ROLES);
     await ctx.shot('canceling');
 
+    // 支払いの遅れ (理由と案内。他の段への切り替えは出ない)
+    const pastDueSub = {
+      ...subscription('sub_capture_past_due', quickClipStandard),
+      status: 'past_due',
+    };
+    await setFakeState({
+      users: [planUser({ subscriptions: [pastDueSub] })],
+      stripe: { prices: PRICES, subscriptions: [pastDueSub] },
+    });
+    await open(BILLING_TESTER_ROLES);
+    await ctx.shot('payment-past-due');
+
     // 運営による付与 (Stripe の契約とは別に表示)
     await setFakeState({
       users: [planUser({ manualGrants: [manualGrant(livetalkStandard, '2035-04-30')] })],
