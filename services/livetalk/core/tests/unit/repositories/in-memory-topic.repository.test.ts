@@ -324,102 +324,6 @@ describe('InMemoryTopicRepository', () => {
     });
   });
 
-  describe('listStaleWebFacts（GSI4/GSI-STALE 相当の窓走査）', () => {
-    it('nextReview<=now の揮発 fact のみを昇順（古い順）で返す', async () => {
-      await repo.putWebFact({
-        userId: 'u1',
-        characterId: 'hiyori',
-        topicId: 'TOPIC-001',
-        text: '新しめの期限切れ',
-        sourceUrls: [],
-        volatility: 'high',
-        observedAt: baseNow,
-        nextReview: baseNow - 1000,
-      });
-      await repo.putWebFact({
-        userId: 'u1',
-        characterId: 'hiyori',
-        topicId: 'TOPIC-001',
-        text: '古い期限切れ（先に処理すべき）',
-        sourceUrls: [],
-        volatility: 'low',
-        observedAt: baseNow,
-        nextReview: baseNow - 10_000,
-      });
-      // stable（NextReview なし）は掃引対象外
-      await repo.putWebFact({
-        userId: 'u1',
-        characterId: 'hiyori',
-        topicId: 'TOPIC-001',
-        text: '安定 fact',
-        sourceUrls: [],
-        volatility: 'stable',
-        observedAt: baseNow,
-      });
-      // 未来の NextReview は対象外
-      await repo.putWebFact({
-        userId: 'u1',
-        characterId: 'hiyori',
-        topicId: 'TOPIC-001',
-        text: 'まだ期限が来ていない',
-        sourceUrls: [],
-        volatility: 'medium',
-        observedAt: baseNow,
-        nextReview: baseNow + 10_000,
-      });
-
-      const stale = await repo.listStaleWebFacts('u1', 'hiyori', baseNow, 10);
-      expect(stale).toHaveLength(2);
-      expect(stale[0].text).toBe('古い期限切れ（先に処理すべき）');
-      expect(stale[1].text).toBe('新しめの期限切れ');
-    });
-
-    it('limit を尊重する', async () => {
-      for (let i = 0; i < 5; i++) {
-        await repo.putWebFact({
-          userId: 'u1',
-          characterId: 'hiyori',
-          topicId: 'TOPIC-001',
-          text: `fact-${i}`,
-          sourceUrls: [],
-          volatility: 'high',
-          observedAt: baseNow,
-          nextReview: baseNow - i * 1000,
-        });
-      }
-
-      const stale = await repo.listStaleWebFacts('u1', 'hiyori', baseNow, 2);
-      expect(stale).toHaveLength(2);
-    });
-
-    it('別ユーザー・別キャラの fact は含まない', async () => {
-      await repo.putWebFact({
-        userId: 'u1',
-        characterId: 'hiyori',
-        topicId: 'TOPIC-001',
-        text: 'u1 fact',
-        sourceUrls: [],
-        volatility: 'high',
-        observedAt: baseNow,
-        nextReview: baseNow - 1000,
-      });
-      await repo.putWebFact({
-        userId: 'u2',
-        characterId: 'hiyori',
-        topicId: 'TOPIC-001',
-        text: 'u2 fact',
-        sourceUrls: [],
-        volatility: 'high',
-        observedAt: baseNow,
-        nextReview: baseNow - 1000,
-      });
-
-      const stale = await repo.listStaleWebFacts('u1', 'hiyori', baseNow, 10);
-      expect(stale).toHaveLength(1);
-      expect(stale[0].text).toBe('u1 fact');
-    });
-  });
-
   describe('updateWebFactNextReview', () => {
     it('既存 WEB fact の nextReview を前方更新する', async () => {
       const fact = await repo.putWebFact({
@@ -442,47 +346,6 @@ describe('InMemoryTopicRepository', () => {
       expect(facts[0].nextReview).toBe(baseNow + 100_000);
     });
 
-    it('更新後は掃引窓（listStaleWebFacts）から外れる', async () => {
-      const fact = await repo.putWebFact({
-        userId: 'u1',
-        characterId: 'hiyori',
-        topicId: 'TOPIC-001',
-        text: 'web fact',
-        sourceUrls: [],
-        volatility: 'high',
-        observedAt: baseNow,
-        nextReview: baseNow - 1000,
-      });
-
-      await repo.updateWebFactNextReview(
-        { userId: 'u1', characterId: 'hiyori', topicId: 'TOPIC-001', factId: fact.factId },
-        baseNow + 100_000
-      );
-
-      const stale = await repo.listStaleWebFacts('u1', 'hiyori', baseNow, 10);
-      expect(stale).toHaveLength(0);
-    });
-
-    it('NextReview を持たない fact に設定すると掃引窓に載る', async () => {
-      const fact = await repo.putWebFact({
-        userId: 'u1',
-        characterId: 'hiyori',
-        topicId: 'TOPIC-001',
-        text: 'web fact',
-        sourceUrls: [],
-        volatility: 'low',
-        observedAt: baseNow,
-      });
-
-      await repo.updateWebFactNextReview(
-        { userId: 'u1', characterId: 'hiyori', topicId: 'TOPIC-001', factId: fact.factId },
-        baseNow - 1
-      );
-
-      const stale = await repo.listStaleWebFacts('u1', 'hiyori', baseNow, 10);
-      expect(stale.map((f) => f.factId)).toEqual([fact.factId]);
-    });
-
     it('存在しない fact は no-op（例外を投げない）', async () => {
       await expect(
         repo.updateWebFactNextReview(
@@ -490,6 +353,14 @@ describe('InMemoryTopicRepository', () => {
           baseNow + 1000
         )
       ).resolves.toBeUndefined();
+    });
+  });
+
+  describe('deleteWebFact / updateWebFactObservation', () => {
+    it('存在しない fact への削除・更新は no-op（例外を投げない）', async () => {
+      const key = { userId: 'u1', characterId: 'hiyori', topicId: 'missing', factId: 'missing' };
+      await expect(repo.deleteWebFact(key)).resolves.toBeUndefined();
+      await expect(repo.updateWebFactObservation(key, { observedAt: 1 })).resolves.toBeUndefined();
     });
   });
 });

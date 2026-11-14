@@ -158,6 +158,49 @@ export function defineUserRepositoryContract(
       expect(cleared.roles).toEqual([]);
     });
 
+    it('updateRolesAndGrants で手動ロールと権利をまとめて書き換え、読み戻せる', async () => {
+      const created = await repository.upsertUser(buildUpsertInput('rg'));
+      expect(created.roleGrants).toBeUndefined();
+      const grant = {
+        grantId: 'grant-1',
+        roleId: 'stock-user',
+        source: 'manual' as const,
+        expiresAt: 4_000_000_000_000,
+        grantedBy: 'admin-1',
+        createdAt: 1,
+        updatedAt: 1,
+      };
+
+      const updated = await repository.updateRolesAndGrants(created.userId, () => ({
+        roles: ['admin'],
+        roleGrants: [grant],
+      }));
+      expect(updated.roles).toEqual(['admin']);
+      expect(updated.roleGrants).toEqual([grant]);
+
+      // 権利だけ変えても手動ロールは残り、assignRoles / updateUser でも権利は消えない
+      await repository.assignRoles(created.userId, ['user-manager']);
+      await repository.updateUser(created.userId, { name: '変更' });
+      const fetched = await repository.getUserById(created.userId);
+      expect(fetched?.roles).toEqual(['user-manager']);
+      expect(fetched?.roleGrants).toEqual([grant]);
+    });
+
+    it('stripeCustomerId に null を渡すと属性ごと消え、ほかの項目は残る', async () => {
+      const created = await repository.upsertUser(buildUpsertInput('unlink'));
+      await repository.updateRolesAndGrants(created.userId, () => ({
+        roles: ['admin'],
+        stripeCustomerId: 'cus_1',
+      }));
+      expect((await repository.getUserById(created.userId))?.stripeCustomerId).toBe('cus_1');
+
+      await repository.updateRolesAndGrants(created.userId, () => ({ stripeCustomerId: null }));
+
+      const fetched = await repository.getUserById(created.userId);
+      expect(fetched).not.toHaveProperty('stripeCustomerId');
+      expect(fetched?.roles).toEqual(['admin']);
+    });
+
     it('updateLastLogin は lastLoginAt をミリ秒で記録する', async () => {
       const created = await repository.upsertUser(buildUpsertInput('f'));
       const before = Date.now();
@@ -177,6 +220,9 @@ export function defineUserRepositoryContract(
         EntityNotFoundError
       );
       await expect(repository.updateLastLogin('not-exist')).rejects.toBeInstanceOf(
+        EntityNotFoundError
+      );
+      await expect(repository.updateRolesAndGrants('not-exist', () => ({}))).rejects.toBeInstanceOf(
         EntityNotFoundError
       );
     });

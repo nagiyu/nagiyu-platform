@@ -32,9 +32,18 @@ import { InMemoryLifecycleRepository } from './in-memory-lifecycle.repository.js
 import type { StudyTopicRepository } from './study-topic.repository.interface.js';
 import { DynamoDBStudyTopicRepository } from './dynamodb-study-topic.repository.js';
 import { InMemoryStudyTopicRepository } from './in-memory-study-topic.repository.js';
+import type { FreshnessCheckRequestRepository } from './freshness-check-request.repository.interface.js';
+import { DynamoDBFreshnessCheckRequestRepository } from './dynamodb-freshness-check-request.repository.js';
+import { InMemoryFreshnessCheckRequestRepository } from './in-memory-freshness-check-request.repository.js';
 import type { NoteRepository } from './note.repository.interface.js';
 import { DynamoDBNoteRepository } from './dynamodb-note.repository.js';
 import { InMemoryNoteRepository } from './in-memory-note.repository.js';
+import type { ExplorationRepository } from './exploration.repository.interface.js';
+import { DynamoDBExplorationRepository } from './dynamodb-exploration.repository.js';
+import { InMemoryExplorationRepository } from './in-memory-exploration.repository.js';
+import type { NoteSkipRepository } from './note-skip.repository.interface.js';
+import { DynamoDBNoteSkipRepository } from './dynamodb-note-skip.repository.js';
+import { InMemoryNoteSkipRepository } from './in-memory-note-skip.repository.js';
 import type { PushSubscriptionRepository } from './push-subscription.repository.interface.js';
 import { DynamoDBPushSubscriptionRepository } from './dynamodb-push-subscription.repository.js';
 import { InMemoryPushSubscriptionRepository } from './in-memory-push-subscription.repository.js';
@@ -50,6 +59,9 @@ import { InMemoryConsolidationCursorRepository } from './in-memory-consolidation
 import type { WebRawRepository } from './webraw.repository.interface.js';
 import { DynamoDBWebRawRepository } from './dynamodb-webraw.repository.js';
 import { InMemoryWebRawRepository } from './in-memory-webraw.repository.js';
+import type { StudyUsageRepository } from './study-usage.repository.interface.js';
+import { DynamoDBStudyUsageRepository } from './dynamodb-study-usage.repository.js';
+import { InMemoryStudyUsageRepository } from './in-memory-study-usage.repository.js';
 import type { SafetyEventRepository } from './safety-event.repository.interface.js';
 import { DynamoDBSafetyEventRepository } from './dynamodb-safety-event.repository.js';
 import { InMemorySafetyEventRepository } from './in-memory-safety-event.repository.js';
@@ -63,13 +75,17 @@ const repositoryRegistry = registerDynamoRepositories<
     characterState: CharacterStateRepository;
     lifecycle: LifecycleRepository;
     studyTopic: StudyTopicRepository;
+    freshnessCheckRequest: FreshnessCheckRequestRepository;
     note: NoteRepository;
+    noteSkip: NoteSkipRepository;
+    exploration: ExplorationRepository;
     pushSubscription: PushSubscriptionRepository;
     notificationEvent: NotificationEventRepository;
     topic: TopicRepository;
     consolidationCursor: ConsolidationCursorRepository;
     webRaw: WebRawRepository;
     safetyEvent: SafetyEventRepository;
+    studyUsage: StudyUsageRepository;
   },
   InMemorySingleTableStore
 >(
@@ -109,10 +125,25 @@ const repositoryRegistry = registerDynamoRepositories<
       createDynamoDBRepository: ({ docClient, tableName }) =>
         new DynamoDBStudyTopicRepository(docClient, tableName),
     },
+    freshnessCheckRequest: {
+      createInMemoryRepository: (store) => new InMemoryFreshnessCheckRequestRepository(store),
+      createDynamoDBRepository: ({ docClient, tableName }) =>
+        new DynamoDBFreshnessCheckRequestRepository(docClient, tableName),
+    },
     note: {
       createInMemoryRepository: (store) => new InMemoryNoteRepository(store),
       createDynamoDBRepository: ({ docClient, tableName }) =>
         new DynamoDBNoteRepository(docClient, tableName),
+    },
+    noteSkip: {
+      createInMemoryRepository: (store) => new InMemoryNoteSkipRepository(store),
+      createDynamoDBRepository: ({ docClient, tableName }) =>
+        new DynamoDBNoteSkipRepository(docClient, tableName),
+    },
+    exploration: {
+      createInMemoryRepository: (store) => new InMemoryExplorationRepository(store),
+      createDynamoDBRepository: ({ docClient, tableName }) =>
+        new DynamoDBExplorationRepository(docClient, tableName),
     },
     pushSubscription: {
       createInMemoryRepository: (store) => new InMemoryPushSubscriptionRepository(store),
@@ -143,6 +174,11 @@ const repositoryRegistry = registerDynamoRepositories<
       createInMemoryRepository: (store) => new InMemorySafetyEventRepository(store),
       createDynamoDBRepository: ({ docClient, tableName }) =>
         new DynamoDBSafetyEventRepository(docClient, tableName),
+    },
+    studyUsage: {
+      createInMemoryRepository: (store) => new InMemoryStudyUsageRepository(store),
+      createDynamoDBRepository: ({ docClient, tableName }) =>
+        new DynamoDBStudyUsageRepository(docClient, tableName),
     },
   },
   {
@@ -208,11 +244,32 @@ export function createStudyTopicRepository(
   return repositoryRegistry.studyTopic.createRepository(docClient, tableName);
 }
 
+export function createFreshnessCheckRequestRepository(
+  docClient?: DynamoDBDocumentClient,
+  tableName?: string
+): FreshnessCheckRequestRepository {
+  return repositoryRegistry.freshnessCheckRequest.createRepository(docClient, tableName);
+}
+
 export function createNoteRepository(
   docClient?: DynamoDBDocumentClient,
   tableName?: string
 ): NoteRepository {
   return repositoryRegistry.note.createRepository(docClient, tableName);
+}
+
+export function createNoteSkipRepository(
+  docClient?: DynamoDBDocumentClient,
+  tableName?: string
+): NoteSkipRepository {
+  return repositoryRegistry.noteSkip.createRepository(docClient, tableName);
+}
+
+export function createExplorationRepository(
+  docClient?: DynamoDBDocumentClient,
+  tableName?: string
+): ExplorationRepository {
+  return repositoryRegistry.exploration.createRepository(docClient, tableName);
 }
 
 export function createPushSubscriptionRepository(
@@ -255,4 +312,11 @@ export function createSafetyEventRepository(
   tableName?: string
 ): SafetyEventRepository {
   return repositoryRegistry.safetyEvent.createRepository(docClient, tableName);
+}
+
+export function createStudyUsageRepository(
+  docClient?: DynamoDBDocumentClient,
+  tableName?: string
+): StudyUsageRepository {
+  return repositoryRegistry.studyUsage.createRepository(docClient, tableName);
 }

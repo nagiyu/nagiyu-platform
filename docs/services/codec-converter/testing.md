@@ -204,7 +204,7 @@ npm run test:coverage -w services/codec-converter
     - エラーメッセージ定数
     - エラーレスポンス生成
 
-#### 共通ライブラリ (`services/codec-converter-common/`)
+#### 共通ライブラリ (`services/codec-converter/core/`)
 
 - **型定義**: Job、JobStatus、CodecType
 - **定数**: MAX_FILE_SIZE、ALLOWED_MIME_TYPES など
@@ -212,7 +212,7 @@ npm run test:coverage -w services/codec-converter
 
 #### Batch Worker
 
-- **FFmpeg実行ロジック** (`workers/codec-converter-ffmpeg/src/`)
+- **FFmpeg実行ロジック** (`services/codec-converter/batch/src/`)
     - コーデック別変換コマンド生成
     - FFmpeg進捗パース
     - エラーハンドリング
@@ -511,5 +511,5 @@ npx playwright show-trace test-results/{test-name}/trace.zip
 
 - [要件定義](./requirements.md)
 - [アーキテクチャ設計](./architecture.md)
-- [API仕様](./api-spec.md)
+- [仕様カード](../../specs/README.md)
 - [デプロイ・運用](./deployment.md)

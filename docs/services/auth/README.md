@@ -16,10 +16,13 @@ Phase 1 では、Google OAuth 認証、ユーザー管理、ロール・権限�
 | ---------------------------------------------------- | ---------------------------------------------------- |
 | [requirements.md](./requirements.md)                 | ビジネス要件、機能要件、非機能要件、ユースケース     |
 | [architecture.md](./architecture.md)                 | システムアーキテクチャ、技術スタック、設計思想       |
-| [api-spec.md](./api-spec.md)                         | API仕様（認証、ユーザー管理、ヘルスチェック）        |
+| [api-spec.md](./api-spec.md)                         | API 全体の方針（ベース URL、バージョニング）と仕様カードへの案内 |
 | [deployment.md](./deployment.md)                     | デプロイ手順、CI/CD、監視、障害対応                  |
 | [testing.md](./testing.md)                           | テスト戦略、カバレッジ目標、テストシナリオ           |
-| [roles-and-permissions.md](./roles-and-permissions.md) | ロール・権限定義（サービス固有ドキュメント）         |
+| [roles-and-permissions.md](./roles-and-permissions.md) | ロール・権限の設計方針（サービス固有ドキュメント）   |
+| [仕様カード](../../specs/README.md)                  | 今のコードの挙動（画面・API・経路・用語）。このサービスの分は `docs/specs/auth/` |
+
+今の挙動は仕様カード、なぜそうしたかと何を満たすべきかはこの配下の文書に書く。
 
 ---
 
@@ -29,7 +32,7 @@ Phase 1 では、Google OAuth 認証、ユーザー管理、ロール・権限�
 
 1. **要件を理解する**: [requirements.md](./requirements.md) を読む
 2. **設計を確認する**: [architecture.md](./architecture.md) を読む
-3. **API仕様を確認する**: [api-spec.md](./api-spec.md) を読む
+3. **今の挙動を確認する**: [仕様カード](../../specs/README.md)を読む（API の入出力は [api-spec.md](./api-spec.md) から辿れる）
 4. **実装を確認する**: ソースコード (`services/auth/`) を参照
 
 ### 運用担当者向け
@@ -59,6 +62,12 @@ Phase 1 では、Google OAuth 認証、ユーザー管理、ロール・権限�
 - **ユーザー管理**: プラットフォーム共通ユーザー情報の管理
 - **ロール・権限管理**: RBAC によるアクセス制御
 - **ユーザー管理API**: ユーザー一覧、詳細、更新、削除
+
+### 課金
+
+- **課金の権利**: 課金で付く有料ロールを、手動ロールとは別に期限つきで管理
+- **Stripe との連携**: 有料プランの申し込み、契約の管理 (Customer Portal)、通知による契約の反映
+- **課金の公開情報**: 料金と特定商取引法に基づく表記のページ
 
 ### Phase 2 以降で追加予定
 

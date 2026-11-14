@@ -37,8 +37,8 @@ const consentedProfile = {
   createdAt: 0,
   updatedAt: 0,
   consents: {
-    termsAgreed: { version: '1.0.0', agreedAt: 0 },
-    privacyAgreed: { version: '1.0.0', agreedAt: 0 },
+    termsAgreed: { version: '1.1.0', agreedAt: 0 },
+    privacyAgreed: { version: '1.1.0', agreedAt: 0 },
     ageVerified: { value: true, verifiedAt: 0 },
   },
 };
@@ -74,9 +74,26 @@ describe('GET /api/consent', () => {
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.consented).toBe(true);
-    expect(json.requiredVersions).toEqual({ terms: '1.0.0', privacy: '1.0.0' });
+    expect(json.requiredVersions).toEqual({ terms: '1.1.0', privacy: '1.1.0' });
     // current はエンティティの camelCase のまま返す
     expect(json.current).toEqual(consentedProfile.consents);
+  });
+
+  it('旧版 1.0.0 の同意だけでは consented: false を返す', async () => {
+    mockGetSession.mockResolvedValue(validSession);
+    mockGetProfileRepo.mockReturnValue(
+      makeProfileRepo({
+        ...consentedProfile,
+        consents: {
+          termsAgreed: { version: '1.0.0', agreedAt: 0 },
+          privacyAgreed: { version: '1.0.0', agreedAt: 0 },
+          ageVerified: { value: true, verifiedAt: 0 },
+        },
+      })
+    );
+    const res = await GET();
+    const json = await res.json();
+    expect(json.consented).toBe(false);
   });
 
   it('プロファイルがなければ consented: false を返す', async () => {
@@ -202,8 +219,8 @@ describe('POST /api/consent', () => {
       { userId: 'u1' },
       expect.objectContaining({
         consents: expect.objectContaining({
-          termsAgreed: expect.objectContaining({ version: '1.0.0' }),
-          privacyAgreed: expect.objectContaining({ version: '1.0.0' }),
+          termsAgreed: expect.objectContaining({ version: '1.1.0' }),
+          privacyAgreed: expect.objectContaining({ version: '1.1.0' }),
           ageVerified: { value: true, verifiedAt: expect.any(Number) },
         }),
       })

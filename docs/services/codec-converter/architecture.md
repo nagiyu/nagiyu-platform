@@ -1,5 +1,7 @@
 # アーキテクチャ設計
 
+この文書は、構成と設計判断の理由 (なぜ) を書く。今どう動くかは[仕様カード](../../specs/README.md)にあり、各節からリンクする。
+
 ## システム概要
 
 Codec Converterは、サーバーレスアーキテクチャを採用した動画変換サービスです。
@@ -16,44 +18,13 @@ Codec Converterは、サーバーレスアーキテクチャを採用した動�
 | **Batch**      | 動画変換処理                       | AWS Batch (Fargate) + FFmpeg               |
 | **ECR**        | コンテナイメージレジストリ         | Amazon ECR                                 |
 
-### 共有パッケージ: `@nagiyu-platform/codec-converter-common`
+### 共有パッケージ: `@nagiyu/codec-converter-core`
 
-Next.js Lambda と Batch Worker で共通して使用する TypeScript パッケージ。
+Next.js Lambda (`web`) と Batch Worker (`batch`) で共通して使う TypeScript パッケージ。型定義・定数・入力の検証・ジョブ定義の選択ロジックなど、両者の解釈がずれると壊れるものを 1 か所に置くために分けている。
 
-**配置場所**: `services/codec-converter-common/`
+**配置場所**: `services/codec-converter/core/`
 
-**提供機能**:
-
-- **型定義**: `Job`, `JobStatus`, `CodecType`
-- **定数**: `MAX_FILE_SIZE` (500MB), `CONVERSION_TIMEOUT_SECONDS` (7200秒), `JOB_EXPIRATION_SECONDS` (86400秒), `ALLOWED_MIME_TYPES`, `ALLOWED_FILE_EXTENSIONS`, `CODEC_FILE_EXTENSIONS`
-- **バリデーション関数**: `validateFileSize()`, `validateMimeType()`, `validateFileExtension()`, `validateFile()`
-
-**使用例**:
-
-```typescript
-import {
-  Job,
-  JobStatus,
-  MAX_FILE_SIZE,
-  validateFile,
-} from '@nagiyu-platform/codec-converter-common';
-
-// バリデーション
-const result = validateFile('video.mp4', 100 * 1024 * 1024, 'video/mp4');
-if (!result.isValid) {
-  return { error: result.errorMessage };
-}
-
-// 型安全なジョブ作成
-const job: Job = {
-  jobId: uuid(),
-  status: 'PENDING',
-  outputCodec: 'h264',
-  // ...
-};
-```
-
-**注**: このパッケージは `services/` 配下に配置されており、Codec Converter サービス専用です。プラットフォーム全体で共有するライブラリは `libs/` 配下に配置します。
+**注**: このパッケージは `services/` 配下に配置されており、Codec Converter サービス専用である。プラットフォーム全体で共有するライブラリは `libs/` 配下に配置する。
 
 ### プラットフォーム共有ライブラリ
 
@@ -108,136 +79,13 @@ import { theme, Header, Footer } from '@nagiyu/ui';
 
 ## データフロー
 
-### 1. アップロードフロー
-
-```mermaid
-sequenceDiagram
-    participant Browser as ブラウザ
-    participant Next as Next.js API<br/>(Lambda)
-    participant DB as DynamoDB
-    participant S3 as S3
-    participant Batch as AWS Batch
-
-    Browser->>Next: 1. ファイル選択 & POST /api/jobs
-    Note right of Browser: {fileName, fileSize, contentType, outputCodec}
-    Next->>DB: 2. ジョブ作成 (status: PENDING)
-    Next->>S3: 3. Presigned URL生成
-    Next-->>Browser: 4. {jobId, uploadUrl}
-    Browser->>S3: 5. PUT (Presigned URL)
-    Note right of Browser: 直接アップロード
-    S3-->>Browser: 6. アップロード完了
-    Browser->>Next: 7. POST /api/jobs/{jobId}/submit
-    Next->>DB: 8. ジョブ情報取得
-    Next->>Batch: 9. Batchジョブ投入
-    Note right of Next: containerOverrides: JOB_ID, OUTPUT_CODEC<br/>ステータスはPENDINGのまま
-```
-
-**ステップ**:
-
-1. ブラウザ上でユーザーがファイルを選択し、Next.js API Routes (`/api/jobs`) を呼び出し
-   - Request: `{ fileName, fileSize, contentType, outputCodec }`
-2. Next.js API (Lambda上で実行):
-   - ジョブIDを生成 (UUID v4)
-   - DynamoDBにジョブレコード作成 (status: PENDING)
-   - S3 Presigned URL生成 (uploads/{jobId}/input.mp4)
-3. Next.js API → ブラウザ: `{ jobId, uploadUrl }`
-4. ブラウザ → S3: PUT (Presigned URL)
-   - 直接アップロード（Lambda/Next.jsを経由しない）
-5. アップロード完了後、ブラウザ → Next.js API: `POST /api/jobs/{jobId}/submit`
-6. Next.js API (Lambda上で実行):
-   - DynamoDBからジョブ情報取得
-   - Batchジョブ投入（ステータスはPENDINGのまま）
-     - containerOverrides.environment: JOB_ID, OUTPUT_CODEC
-   - 注: ステータスのPROCESSING更新はBatch Worker側で実施
-
-### 2. 変換処理フロー
-
-```mermaid
-sequenceDiagram
-    participant Batch as Batch Worker
-    participant DB as DynamoDB
-    participant S3 as S3
-    participant FFmpeg as FFmpeg
-
-    Note over Batch: 1. Worker起動
-    Note over Batch: 2. 環境変数取得<br/>(JOB_ID, OUTPUT_CODEC)
-    Batch->>DB: 3. ステータス更新 (PROCESSING)
-    Batch->>S3: 4. 入力ファイルダウンロード
-    Note right of S3: uploads/{jobId}/input.mp4
-    Batch->>FFmpeg: 5. FFmpeg実行 (コーデック変換)
-    Note over FFmpeg: 変換処理中...
-    FFmpeg-->>Batch: 6. 変換完了
-    Batch->>S3: 7. 出力ファイルアップロード
-    Note right of S3: outputs/{jobId}/output.{ext}
-    Batch->>DB: 8. ステータス更新 (COMPLETED)<br/>outputFile設定
-
-    Note over Batch,DB: エラー時:<br/>- ステータスを FAILED に更新<br/>- errorMessage を保存
-```
-
-**ステップ**:
-
-1. Batch Worker起動
-2. 環境変数から取得: JOB_ID, OUTPUT_CODEC, S3_BUCKET, DYNAMODB_TABLE_NAME
-3. DynamoDBのステータスをPENDING → PROCESSINGに更新
-   - Batch Workerが実際に処理を開始したことを保証
-4. S3から入力ファイルダウンロード (`uploads/{jobId}/input.mp4`)
-5. FFmpegで変換実行
-   - H.264: libx264, CRF 23, AAC 128k
-   - VP9: libvpx-vp9, CRF 30, Opus 128k
-   - AV1: libaom-av1, CRF 30 cpu-used 4, Opus 128k
-6. S3へ出力ファイルアップロード (`outputs/{jobId}/output.{ext}`)
-7. DynamoDBのステータスを COMPLETED に更新
-   - outputFile を設定
-8. エラー時:
-   - DynamoDBのステータスを FAILED に更新
-   - errorMessage を保存
-
-### 3. ダウンロードフロー
-
-```mermaid
-sequenceDiagram
-    participant Browser as ブラウザ
-    participant Next as Next.js API<br/>(Lambda)
-    participant DB as DynamoDB
-    participant S3 as S3
-
-    Note over Browser: ユーザーが手動で「ステータス確認」をクリック
-    Browser->>Next: 1. GET /api/jobs/{jobId}
-    Next->>DB: 2. ジョブ情報取得
-    Next-->>Browser: 3. {status: "COMPLETED", downloadUrl}
-    Note over Browser: status が COMPLETED の場合<br/>downloadUrl を含めて返す
-    Note over Browser: 4. ダウンロードボタン表示
-    Browser->>S3: 5. GET (downloadUrl)
-```
-
-**ステップ**:
-
-1. ユーザーが「ステータス確認」ボタンをクリック
-2. ブラウザ → Next.js API: `GET /api/jobs/{jobId}`
-3. Next.js API (Lambda上で実行):
-   - DynamoDBからジョブ情報取得
-   - ステータスが `COMPLETED` の場合、S3 Presigned URL生成 (`outputs/{jobId}/output.{ext}`)
-   - 有効期限: 24時間
-4. Next.js API → ブラウザ: `{ jobId, status, fileName, ..., downloadUrl? }`
-   - `downloadUrl` は `status === "COMPLETED"` の場合のみ含まれる
-5. ブラウザ: ステータス表示、COMPLETED なら「ダウンロード」ボタンを表示
-6. ユーザーがダウンロードボタンをクリック → S3から直接ダウンロード
+動画の転送は、Lambda を通さず、ブラウザと S3 の間で署名付き URL を使って直接行う。アップロード・変換・ダウンロードの各段階の手順は[変換の経路](../../specs/codec-converter/flow/conversion.md)、変換バッチの処理は[変換バッチ](../../specs/codec-converter/batch/convert.md)を参照する。署名付き URL を使う理由は、後述の「S3 Presigned URL」にある。
 
 ---
 
 ## API設計
 
-API仕様の詳細については、[api-spec.md](./api-spec.md) を参照してください。
-
-### エンドポイント一覧
-
-| メソッド | パス                       | 説明                                                   |
-| -------- | -------------------------- | ------------------------------------------------------ |
-| POST     | `/api/jobs`                | 新規ジョブ作成、アップロード用Presigned URL取得        |
-| POST     | `/api/jobs/{jobId}/submit` | Batchジョブ投入                                        |
-| GET      | `/api/jobs/{jobId}`        | ジョブステータス取得、COMPLETED時はダウンロードURL含む |
-
-詳細なリクエスト/レスポンス形式、エラーコード、データモデルについては [api-spec.md](./api-spec.md) を参照してください。
+エンドポイントの入出力・エラーは[ジョブ API](../../specs/codec-converter/api/jobs.md)を参照する。
 
 ---
 
@@ -247,12 +95,9 @@ API仕様の詳細については、[api-spec.md](./api-spec.md) を参照して
 
 **主キー**: `jobId` (String)
 
-保存形式はプラットフォームのデータアクセス層の標準に従う。
+保存形式はプラットフォームのデータアクセス層の標準に従う。項目の中身と保存形式は[ジョブとステータス](../../specs/codec-converter/term/job.md)を参照する。
 
 - 主キーの `jobId` だけは camelCase のまま据え置く。キー属性の名前は、テーブルを作り直さないと変えられないため。
-- ほかの属性は PascalCase で保存する (`Status`、`InputFile`、`CreatedAt` など)。
-- 時刻は数値のミリ秒で保存する。TTL だけは DynamoDB の仕様に従い、エポック秒で `TTL` 属性に保存する。
-- 以前の形式 (camelCase の属性名・エポック秒の時刻・TTL 属性 `expiresAt`) のアイテムも読める。書き込むたびに、書いた項目から新しい形式に置き換わる。
 
 **TTL設定**: `TTL` 属性 (ジョブ作成から 24 時間後)
 
@@ -286,7 +131,7 @@ codec-converter-storage-{env}/
 **Compute Environment**:
 
 - タイプ: Fargate
-- 最大vCPU: 6（3ジョブ × 2vCPU）
+- 最大vCPU: 16（複数サイズのジョブ定義を同時に動かすため）
 - サブネット: パブリックサブネット（プラットフォーム共通VPC: `nagiyu-{env}-vpc`）
 
 **Job Queue**:
@@ -296,108 +141,25 @@ codec-converter-storage-{env}/
 
 **Job Definition**:
 
-Phase 1（MVP）では単一のジョブ定義を使用します:
-
-- プラットフォーム: Fargate
-- vCPU: 2
-- メモリ: 4096 MB
-- タイムアウト: 7200秒（2時間）
-- リトライ: 1回
-- イメージ: `{account}.dkr.ecr.{region}.amazonaws.com/codec-converter-ffmpeg-{env}:latest`
-- 環境変数（静的）:
-  - `S3_BUCKET`: `codec-converter-storage-{env}`
-  - `DYNAMODB_TABLE_NAME`: `codec-converter-jobs-{env}`
-  - `AWS_REGION`: リージョン
-- 環境変数（動的、containerOverridesで渡す）:
-  - `JOB_ID`: ジョブID
-  - `OUTPUT_CODEC`: 出力コーデック
+ファイルサイズと出力コーデックに応じてリソースを使い分けるため、vCPU とメモリの異なるジョブ定義を 4 サイズ (`small`、`medium`、`large`、`xlarge`) 用意する。サイズ別の値と選び方は[ジョブ定義のサイズ](../../specs/codec-converter/term/job-definition-size.md)、投入時の扱いは[ジョブ API](../../specs/codec-converter/api/jobs.md)を参照する。
 
 #### 動的リソース配分
 
-ジョブの特性（ファイルサイズ、出力コーデック）に応じて最適なリソースを動的に割り当てます。
+軽い処理に大きなリソースを割り当てるとコストが無駄になり、重い処理に小さなリソースを割り当てると処理時間が延びる。そこで、ファイルサイズと出力コーデックから、最適なサイズのジョブ定義を投入時に選ぶ。
 
-**複数のジョブ定義パターン**:
-
-以下の4つのジョブ定義が作成され、ジョブ投入時に適切なものが自動選択されます:
-
-| ジョブ定義名                   | vCPU | メモリ (MB) | 用途                             |
-| ------------------------------ | ---- | ----------- | -------------------------------- |
-| `codec-converter-{env}-small`  | 1    | 2048        | 軽量な処理（小ファイル + H.264） |
-| `codec-converter-{env}-medium` | 2    | 4096        | 標準的な処理（中程度の負荷）     |
-| `codec-converter-{env}-large`  | 4    | 8192        | 重量な処理（大ファイル or VP9）  |
-| `codec-converter-{env}-xlarge` | 4    | 16384       | 最重量処理（大ファイル + AV1）   |
-
-**リソース選択ロジック**:
-
-ファイルサイズと出力コーデックに基づいて、以下のマトリクスに従ってジョブ定義が選択されます:
-
-| ファイルサイズ | 出力コーデック | 選択するジョブ定義 | vCPU | メモリ (MB) |
-| -------------- | -------------- | ------------------ | ---- | ----------- |
-| < 100MB        | h264           | small              | 1    | 2048        |
-| < 100MB        | vp9            | small              | 1    | 4096        |
-| < 100MB        | av1            | medium             | 2    | 4096        |
-| 100-300MB      | h264           | medium             | 2    | 4096        |
-| 100-300MB      | vp9            | large              | 2    | 8192        |
-| 100-300MB      | av1            | large              | 4    | 8192        |
-| > 300MB        | h264           | medium             | 2    | 4096        |
-| > 300MB        | vp9            | large              | 4    | 8192        |
-| > 300MB        | av1            | xlarge             | 4    | 16384       |
-
-**注**: 上記の数値は AWS Fargate の制約に準拠しています:
-
-- 1 vCPU: 2048-8192 MB
-- 2 vCPU: 4096-16384 MB
-- 4 vCPU: 8192-30720 MB
-
-参考: [AWS Batch Fargate ドキュメント](https://docs.aws.amazon.com/batch/latest/userguide/fargate.html)
-
-**Compute Environment の設定**:
-
-- **maxvCPUs**: 16 vCPU（複数のリソースサイズを同時実行するため）
-- 同時実行例: small × 4 + large × 3 = 16 vCPU
+- 選べないとき、または選んだ定義での投入が失敗したときは、既定の `medium` で続ける。既存のジョブを失敗させないための後方互換のため
+- 値は AWS Fargate の vCPU とメモリの組み合わせの制約 (1 vCPU は 2048〜8192 MB、2 vCPU は 4096〜16384 MB、4 vCPU は 8192〜30720 MB) の範囲に収める。参考: [AWS Batch Fargate ドキュメント](https://docs.aws.amazon.com/batch/latest/userguide/fargate.html)
+- Compute Environment の最大 vCPU を 16 にしているのは、小さいサイズなら複数、大きいサイズなら少数を同時に動かせるようにするため
 
 #### Batch Worker 実装詳細
 
-**ベースイメージ**: `node:20-alpine`
+処理の手順・失敗時の扱い・FFmpeg の設定は[変換バッチ](../../specs/codec-converter/batch/convert.md)と[出力コーデック](../../specs/codec-converter/term/output-codec.md)を参照する。
 
-**インストールパッケージ**:
-
-- FFmpeg（apk経由）
-- Node.js依存関係（`@nagiyu-platform/codec-converter-common`, AWS SDK v3）
-
-**処理フロー**:
-
-1. **環境変数検証**: 必須変数（`S3_BUCKET`, `DYNAMODB_TABLE_NAME`, `JOB_ID`, `OUTPUT_CODEC`）の存在確認
-2. **DynamoDBステータス更新**: PENDING → `PROCESSING` に変更
-3. **S3ダウンロード**: `uploads/{JOB_ID}/input.mp4` → `/tmp/input-{JOB_ID}.mp4`
-4. **FFmpeg変換**: 指定コーデックで変換、進捗情報をログ出力（stderr）
-5. **S3アップロード**: `/tmp/output-{JOB_ID}.{ext}` → `outputs/{JOB_ID}/output.{ext}`
-6. **DynamoDBステータス更新**: `COMPLETED` に変更、`outputFile` を設定
-7. **クリーンアップ**: 一時ファイル削除
-
-**エラー処理**:
-
-- すべてのエラーをキャッチし、DynamoDBステータスを `FAILED` に更新
-- エラーメッセージを `errorMessage` フィールドに保存
-- 一時ファイルを確実にクリーンアップ（finally句）
+**ベースイメージ**: `node:26-slim`。FFmpeg は apt で入れる。
 
 **リトライ戦略**:
 
-- AWS Batchが自動リトライ（1回リトライ = 計2回試行）
-- 対象: 非ゼロ終了コード
-- Worker内部ではリトライロジックを実装しない
-
-**FFmpeg設定**:
-
-- **H.264**: CRF 23, AAC音声（128kbps）, MP4コンテナ
-- **VP9**: CRF 30, Opus音声（128kbps）, WebMコンテナ
-- **AV1**: CRF 30, cpu-used 4, Opus音声（128kbps）, WebMコンテナ
-
-**ログ出力**:
-
-- FFmpeg進捗情報（stderr の `time=` をパース）
-- 各処理ステップの開始/完了ログ
-- エラー詳細（スタックトレース含む）
+- リトライは AWS Batch に任せ、Worker 内部ではリトライロジックを実装しない。失敗の報告と再試行の責務を分けるため
 
 ### Lambda
 
@@ -496,15 +258,7 @@ CDK スタック内で責務ごとに分離された構成:
 
 ### セキュリティヘッダー
 
-CloudFrontで以下のヘッダーを設定:
-
-```
-Strict-Transport-Security: max-age=31536000; includeSubDomains
-X-Content-Type-Options: nosniff
-X-Frame-Options: DENY
-Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline';
-Referrer-Policy: strict-origin-when-cross-origin
-```
+CloudFront の Response Headers Policy で付けているのは `X-Robots-Tag: noindex, nofollow` だけである。`Strict-Transport-Security` や `Content-Security-Policy` などのセキュリティヘッダーは、設計上の方針としては付ける想定だが、現状は設定していない。
 
 ---
 
@@ -522,8 +276,8 @@ Referrer-Policy: strict-origin-when-cross-origin
 - S3バケット: `codec-converter-storage-{env}`
 - DynamoDBテーブル: `codec-converter-jobs-{env}`
 - Lambda関数: `codec-converter-{env}`
-- Batchジョブ定義: `codec-converter-job-{env}`
-- Batchジョブキュー: `codec-converter-queue-{env}`
+- Batchジョブ定義: `nagiyu-codec-converter-{env}-{サイズ}`
+- Batchジョブキュー: `nagiyu-codec-converter-{env}`
 - CloudFrontドメイン:
   - dev: `codec-converter.dev.{domain}` (例: `codec-converter.dev.example.com`)
   - prod: `codec-converter.{domain}` (例: `codec-converter.example.com`)
@@ -556,50 +310,7 @@ Referrer-Policy: strict-origin-when-cross-origin
 
 ### テスト戦略
 
-#### テストデバイス構成
-
-Codec Converterは**PCターゲット**のため、以下のデバイス構成を採用:
-
-- **chromium-desktop**: 1920x1080（デスクトップPC環境）
-
-**注**: 本プラットフォームの標準テスト戦略ではスマホファースト（chromium-mobile優先）を推奨していますが、Codec Converterは大容量ファイルを扱うサービス特性上、PC環境のみを対象とします。
-
-#### E2Eテストシナリオ（最小構成）
-
-**シナリオ1: 正常系（H.264変換）**
-
-1. トップ画面にアクセス
-2. 50MBのMP4ファイルをドラッグ&ドロップ
-3. 出力コーデック「H.264」を選択
-4. 「変換開始」ボタンをクリック
-5. ジョブ詳細画面に遷移し、ジョブIDが表示される
-6. ステータスが「PENDING」と表示される
-7. 「ステータス確認」ボタンをクリック
-8. Batch Workerが起動後、ステータスが「PROCESSING」に変わる（モック環境では即座に「COMPLETED」に変更）
-9. 「ダウンロード」ボタンが表示される
-10. ダウンロードボタンをクリックし、ファイルがダウンロードされる
-
-**シナリオ2: 異常系（ファイルサイズ超過）**
-
-1. トップ画面にアクセス
-2. 600MBのMP4ファイルを選択
-3. エラーメッセージ「ファイルサイズは500MB以下である必要があります」が表示される
-4. 「変換開始」ボタンが非活性のまま
-
-**シナリオ3: 異常系（不正なファイル形式）**
-
-1. トップ画面にアクセス
-2. MP4以外のファイル（例: test.txt）を選択
-3. エラーメッセージ「MP4ファイルのみアップロード可能です」が表示される
-4. 「変換開始」ボタンが非活性のまま
-
-#### ユニットテストカバレッジ目標
-
-- **ビジネスロジック** (`lib/`): 80%以上
-  - Parser/Formatter: バリデーション、形式変換ロジック
-  - AWS SDK ラッパー関数 (S3, DynamoDB, Batch)
-  - エラーハンドリング関数
-- **UI層** (`components/`, `app/`): E2Eテストで補完（カバレッジ目標なし）
+テストデバイス構成・E2E シナリオ・カバレッジ目標は[テスト仕様書](./testing.md)を参照する。
 
 ### 共通ライブラリのビルド順序
 
@@ -681,23 +392,15 @@ Codec Converterは**PCターゲット**のため、以下のデバイス構成�
 | ----------------------------- | --------------------------------- | ----------------------------- |
 | `DYNAMODB_TABLE_NAME`         | DynamoDBテーブル名                | `codec-converter-jobs-dev`    |
 | `S3_BUCKET`                   | S3バケット名                      | `codec-converter-storage-dev` |
-| `BATCH_JOB_QUEUE`             | Batchジョブキュー名               | `codec-converter-queue-dev`   |
-| `BATCH_JOB_DEFINITION_PREFIX` | Batchジョブ定義名のプレフィックス | `codec-converter-dev`         |
+| `BATCH_JOB_QUEUE`             | Batchジョブキュー名               | `nagiyu-codec-converter-dev`  |
+| `BATCH_JOB_DEFINITION_PREFIX` | Batchジョブ定義名のプレフィックス | `nagiyu-codec-converter-dev`  |
 | `AWS_REGION`                  | AWSリージョン                     | `us-east-1`                   |
 
 **注**: Phase 2 で `BATCH_JOB_DEFINITION_PREFIX` に変更。アプリケーションはこのプレフィックスに `-small`, `-medium`, `-large`, `-xlarge` を付加してジョブ定義を選択します。
 
 #### Batch Worker環境変数
 
-起動ごとに変わる値だけを `containerOverrides` で渡す。名前と検証は `core` の `batch-job-input` を web と batch で共有する。テーブル名・バケット名・リージョンはジョブ定義の environment が持ち、起動時には渡さない。
-
-| 環境変数              | 渡し方                   | 説明                | 例                                     |
-| --------------------- | ------------------------ | ------------------- | -------------------------------------- |
-| `JOB_ID`              | `containerOverrides`     | ジョブID（UUID v4） | `550e8400-e29b-41d4-a716-446655440000` |
-| `OUTPUT_CODEC`        | `containerOverrides`     | 出力コーデック      | `h264` / `vp9` / `av1`                 |
-| `DYNAMODB_TABLE_NAME` | ジョブ定義の environment | DynamoDBテーブル名  | `codec-converter-jobs-dev`             |
-| `S3_BUCKET`           | ジョブ定義の environment | S3バケット名        | `codec-converter-storage-dev`          |
-| `AWS_REGION`          | ジョブ定義の environment | AWSリージョン       | `us-east-1`                            |
+起動ごとに変わる値だけを `containerOverrides` で渡し、テーブル名・バケット名・リージョンはジョブ定義の environment が持つ。名前と検証は `core` の `batch-job-input` を web と batch で共有する。各変数の中身は[変換バッチ](../../specs/codec-converter/batch/convert.md)を参照する。
 
 ### デプロイ手順とロールバック
 
@@ -834,8 +537,7 @@ Lambda関数は以前のバージョンへ即座にロールバック可能:
 
 ### 変換処理（AWS Batch）
 
-- 同時実行ジョブ数: 3（Phase 1）
-- Compute Environmentの最大vCPU: 6（3ジョブ × 2vCPU）
+- 同時に動かせる量は、Compute Environment の最大 vCPU (16) で決まる。ジョブ数そのものは制御しない
 - キューに蓄積されたジョブは順次処理
 
 **将来の拡張**:

@@ -1,6 +1,6 @@
 {
   "name": "@nagiyu/quick-clip-web",
-  "version": "1.3.6",
+  "version": "2.0.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -28,6 +28,7 @@
     "@nagiyu/common": "*",
     "@nagiyu/nextjs": "*",
     "@nagiyu/quick-clip-core": "*",
-    "@nagiyu/ui": "*"
+    "@nagiyu/ui": "*",
+    "next-auth": "^5.0.0-beta.32"
   }
 }

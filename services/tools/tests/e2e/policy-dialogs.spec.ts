@@ -82,8 +82,8 @@ test.describe('Privacy Policy Dialog', () => {
     // Verify that we scrolled (new position should be greater than initial)
     expect(newScrollTop).toBeGreaterThan(initialScrollTop);
 
-    // Verify that the last section (第14条「お問い合わせ窓口」) is now visible - updated from 10 to 14 after adding AdSense sections
-    const lastSection = page.getByText('第14条（お問い合わせ窓口）');
+    // 最後の条 (お問い合わせ窓口) までスクロールできることを確かめる
+    const lastSection = page.getByText('第15条（お問い合わせ窓口）');
     await expect(lastSection).toBeVisible();
   });
 

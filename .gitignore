@@ -81,3 +81,7 @@ infra/**/*.d.ts
 
 # Yarn (このプロジェクトはnpmを使用)
 yarn.lock
+
+# docs サイト (VitePress)
+docs-site/.vitepress/dist/
+docs-site/.vitepress/cache/

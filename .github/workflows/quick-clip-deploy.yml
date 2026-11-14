@@ -57,8 +57,6 @@ jobs:
 
       - name: Setup Node.js and install dependencies
         uses: ./.github/actions/setup-node
-        with:
-          node-version: '24'
 
       - name: Setup deployment environment
         id: setup-environment
@@ -347,8 +345,6 @@ jobs:
 
       - name: Setup Node.js and install dependencies
         uses: ./.github/actions/setup-node
-        with:
-          node-version: '24'
 
       - name: Build common infrastructure package
         run: npm run build --workspace=@nagiyu/infra-common
@@ -367,6 +363,7 @@ jobs:
         with:
           secret-ids: |
             OPENAI_API_KEY,nagiyu-quick-clip-openai-api-key-${{ needs.infrastructure-ecr.outputs.environment }}
+            NEXTAUTH_SECRET,nagiyu-auth-nextauth-secret-${{ needs.infrastructure-ecr.outputs.environment }}
           parse-json-secrets: true
 
       - name: Deploy Application Stacks
@@ -375,6 +372,7 @@ jobs:
           STACK_SUFFIX: ${{ needs.infrastructure-ecr.outputs.stack-suffix }}
           APP_VERSION: ${{ needs.build-web.outputs.app-version }}
           OPENAI_API_KEY: ${{ env.OPENAI_API_KEY_APIKEY }}
+          SECRET_VALUE: ${{ env.NEXTAUTH_SECRET }}
         run: |
           npm run cdk --workspace=@nagiyu/infra-quick-clip -- deploy \
             NagiyuQuickClipStorage${STACK_SUFFIX} \
@@ -385,6 +383,7 @@ jobs:
             --context env="$ENVIRONMENT" \
             --context appVersion="$APP_VERSION" \
             --context openAiApiKey="$OPENAI_API_KEY" \
+            --context nextAuthSecret="${SECRET_VALUE}" \
             --require-approval never
 
       - name: Resolve Lambda image URIs

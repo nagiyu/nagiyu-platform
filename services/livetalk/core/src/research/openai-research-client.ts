@@ -12,6 +12,7 @@ import type { IResearchClient, ResearchResult } from './types.js';
 import { withLLMRetry, withLLMTimeout } from '../lib/llm-retry.js';
 import { LLM_MODELS, LLM_REASONING_EFFORT } from '../llm-client/models.js';
 import { buildResearchPrompt } from './research.prompt.js';
+import { countWebSearchCalls, logWebSearchUsage } from './web-search-usage.js';
 
 const RESEARCH_MODEL = LLM_MODELS.research;
 /**
@@ -90,19 +91,31 @@ export class OpenAIResearchClient implements IResearchClient {
       )
     );
 
+    const outcome = resolveOpenAIResponsesOutcome(response.status);
     logLLMUsage({
       service: LLM_USAGE_SERVICE,
       purpose: LLM_USAGE_PURPOSE,
       model: this.model,
       reasoningEffort: this.effort ?? undefined,
-      outcome: resolveOpenAIResponsesOutcome(response.status),
+      outcome,
       ...extractOpenAIResponsesUsage(response.usage),
+    });
+
+    // 応答が不正でも検索は課金済みのため、throw より前に数えて記録する。
+    const webSearchCalls = countWebSearchCalls(response.output);
+    logWebSearchUsage({
+      service: LLM_USAGE_SERVICE,
+      purpose: LLM_USAGE_PURPOSE,
+      model: this.model,
+      reasoningEffort: this.effort ?? undefined,
+      outcome,
+      counts: webSearchCalls,
     });
 
     if (!response.output_parsed) {
       throw new Error(RESEARCH_ERROR_MESSAGES.INVALID_RESPONSE);
     }
 
-    return response.output_parsed;
+    return { ...response.output_parsed, webSearchCalls };
   }
 }

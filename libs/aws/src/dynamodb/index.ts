@@ -94,6 +94,21 @@ export {
   type AttributeProjection,
 } from './in-memory/single-table-store.js';
 
+// 回数カウンター
+export type {
+  UsageCounter,
+  UsageCounterKey,
+  UsageCounterIncrementInput,
+} from './counter/usage-counter.interface.js';
+export { tryIncrementInOrder } from './counter/try-increment-in-order.js';
+export type {
+  UsageCounterStep,
+  TryIncrementInOrderResult,
+  TryIncrementInOrderOptions,
+} from './counter/try-increment-in-order.js';
+export { DynamoDBUsageCounter } from './counter/dynamodb-usage-counter.js';
+export { InMemoryUsageCounter } from './counter/in-memory-usage-counter.js';
+
 // ページネーション
 export {
   queryPages,

@@ -1,0 +1,16 @@
+{
+  "extends": "../configs/tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "DOM"],
+    "types": ["jest", "node"],
+    "noEmit": true
+  },
+  "include": [
+    "src/**/*",
+    "tests/**/*",
+    "capture/**/*",
+    ".vitepress/**/*.ts",
+    ".vitepress/**/*.mts"
+  ],
+  "exclude": ["node_modules", ".vitepress/dist", ".vitepress/cache"]
+}

@@ -260,7 +260,7 @@ describe('detectCriticalTopic - エラーハンドリング', () => {
     };
 
     const result = await detectCriticalTopic(makeInput({ llmClient }));
-    expect(result).toEqual({ isCritical: false, topicId: null, factId: null });
+    expect(result).toEqual({ isCritical: false, topicId: null, factId: null, eventDate: null });
   });
 });
 
@@ -314,7 +314,7 @@ describe('detectCriticalTopic - 複数 Topic', () => {
 
   it('candidates が空 → 非 critical', async () => {
     const result = await detectCriticalTopic(makeInput({ candidates: [] }));
-    expect(result).toEqual({ isCritical: false, topicId: null, factId: null });
+    expect(result).toEqual({ isCritical: false, topicId: null, factId: null, eventDate: null });
   });
 
   it('Topic 配下の webFacts が空 → LLM を呼ばず非 critical', async () => {
@@ -390,5 +390,90 @@ describe('detectCriticalTopic - 複数 Topic', () => {
     expect(result.factId).toBeNull();
     // LLM 呼び出しは上位 3 件分のみ（ESCALATION_RECENT_WEB_FACTS_LIMIT）
     expect(chatStructured).toHaveBeenCalledTimes(3);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 送り済みの重要通知の除外
+// ---------------------------------------------------------------------------
+
+describe('detectCriticalTopic - 送り済みの除外', () => {
+  it('結果に判定した予定の日付が含まれる', async () => {
+    const result = await detectCriticalTopic(makeInput());
+    expect(result.eventDate).toBe(NEAR_FUTURE_DATE);
+  });
+
+  it('翌日に同じ話題・同じ予定は送らない', async () => {
+    const result = await detectCriticalTopic(
+      makeInput({ sentCriticals: [{ topicId: 't1', eventDate: NEAR_FUTURE_DATE }] })
+    );
+    expect(result).toEqual({ isCritical: false, topicId: null, factId: null, eventDate: null });
+  });
+
+  it('予定の日付が変わったら新しい予定として送る', async () => {
+    const result = await detectCriticalTopic(
+      makeInput({ sentCriticals: [{ topicId: 't1', eventDate: '2026-06-10' }] })
+    );
+    expect(result.isCritical).toBe(true);
+    expect(result.eventDate).toBe(NEAR_FUTURE_DATE);
+  });
+
+  it('送り済みの話題を外して次の候補を送る', async () => {
+    const result = await detectCriticalTopic(
+      makeInput({
+        candidates: [
+          makeCandidate({ topicId: 't1' }, [makeWebFact({ topicId: 't1', factId: 'f1' })]),
+          makeCandidate({ topicId: 't2' }, [makeWebFact({ topicId: 't2', factId: 'f2' })]),
+        ],
+        sentCriticals: [{ topicId: 't1', eventDate: NEAR_FUTURE_DATE }],
+      })
+    );
+    expect(result.topicId).toBe('t2');
+    expect(result.factId).toBe('f2');
+  });
+
+  it('同じ話題の別の予定を持つ fact があればそちらを送る', async () => {
+    const llmClient = makeLlmClient(null);
+    (llmClient.chatStructured as jest.Mock)
+      .mockResolvedValueOnce({ eventDate: NEAR_FUTURE_DATE, reason: '' })
+      .mockResolvedValueOnce({ eventDate: '2026-06-15', reason: '' });
+    const result = await detectCriticalTopic(
+      makeInput({
+        candidates: [
+          makeCandidate({}, [
+            makeWebFact({ factId: 'f1', observedAt: 2000 }),
+            makeWebFact({ factId: 'f2', observedAt: 1000 }),
+          ]),
+        ],
+        llmClient,
+        sentCriticals: [{ topicId: 't1', eventDate: NEAR_FUTURE_DATE }],
+      })
+    );
+    expect(result.factId).toBe('f2');
+    expect(result.eventDate).toBe('2026-06-15');
+  });
+
+  it('予定の日付が記録に無い古い通知の話題は、LLM を呼ばずに外す', async () => {
+    const llmClient = makeLlmClient(NEAR_FUTURE_DATE);
+    const result = await detectCriticalTopic(
+      makeInput({ llmClient, sentCriticals: [{ topicId: 't1' }] })
+    );
+    expect(result.isCritical).toBe(false);
+    expect(llmClient.chatStructured).not.toHaveBeenCalled();
+  });
+
+  it('古い通知と日付つきの通知が混在しても、話題ごと外す', async () => {
+    const mixed = [{ topicId: 't1' }, { topicId: 't1', eventDate: '2026-06-10' }];
+    const first = await detectCriticalTopic(makeInput({ sentCriticals: mixed }));
+    const second = await detectCriticalTopic(makeInput({ sentCriticals: [...mixed].reverse() }));
+    expect(first.isCritical).toBe(false);
+    expect(second.isCritical).toBe(false);
+  });
+
+  it('別の話題の送り済みは影響しない', async () => {
+    const result = await detectCriticalTopic(
+      makeInput({ sentCriticals: [{ topicId: 'other', eventDate: NEAR_FUTURE_DATE }] })
+    );
+    expect(result.isCritical).toBe(true);
   });
 });

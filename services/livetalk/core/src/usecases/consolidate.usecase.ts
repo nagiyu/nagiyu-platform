@@ -5,18 +5,21 @@ import {
   TOPIC_ROUTING_MAX_CANDIDATES,
   CONSOLIDATION_ROUTING_TEXT_MAX_CHARS,
   WEBFACT_REVIEW_INTERVAL_MS,
+  WEB_FACT_TOPIC_LIMIT,
+  WEB_FACT_STABLE_LIMIT,
 } from '../constants.js';
 import { cosineSimilarity } from '../memory/embedding.js';
 import { emitBatchMetricsLog, emitBatchMetricsEMF } from '../observability/metrics.js';
 import { defaultUlidFactory, type UlidFactory } from '../lib/ulid.js';
 import { formatJstMonthDay } from '../lib/format-date.js';
+import { selectRecentWebFacts } from '../knowledge/recent-web-facts.js';
 import { ConsolidationSchema } from '../llm-client/schemas/consolidation.schema.js';
 import { buildConsolidatePrompt } from './consolidate.prompt.js';
 import type { WebRawEntity } from '../entities/webraw.entity.js';
 import type { IEmbeddingClient, ILLMClient } from '../llm-client/types.js';
 import type { ConsolidationRaw } from '../llm-client/schemas/consolidation.schema.js';
 import type { TopicEntity } from '../entities/topic.entity.js';
-import type { WebFactVolatility } from '../entities/web-fact.entity.js';
+import type { WebFactEntity, WebFactVolatility } from '../entities/web-fact.entity.js';
 import type { TopicRepository } from '../repositories/topic.repository.interface.js';
 import type { MessageRepository } from '../repositories/message.repository.interface.js';
 import type { WebRawRepository } from '../repositories/webraw.repository.interface.js';
@@ -166,7 +169,34 @@ function countSelfFacts(entries: TopicResult[]): number {
 }
 
 /**
+ * 統合先 Topic の既存 WEB fact のうち、LLM に番号付きで見せたもの (番号 → 事実)。
+ * この Map に載っている番号だけが、そのグループの replace / duplicate の有効な参照先になる。
+ */
+type ExistingFactRefs = ReadonlyMap<number, WebFactEntity>;
+
+/** WEB fact の適用結果の件数。 */
+interface WebFactCounts {
+  added: number;
+  replaced: number;
+  duplicated: number;
+}
+
+/**
+ * LLM が返した番号を、統合先 Topic の既存の事実を指す有効な番号だけに絞る。
+ * 範囲外・非整数・別 Topic の事実を指す番号 (LLM の捏造・取り違え) は無視する。重複は畳む。
+ */
+function filterValidFactIndices(indices: number[], refs: ExistingFactRefs): number[] {
+  return [...new Set(indices.filter((i) => Number.isInteger(i) && refs.has(i)))];
+}
+
+/**
  * 1 Topic 分の selfFacts/webFacts をグループ内の全エントリ分連結して追記する。
+ *
+ * webFacts は既存の事実との見比べ結果 (add / replace / duplicate) に従って適用する。
+ * 有効な番号が残らない replace / duplicate は add として扱う (溜まりすぎは上限が受け止める)。
+ * 適用順は「作成 → 重複の観測日更新 → 古い事実の削除」で、途中で落ちても事実が失われず、
+ * 多い側に倒れる。同じ既存の事実を複数のエントリが指しても、削除・更新はそれぞれ 1 回だけ行い、
+ * 削除予定の事実は重複の更新対象から外す。
  */
 async function appendTopicFacts(
   topicRepo: TopicRepository,
@@ -174,10 +204,17 @@ async function appendTopicFacts(
   characterId: string,
   topicId: string,
   entries: TopicResult[],
-  readAt: number
-): Promise<{ selfFactCount: number; webFactCount: number }> {
+  readAt: number,
+  existingFacts: ExistingFactRefs
+): Promise<{ selfFactCount: number } & WebFactCounts> {
   let selfFactCount = 0;
-  let webFactCount = 0;
+
+  type Planned = {
+    wf: TopicResult['webFacts'][number];
+    action: 'add' | 'replace' | 'duplicate';
+    indices: number[];
+  };
+  const planned: Planned[] = [];
 
   for (const entry of entries) {
     for (const sf of entry.selfFacts) {
@@ -192,21 +229,110 @@ async function appendTopicFacts(
     }
 
     for (const wf of entry.webFacts) {
-      await topicRepo.putWebFact({
-        userId,
-        characterId,
-        topicId,
-        text: wf.text,
-        sourceUrls: wf.sourceUrls,
-        volatility: wf.volatility,
-        observedAt: readAt,
-        nextReview: computeNextReview(wf.volatility, readAt),
+      const indices =
+        wf.action === 'add' ? [] : filterValidFactIndices(wf.existingFactIndices, existingFacts);
+      planned.push({
+        wf,
+        action: indices.length === 0 ? 'add' : wf.action,
+        indices,
       });
-      webFactCount++;
     }
   }
 
-  return { selfFactCount, webFactCount };
+  // 置き換えで消える事実は、他のエントリの duplicate の更新対象から外す
+  const deleteIndices = new Set<number>(
+    planned.filter((p) => p.action === 'replace').flatMap((p) => p.indices)
+  );
+  for (const p of planned) {
+    if (p.action !== 'duplicate') continue;
+    p.indices = p.indices.filter((i) => !deleteIndices.has(i));
+    if (p.indices.length === 0) p.action = 'add';
+  }
+
+  const counts: WebFactCounts = { added: 0, replaced: 0, duplicated: 0 };
+  const touchIndices = new Set<number>();
+
+  for (const p of planned) {
+    if (p.action === 'duplicate') {
+      counts.duplicated++;
+      p.indices.forEach((i) => touchIndices.add(i));
+      continue;
+    }
+    await topicRepo.putWebFact({
+      userId,
+      characterId,
+      topicId,
+      text: p.wf.text,
+      sourceUrls: p.wf.sourceUrls,
+      volatility: p.wf.volatility,
+      observedAt: readAt,
+      nextReview: computeNextReview(p.wf.volatility, readAt),
+    });
+    if (p.action === 'replace') counts.replaced++;
+    else counts.added++;
+  }
+
+  for (const i of touchIndices) {
+    const fact = existingFacts.get(i);
+    if (!fact) continue;
+    const nextReview = computeNextReview(fact.volatility, readAt);
+    await topicRepo.updateWebFactObservation(
+      { userId, characterId, topicId, factId: fact.factId },
+      { observedAt: readAt, ...(nextReview !== undefined ? { nextReview } : {}) }
+    );
+  }
+
+  for (const i of deleteIndices) {
+    const fact = existingFacts.get(i);
+    if (!fact) continue;
+    await topicRepo.deleteWebFact({ userId, characterId, topicId, factId: fact.factId });
+  }
+
+  return { selfFactCount, ...counts };
+}
+
+/**
+ * Topic の WEB fact を揮発性の区分ごとの上限まで削る。
+ * stable 以外 (low / medium / high) は `WEB_FACT_TOPIC_LIMIT` 件、stable は
+ * `WEB_FACT_STABLE_LIMIT` 件まで。超えた分を区分ごとに観測日の古い順 (同値は factId の小さい順) に消す。
+ * 区分を分けるのは、stable で埋まった Topic でも新しく足した stable 以外の事実が消えないようにするため。
+ *
+ * @returns 削除した件数
+ */
+async function trimWebFacts(
+  topicRepo: TopicRepository,
+  userId: string,
+  characterId: string,
+  topicId: string
+): Promise<number> {
+  const facts = await topicRepo.listWebFacts(userId, characterId, topicId);
+
+  const oldestFirst = (a: WebFactEntity, b: WebFactEntity): number =>
+    a.observedAt !== b.observedAt
+      ? a.observedAt - b.observedAt
+      : a.factId < b.factId
+        ? -1
+        : a.factId > b.factId
+          ? 1
+          : 0;
+  const overflow = (group: WebFactEntity[], limit: number): WebFactEntity[] =>
+    group.length > limit ? [...group].sort(oldestFirst).slice(0, group.length - limit) : [];
+
+  const victims = [
+    ...overflow(
+      facts.filter((f) => f.volatility !== 'stable'),
+      WEB_FACT_TOPIC_LIMIT
+    ),
+    ...overflow(
+      facts.filter((f) => f.volatility === 'stable'),
+      WEB_FACT_STABLE_LIMIT
+    ),
+  ];
+
+  for (const fact of victims) {
+    await topicRepo.deleteWebFact({ userId, characterId, topicId, factId: fact.factId });
+  }
+  return victims.length;
 }
 
 /**
@@ -218,11 +344,14 @@ async function appendTopicFacts(
  * 2. カーソル以降の Message / WebRaw を listSince で取得。両方 0 件なら 'skipped'
  * 3. 新規データ（会話 + Web 生データ）から「ルーティング用テキスト」を作り、埋め込みで
  *    既存 Topic ヘッダ（GSI3 経由で全件列挙）との cosine similarity を計算し、閾値以上・
- *    上位 N 件を候補 Topic として LLM プロンプトに渡す
+ *    上位 N 件を候補 Topic として LLM プロンプトに渡す。候補 Topic の既存 WEB fact は
+ *    新しい順に `WEB_FACT_TOPIC_LIMIT` 件まで、番号付きで一緒に渡す
  * 4. LLM が話題ごとに「既存 Topic への merge」または「新規作成」を判断し、
  *    canonicalSummary・selfFacts・webFacts を返す
- * 5. 各 Topic について META（put）→ SELF/WEB fact（append）の順で書き込む
- * 6. 全 Topic の適用が成功したら、カーソルをストリーム別・条件付きで前進させる
+ * 5. 各 Topic について META (put) → SELF/WEB fact (append) の順で書き込む。新しい WEB fact は
+ *    統合先 Topic の既存の事実と見比べた判断 (add / replace / duplicate) に従って適用する
+ * 6. 触れた Topic の WEB fact を、揮発性の区分ごとの上限まで古い順に削る (best-effort)
+ * 7. 全 Topic の適用が成功したら、カーソルをストリーム別・条件付きで前進させる
  *
  * 書き込み順序の意図（at-least-once 保証、`compressConversation` と同じ設計）：
  * META・fact の書き込みをカーソル前進（cursorRepo.put）より先に行う。
@@ -309,14 +438,43 @@ export async function consolidate(
   const requestWebRaws = buildRequestWebRaws(webraws);
   const requestIndexByRawId = new Map<string, number>(requestWebRaws.map((w, i) => [w.rawId, i]));
 
-  const promptMessages = buildConsolidatePrompt({
-    characterName,
-    candidateTopics: scored.map((s) => ({
+  // 候補 Topic ごとの既存 WEB fact を新しい側に絞って読み、プロンプト全体で通しの番号を振る
+  // (index 参照方式。LLM には番号だけを返させ、実体は必ずこちらの配列から引く)。
+  const candidateFacts = await Promise.all(
+    scored.map(async (s) =>
+      selectRecentWebFacts(
+        await topicRepo.listWebFacts(userId, characterId, s.header.topicId),
+        WEB_FACT_TOPIC_LIMIT
+      )
+    )
+  );
+  const existingFactRefsByTopic = new Map<string, Map<number, WebFactEntity>>();
+  let nextFactIndex = 0;
+  const candidateTopics = scored.map((s, i) => {
+    const refs = new Map<number, WebFactEntity>();
+    const existingWebFacts = candidateFacts[i].map((fact) => {
+      const index = nextFactIndex++;
+      refs.set(index, fact);
+      return {
+        index,
+        text: fact.text,
+        volatility: fact.volatility,
+        observedAtLabel: formatJstMonthDay(fact.observedAt),
+      };
+    });
+    existingFactRefsByTopic.set(s.header.topicId, refs);
+    return {
       topicId: s.header.topicId,
       subject: s.header.subject,
       category: s.header.category,
       canonicalSummary: s.header.canonicalSummary,
-    })),
+      existingWebFacts,
+    };
+  });
+
+  const promptMessages = buildConsolidatePrompt({
+    characterName,
+    candidateTopics,
     newMessages: messages.map((m) => ({ role: m.role, text: m.text })),
     webRaws: webraws.map((w) => ({
       query: w.query,
@@ -342,6 +500,10 @@ export async function consolidate(
   let updatedTopicCount = 0;
   let selfFactCount = 0;
   let webFactCount = 0;
+  let replacedWebFactCount = 0;
+  let duplicateWebFactCount = 0;
+  // 上限の適用対象にするため、META を書いた Topic (新規・既存とも) を覚える
+  const touchedTopicIds = new Set<string>();
 
   const groups = groupTopicResults(result.topics, candidateMap);
 
@@ -376,10 +538,14 @@ export async function consolidate(
         characterId,
         topicId,
         [topicResult],
-        readAt
+        readAt,
+        new Map()
       );
+      touchedTopicIds.add(topicId);
       selfFactCount += counts.selfFactCount;
-      webFactCount += counts.webFactCount;
+      webFactCount += counts.added + counts.replaced;
+      replacedWebFactCount += counts.replaced;
+      duplicateWebFactCount += counts.duplicated;
       continue;
     }
 
@@ -449,10 +615,32 @@ export async function consolidate(
       characterId,
       topicId,
       group.entries,
-      readAt
+      readAt,
+      // 番号は統合先 Topic の事実だけを指せる。META が消えていて新規扱いにした場合は参照先が無い
+      current ? (existingFactRefsByTopic.get(group.topicId) ?? new Map()) : new Map()
     );
+    touchedTopicIds.add(topicId);
     selfFactCount += counts.selfFactCount;
-    webFactCount += counts.webFactCount;
+    webFactCount += counts.added + counts.replaced;
+    replacedWebFactCount += counts.replaced;
+    duplicateWebFactCount += counts.duplicated;
+  }
+
+  // ---- 上限の適用 (その実行で触れた Topic すべて。溜まりきった Topic もここで減る) ----
+  let trimmedWebFactCount = 0;
+  for (const topicId of touchedTopicIds) {
+    // 上限の適用は best-effort。ここで落として例外を伝えると、カーソルが進まず同じ入力で
+    // LLM の集約をやり直すことになる。trim は冪等で、次にその Topic に触れたとき追いつく。
+    try {
+      trimmedWebFactCount += await trimWebFacts(topicRepo, userId, characterId, topicId);
+    } catch (err) {
+      logger.warn('[consolidate] WEB fact の上限適用に失敗しました (次回の集約で再試行されます)', {
+        userId,
+        characterId,
+        topicId,
+        err,
+      });
+    }
   }
 
   // ---- カーソル前進（ストリーム別・条件付き。空ストリームは据え置き）----
@@ -494,6 +682,10 @@ export async function consolidate(
     updatedTopicCount,
     selfFactCount,
     webFactCount,
+    addedWebFactCount: webFactCount - replacedWebFactCount,
+    replacedWebFactCount,
+    duplicateWebFactCount,
+    trimmedWebFactCount,
   });
 
   return 'consolidated';

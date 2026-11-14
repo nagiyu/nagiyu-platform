@@ -1,5 +1,7 @@
 # niconico-mylist-assistant アーキテクチャ
 
+この文書は、なぜそう設計したか (決定、根拠、捨てた案) を書く。今どう動くかは[仕様カード](../../specs/README.md)にある。
+
 ## 1. システム概要
 
 niconico-mylist-assistantは、ニコニコ動画のマイリスト登録作業を自動化するサーバーレスアプリケーションです。
@@ -20,6 +22,7 @@ niconico-mylist-assistantは、ニコニコ動画のマイリスト登録作業�
 - 最大100個の動画を登録する場合、各動画間に2秒の待機時間を設けると最低200秒（約3.3分）が必要
 - ネットワーク遅延やリトライを考慮すると、Lambdaの15分制限では不十分
 - AWS Batchは時間制限がなく、Docker コンテナで Playwright を実行可能
+- バッチの今の動きは[マイリスト登録バッチ](../../specs/niconico-mylist-assistant/batch/mylist-register.md)を参照
 
 ### 2.2 3パッケージ構成の設計思想
 
@@ -28,14 +31,13 @@ niconico-mylist-assistantは、ニコニコ動画のマイリスト登録作業�
 #### core パッケージ
 
 - **完全フレームワーク非依存**のTypeScriptライブラリ
-- Pure Business Logic Functions（`libs/`）: 副作用のない計算ロジック
-- Repository Pattern（`repositories/`）: データアクセス層の抽象化
-- Mapper Pattern（`mappers/`）: Entity ↔ DynamoDB Item 変換
-- Services（`services/`）: 外部API連携、Playwright自動化、暗号化
+- 構成は `db`・`repositories`・`mappers`・`entities`・`job-input`・`niconico`・`types`。Playwright による自動化は core ではなく batch にある
+- Repository Pattern（`repositories/`）でデータアクセス層を抽象化し、Mapper Pattern（`mappers/`）で Entity ↔ DynamoDB Item を変換する
+- ニコニコ動画への問い合わせとセッションの扱いは `niconico/` に置く
 
 **設計原則**:
 
-- 副作用のないビジネスロジックは`libs/`に配置し、ユニットテストを重点的に実施
+- 副作用のないビジネスロジックは単体でテストできる形に分け、ユニットテストを重点的に実施
 - Repository InterfaceによりDynamoDB実装とInMemory実装を切り替え可能にし、テスタビリティを確保
 - webとbatchの両方から共通ロジックを再利用
 
@@ -83,22 +85,20 @@ DynamoDBは単一テーブルで以下のエンティティを管理:
 
 ニコニコ動画のマイリスト上限は100件であり、追加登録すると上限を超える可能性がある。そのため、既存の動画を全て削除してから新しい動画を登録する設計とする。
 
-**マイリスト名の自動生成**
-
-ユーザーが指定しない場合、`自動登録 2026/1/16 15:30:45` 形式で自動生成。
-
 **待機時間の厳守**
 
 各動画登録間に**最低2秒**の待機時間を設ける（ニコニコ動画サーバーへの配慮）。
+
+マイリスト名の扱いなど、バッチの今の動きは[マイリスト登録バッチ](../../specs/niconico-mylist-assistant/batch/mylist-register.md)を参照。
 
 ### 2.6 セキュリティ設計
 
 **ニコニコのセッション情報（user_session）の取り扱い**
 
-- 利用者が取得した user_session を AES-256-GCM で暗号化し、ユーザー単位で保存する（パスワードは扱わない・保存しない）
-- 保存したセッション情報は、利用時にバッチへ渡してニコニコ操作に用いる
+- 利用者が取得した user_session を暗号化し、ユーザー単位で保存する（パスワードは扱わない・保存しない）
 - 生のセッション値はログ・レスポンス・クライアントに露出させず、本人のみがアクセスできる
 - 本人専用・最小セキュリティ方針（暗号化・本人スコープ）とする。背景と判断の詳細は「2.13 認証方式：自動ログインから user_session 注入への移行」を参照
+- 暗号化の方式と保存した値の流れは、[ニコニコセッション](../../specs/niconico-mylist-assistant/term/user-session.md)と[セッションの登録から利用まで](../../specs/niconico-mylist-assistant/flow/session-injection.md)を参照
 
 ### 2.7 セレクタ戦略のフォールバック設計
 
@@ -111,13 +111,15 @@ DynamoDBは単一テーブルで以下のエンティティを管理:
 
 いずれかが成功すればOKとし、セレクタは定数化して管理。
 
+この決定のうち、今のバッチは固定のセレクタで操作し、フォールバックは新規作成の確定のクリックの方式だけである。今の挙動は[マイリスト登録バッチ](../../specs/niconico-mylist-assistant/batch/mylist-register.md)を参照。
+
 ### 2.8 動画選択ロジックの責務分離
 
 **フィルタ済み母集団の決定とランダム抽出を分離し、公平性と保守性を両立**
 
 - `listVideosWithSettings` は「フィルタリングとページネーション」を責務とし、`limit` 未指定時はフィルタ後の全件を返す
 - `selectRandomVideos` は「ランダム抽出」を責務とし、必要件数のみを返す
-- マイリスト一括登録APIは `selectRandomVideos` を利用し、フィルタ後の全母集団を対象に抽出する
+- マイリスト一括登録APIは `selectRandomVideos` を利用し、フィルタ後の全母集団を対象に抽出する ([マイリスト登録 API](../../specs/niconico-mylist-assistant/api/mylist-register.md)を参照)
 
 **採用したランダム抽出アルゴリズム**
 
@@ -131,18 +133,17 @@ DynamoDBは単一テーブルで以下のエンティティを管理:
 
 **動画タイトル検索は UI / API / Core の3層で分担し、既存フィルターとアンド条件で統合**
 
-- UI（`VideoList` / `VideoListFilters`）で検索キーワードを管理し、500ms デバウンス後に API を再取得
-- API（`GET /api/videos`）で `search` クエリを受け取り、前後空白をトリムして core に委譲
-- Core（`listVideosWithSettings`）でタイトルの大文字小文字を区別しない部分一致を適用
-- favorite / skip / search はすべてアンド条件で評価し、検索条件変更時は URL の `offset` をリセット
+- UI・API・Core がそれぞれ、キーワードの管理、クエリの受け取り、部分一致の適用を受け持つ
+- favorite / skip / search はすべてアンド条件で評価する
+- この設計では検索キーワードを 500ms デバウンスして再取得するとしていたが、今は検索ボタンかエンターキーで実行する。今の挙動は[動画管理画面](../../specs/niconico-mylist-assistant/screen/videos.md)と[動画 API](../../specs/niconico-mylist-assistant/api/videos.md)を参照
 
 ### 2.10 動画検索の既登録判定アーキテクチャ
 
 **既登録状態の判定はサーバー側で完結し、検索レスポンスに含める**
 
-- 検索 API は各動画に `isRegistered: boolean` フィールドを付与して返す
 - 判定は VideoBasicInfo（全ユーザー共通のグローバルデータ）への登録有無を基準とし、UserVideoSetting（ユーザー固有設定）は判定に使用しない
-- 複数動画の存在確認は一括取得で実施し、検索件数（最大10件）に対して1リクエストで完結する
+- 複数動画の存在確認は一括取得で実施し、検索件数に対して1リクエストで完結する
+- 検索 API の応答は[動画取り込み API](../../specs/niconico-mylist-assistant/api/video-import.md)を参照
 
 ### 2.11 Playwright バージョン管理の運用方針
 
@@ -172,9 +173,9 @@ USER#bob   / VIDEO#sm123  → 残る（orphan）
 
 #### 副作用
 
-- **一覧 API には出ない**: `listVideosWithSettings` は VideoBasicInfo を起点にループするため、VideoBasicInfo が消えた瞬間にその videoId は反復対象から外れる。Bob 視点では一覧から該当動画が消えるだけで、orphan の存在に気付かない。
-- **UI 経由で掃除できない**: GET / PUT settings はどちらも `if (!basicInfo) return 404` で先に弾かれる。DELETE は本人が videoId を直接指定すれば消せるが、UI 上に該当動画への導線が無い。
-- **後の bulk-import でゾンビ蘇生する**: 誰かが同じ videoId を再 import すると VideoBasicInfo が作り直され、Bob の古い UserVideoSetting が `listVideosWithSettings` のマージ対象に復帰する。Bob の一覧に該当動画が「お気に入り」「スキップ」「メモ付き」のまま再出現する。
+- 一覧から消える、後の再取り込みで復活する、といった API の挙動は[動画 API](../../specs/niconico-mylist-assistant/api/videos.md)を参照
+- 一覧は VideoBasicInfo を起点にするため、VideoBasicInfo が消えた時点で Bob 視点では動画が消えるだけで、orphan に気付けない
+- UI には、一覧に出ない動画への導線が無く、UI 経由では掃除できない
 
 #### 将来の対処方針（実施時）
 
@@ -194,8 +195,8 @@ USER#bob   / VIDEO#sm123  → 残る（orphan）
 ログインの自動化をやめ、**利用者がブラウザで正規にログインして得たセッション情報（user_session）を注入して使う**方式へ移行する。
 
 - バッチは自動ログイン・二段階認証の処理を撤去し、保存済みのセッション情報を用いてニコニコ操作のみを行う
-- 利用前にセッションの有効性を判定し、無効なら操作画面で登録・更新を促して操作をブロックする
-- 判定は「有効／無効／判定不能」の3状態で扱い、ニコニコ側の一時的な不調で「判定不能」になった場合は利用者を締め出さない
+- 利用前にセッションの有効性を判定し、無効なら操作画面で登録・更新を促して操作をブロックする。一時的な不調で判定できないときは、利用者を締め出さない
+- 有効性の3状態と流れは、[ニコニコセッション](../../specs/niconico-mylist-assistant/term/user-session.md)と[セッションの登録から利用まで](../../specs/niconico-mylist-assistant/flow/session-injection.md)を参照
 
 **根拠・トレードオフ**
 
@@ -218,7 +219,7 @@ USER#bob   / VIDEO#sm123  → 残る（orphan）
 
 ### 3.2 バックエンド
 
-- Node.js 22 + TypeScript
+- Node.js 26 + TypeScript
 - Next.js API Routes
 
 ### 3.3 インフラ
@@ -245,7 +246,7 @@ USER#bob   / VIDEO#sm123  → 残る（orphan）
 ### 4.2 可用性
 
 - Lambda / Batch の自動スケーリングにより高可用性を確保
-- リトライロジック（最大3回、指数バックオフ）
+- 失敗した動画の登録は、固定の間隔で最大3回再試行する (今の値は[マイリスト登録バッチ](../../specs/niconico-mylist-assistant/batch/mylist-register.md)を参照)
 
 ### 4.3 テスタビリティ
 

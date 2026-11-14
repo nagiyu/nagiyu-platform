@@ -1,0 +1,95 @@
+name: Verify - docs のリンク
+
+# docs/ だけを公開する先 (GitHub Pages など) でもリンクが壊れないよう、
+# docs/ の中で閉じていること (docs/ の外へのリンクがなく、リンク切れもないこと) を検査する。
+# リンク検査は依存を足さずランナーの python3 で動かすため、setup-python は使わない。
+# サイトのビルドは、docs/ の書き方が VitePress で通ること (壊れたリンク、Vue と衝突する記法) を確かめる。
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - master
+      - 'integration/**'
+    paths:
+      - 'docs/**'
+      - 'docs-site/**'
+      - '.node-version'
+      - '.github/workflows/scripts/check-doc-links.py'
+      - '.github/workflows/docs-verify.yml'
+
+env:
+  SERVICE_DISPLAY_NAME: Docs
+
+# 同じ PR の古いコミットに対する検証は不要なため、新しい run が来たら打ち切る。
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  link-check:
+    name: リンク検査
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: docs/ の相対リンクを検査
+        run: python3 .github/workflows/scripts/check-doc-links.py
+
+  site-build:
+    name: サイトのビルド
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      # テストやビルドの道具 (jest など) はルートにあるため、ルートと docs-site だけを入れる
+      - name: 依存をインストール
+        run: npm ci --workspace=docs-site --include-workspace-root
+
+      - name: サイトのテスト
+        run: npm run test -w docs-site
+
+      - name: サイトをビルド
+        run: npm run build -w docs-site
+
+  report:
+    name: Report Results to PR
+    runs-on: ubuntu-latest
+    if: always()
+    needs: [link-check, site-build]
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Create PR Comment
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const results = {
+              'リンク検査': '${{ needs.link-check.result }}',
+              'サイトのビルド': '${{ needs.site-build.result }}',
+            };
+            const statusEmoji = { 'success': '✅', 'failure': '❌', 'cancelled': '⚠️', 'skipped': '⏭️' };
+            const allSuccess = Object.values(results).every(r => r === 'success');
+            const header = allSuccess
+              ? '## ✅ [${{ env.SERVICE_DISPLAY_NAME }}] Verification Passed'
+              : '## ❌ [${{ env.SERVICE_DISPLAY_NAME }}] Verification Failed';
+            let body = `${header}\n\n`;
+            body += '| Job | Status |\n';
+            body += '|-----|--------|\n';
+            for (const [job, result] of Object.entries(results)) {
+              const emoji = statusEmoji[result] || '❓';
+              body += `| ${job} | ${emoji} ${result} |\n`;
+            }
+            if (!allSuccess) {
+              body += '\n> docs/ の外へのリンクか、リンク切れ、またはサイトのビルドの失敗があります。docs/ の外のファイルはリンクにせずコード表記のパスで書き、リンク切れは直してください。詳細はワークフローのログを参照してください。\n';
+            }
+            body += `\n[View workflow run](${context.payload.repository.html_url}/actions/runs/${context.runId})`;
+            github.rest.issues.createComment({ issue_number: context.issue.number, owner: context.repo.owner, repo: context.repo.repo, body: body });

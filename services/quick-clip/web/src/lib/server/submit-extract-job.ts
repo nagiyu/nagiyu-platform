@@ -13,6 +13,8 @@ export type SubmitExtractJobInput = {
   durationSec?: number;
   /** 未指定時は既定の感情フィルターになる。 */
   emotionFilter?: EmotionFilter;
+  /** AI 解析 (文字起こし + 感情分析) を行うか。未指定時は行う。 */
+  aiAnalysis?: boolean;
 };
 
 /**
@@ -33,6 +35,7 @@ export const submitExtractJob = async (input: SubmitExtractJobInput): Promise<st
           command: 'extract',
           jobId: input.jobId,
           emotionFilter: input.emotionFilter ?? DEFAULT_EMOTION_FILTER,
+          aiAnalysis: input.aiAnalysis ?? true,
         }),
       },
     })

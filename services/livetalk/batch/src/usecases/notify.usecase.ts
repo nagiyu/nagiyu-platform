@@ -8,19 +8,25 @@ import {
   detectCriticalTopic,
   shouldNotifyNow,
   getAllCharacterIds,
+  isStudyPaused,
+  findLastUserMessageAt,
   getCharacterDefinitionById,
+  hasStaleWebFact,
+  requestFreshnessChecks,
   selectNotificationsToSend,
   computeIntensityFactor,
   computeDailyNormalCap,
   extractSessionStartTimes,
   type NotificationEventEntity,
   type ILLMClient,
+  type FreshnessCheckRequestRepository,
   type LifecycleRepository,
   type MessageRepository,
   type NotificationEventRepository,
   type ProfileRepository,
   type PushSubscriptionRepository,
   type TopicEntity,
+  type WebFactEntity,
   type TopicRepository,
   type UlidFactory,
   defaultUlidFactory,
@@ -42,6 +48,7 @@ export interface NotifyAllUsersParams {
   topicRepo: TopicRepository;
   pushSubscriptionRepo: PushSubscriptionRepository;
   notifEventRepo: NotificationEventRepository;
+  freshnessCheckRequestRepo: FreshnessCheckRequestRepository;
   llmClient: ILLMClient;
   ulidFactory?: UlidFactory;
   now?: () => Date;
@@ -68,6 +75,7 @@ export async function notifyAllUsers(params: NotifyAllUsersParams): Promise<Noti
     topicRepo,
     pushSubscriptionRepo,
     notifEventRepo,
+    freshnessCheckRequestRepo,
     llmClient,
     ulidFactory = defaultUlidFactory,
     now = () => new Date(),
@@ -94,6 +102,7 @@ export async function notifyAllUsers(params: NotifyAllUsersParams): Promise<Noti
         topicRepo,
         pushSubscriptionRepo,
         notifEventRepo,
+        freshnessCheckRequestRepo,
         llmClient,
         ulidFactory,
         vapidConfig,
@@ -126,6 +135,7 @@ interface ProcessUserParams {
   topicRepo: TopicRepository;
   pushSubscriptionRepo: PushSubscriptionRepository;
   notifEventRepo: NotificationEventRepository;
+  freshnessCheckRequestRepo: FreshnessCheckRequestRepository;
   llmClient: ILLMClient;
   ulidFactory: UlidFactory;
   vapidConfig: ReturnType<typeof getVapidConfig>;
@@ -137,6 +147,8 @@ interface NotificationCandidate {
   characterId: string;
   kind: 'normal' | 'critical';
   topicId: string | undefined;
+  /** 重要通知の根拠にした予定の日付。送り済みの照合のため通知の記録に残す */
+  eventDate: string | undefined;
   title: string;
   body: string;
   /** 通知タップ起動時に入力欄へプリフィルするユーザー発話 */
@@ -156,6 +168,7 @@ async function processUser(params: ProcessUserParams): Promise<boolean> {
     topicRepo,
     pushSubscriptionRepo,
     notifEventRepo,
+    freshnessCheckRequestRepo,
     llmClient,
     ulidFactory,
     vapidConfig,
@@ -188,6 +201,7 @@ async function processUser(params: ProcessUserParams): Promise<boolean> {
         lifecycleRepo,
         messageRepo,
         topicRepo,
+        freshnessCheckRequestRepo,
         llmClient,
         allUserEvents,
         now: currentNow,
@@ -256,7 +270,7 @@ async function processUser(params: ProcessUserParams): Promise<boolean> {
     const candidate = candidateMap.get(characterId);
     if (!candidate) continue;
 
-    const { title, body, topicId, kind, suggestedReply } = candidate;
+    const { title, body, topicId, eventDate, kind, suggestedReply } = candidate;
 
     // B-2: payload に characterId と URL を含める（from=push で通知タップ由来であることをフロントに伝える）
     const payload = {
@@ -308,6 +322,7 @@ async function processUser(params: ProcessUserParams): Promise<boolean> {
       title,
       body,
       topicId,
+      ...(eventDate !== undefined && { eventDate }),
       suggestedReply,
       expiresAt,
     });
@@ -328,6 +343,7 @@ async function evaluateCharacter(params: {
   lifecycleRepo: LifecycleRepository;
   messageRepo: MessageRepository;
   topicRepo: TopicRepository;
+  freshnessCheckRequestRepo: FreshnessCheckRequestRepository;
   llmClient: ILLMClient;
   /** ユーザー全キャラの通知履歴（characterId フィルタに使用） */
   allUserEvents: NotificationEventEntity[];
@@ -339,6 +355,7 @@ async function evaluateCharacter(params: {
     lifecycleRepo,
     messageRepo,
     topicRepo,
+    freshnessCheckRequestRepo,
     llmClient,
     allUserEvents,
     now,
@@ -365,8 +382,15 @@ async function evaluateCharacter(params: {
   // 通知履歴をこのキャラ単位でフィルタ（他キャラの通知が interval/cap/missedCount に混入しない）
   const charNotifEvents = allUserEvents.filter((e) => e.characterId === characterId);
 
-  // care 降順で Topic ヘッダを取得（ネタ源・critical 判定の候補）
-  const topics = await topicRepo.listTopicHeadersByCareDesc(userId, characterId, 10);
+  // 勉強が止まっている組は話題を使わない。止まると情報が更新されず、延期や中止を拾えないまま
+  // 「もうすぐある」と重要通知しうるうえ、話題入りの文面は勉強したことを前提にしているため。
+  // 強度サンプリングの窓 (7 日) は停止期間 (3 日) を含むので、その読み取りで最後の発話を求められる。
+  const studyPaused = isStudyPaused(findLastUserMessageAt(userMessages), now);
+
+  // care 降順で Topic ヘッダを取得（ネタ源・critical 判定の候補）。止まっている間は使わない。
+  const topics = studyPaused
+    ? []
+    : await topicRepo.listTopicHeadersByCareDesc(userId, characterId, 10);
 
   // critical 判定用に「高 care」の Topic のみ上位から WEB fact を取得する。
   // care 閾値未満は detectCriticalTopic 側でも LLM をスキップするため、
@@ -374,18 +398,43 @@ async function evaluateCharacter(params: {
   const criticalCandidateTopics = topics
     .filter((t) => t.care >= NOTIFY_CRITICAL_CARE_THRESHOLD)
     .slice(0, CRITICAL_CANDIDATE_TOPIC_LIMIT);
-  const criticalCandidates = await Promise.all(
+  const readCriticalCandidates = await Promise.all(
     criticalCandidateTopics.map(async (topic) => ({
       topic,
       webFacts: await topicRepo.listWebFacts(userId, characterId, topic.topicId),
     }))
   );
 
+  // 判定の候補になった Topic は使われたとみなし、確認が要る WEB fact があれば確認を依頼する。
+  // 確認が済むまでは、延期や中止を拾えないまま「もうすぐある」と重要通知しうるので判定の候補から外す。
+  // NextReview が前進すれば、次の回で再び候補になる。
+  await requestFreshnessChecks({
+    repository: freshnessCheckRequestRepo,
+    userId,
+    characterId,
+    topics: readCriticalCandidates.map(({ topic, webFacts }) => ({
+      topicId: topic.topicId,
+      webFacts,
+    })),
+    nowMs: now.getTime(),
+  });
+  const criticalCandidates = readCriticalCandidates.filter(
+    ({ webFacts }) => !hasStaleWebFact(webFacts, now.getTime())
+  );
+
+  // 送り済みの重要通知は、同じ話題・同じ予定を再び選ばないよう判定へ渡す。
+  // 予定の日付が記録に無い旧データは、判定側で話題ごと送り済みとして扱われる。
+  const sentCriticals = charNotifEvents
+    .filter((e) => e.kind === 'critical' && e.topicId !== undefined)
+    .map((e) => ({ topicId: e.topicId as string, eventDate: e.eventDate }));
+
+  // topics が空なら候補も空になり、LLM は呼ばれず critical は発火しない。
   const escalation = await detectCriticalTopic({
     candidates: criticalCandidates,
     careThreshold: NOTIFY_CRITICAL_CARE_THRESHOLD,
     llmClient,
     now,
+    sentCriticals,
   });
   const criticalTopicId = escalation.isCritical ? (escalation.topicId ?? undefined) : undefined;
 
@@ -415,6 +464,7 @@ async function evaluateCharacter(params: {
   let title: string;
   let body: string;
   let topicId: string | undefined;
+  let eventDate: string | undefined;
   let suggestedReply: string;
 
   if (decision.kind === 'critical') {
@@ -426,6 +476,8 @@ async function evaluateCharacter(params: {
     title = msg.title;
     body = msg.body;
     topicId = decision.topicId;
+    eventDate =
+      escalation.topicId === decision.topicId ? (escalation.eventDate ?? undefined) : undefined;
     suggestedReply = buildSuggestedReply(topic?.subject);
   } else {
     // 直近で使用済みの TopicID を避けてネタを選ぶ（同じ話題の連発を抑制）
@@ -451,17 +503,61 @@ async function evaluateCharacter(params: {
     body = msg.body;
     topicId = freshTopic?.topicId;
     suggestedReply = buildSuggestedReply(freshTopic?.subject);
+
+    // ネタに使う Topic の確認を依頼する。通知は確認を待たずに送る (平常通知は延期や中止の影響が小さい)。
+    // 重要通知の判定の候補だった Topic は、上で依頼済みなので読み直さない。
+    if (freshTopic && !readCriticalCandidates.some((c) => c.topic.topicId === freshTopic.topicId)) {
+      const webFacts = await readWebFactsForFreshness(
+        topicRepo,
+        userId,
+        characterId,
+        freshTopic.topicId
+      );
+      if (webFacts) {
+        await requestFreshnessChecks({
+          repository: freshnessCheckRequestRepo,
+          userId,
+          characterId,
+          topics: [{ topicId: freshTopic.topicId, webFacts }],
+          nowMs: now.getTime(),
+        });
+      }
+    }
   }
 
   return {
     characterId,
     kind: decision.kind,
     topicId,
+    eventDate,
     title,
     body,
     suggestedReply,
     lastNormalAt,
   };
+}
+
+/**
+ * 鮮度の判定に使う Topic の WEB fact を読む。
+ * 読み取りに失敗したら null を返す (通知を止めず、依頼は次に使われたときに回す)。
+ */
+async function readWebFactsForFreshness(
+  topicRepo: TopicRepository,
+  userId: string,
+  characterId: string,
+  topicId: string
+): Promise<WebFactEntity[] | null> {
+  try {
+    return await topicRepo.listWebFacts(userId, characterId, topicId);
+  } catch (error) {
+    logger.warn('[notifyAllUsers] 鮮度確認のための WEB fact 読み取り失敗（スキップして継続）', {
+      userId,
+      characterId,
+      topicId,
+      error: toErrorMessage(error),
+    });
+    return null;
+  }
 }
 
 /**

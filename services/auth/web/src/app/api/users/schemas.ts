@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { ROLES } from '@nagiyu/common';
+import { MANUAL_ROLE_ERROR_MESSAGES, validateManualRoles } from '@/lib/manual-roles';
 
 /**
  * ユーザー関連 API のリクエストボディ検証メッセージ
@@ -16,6 +17,13 @@ export const USER_VALIDATION_ERROR_MESSAGES = {
   ROLES_NOT_ARRAY: 'roles は配列で指定してください',
   ROLE_NOT_STRING: 'roles の各要素は文字列で指定してください',
   ROLE_INVALID: 'roles に無効なロールが含まれています',
+  GRANT_CHANGES_NOT_OBJECT: 'grantChanges はオブジェクトで指定してください',
+  GRANT_LIST_NOT_ARRAY: 'grantChanges の各項目は配列で指定してください',
+  GRANT_ITEM_NOT_OBJECT: 'grantChanges の各要素はオブジェクトで指定してください',
+  GRANT_ROLE_ID_NOT_STRING: 'roleId は文字列で指定してください',
+  GRANT_ID_NOT_STRING: 'grantId は文字列で指定してください',
+  GRANT_EXPIRES_AT_INVALID: 'expiresAt は Unix ミリ秒の整数で指定してください',
+  GRANT_SOURCE_REF_INVALID: 'sourceRef は 200 文字以内の文字列で指定してください',
 } as const;
 
 // 有効なロールIDの配列を動的に生成
@@ -35,6 +43,21 @@ export const UpdateUserSchema = z
       roles: z
         .array(z.enum(validRoleIds, { error: USER_VALIDATION_ERROR_MESSAGES.ROLE_INVALID }), {
           error: USER_VALIDATION_ERROR_MESSAGES.ROLES_NOT_ARRAY,
+        })
+        .superRefine((roles, ctx) => {
+          const { duplicates, paidRoles } = validateManualRoles(roles);
+          if (duplicates.length > 0) {
+            ctx.addIssue({
+              code: 'custom',
+              message: `${MANUAL_ROLE_ERROR_MESSAGES.DUPLICATE_ROLES}: ${duplicates.join(', ')}`,
+            });
+          }
+          if (paidRoles.length > 0) {
+            ctx.addIssue({
+              code: 'custom',
+              message: `${MANUAL_ROLE_ERROR_MESSAGES.PAID_ROLES_NOT_ALLOWED}: ${paidRoles.join(', ')}`,
+            });
+          }
         })
         .optional(),
     },

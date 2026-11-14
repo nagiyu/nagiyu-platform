@@ -16,6 +16,7 @@ on:
       - 'infra/common/**'
       - 'configs/**'
       - '.github/actions/**'
+      - '.node-version'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/codec-converter-verify.yml'
@@ -129,7 +130,6 @@ jobs:
       - name: Setup Node.js and install dependencies
         uses: ./.github/actions/setup-node
         with:
-          node-version: '24'
           cache-dependency-path: './package-lock.json'
 
       - name: Build infra-common library

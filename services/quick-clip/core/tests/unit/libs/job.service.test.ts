@@ -9,6 +9,9 @@ const createJobRepositoryMock = (): jest.Mocked<JobRepository> => ({
   updateBatchStage: jest.fn(),
   updateErrorMessage: jest.fn(),
   updateAnalysisProgress: jest.fn(),
+  markUsageReleased: jest.fn(),
+  markUsageSwitched: jest.fn(),
+  updateUsage: jest.fn(),
 });
 
 describe('JobService', () => {
@@ -32,6 +35,25 @@ describe('JobService', () => {
     expect(createdJob.expiresAt).toBe(createdJob.createdAt + 24 * 60 * 60 * 1000);
 
     expect(result).toEqual(createdJob);
+  });
+
+  it('利用回数の記録・長さの上限・AI 解析の有無をジョブに保存する', async () => {
+    const repository = createJobRepositoryMock();
+    const service = new JobService(repository);
+    repository.create.mockImplementation(async (job) => job);
+
+    const usage = { subject: 'USER#u1', month: '202611', kind: 'ai', noAiLimit: 10 } as const;
+    const result = await service.createJob({
+      originalFileName: 'movie.mp4',
+      fileSize: 1024,
+      usage,
+      maxDurationSec: 3600,
+      aiAnalysis: false,
+    });
+
+    expect(result.usage).toEqual(usage);
+    expect(result.maxDurationSec).toBe(3600);
+    expect(result.aiAnalysis).toBe(false);
   });
 
   it('ファイル名が空の場合はエラー', async () => {

@@ -3,6 +3,7 @@ import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
 import { DynamoDBStack } from '../lib/dynamodb-stack';
 import { SecretsStack } from '../lib/secrets-stack';
+import { StripeSecretsStack } from '../lib/stripe-secrets-stack';
 import { ECRStack } from '../lib/ecr-stack';
 import { LambdaStack } from '../lib/lambda-stack';
 import { CloudFrontStack } from '../lib/cloudfront-stack';
@@ -40,6 +41,12 @@ new SecretsStack(app, `NagiyuAuthSecrets${envSuffix}`, {
   environment: env,
   env: stackEnv,
   description: `Auth Service Secrets Manager - ${env} environment`,
+});
+
+new StripeSecretsStack(app, `NagiyuAuthStripeSecrets${envSuffix}`, {
+  environment: env,
+  env: stackEnv,
+  description: `Auth Service Stripe Secrets - ${env} environment`,
 });
 
 // ECR スタックを作成

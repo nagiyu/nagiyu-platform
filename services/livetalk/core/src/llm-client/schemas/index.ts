@@ -9,3 +9,6 @@ export type { ConsolidationRaw } from './consolidation.schema.js';
 
 export { WebFactChangeSchema } from './web-fact-change.schema.js';
 export type { WebFactChangeRaw } from './web-fact-change.schema.js';
+
+export { ExplorationAngleSchema } from './exploration-angle.schema.js';
+export type { ExplorationAngleRaw } from './exploration-angle.schema.js';

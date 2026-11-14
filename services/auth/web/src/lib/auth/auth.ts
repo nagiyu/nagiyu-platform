@@ -2,9 +2,10 @@ import NextAuth, { type NextAuthConfig } from 'next-auth';
 import Google from 'next-auth/providers/google';
 import { createAuthConfig } from '@nagiyu/nextjs';
 import { reportErrorEvent } from '@nagiyu/aws';
-import { isAllowedNagiyuRedirectUrl } from '@nagiyu/common';
+import { getEffectiveRoles } from '@nagiyu/common';
 import { createUserRepository } from '@nagiyu/auth-core';
 import { errorReporter } from '@/lib/api-error-reporting';
+import { sanitizeCallbackUrl } from '@/lib/callback-url';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
@@ -52,7 +53,10 @@ const sharedAuthConfig = createAuthConfig({
         const userRepository = createUserRepository();
         const dbUser = await userRepository.getUserByGoogleId(account.providerAccountId);
         token.userId = dbUser?.userId;
-        token.roles = dbUser?.roles || [];
+        // 課金の権利の期限は、ここ (ログイン) と下の再取得でだけ判定する
+        token.roles = dbUser
+          ? getEffectiveRoles(dbUser.roles ?? [], dbUser.roleGrants ?? [], Date.now())
+          : [];
         token.rolesRefreshedAt = Date.now();
 
         if (dbUser) {
@@ -79,7 +83,11 @@ const sharedAuthConfig = createAuthConfig({
           const userRepository = createUserRepository();
           const dbUser = await userRepository.getUserByGoogleId(token.googleId as string);
           if (dbUser) {
-            token.roles = dbUser.roles ?? [];
+            token.roles = getEffectiveRoles(
+              dbUser.roles ?? [],
+              dbUser.roleGrants ?? [],
+              Date.now()
+            );
             token.userId = dbUser.userId;
           } else {
             // ユーザーが DB に存在しない（退会・削除済み等）→ ロールを剥奪する。
@@ -124,13 +132,10 @@ export const authConfig: NextAuthConfig = {
   callbacks: {
     ...sharedCallbacks,
     async redirect({ url, baseUrl }) {
-      // 同一オリジン または *.nagiyu.com のみ許可（オープンリダイレクト対策）。
-      // 判定は @nagiyu/common の共通バリデータに委譲する。
-      if (isAllowedNagiyuRedirectUrl(url, baseUrl)) {
-        return url;
-      }
-      // 外部 URL は拒否して baseUrl にフォールバック
-      return baseUrl;
+      // オープンリダイレクト対策として、同一オリジン・*.nagiyu.com・auth 内の相対パスだけを通す。
+      // auth 内の戻り先は相対パスで渡ってくるため、絶対 URL に直して返す
+      // (next-auth はこの戻り値をそのまま遷移先にし、Cookie にも控える)。
+      return sanitizeCallbackUrl(url, baseUrl) ?? baseUrl;
     },
     async signIn({ user, account }) {
       if (!account) {

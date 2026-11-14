@@ -1,7 +1,6 @@
 import * as cdk from 'aws-cdk-lib';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
-import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import { Construct } from 'constructs';
 
 /**
@@ -12,11 +11,6 @@ export interface WebRuntimePolicyProps {
    * DynamoDB テーブル
    */
   dynamoTable: dynamodb.ITable;
-
-  /**
-   * VAPID シークレット
-   */
-  vapidSecret: secretsmanager.ISecret;
 
   /**
    * 環境名 (例: 'dev', 'prod')
@@ -31,7 +25,6 @@ export interface WebRuntimePolicyProps {
  *
  * 含まれる権限:
  * - DynamoDB: テーブルへの読み書きアクセス (Query, GetItem, PutItem, UpdateItem, DeleteItem)
- * - Secrets Manager: VAPID キーと Auth サービスの NextAuth Secret の読み取り
  * - CloudWatch Logs: ログ書き込み（Lambda 実行ロールで自動付与されるため明示不要）
  */
 export class WebRuntimePolicy extends iam.ManagedPolicy {
@@ -58,31 +51,6 @@ export class WebRuntimePolicy extends iam.ManagedPolicy {
         resources: [
           props.dynamoTable.tableArn,
           `${props.dynamoTable.tableArn}/index/*`, // GSI へのアクセス
-        ],
-      })
-    );
-
-    // Secrets Manager 権限: VAPID キー読み取り
-    this.addStatements(
-      new iam.PolicyStatement({
-        sid: 'SecretsManagerVapidAccess',
-        effect: iam.Effect.ALLOW,
-        actions: ['secretsmanager:GetSecretValue'],
-        resources: [props.vapidSecret.secretArn],
-      })
-    );
-
-    // Secrets Manager 権限: Auth サービスの NextAuth Secret 読み取り
-    // Stock Tracker は Auth サービスから発行された JWT を検証するため、
-    // Auth サービスと同じ NEXTAUTH_SECRET にアクセスする必要がある
-    this.addStatements(
-      new iam.PolicyStatement({
-        sid: 'SecretsManagerAuthAccess',
-        effect: iam.Effect.ALLOW,
-        actions: ['secretsmanager:GetSecretValue'],
-        resources: [
-          // リージョンとアカウントIDは Lambda Stack 内で解決される
-          `arn:aws:secretsmanager:*:*:secret:nagiyu-auth-nextauth-secret-${props.envName}-*`,
         ],
       })
     );

@@ -1,6 +1,6 @@
 # Tools デプロイ・運用マニュアル
 
-本ドキュメントは、Tools アプリのデプロイと運用に関する手順を説明します。
+本ドキュメントは、Tools アプリのデプロイと運用に関する手順を説明します。アプリの今の挙動 (画面・API) は[仕様カード](../../specs/README.md)にある。このサービスの分は `docs/specs/tools/`。
 
 ---
 
@@ -18,7 +18,7 @@
 **主要リソース**:
 
 - **ECR Repository**: Docker イメージ保存（`nagiyu/tools`）
-- **Lambda Function**: Next.js 実行環境（Node.js 22 コンテナ、1024MB、30秒タイムアウト）
+- **Lambda Function**: Next.js 実行環境（Node.js 26 コンテナ、1024MB、30秒タイムアウト）
 - **Lambda Function URL**: HTTP(S) エンドポイント（認証なし）
 - **CloudFront Distribution**: CDN、カスタムドメイン
 - **ACM Certificate**: SSL/TLS証明書（共通基盤）
@@ -425,15 +425,7 @@ GitHub Actions が自動的に以下を実行します:
 デプロイされたアプリケーションのバージョンは以下で確認可能:
 
 - **Footer**: すべてのページ下部に `vX.Y.Z` として表示
-- **Health API**: `https://tools.nagiyu.com/api/health` のレスポンス
-
-```json
-{
-    "status": "ok",
-    "timestamp": "2025-12-18T12:34:56.789Z",
-    "version": "1.0.0"
-}
-```
+- **Health API**: `https://tools.nagiyu.com/api/health` のレスポンス。形式は[システム系の API](../../specs/tools/api/system.md)を参照する
 
 ### 8.2 スケーリング対応
 
@@ -634,6 +626,7 @@ curl https://<FUNCTION_URL>/api/health
 2. **Service Worker の確認**
     - ブラウザの開発者ツール → Application → Service Workers
     - Service Worker が登録されていることを確認
+    - 今は Service Worker を登録していないため、この確認は成立しない。#4104 を参照する
 
 3. **インストール可能性の確認**
     - Chrome: アドレスバーにインストールアイコンが表示される
@@ -648,6 +641,7 @@ curl https://<FUNCTION_URL>/api/health
 5. **オフライン動作確認**
     - ブラウザの開発者ツール → Network → Offline モードに切り替え
     - 基本的なページが表示されることを確認
+    - 今はオフライン対応が無いため、この確認は成立しない。#4104 を参照する
 
 ---
 
@@ -841,15 +835,7 @@ GitHub Actions が自動的に以下を実行します:
 デプロイされたアプリケーションのバージョンは以下で確認可能:
 
 - **Footer**: すべてのページ下部に `vX.Y.Z` として表示
-- **Health API**: `https://tools.example.com/api/health` のレスポンス
-
-```json
-{
-    "status": "ok",
-    "timestamp": "2025-12-18T12:34:56.789Z",
-    "version": "1.0.0"
-}
-```
+- **Health API**: `https://tools.example.com/api/health` のレスポンス。形式は[システム系の API](../../specs/tools/api/system.md)を参照する
 
 ### 5.2 スケーリング対応
 

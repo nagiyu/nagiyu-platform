@@ -21,6 +21,7 @@
  */
 
 import { InMemorySingleTableStore } from '@nagiyu/aws';
+import { InMemoryExplorationRepository } from '../../../src/repositories/in-memory-exploration.repository.js';
 import { InMemoryAccountDeletionRepository } from '../../../src/repositories/in-memory-account-deletion.repository.js';
 
 const FIXED_NOW = 1_700_000_000_000;
@@ -70,7 +71,7 @@ function seedSafetyEvent(
   store: InMemorySingleTableStore,
   userId: string,
   eventId: string,
-  opts?: { characterId?: string; moderationCategories?: string }
+  opts?: { characterId?: string; moderationCategories?: string; ttl?: number }
 ) {
   store.put({
     PK: `USER#${userId}`,
@@ -88,6 +89,7 @@ function seedSafetyEvent(
     CreatedAt: FIXED_NOW,
     UpdatedAt: FIXED_NOW,
     ...(opts?.moderationCategories ? { ModerationCategories: opts.moderationCategories } : {}),
+    ...(opts?.ttl !== undefined ? { TTL: opts.ttl } : {}),
   });
 }
 
@@ -118,6 +120,26 @@ describe('InMemoryAccountDeletionRepository', () => {
       // 削除されていること
       expect(store.get(USER_PK, 'PROFILE')).toBeUndefined();
       expect(store.get(USER_PK, 'CHAR#hiyori#MSG#MSG001')).toBeUndefined();
+    });
+
+    it('自発リサーチの探索の記録も削除される', async () => {
+      const store = new InMemorySingleTableStore();
+      const { repo } = makeRepo(store);
+      const explorationRepo = new InMemoryExplorationRepository(store, () => FIXED_NOW);
+      await explorationRepo.put({
+        userId: USER_ID,
+        characterId: 'hiyori',
+        topicId: 't1',
+        exploredAt: FIXED_NOW,
+        recentAngles: ['ボカロ ライブ 2026'],
+      });
+      expect(store.get(USER_PK, 'CHAR#hiyori#EXPLORE#t1')).toBeDefined();
+
+      const result = await repo.deleteAccount(USER_ID);
+
+      expect(result.deletedCount).toBe(1);
+      expect(store.get(USER_PK, 'CHAR#hiyori#EXPLORE#t1')).toBeUndefined();
+      expect(await explorationRepo.listAll(USER_ID, 'hiyori')).toEqual([]);
     });
 
     it('SafetyEvent のみの場合（非SafetyEvent の削除は 0件）', async () => {
@@ -194,6 +216,19 @@ describe('InMemoryAccountDeletionRepository', () => {
       const newPk = `USER#${ANON_TOKEN}`;
       const movedItem = store.get(newPk, 'SAFETY#EVT001');
       expect(movedItem!.CharacterID).toBe('ageha');
+    });
+
+    it('TTL が匿名化後もそのまま引き継がれる', async () => {
+      const store = new InMemorySingleTableStore();
+      const { repo } = makeRepo(store);
+      const ttl = Math.floor(FIXED_NOW / 1000) + 3 * 365 * 24 * 60 * 60;
+
+      seedSafetyEvent(store, USER_ID, 'EVT001', { ttl });
+
+      await repo.deleteAccount(USER_ID);
+
+      const movedItem = store.get(`USER#${ANON_TOKEN}`, 'SAFETY#EVT001');
+      expect(movedItem!.TTL).toBe(ttl);
     });
 
     it('ModerationCategories が保持される', async () => {

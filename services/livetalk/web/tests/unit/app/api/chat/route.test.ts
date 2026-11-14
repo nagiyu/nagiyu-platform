@@ -38,6 +38,7 @@ jest.mock('@nagiyu/livetalk-core', () => ({
   createCharacterStateRepository: jest.fn().mockReturnValue({}),
   createLifecycleRepository: jest.fn().mockReturnValue({}),
   createStudyTopicRepository: jest.fn().mockReturnValue({}),
+  createFreshnessCheckRequestRepository: jest.fn().mockReturnValue({}),
   createNoteRepository: jest.fn().mockReturnValue({}),
   createConsolidationCursorRepository: jest.fn().mockReturnValue({}),
   createSafetyEventRepository: jest.fn().mockReturnValue({}),
@@ -56,7 +57,7 @@ const mockGetChatGuardRepository = createChatGuardRepository as jest.Mock;
 
 /** デフォルトのガードモック（全て通過させる） */
 const makeDefaultGuardMock = () => ({
-  incrementRateLimit: jest.fn().mockResolvedValue({ count: 1, window: '1m' }),
+  tryConsumeRateLimit: jest.fn().mockResolvedValue({ allowed: true }),
   acquireLock: jest.fn().mockResolvedValue({ acquired: true, ownerToken: 'test-token' }),
   releaseLock: jest.fn().mockResolvedValue(undefined),
 });
@@ -97,6 +98,12 @@ describe('POST /api/chat', () => {
     (getVoiceClient as jest.Mock).mockReturnValue({});
     (createMessageRepository as jest.Mock).mockReturnValue({});
     mockGetChatGuardRepository.mockReturnValue(makeDefaultGuardMock());
+  });
+
+  afterEach(() => {
+    // 時刻を固定したテストが、後続のテストの時刻に影響しないようにする
+    const now = Date.now as Partial<jest.Mock>;
+    now.mockRestore?.();
   });
 
   it('未認証は 401', async () => {
@@ -141,7 +148,7 @@ describe('POST /api/chat', () => {
       const json = await res.json();
       expect(json.message).toBe(CHAT_ERROR_MESSAGES.INVALID_REQUEST);
       expect(guard.acquireLock).not.toHaveBeenCalled();
-      expect(guard.incrementRateLimit).not.toHaveBeenCalled();
+      expect(guard.tryConsumeRateLimit).not.toHaveBeenCalled();
       expect(mockRunChatUseCase).not.toHaveBeenCalled();
     });
 
@@ -332,13 +339,13 @@ describe('POST /api/chat', () => {
       expect(json.message).toBe(CHAT_ERROR_MESSAGES.CONCURRENT_REQUEST);
     });
 
-    it('ロック取得失敗時は incrementRateLimit が呼ばれない（レート枠を消費しない）', async () => {
+    it('ロック取得失敗時は tryConsumeRateLimit が呼ばれない（レート枠を消費しない）', async () => {
       const guardMock = makeDefaultGuardMock();
       guardMock.acquireLock.mockResolvedValue({ acquired: false });
       mockGetChatGuardRepository.mockReturnValue(guardMock);
 
       await POST(buildRequest({ text: 'こんにちは' }));
-      expect(guardMock.incrementRateLimit).not.toHaveBeenCalled();
+      expect(guardMock.tryConsumeRateLimit).not.toHaveBeenCalled();
       expect(mockRunChatUseCase).not.toHaveBeenCalled();
     });
 
@@ -353,50 +360,51 @@ describe('POST /api/chat', () => {
 
     // ---- ガード: レートリミット ----
 
-    it('1 分ウィンドウ超過（count > 10）は 429 RATE_LIMIT_EXCEEDED を返す', async () => {
+    it('上限を渡して判定を依頼し、通ればストリームを開始する', async () => {
       const guardMock = makeDefaultGuardMock();
-      guardMock.incrementRateLimit
-        .mockResolvedValueOnce({ count: 11, window: '1m' })
-        .mockResolvedValueOnce({ count: 1, window: '1h' });
-      mockGetChatGuardRepository.mockReturnValue(guardMock);
-
-      const res = await POST(buildRequest({ text: 'こんにちは' }));
-      expect(res.status).toBe(429);
-      const json = await res.json();
-      expect(json.message).toBe(CHAT_ERROR_MESSAGES.RATE_LIMIT_EXCEEDED);
-      expect(res.headers.get('Retry-After')).toBeTruthy();
-    });
-
-    it('1 時間ウィンドウ超過（count > 100）は 429 RATE_LIMIT_EXCEEDED を返す', async () => {
-      const guardMock = makeDefaultGuardMock();
-      guardMock.incrementRateLimit
-        .mockResolvedValueOnce({ count: 1, window: '1m' })
-        .mockResolvedValueOnce({ count: 101, window: '1h' });
-      mockGetChatGuardRepository.mockReturnValue(guardMock);
-
-      const res = await POST(buildRequest({ text: 'こんにちは' }));
-      expect(res.status).toBe(429);
-      const json = await res.json();
-      expect(json.message).toBe(CHAT_ERROR_MESSAGES.RATE_LIMIT_EXCEEDED);
-    });
-
-    it('レートリミット上限ちょうど（count=10）は通過する', async () => {
-      const guardMock = makeDefaultGuardMock();
-      guardMock.incrementRateLimit
-        .mockResolvedValueOnce({ count: 10, window: '1m' })
-        .mockResolvedValueOnce({ count: 10, window: '1h' });
       mockGetChatGuardRepository.mockReturnValue(guardMock);
 
       const res = await POST(buildRequest({ text: 'こんにちは' }));
       expect(res.status).toBe(200);
+      expect(guardMock.tryConsumeRateLimit).toHaveBeenCalledWith('u1', expect.any(Number), {
+        perMinute: 10,
+        perHour: 100,
+      });
+    });
+
+    it('1 分の窓で断られたら 429 RATE_LIMIT_EXCEEDED と次の分までの秒数の Retry-After を返す', async () => {
+      // 分の開始から 15 秒後
+      jest.spyOn(Date, 'now').mockReturnValue(473_696 * 3_600_000 + 15_000);
+      const guardMock = makeDefaultGuardMock();
+      guardMock.tryConsumeRateLimit.mockResolvedValue({ allowed: false, window: '1m' });
+      mockGetChatGuardRepository.mockReturnValue(guardMock);
+
+      const res = await POST(buildRequest({ text: 'こんにちは' }));
+      expect(res.status).toBe(429);
+      const json = await res.json();
+      expect(json.error).toBe('RATE_LIMIT_EXCEEDED');
+      expect(json.message).toBe(CHAT_ERROR_MESSAGES.RATE_LIMIT_EXCEEDED);
+      expect(res.headers.get('Retry-After')).toBe('45');
+    });
+
+    it('1 時間の窓で断られたら 429 RATE_LIMIT_EXCEEDED と次の時間までの秒数の Retry-After を返す', async () => {
+      // 時間の開始から 15 秒後
+      jest.spyOn(Date, 'now').mockReturnValue(473_696 * 3_600_000 + 15_000);
+      const guardMock = makeDefaultGuardMock();
+      guardMock.tryConsumeRateLimit.mockResolvedValue({ allowed: false, window: '1h' });
+      mockGetChatGuardRepository.mockReturnValue(guardMock);
+
+      const res = await POST(buildRequest({ text: 'こんにちは' }));
+      expect(res.status).toBe(429);
+      const json = await res.json();
+      expect(json.message).toBe(CHAT_ERROR_MESSAGES.RATE_LIMIT_EXCEEDED);
+      expect(res.headers.get('Retry-After')).toBe('3585');
     });
 
     it('レート超過時はロックが解放される', async () => {
       jest.spyOn(console, 'warn').mockImplementation(() => {});
       const guardMock = makeDefaultGuardMock();
-      guardMock.incrementRateLimit
-        .mockResolvedValueOnce({ count: 11, window: '1m' })
-        .mockResolvedValueOnce({ count: 1, window: '1h' });
+      guardMock.tryConsumeRateLimit.mockResolvedValue({ allowed: false, window: '1m' });
       mockGetChatGuardRepository.mockReturnValue(guardMock);
 
       await POST(buildRequest({ text: 'こんにちは' }));
@@ -435,10 +443,10 @@ describe('POST /api/chat', () => {
       expect(guardMock.releaseLock).not.toHaveBeenCalled();
     });
 
-    it('incrementRateLimit が DatabaseError を throw した場合はフェイルオープンで通す', async () => {
+    it('tryConsumeRateLimit が DatabaseError を throw した場合はフェイルオープンで通す', async () => {
       jest.spyOn(console, 'warn').mockImplementation(() => {});
       const guardMock = makeDefaultGuardMock();
-      guardMock.incrementRateLimit.mockRejectedValue(new DatabaseError('DynamoDB 障害'));
+      guardMock.tryConsumeRateLimit.mockRejectedValue(new DatabaseError('DynamoDB 障害'));
       mockGetChatGuardRepository.mockReturnValue(guardMock);
 
       const res = await POST(buildRequest({ text: 'こんにちは' }));

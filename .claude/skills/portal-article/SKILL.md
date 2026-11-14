@@ -72,8 +72,17 @@ Portal（`services/portal/web/src/content/tech/`）の技術記事は、**AI に
 記事の良し悪しは Markdown の差分では分からない。表示された姿を見て初めて分かる。
 
 1. `integration/{issue-number}-{slug}` ブランチへ**直接コミット**する（`services/portal/**` 変更で dev へ自動デプロイ）。
-2. `https://dev.nagiyu.com/tech/{slug}` で**レンダリング結果を確認**する。薄いと感じたら ② に戻るか ④ の破棄へ。
-3. 良ければ `develop` へ **Draft PR**（→ [`pr-create`](../pr-create/SKILL.md)）。書式チェック（CI）と最終確認はここで。
+2. push したら、描画の確認を待たずに `develop` へ **Draft PR** を作る (→ [`pr-create`](../pr-create/SKILL.md)。作る前に人へ確かめるのは変わらない)。
+   - 描画への指摘を、人が PR の差分に行単位でコメントできるようにするため。チャットで「何段落目の、どの文」と伝えるのはやりにくい。
+3. 人は `https://dev.nagiyu.com/tech/{slug}` で**レンダリング結果を確認**し、指摘を PR にコメントする。薄いと感じたら ② に戻るか ④ の破棄へ。
+4. 指摘を直して integration へ push する。PR の差分と dev の描画が一緒に更新される。スレッドには返信までにとどめ、閉じるのは指摘した人に任せる。
+
+### 図を入れるとき
+
+Portal の記事は mermaid を描画しない。図は SVG のファイルを `services/portal/web/public/images/tech/{slug}/` に置き、`![説明](/images/tech/{slug}/{name}.svg)` で貼る。
+
+- SVG のルート要素に `width` と `height` を持たせる。`viewBox` だけだと PC 幅で本文の幅いっぱいに引き伸ばされる。
+- スマホ幅 (360px 前後) に縮んでも読めるよう、縦長に組み、横幅は 400〜480 程度に収める。
 
 ### 描画確認の必須チェック: 太字 (`**`) が閉じない罠
 

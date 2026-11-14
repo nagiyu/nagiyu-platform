@@ -6,8 +6,11 @@ import { NextResponse } from 'next/server';
 // (auth を読み込むと DynamoDBUserRepository が読み込まれ、Edge Runtime で node:crypto エラーが発生するため)
 const skipAuthCheck = process.env.SKIP_AUTH_CHECK === 'true';
 const authMiddlewareHandler = createAuthMiddleware({
-  isPublicPath: (pathname) => pathname.startsWith('/signin'),
-  getCallbackUrl: (request) => request.nextUrl.pathname,
+  isPublicPath: (pathname) =>
+    pathname.startsWith('/signin') ||
+    pathname.startsWith('/plans') ||
+    pathname.startsWith('/legal'),
+  getCallbackUrl: (request) => request.nextUrl.pathname + request.nextUrl.search,
 });
 
 export default async function middleware(req: NextRequest) {

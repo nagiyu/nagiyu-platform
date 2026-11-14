@@ -361,7 +361,6 @@ import {
 //   memorySize: 512,
 //   timeout: 30,
 //   architecture: 'X86_64',
-//   runtime: 'nodejs20.x',
 // }
 console.log(DEFAULT_LAMBDA_CONFIG);
 
@@ -370,7 +369,7 @@ const lambdaConfig = mergeConfig(
   {
     memorySize: 1024, // 上書き
     timeout: 60, // 上書き
-    // architecture と runtime はデフォルト値を使用
+    // architecture はデフォルト値を使用
   },
   DEFAULT_LAMBDA_CONFIG
 );
@@ -430,7 +429,6 @@ const responseHeadersPolicy = new cloudfront.ResponseHeadersPolicy(this, 'Securi
 | memorySize   | 512          | メモリサイズ (MB) |
 | timeout      | 30           | タイムアウト (秒) |
 | architecture | X86_64       | アーキテクチャ    |
-| runtime      | nodejs20.x   | ランタイム        |
 
 ログ保持期間 (`DEFAULT_LAMBDA_LOG_RETENTION`: 30 日) と X-Ray (`DEFAULT_LAMBDA_TRACING`: ACTIVE) は、`DEFAULT_LAMBDA_CONFIG` には含めず別の定数にしている。`createEcrImageFunction` と `LambdaStackBase` が使う。
 

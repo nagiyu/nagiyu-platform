@@ -2,9 +2,10 @@
 
 import { useCallback } from 'react';
 import { useSession } from 'next-auth/react';
+import { Button } from '@mui/material';
 import Header from './Header';
 import type { HeaderProps } from './Header';
-import { buildSignOutUrl } from '../../utils/auth';
+import { buildSignInUrl, buildSignOutUrl } from '../../utils/auth';
 
 export type SessionHeaderProps = Omit<HeaderProps, 'user' | 'roles' | 'onLogout'> & {
   /**
@@ -13,6 +14,13 @@ export type SessionHeaderProps = Omit<HeaderProps, 'user' | 'roles' | 'onLogout'
    * サーバー側の layout が解決した値を props で受け取る。
    */
   authUrl: string;
+  /**
+   * 未ログインのときにログインボタンを actions に出すか。
+   * ログインが任意のサービスで、ログインの入口が他に無い場合に true にする。
+   * 既存サービスのヘッダーの見た目を変えないよう、既定は false。
+   * @default false
+   */
+  showSignIn?: boolean;
 };
 
 /**
@@ -22,8 +30,12 @@ export type SessionHeaderProps = Omit<HeaderProps, 'user' | 'roles' | 'onLogout'
  * 「auth サービスのサインアウト URL への遷移」を一箇所に集約する。
  * 未ログイン・読み込み中は user / onLogout を渡さないため、アカウントメニューは出ない。
  */
-export default function SessionHeader({ authUrl, ...headerProps }: SessionHeaderProps) {
-  const { data: session } = useSession();
+export default function SessionHeader({
+  authUrl,
+  showSignIn = false,
+  ...headerProps
+}: SessionHeaderProps) {
+  const { data: session, status } = useSession();
   const sessionUser = session?.user;
 
   // サインアウトは Cookie 発行元の auth サービスに集約しているため、
@@ -32,8 +44,30 @@ export default function SessionHeader({ authUrl, ...headerProps }: SessionHeader
     window.location.assign(buildSignOutUrl(authUrl, window.location.origin));
   }, [authUrl]);
 
+  // 現在の URL を戻り先にして auth 側のサインインへ遷移する。
+  const handleSignIn = useCallback(() => {
+    window.location.assign(buildSignInUrl(authUrl, window.location.href));
+  }, [authUrl]);
+
   if (!sessionUser) {
-    return <Header {...headerProps} />;
+    // 読み込み中に出すと、ログイン済みの利用者に一瞬ログインボタンが見えてしまう。
+    if (!showSignIn || status !== 'unauthenticated') {
+      return <Header {...headerProps} />;
+    }
+
+    return (
+      <Header
+        {...headerProps}
+        actions={
+          <>
+            {headerProps.actions}
+            <Button color="inherit" onClick={handleSignIn} sx={{ ml: 2 }}>
+              ログイン
+            </Button>
+          </>
+        }
+      />
+    );
   }
 
   // roles は next-auth の型拡張に依存せず、配列であることを実行時に確認して受け取る。

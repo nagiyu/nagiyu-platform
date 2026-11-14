@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createUserRepository } from '@nagiyu/auth-core';
-import { EntityNotFoundError } from '@nagiyu/aws';
+import { EntityNotFoundError, OptimisticLockError } from '@nagiyu/aws';
 import { COMMON_ERROR_MESSAGES, VALID_ROLES, hasPermission } from '@nagiyu/common';
 import { readJsonObjectBody } from '@nagiyu/nextjs';
 import { z } from 'zod';
+import { applyGrantChanges, GrantChangeError } from '@/lib/role-grants';
+import { MANUAL_ROLES, getManualRolesErrorMessage, validateManualRoles } from '@/lib/manual-roles';
+import { omitStripeCustomerId } from '@/lib/user-view';
 import { getSession } from '@/lib/auth/session';
 import { withApiErrorReporting } from '@/lib/api-error-reporting';
 import { USER_VALIDATION_ERROR_MESSAGES } from '../../schemas';
@@ -15,7 +18,49 @@ const ERROR_MESSAGES = {
   USER_NOT_FOUND: COMMON_ERROR_MESSAGES.USER_NOT_FOUND,
   INVALID_ROLES: '無効なロールが含まれています',
   ASSIGN_ROLES_FAILED: 'ロールの割り当てに失敗しました',
+  UPDATE_CONFLICT: '他の更新と競合しました。再読み込みしてください',
 } as const;
+
+const expiresAtSchema = z
+  .number({ error: USER_VALIDATION_ERROR_MESSAGES.GRANT_EXPIRES_AT_INVALID })
+  .int({ error: USER_VALIDATION_ERROR_MESSAGES.GRANT_EXPIRES_AT_INVALID });
+
+const grantListSchema = <T extends z.ZodType>(item: T) =>
+  z.array(item, { error: USER_VALIDATION_ERROR_MESSAGES.GRANT_LIST_NOT_ARRAY }).optional();
+
+const grantItemError = { error: USER_VALIDATION_ERROR_MESSAGES.GRANT_ITEM_NOT_OBJECT };
+
+// 課金の権利の変更依頼のバリデーションスキーマ
+const GrantChangesSchema = z.object(
+  {
+    add: grantListSchema(
+      z.object(
+        {
+          roleId: z.string({ error: USER_VALIDATION_ERROR_MESSAGES.GRANT_ROLE_ID_NOT_STRING }),
+          expiresAt: expiresAtSchema,
+          sourceRef: z
+            .string({ error: USER_VALIDATION_ERROR_MESSAGES.GRANT_SOURCE_REF_INVALID })
+            .max(200, { error: USER_VALIDATION_ERROR_MESSAGES.GRANT_SOURCE_REF_INVALID })
+            .optional(),
+        },
+        grantItemError
+      )
+    ),
+    extend: grantListSchema(
+      z.object(
+        {
+          grantId: z.string({ error: USER_VALIDATION_ERROR_MESSAGES.GRANT_ID_NOT_STRING }),
+          expiresAt: expiresAtSchema,
+        },
+        grantItemError
+      )
+    ),
+    revoke: grantListSchema(
+      z.string({ error: USER_VALIDATION_ERROR_MESSAGES.GRANT_ID_NOT_STRING })
+    ),
+  },
+  { error: USER_VALIDATION_ERROR_MESSAGES.GRANT_CHANGES_NOT_OBJECT }
+);
 
 // ロール割り当てリクエストのバリデーションスキーマ
 const AssignRolesSchema = z.object(
@@ -23,6 +68,7 @@ const AssignRolesSchema = z.object(
     roles: z.array(z.string({ error: USER_VALIDATION_ERROR_MESSAGES.ROLE_NOT_STRING }), {
       error: USER_VALIDATION_ERROR_MESSAGES.ROLES_NOT_ARRAY,
     }),
+    grantChanges: GrantChangesSchema.optional(),
   },
   { error: USER_VALIDATION_ERROR_MESSAGES.BODY_NOT_OBJECT }
 );
@@ -31,7 +77,11 @@ const AssignRolesSchema = z.object(
  * POST /api/users/[userId]/roles - ロール割り当て
  *
  * リクエストボディ:
- * - roles: string[] - 割り当てるロールID配列
+ * - roles: string[] - 割り当てる手動ロールID配列
+ * - grantChanges (任意) - 課金の権利の変更。手動ロールと同じ 1 回の書き込みで反映する
+ *   - add: { roleId, expiresAt, sourceRef? }[] - 手動の権利を追加 (expiresAt は Unix ミリ秒)
+ *   - extend: { grantId, expiresAt }[] - 手動の権利の期限を変更
+ *   - revoke: string[] - 手動の権利を取り消し
  *
  * 必要な権限: roles:assign
  */
@@ -71,7 +121,7 @@ export const POST = withApiErrorReporting(
 
       // リクエストボディのバリデーション
       const validatedData = AssignRolesSchema.parse(bodyResult.body);
-      const { roles } = validatedData;
+      const { roles, grantChanges } = validatedData;
 
       // ロールの妥当性チェック
       const invalidRoles = roles.filter((role) => !VALID_ROLES.includes(role));
@@ -79,18 +129,26 @@ export const POST = withApiErrorReporting(
         return NextResponse.json(
           {
             error: `${ERROR_MESSAGES.INVALID_ROLES}: ${invalidRoles.join(', ')}`,
-            validRoles: VALID_ROLES,
+            validRoles: MANUAL_ROLES,
           },
           { status: 400 }
         );
       }
 
+      // 重複と有料の段のロールは手動ロールでは付けさせない
+      const manualRolesError = getManualRolesErrorMessage(validateManualRoles(roles));
+      if (manualRolesError) {
+        return NextResponse.json({ error: manualRolesError }, { status: 400 });
+      }
+
       const repo = createUserRepository();
 
-      // ロールを割り当て
-      const updatedUser = await repo.assignRoles(userId, roles);
+      // 手動ロールと権利を 1 回の書き込みで反映する。競合時にやり直されるため、計算は読み直した値に対して行う
+      const updatedUser = await repo.updateRolesAndGrants(userId, (user) =>
+        applyGrantChanges(user, roles, grantChanges, session.user.id, Date.now())
+      );
 
-      return NextResponse.json(updatedUser);
+      return NextResponse.json(omitStripeCustomerId(updatedUser));
     } catch (error) {
       if (error instanceof z.ZodError) {
         return NextResponse.json(
@@ -103,6 +161,16 @@ export const POST = withApiErrorReporting(
           },
           { status: 400 }
         );
+      }
+
+      // 権利の変更依頼が現在の状態に合わない (対象なし・Stripe 由来・取り消し済みなど)
+      if (error instanceof GrantChangeError) {
+        return NextResponse.json({ error: error.message }, { status: 400 });
+      }
+
+      // 同じユーザーへの書き込みが重なり、やり直しでも解けなかった。再読み込みして保存し直せば通る
+      if (error instanceof OptimisticLockError) {
+        return NextResponse.json({ error: ERROR_MESSAGES.UPDATE_CONFLICT }, { status: 409 });
       }
 
       // ユーザー不存在 (リポジトリ層の EntityNotFoundError)

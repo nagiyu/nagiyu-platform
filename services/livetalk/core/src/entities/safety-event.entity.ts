@@ -5,7 +5,8 @@
  *   PK = USER#<userId>
  *   SK = SAFETY#<ulid>
  *
- * TTL なし（人間レビュー用途のため永続保持）。
+ * 人間レビュー用途のため長めに保持し、検出から 3 年後に TTL で自動削除する。
+ * 匿名化（退会時の re-key）しても期限は引き継ぐ。
  * PII（InputText）を含むため、将来的に KMS CMK による暗号化を検討すること。
  *
  * GSI2: SafetyEvent のみを sparse 索引化する横断レビュー用 GSI（ADR-2.22 / #3580）
@@ -43,6 +44,8 @@ export interface SafetyEventEntity {
    * Trigger=output_moderation の場合のみ設定される。
    */
   moderationCategories?: string;
+  /** TTL による自動削除の期限（Unix ms）。リポジトリが作成時に付与する */
+  expiresAt?: number;
 }
 
 export interface SafetyEventKey {
@@ -51,12 +54,12 @@ export interface SafetyEventKey {
 }
 
 /**
- * SafetyEvent 作成入力（`eventId` / `createdAt` / `updatedAt` はリポジトリ側で付与）。
+ * SafetyEvent 作成入力（`eventId` / `createdAt` / `updatedAt` / `expiresAt` はリポジトリ側で付与）。
  * characterId は横断レビュー用に作成時に必須とする（ADR-2.22 / #3580）。
  */
 export type CreateSafetyEventInput = Omit<
   SafetyEventEntity,
-  'eventId' | 'createdAt' | 'updatedAt'
+  'eventId' | 'createdAt' | 'updatedAt' | 'expiresAt'
 > & {
   /** 明示的に ULID を指定したい場合のみ渡す（テスト用途） */
   eventId?: string;

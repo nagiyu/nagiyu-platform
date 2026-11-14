@@ -5,9 +5,16 @@ import { useRouter } from 'next/navigation';
 import { Box, Typography, Paper, FormGroup } from '@mui/material';
 import { Button, Checkbox, ErrorAlert, LoadingState } from '@nagiyu/ui';
 import Link from 'next/link';
-import { VALID_ROLES } from '@nagiyu/common';
 import type { User } from '@nagiyu/common';
+import { MANUAL_ROLES } from '@/lib/manual-roles';
 import { getRoleDescription, getRoleName } from '@/lib/role-display';
+import {
+  EMPTY_PENDING_GRANT_CHANGES,
+  buildGrantChanges,
+  type PendingGrantChanges,
+} from '@/lib/role-grant-editing';
+import { RoleGrantsSection } from './role-grants-section';
+import { StripeCustomerSection } from './stripe-customer-section';
 
 interface UserEditFormProps {
   userId: string;
@@ -49,6 +56,9 @@ function RoleLabel({ roleId }: { roleId: string }) {
 export function UserEditForm({ userId }: UserEditFormProps) {
   const [user, setUser] = useState<User | null>(null);
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
+  const [pendingGrants, setPendingGrants] = useState<PendingGrantChanges>(
+    EMPTY_PENDING_GRANT_CHANGES
+  );
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -87,6 +97,15 @@ export function UserEditForm({ userId }: UserEditFormProps) {
     );
   };
 
+  const handleStripeUnlinked = (updated: unknown) => {
+    // 保存前の手動ロールや権利の変更は残したまま、取り消された権利と対応の有無だけを画面に反映する
+    if (updated && typeof updated === 'object' && 'userId' in updated) {
+      setUser(updated as User);
+    } else {
+      setError(ERROR_MESSAGES.INVALID_RESPONSE);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
@@ -96,7 +115,10 @@ export function UserEditForm({ userId }: UserEditFormProps) {
       const response = await fetch(`/api/users/${userId}/roles`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ roles: selectedRoles }),
+        body: JSON.stringify({
+          roles: selectedRoles,
+          grantChanges: buildGrantChanges(pendingGrants),
+        }),
       });
 
       if (!response.ok) {
@@ -169,7 +191,7 @@ export function UserEditForm({ userId }: UserEditFormProps) {
           {error && <ErrorAlert message={error} />}
 
           <FormGroup>
-            {VALID_ROLES.map((role) => (
+            {MANUAL_ROLES.map((role) => (
               <Checkbox
                 key={role}
                 label={<RoleLabel roleId={role} />}
@@ -179,6 +201,22 @@ export function UserEditForm({ userId }: UserEditFormProps) {
               />
             ))}
           </FormGroup>
+
+          <RoleGrantsSection
+            grants={user.roleGrants ?? []}
+            pending={pendingGrants}
+            onPendingChange={setPendingGrants}
+            disabled={saving}
+          />
+
+          {user.stripeCustomerId && (
+            <StripeCustomerSection
+              userId={user.userId}
+              customerId={user.stripeCustomerId}
+              disabled={saving}
+              onUnlinked={handleStripeUnlinked}
+            />
+          )}
 
           <Box sx={{ mt: 3, display: 'flex', gap: 2 }}>
             <Button type="submit" variant="solid" disabled={saving}>

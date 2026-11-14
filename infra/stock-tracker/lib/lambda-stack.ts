@@ -3,7 +3,6 @@ import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as ecr from 'aws-cdk-lib/aws-ecr';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
-import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import { Construct } from 'constructs';
 import { WebRuntimePolicy } from './policies/web-runtime-policy';
 import { BatchRuntimePolicy } from './policies/batch-runtime-policy';
@@ -15,7 +14,6 @@ export interface LambdaStackProps extends cdk.StackProps {
   webEcrRepositoryName: string;
   batchEcrRepositoryName: string;
   dynamoTable: dynamodb.ITable;
-  vapidSecret: secretsmanager.ISecret;
   vapidPublicKey: string; // VAPID 公開鍵（デプロイ時に Secrets Manager から取得）
   vapidPrivateKey: string; // VAPID 秘密鍵（デプロイ時に Secrets Manager から取得）
   finnhubApiKey: string; // Finnhub API Key（デプロイ時に Secrets Manager から取得）
@@ -56,7 +54,6 @@ export class LambdaStack extends cdk.Stack {
       webEcrRepositoryName,
       batchEcrRepositoryName,
       dynamoTable,
-      vapidSecret,
       vapidPublicKey,
       vapidPrivateKey,
       finnhubApiKey,
@@ -82,14 +79,12 @@ export class LambdaStack extends cdk.Stack {
     // Web Lambda 実行ロールに付与
     this.webRuntimePolicy = new WebRuntimePolicy(this, 'WebRuntimePolicy', {
       dynamoTable,
-      vapidSecret,
       envName: environment,
     });
 
     // Batch Lambda 実行ロールに付与
     this.batchRuntimePolicy = new BatchRuntimePolicy(this, 'BatchRuntimePolicy', {
       dynamoTable,
-      vapidSecret,
       envName: environment,
     });
 

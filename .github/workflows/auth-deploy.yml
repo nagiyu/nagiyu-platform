@@ -61,7 +61,6 @@ jobs:
       - name: Setup Node.js and install dependencies
         uses: ./.github/actions/setup-node
         with:
-          node-version: '24'
           cache-dependency-path: package-lock.json
 
       - name: Build common infrastructure package
@@ -91,17 +90,19 @@ jobs:
           if [[ "$ENVIRONMENT" == "prod" ]]; then
             DYNAMODB_STACK="NagiyuAuthDynamoDBProd"
             SECRETS_STACK="NagiyuAuthSecretsProd"
+            STRIPE_SECRETS_STACK="NagiyuAuthStripeSecretsProd"
             ECR_STACK="NagiyuAuthECRProd"
           else
             DYNAMODB_STACK="NagiyuAuthDynamoDBDev"
             SECRETS_STACK="NagiyuAuthSecretsDev"
+            STRIPE_SECRETS_STACK="NagiyuAuthStripeSecretsDev"
             ECR_STACK="NagiyuAuthECRDev"
           fi
 
           # Deploy infrastructure stacks
           npm run deploy --workspace=@nagiyu/infra-auth -- \
             --context env=$ENVIRONMENT \
-            "$DYNAMODB_STACK" "$SECRETS_STACK" "$ECR_STACK" \
+            "$DYNAMODB_STACK" "$SECRETS_STACK" "$STRIPE_SECRETS_STACK" "$ECR_STACK" \
             --require-approval never
 
   build:
@@ -195,7 +196,6 @@ jobs:
       - name: Setup Node.js and install dependencies
         uses: ./.github/actions/setup-node
         with:
-          node-version: '24'
           cache-dependency-path: package-lock.json
 
       - name: Build common infrastructure package
@@ -217,6 +217,7 @@ jobs:
           secret-ids: |
             GOOGLE_OAUTH,nagiyu-auth-google-oauth-${{ needs.build.outputs.environment }}
             NEXTAUTH_SECRET,nagiyu-auth-nextauth-secret-${{ needs.build.outputs.environment }}
+            STRIPE,nagiyu-auth-stripe-${{ needs.build.outputs.environment }}
           parse-json-secrets: true
 
       - name: Deploy Lambda and CloudFront (Full Stack)
@@ -226,7 +227,7 @@ jobs:
           APP_VERSION: ${{ needs.build.outputs.app-version }}
         # シークレット値はシェル変数として参照する（${{ }} で埋め込むと、値に含まれる
         # ` や $ をシェルが解釈してコマンドが壊れるため）。
-        # GOOGLE_OAUTH_* / NEXTAUTH_SECRET は前段の aws-secretsmanager-get-secrets がジョブ環境に設定する。
+        # GOOGLE_OAUTH_* / NEXTAUTH_SECRET / STRIPE_* は前段の aws-secretsmanager-get-secrets がジョブ環境に設定する。
         run: |
           echo "Deploying full Auth infrastructure to $ENVIRONMENT environment..."
           echo "Using Docker image: $IMAGE_URI"
@@ -235,6 +236,8 @@ jobs:
             --context googleClientId="$GOOGLE_OAUTH_CLIENTID" \
             --context googleClientSecret="$GOOGLE_OAUTH_CLIENTSECRET" \
             --context nextAuthSecret="$NEXTAUTH_SECRET" \
+            --context stripeSecretKey="$STRIPE_SECRETKEY" \
+            --context stripeWebhookSecret="$STRIPE_WEBHOOKSECRET" \
             --all \
             --require-approval never
 

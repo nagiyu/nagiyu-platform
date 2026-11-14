@@ -1,6 +1,6 @@
 # Admin サービス デプロイ・運用マニュアル
 
-本ドキュメントは、Admin サービスのデプロイと運用に関する手順を説明します。
+本ドキュメントは、Admin サービスのデプロイと運用に関する手順を説明します。API・画面・バッチの今の挙動は[仕様カード](../../specs/README.md) (`docs/specs/admin/`)、設計判断は[アーキテクチャ設計書](./architecture.md)にあります。
 
 ---
 
@@ -127,13 +127,7 @@ aws lambda get-function \
 curl https://admin.dev.nagiyu.com/api/health
 ```
 
-**期待される応答**:
-```json
-{
-  "status": "ok",
-  "timestamp": "2026-01-13T03:00:00.000Z"
-}
-```
+**期待される応答**: 200 で `status` が `ok` の JSON が返る。応答の項目は[システム系の API](../../specs/admin/api/system.md)を参照する。
 
 ### 3.6 GitHub Actions 実行時の補足
 
@@ -276,27 +270,25 @@ aws lambda update-function-code \
 
 ### 6.1 環境変数一覧
 
-| 環境変数                | 説明                                          | 例                             | 必須 |
-| ----------------------- | --------------------------------------------- | ------------------------------ | ---- |
-| `NEXT_PUBLIC_AUTH_URL`  | Auth サービスの URL                           | `https://auth.dev.nagiyu.com`  | ✅   |
-| `JWT_SECRET_KEY`        | JWT 検証用の秘密鍵                            | `<secret-key>`                 | ✅   |
-| `NODE_ENV`              | 実行環境                                      | `production`                   | ✅   |
-| `SKIP_AUTH_CHECK`       | 認証チェックをスキップ（テスト環境のみ）      | `true`                         | ❌   |
+Lambda に CDK (`infra/admin/lib/lambda-stack.ts`) が設定する環境変数。
+
+| 環境変数                | 説明                                          | 例                             |
+| ----------------------- | --------------------------------------------- | ------------------------------ |
+| `NODE_ENV`              | 実行環境 (`dev` / `prod`)                     | `dev`                          |
+| `NAGIYU_ENV`            | NextAuth のクッキーのドメイン判定に使う環境。`NODE_ENV` はビルド時に置換されるため、デプロイ後の判定には使えない | `dev` |
+| `APP_VERSION`           | バージョン表記 (ヘルスチェックとフッターに出る) | `1.0.0`                      |
+| `APP_URL`               | Admin 自身の URL                              | `https://admin.dev.nagiyu.com` |
+| `NEXT_PUBLIC_AUTH_URL`  | Auth サービスの URL (サインインの遷移先)      | `https://auth.dev.nagiyu.com`  |
+| `AUTH_SECRET`           | Auth サービスの JWT の検証に使う鍵            | (秘密情報)                     |
+| `DYNAMODB_TABLE_NAME`   | Admin のテーブル (Push の購読)                | `nagiyu-admin-main-dev`        |
+| `ERROR_EVENTS_TABLE_NAME` | 共有のエラーイベントのテーブル              | `nagiyu-error-events-dev`      |
+| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | Web Push の VAPID 鍵 ([ADR-002](./architecture.md)) | (Secrets Manager) |
+| `SNS_ALLOWED_TOPIC_ARN` | `/api/notify/sns` が受け付ける自己監視トピックの ARN | (CDK が設定) |
+| `SKIP_AUTH_CHECK`       | 認証チェックをスキップ (テスト環境のみ。本番では設定しない) | `true`           |
 
 ### 6.2 環境変数の設定方法
 
-**CDK での設定**:
-
-環境変数は CDK スタックで自動的に設定されます:
-
-```typescript
-// lib/admin-stack.ts
-environment: {
-  NEXT_PUBLIC_AUTH_URL: `https://auth-${env}.nagiyu.com`,
-  JWT_SECRET_KEY: secretKey.secretValue.unsafeUnwrap(),
-  NODE_ENV: 'production',
-}
-```
+環境変数は CDK スタックで設定する。
 
 **手動設定（緊急時）**:
 
@@ -385,7 +377,7 @@ npm version major -w @nagiyu/admin
 
 Lambda は自動スケーリングされます。必要に応じて以下を調整:
 
-- メモリサイズ: 1024 MB（Phase 1）
+- メモリサイズ: 512 MB
 - タイムアウト: 30秒
 - 予約済み同時実行数: 未設定（必要に応じて設定）
 

@@ -1,4 +1,5 @@
 import * as cdk from 'aws-cdk-lib';
+import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import { Match, Template } from 'aws-cdk-lib/assertions';
 import {
   CloudFrontStackBase,
@@ -332,6 +333,53 @@ describe('CloudFrontStackBase', () => {
       template.hasResourceProperties('AWS::CloudFront::Distribution', {
         DistributionConfig: {
           HttpVersion: 'http2',
+        },
+      });
+    });
+  });
+
+  describe('createFunctionAssociations', () => {
+    const baseProps = {
+      serviceName: 'tools',
+      environment: 'dev' as const,
+      functionUrl: 'https://example.lambda-url.ap-northeast-1.on.aws/',
+      certificateArn: 'arn:aws:acm:us-east-1:123456789012:certificate/test',
+    };
+
+    it('指定しなければ default behavior に Function を付けず、Function も作らない', () => {
+      const template = Template.fromStack(new CloudFrontStackBase(app, 'NoFn', baseProps));
+
+      template.resourceCountIs('AWS::CloudFront::Function', 0);
+      const distribution = Object.values(
+        template.findResources('AWS::CloudFront::Distribution')
+      )[0] as { Properties: { DistributionConfig: { DefaultCacheBehavior: object } } };
+      expect(distribution.Properties.DistributionConfig.DefaultCacheBehavior).not.toHaveProperty(
+        'FunctionAssociations'
+      );
+    });
+
+    it('指定すれば、スタック内に作った Function を default behavior の viewer-request に付ける', () => {
+      const stack = new CloudFrontStackBase(app, 'WithFn', {
+        ...baseProps,
+        createFunctionAssociations: (scope) => [
+          {
+            function: new cloudfront.Function(scope, 'Fn', {
+              code: cloudfront.FunctionCode.fromInline('function handler(e) { return e.request; }'),
+            }),
+            eventType: cloudfront.FunctionEventType.VIEWER_REQUEST,
+          },
+        ],
+      });
+      const template = Template.fromStack(stack);
+
+      template.resourceCountIs('AWS::CloudFront::Function', 1);
+      template.hasResourceProperties('AWS::CloudFront::Distribution', {
+        DistributionConfig: {
+          DefaultCacheBehavior: {
+            FunctionAssociations: [{ EventType: 'viewer-request' }],
+            // 既定のポリシー (Host 以外の全ヘッダー) は変えない
+            OriginRequestPolicyId: 'b689b0a8-53d0-40ab-baf2-68738e2966ac',
+          },
         },
       });
     });

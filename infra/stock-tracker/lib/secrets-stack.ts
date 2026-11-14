@@ -40,6 +40,10 @@ export class SecretsStack extends cdk.Stack {
       },
     });
 
+    // デプロイ済みの LambdaStack がこの export を import しているため、import が外れたことを
+    // 反映するまで export を残す (import 中の export は削除できずデプロイが失敗する)。
+    this.exportValue(this.vapidSecret.secretArn);
+
     // タグの追加
     cdk.Tags.of(this.vapidSecret).add('Application', 'nagiyu');
     cdk.Tags.of(this.vapidSecret).add('Service', 'stock-tracker');

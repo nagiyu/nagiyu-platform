@@ -1,4 +1,6 @@
 import { EntityNotFoundError, OptimisticLockError } from '@nagiyu/aws';
+import { WEB_FACT_TOPIC_LIMIT } from '../constants.js';
+import { selectRecentWebFacts } from '../knowledge/recent-web-facts.js';
 import type { SelfFactKey } from '../entities/self-fact.entity.js';
 import type { ILLMClient } from '../llm-client/types.js';
 import type { TopicRepository } from '../repositories/topic.repository.interface.js';
@@ -73,7 +75,7 @@ export async function forgetSelfFact(key: SelfFactKey, deps: ForgetSelfFactDeps)
         const prompt = buildRegenerateSummaryPrompt({
           subject: topic.subject,
           selfFacts: bundle.selfFacts.map((f) => f.text),
-          webFacts: bundle.webFacts.map((f) => f.text),
+          webFacts: selectRecentWebFacts(bundle.webFacts, WEB_FACT_TOPIC_LIMIT).map((f) => f.text),
         });
         const result = await llmClient.chatStructured(prompt, RegenerateSummarySchema, {
           purpose: 'summarize',

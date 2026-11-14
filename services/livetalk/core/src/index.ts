@@ -80,7 +80,7 @@ export {
 } from './usecases/learn-user-activity.usecase.js';
 
 // Research（Phase 5a）
-export type { IResearchClient, ResearchResult } from './research/index.js';
+export type { IResearchClient, ResearchResult, WebSearchCallCounts } from './research/index.js';
 export {
   OpenAIResearchClient,
   RESEARCH_ERROR_MESSAGES,
@@ -89,6 +89,14 @@ export {
 
 // WEB fact 変化検知（リブトーク知識再設計 P3 / #3699、acquire バッチ用）
 export { LLMWebFactChangeDetector, type IWebFactChangeDetector } from './research/index.js';
+export {
+  LLMExplorationAngleGenerator,
+  buildExplorationAnglePrompt,
+  type IExplorationAngleGenerator,
+  type ExplorationAnglePromptInput,
+} from './research/index.js';
+export { ExplorationAngleSchema } from './llm-client/schemas/exploration-angle.schema.js';
+export type { ExplorationAngleRaw } from './llm-client/schemas/exploration-angle.schema.js';
 export { WebFactChangeSchema } from './llm-client/schemas/web-fact-change.schema.js';
 export type { WebFactChangeRaw } from './llm-client/schemas/web-fact-change.schema.js';
 
@@ -168,6 +176,26 @@ export { DynamoDBStudyTopicRepository } from './repositories/dynamodb-study-topi
 export { StudyTopicMapper } from './mappers/study-topic.mapper.js';
 export { buildStudyTopicSK, buildStudyTopicSKPrefix } from './mappers/keys.js';
 
+// 鮮度確認の依頼
+export type {
+  FreshnessCheckRequestEntity,
+  FreshnessCheckRequestKey,
+  PutFreshnessCheckRequestInput,
+} from './entities/freshness-check-request.entity.js';
+export type { FreshnessCheckRequestRepository } from './repositories/freshness-check-request.repository.interface.js';
+export { InMemoryFreshnessCheckRequestRepository } from './repositories/in-memory-freshness-check-request.repository.js';
+export { DynamoDBFreshnessCheckRequestRepository } from './repositories/dynamodb-freshness-check-request.repository.js';
+export { FreshnessCheckRequestMapper } from './mappers/freshness-check-request.mapper.js';
+export {
+  buildFreshnessCheckRequestSK,
+  buildFreshnessCheckRequestSKPrefix,
+} from './mappers/keys.js';
+export {
+  hasStaleWebFact,
+  isStaleWebFact,
+  requestFreshnessChecks,
+} from './study/freshness-check.js';
+
 // Note（Phase 5c / #3345）
 export type { NoteEntity, NoteKey, CreateNoteInput } from './entities/note.entity.js';
 export type { NoteRepository } from './repositories/note.repository.interface.js';
@@ -175,6 +203,22 @@ export { InMemoryNoteRepository } from './repositories/in-memory-note.repository
 export { DynamoDBNoteRepository } from './repositories/dynamodb-note.repository.js';
 export { NoteMapper } from './mappers/note.mapper.js';
 export { buildNoteSK, buildNoteSKPrefix } from './mappers/keys.js';
+export type { NoteSkipEntity, NoteSkipKey, PutNoteSkipInput } from './entities/note-skip.entity.js';
+export type { NoteSkipRepository } from './repositories/note-skip.repository.interface.js';
+export { InMemoryNoteSkipRepository } from './repositories/in-memory-note-skip.repository.js';
+export { DynamoDBNoteSkipRepository } from './repositories/dynamodb-note-skip.repository.js';
+export { NoteSkipMapper } from './mappers/note-skip.mapper.js';
+export { buildNoteSkipSK, buildNoteSkipSKPrefix } from './mappers/keys.js';
+export type {
+  ExplorationEntity,
+  ExplorationKey,
+  PutExplorationInput,
+} from './entities/exploration.entity.js';
+export type { ExplorationRepository } from './repositories/exploration.repository.interface.js';
+export { InMemoryExplorationRepository } from './repositories/in-memory-exploration.repository.js';
+export { DynamoDBExplorationRepository } from './repositories/dynamodb-exploration.repository.js';
+export { ExplorationMapper } from './mappers/exploration.mapper.js';
+export { buildExplorationSK, buildExplorationSKPrefix } from './mappers/keys.js';
 export {
   generateNotesForUser,
   type GenerateNotesParams,
@@ -191,6 +235,22 @@ export { NoteLetterSchema, type NoteLetterRaw } from './llm-client/schemas/note-
 // 知識ゲート（Phase 5b / #3344。P5 で searchKnowledge/evaluateKnowledgeGate/KnowledgeMatcher は撤去、classifyTopic のみ残置）
 export { classifyTopic } from './study/knowledge-gate.js';
 export { buildStudyDeferralMessage } from './study/templates.js';
+export {
+  isStudyPaused,
+  findLastUserMessageAt,
+  resolveLastUserMessageAt,
+} from './study/active-window.js';
+export {
+  computePerCharacterResearchLimit,
+  createDailyResearchAllowance,
+  type ResearchAllowance,
+} from './study/research-allowance.js';
+export type {
+  StudyUsageRepository,
+  TryConsumeStudyUsageInput,
+} from './repositories/study-usage.repository.interface.js';
+export { InMemoryStudyUsageRepository } from './repositories/in-memory-study-usage.repository.js';
+export { DynamoDBStudyUsageRepository } from './repositories/dynamodb-study-usage.repository.js';
 
 // Token counter
 export {
@@ -214,6 +274,7 @@ export {
   AFFECTION_TIME_CONTINUITY_BONUS,
   AFFECTION_BIDIRECTIONALITY_WEIGHT,
   STUDY_INACTIVE_WINDOW_HOURS,
+  STUDY_PAUSE_AFTER_HOURS,
   STUDY_TOPIC_TTL_SECONDS,
   STUDY_TOPIC_GATE_PRIORITY,
   NOTE_CARE_THRESHOLD,
@@ -230,7 +291,7 @@ export {
   type AcquireForUserParams,
   type AcquireForUserResult,
 } from './usecases/acquire.usecase.js';
-export { ACQUIRE_MAX_QUERIES_PER_RUN, ACQUIRE_STALE_SWEEP_LIMIT } from './constants.js';
+export { ACQUIRE_MAX_QUERIES_PER_RUN } from './constants.js';
 
 // PushSubscription（Phase 5d / #3346）
 export type {
@@ -282,6 +343,7 @@ export type {
   EscalationResult,
   DetectCriticalInput,
   DetectCriticalCandidate,
+  SentCritical,
   SelectNotificationsInput,
   SelectNotificationsResult,
 } from './notification/index.js';
@@ -312,16 +374,13 @@ export {
 // チャット API 保護ガード（Issue #3528）
 export type {
   RateLimitWindow,
-  RateLimitResult,
+  RateLimitLimits,
+  TryConsumeRateLimitResult,
   AcquireLockResult,
   ChatGuardRepository,
 } from './repositories/chat-guard.repository.interface.js';
 export { InMemoryChatGuardRepository } from './repositories/in-memory-chat-guard.repository.js';
-export {
-  DynamoDBChatGuardRepository,
-  computeBucket,
-  computeWindowTtlSec,
-} from './repositories/dynamodb-chat-guard.repository.js';
+export { DynamoDBChatGuardRepository } from './repositories/dynamodb-chat-guard.repository.js';
 
 // アカウント削除（退会・データ削除 / Issue #3579）
 export type { AccountDeletionResult } from './entities/account-deletion.entity.js';
@@ -377,9 +436,6 @@ export {
   // GSI3（GSI-TOPIC）: Topic ヘッダ(META) 列挙・care 降順取得用 sparse GSI（#3697）
   TOPIC_GSI_INDEX_NAME,
   buildTopicGSI3PK,
-  // GSI4（GSI-STALE）: 揮発 WEB fact の鮮度掃引用 sparse GSI（リブトーク知識再設計 P3 / #3699）
-  STALE_GSI_INDEX_NAME,
-  buildTopicStaleGSI4PK,
 } from './mappers/keys.js';
 
 export type { TopicRepository, TopicBundle } from './repositories/topic.repository.interface.js';
@@ -413,7 +469,7 @@ export {
 export { consolidate, type ConsolidateParams } from './usecases/consolidate.usecase.js';
 
 // Topic 想起（関連度 only）＋決定的忘却（リブトーク知識再設計 P2 / #3698）
-export { TopicRetriever } from './knowledge/index.js';
+export { TopicRetriever, selectRecentWebFacts } from './knowledge/index.js';
 export type { ITopicRetriever, RetrievedTopic, TopicRetrieveOptions } from './knowledge/index.js';
 export { forgetSelfFact, type ForgetSelfFactDeps } from './usecases/forget-self-fact.usecase.js';
 export {
@@ -429,6 +485,10 @@ export {
   TOPIC_RECALL_TOP_K,
   TOPIC_RECALL_RELATED_THRESHOLD,
   TOPIC_RECALL_RELATED_MAX,
+  WEB_FACT_TOPIC_LIMIT,
+  WEB_FACT_STABLE_LIMIT,
+  WEB_FACT_CHAT_LIMIT,
+  WEB_FACT_NOTE_LIMIT,
 } from './constants.js';
 
 // Repository factory (registry 経由。web / batch はここから生成する)
@@ -440,12 +500,16 @@ export {
   createCharacterStateRepository,
   createLifecycleRepository,
   createStudyTopicRepository,
+  createFreshnessCheckRequestRepository,
   createNoteRepository,
+  createNoteSkipRepository,
+  createExplorationRepository,
   createPushSubscriptionRepository,
   createNotificationEventRepository,
   createTopicRepository,
   createConsolidationCursorRepository,
   createWebRawRepository,
   createSafetyEventRepository,
+  createStudyUsageRepository,
   resetRepositoryFactories,
 } from './repositories/factory.js';

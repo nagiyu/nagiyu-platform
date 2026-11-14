@@ -1,0 +1,59 @@
+name: Deploy - docs サイト (GitHub Pages)
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - 'docs/**'
+      - 'docs-site/**'
+      - '.node-version'
+      - '.github/workflows/docs-pages-deploy.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 公開は 1 本ずつ行う。進行中の公開は、途中で打ち切ると壊れた状態になりうるため止めない。
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: ビルド
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      # テストやビルドの道具 (jest など) はルートにあるため、ルートと docs-site だけを入れる
+      - name: 依存をインストール
+        run: npm ci --workspace=docs-site --include-workspace-root
+
+      - name: サイトをビルド
+        run: npm run build -w docs-site
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs-site/.vitepress/dist
+
+  deploy:
+    name: 公開
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

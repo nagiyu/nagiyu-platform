@@ -13,6 +13,13 @@ export const DEFAULT_CHARACTER_ID = 'hiyori';
 export const MESSAGE_TTL_SECONDS = 90 * 24 * 60 * 60;
 
 /**
+ * SafetyEvent に付与する DynamoDB TTL（秒）。検出（作成）から 3 年後に自動削除。
+ * 退会時の匿名化でも期限は引き継ぐため、利用者への案内（検出から 3 年間保持）と一致する。
+ * 暫定値で、法務レビューで確定する。
+ */
+export const SAFETY_EVENT_TTL_SECONDS = 3 * 365 * 24 * 60 * 60;
+
+/**
  * LLM プロンプトに渡せるコンテキストのトークン上限の既定値。
  * 環境変数 `LLM_CONTEXT_TOKEN_LIMIT` で上書きできる。
  */
@@ -28,8 +35,8 @@ export const TOKEN_BUDGETED_QUERY_PAGE_SIZE = 50;
  * 利用規約・プライバシーポリシーのバージョン。
  * 改定時にインクリメントし、ユーザーの再同意を促す。
  */
-export const LIVETALK_TERMS_VERSION = '1.0.0';
-export const LIVETALK_PRIVACY_VERSION = '1.0.0';
+export const LIVETALK_TERMS_VERSION = '1.1.0';
+export const LIVETALK_PRIVACY_VERSION = '1.1.0';
 
 /**
  * 親密度: 1 件の C→B 昇格（情報開示）に対する加算量（Phase 3f）。
@@ -65,6 +72,20 @@ export const LIFECYCLE_DEFAULT_WAKE_UP_TIME = '09:30';
  * acquire バッチ（care 自発リサーチ）が引き続き使用する。
  */
 export const STUDY_INACTIVE_WINDOW_HOURS = 2;
+
+/**
+ * 最後にユーザーが話してから、キャラクターの勉強 (Web リサーチ) と重要通知を止めるまでの時間 (時間)。
+ * 3 日 = 72 時間。話しかけると次のバッチから再開する。
+ * 離れている利用者のためにリサーチ費用をかけず、情報が更新されないまま重要通知を出さないための値。
+ */
+export const STUDY_PAUSE_AFTER_HOURS = 72;
+
+/**
+ * 勉強 (Web リサーチ) の 1 日あたりの上限回数。利用者 1 人あたり、日本時間の暦日で数える。
+ * 会話からの依頼・鮮度切れの再取得・自発リサーチを同じ枠で数え、勉強中のキャラクターで等分する。
+ * 本番での使用感を見て調整する仮の値。
+ */
+export const STUDY_DAILY_RESEARCH_LIMIT_PER_USER = 20;
 
 /**
  * StudyTopic に付与する DynamoDB TTL（秒）。30 日後に自動削除。
@@ -270,7 +291,7 @@ export const TOPIC_ROUTING_MAX_CANDIDATES = 8;
 export const CONSOLIDATION_ROUTING_TEXT_MAX_CHARS = 2000;
 
 /**
- * WEB fact の揮発性区分ごとの再検証間隔（ミリ秒）（P3 の鮮度掃引バッチで使用予定）。
+ * WEB fact の揮発性区分ごとの再検証間隔（ミリ秒）（acquire バッチの鮮度確認で使用）。
  * `stable` は再検証不要のため対象外（NextReview は常に undefined）。
  */
 export const WEBFACT_REVIEW_INTERVAL_MS: Record<'low' | 'medium' | 'high', number> = {
@@ -286,17 +307,16 @@ export const WEBFACT_REVIEW_INTERVAL_MS: Record<'low' | 'medium' | 'high', numbe
 
 /**
  * acquire バッチ: 1 実行あたりに発行する Web 取得クエリの最大数（暴走防止）。
- * 依頼（StudyTopic）・鮮度切れ・care 自発リサーチの合算で消費する。
+ * 依頼 (StudyTopic)・鮮度確認の依頼・care 自発リサーチの合算で消費する。
  */
 export const ACQUIRE_MAX_QUERIES_PER_RUN = 3;
 
 /**
- * acquire バッチ: 鮮度掃引（GSI-STALE の窓走査）で 1 回に読み込む WEB fact の上限件数。
- * 鮮度切れ再取得はトピック単位に集約して research するため（#3781）、この件数は
- * `ACQUIRE_MAX_QUERIES_PER_RUN`（research 回数の上限）とは独立に、束ねる元になる
- * fact をどこまで読むかの上限として働く。
+ * 鮮度確認の依頼に付与する DynamoDB TTL (秒)。7 日後に自動削除。
+ * 枠・予算で処理が後回しになり続けた依頼が溜まり続けないようにする。
+ * 消えても、その Topic が次に使われたとき再び依頼される。
  */
-export const ACQUIRE_STALE_SWEEP_LIMIT = 10;
+export const FRESHNESS_CHECK_REQUEST_TTL_SECONDS = 7 * 24 * 60 * 60;
 
 /**
  * acquire バッチ: care 自発リサーチのトピック単位クールダウン（ミリ秒）。
@@ -305,7 +325,7 @@ export const ACQUIRE_STALE_SWEEP_LIMIT = 10;
  * 重複除去しないため同一話題の冗長な WEB fact が線形増加する（本再設計が止めたい
  * 「同一話題 ×N」の再来）。直近この期間内に取得済み（最新 WEB fact の ObservedAt が
  * 新しい）Topic は自発リサーチをスキップし、未研究・古い Topic に集中させる。
- * 揮発 fact の鮮度追随は別途 GSI-STALE 経路が担うため、ここは「未取得ギャップの穴埋め」
+ * 揮発 fact の鮮度追随は、Topic が使われたときの鮮度確認の依頼が担うため、ここは「未取得ギャップの穴埋め」
  * に限定する。既定は 24 時間（要調整・要観測）。
  */
 export const ACQUIRE_SELF_STUDY_COOLDOWN_MS = 24 * 60 * 60 * 1000;
@@ -316,6 +336,25 @@ export const ACQUIRE_SELF_STUDY_COOLDOWN_MS = 24 * 60 * 60 * 1000;
  * 研究対象を確保できるよう、budget より広めに候補を取る。
  */
 export const ACQUIRE_SELF_STUDY_CANDIDATE_LIMIT = 20;
+
+/**
+ * acquire バッチ: care 自発リサーチの起点にする Topic の care 下限。
+ * care は利用者起点 (SELF fact が出たとき) でしか上がらないため、1 以上は利用者が会話で触れた Topic を表す。
+ * 探索の結果として集約された care 0 の Topic まで起点にすると、利用者の興味から離れた探索が連鎖する。
+ */
+export const ACQUIRE_SELF_STUDY_MIN_CARE = 1;
+
+/**
+ * 自発リサーチの起点ごとに覚える「最近の角度」の件数。
+ * 角度の生成に渡して重複を避けさせる。多いほどプロンプトが膨らむため直近数件にとどめる。
+ */
+export const EXPLORATION_RECENT_ANGLES_LIMIT = 5;
+
+/** 角度の生成に渡す、すでに知っている WEB fact の件数 (新しい側から)。プロンプトの肥大を避けるため数件にする */
+export const EXPLORATION_KNOWN_WEB_FACT_LIMIT = 5;
+
+/** 角度の生成に渡す、利用者の発言由来の SELF fact の件数。プロンプトの肥大を避けるため数件にする */
+export const EXPLORATION_SELF_FACT_LIMIT = 5;
 
 // ---- Topic 想起（関連度 only）（リブトーク知識再設計 P2 / #3698）----
 
@@ -330,3 +369,27 @@ export const TOPIC_RECALL_RELATED_THRESHOLD = 0.8;
 
 /** 1ホップ関連展開で追加する Topic の最大件数（暴発防止、要調整・要観測）。 */
 export const TOPIC_RECALL_RELATED_MAX = 2;
+
+// ---- WEB fact の読み出し件数 ----
+
+/**
+ * WEB fact の「新しい順に使う最大件数」と「集約が保持する stable 以外の上限」を兼ねる件数。
+ * 読む側 (会話・ノート生成・鮮度確認・要約の作り直し・集約の見比べ) は、全区分から
+ * 観測日時の新しい順にこの件数までを使う。集約は stable 以外 (low / medium / high) をこの件数まで
+ * 保持する。stable は別の上限 (`WEB_FACT_STABLE_LIMIT`) を持つ。
+ */
+export const WEB_FACT_TOPIC_LIMIT = 20;
+
+/**
+ * 集約が 1 Topic に保持する stable の WEB fact の上限件数 (仮の値)。
+ * stable は再検証されず溜まり続ける。また stable は LLM が付ける区分で付け間違えがありうるため、
+ * stable にも上限を置く。stable 以外と別枠にして、stable で埋まった Topic でも
+ * 新しく足した stable 以外の事実が消えないようにする。
+ */
+export const WEB_FACT_STABLE_LIMIT = 10;
+
+/** 会話のプロンプトに渡す WEB fact の 1 Topic あたりの件数（新しい順）。 */
+export const WEB_FACT_CHAT_LIMIT = 5;
+
+/** ノート生成のプロンプトに渡す WEB fact の件数（新しい順）。 */
+export const WEB_FACT_NOTE_LIMIT = 10;

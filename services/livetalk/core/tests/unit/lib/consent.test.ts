@@ -69,4 +69,20 @@ describe('isConsentValid', () => {
       )
     ).toBe(true);
   });
+
+  it('旧版 1.0.0 の同意は新版 1.1.0 の要件では無効、1.1.0 なら有効', () => {
+    const next = { termsVersion: '1.1.0', privacyVersion: '1.1.0' };
+    const old = {
+      termsAgreed: { version: '1.0.0', agreedAt: 1 },
+      privacyAgreed: { version: '1.0.0', agreedAt: 1 },
+      ageVerified: { value: true, verifiedAt: 1 },
+    };
+    const current = {
+      ...old,
+      termsAgreed: { version: '1.1.0', agreedAt: 2 },
+      privacyAgreed: { version: '1.1.0', agreedAt: 2 },
+    };
+    expect(isConsentValid(old, next)).toBe(false);
+    expect(isConsentValid(current, next)).toBe(true);
+  });
 });

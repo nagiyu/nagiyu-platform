@@ -280,6 +280,7 @@ on:
             - 'libs/**'                   # ターゲットと依存ライブラリ
             - 'configs/**'                # 共有設定
             - '.github/actions/**'        # 共有 composite action
+            - '.node-version'             # runner の Node のバージョン
             - 'package.json'              # ルートパッケージ定義
             - 'package-lock.json'         # 依存関係ロック
             - '.github/workflows/hoge-verify.yml'  # ワークフロー自体
@@ -297,6 +298,7 @@ on:
     - **ターゲット**: 変更対象のディレクトリ（例: `services/hoge/**`）
     - **依存対象**: 依存ライブラリは個別に列挙せず `libs/**` とする。共通インフラ部品・共有設定も含める (理由と対象は [コーディング規約](./rules.md) の「Verify ワークフローは PR をトリガーとし、パスフィルターを設定」を参照)
     - **ルートパッケージ**: `package.json`, `package-lock.json`
+    - **Node のバージョン**: `.node-version`。workflow の Node は `actions/setup-node` がこのファイルから読む。足すのは、Node が変わると結果が変わりうる workflow に限る。runner の Node でビルド・テスト・synth する verify と、runner の Node で作ったものをそのまま公開する deploy (docs サイト、Storybook) がこれに当たる。アプリを Docker の中で作る deploy には足さない。動く Node は Dockerfile のベースイメージで決まり、`.node-version` だけを変えてもデプロイされる中身は変わらないため
     - **ワークフロー自体**: ワークフロー定義ファイルと、そこから呼ぶ再利用ワークフロー。再利用ワークフローを直したときに、呼び出し側の verify が走らないと検証から漏れる
 
 3. **ワークスペース指定**: パッケージ名を使用

@@ -17,6 +17,7 @@ jest.mock('@nagiyu/livetalk-core', () => ({
   createConsolidationCursorRepository: jest.fn(),
   createProfileRepository: jest.fn(),
   createNoteRepository: jest.fn(),
+  createNoteSkipRepository: jest.fn(),
   OpenAIClient: jest.fn(),
   OpenAIEmbeddingClient: jest.fn(),
   defaultUlidFactory: jest.fn(),

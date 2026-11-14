@@ -10,6 +10,8 @@ import type { TopicRepository } from '../../../src/repositories/topic.repository
 import {
   CONSOLIDATION_ROUTING_TEXT_MAX_CHARS,
   TOPIC_ROUTING_MAX_CANDIDATES,
+  WEB_FACT_TOPIC_LIMIT,
+  WEBFACT_REVIEW_INTERVAL_MS,
 } from '../../../src/constants.js';
 
 const fixedNow = 1_750_000_000_000;
@@ -68,6 +70,8 @@ const makeWebFact = (
   text: 'コーヒーには覚醒作用がある',
   sourceUrls: ['https://example.com'],
   volatility: 'stable',
+  action: 'add',
+  existingFactIndices: [],
   ...overrides,
 });
 
@@ -99,8 +103,9 @@ const withFailingPutSelfFact = (repo: TopicRepository): TopicRepository => ({
   deleteSelfFact: repo.deleteSelfFact.bind(repo),
   putWebFact: repo.putWebFact.bind(repo),
   listWebFacts: repo.listWebFacts.bind(repo),
-  listStaleWebFacts: repo.listStaleWebFacts.bind(repo),
   updateWebFactNextReview: repo.updateWebFactNextReview.bind(repo),
+  deleteWebFact: repo.deleteWebFact.bind(repo),
+  updateWebFactObservation: repo.updateWebFactObservation.bind(repo),
 });
 
 /**
@@ -119,8 +124,9 @@ const withNullGetTopic = (repo: TopicRepository): TopicRepository => ({
   deleteSelfFact: repo.deleteSelfFact.bind(repo),
   putWebFact: repo.putWebFact.bind(repo),
   listWebFacts: repo.listWebFacts.bind(repo),
-  listStaleWebFacts: repo.listStaleWebFacts.bind(repo),
   updateWebFactNextReview: repo.updateWebFactNextReview.bind(repo),
+  deleteWebFact: repo.deleteWebFact.bind(repo),
+  updateWebFactObservation: repo.updateWebFactObservation.bind(repo),
 });
 
 describe('consolidate', () => {
@@ -933,6 +939,67 @@ describe('consolidate', () => {
     expect(candidateLines).toHaveLength(TOPIC_ROUTING_MAX_CANDIDATES);
   });
 
+  it('既存の事実が上限を超える候補 Topic では、新しい側の WEB_FACT_TOPIC_LIMIT 件だけを番号付きで渡す', async () => {
+    const { topicRepo, messageRepo, webRawRepo, cursorRepo } = makeRepos();
+    await topicRepo.putTopic({
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: 'TOPIC-X',
+      subject: '話題X',
+      canonicalSummary: '要約X',
+      category: 'その他',
+      care: 1,
+      embedding: [1, 0],
+    });
+    for (let i = 0; i < WEB_FACT_TOPIC_LIMIT + 1; i++) {
+      await topicRepo.putWebFact({
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId: 'TOPIC-X',
+        factId: `FX-${String(i).padStart(2, '0')}`,
+        text: `既存本文F${String(i).padStart(2, '0')}`,
+        sourceUrls: [],
+        volatility: 'low',
+        observedAt: 10_000 + i,
+        nextReview: 99_000,
+      });
+    }
+    tick = fixedNow;
+    await messageRepo.create({ userId: 'u1', characterId: 'hiyori', role: 'user', text: 'テスト' });
+
+    let capturedUserContent = '';
+    const llmClient: ILLMClient = {
+      async *chatStream() {
+        yield '';
+      },
+      async chatComplete() {
+        return '';
+      },
+      async chatStructured(messages) {
+        capturedUserContent = messages.find((m) => m.role === 'user')?.content ?? '';
+        return { topics: [makeTopicResult()] } as unknown as never;
+      },
+    };
+
+    await consolidate('u1', 'hiyori', {
+      topicRepo,
+      messageRepo,
+      webRawRepo,
+      cursorRepo,
+      llmClient,
+      embeddingClient: makeEmbeddingClient([1, 0]),
+      characterName: 'ひより',
+      now: () => fixedNow,
+    });
+
+    const factLines = capturedUserContent.split('\n').filter((l) => l.includes('[事実 #'));
+    expect(factLines).toHaveLength(WEB_FACT_TOPIC_LIMIT);
+    // 最も古い 1 件 (F00) だけが外れ、新しい側の F20 が先頭の番号 0 になる
+    expect(capturedUserContent).not.toContain('既存本文F00');
+    expect(factLines[0]).toContain('[事実 #0] 既存本文F20');
+    expect(capturedUserContent).toContain('既存本文F01');
+  });
+
   describe('依頼由来 provenance（甲-1 / index 参照方式）', () => {
     it('request-origin WebRaw を LLM が sourceRequestIndices:[0] で指すと、Topic に WebRaw の権威ある原文・日時が焼かれる', async () => {
       const { topicRepo, messageRepo, webRawRepo, cursorRepo } = makeRepos();
@@ -1276,6 +1343,458 @@ describe('consolidate', () => {
       });
       expect(topic?.requestText).toBe('今度はコーヒーの新情報を調べて');
       expect(topic?.requestedAt).toBe(newRequestedAt);
+    });
+  });
+
+  describe('WEB fact の見比べ（add / replace / duplicate）と上限', () => {
+    const TOPIC_A = 'TOPIC-A';
+    const TOPIC_B = 'TOPIC-B';
+    const key = (topicId: string, factId: string) => ({
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId,
+      factId,
+    });
+
+    /** 既存 Topic を 2 つ (A / B) と、新しい順に番号が振られる WEB fact を用意する */
+    const setup = async () => {
+      const repos = makeRepos();
+      const { topicRepo, messageRepo } = repos;
+      for (const topicId of [TOPIC_A, TOPIC_B]) {
+        await topicRepo.putTopic({
+          userId: 'u1',
+          characterId: 'hiyori',
+          topicId,
+          subject: topicId,
+          canonicalSummary: '以前の要約',
+          category: '飲み物',
+          care: 1,
+          embedding: [1, 0],
+        });
+      }
+      // A: 番号 0 = FA-NEW(volatile high), 1 = FA-OLD(stable)。B: 番号 2 = FB-1
+      await topicRepo.putWebFact({
+        ...key(TOPIC_A, 'FA-OLD'),
+        text: '古い事実',
+        sourceUrls: [],
+        volatility: 'stable',
+        observedAt: 1_000,
+      });
+      await topicRepo.putWebFact({
+        ...key(TOPIC_A, 'FA-NEW'),
+        text: '新しい側の事実',
+        sourceUrls: [],
+        volatility: 'high',
+        observedAt: 2_000,
+        nextReview: 5_000,
+      });
+      await topicRepo.putWebFact({
+        ...key(TOPIC_B, 'FB-1'),
+        text: 'B の事実',
+        sourceUrls: [],
+        volatility: 'low',
+        observedAt: 500,
+        nextReview: 9_000,
+      });
+      tick = fixedNow;
+      await messageRepo.create({
+        userId: 'u1',
+        characterId: 'hiyori',
+        role: 'user',
+        text: 'こんにちは',
+      });
+      return repos;
+    };
+
+    const run = async (
+      repos: Awaited<ReturnType<typeof setup>>,
+      topics: TopicResult[],
+      topicRepo: TopicRepository = repos.topicRepo
+    ) =>
+      consolidate('u1', 'hiyori', {
+        topicRepo,
+        messageRepo: repos.messageRepo,
+        webRawRepo: repos.webRawRepo,
+        cursorRepo: repos.cursorRepo,
+        llmClient: makeLLMClient(topics),
+        embeddingClient: makeEmbeddingClient(),
+        characterName: 'ひより',
+        now: () => fixedNow + 100_000,
+      });
+
+    const factIds = async (repos: Awaited<ReturnType<typeof setup>>, topicId: string) =>
+      (await repos.topicRepo.listWebFacts('u1', 'hiyori', topicId)).map((f) => f.factId).sort();
+
+    it('add は新しい事実を追加し、既存の事実には触れない', async () => {
+      const repos = await setup();
+      await run(repos, [
+        makeTopicResult({
+          targetTopicId: TOPIC_A,
+          selfFacts: [],
+          webFacts: [makeWebFact({ text: '別の事実', action: 'add' })],
+        }),
+      ]);
+      const facts = await repos.topicRepo.listWebFacts('u1', 'hiyori', TOPIC_A);
+      expect(facts).toHaveLength(3);
+      expect(facts.map((f) => f.factId)).toEqual(expect.arrayContaining(['FA-OLD', 'FA-NEW']));
+    });
+
+    it('replace は新しい事実を新しい createdAt で作り、番号が指す古い事実を削除する', async () => {
+      const repos = await setup();
+      const readAt = fixedNow + 100_000;
+      await run(repos, [
+        makeTopicResult({
+          targetTopicId: TOPIC_A,
+          selfFacts: [],
+          webFacts: [
+            makeWebFact({
+              text: '更新された事実',
+              volatility: 'medium',
+              action: 'replace',
+              existingFactIndices: [0, 1],
+            }),
+          ],
+        }),
+      ]);
+      const facts = await repos.topicRepo.listWebFacts('u1', 'hiyori', TOPIC_A);
+      expect(facts).toHaveLength(1);
+      expect(facts[0].text).toBe('更新された事実');
+      expect(facts[0].factId).not.toBe('FA-NEW');
+      expect(facts[0].observedAt).toBe(readAt);
+      expect(facts[0].createdAt).toBeGreaterThanOrEqual(fixedNow);
+      expect(facts[0].nextReview).toBe(readAt + WEBFACT_REVIEW_INTERVAL_MS.medium);
+    });
+
+    it('replace は作成を先、削除を後に行う', async () => {
+      const repos = await setup();
+      const order: string[] = [];
+      const spied: TopicRepository = {
+        ...withNullGetTopic(repos.topicRepo),
+        getTopic: repos.topicRepo.getTopic.bind(repos.topicRepo),
+        putWebFact: async (input) => {
+          order.push('put');
+          return repos.topicRepo.putWebFact(input);
+        },
+        deleteWebFact: async (k) => {
+          order.push('delete');
+          return repos.topicRepo.deleteWebFact(k);
+        },
+      };
+      await run(
+        repos,
+        [
+          makeTopicResult({
+            targetTopicId: TOPIC_A,
+            selfFacts: [],
+            webFacts: [makeWebFact({ action: 'replace', existingFactIndices: [0] })],
+          }),
+        ],
+        spied
+      );
+      expect(order).toEqual(['put', 'delete']);
+    });
+
+    it('duplicate は新しい事実を保存せず、既存の事実の observedAt / nextReview だけ更新する', async () => {
+      const repos = await setup();
+      const readAt = fixedNow + 100_000;
+      const before = (await repos.topicRepo.listWebFacts('u1', 'hiyori', TOPIC_A)).find(
+        (f) => f.factId === 'FA-NEW'
+      );
+      await run(repos, [
+        makeTopicResult({
+          targetTopicId: TOPIC_A,
+          selfFacts: [],
+          webFacts: [makeWebFact({ action: 'duplicate', existingFactIndices: [0] })],
+        }),
+      ]);
+      const facts = await repos.topicRepo.listWebFacts('u1', 'hiyori', TOPIC_A);
+      expect(facts).toHaveLength(2);
+      const after = facts.find((f) => f.factId === 'FA-NEW');
+      expect(after).toEqual({
+        ...before,
+        observedAt: readAt,
+        nextReview: readAt + WEBFACT_REVIEW_INTERVAL_MS.high,
+      });
+      expect(after?.createdAt).toBe(before?.createdAt);
+    });
+
+    it('duplicate が stable を指すとき observedAt だけ更新し、nextReview は持たないまま', async () => {
+      const repos = await setup();
+      await run(repos, [
+        makeTopicResult({
+          targetTopicId: TOPIC_A,
+          selfFacts: [],
+          webFacts: [makeWebFact({ action: 'duplicate', existingFactIndices: [1] })],
+        }),
+      ]);
+      const stable = (await repos.topicRepo.listWebFacts('u1', 'hiyori', TOPIC_A)).find(
+        (f) => f.factId === 'FA-OLD'
+      );
+      expect(stable?.observedAt).toBe(fixedNow + 100_000);
+      expect(stable?.nextReview).toBeUndefined();
+    });
+
+    it('範囲外・非整数・別 Topic の番号は無視し、有効な番号が残らなければ add として扱う', async () => {
+      const repos = await setup();
+      await run(repos, [
+        makeTopicResult({
+          targetTopicId: TOPIC_A,
+          selfFacts: [],
+          webFacts: [
+            // 2 は Topic B の事実、99 は範囲外、1.5 は非整数
+            makeWebFact({ text: 'r', action: 'replace', existingFactIndices: [2, 99, 1.5, -1] }),
+            makeWebFact({ text: 'd', action: 'duplicate', existingFactIndices: [2] }),
+          ],
+        }),
+      ]);
+      expect(await factIds(repos, TOPIC_B)).toEqual(['FB-1']);
+      const a = await repos.topicRepo.listWebFacts('u1', 'hiyori', TOPIC_A);
+      expect(a.map((f) => f.text).sort()).toEqual(['d', 'r', '古い事実', '新しい側の事実'].sort());
+    });
+
+    it('無効な番号が混ざっていても有効な番号だけで replace する', async () => {
+      const repos = await setup();
+      await run(repos, [
+        makeTopicResult({
+          targetTopicId: TOPIC_A,
+          selfFacts: [],
+          webFacts: [
+            makeWebFact({ text: 'r', action: 'replace', existingFactIndices: [0, 2, 99] }),
+          ],
+        }),
+      ]);
+      expect(await factIds(repos, TOPIC_B)).toEqual(['FB-1']);
+      const a = await repos.topicRepo.listWebFacts('u1', 'hiyori', TOPIC_A);
+      expect(a.map((f) => f.text).sort()).toEqual(['r', '古い事実']);
+    });
+
+    it('新規 Topic のエントリの replace / duplicate は add として扱う', async () => {
+      const repos = await setup();
+      await run(repos, [
+        makeTopicResult({
+          targetTopicId: '',
+          subject: '新規',
+          selfFacts: [],
+          webFacts: [
+            makeWebFact({ text: 'r', action: 'replace', existingFactIndices: [0] }),
+            makeWebFact({ text: 'd', action: 'duplicate', existingFactIndices: [1] }),
+          ],
+        }),
+      ]);
+      expect(await factIds(repos, TOPIC_A)).toEqual(['FA-NEW', 'FA-OLD']);
+      const headers = await repos.topicRepo.listTopicHeaders('u1', 'hiyori');
+      const created = headers.find((h) => h.subject === '新規');
+      const facts = await repos.topicRepo.listWebFacts('u1', 'hiyori', created!.topicId);
+      expect(facts.map((f) => f.text).sort()).toEqual(['d', 'r']);
+    });
+
+    it('同じ古い事実を複数のエントリ・複数の新事実が指しても、削除は 1 回で duplicate の更新対象から外れる', async () => {
+      const repos = await setup();
+      const deleteSpy = jest.spyOn(repos.topicRepo, 'deleteWebFact');
+      const updateSpy = jest.spyOn(repos.topicRepo, 'updateWebFactObservation');
+      await run(repos, [
+        makeTopicResult({
+          targetTopicId: TOPIC_A,
+          selfFacts: [],
+          webFacts: [
+            makeWebFact({ text: 'r1', action: 'replace', existingFactIndices: [0] }),
+            makeWebFact({ text: 'r2', action: 'replace', existingFactIndices: [0] }),
+          ],
+        }),
+        makeTopicResult({
+          targetTopicId: TOPIC_A,
+          selfFacts: [],
+          webFacts: [
+            makeWebFact({ text: 'r3', action: 'replace', existingFactIndices: [0] }),
+            // 削除予定の 0 しか指さない duplicate は更新対象が無くなり add になる
+            makeWebFact({ text: 'd1', action: 'duplicate', existingFactIndices: [0] }),
+            // 1 は生きているので 2 回指されても更新は 1 回
+            makeWebFact({ text: 'd2', action: 'duplicate', existingFactIndices: [1] }),
+            makeWebFact({ text: 'd3', action: 'duplicate', existingFactIndices: [1] }),
+          ],
+        }),
+      ]);
+      expect(deleteSpy).toHaveBeenCalledTimes(1);
+      expect(updateSpy).toHaveBeenCalledTimes(1);
+      const texts = (await repos.topicRepo.listWebFacts('u1', 'hiyori', TOPIC_A))
+        .map((f) => f.text)
+        .sort();
+      expect(texts).toEqual(['d1', 'r1', 'r2', 'r3', '古い事実'].sort());
+    });
+
+    describe('上限', () => {
+      const seed = async (
+        repos: Awaited<ReturnType<typeof setup>>,
+        topicId: string,
+        specs: Array<{ id: string; volatility: 'stable' | 'low'; observedAt: number }>
+      ) => {
+        for (const sp of specs) {
+          await repos.topicRepo.putWebFact({
+            ...key(topicId, sp.id),
+            text: sp.id,
+            sourceUrls: [],
+            volatility: sp.volatility,
+            observedAt: sp.observedAt,
+            nextReview: sp.volatility === 'stable' ? undefined : sp.observedAt + 1,
+          });
+        }
+      };
+
+      const lowSpecs = (count: number) =>
+        Array.from({ length: count }, (_, i) => ({
+          id: `L-${String(i).padStart(2, '0')}`,
+          volatility: 'low' as const,
+          observedAt: 10_000 + i,
+        }));
+      const stableSpecs = (count: number) =>
+        Array.from({ length: count }, (_, i) => ({
+          id: `S-${String(i).padStart(2, '0')}`,
+          volatility: 'stable' as const,
+          observedAt: 10_000 + i,
+        }));
+
+      it('stable 以外が上限を超えたら観測日の古い順に削り、stable は残る', async () => {
+        const repos = await setup();
+        // setup の FA-NEW(high, 2000) + 20 件 = stable 以外 21 件。stable は FA-OLD の 1 件
+        await seed(repos, TOPIC_A, lowSpecs(20));
+        await run(repos, [
+          makeTopicResult({ targetTopicId: TOPIC_A, selfFacts: [makeSelfFact()], webFacts: [] }),
+        ]);
+        const ids = await factIds(repos, TOPIC_A);
+        // 1 件だけ、最も古い stable 以外の FA-NEW が消える
+        expect(ids).toHaveLength(21);
+        expect(ids).not.toContain('FA-NEW');
+        expect(ids).toContain('L-00');
+        expect(ids).toContain('FA-OLD');
+      });
+
+      it('stable が上限を超えたら観測日の古い順に削り、stable 以外は残る', async () => {
+        const repos = await setup();
+        // setup の FA-OLD(stable, 1000) + 10 件 = stable 11 件。stable 以外は FA-NEW の 1 件
+        await seed(repos, TOPIC_A, stableSpecs(10));
+        await run(repos, [
+          makeTopicResult({ targetTopicId: TOPIC_A, selfFacts: [makeSelfFact()], webFacts: [] }),
+        ]);
+        const ids = await factIds(repos, TOPIC_A);
+        // 1 件だけ、最も古い stable の FA-OLD が消える
+        expect(ids).toHaveLength(11);
+        expect(ids).not.toContain('FA-OLD');
+        expect(ids).toContain('S-00');
+        expect(ids).toContain('FA-NEW');
+      });
+
+      it('同じ観測日なら factId の小さい方から削る', async () => {
+        const repos = await setup();
+        await seed(repos, TOPIC_A, [
+          { id: 'T-B', volatility: 'stable', observedAt: 500 },
+          { id: 'T-A', volatility: 'stable', observedAt: 500 },
+          ...stableSpecs(9),
+        ]);
+        // stable は FA-OLD(1000) を含めて 12 件 → 2 件削る。T-A, T-B (500) が先
+        await run(repos, [
+          makeTopicResult({ targetTopicId: TOPIC_A, selfFacts: [makeSelfFact()], webFacts: [] }),
+        ]);
+        const ids = await factIds(repos, TOPIC_A);
+        expect(ids).not.toContain('T-A');
+        expect(ids).not.toContain('T-B');
+        expect(ids).toContain('FA-OLD');
+      });
+
+      it('stable が上限まであっても、新しく足した stable 以外の事実は消えない', async () => {
+        const repos = await setup();
+        // stable は FA-OLD + 9 件 = 上限の 10 件。stable 以外は FA-NEW の 1 件
+        await seed(repos, TOPIC_A, stableSpecs(9));
+        await run(repos, [
+          makeTopicResult({
+            targetTopicId: TOPIC_A,
+            selfFacts: [],
+            webFacts: [
+              makeWebFact({ text: 'n1', volatility: 'low', action: 'add' }),
+              makeWebFact({ text: 'n2', volatility: 'high', action: 'add' }),
+            ],
+          }),
+        ]);
+        const facts = await repos.topicRepo.listWebFacts('u1', 'hiyori', TOPIC_A);
+        expect(facts.map((f) => f.text)).toEqual(expect.arrayContaining(['n1', 'n2']));
+        expect(facts.filter((f) => f.volatility === 'stable')).toHaveLength(10);
+        expect(facts.map((f) => f.factId)).toContain('FA-NEW');
+        expect(facts).toHaveLength(13);
+      });
+
+      it('上限の適用に失敗しても集約は成功し、カーソルが進む', async () => {
+        const repos = await setup();
+        await seed(repos, TOPIC_A, lowSpecs(20));
+        const deleteSpy = jest
+          .spyOn(repos.topicRepo, 'deleteWebFact')
+          .mockRejectedValue(new Error('削除に失敗'));
+        const outcome = await run(repos, [
+          makeTopicResult({ targetTopicId: TOPIC_A, selfFacts: [makeSelfFact()], webFacts: [] }),
+        ]);
+        expect(outcome).toBe('consolidated');
+        expect(deleteSpy).toHaveBeenCalled();
+        const cursor = await repos.cursorRepo.get('u1', 'hiyori');
+        expect(cursor).not.toBeNull();
+        expect(cursor!.msgCursor).toBeGreaterThan(0);
+        // 削れなかった分は残り、次にその Topic に触れたとき追いつく
+        expect(await factIds(repos, TOPIC_A)).toContain('FA-NEW');
+      });
+
+      it('新規 Topic にも上限が効く', async () => {
+        const repos = await setup();
+        await run(repos, [
+          makeTopicResult({
+            targetTopicId: '',
+            subject: '新規',
+            selfFacts: [],
+            webFacts: Array.from({ length: 25 }, (_, i) =>
+              makeWebFact({ text: `n${i}`, volatility: 'low', action: 'add' })
+            ),
+          }),
+        ]);
+        const headers = await repos.topicRepo.listTopicHeaders('u1', 'hiyori');
+        const created = headers.find((h) => h.subject === '新規');
+        const facts = await repos.topicRepo.listWebFacts('u1', 'hiyori', created!.topicId);
+        expect(facts).toHaveLength(20);
+      });
+
+      it('SELF fact しか生まないエントリでも、触れた Topic は溜まった分を削る', async () => {
+        const repos = await setup();
+        await seed(
+          repos,
+          TOPIC_B,
+          Array.from({ length: 30 }, (_, i) => ({
+            id: `B-${String(i).padStart(2, '0')}`,
+            volatility: 'low' as const,
+            observedAt: 10_000 + i,
+          }))
+        );
+        await run(repos, [
+          makeTopicResult({ targetTopicId: TOPIC_B, selfFacts: [makeSelfFact()], webFacts: [] }),
+        ]);
+        const ids = await factIds(repos, TOPIC_B);
+        expect(ids).toHaveLength(20);
+        // 観測日の古い FB-1(500) と B-00.. から消える
+        expect(ids).not.toContain('FB-1');
+        expect(ids).not.toContain('B-00');
+        expect(ids).toContain('B-29');
+      });
+
+      it('触れていない Topic は削らない', async () => {
+        const repos = await setup();
+        await seed(
+          repos,
+          TOPIC_B,
+          Array.from({ length: 30 }, (_, i) => ({
+            id: `B-${String(i).padStart(2, '0')}`,
+            volatility: 'low' as const,
+            observedAt: 10_000 + i,
+          }))
+        );
+        await run(repos, [
+          makeTopicResult({ targetTopicId: TOPIC_A, selfFacts: [makeSelfFact()], webFacts: [] }),
+        ]);
+        expect(await factIds(repos, TOPIC_B)).toHaveLength(31);
+      });
     });
   });
 });

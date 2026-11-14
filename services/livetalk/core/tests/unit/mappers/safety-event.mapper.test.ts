@@ -70,6 +70,16 @@ describe('SafetyEventMapper', () => {
       expect(item).not.toHaveProperty('ModerationCategories');
     });
 
+    it('expiresAt がなければ TTL を書かない', () => {
+      expect(mapper.toItem(buildEntity())).not.toHaveProperty('TTL');
+    });
+
+    it('expiresAt (ミリ秒) を TTL 属性のエポック秒 (切り捨て) で書く', () => {
+      const item = mapper.toItem(buildEntity({ expiresAt: 1_700_000_999_999 }));
+
+      expect(item.TTL).toBe(1_700_000_999);
+    });
+
     it('moderationCategories があれば ModerationCategories を書く', () => {
       expect(mapper.toItem(buildEntity({ moderationCategories: '{"hate":true}' }))).toMatchObject({
         ModerationCategories: '{"hate":true}',
@@ -85,6 +95,15 @@ describe('SafetyEventMapper', () => {
         DetectedPattern: '更新',
         GSI2PK: 'SAFETY',
         GSI2SK: EVENT_ID,
+      });
+    });
+
+    it('expiresAt はエポック秒に変換し、null なら TTL 属性を削除する', () => {
+      expect(mapper.toUpdateAttributes({ expiresAt: 1_700_000_999_999 }, key)).toMatchObject({
+        TTL: 1_700_000_999,
+      });
+      expect(mapper.toUpdateAttributes({ expiresAt: null }, key)).toMatchObject({
+        TTL: REMOVE_ATTRIBUTE,
       });
     });
 
@@ -132,6 +151,14 @@ describe('SafetyEventMapper', () => {
 
       expect(entity.inputText).toBe('');
       expect(entity.responseText).toBe('');
+    });
+
+    it('TTL 属性のエポック秒をミリ秒の expiresAt に戻す', () => {
+      expect(mapper.toEntity(buildItem({ TTL: 1_700_000_999 })).expiresAt).toBe(1_700_000_999_000);
+    });
+
+    it('TTL 属性がなければ expiresAt を持たない', () => {
+      expect(mapper.toEntity(buildItem())).not.toHaveProperty('expiresAt');
     });
 
     it('ModerationCategories を moderationCategories に読む', () => {

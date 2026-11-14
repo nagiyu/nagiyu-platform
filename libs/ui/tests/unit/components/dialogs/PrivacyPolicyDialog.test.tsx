@@ -32,7 +32,7 @@ describe('PrivacyPolicyDialog', () => {
   });
 
   describe('コンテンツ表示', () => {
-    it('全14条のタイトルが表示される', () => {
+    it('全15条のタイトルが表示される', () => {
       render(<PrivacyPolicyDialog open={true} onClose={mockOnClose} />);
 
       // Updated to reflect AdSense-related sections at the beginning
@@ -44,12 +44,13 @@ describe('PrivacyPolicyDialog', () => {
       expect(screen.getByText('第6条（個人情報の収集方法）')).toBeInTheDocument();
       expect(screen.getByText('第7条（個人情報を収集・利用する目的）')).toBeInTheDocument();
       expect(screen.getByText('第8条（利用目的の変更）')).toBeInTheDocument();
-      expect(screen.getByText('第9条（個人情報の第三者提供）')).toBeInTheDocument();
-      expect(screen.getByText('第10条（個人情報の開示）')).toBeInTheDocument();
-      expect(screen.getByText('第11条（個人情報の訂正および削除）')).toBeInTheDocument();
-      expect(screen.getByText('第12条（個人情報の利用停止等）')).toBeInTheDocument();
-      expect(screen.getByText('第13条（プライバシーポリシーの変更）')).toBeInTheDocument();
-      expect(screen.getByText('第14条（お問い合わせ窓口）')).toBeInTheDocument();
+      expect(screen.getByText('第9条（決済に関する情報の取り扱い）')).toBeInTheDocument();
+      expect(screen.getByText('第10条（個人情報の第三者提供）')).toBeInTheDocument();
+      expect(screen.getByText('第11条（個人情報の開示）')).toBeInTheDocument();
+      expect(screen.getByText('第12条（個人情報の訂正および削除）')).toBeInTheDocument();
+      expect(screen.getByText('第13条（個人情報の利用停止等）')).toBeInTheDocument();
+      expect(screen.getByText('第14条（プライバシーポリシーの変更）')).toBeInTheDocument();
+      expect(screen.getByText('第15条（お問い合わせ窓口）')).toBeInTheDocument();
     });
 
     it('第1条（AdSense関連）の内容が表示される', () => {
@@ -67,7 +68,7 @@ describe('PrivacyPolicyDialog', () => {
       expect(screen.getByText(/ユーザーからのお問い合わせに回答するため/)).toBeInTheDocument();
     });
 
-    it('第9条のサブアイテムが表示される', () => {
+    it('第10条のサブアイテムが表示される', () => {
       render(<PrivacyPolicyDialog open={true} onClose={mockOnClose} />);
 
       expect(screen.getByText('利用目的に第三者への提供を含むこと')).toBeInTheDocument();
@@ -75,7 +76,7 @@ describe('PrivacyPolicyDialog', () => {
       expect(screen.getByText('第三者への提供の手段または方法')).toBeInTheDocument();
     });
 
-    it('第14条のリンクが表示される', () => {
+    it('第15条のリンクが表示される', () => {
       render(<PrivacyPolicyDialog open={true} onClose={mockOnClose} />);
 
       const link = screen.getByRole('link', {

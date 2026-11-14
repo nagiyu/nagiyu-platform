@@ -7,6 +7,7 @@ import {
   type ScheduledEvent,
 } from '@nagiyu/aws';
 import {
+  createFreshnessCheckRequestRepository,
   createLifecycleRepository,
   createMessageRepository,
   createNotificationEventRepository,
@@ -33,6 +34,7 @@ export const handler = createScheduledHandler<ScheduledEvent, HandlerResponse>(
     const topicRepo = createTopicRepository(docClient, tableName);
     const pushSubscriptionRepo = createPushSubscriptionRepository(docClient, tableName);
     const notifEventRepo = createNotificationEventRepository(docClient, tableName);
+    const freshnessCheckRequestRepo = createFreshnessCheckRequestRepository(docClient, tableName);
     const llmClient = createLLMClient({ openai: { apiKey } });
 
     const result = await notifyAllUsers({
@@ -42,6 +44,7 @@ export const handler = createScheduledHandler<ScheduledEvent, HandlerResponse>(
       topicRepo,
       pushSubscriptionRepo,
       notifEventRepo,
+      freshnessCheckRequestRepo,
       llmClient,
       ulidFactory: defaultUlidFactory,
     });

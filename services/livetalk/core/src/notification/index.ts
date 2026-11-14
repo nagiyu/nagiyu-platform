@@ -21,6 +21,7 @@ export type { BuildNotificationMessageInput, NotificationMessage } from './messa
 export { detectCriticalTopic } from './escalation.js';
 export type {
   EscalationResult,
+  SentCritical,
   DetectCriticalInput,
   DetectCriticalCandidate,
 } from './escalation.js';

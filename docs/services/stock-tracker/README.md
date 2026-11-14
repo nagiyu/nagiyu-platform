@@ -15,6 +15,9 @@ Stock Tracker サービスは、nagiyu プラットフォームにおける株�
 | [requirements.md](./requirements.md) | ビジネス要件・ユースケース・機能要件・ドメインオブジェクト |
 | [external-design.md](./external-design.md) | 画面設計・概念データモデル・設計上の決定事項 |
 | [architecture.md](./architecture.md) | アーキテクチャ設計決定記録（ADR） |
+| [仕様カード](../../specs/README.md) | 今のコードの挙動 (画面・API・バッチ・通知経路・用語)。このサービスの分は `docs/specs/stock-tracker/` |
+
+今の挙動は仕様カード、なぜそうしたかと何を満たすべきかはこの配下の文書に書く。
 
 ---
 
@@ -23,7 +26,8 @@ Stock Tracker サービスは、nagiyu プラットフォームにおける株�
 1. **要件を理解する**: [requirements.md](./requirements.md) を読む
 2. **画面・データ構造を把握する**: [external-design.md](./external-design.md) を読む
 3. **設計の意図を確認する**: [architecture.md](./architecture.md) を読む
-4. **実装を確認する**: ソースコード (`services/stock-tracker/`) を参照
+4. **今の挙動を確認する**: [仕様カード](../../specs/README.md)
+5. **実装を確認する**: ソースコード (`services/stock-tracker/`) を参照
 
 ---
 

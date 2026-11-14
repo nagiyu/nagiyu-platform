@@ -12,6 +12,7 @@
 | **Skill（段階的開示）** | `.claude/skills/<name>/` | 関連したときだけ本文がロードされる（`description` のみ常時） | たまに使う手順・道具（スクリプト / テンプレ同梱可） |
 | **サブエージェント** | `.claude/agents/` | spawn 時に別コンテキスト | コンテキスト隔離が必要な作業を本体の文脈から切り離す（実装 / fresh-eyes レビュー。別モデル指定可） |
 | **永続ドキュメント** | `docs/` | 必要時に参照 | 「なぜ」（背景・意思決定・設計判断） |
+| **仕様カード** | `docs/specs/` | 必要時に参照 | 今のコードの挙動の写し。文面だけを単独で直さず、コードを変える PR で `docs-write` スキルに沿って作り直す（→ [`docs/specs/README.md`](../specs/README.md)） |
 | **Copilot / Codex 用** | `.github/agents/` / `.github/copilot-instructions.md` / `.specify/` | 別ツール側 | Copilot Agent / spec-kit 用の指示。Claude 運用とは別系統 |
 
 ---
@@ -37,16 +38,16 @@
 ### Skill に切り出すもの
 
 - env 固有のハマりどころ（shared libs のビルド順序、Playwright 準備など）→ **スクリプトを同梱**し「覚える」を「実行する」に置き換える
-- たまにしか使わない長い手順（PR 作成フロー、docs 執筆ルール、tasks/ 提案ドキュメント起こし）→ 関連時のみ展開し、常時ロードを軽くする
+- たまにしか使わない長い手順（PR 作成フロー、docs 執筆ルール、tasks/ 提案ドキュメント起こし、仕様カードの作り直し）→ 関連時のみ展開し、常時ロードを軽くする
 
 判断の目安：**「常時ロードするほどではないが、その都度 Read させると漏れる」もの**が Skill 向き。
 
 ### サブエージェントに切り出すもの
 
 - 実装＋テストのように物量があり、本体（オーケストレーター）の文脈を圧迫する作業。別モデル（Sonnet）でコスト最適化する。
-- **コンテキスト隔離そのものが目的の作業**（fresh-eyes レビュー）。オーケストレーターは実装方針・会話履歴を抱えているため、同一文脈でレビューしても先入観を排せない。別コンテキストで走るサブエージェントに diff・成果物だけを渡すことで、白紙視点の検証が成立する（→ [`.claude/agents/reviewer.md`](../../.claude/agents/reviewer.md)）。
+- **コンテキスト隔離そのものが目的の作業**（fresh-eyes レビュー）。オーケストレーターは実装方針・会話履歴を抱えているため、同一文脈でレビューしても先入観を排せない。別コンテキストで走るサブエージェントに diff・成果物だけを渡すことで、白紙視点の検証が成立する（→ `.claude/agents/reviewer.md`）。
 
-**切り出さないもの**: **人の判断が要る作業**はサブエージェントにしない。サブエージェントは走り出すと人が介入できないため、判断そのものを分散したい場合は**セッションを分ける**（→ [`CLAUDE.md`](../../CLAUDE.md) の「なぜセッションを分けるのか」・[`claude-sessions.md`](claude-sessions.md)）。物量が理由ならサブエージェント、判断が理由ならセッション。
+**切り出さないもの**: **人の判断が要る作業**はサブエージェントにしない。サブエージェントは走り出すと人が介入できないため、判断そのものを分散したい場合は**セッションを分ける**（→ `CLAUDE.md` の「なぜセッションを分けるのか」・[`claude-sessions.md`](claude-sessions.md)）。物量が理由ならサブエージェント、判断が理由ならセッション。
 
 ---
 
@@ -72,8 +73,8 @@
 
 ## 関連ドキュメント
 
-- [`CLAUDE.md`](../../CLAUDE.md) — Claude 運用ハンドブック（常時ロード）
+- `CLAUDE.md` — Claude 運用ハンドブック（常時ロード）
 - [`docs/development/claude-environment.md`](claude-environment.md) — env 固有事情（Skill 化の元ネタ）
 - [`docs/development/claude-sessions.md`](claude-sessions.md) — セッション運用の実測と制約（サブエージェントとの使い分け）
-- [`.claude/agents/implementer.md`](../../.claude/agents/implementer.md) — 実装サブエージェント定義
-- [`.claude/agents/reviewer.md`](../../.claude/agents/reviewer.md) — fresh-eyes レビュアー定義
+- `.claude/agents/implementer.md` — 実装サブエージェント定義
+- `.claude/agents/reviewer.md` — fresh-eyes レビュアー定義

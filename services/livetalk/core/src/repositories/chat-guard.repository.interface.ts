@@ -1,7 +1,7 @@
 /**
  * チャット API 保護ガードのリポジトリインターフェース。
  *
- * - レート制限: 固定ウィンドウカウンタ（1 分・1 時間の 2 ウィンドウ）
+ * - レート制限: 固定ウィンドウカウンタ（1 分・1 時間の 2 ウィンドウ、上限付きで数える）
  * - 並行制御: 同一ユーザーの in-flight リクエストを 1 本に限定するロック
  */
 
@@ -10,15 +10,24 @@
  */
 export type RateLimitWindow = '1m' | '1h';
 
+/** レート制限アイテムの Type 属性値 */
+export const CHAT_RATE_LIMIT_ITEM_TYPE = 'ChatRateLimit';
+
 /**
- * レート制限カウンタのインクリメント結果。
+ * 窓ごとの上限。
  */
-export interface RateLimitResult {
-  /** インクリメント後のカウント値 */
-  count: number;
-  /** ウィンドウ種別 */
-  window: RateLimitWindow;
+export interface RateLimitLimits {
+  /** 1 分の窓で通せる回数 */
+  perMinute: number;
+  /** 1 時間の窓で通せる回数 */
+  perHour: number;
 }
+
+/**
+ * レート制限の判定結果。断られたときは、断った窓を持つ。
+ */
+export type TryConsumeRateLimitResult =
+  { allowed: true } | { allowed: false; window: RateLimitWindow };
 
 /**
  * ロック取得の結果。
@@ -35,15 +44,20 @@ export interface AcquireLockResult {
  */
 export interface ChatGuardRepository {
   /**
-   * 指定ウィンドウのレートリミットカウンタをインクリメントして結果を返す。
-   * アイテムが存在しない場合は count=1 で新規作成する。
-   * TTL は当該ウィンドウ満了 + バッファで自動設定される。
+   * 1 分 → 1 時間の順に、上限に達していなければ 1 回分を数える。
+   *
+   * 上限の判定は条件付き更新でアトミックに行い、断られた申し込みはどちらの窓も消費しない
+   * (1 時間で断られたら、先に数えた 1 分を戻す)。
+   * 同時に呼ばれると実際より多く数えて断る側にずれることがある。
+   *
+   * @returns 通したとき `{ allowed: true }`、断ったとき `{ allowed: false, window }`
+   * @throws 記録の読み書きに失敗したとき
    */
-  incrementRateLimit(
+  tryConsumeRateLimit(
     userId: string,
-    window: RateLimitWindow,
-    nowMs: number
-  ): Promise<RateLimitResult>;
+    nowMs: number,
+    limits: RateLimitLimits
+  ): Promise<TryConsumeRateLimitResult>;
 
   /**
    * in-flight ロックを取得する。

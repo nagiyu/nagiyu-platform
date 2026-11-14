@@ -11,9 +11,12 @@ export type {
   UpdateHighlightInput,
   AnalysisProgressItem,
   AnalysisProgress,
+  UsageKind,
+  UsageRecord,
 } from './types.js';
 
 export type { JobRepository } from './repositories/job.repository.interface.js';
+export type { UsageRepository, UsageCounts } from './repositories/usage.repository.interface.js';
 export type { HighlightRepository } from './repositories/highlight.repository.interface.js';
 export type {
   QuickClipBatchRunInput,
@@ -57,8 +60,21 @@ export { InMemoryHighlightRepository } from './repositories/in-memory-highlight.
 export {
   createJobRepository,
   createHighlightRepository,
+  createUsageRepository,
   resetInMemoryRepositories,
 } from './repositories/factory.js';
+export { UsageService, IP_DAILY_JOB_LIMIT, USAGE_DENY_MESSAGES } from './libs/usage.service.js';
+export type {
+  ConsumeInput,
+  ConsumeResult,
+  UsageDenyCode,
+  UsageSnapshot,
+} from './libs/usage.service.js';
+export { USAGE_LIMITS, getUsageLimit, resolveUsageTier } from './libs/usage-plan.js';
+export type { UsageLimit, UsageTier } from './libs/usage-plan.js';
+export { buildAnonymousSubject, buildUserSubject } from './mappers/usage-keys.js';
+export { DynamoDBUsageRepository } from './repositories/dynamodb-usage.repository.js';
+export { InMemoryUsageRepository } from './repositories/in-memory-usage.repository.js';
 export { createOpenAIClient } from './libs/openai-client.js';
 export { TranscriptionService } from './libs/transcription.service.js';
 export type { TranscriptSegment } from './libs/transcription.service.js';

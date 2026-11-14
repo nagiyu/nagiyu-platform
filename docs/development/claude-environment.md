@@ -69,7 +69,7 @@ Claude on Web のベースイメージに同梱されており、リポジトリ
 | ツール | 場所 | バージョン | 備考 |
 |---|---|---|---|
 | AWS CLI | `/usr/local/bin/aws` | 2.34.x | 認証は環境変数 + `--profile nagiyu-prod` / `--profile nagiyu-dev` の明示指定が必須（既定プロファイルは無い）。環境変数のアクセスキーが優先されるため、`AWS_PROFILE` を設定しても切り替わらない。プロファイルなしの呼び出しは AccessDenied になる。プロファイル設定は Setup Script が書き出す。詳細は [`docs/infra/shared/iam.md`](../infra/shared/iam.md)・[`docs/infra/aws-accounts.md`](../infra/aws-accounts.md) を参照 |
-| Node | `/opt/node22/bin/node` | v22 | プロジェクト要求は v24+ だが engine warning のみで実質動作する |
+| Node | `/opt/node22/bin/node` | v22 | プロジェクト要求は v26+ だが engine warning のみで実質動作する |
 | Playwright（global） | `/opt/node22/bin/playwright` | **1.56.1** | プロジェクト同梱版（1.59.1）と**バージョンミスマッチ**。原則使わない |
 | Playwright browsers | `/opt/pw-browsers/chromium-1194` | (global 1.56.1 用) | プロジェクト要求は v1217 系。**そのままでは使えない** |
 | `apt-get` / `sudo` | `/usr/bin/{apt-get,sudo}` | — | root 実行可。`playwright install --with-deps` も動く |
@@ -147,7 +147,7 @@ react    ← browser, common
 ui       ← browser, common
 ```
 
-**ローカルで `next dev` や E2E を起動する前にも `npm run build:libs` を実行する**（`build-shared-libs` スキル（[`.claude/skills/build-shared-libs/`](../../.claude/skills/build-shared-libs/SKILL.md)）も同じコマンドを使う）。ビルド順は `build:libs` の `--workspace` の並びで決まる。lib を増やしたり依存を変えたりしたら、この並びを依存順に直す。
+**ローカルで `next dev` や E2E を起動する前にも `npm run build:libs` を実行する**（`build-shared-libs` スキル（`.claude/skills/build-shared-libs/SKILL.md`）も同じコマンドを使う）。ビルド順は `build:libs` の `--workspace` の並びで決まる。lib を増やしたり依存を変えたりしたら、この並びを依存順に直す。
 
 ### libs だけでは足りない：サービスの core も必要
 

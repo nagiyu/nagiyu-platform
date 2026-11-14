@@ -14,7 +14,8 @@
     "services/*/api",
     "libs/*",
     "infra",
-    "infra/*"
+    "infra/*",
+    "docs-site"
   ],
   "scripts": {
     "build:libs": "npm run build --workspace=@nagiyu/common --workspace=@nagiyu/aws --workspace=@nagiyu/browser --workspace=@nagiyu/nextjs --workspace=@nagiyu/react --workspace=@nagiyu/ui",
@@ -25,7 +26,7 @@
     "format:check": "npm run format:check --workspaces --if-present"
   },
   "engines": {
-    "node": ">=24.0.0",
+    "node": ">=26.0.0",
     "npm": ">=10.0.0"
   },
   "overrides": {
@@ -37,7 +38,13 @@
     "path-to-regexp": "^8.4.0",
     "picomatch": "^4.0.4",
     "axios": ">=1.15.0",
-    "playwright-core": "$@playwright/test"
+    "playwright-core": "$@playwright/test",
+    "vitepress": {
+      "vite": "6.4.6",
+      "@vitejs/plugin-vue": {
+        "vite": "6.4.6"
+      }
+    }
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.11.0",
@@ -53,7 +60,7 @@
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
     "@types/jest": "^30.0.0",
-    "@types/node": "^24",
+    "@types/node": "^26",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@types/web-push": "^3.6.4",

@@ -221,6 +221,7 @@ claude/**, feature/**  →  integration/**  →  develop  →  master
 - 完了後に永続化すべき内容は `docs/` に反映し、`tasks/{feature-name}/` を削除する
 - 仕様が不明瞭・矛盾している場合は **実装を停止し、Issue コメントで報告して人に判断を仰ぐ**
 - 詳細は [`docs/development/flow.md`](docs/development/flow.md) を参照
+- **仕様カード**: `docs/specs/` には、今のコードの挙動をまとめた仕様カードがある。カードはコードの写しで、文面だけを単独で直さない。変更したファイルがカードの `sources` に含まれるときは、同じ PR の中で `docs-write` スキルに沿ってカードを作り直す (ハッシュだけを更新せず、本文が今のコードと合っているかを確かめる)
 
 ---
 
@@ -279,7 +280,7 @@ claude/**, feature/**  →  integration/**  →  develop  →  master
 - ライブラリ内でパスエイリアス（`@/`）を使用しない
 - `dangerouslySetInnerHTML` を直接使用しない（DOMPurify 経由のみ）
 - コメントで、リポジトリ内のファイル・ドキュメントへの参照に説明を委ねない (外部仕様の URL は可)
-- コメントに Issue / PR 番号・Phase 名を書かない
+- コメントと docs に Issue / PR 番号・Phase 名を書かない
 
 ### SHOULD
 

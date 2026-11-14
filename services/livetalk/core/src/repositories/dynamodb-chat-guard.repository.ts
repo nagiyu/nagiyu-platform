@@ -1,7 +1,7 @@
 /**
  * ChatGuardRepository の DynamoDB 実装。
  *
- * Single Table 設計のメインテーブルに相乗りする。PK は既存の `USER#<userId>` を使用する。
+ * Single Table 設計のメインテーブルに相乗りし、レート制限は共通の回数カウンターで数える。PK は既存の `USER#<userId>` を使用する。
  *
  * アイテム種別:
  * - レートリミット: SK = `RATELIMIT#<window>#<bucket>`
@@ -12,21 +12,21 @@
  */
 
 import { DeleteCommand, UpdateCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
-import { isConditionalCheckFailed, toDatabaseError } from '@nagiyu/aws';
-import { computeBucket, computeLockTtlSec, computeWindowTtlSec } from '../lib/chat-guard-window.js';
-import { buildUserPK, buildChatLockSK, buildChatRateLimitSK } from '../mappers/keys.js';
+import { DynamoDBUsageCounter, isConditionalCheckFailed, toDatabaseError } from '@nagiyu/aws';
+import { computeLockTtlSec } from '../lib/chat-guard-window.js';
+import { buildUserPK, buildChatLockSK } from '../mappers/keys.js';
+import { tryConsumeChatRateLimit } from './chat-guard-counting.js';
 import type {
   AcquireLockResult,
   ChatGuardRepository,
-  RateLimitResult,
-  RateLimitWindow,
+  RateLimitLimits,
+  TryConsumeRateLimitResult,
 } from './chat-guard.repository.interface.js';
-
-export { computeBucket, computeWindowTtlSec };
 
 export class DynamoDBChatGuardRepository implements ChatGuardRepository {
   private readonly docClient: DynamoDBDocumentClient;
   private readonly tableName: string;
+  private readonly counter: DynamoDBUsageCounter;
   private readonly nowMs: () => number;
 
   constructor(
@@ -36,43 +36,16 @@ export class DynamoDBChatGuardRepository implements ChatGuardRepository {
   ) {
     this.docClient = docClient;
     this.tableName = tableName;
+    this.counter = new DynamoDBUsageCounter(docClient, tableName);
     this.nowMs = nowMs;
   }
 
-  public async incrementRateLimit(
+  public async tryConsumeRateLimit(
     userId: string,
-    window: RateLimitWindow,
-    nowMs: number
-  ): Promise<RateLimitResult> {
-    const pk = buildUserPK(userId);
-    const bucket = computeBucket(window, nowMs);
-    const sk = buildChatRateLimitSK(window, bucket);
-    const ttlSec = computeWindowTtlSec(window, nowMs);
-
-    try {
-      const result = await this.docClient.send(
-        new UpdateCommand({
-          TableName: this.tableName,
-          Key: { PK: pk, SK: sk },
-          // Count をアトミックにインクリメントし、TTL は初回のみ設定する。
-          // TTL を毎回上書きしないことでウィンドウ内の自然な満了を担保する。
-          UpdateExpression: 'ADD #cnt :one SET #ttl = if_not_exists(#ttl, :ttl)',
-          ExpressionAttributeNames: {
-            '#cnt': 'Count',
-            '#ttl': 'TTL',
-          },
-          ExpressionAttributeValues: {
-            ':one': 1,
-            ':ttl': ttlSec,
-          },
-          ReturnValues: 'UPDATED_NEW',
-        })
-      );
-      const count = (result.Attributes?.['Count'] as number | undefined) ?? 1;
-      return { count, window };
-    } catch (error) {
-      throw toDatabaseError(error);
-    }
+    nowMs: number,
+    limits: RateLimitLimits
+  ): Promise<TryConsumeRateLimitResult> {
+    return tryConsumeChatRateLimit(this.counter, userId, nowMs, limits);
   }
 
   public async acquireLock(

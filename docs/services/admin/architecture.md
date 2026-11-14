@@ -1,5 +1,7 @@
 # Admin サービス アーキテクチャ設計書
 
+この文書は、なぜそう設計したか (決定、根拠、捨てた案) を書く。今どう動くか (画面・API・バッチ・通知の経路・用語) は[仕様カード](../../specs/README.md)にある。このサービスの分は `docs/specs/admin/`。
+
 ---
 
 ## 1. システム概要
@@ -57,11 +59,9 @@ Admin サービスは、nagiyu プラットフォームの管理機能を提供�
 
 ---
 
-## 3. アーキテクチャパターン
+## 3. 設計思想
 
-### 3.1 設計思想
-
-#### 1. 軽量かつシンプルな実装
+### 1. 軽量かつシンプルな実装
 
 Admin サービスは Phase 1 において**認証基盤の動作確認**を主目的としています。そのため、以下の原則に従います：
 
@@ -69,7 +69,7 @@ Admin サービスは Phase 1 において**認証基盤の動作確認**を主�
 - **複雑なロジックは持たない**: ビジネスロジックは Auth サービスに委譲
 - **早期デプロイ検証**: CI/CD パイプラインを先行構築し、動作確認を優先
 
-#### 2. 認証・認可の分離
+### 2. 認証・認可の分離
 
 Admin サービスは**認可（Authorization）のみ**を担当します：
 
@@ -89,13 +89,13 @@ flowchart TD
     style Note2 fill:#fff2cc,stroke:#d6b656
 ```
 
-#### 3. SSO によるシームレスな体験
+### 3. SSO によるシームレスな体験
 
 - Auth サービスで発行された JWT クッキー（domain: `.nagiyu.com`）を共有
 - Admin サービスはトークンを検証し、セッションを確立
 - ユーザーは一度のログインで全サービスにアクセス可能
 
-#### 4. 将来の拡張性を考慮した設計
+### 4. 将来の拡張性を考慮した設計
 
 Phase 1 ではシンプルな実装としますが、Phase 2 以降で以下の拡張を想定しています：
 
@@ -104,82 +104,13 @@ Phase 1 ではシンプルな実装としますが、Phase 2 以降で以下の�
 - プラットフォーム統計ダッシュボード
 - ロール・権限マトリクスの UI 管理
 
-### 3.2 データフロー（SSO 認証）
-
-```mermaid
-sequenceDiagram
-    participant User as ユーザー<br/>ブラウザ
-    participant Admin as Admin Service<br/>admin.nagiyu.com
-    participant Auth as Auth Service<br/>auth.nagiyu.com
-
-    User->>Admin: 1. admin.nagiyu.com アクセス
-    Note over Admin: 2. JWT クッキー確認<br/>(domain: .nagiyu.com)
-
-    Admin->>User: 3. JWT なし → リダイレクト<br/>auth.nagiyu.com/signin
-
-    User->>Auth: 4. Google OAuth フロー
-    Auth->>User: 5. JWT クッキー発行<br/>(domain: .nagiyu.com)
-
-    Auth->>User: 6. admin.nagiyu.com へリダイレクト
-
-    User->>Admin: 7. JWT クッキーを含むリクエスト
-    Note over Admin: 8. JWT 検証<br/>(署名検証、有効期限確認)
-
-    Admin->>User: 9. ダッシュボード表示
-```
-
-### 3.3 コンポーネント構成
-
-#### UI レイヤー (`app/`, `components/`)
-- **Next.js App Router**: ルーティング、ページレンダリング
-- **React コンポーネント**: ユーザー情報カード、認証ステータスカード
-- **共通 UI ライブラリ (`@nagiyu/ui`)**: Header, Footer コンポーネント
-
-#### ビジネスロジック (`lib/`)
-- **JWT 検証**: トークンの署名、有効期限、発行者を検証
-- **権限チェック**: ロールベースのアクセス制御ロジック
-
-#### Middleware
-- **認証チェック**: 全リクエストで JWT クッキーを検証
-- **リダイレクト**: 認証失敗時は Auth サービスへリダイレクト
+認証・ログイン導線の今の挙動は[システム系の API](../../specs/admin/api/system.md)と[ダッシュボード画面](../../specs/admin/screen/dashboard.md)を参照する。
 
 ---
 
-## 4. データモデル
+## 4. インフラ構成
 
-### 4.1 JWT ペイロード構造
-
-Admin サービスが検証する JWT のペイロード:
-
-```typescript
-interface JWTPayload {
-  sub: string;          // ユーザーID
-  email: string;        // メールアドレス
-  roles: string[];      // ロール一覧（例: ["admin", "user-manager"]）
-  iss: string;          // 発行者（"auth.nagiyu.com"）
-  exp: number;          // 有効期限（Unix タイムスタンプ）
-  iat: number;          // 発行時刻（Unix タイムスタンプ）
-}
-```
-
-### 4.2 セッション型
-
-Admin サービス内部で使用するセッション型:
-
-```typescript
-interface Session {
-  userId: string;
-  email: string;
-  roles: string[];
-  expiresAt: Date;
-}
-```
-
----
-
-## 5. インフラ構成
-
-### 5.1 AWS 構成図
+### 4.1 AWS 構成図
 
 ```mermaid
 graph TD
@@ -187,7 +118,7 @@ graph TD
     CF --> Lambda[Lambda<br/>Next.js コンテナ]
     Lambda --> ECR[ECR<br/>イメージ保存]
     Lambda --> CW[CloudWatch Logs<br/>ログ出力]
-    
+
     Auth[Auth Service] -.->|JWT 発行| User
     Lambda -.->|JWT 検証| Lambda
 
@@ -198,17 +129,19 @@ graph TD
     style Auth fill:#dae8fc
 ```
 
-### 5.2 リソース一覧
+エラー通知の仕組み (alarm-ingest・stream-handler・各テーブル・SNS) を含む全体の経路は、[エラー通知の経路](../../specs/admin/flow/error-notification.md)にある。
+
+### 4.2 リソース一覧
 
 | リソース           | 説明                                                  | 設定                                                        |
 | ------------------ | ----------------------------------------------------- | ----------------------------------------------------------- |
-| Lambda 関数        | Next.js アプリケーションの実行環境                    | メモリ: 1024 MB, タイムアウト: 30秒, コンテナイメージ起動 |
+| Lambda 関数        | Next.js アプリケーションの実行環境                    | メモリ: 512 MB, タイムアウト: 30秒, コンテナイメージ起動 |
 | CloudFront         | グローバル配信、HTTPS 強制                            | Lambda Function URL をオリジンとして設定                    |
 | ECR リポジトリ     | Docker イメージ保存                                   | イメージタグ: `admin-{env}:latest`                          |
 | CloudWatch Logs    | Lambda 実行ログ                                       | ロググループ: `/aws/lambda/nagiyu-admin-lambda-{env}`, 保持期間: 30日 |
 | Lambda Function URL| Lambda への直接アクセス URL                           | 認証: なし（CloudFront 経由のアクセスを前提）                |
 
-### 5.3 ネットワーク設計
+### 4.3 ネットワーク設計
 
 - **VPC**: 共有 VPC (`nagiyu-{env}-vpc`) を使用
 - **サブネット**: パブリックサブネットに Lambda を配置（VPC 外でも可）
@@ -217,35 +150,23 @@ graph TD
 
 ---
 
-## 6. セキュリティ設計
+## 5. セキュリティ設計
 
-### 6.1 認証・認可
+### 5.1 認証・認可
 
-#### JWT 検証
-- **署名検証**: Auth サービスと共有する秘密鍵（または公開鍵）で署名を検証
-- **有効期限チェック**: `exp` クレームを確認し、期限切れトークンを拒否
-- **発行者検証**: `iss` クレームが `auth.nagiyu.com` であることを確認
+- Admin は**認可のみ**を担当し、Auth サービスが発行した JWT を検証するだけで、JWT もクッキーも発行しない
+- 権限は、ロールではなく権限 (`notifications:write`、`errors:read`) で判定する。ロールと権限の対応は[権限とロール](../../specs/admin/term/permission.md)にある
 
-#### RBAC（ロールベースアクセス制御）
-- **Phase 1 サポートロール**: `admin`, `user-manager`
-- **権限チェック**: Middleware, API Route, UI で権限を検証
-- **権限不足時の挙動**: 403 Forbidden レスポンス
-
-### 6.2 データ暗号化
+### 5.2 データ暗号化
 
 - **通信暗号化**: HTTPS 強制（CloudFront で HTTP → HTTPS リダイレクト）
 - **クッキー**: `Secure` フラグ付き JWT クッキー（HTTPS 通信でのみ送信）
 
-### 6.3 セキュリティヘッダー
+### 5.3 セキュリティヘッダー
 
-Next.js で以下のセキュリティヘッダーを設定:
+CloudFront のレスポンスヘッダーポリシー (`enableSecurityHeaders`) で、HSTS・`X-Frame-Options: DENY`・`X-Content-Type-Options: nosniff` などを付ける。Next.js 側では付けない。
 
-- **HSTS**: `Strict-Transport-Security: max-age=31536000; includeSubDomains`
-- **X-Frame-Options**: `DENY`（クリックジャッキング対策）
-- **X-Content-Type-Options**: `nosniff`
-- **Referrer-Policy**: `strict-origin-when-cross-origin`
-
-### 6.4 その他のセキュリティ対策
+### 5.4 その他のセキュリティ対策
 
 - **レート制限**: AWS WAF でリクエストレート制限（Phase 2 で検討）
 - **最小権限の原則**: Lambda 実行ロールは必要最小限の権限のみ付与
@@ -253,55 +174,7 @@ Next.js で以下のセキュリティヘッダーを設定:
 
 ---
 
-## 7. ディレクトリ構成
-
-```
-services/admin/web/
-├── src/
-│   ├── app/                          # Next.js App Router
-│   │   ├── api/                      # API Routes
-│   │   │   ├── health/
-│   │   │   │   └── route.ts          # ヘルスチェック (Public)
-│   │   │   └── users/                # Phase 2: ユーザー管理 API
-│   │   │       ├── route.ts          # 一覧・作成
-│   │   │       └── [userId]/
-│   │   │           └── route.ts      # 詳細・更新・削除
-│   │   ├── (protected)/              # 認証必須ルート
-│   │   │   └── dashboard/
-│   │   │       └── page.tsx          # ダッシュボード
-│   │   ├── layout.tsx                # ルートレイアウト
-│   │   ├── page.tsx                  # ルート (`/`) → `/dashboard` へリダイレクト
-│   │   └── globals.css               # グローバルスタイル
-│   ├── components/                   # React コンポーネント
-│   │   ├── ThemeRegistry.tsx         # MUI テーマ + @nagiyu/ui レイアウト
-│   │   └── dashboard/
-│   │       ├── UserInfoCard.tsx      # ユーザー情報カード
-│   │       └── AuthStatusCard.tsx    # 認証ステータスカード
-│   ├── lib/                          # ビジネスロジック
-│   │   └── auth/
-│   │       ├── jwt.ts                # JWT 検証ユーティリティ
-│   │       └── permissions.ts        # 権限チェックロジック
-│   ├── types/                        # 型定義
-│   │   ├── auth.ts                   # 認証関連型
-│   │   └── user.ts                   # ユーザー型（Auth サービスと共有）
-│   ├── middleware.ts                 # Next.js Middleware (JWT 検証)
-│   └── next.config.ts                # Next.js 設定
-├── tests/                            # テストファイル
-│   ├── unit/
-│   │   └── lib/
-│   │       └── auth/
-│   │           ├── jwt.test.ts
-│   │           └── permissions.test.ts
-│   └── e2e/
-│       └── dashboard.spec.ts         # E2E テスト
-├── Dockerfile                        # Lambda コンテナイメージ
-├── package.json
-└── tsconfig.json
-```
-
----
-
-## 8. 技術選定理由
+## 6. 技術選定理由
 
 ### Next.js 16.x
 
@@ -340,15 +213,15 @@ services/admin/web/
 
 ---
 
-## 9. 制約事項
+## 7. 制約事項
 
-### 9.1 技術的制約
+### 7.1 技術的制約
 
 - **Lambda コールドスタート**: 初回アクセス時に 1-2秒の遅延が発生する可能性
 - **Lambda タイムアウト**: 30秒でタイムアウト（長時間実行する処理には不向き）
 - **コンテナイメージサイズ**: 10 GB 制限（Next.js アプリケーションは問題なし）
 
-### 9.2 運用制約
+### 7.2 運用制約
 
 - **Phase 1 では最小限の機能**: CloudWatch Logs 閲覧、ユーザー管理は Phase 2 以降
 - **Auth サービス依存**: Auth サービスが稼働していないと Admin サービスも機能しない
@@ -356,7 +229,7 @@ services/admin/web/
 
 ---
 
-## 10. 将来拡張
+## 8. 将来拡張
 
 ### Phase 2 以降で検討する拡張
 
@@ -368,7 +241,7 @@ services/admin/web/
 
 ---
 
-## 11. アーキテクチャ決定記録 (ADR)
+## 9. アーキテクチャ決定記録 (ADR)
 
 ### ADR-001: SNS → Admin HTTP Endpoint → Web Push による管理者通知フロー
 
@@ -406,6 +279,10 @@ CloudWatch Alarm
 - SNS が HTTP エンドポイントへの送信に失敗した場合のリトライは SNS 側が制御する（最大 3 回）
 - プッシュ通知のサポート範囲はブラウザの Web Push 対応に依存する
 - 全サブスクリプションを Scan で取得するため、サブスクリプション数が増加した場合はアクセスパターンの見直しが必要
+
+**その後**:
+
+この経路は、エラーの永続化を前提とした経路 (ADR-003〜005) に本流を譲り、自己監視専用になった (ADR-006)。今の挙動は[SNS 受信 API](../../specs/admin/api/notify-sns.md)と[エラー通知の経路](../../specs/admin/flow/error-notification.md)を参照する。
 
 **将来の SNS トピック ARN**:
 
@@ -593,6 +470,10 @@ Push 通知の `data.url` には永続化された `ErrorEvent` の詳細ペー�
 
 - 詳細ページを PK/SK 直接アクセスで開くため、`eventId` 単独ではなく `occurredAt` と `serviceId` を URL に同伴する必要がある（追加 GSI を作らない代わりに URL が冗長になる）
 - 通知サービスから Admin Web へのドメイン跨ぎでもこの URL がそのまま機能する必要があり、`APP_URL` を Lambda の環境変数で配ることが前提になる
+
+**その後**:
+
+自己監視の経路 (ADR-006) の通知は、タップするとダッシュボードを開く。今の挙動は[stream-handler](../../specs/admin/batch/stream-handler.md)と[Push 購読の経路](../../specs/admin/flow/push-subscription.md)を参照する。
 
 ---
 

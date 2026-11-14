@@ -1,0 +1,22 @@
+{
+  "name": "@nagiyu/docs-site",
+  "version": "1.0.0",
+  "private": true,
+  "description": "docs/ を GitHub Pages で公開するための VitePress サイト",
+  "scripts": {
+    "dev": "vitepress dev",
+    "build": "vitepress build",
+    "preview": "vitepress preview",
+    "test": "jest",
+    "test:coverage": "jest --coverage",
+    "lint": "eslint 'src/**/*.ts' 'tests/**/*.ts' 'capture/**/*.ts'",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "capture:specs": "ts-node --transpile-only --project capture/tsconfig.json capture/run.ts"
+  },
+  "devDependencies": {
+    "mermaid": "^11.17.2",
+    "vitepress": "^1.6.4",
+    "vitepress-plugin-mermaid": "^2.0.17"
+  }
+}

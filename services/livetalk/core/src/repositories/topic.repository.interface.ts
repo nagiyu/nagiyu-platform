@@ -72,21 +72,24 @@ export interface TopicRepository {
   listWebFacts(userId: string, characterId: string, topicId: string): Promise<WebFactEntity[]>;
 
   /**
-   * 鮮度切れの揮発 WEB fact を GSI4（GSI-STALE）で窓走査し、`nextReview <= nowMs`
-   * のものを期限が古い順（昇順）に最大 `limit` 件返す（acquire 用）。
-   *
-   * stable fact（NextReview 未設定）は GSI4 に一切現れないため、掃引対象に含まれない。
-   */
-  listStaleWebFacts(
-    userId: string,
-    characterId: string,
-    nowMs: number,
-    limit: number
-  ): Promise<WebFactEntity[]>;
-
-  /**
-   * 既存 WEB fact の `nextReview` を前方更新する（acquire の鮮度掃引用）。
-   * GSI4SK も追随させ、次回掃引の窓から外す。対象が存在しなければ no-op。
+   * 既存 WEB fact の `nextReview` を前方更新する（acquire の鮮度確認用）。
+   * 対象が存在しなければ no-op。
    */
   updateWebFactNextReview(key: WebFactKey, nextReview: number): Promise<void>;
+
+  /**
+   * WEB fact を削除する (集約の置き換え・上限整理用)。
+   * 集約の再実行で同じ削除が来うるため、対象が存在しなければ no-op。
+   */
+  deleteWebFact(key: WebFactKey): Promise<void>;
+
+  /**
+   * 既存 WEB fact の `observedAt` を更新する (集約が重複と判断した事実の観測日の更新用)。
+   * `nextReview` を渡したときだけ併せて更新し、省略時は触らない (stable は `nextReview` を持たない)。
+   * 対象が存在しなければ no-op。
+   */
+  updateWebFactObservation(
+    key: WebFactKey,
+    update: { observedAt: number; nextReview?: number }
+  ): Promise<void>;
 }

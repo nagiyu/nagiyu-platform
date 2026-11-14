@@ -38,6 +38,7 @@ describe('submitExtractJob', () => {
           { name: 'BATCH_COMMAND', value: 'extract' },
           { name: 'JOB_ID', value: 'job-1' },
           { name: 'EMOTION_FILTER', value: 'laugh' },
+          { name: 'AI_ANALYSIS', value: 'true' },
         ],
       },
     });
@@ -49,6 +50,15 @@ describe('submitExtractJob', () => {
     expect(send.mock.calls[0][0].input.containerOverrides.environment).toContainEqual({
       name: 'EMOTION_FILTER',
       value: 'any',
+    });
+  });
+
+  it('aiAnalysis: false なら AI_ANALYSIS=false を渡す', async () => {
+    await submitExtractJob({ jobId: 'job-1', fileSize: 1024, aiAnalysis: false });
+
+    expect(send.mock.calls[0][0].input.containerOverrides.environment).toContainEqual({
+      name: 'AI_ANALYSIS',
+      value: 'false',
     });
   });
 

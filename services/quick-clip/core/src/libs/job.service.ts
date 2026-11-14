@@ -33,6 +33,9 @@ export class JobService {
       originalFileName,
       fileSize: input.fileSize,
       ...(input.durationSec !== undefined ? { durationSec: input.durationSec } : {}),
+      ...(input.usage ? { usage: input.usage } : {}),
+      ...(input.aiAnalysis !== undefined ? { aiAnalysis: input.aiAnalysis } : {}),
+      ...(input.maxDurationSec !== undefined ? { maxDurationSec: input.maxDurationSec } : {}),
       createdAt,
       expiresAt: createdAt + JOB_TTL_MS,
     };

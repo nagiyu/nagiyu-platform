@@ -14,6 +14,7 @@ import {
   createConsolidationCursorRepository,
   createProfileRepository,
   createNoteRepository,
+  createNoteSkipRepository,
   OpenAIClient,
   OpenAIEmbeddingClient,
 } from '@nagiyu/livetalk-core';
@@ -38,6 +39,7 @@ export const handler = createScheduledHandler<ScheduledEvent, HandlerResponse>(
     const cursorRepo = createConsolidationCursorRepository(docClient, tableName);
     const profileRepo = createProfileRepository(docClient, tableName);
     const noteRepo = createNoteRepository(docClient, tableName);
+    const noteSkipRepo = createNoteSkipRepository(docClient, tableName);
     const llmClient = new OpenAIClient({ apiKey });
     const embeddingClient = new OpenAIEmbeddingClient({ apiKey });
 
@@ -48,6 +50,7 @@ export const handler = createScheduledHandler<ScheduledEvent, HandlerResponse>(
       webRawRepo,
       cursorRepo,
       noteRepo,
+      noteSkipRepo,
       llmClient,
       embeddingClient,
     });

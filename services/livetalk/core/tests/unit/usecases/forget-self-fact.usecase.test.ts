@@ -94,6 +94,60 @@ describe('forgetSelfFact', () => {
     expect(promptText).not.toContain('朝コーヒーを飲む');
   });
 
+  it('プロンプトに渡す WEB fact は観測日時の新しい 20 件に絞る', async () => {
+    const { fact1 } = await seedTopic();
+    for (let i = 0; i < 22; i++) {
+      await repo.putWebFact({
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId: 'TOPIC-1',
+        text: `web-${String(i).padStart(2, '0')}`,
+        sourceUrls: [],
+        volatility: 'stable',
+        observedAt: 1000 + i,
+      });
+    }
+    const llmClient = makeLLMClient();
+
+    await forgetSelfFact(
+      { userId: 'u1', characterId: 'hiyori', topicId: 'TOPIC-1', factId: fact1.factId },
+      { topicRepository: repo, llmClient }
+    );
+
+    const promptText = JSON.stringify((llmClient.chatStructured as jest.Mock).mock.calls[0][0]);
+    expect(promptText).toContain('web-21');
+    expect(promptText).toContain('web-02');
+    expect(promptText).not.toContain('web-01');
+    expect(promptText).not.toContain('web-00');
+  });
+
+  it('SELF fact が残っていなくても WEB fact があれば LLM を呼ぶ（全件で判定）', async () => {
+    const { fact1, fact2 } = await seedTopic();
+    await repo.deleteSelfFact({
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: 'TOPIC-1',
+      factId: fact2.factId,
+    });
+    await repo.putWebFact({
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: 'TOPIC-1',
+      text: 'web-only',
+      sourceUrls: [],
+      volatility: 'stable',
+      observedAt: 1,
+    });
+    const llmClient = makeLLMClient();
+
+    await forgetSelfFact(
+      { userId: 'u1', characterId: 'hiyori', topicId: 'TOPIC-1', factId: fact1.factId },
+      { topicRepository: repo, llmClient }
+    );
+
+    expect(llmClient.chatStructured).toHaveBeenCalledTimes(1);
+  });
+
   it('embedding/care/category/subject は不変', async () => {
     const { fact1 } = await seedTopic();
     const llmClient = makeLLMClient();

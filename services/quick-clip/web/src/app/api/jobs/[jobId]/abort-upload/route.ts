@@ -4,6 +4,7 @@ import { readJsonObjectBody } from '@nagiyu/nextjs';
 import { NextResponse } from 'next/server';
 import { withApiErrorReporting } from '@/lib/api-error-reporting';
 import { getBucketName, getS3Client } from '@/lib/server/aws';
+import { releaseUsageForAbortedJob } from '@/lib/server/usage-flow';
 
 const ERROR_MESSAGES = {
   INVALID_REQUEST: COMMON_ERROR_MESSAGES.BAD_REQUEST,
@@ -50,6 +51,9 @@ export const POST = withApiErrorReporting(
         UploadId: body.uploadId,
       })
     );
+
+    // 利用者がやめた場合も、アップロードできなかったジョブの 1 回は戻す
+    await releaseUsageForAbortedJob(jobId);
 
     return NextResponse.json({}, { status: 200 });
   }
