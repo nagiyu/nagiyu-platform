@@ -1,15 +1,35 @@
-import { signIn } from '@/lib/auth/auth';
+import { headers } from 'next/headers';
+import { redirect } from 'next/navigation';
+import { auth, signIn } from '@/lib/auth/auth';
+import { sanitizeCallbackUrl } from '@/lib/callback-url';
+import { resolveBaseUrl } from '@/lib/signout';
 import { Box, Container, Paper, Typography } from '@mui/material';
 import { Button } from '@nagiyu/ui';
 import GoogleIcon from '@mui/icons-material/Google';
 
 interface SignInPageProps {
-  searchParams: Promise<{ callbackUrl?: string }>;
+  searchParams: Promise<{ callbackUrl?: string | string[] }>;
+}
+
+/** 同じキーを重ねて配列になった値は、無いものとして扱う */
+function singleValue(value: string | string[] | undefined): string | undefined {
+  return typeof value === 'string' ? value : undefined;
 }
 
 export default async function SignInPage({ searchParams }: SignInPageProps) {
   const params = await searchParams;
-  const callbackUrl = params.callbackUrl || '/dashboard';
+  const rawCallbackUrl = singleValue(params.callbackUrl);
+
+  // getSession() は SKIP_AUTH_CHECK のとき常にテストユーザーを返すため、使うと E2E と撮影で
+  // サインイン画面が必ず移ってしまう。実の Cookie が無いときは null になる auth() を直接使う
+  const session = await auth();
+  if (session?.user) {
+    // 画面からの redirect() は next-auth の redirect コールバックを通らないため、ここで検証する
+    const baseUrl = resolveBaseUrl(await headers());
+    redirect(sanitizeCallbackUrl(rawCallbackUrl, baseUrl) ?? '/dashboard');
+  }
+
+  const callbackUrl = rawCallbackUrl || '/dashboard';
 
   return (
     <Container maxWidth="sm">

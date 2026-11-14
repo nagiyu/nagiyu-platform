@@ -13,7 +13,7 @@ sources:
   - services/auth/web/src/lib/auth/auth.ts
   - services/auth/web/src/app/signin/page.tsx
   - services/auth/web/src/app/auth/error/page.tsx
-sources_hash: d6790b1534bee08066e643695afd6d0199db0196b40cb0ccb8cdc780d6d2a909
+sources_hash: e4537d9d0f9c716963c09252e20c542d590c0b6267621234fe89bba3cd0dc718
 terms: [auth/term/callback-url, auth/term/session-roles, platform/term/role]
 related_cards: [auth/screen/signin, auth/screen/auth-error, auth/screen/signout, auth/screen/refresh, auth/api/system, admin/flow/error-notification]
 related_adr:
@@ -31,6 +31,7 @@ related_adr:
 - ログインが要る画面を未ログインで開く。各サービスのミドルウェア (`createAuthMiddleware`) が、Auth のサインイン画面 (`NEXT_PUBLIC_AUTH_URL` の `/signin`) へ、`callbackUrl=<開いた画面>` を付けてリダイレクトする
     - 戻り先の既定は、環境変数 `APP_URL` があれば `{APP_URL}{パス}{検索語}`、なければパスだけ。Auth 自身は常にパスと検索語 (相対パス)
 - ログインが任意のサービスは、画面の中の導線から `buildSignInUrl` で同じサインイン画面へ送る
+- ログイン済みの利用者がサインイン画面を開いたときは、ボタンを出さず、検証した戻り先 (無い・許可されない値は `/dashboard`) へ移す。この検証は ④ と同じ規則で、画面の中で行う
 
 ## 経路
 
