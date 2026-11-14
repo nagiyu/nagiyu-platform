@@ -1041,6 +1041,85 @@ describe('Home', () => {
       await waitFor(() => expect(usageFetch).toHaveBeenCalledTimes(2));
     });
 
+    it('上限が返って残りを読み直しても、利用者が off にしたスイッチは off のまま', async () => {
+      global.fetch = withUsage(
+        jest.fn().mockResolvedValueOnce({
+          ok: false,
+          status: 429,
+          json: async () => ({ error: 'NO_AI_LIMIT_EXCEEDED', message: '上限です' }),
+        }),
+        buildUsage({ remaining: { ai: 1, noAi: 0 } })
+      );
+      render(<HomeWithAuth />);
+      const toggle = await screen.findByRole('switch', { name: /AI 解析/ });
+      fireEvent.click(toggle);
+      expect(toggle).not.toBeChecked();
+
+      selectFile();
+      fireEvent.click(submitButton());
+
+      await screen.findByText('上限です');
+      await waitFor(() => {
+        const usageCalls = (global.fetch as jest.Mock).mock.calls.filter(
+          ([input]) => input === '/api/usage'
+        );
+        expect(usageCalls).toHaveLength(2);
+      });
+      expect(screen.getByRole('switch', { name: /AI 解析/ })).not.toBeChecked();
+    });
+
+    it('スイッチ on で上限が返り、読み直した残りで AI ありが 0 なら off で選べなくなる', async () => {
+      let usageCalls = 0;
+      global.fetch = jest.fn((input: RequestInfo | URL) => {
+        if (input === '/api/usage') {
+          usageCalls += 1;
+          const usage =
+            usageCalls === 1 ? buildUsage() : buildUsage({ remaining: { ai: 0, noAi: 10 } });
+          return Promise.resolve({ ok: true, status: 200, json: async () => usage });
+        }
+        return Promise.resolve({
+          ok: false,
+          status: 429,
+          json: async () => ({ error: 'AI_LIMIT_EXCEEDED', message: '上限です' }),
+        });
+      }) as jest.Mock;
+      render(<HomeWithAuth />);
+      expect(await screen.findByRole('switch', { name: /AI 解析/ })).toBeChecked();
+
+      selectFile();
+      fireEvent.click(submitButton());
+
+      await screen.findByText('上限です');
+      await waitFor(() => expect(screen.getByRole('switch', { name: /AI 解析/ })).toBeDisabled());
+      expect(screen.getByRole('switch', { name: /AI 解析/ })).not.toBeChecked();
+    });
+
+    it('最初の取得に失敗し、上限で読み直して初めて読めたときは既定値を入れる', async () => {
+      let usageCalls = 0;
+      global.fetch = jest.fn((input: RequestInfo | URL) => {
+        if (input === '/api/usage') {
+          usageCalls += 1;
+          return usageCalls === 1
+            ? Promise.resolve({ ok: false, status: 500, json: async () => ({}) })
+            : Promise.resolve({ ok: true, status: 200, json: async () => buildUsage() });
+        }
+        return Promise.resolve({
+          ok: false,
+          status: 429,
+          json: async () => ({ error: 'IP_LIMIT_EXCEEDED', message: '上限です' }),
+        });
+      }) as jest.Mock;
+      render(<HomeWithAuth />);
+      await waitFor(() => expect(usageCalls).toBe(1));
+      expect(screen.queryByRole('switch')).not.toBeInTheDocument();
+
+      selectFile();
+      fireEvent.click(submitButton());
+
+      await screen.findByText('上限です');
+      expect(await screen.findByRole('switch', { name: /AI 解析/ })).toBeChecked();
+    });
+
     it('IP_LIMIT_EXCEEDED は案内なしでメッセージだけを出す', async () => {
       global.fetch = withUsage(
         jest.fn().mockResolvedValueOnce({
