@@ -11,8 +11,12 @@ export const PLANS_MESSAGES = {
   PREPARING: '準備中です',
   PRICE_UNAVAILABLE: '価格を取得できませんでした',
   CHECKOUT_RESTRICTED: 'この環境ではテスト用の申し込みに限っています',
+  PAYMENT_PAST_DUE:
+    '支払いを確認できていないため段を変えられません。「契約を管理」から支払い方法を更新してください',
   NOTE: '契約は自動で更新されます。解約は「契約を管理」から行えます。解約しても、支払い済みの期間の終わりまで使えます。',
 } as const;
+
+const PAST_DUE_STATUS = 'past_due';
 
 export type PlanPrice = {
   /** 下げの予約の行き先 (価格 ID) を段に対応付けるのに使う */
@@ -27,6 +31,8 @@ export type PlanSubscription = {
   roleId: string;
   currentPeriodEnd: number;
   endsAt: number | null;
+  /** 契約の状態。`past_due` の間は段の切り替えを断るため、導線を出さない */
+  status?: string;
   /** 次の期間から別の価格へ切り替わる予約 */
   scheduledChange?: { priceId: string; startsAt: number } | null;
 };
@@ -53,6 +59,8 @@ export type PlanTier = {
   action: PlanTierAction;
   /** 下げを予約中の契約中の段にだけ付く。予約の取り消しの導線を出す目印も兼ねる */
   scheduledChangeLabel: string | null;
+  /** 支払い遅延で段を変えられない契約中の段にだけ付く、理由と案内 */
+  paymentPastDueLabel: string | null;
   /** 下げの確認ダイアログの本文。`action` が `downgrade` のときだけ付く */
   downgradeConfirmMessage: string | null;
 };
@@ -230,9 +238,10 @@ export function buildPlanServices(input: BuildPlanServicesInput): PlanService[] 
     const hasContract = resolved.some(
       (tier) => tier.state === 'subscribed' || tier.state === 'canceling'
     );
-    // 解約予約中・下げの予約中の契約は、切り替えを断るため導線を出さない
+    // 解約予約中・下げの予約中・支払い遅延中の契約は、切り替えを断るため導線を出さない
     const canChange =
       serviceSubscription !== undefined &&
+      serviceSubscription.status !== PAST_DUE_STATUS &&
       serviceSubscription.endsAt === null &&
       !serviceSubscription.scheduledChange;
 
@@ -272,6 +281,10 @@ export function buildPlanServices(input: BuildPlanServicesInput): PlanService[] 
         scheduledChangeLabel:
           tier.state === 'subscribed'
             ? resolveScheduledChangeLabel(tier.subscription, input)
+            : null,
+        paymentPastDueLabel:
+          tier.state === 'subscribed' && tier.subscription?.status === PAST_DUE_STATUS
+            ? PLANS_MESSAGES.PAYMENT_PAST_DUE
             : null,
         downgradeConfirmMessage:
           action === 'downgrade' && serviceSubscription

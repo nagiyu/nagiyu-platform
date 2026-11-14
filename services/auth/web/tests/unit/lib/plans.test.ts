@@ -4,6 +4,7 @@ import {
   formatPlanDate,
   formatPlanDescription,
   formatPriceLabel,
+  PLANS_MESSAGES,
   type BuildPlanServicesInput,
 } from '../../../src/lib/plans';
 
@@ -405,6 +406,42 @@ describe('buildPlanCards', () => {
         ['quick-clip-standard', 'subscribe'],
         ['quick-clip-pro', 'subscribe'],
       ]);
+    });
+
+    describe('支払い遅延 (past_due)', () => {
+      const pastDue = { ...base, status: 'past_due' };
+
+      it('上げの導線を出さない', () => {
+        expect(actions({ subscriptions: [pastDue] })).toEqual([
+          ['quick-clip-standard', null],
+          ['quick-clip-pro', null],
+        ]);
+      });
+
+      it('下げの導線を出さない', () => {
+        expect(actions({ subscriptions: [{ ...pastDue, roleId: 'quick-clip-pro' }] })).toEqual([
+          ['quick-clip-standard', null],
+          ['quick-clip-pro', null],
+        ]);
+      });
+
+      it('契約中の段にだけ理由と案内を付け、契約中の表示は変えない', () => {
+        const found = buildPlanCards(input({ prices: PRICES, subscriptions: [pastDue] }));
+
+        expect(found[0].paymentPastDueLabel).toBe(PLANS_MESSAGES.PAYMENT_PAST_DUE);
+        expect(found[0].state).toBe('subscribed');
+        expect(found[0].stateLabel).toContain('次の更新日');
+        expect(found[1].paymentPastDueLabel).toBeNull();
+      });
+
+      it('active では文言を付けず、切り替えを出す', () => {
+        const found = buildPlanCards(
+          input({ prices: PRICES, subscriptions: [{ ...base, status: 'active' }] })
+        );
+
+        expect(found.map((t) => t.paymentPastDueLabel)).toEqual([null, null]);
+        expect(found[1].action).toBe('upgrade');
+      });
     });
 
     it('解約予約中は切り替えを出さない', () => {
