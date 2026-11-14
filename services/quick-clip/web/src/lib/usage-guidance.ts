@@ -181,6 +181,26 @@ export const resolveLimitGuidance = (
   return { plans: hasHigherTier(tier), signIn: tier === 'anonymous' };
 };
 
+/** 誘導先のボタンを出すか */
+export const hasLimitGuidance = (guidance: LimitGuidance): boolean =>
+  guidance.plans || guidance.signIn;
+
+/**
+ * 長さ超過の警告と、サーバーに断られたエラーの誘導先を 1 組にまとめる。
+ * 両方が出ていてもボタンは画面に 1 組だけにするため、種類ごとに OR で合わせる。
+ */
+export const resolveErrorGuidance = (
+  durationExceeded: boolean,
+  limitCode: string | null,
+  tier: UsageTier | null
+): LimitGuidance => {
+  const duration = durationExceeded
+    ? resolveLimitGuidance('DURATION_LIMIT_EXCEEDED', tier)
+    : { plans: false, signIn: false };
+  const limit = resolveLimitGuidance(limitCode, tier);
+  return { plans: duration.plans || limit.plans, signIn: duration.signIn || limit.signIn };
+};
+
 /** 動画の長さを超過判定した結果 */
 export type DurationCheck = {
   exceeded: boolean;

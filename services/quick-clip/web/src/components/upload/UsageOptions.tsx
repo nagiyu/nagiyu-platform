@@ -13,6 +13,8 @@ type UsageOptionsProps = {
   aiAnalysis: boolean;
   disabled: boolean;
   onAiAnalysisChange: (value: boolean) => void;
+  /** 案内のボタンをここに出すか。エラー側でボタンを出しているときは false にして重複させない */
+  showGuidanceActions: boolean;
   signInHref: string;
   plansHref: string;
 };
@@ -23,6 +25,7 @@ export function UsageOptions({
   aiAnalysis,
   disabled,
   onAiAnalysisChange,
+  showGuidanceActions,
   signInHref,
   plansHref,
 }: UsageOptionsProps) {
@@ -48,11 +51,13 @@ export function UsageOptions({
           <Alert severity="info" sx={{ my: 1 }}>
             {notice.message}
           </Alert>
-          <LimitGuidanceActions
-            guidance={notice.guidance}
-            signInHref={signInHref}
-            plansHref={plansHref}
-          />
+          {showGuidanceActions && (
+            <LimitGuidanceActions
+              guidance={notice.guidance}
+              signInHref={signInHref}
+              plansHref={plansHref}
+            />
+          )}
         </>
       )}
     </Box>
