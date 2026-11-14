@@ -30,3 +30,29 @@ export function sanitizeCallbackUrl(
 
   return isAllowedNagiyuRedirectUrl(rawCallbackUrl, baseUrl) ? rawCallbackUrl : null;
 }
+
+/** サインイン画面で、戻り先が無い・使えないときに移す先 */
+export const SIGNED_IN_FALLBACK_PATH = '/dashboard';
+
+const SIGN_IN_PATH = '/signin';
+
+/**
+ * ログイン済みでサインイン画面を開いた利用者を移す先を決める。
+ * 戻り先がサインイン画面自身だと、移った先でまた移り続けるため、既定の先へ倒す。
+ *
+ * @returns 許可された絶対 URL か {@link SIGNED_IN_FALLBACK_PATH}
+ */
+export function resolveSignedInDestination(
+  rawCallbackUrl: string | null | undefined,
+  baseUrl: string
+): string {
+  const destination = sanitizeCallbackUrl(rawCallbackUrl, baseUrl);
+  if (!destination) {
+    return SIGNED_IN_FALLBACK_PATH;
+  }
+  const url = new URL(destination);
+  const isSignInPage =
+    url.origin === new URL(baseUrl).origin &&
+    (url.pathname === SIGN_IN_PATH || url.pathname.startsWith(`${SIGN_IN_PATH}/`));
+  return isSignInPage ? SIGNED_IN_FALLBACK_PATH : destination;
+}

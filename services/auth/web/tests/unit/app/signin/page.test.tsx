@@ -22,9 +22,15 @@ function renderPage(searchParams: { callbackUrl?: string | string[] } = {}) {
 }
 
 describe('SignInPage', () => {
+  const originalAuthUrl = process.env.AUTH_URL;
+
   beforeEach(() => {
     jest.clearAllMocks();
     process.env.AUTH_URL = 'https://auth.nagiyu.com';
+  });
+
+  afterAll(() => {
+    process.env.AUTH_URL = originalAuthUrl;
   });
 
   describe('ログイン済み', () => {

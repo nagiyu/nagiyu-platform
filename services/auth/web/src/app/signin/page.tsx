@@ -1,7 +1,7 @@
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { auth, signIn } from '@/lib/auth/auth';
-import { sanitizeCallbackUrl } from '@/lib/callback-url';
+import { SIGNED_IN_FALLBACK_PATH, resolveSignedInDestination } from '@/lib/callback-url';
 import { resolveBaseUrl } from '@/lib/signout';
 import { Box, Container, Paper, Typography } from '@mui/material';
 import { Button } from '@nagiyu/ui';
@@ -11,24 +11,9 @@ interface SignInPageProps {
   searchParams: Promise<{ callbackUrl?: string | string[] }>;
 }
 
-/** 同じキーを重ねて配列になった値は、無いものとして扱う */
+/** 同じキーを重ねて配列になった値は、どれを採るかが決まらないため、無いものとして扱う */
 function singleValue(value: string | string[] | undefined): string | undefined {
   return typeof value === 'string' ? value : undefined;
-}
-
-const SIGNED_IN_FALLBACK_PATH = '/dashboard';
-
-/** 戻り先がサインイン画面自身だと、ログイン済みでは移った先でまた移って止まらないため、既定の先へ倒す */
-function resolveSignedInDestination(rawCallbackUrl: string | undefined, baseUrl: string): string {
-  const destination = sanitizeCallbackUrl(rawCallbackUrl, baseUrl);
-  if (!destination) {
-    return SIGNED_IN_FALLBACK_PATH;
-  }
-  const url = new URL(destination);
-  const isSignInPage =
-    url.origin === new URL(baseUrl).origin &&
-    (url.pathname === '/signin' || url.pathname.startsWith('/signin/'));
-  return isSignInPage ? SIGNED_IN_FALLBACK_PATH : destination;
 }
 
 export default async function SignInPage({ searchParams }: SignInPageProps) {
@@ -44,7 +29,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
     redirect(resolveSignedInDestination(rawCallbackUrl, baseUrl));
   }
 
-  const callbackUrl = rawCallbackUrl || '/dashboard';
+  const callbackUrl = rawCallbackUrl || SIGNED_IN_FALLBACK_PATH;
 
   return (
     <Container maxWidth="sm">
