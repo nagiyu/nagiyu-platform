@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 640" font-family="'Hiragino Sans','Noto Sans JP','Yu Gothic',sans-serif" font-size="16">
+  <rect width="480" height="640" fill="#ffffff"/>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#555"/></marker>
+  </defs>
+  <!-- 塞ぐ前 -->
+  <text x="16" y="34" font-weight="bold" font-size="17" fill="#b91c1c">塞ぐ前</text>
+  <rect x="16" y="48" width="448" height="44" rx="8" fill="#eef2f7" stroke="#5b6b82" stroke-width="1.5"/>
+  <text x="240" y="76" text-anchor="middle" fill="#374151">Google アカウントがあれば、誰でも dev にログイン</text>
+  <line x1="240" y1="92" x2="240" y2="112" stroke="#555" stroke-width="2" marker-end="url(#a)"/>
+  <rect x="16" y="114" width="448" height="44" rx="8" fill="#eef2f7" stroke="#5b6b82" stroke-width="1.5"/>
+  <text x="240" y="142" text-anchor="middle" fill="#374151">テスト用のカード番号で申し込む</text>
+  <line x1="240" y1="158" x2="240" y2="178" stroke="#555" stroke-width="2" marker-end="url(#a)"/>
+  <rect x="16" y="180" width="448" height="44" rx="8" fill="#eef2f7" stroke="#5b6b82" stroke-width="1.5"/>
+  <text x="240" y="208" text-anchor="middle" fill="#374151">Stripe のサンドボックスなので、決済が通る</text>
+  <line x1="240" y1="224" x2="240" y2="244" stroke="#555" stroke-width="2" marker-end="url(#a)"/>
+  <rect x="16" y="246" width="448" height="44" rx="8" fill="#fde8e8" stroke="#b91c1c" stroke-width="2"/>
+  <text x="240" y="274" text-anchor="middle" font-weight="bold" fill="#b91c1c">無料のまま有料の段になり、dev を普段使いできる</text>
+  <!-- 塞いだ後 -->
+  <line x1="16" y1="318" x2="464" y2="318" stroke="#d1d5db" stroke-width="1.5" stroke-dasharray="4 4"/>
+  <text x="16" y="352" font-weight="bold" font-size="17" fill="#2e7d32">塞いだ後 (本番以外)</text>
+  <rect x="16" y="366" width="448" height="44" rx="8" fill="#eef2f7" stroke="#5b6b82" stroke-width="1.5"/>
+  <text x="240" y="394" text-anchor="middle" fill="#374151">dev にログインして、申し込もうとする</text>
+  <line x1="240" y1="410" x2="240" y2="430" stroke="#555" stroke-width="2" marker-end="url(#a)"/>
+  <rect x="96" y="432" width="288" height="58" rx="8" fill="#fff4e5" stroke="#c77c11" stroke-width="2"/>
+  <text x="240" y="458" text-anchor="middle" font-weight="bold" fill="#1f2937">テスト用の権限を持っている？</text>
+  <text x="240" y="480" text-anchor="middle" font-size="14" fill="#6b7280">(管理者の権限には含めない)</text>
+  <line x1="170" y1="490" x2="120" y2="536" stroke="#555" stroke-width="2" marker-end="url(#a)"/>
+  <line x1="310" y1="490" x2="360" y2="536" stroke="#555" stroke-width="2" marker-end="url(#a)"/>
+  <text x="104" y="516" font-size="14" fill="#374151">持たない</text>
+  <text x="340" y="516" font-size="14" fill="#374151">持つ</text>
+  <rect x="16" y="540" width="208" height="84" rx="8" fill="#fde8e8" stroke="#b91c1c" stroke-width="1.5"/>
+  <text x="120" y="574" text-anchor="middle" font-weight="bold" fill="#b91c1c">申し込めない</text>
+  <text x="120" y="602" text-anchor="middle" font-size="14" fill="#6b7280">無料枠は使える (問わない)</text>
+  <rect x="256" y="540" width="208" height="84" rx="8" fill="#e8f5e9" stroke="#2e7d32" stroke-width="1.5"/>
+  <text x="360" y="574" text-anchor="middle" font-weight="bold" fill="#2e7d32">決済まで通せる</text>
+  <text x="360" y="602" text-anchor="middle" font-size="14" fill="#6b7280">自分のテスト用アカウント</text>
+</svg>

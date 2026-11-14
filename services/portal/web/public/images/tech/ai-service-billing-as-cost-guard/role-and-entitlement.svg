@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 544" font-family="'Hiragino Sans','Noto Sans JP','Yu Gothic',sans-serif" font-size="16">
+  <rect width="400" height="544" fill="#ffffff"/>
+  <!-- 手動のロール -->
+  <rect x="16" y="16" width="368" height="88" rx="10" fill="#eef2f7" stroke="#5b6b82" stroke-width="2"/>
+  <text x="200" y="46" text-anchor="middle" font-weight="bold" font-size="17" fill="#1f2937">手動のロール</text>
+  <text x="200" y="72" text-anchor="middle" fill="#374151">管理者が手で付ける。期限なし</text>
+  <text x="200" y="94" text-anchor="middle" font-size="14" fill="#6b7280">例: 管理者、自分用の使い放題</text>
+  <text x="200" y="138" text-anchor="middle" font-weight="bold" font-size="26" fill="#555">＋</text>
+  <!-- 課金の権利 -->
+  <rect x="16" y="154" width="368" height="150" rx="10" fill="#fff4e5" stroke="#c77c11" stroke-width="2"/>
+  <text x="200" y="184" text-anchor="middle" font-weight="bold" font-size="17" fill="#1f2937">期限内の課金の権利</text>
+  <text x="200" y="212" text-anchor="middle" fill="#374151">出どころ: Stripe の契約 / 手での付与</text>
+  <text x="200" y="238" text-anchor="middle" fill="#374151">有効期限つき。有料のロールだけ</text>
+  <line x1="40" y1="254" x2="360" y2="254" stroke="#e5c08a" stroke-width="1"/>
+  <text x="200" y="276" text-anchor="middle" font-size="14" fill="#8a5a0c">Stripe の更新・解約を Webhook で受けて</text>
+  <text x="200" y="295" text-anchor="middle" font-size="14" fill="#8a5a0c">期限を延ばす・取り消す</text>
+  <text x="200" y="338" text-anchor="middle" font-weight="bold" font-size="26" fill="#555">＝</text>
+  <!-- 有効なロール -->
+  <rect x="16" y="354" width="368" height="56" rx="10" fill="#e8f5e9" stroke="#2e7d32" stroke-width="2"/>
+  <text x="200" y="388" text-anchor="middle" font-weight="bold" font-size="17" fill="#1f2937">利用者が持つロール</text>
+  <!-- 解約時 -->
+  <rect x="16" y="430" width="368" height="98" rx="10" fill="#fafafa" stroke="#9ca3af" stroke-width="1.5"/>
+  <text x="200" y="460" text-anchor="middle" font-weight="bold" fill="#1f2937">解約・期限切れのとき</text>
+  <text x="200" y="488" text-anchor="middle" fill="#374151">外れるのは課金の権利だけ</text>
+  <text x="200" y="512" text-anchor="middle" fill="#374151">手動のロールは残る</text>
+</svg>
