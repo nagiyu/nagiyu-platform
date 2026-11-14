@@ -14,7 +14,7 @@ sources:
   - services/quick-clip/web/src/components/AuthUrlProvider.tsx
   - libs/common/src/format/file-size.ts
   - libs/ui/src/utils/auth.ts
-sources_hash: 48d8190b8402f629c07249ebf25bdcf3749ef1c9e9e3c70da88be3604003ff68
+sources_hash: 749ce8ceac2c1c388ff5aedf5e24caf97a01e5f6479e96ba1c70b069476e6187
 terms: [quick-clip/term/usage-tier, quick-clip/term/ai-analysis, quick-clip/term/job]
 related_cards: [quick-clip/api/jobs, quick-clip/api/usage, quick-clip/screen/job-status, quick-clip/flow/extraction, quick-clip/flow/usage-metering]
 related_adr:
@@ -54,7 +54,7 @@ related_adr:
 ## 状態
 
 - 初めは、ファイルもエラーもなく、「アップロードして処理開始」は押せない
-- 画面を開くと `GET /api/usage` で残りを読む。読めたときは、残りと AI 解析のスイッチを出す。スイッチの初めの値は、AI 解析ありの残りがあればオン、なければオフ。読めなかった (失敗や、形が想定と違う) ときは、残りもスイッチも出さず、AI 解析の希望も送らない。サーバーが決める
+- 画面を開くと `GET /api/usage` で残りを読む。読めたときは、残りと AI 解析のスイッチを出す。スイッチの初めの値は、AI 解析ありの残りがあればオン、なければオフ。初めの値を入れるのは、初めて残りを読めたときだけ。上限で断られた後などの読み直しでは、利用者が選んだ値を残し、AI 解析ありの残りがなくなったときだけオフにする。読めなかった (失敗や、形が想定と違う) ときは、残りもスイッチも出さず、AI 解析の希望も送らない。サーバーが決める
 - AI 解析ありの残りがないとき、スイッチはオフで操作できない。理由と案内を添える
 
 | 段 | 理由 | 案内 |
