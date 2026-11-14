@@ -7,7 +7,7 @@ sources:
   - services/livetalk/web/src/app/legal/privacy/page.tsx
   - services/livetalk/web/src/lib/legal/privacy-data.ts
   - libs/ui/src/components/legal/LegalSections.tsx
-sources_hash: baf9da9ffb6493b18d8dd7291e276c0028063a18b77f574b8221fc9191f2d982
+sources_hash: 8053078dd34aaaa5285b12b741cead90a1cee18ae44827a6bc7cf07bc028d443
 terms: [livetalk/term/consent]
 related_cards: [livetalk/screen/terms, livetalk/screen/home]
 ---
@@ -23,7 +23,7 @@ related_cards: [livetalk/screen/terms, livetalk/screen/home]
 
 ## 表示するもの
 
-- 見出し「プライバシーポリシー」と「バージョン 1.0.0」
+- 見出し「プライバシーポリシー」と「バージョン 1.1.0」
 - 条文。プライバシーポリシーは 9 条 (収集する情報の種類、情報の利用目的、情報の保管・削除、外部サービスの利用、セーフティログの取り扱い、ユーザーの権利、Cookie・セッション情報の取り扱い、個人情報保護法への準拠、プライバシーポリシーの変更)。条番号は並び順で振る
 - 下部に、利用規約へのリンク「利用規約を見る」
 - ホーム画面を含む全画面のフッターのリンクは、同じ内容を、このページへ移らずダイアログで開く

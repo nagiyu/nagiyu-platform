@@ -7,7 +7,7 @@ sources:
   - services/livetalk/web/src/app/legal/terms/page.tsx
   - services/livetalk/web/src/lib/legal/terms-data.ts
   - libs/ui/src/components/legal/LegalSections.tsx
-sources_hash: 3c03cf114b433d46f9e7163725d024ae81be121b47a669132aa27d1fa18eeaea
+sources_hash: 3cc634ef651fe89bcb662b6c73010ab87bb4cab100898557aff9d5d303e164b7
 terms: [livetalk/term/consent]
 related_cards: [livetalk/screen/privacy, livetalk/screen/home]
 ---
@@ -23,7 +23,7 @@ related_cards: [livetalk/screen/privacy, livetalk/screen/home]
 
 ## 表示するもの
 
-- 見出し「利用規約」と「バージョン 1.0.0」
+- 見出し「利用規約」と「バージョン 1.1.0」
 - 条文。利用規約は 12 条 (サービス概要と適用、年齢制限、利用登録・Google アカウント、AI の性質と医療目的でない旨、危機時の対応とリソース案内、禁止事項、データ取り扱い、データ削除請求、本サービスの提供停止・変更、免責事項、利用規約の変更、準拠法・裁判管轄)。条番号は並び順で振る
 - 下部に、プライバシーポリシーへのリンク「プライバシーポリシーを見る」
 - ホーム画面を含む全画面のフッターのリンクは、同じ内容を、このページへ移らずダイアログで開く

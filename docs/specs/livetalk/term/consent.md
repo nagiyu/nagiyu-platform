@@ -7,7 +7,7 @@ sources:
   - services/livetalk/core/src/lib/consent.ts
   - services/livetalk/core/src/constants.ts
   - services/livetalk/web/src/app/api/consent/route.ts
-sources_hash: c3779ee766efcabd345a60d0b25af9b6dc0205b5d41e540e06be26534c330eef
+sources_hash: eda792d6d5a70cce8b39ad9dd53debbf56bedb59920de0d6adeffe6cffa8a0f2
 related_cards: [livetalk/api/consent, livetalk/screen/home, livetalk/screen/terms, livetalk/screen/privacy]
 related_adr:
   - services/livetalk/architecture.md#2.9
@@ -20,7 +20,7 @@ related_adr:
 ## 説明
 
 - 記録するのは、規約の版と同意日時、プライバシーポリシーの版と同意日時、18 歳以上の自己申告と日時
-- 有効と見なすのは、3 つがそろい、規約とプライバシーポリシーの版が今の版 (どちらも `1.0.0`) と一致するときだけ。版が上がると、再び求める
+- 有効と見なすのは、3 つがそろい、規約とプライバシーポリシーの版が今の版 (どちらも `1.1.0`) と一致するときだけ。版が上がると、再び求める
 - 同意は利用者ごとに 1 件で、プロフィールに保存する。退会すると消える
 - 同意していなくても、会話の API は拒まない。求めるのはホーム画面の同意のダイアログで、入力欄が無効のまま残る
 
