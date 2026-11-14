@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { ROLES } from '@nagiyu/common';
+import { MANUAL_ROLE_ERROR_MESSAGES, validateManualRoles } from '@/lib/manual-roles';
 
 /**
  * ユーザー関連 API のリクエストボディ検証メッセージ
@@ -42,6 +43,21 @@ export const UpdateUserSchema = z
       roles: z
         .array(z.enum(validRoleIds, { error: USER_VALIDATION_ERROR_MESSAGES.ROLE_INVALID }), {
           error: USER_VALIDATION_ERROR_MESSAGES.ROLES_NOT_ARRAY,
+        })
+        .superRefine((roles, ctx) => {
+          const { duplicates, paidRoles } = validateManualRoles(roles);
+          if (duplicates.length > 0) {
+            ctx.addIssue({
+              code: 'custom',
+              message: `${MANUAL_ROLE_ERROR_MESSAGES.DUPLICATE_ROLES}: ${duplicates.join(', ')}`,
+            });
+          }
+          if (paidRoles.length > 0) {
+            ctx.addIssue({
+              code: 'custom',
+              message: `${MANUAL_ROLE_ERROR_MESSAGES.PAID_ROLES_NOT_ALLOWED}: ${paidRoles.join(', ')}`,
+            });
+          }
         })
         .optional(),
     },

@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation';
 import { Box, Typography, Paper, FormGroup } from '@mui/material';
 import { Button, Checkbox, ErrorAlert, LoadingState } from '@nagiyu/ui';
 import Link from 'next/link';
-import { VALID_ROLES } from '@nagiyu/common';
 import type { User } from '@nagiyu/common';
+import { MANUAL_ROLES } from '@/lib/manual-roles';
 import { getRoleDescription, getRoleName } from '@/lib/role-display';
 import {
   EMPTY_PENDING_GRANT_CHANGES,
@@ -191,7 +191,7 @@ export function UserEditForm({ userId }: UserEditFormProps) {
           {error && <ErrorAlert message={error} />}
 
           <FormGroup>
-            {VALID_ROLES.map((role) => (
+            {MANUAL_ROLES.map((role) => (
               <Checkbox
                 key={role}
                 label={<RoleLabel roleId={role} />}
