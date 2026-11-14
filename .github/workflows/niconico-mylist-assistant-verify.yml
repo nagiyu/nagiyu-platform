@@ -22,6 +22,7 @@ on:
       - 'package-lock.json'
       - '.github/workflows/niconico-mylist-assistant-verify.yml'
       - '.github/workflows/reusable-service-verify.yml'
+      - '.github/workflows/reusable-infra-verify.yml'
       - '.github/workflows/reusable-e2e.yml'
 
 permissions:
@@ -38,6 +39,14 @@ jobs:
     uses: ./.github/workflows/reusable-service-verify.yml
     with:
       dirs: services/niconico-mylist-assistant infra/niconico-mylist-assistant
+    permissions:
+      contents: read
+
+  infra-verify:
+    name: Infra Verify
+    uses: ./.github/workflows/reusable-infra-verify.yml
+    with:
+      dirs: infra/niconico-mylist-assistant
     permissions:
       contents: read
 
@@ -61,27 +70,6 @@ jobs:
 
       - name: Build core library
         run: npm run build --workspace=@nagiyu/niconico-mylist-assistant-core
-
-  build-infra:
-    name: Build Infrastructure Package
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js and install dependencies
-        uses: ./.github/actions/setup-node
-        with:
-          cache-dependency-path: './package-lock.json'
-
-      - name: Build common infrastructure package
-        run: npm run build --workspace=@nagiyu/infra-common
-
-      - name: Build CDK TypeScript
-        run: npm run build --workspace=@nagiyu/infra-niconico-mylist-assistant
 
   build-web:
     name: Build Web Package
@@ -220,12 +208,12 @@ jobs:
       [
         verify,
         build-core,
-        build-infra,
         build-web,
         build-batch,
         docker-build-web,
         docker-build-batch,
         e2e,
+        infra-verify,
       ]
 
     permissions:

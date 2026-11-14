@@ -22,6 +22,7 @@ on:
       - 'package-lock.json'
       - '.github/workflows/livetalk-verify.yml'
       - '.github/workflows/reusable-service-verify.yml'
+      - '.github/workflows/reusable-infra-verify.yml'
       - '.github/workflows/reusable-e2e.yml'
 
 permissions:
@@ -41,50 +42,16 @@ jobs:
     permissions:
       contents: read
 
-  synth-infra:
-    name: Synthesize Infrastructure
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js and install dependencies
-        uses: ./.github/actions/setup-node
-        with:
-          cache-dependency-path: './package-lock.json'
-
-      - name: Build common infrastructure package
-        run: npm run build --workspace=@nagiyu/infra-common
-
-      - name: Build CDK TypeScript
-        run: npm run build --workspace=@nagiyu/infra-livetalk
-
-      - name: Synthesize CDK stacks (dev)
-        env:
-          ENVIRONMENT: dev
-          CDK_DEFAULT_ACCOUNT: '000000000000'
-        run: |
-          npm run synth --workspace=@nagiyu/infra-livetalk -- \
-            NagiyuLiveTalkEcrDev \
-            NagiyuLiveTalkBatchEcrDev \
-            NagiyuLiveTalkAlbDev \
-            NagiyuLiveTalkServiceDev \
-            NagiyuLiveTalkBatchDev \
-            NagiyuLiveTalkCloudFrontDev
-
-      - name: Synthesize CDK stacks (prod)
-        env:
-          ENVIRONMENT: prod
-          CDK_DEFAULT_ACCOUNT: '000000000000'
-        run: |
-          npm run synth --workspace=@nagiyu/infra-livetalk -- \
-            NagiyuLiveTalkEcrProd \
-            NagiyuLiveTalkBatchEcrProd \
-            NagiyuLiveTalkAlbProd \
-            NagiyuLiveTalkServiceProd \
-            NagiyuLiveTalkBatchProd \
-            NagiyuLiveTalkCloudFrontProd
+  infra-verify:
+    name: Infra Verify
+    uses: ./.github/workflows/reusable-infra-verify.yml
+    with:
+      dirs: infra/livetalk
+      synth-args: |
+        ENVIRONMENT=dev
+        ENVIRONMENT=prod
+    permissions:
+      contents: read
 
   build:
     name: Next.js Build Verification
@@ -156,7 +123,7 @@ jobs:
     name: Report Results to PR
     runs-on: ubuntu-latest
     if: always()
-    needs: [verify, synth-infra, build, docker-build, e2e]
+    needs: [verify, build, docker-build, e2e, infra-verify]
 
     permissions:
       contents: read

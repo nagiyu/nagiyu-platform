@@ -11,6 +11,12 @@ on:
       - develop
     paths:
       - 'services/portal/**'
+      - 'infra/bin/**'
+      - 'infra/root/**'
+      - 'infra/common/**'
+      - 'infra/package.json'
+      - 'infra/cdk.json'
+      - 'infra/tsconfig.json'
       - 'libs/**'
       - 'configs/**'
       - '.github/actions/**'
@@ -19,6 +25,7 @@ on:
       - 'package-lock.json'
       - '.github/workflows/portal-verify.yml'
       - '.github/workflows/reusable-service-verify.yml'
+      - '.github/workflows/reusable-infra-verify.yml'
       - '.github/workflows/reusable-e2e.yml'
 
 permissions:
@@ -35,6 +42,14 @@ jobs:
     uses: ./.github/workflows/reusable-service-verify.yml
     with:
       dirs: services/portal
+    permissions:
+      contents: read
+
+  infra-verify:
+    name: Infra Verify
+    uses: ./.github/workflows/reusable-infra-verify.yml
+    with:
+      dirs: infra
     permissions:
       contents: read
 
@@ -118,7 +133,7 @@ jobs:
     name: Report Results to PR
     runs-on: ubuntu-latest
     if: always()
-    needs: [verify, build, docker-build, internal-links, e2e]
+    needs: [verify, build, docker-build, internal-links, e2e, infra-verify]
 
     permissions:
       contents: read

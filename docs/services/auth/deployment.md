@@ -238,7 +238,7 @@ Auth サービスでは、以下の GitHub Actions ワークフローを使用�
 
 1 本で、PR の向き先によって Fast / Full を出し分ける。Fast は integration/\*\* 向けで E2E は chromium-mobile のみ、Full は develop 向けで E2E は全デバイス (chromium-desktop, chromium-mobile, webkit-mobile) に加えてテストカバレッジチェック (80%以上必須) を行う。
 
-なお `auth-verify.yml` はインフラ (CDK) 用の別ワークフローである。
+インフラ (CDK) のビルドと synth も、このワークフローの `infra-verify` ジョブで検査する。
 
 #### 2. デプロイワークフロー (`.github/workflows/auth-deploy.yml`)
 
