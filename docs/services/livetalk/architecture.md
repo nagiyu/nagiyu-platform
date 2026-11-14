@@ -436,7 +436,7 @@ Profile item のみを索引化する sparse GSI（`GSI1`）を追加し、バ�
 **決定**
 
 - **退会 = 即時ハード削除**。`PK=USER#<userId>` 配下の全 item（Profile / Message / Memory / Summary / Affection / Knowledge / Note / Notification / PushSubscription 等）を一括削除する。論理削除＋猶予期間は本サービスの規模に対して過剰なため採らない。
-- **例外: SafetyEvent は残す**。自傷・希死念慮の検出ログは、Character.AI / OpenAI の訴訟事例（ADR-009 の動機）を踏まえ、開発者防御の証跡として保持する。ただし退会時に **ユーザー ID 等の個人識別子を切り離した匿名化レコード**へ移し、横断レビュー用領域（ADR-2.22 の GSI 配下）でのみ参照できるようにする。保持期限は公開フェーズの法務レビューで確定する（暫定 3 年）。その後、実装は期限を付けずに保持しており、退会時の案内と合っていない (#4723)。
+- **例外: SafetyEvent は残す**。自傷・希死念慮の検出ログは、Character.AI / OpenAI の訴訟事例（ADR-009 の動機）を踏まえ、開発者防御の証跡として保持する。ただし退会時に **ユーザー ID 等の個人識別子を切り離した匿名化レコード**へ移し、横断レビュー用領域（ADR-2.22 の GSI 配下）でのみ参照できるようにする。保持期限は検出から 3 年とし（暫定、公開フェーズの法務レビューで確定する）、TTL で自動削除する。匿名化しても期限は引き継ぎ、付け直さない。退会時の案内もこの期限に合わせる。
 - **退会のスコープは livetalk サービスのデータのみ**。プラットフォームの Google アカウント自体や他サービスのデータは対象外。RBAC role（`livetalk-user`）の剥奪は運用（人力）で行う。
 - **データエクスポート（セルフサービスのポータビリティ）は作らない**。国内法（個人情報保護法）で必須なのは開示請求への対応であり、これは運用（問い合わせ対応での手動開示）で代替する。セルフサービス化は将来検討（roadmap）。
 
@@ -690,7 +690,7 @@ DynamoDB Single Table（`nagiyu-livetalk-dynamodb-{env}`）。
       - `CHAR#<charId>#NOTESKIP#<topicId>` (ノートを生成しないと判断した時刻、恒久、ADR-2.29)
       - `CHAR#<charId>#EXPLORE#<topicId>` (自発リサーチの起点ごとの最後の探索時刻と最近の角度、恒久、ADR-2.28)
   - `STUDYUSAGE#<YYYYMMDD>` (勉強の 1 日の回数。日本時間の暦日ごとに 1 item で、キャラクター別と利用者合計の回数を属性に持つ。TTL は日が終わった翌日、ADR-2.25)
-  - `SAFETY#<ulid>`（SafetyEvent、TTL なし＝無期限保持。退会時も削除せず匿名化して残す、ADR-2.21 / 2.22）
+  - `SAFETY#<ulid>`（SafetyEvent、TTL 3 年。退会時も削除せず匿名化して残し、期限は引き継ぐ、ADR-2.21 / 2.22）
   - `NOTIF#<ulid>`（NotificationEvent、TTL 30 日）/ `PUSH_SUBSCRIPTION#<id>`
   - `RATELIMIT#<window>#<bucket>`（チャットのレート制限カウンタ。window=`1m`/`1h`、`Count` を上限付きで加算・TTL で自動掃除、ADR-2.20）
   - `CHATLOCK`（チャットの in-flight ロック。実行中のみ存在し `OwnerToken` / `ExpiresAt` / `TTL` 付き、ADR-2.20）
@@ -706,7 +706,7 @@ DynamoDB Single Table（`nagiyu-livetalk-dynamodb-{env}`）。
   - 鮮度掃引用の GSI は、鮮度の確認を「使われたとき」の依頼に変えたため削除した (ADR-2.26)。WEB fact の再確認期限は、確認が要るかの判定のために残す
   - ⚠️ 増設した GSI を Query する各ロールにも、GSI2 と同じく `fromTableAttributes` + `globalIndexes` の grant が要る（ADR-2.22 の教訓）
 
-**保持・削除ポリシー (ADR-2.21 / 2.24)**: 元データ (Message・Web 取得生) は TTL 90 日、通知履歴 (NotificationEvent) と勉強の依頼 (StudyTopic) は TTL 30 日、鮮度確認の依頼は TTL 7 日、勉強の 1 日の回数は日が終わった翌日まで、ノートの見送りと探索の記録は恒久、Topic 配下 (ヘッダ・SELF fact・WEB fact) と共有ログ Note は恒久、Affection は在籍中は無期限。退会時は `PK=USER#<userId>` 配下を即時ハード削除するが、SafetyEvent のみ匿名化 (個人識別子を切り離す) して保持する (暫定保持期限 3 年、法務レビューで確定。実装は期限を付けていない、#4723)。SELF fact のユーザー削除は物理削除で、当該 Topic 要約を即時再生成する (決定的忘却、ADR-2.24)。削除は「消す → 要約を再生成する」の順で行うため、再生成だけが失敗しても押し直しで直せるようにしてある。挙動は[記憶 API](../../specs/livetalk/api/memory.md)を参照。
+**保持・削除ポリシー (ADR-2.21 / 2.24)**: 元データ (Message・Web 取得生) は TTL 90 日、通知履歴 (NotificationEvent) と勉強の依頼 (StudyTopic) は TTL 30 日、鮮度確認の依頼は TTL 7 日、勉強の 1 日の回数は日が終わった翌日まで、ノートの見送りと探索の記録は恒久、Topic 配下 (ヘッダ・SELF fact・WEB fact) と共有ログ Note は恒久、Affection は在籍中は無期限。退会時は `PK=USER#<userId>` 配下を即時ハード削除するが、SafetyEvent のみ匿名化 (個人識別子を切り離す) して保持する (保持期限は検出から 3 年の TTL で、匿名化しても引き継ぐ。暫定で、法務レビューで確定)。SELF fact のユーザー削除は物理削除で、当該 Topic 要約を即時再生成する (決定的忘却、ADR-2.24)。削除は「消す → 要約を再生成する」の順で行うため、再生成だけが失敗しても押し直しで直せるようにしてある。挙動は[記憶 API](../../specs/livetalk/api/memory.md)を参照。
 
 詳細な SK 定義・属性は実装（`services/livetalk/core/src/mappers/keys.ts`、`entities/`）を参照。概念モデルは [external-design.md](./external-design.md) を参照。
 

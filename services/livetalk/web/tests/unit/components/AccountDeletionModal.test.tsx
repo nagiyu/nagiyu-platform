@@ -65,6 +65,9 @@ describe('AccountDeletionModal', () => {
       const notice = screen.getByTestId('safety-log-notice');
       expect(notice).toBeInTheDocument();
       expect(notice).toHaveTextContent(/匿名化/);
+      expect(notice).toHaveTextContent('セーフティ機能が検出した会話の記録のみ');
+      expect(notice).toHaveTextContent('検出から 3 年間保持します');
+      expect(notice).toHaveTextContent('期間が過ぎた後は自動的に削除されます');
     });
 
     it('確認チェックボックスが表示される', () => {

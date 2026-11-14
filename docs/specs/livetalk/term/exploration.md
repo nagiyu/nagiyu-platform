@@ -7,7 +7,7 @@ sources:
   - services/livetalk/core/src/entities/exploration.entity.ts
   - services/livetalk/core/src/research/exploration-angle-generator.ts
   - services/livetalk/core/src/constants.ts
-sources_hash: ebe2817308e7697f6fd62521ac39579da84b0e1f36f778c447c673e2c63c4487
+sources_hash: 1c080a5b17f42c57ab387b08580222e06a850882466daac73d97578000664ba9
 terms: [livetalk/term/topic, livetalk/term/care]
 related_cards: [livetalk/batch/acquire]
 related_adr:

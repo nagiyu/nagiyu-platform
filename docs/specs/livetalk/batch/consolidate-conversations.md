@@ -10,7 +10,7 @@ sources:
   - services/livetalk/core/src/usecases/consolidate.usecase.ts
   - services/livetalk/core/src/usecases/generate-note.usecase.ts
   - services/livetalk/core/src/constants.ts
-sources_hash: 835348911622f5bdeb0b4f150e8e3f1964acb73c9485c026000a1c2dd2107569
+sources_hash: a3c78e457e939e6b83c0ddc840ea5d241c9bbe922a3eb2c04965123e91502c30
 terms: [livetalk/term/topic, livetalk/term/care, livetalk/term/self-fact, livetalk/term/web-fact, livetalk/term/webraw, livetalk/term/note]
 related_cards: [admin/flow/error-notification, livetalk/batch/acquire, livetalk/flow/conversation, livetalk/screen/memory, livetalk/screen/notes]
 related_adr:

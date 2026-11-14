@@ -309,6 +309,23 @@ describe('DynamoDBAccountDeletionRepository', () => {
       expect(putItem.CharacterID).toBe('hiyori');
     });
 
+    it('SafetyEvent の TTL が匿名化後の item にそのまま引き継がれる', async () => {
+      const ttl = Math.floor(FIXED_NOW / 1000) + 3 * 365 * 24 * 60 * 60;
+      const safetyItem = { ...makeSafetyItem(USER_ID, 'EVT001'), TTL: ttl };
+
+      const mockSend = jest
+        .fn()
+        .mockResolvedValueOnce({ Items: [safetyItem] })
+        .mockResolvedValueOnce({});
+
+      const repo = makeRepo(mockSend);
+      await repo.deleteAccount(USER_ID);
+
+      // 匿名化の時刻(FIXED_NOW)からは付け直さず、元の期限を保つ
+      const putItem = mockSend.mock.calls[1][0].input.TransactItems[0].Put.Item;
+      expect(putItem.TTL).toBe(ttl);
+    });
+
     it('GSI2SK 欠落の legacy SafetyEvent でも EventID で GSI2SK を補完する', async () => {
       const eventId = 'EVT_LEGACY';
       // #3580 以前に作られ GSI2PK / GSI2SK を持たない legacy item

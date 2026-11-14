@@ -1,4 +1,5 @@
 import { InMemorySingleTableStore } from '@nagiyu/aws';
+import { SAFETY_EVENT_TTL_SECONDS } from '../../../src/constants.js';
 import { InMemorySafetyEventRepository } from '../../../src/repositories/in-memory-safety-event.repository.js';
 
 function makeStore() {
@@ -36,6 +37,22 @@ describe('InMemorySafetyEventRepository', () => {
       expect(entity.trigger).toBe('input_keyword');
       expect(entity.createdAt).toBe(fixedNow);
       expect(entity.updatedAt).toBe(fixedNow);
+    });
+
+    it('TTL を作成時刻から 3 年後の Unix 秒として書き込む', async () => {
+      const { repo, store, fixedNow } = makeRepo();
+      const entity = await repo.create({
+        userId: 'u1',
+        characterId: 'hiyori',
+        trigger: 'input_keyword',
+        detectedPattern: '[自殺念慮] 死にたい',
+        inputText: '死にたい',
+        responseText: 'ねえ、今すごく心配しちゃった…',
+      });
+
+      const item = store.get('USER#u1', 'SAFETY#FIXED_ULID');
+      expect(item?.TTL).toBe(Math.floor(fixedNow / 1000) + SAFETY_EVENT_TTL_SECONDS);
+      expect(entity.expiresAt).toBe(fixedNow + SAFETY_EVENT_TTL_SECONDS * 1000);
     });
 
     it('eventId を明示指定できる', async () => {

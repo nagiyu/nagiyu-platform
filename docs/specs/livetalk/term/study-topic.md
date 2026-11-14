@@ -9,7 +9,7 @@ sources:
   - services/livetalk/core/src/usecases/chat-usecase.ts
   - services/livetalk/core/src/repositories/dynamodb-study-topic.repository.ts
   - services/livetalk/core/src/constants.ts
-sources_hash: ffb6dba1bfaacaf7f7cb57af8ed504c511d70f63217009620b5337be5e4c6a7e
+sources_hash: 0e3f6df5b73d2feaefb3dcc903c22b94915a0260f2ebacacad4debea20921d2a
 terms: [livetalk/term/topic, livetalk/term/web-fact]
 related_cards: [livetalk/batch/acquire]
 related_adr:

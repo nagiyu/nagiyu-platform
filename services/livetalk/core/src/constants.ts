@@ -13,6 +13,13 @@ export const DEFAULT_CHARACTER_ID = 'hiyori';
 export const MESSAGE_TTL_SECONDS = 90 * 24 * 60 * 60;
 
 /**
+ * SafetyEvent に付与する DynamoDB TTL（秒）。検出（作成）から 3 年後に自動削除。
+ * 退会時の匿名化でも期限は引き継ぐため、利用者への案内（検出から 3 年間保持）と一致する。
+ * 暫定値で、法務レビューで確定する。
+ */
+export const SAFETY_EVENT_TTL_SECONDS = 3 * 365 * 24 * 60 * 60;
+
+/**
  * LLM プロンプトに渡せるコンテキストのトークン上限の既定値。
  * 環境変数 `LLM_CONTEXT_TOKEN_LIMIT` で上書きできる。
  */

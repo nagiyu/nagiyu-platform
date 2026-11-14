@@ -6,7 +6,7 @@ service: livetalk
 sources:
   - services/livetalk/core/src/entities/note.entity.ts
   - services/livetalk/core/src/constants.ts
-sources_hash: fc200cc035466dc24a9b07aa231e5555b777e92cf3bf3f90da298c8f78c8d668
+sources_hash: 4da51b129201050f3c7cf0bd887f1037f57ef3760de5787d933991137748b546
 terms: [livetalk/term/topic, livetalk/term/care]
 related_cards: [livetalk/batch/consolidate-conversations, livetalk/api/notes, livetalk/screen/notes, livetalk/screen/note-detail]
 related_adr:
