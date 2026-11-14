@@ -40,6 +40,22 @@ describe('SignInPage', () => {
       expect(mockRedirect).toHaveBeenCalledWith('https://admin.nagiyu.com/');
     });
 
+    it('戻り先がサインイン画面自身なら /dashboard へ移す', async () => {
+      await expect(renderPage({ callbackUrl: '/signin?callbackUrl=%2Fplans' })).rejects.toThrow(
+        'NEXT_REDIRECT'
+      );
+
+      expect(mockRedirect).toHaveBeenCalledWith('/dashboard');
+    });
+
+    it('他サービスの /signin は自身ではないのでそのまま移す', async () => {
+      await expect(renderPage({ callbackUrl: 'https://admin.nagiyu.com/signin' })).rejects.toThrow(
+        'NEXT_REDIRECT'
+      );
+
+      expect(mockRedirect).toHaveBeenCalledWith('https://admin.nagiyu.com/signin');
+    });
+
     it('auth 内の相対パスは絶対 URL にして移す', async () => {
       await expect(renderPage({ callbackUrl: '/plans' })).rejects.toThrow('NEXT_REDIRECT');
 

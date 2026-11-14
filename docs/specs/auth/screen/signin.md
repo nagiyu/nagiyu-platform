@@ -7,7 +7,7 @@ sources:
   - services/auth/web/src/app/signin/page.tsx
   - services/auth/web/src/middleware.ts
   - services/auth/web/src/lib/auth/auth.ts
-sources_hash: 2282efbde259fa0a79e67e2ae3b4e7a57a2a4ea1bbb2cbc6401f4c57b2704c59
+sources_hash: 1fb32498480cf8f5d4177056303f3a7a4c230975cbfd39f85478f1d3bcd26446
 terms: [auth/term/callback-url]
 related_cards: [auth/flow/sign-in, auth/screen/auth-error, auth/screen/dashboard]
 related_adr:
@@ -53,6 +53,7 @@ Google アカウントでサインインするためのボタンを 1 つ置い�
 | 許可された絶対 URL | その URL |
 | Auth 内の相対パス | 絶対 URL にしたもの |
 | 無い・許可されない値 | `/dashboard` |
+| Auth のサインイン画面自身 | `/dashboard` (移った先でまた移り続けるのを防ぐ) |
 
 - 許可の判定は[戻り先](../term/callback-url.md)の検証と同じ。画面から直接移す場合は認証ライブラリのリダイレクトの検証を通らないため、画面の中で検証する
 

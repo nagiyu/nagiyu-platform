@@ -16,6 +16,21 @@ function singleValue(value: string | string[] | undefined): string | undefined {
   return typeof value === 'string' ? value : undefined;
 }
 
+const SIGNED_IN_FALLBACK_PATH = '/dashboard';
+
+/** 戻り先がサインイン画面自身だと、ログイン済みでは移った先でまた移って止まらないため、既定の先へ倒す */
+function resolveSignedInDestination(rawCallbackUrl: string | undefined, baseUrl: string): string {
+  const destination = sanitizeCallbackUrl(rawCallbackUrl, baseUrl);
+  if (!destination) {
+    return SIGNED_IN_FALLBACK_PATH;
+  }
+  const url = new URL(destination);
+  const isSignInPage =
+    url.origin === new URL(baseUrl).origin &&
+    (url.pathname === '/signin' || url.pathname.startsWith('/signin/'));
+  return isSignInPage ? SIGNED_IN_FALLBACK_PATH : destination;
+}
+
 export default async function SignInPage({ searchParams }: SignInPageProps) {
   const params = await searchParams;
   const rawCallbackUrl = singleValue(params.callbackUrl);
@@ -26,7 +41,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
   if (session?.user) {
     // 画面からの redirect() は next-auth の redirect コールバックを通らないため、ここで検証する
     const baseUrl = resolveBaseUrl(await headers());
-    redirect(sanitizeCallbackUrl(rawCallbackUrl, baseUrl) ?? '/dashboard');
+    redirect(resolveSignedInDestination(rawCallbackUrl, baseUrl));
   }
 
   const callbackUrl = rawCallbackUrl || '/dashboard';

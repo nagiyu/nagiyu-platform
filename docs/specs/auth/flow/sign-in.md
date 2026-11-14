@@ -13,7 +13,7 @@ sources:
   - services/auth/web/src/lib/auth/auth.ts
   - services/auth/web/src/app/signin/page.tsx
   - services/auth/web/src/app/auth/error/page.tsx
-sources_hash: e4537d9d0f9c716963c09252e20c542d590c0b6267621234fe89bba3cd0dc718
+sources_hash: 41eb7b9b70f76316de298dd4604b9c1725c7bc765e0363e555fe2d4a598fd6af
 terms: [auth/term/callback-url, auth/term/session-roles, platform/term/role]
 related_cards: [auth/screen/signin, auth/screen/auth-error, auth/screen/signout, auth/screen/refresh, auth/api/system, admin/flow/error-notification]
 related_adr:
