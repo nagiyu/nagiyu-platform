@@ -13,7 +13,8 @@ on:
       synth-args:
         description: >-
           synth の実行ごとの引数 (複数行)。空でない 1 行が synth 1 回にあたる。
-          行の先頭の KEY=VALUE の形のトークンは環境変数として渡し、残りを cdk synth の引数にする
+          行の先頭の KEY=VALUE の形のトークンは環境変数として渡し、残りを cdk synth の引数にする。
+          トークンは空白で分けるため、空白を含む値は渡せない (引用符で囲んでもまとまらない)
         required: false
         type: string
         default: --context env=dev

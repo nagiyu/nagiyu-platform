@@ -39,7 +39,7 @@ jobs:
     uses: ./.github/workflows/reusable-infra-verify.yml
     with:
       dirs: infra/shared
-      # アカウント ID が未知だと synth が落ちるため、スコープに対応する ID を渡す
+      # 既定の prod スコープと dev アカウントのスコープの両方で、組み立てが通ることを確かめる
       synth-args: |
         DOMAIN_NAME=example.com --all --context env=dev
         DOMAIN_NAME=example.com --all --context env=dev --context accountScope=dev
