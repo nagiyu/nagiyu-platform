@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 544" font-family="'Hiragino Sans','Noto Sans JP','Yu Gothic',sans-serif" font-size="16">
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="544" viewBox="0 0 400 544" font-family="'Hiragino Sans','Noto Sans JP','Yu Gothic',sans-serif" font-size="16">
   <rect width="400" height="544" fill="#ffffff"/>
   <!-- 手動のロール -->
   <rect x="16" y="16" width="368" height="88" rx="10" fill="#eef2f7" stroke="#5b6b82" stroke-width="2"/>
