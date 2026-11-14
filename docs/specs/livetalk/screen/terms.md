@@ -7,7 +7,7 @@ sources:
   - services/livetalk/web/src/app/legal/terms/page.tsx
   - services/livetalk/web/src/lib/legal/terms-data.ts
   - libs/ui/src/components/legal/LegalSections.tsx
-sources_hash: 7b5484f58b01bdbb3bf37138965520dcc1fdd85ae6e2b3dc64905ed73f8b3555
+sources_hash: 3cc634ef651fe89bcb662b6c73010ab87bb4cab100898557aff9d5d303e164b7
 terms: [livetalk/term/consent]
 related_cards: [livetalk/screen/privacy, livetalk/screen/home]
 ---

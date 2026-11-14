@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
 import { Container, Typography, Box } from '@mui/material';
 import { Link, LegalSections } from '@nagiyu/ui';
-import { liveTalkPrivacySections, LIVETALK_PRIVACY_VERSION } from '@/lib/legal/privacy-data';
+import { LIVETALK_PRIVACY_VERSION } from '@nagiyu/livetalk-core';
+import { liveTalkPrivacySections } from '@/lib/legal/privacy-data';
 
 export const metadata: Metadata = {
   title: 'プライバシーポリシー | リブトーク',

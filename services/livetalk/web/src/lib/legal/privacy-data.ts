@@ -7,10 +7,6 @@
 
 import type { LegalSection } from '@nagiyu/ui';
 
-// core の同名定数と同じ値に保つ (同意の判定に使う版)。core の入口を import すると
-// サーバー専用の依存がクライアントの bundle に入るため、値を持ち、一致はテストで確かめる
-export const LIVETALK_PRIVACY_VERSION = '1.1.0';
-
 export const liveTalkPrivacySections: LegalSection[] = [
   {
     title: '収集する情報の種類',
