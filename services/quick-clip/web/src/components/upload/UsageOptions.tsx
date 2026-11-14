@@ -2,9 +2,8 @@ import { Alert, Box, FormControlLabel, Switch, Typography } from '@mui/material'
 import {
   USAGE_MESSAGES,
   formatRemaining,
-  hasHigherTier,
-  resolveAiUnavailableMessage,
-  type LimitGuidance,
+  hasAiRemaining,
+  resolveUsageNotice,
   type UsageSummary,
 } from '@/lib/usage-guidance';
 import { LimitGuidanceActions } from './LimitGuidanceActions';
@@ -18,7 +17,7 @@ type UsageOptionsProps = {
   plansHref: string;
 };
 
-/** AI 解析の有無の選択と、今月の残り回数。AI ありが選べないときは理由と案内を添える */
+/** AI 解析の有無の選択と、今月の残り回数。回数が尽きて送れない・AI ありが選べないときは理由と案内を添える */
 export function UsageOptions({
   usage,
   aiAnalysis,
@@ -27,14 +26,7 @@ export function UsageOptions({
   signInHref,
   plansHref,
 }: UsageOptionsProps) {
-  const unavailableMessage = resolveAiUnavailableMessage(usage);
-  const guidance: LimitGuidance =
-    unavailableMessage === null
-      ? { plans: false, signIn: false }
-      : {
-          plans: usage.tier !== 'anonymous' && hasHigherTier(usage.tier),
-          signIn: usage.tier === 'anonymous',
-        };
+  const notice = resolveUsageNotice(usage, aiAnalysis);
 
   return (
     <Box sx={{ mb: 2 }}>
@@ -42,7 +34,7 @@ export function UsageOptions({
         control={
           <Switch
             checked={aiAnalysis}
-            disabled={disabled || unavailableMessage !== null}
+            disabled={disabled || !hasAiRemaining(usage)}
             onChange={(event) => onAiAnalysisChange(event.target.checked)}
           />
         }
@@ -51,12 +43,16 @@ export function UsageOptions({
       <Typography variant="body2" color="text.secondary">
         {formatRemaining(usage)}
       </Typography>
-      {unavailableMessage !== null && (
+      {notice !== null && (
         <>
           <Alert severity="info" sx={{ my: 1 }}>
-            {unavailableMessage}
+            {notice.message}
           </Alert>
-          <LimitGuidanceActions guidance={guidance} signInHref={signInHref} plansHref={plansHref} />
+          <LimitGuidanceActions
+            guidance={notice.guidance}
+            signInHref={signInHref}
+            plansHref={plansHref}
+          />
         </>
       )}
     </Box>

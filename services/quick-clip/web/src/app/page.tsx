@@ -20,6 +20,7 @@ import {
   buildDurationExceededMessage,
   checkVideoDuration,
   hasAiRemaining,
+  isUsageExhaustedForSelection,
   parseUsageSummary,
   readLimitErrorCode,
   resolveLimitGuidance,
@@ -152,6 +153,8 @@ export default function Home() {
     usage && durationSec !== undefined
       ? checkVideoDuration(durationSec, usage.limits.maxDurationSec)
       : null;
+  // 残りを読めたときだけ止める。読めなかったときはサーバーの判定に任せる
+  const isUsageExhausted = usage !== null && isUsageExhaustedForSelection(usage, aiAnalysis);
   const signInHref = buildSignInUrl(authUrl, currentUrl);
   const plansHref = buildPlansUrl(authUrl, currentUrl);
   const tier = usage?.tier ?? null;
@@ -240,7 +243,7 @@ export default function Home() {
       return;
     }
 
-    if (durationCheck?.exceeded) {
+    if (durationCheck?.exceeded || isUsageExhausted) {
       return;
     }
 
@@ -512,7 +515,9 @@ export default function Home() {
             type="submit"
             variant="solid"
             loading={isSubmitting}
-            disabled={!file || isFileInvalid || durationCheck?.exceeded === true}
+            disabled={
+              !file || isFileInvalid || durationCheck?.exceeded === true || isUsageExhausted
+            }
           >
             {!isSubmitting
               ? 'アップロードして処理開始'

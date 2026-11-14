@@ -27,6 +27,10 @@ export const USAGE_MESSAGES = {
   REMAINING_UNLIMITED: '無制限',
   AI_UNAVAILABLE_ANONYMOUS: 'ログインすると AI 解析を月 1 回お試しできます',
   AI_UNAVAILABLE_EXHAUSTED: '今月の AI 解析の回数を使い切りました',
+  ALL_EXHAUSTED: '今月の利用回数 (AI 解析あり・なし) を使い切りました',
+  ALL_EXHAUSTED_ANONYMOUS:
+    '今月の利用回数を使い切りました。ログインすると回数が増え、AI 解析も月 1 回お試しできます',
+  NO_AI_EXHAUSTED: '今月の AI 解析なしの回数を使い切りました。AI 解析ありなら使えます',
   SIGN_IN_ACTION: 'ログインする',
   PLANS_ACTION: 'プランを見る',
 } as const;
@@ -107,17 +111,51 @@ export const formatRemaining = (usage: UsageSummary): string => {
   return `${USAGE_MESSAGES.REMAINING_PREFIX}: AI 解析あり ${format(usage.remaining.ai)} / なし ${format(usage.remaining.noAi)}`;
 };
 
+/** 回数が尽きているか。上限なし (null) は尽きない */
+const isExhausted = (remaining: number | null): boolean => remaining === 0;
+
 /**
- * AI ありが選べないときの理由。選べるなら null。
- * 未ログインは上限が 0 回のため「使い切り」ではなく、ログインへ誘導する文言にする。
+ * 今の選択で送ると、回数でサーバーに断られるか。
+ * サーバーは選択した側 (AI ありか、なしか) の残りだけで判定するため、同じ見方にそろえる。
  */
-export const resolveAiUnavailableMessage = (usage: UsageSummary): string | null => {
-  if (hasAiRemaining(usage)) {
+export const isUsageExhaustedForSelection = (usage: UsageSummary, aiAnalysis: boolean): boolean =>
+  isExhausted(aiAnalysis ? usage.remaining.ai : usage.remaining.noAi);
+
+/** 利用回数の案内。文言と、添える誘導先 */
+export type UsageNotice = {
+  message: string;
+  guidance: LimitGuidance;
+};
+
+/**
+ * 回数について利用者に知らせる案内。出す必要がなければ null。
+ * 未ログインは AI ありの上限が 0 回のため、AI ありだけが尽きた状態は「使い切り」ではなくログインへ誘う文言にする。
+ * AI なしだけが尽きた場合は、AI ありを選べるうちはスイッチをオフにしているときだけ知らせる (オンなら送れるため)。
+ */
+export const resolveUsageNotice = (
+  usage: UsageSummary,
+  aiAnalysis: boolean
+): UsageNotice | null => {
+  const anonymous = usage.tier === 'anonymous';
+  const aiExhausted = isExhausted(usage.remaining.ai);
+  const noAiExhausted = isExhausted(usage.remaining.noAi);
+
+  let message: string;
+  if (aiExhausted && noAiExhausted) {
+    message = anonymous ? USAGE_MESSAGES.ALL_EXHAUSTED_ANONYMOUS : USAGE_MESSAGES.ALL_EXHAUSTED;
+  } else if (aiExhausted) {
+    message = anonymous
+      ? USAGE_MESSAGES.AI_UNAVAILABLE_ANONYMOUS
+      : USAGE_MESSAGES.AI_UNAVAILABLE_EXHAUSTED;
+  } else if (noAiExhausted && !aiAnalysis) {
+    message = USAGE_MESSAGES.NO_AI_EXHAUSTED;
+  } else {
     return null;
   }
-  return usage.tier === 'anonymous'
-    ? USAGE_MESSAGES.AI_UNAVAILABLE_ANONYMOUS
-    : USAGE_MESSAGES.AI_UNAVAILABLE_EXHAUSTED;
+  return {
+    message,
+    guidance: { plans: !anonymous && hasHigherTier(usage.tier), signIn: anonymous },
+  };
 };
 
 /**
