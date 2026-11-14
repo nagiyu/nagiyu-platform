@@ -11,8 +11,9 @@ sources:
   - services/auth/web/src/lib/role-grant-editing.ts
   - services/auth/web/src/lib/stripe-customer-client.ts
   - services/auth/web/src/lib/role-display.ts
+  - services/auth/web/src/lib/manual-roles.ts
   - libs/common/src/auth/role-grants.ts
-sources_hash: 6fa41460909b0905702ef6fb6cb5589b9de723f732dda2ffeea485099c60a881
+sources_hash: 04a9c00fab4bb7ac7761124c0cab675bb6a77b4b100c46566b7f5c3d24029d14
 terms: [platform/term/role, auth/term/role-grant, auth/term/api-error]
 related_cards: [auth/screen/users, auth/api/users, auth/flow/billing-entitlement]
 related_adr:
@@ -39,7 +40,7 @@ related_adr:
 |---|---|
 | 見出しと戻り道 | 「ユーザー編集」と「ユーザー一覧へ戻る」。読み込み中や失敗のときも出す |
 | ユーザー | 名前、メール、ユーザー ID (表示のみ) |
-| ロール割り当て | 定義されている全ロールのチェックボックス。ロール名と説明を添える。今の手動ロールにチェックが入る |
+| ロール割り当て | 手動で付けられるロール (有料ロールを除く) のチェックボックス。ロール名と説明を添える。今の手動ロールにチェックが入る。有料ロールは次の「課金の権利」から付ける |
 | 課金の権利 | ロール、出どころ (手動 / Stripe)、有効期限 (日本時間の日付)、状態 (有効 / 期限切れ / 取り消し)、メモ、操作の表 |
 | 権利の追加 | ロール (有料ロールだけ)、有効期限 (必須)、メモ (200 文字まで)、「追加」 |
 | Stripe の顧客 | 顧客 ID と「顧客との対応を外す」。対応があるときだけ出す |

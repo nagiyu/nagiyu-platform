@@ -34,15 +34,17 @@ interface RoleDefinition {
 }
 
 /**
- * All roles defined for Phase 1
+ * 定義済みのすべてのロール
  *
+ * 説明 (description) は管理画面のロール割り当てにそのまま表示されるため、
+ * 権限 ID や項目名などの内部の用語を書かず、利用者の言葉で書く。
  * Use `as const` to enable type inference for role IDs
  */
 export const ROLES = {
   admin: {
     id: 'admin',
     name: '管理者',
-    description: 'Phase 1 ではユーザー管理とロール割り当ての全権限を持つ',
+    description: 'ユーザーの管理、ロールの割り当て、お知らせの配信、エラーの閲覧ができる',
     permissions: [
       'users:read',
       'users:write',
@@ -78,14 +80,14 @@ export const ROLES = {
   'livetalk-user': {
     id: 'livetalk-user',
     name: 'LiveTalk ユーザー',
-    description: 'LiveTalk のチャット UI および API にアクセス可能',
+    description: 'LiveTalk のチャットを利用できる',
     permissions: ['livetalk:chat'],
   },
   'livetalk-admin': {
     id: 'livetalk-admin',
     name: 'LiveTalk 管理者',
-    description:
-      'LiveTalk の管理者機能（ステータス閲覧等）にアクセス可能。livetalk:chat も含む（middleware 要件）',
+    // livetalk:chat を含めるのは、middleware がチャットの権限を要求するため
+    description: 'LiveTalk のチャットと、管理者向けの機能 (ステータスの閲覧など) を利用できる',
     permissions: ['livetalk:chat', 'livetalk:admin'],
   },
   'livetalk-standard': {
@@ -113,25 +115,19 @@ export const ROLES = {
   'quick-clip-unlimited': {
     id: 'quick-clip-unlimited',
     name: 'Quick Clip 使い放題',
-    description:
-      '運営者が自分で使うための手動ロール。Quick Clip の月の利用回数に上限を設けない。売らず課金とも結びつけないため billing を持たない',
+    // 売らず課金とも結びつけないため billing を持たない
+    description: 'Quick Clip の月の利用回数に上限を設けない。運営者が自分で使うためのロール',
     permissions: ['quick-clip:unlimited'],
   },
   'billing-tester': {
     id: 'billing-tester',
     name: '課金のテスト',
-    description:
-      '本番以外の環境で、テスト用の決済 (Stripe のサンドボックス) による申し込みを始められる手動ロール。売らず課金とも結びつけないため billing を持たない。管理者の権限とは分けてある',
+    // 決済は Stripe のサンドボックスで行う。売らず課金とも結びつけないため billing を持たず、
+    // 管理者の権限とは分けてある
+    description: '本番以外の環境で、テスト用の決済による申し込みを始められる',
     permissions: ['billing:test'],
   },
 } as const satisfies Record<string, RoleDefinition>;
-
-/**
- * Phase 2 以降で追加予定のロール:
- * - log-viewer: { id: 'log-viewer', name: 'ログ閲覧者', permissions: ['logs:read'] }
- *
- * Phase 2 では admin ロールに logs:read, logs:write 権限も追加予定
- */
 
 /**
  * すべての有効なロールIDの配列
