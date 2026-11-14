@@ -99,6 +99,21 @@ describe('UserEditForm', () => {
       expect(screen.queryByText('admin')).not.toBeInTheDocument();
     });
 
+    it('有料の段のロールはチェックボックスに出さない', async () => {
+      (global.fetch as jest.Mock).mockResolvedValue({ ok: true, json: async () => mockUser });
+
+      render(<UserEditForm userId="user-123" />);
+
+      await waitFor(() => {
+        expect(screen.getByLabelText(/^ユーザー管理者/)).toBeInTheDocument();
+      });
+
+      expect(screen.queryByLabelText(/^LiveTalk スタンダード/)).not.toBeInTheDocument();
+      expect(screen.queryByLabelText(/^Quick Clip スタンダード/)).not.toBeInTheDocument();
+      expect(screen.queryByLabelText(/^Quick Clip プロ/)).not.toBeInTheDocument();
+      expect(screen.getByLabelText(/^Quick Clip 使い放題/)).toBeInTheDocument();
+    });
+
     it('チェックボックスの送信値はロール ID のままである', async () => {
       (global.fetch as jest.Mock)
         .mockResolvedValueOnce({ ok: true, json: async () => mockUser })

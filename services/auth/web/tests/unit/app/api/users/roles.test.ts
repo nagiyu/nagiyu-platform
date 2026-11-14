@@ -7,6 +7,7 @@
 import { NextRequest } from 'next/server';
 import { EntityNotFoundError, OptimisticLockError } from '@nagiyu/aws';
 import { POST } from '../../../../../src/app/api/users/[userId]/roles/route';
+import { MANUAL_ROLES } from '../../../../../src/lib/manual-roles';
 import { USER_VALIDATION_ERROR_MESSAGES } from '../../../../../src/app/api/users/schemas';
 
 const mockGetSession = jest.fn();
@@ -28,7 +29,7 @@ jest.mock('@nagiyu/aws', () => ({
 
 jest.mock('@nagiyu/common', () => ({
   ...jest.requireActual('@nagiyu/common'),
-  VALID_ROLES: ['admin', 'user-manager'],
+  VALID_ROLES: ['admin', 'user-manager', 'quick-clip-pro'],
   hasPermission: (...args: unknown[]) => mockHasPermission(...args),
 }));
 
@@ -111,7 +112,28 @@ describe('POST /api/users/[userId]/roles', () => {
       expect(response.status).toBe(400);
       const data = await response.json();
       expect(data.error).toContain('無効なロールが含まれています');
-      expect(data.validRoles).toEqual(['admin', 'user-manager']);
+      expect(data.validRoles).toEqual(MANUAL_ROLES);
+      expect(data.validRoles).not.toContain('quick-clip-pro');
+    });
+
+    it.each([
+      ['重複したロール', ['admin', 'admin'], '重複', 'admin'],
+      ['有料の段のロール', ['admin', 'quick-clip-pro'], '有料ロール', 'quick-clip-pro'],
+    ])('%sが含まれる場合は 400 を返し、保存しない', async (_label, roles, message, roleId) => {
+      const request = new NextRequest('http://localhost/api/users/user-456/roles', {
+        method: 'POST',
+        body: JSON.stringify({ roles }),
+      });
+
+      const response = await POST(request, {
+        params: Promise.resolve({ userId: 'user-456' }),
+      });
+
+      expect(response.status).toBe(400);
+      const data = await response.json();
+      expect(data.error).toContain(message);
+      expect(data.error).toContain(roleId);
+      expect(mockUpdateRolesAndGrants).not.toHaveBeenCalled();
     });
 
     it('有効なロールの場合はバリデーションを通過する', async () => {
