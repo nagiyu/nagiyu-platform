@@ -15,7 +15,7 @@ sources:
   - services/quick-clip/core/src/libs/job.service.ts
   - infra/quick-clip/lib/storage-stack.ts
   - infra/quick-clip/lib/dynamodb-stack.ts
-sources_hash: 633184036424ecb089dbb80806c0d75d12d7ea3248c89dee1dfcb94feff2a546
+sources_hash: 017c15ecf3e21ec8c16bf9f6a8554a35454d80ccf58a7b3f05ce9cdee5dddef7
 terms: [quick-clip/term/job, quick-clip/term/highlight, quick-clip/term/job-definition-size]
 related_cards: [quick-clip/screen/upload, quick-clip/screen/job-status, quick-clip/screen/highlights, quick-clip/api/jobs, quick-clip/api/highlights, quick-clip/batch/extract, quick-clip/flow/usage-metering]
 related_adr:

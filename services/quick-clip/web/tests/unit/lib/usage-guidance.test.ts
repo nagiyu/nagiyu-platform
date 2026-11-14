@@ -6,7 +6,8 @@ import {
   hasHigherTier,
   parseUsageSummary,
   readLimitErrorCode,
-  resolveAiUnavailableMessage,
+  isUsageExhaustedForSelection,
+  resolveUsageNotice,
   resolveLimitGuidance,
   type UsageSummary,
 } from '@/lib/usage-guidance';
@@ -113,7 +114,7 @@ describe('上限なし (unlimited)', () => {
 
   it('AI ありは常に選べる', () => {
     expect(hasAiRemaining(unlimited)).toBe(true);
-    expect(resolveAiUnavailableMessage(unlimited)).toBeNull();
+    expect(resolveUsageNotice(unlimited, true)).toBeNull();
   });
 
   it('残りの表示文は無制限と分かる', () => {
@@ -127,21 +128,82 @@ describe('上限なし (unlimited)', () => {
   });
 });
 
-describe('resolveAiUnavailableMessage', () => {
-  it('残りがあれば null', () => {
-    expect(resolveAiUnavailableMessage(usage())).toBeNull();
-  });
-
-  it('未ログインはログインへ誘う文言', () => {
-    expect(
-      resolveAiUnavailableMessage(usage({ tier: 'anonymous', remaining: { ai: 0, noAi: 3 } }))
-    ).toBe('ログインすると AI 解析を月 1 回お試しできます');
-  });
-
-  it('ログイン済みは使い切りの文言', () => {
-    expect(resolveAiUnavailableMessage(usage({ remaining: { ai: 0, noAi: 3 } }))).toBe(
-      '今月の AI 解析の回数を使い切りました'
+describe('isUsageExhaustedForSelection', () => {
+  it.each([
+    ['AI あり選択で AI ありが 0', 0, 5, true, true],
+    ['AI あり選択で AI なしだけ 0', 1, 0, true, false],
+    ['AI なし選択で AI なしが 0', 1, 0, false, true],
+    ['AI なし選択で AI ありだけ 0', 0, 5, false, false],
+    ['両方残っている', 1, 5, true, false],
+  ])('%s', (_name, ai, noAi, aiAnalysis, expected) => {
+    expect(isUsageExhaustedForSelection(usage({ remaining: { ai, noAi } }), aiAnalysis)).toBe(
+      expected
     );
+  });
+
+  it('上限なしは尽きない', () => {
+    const unlimitedUsage = usage({ remaining: { ai: null, noAi: null } });
+    expect(isUsageExhaustedForSelection(unlimitedUsage, true)).toBe(false);
+    expect(isUsageExhaustedForSelection(unlimitedUsage, false)).toBe(false);
+  });
+});
+
+describe('resolveUsageNotice', () => {
+  it('残りがあれば null', () => {
+    expect(resolveUsageNotice(usage(), true)).toBeNull();
+  });
+
+  it('未ログインの AI ありだけ 0 はログインへ誘う文言', () => {
+    expect(
+      resolveUsageNotice(usage({ tier: 'anonymous', remaining: { ai: 0, noAi: 3 } }), false)
+    ).toEqual({
+      message: 'ログインすると AI 解析を月 1 回お試しできます',
+      guidance: { plans: false, signIn: true },
+    });
+  });
+
+  it('ログイン済みの AI ありだけ 0 は使い切りの文言とプランの案内', () => {
+    expect(resolveUsageNotice(usage({ remaining: { ai: 0, noAi: 3 } }), false)).toEqual({
+      message: '今月の AI 解析の回数を使い切りました',
+      guidance: { plans: true, signIn: false },
+    });
+  });
+
+  it('ログイン済みの両方 0 は両方使い切りの文言とプランの案内', () => {
+    expect(resolveUsageNotice(usage({ remaining: { ai: 0, noAi: 0 } }), false)).toEqual({
+      message: '今月の利用回数 (AI 解析あり・なし) を使い切りました',
+      guidance: { plans: true, signIn: false },
+    });
+  });
+
+  it('一番上の段の両方 0 はプランを案内しない', () => {
+    expect(
+      resolveUsageNotice(usage({ tier: 'pro', remaining: { ai: 0, noAi: 0 } }), false)
+    ).toEqual({
+      message: '今月の利用回数 (AI 解析あり・なし) を使い切りました',
+      guidance: { plans: false, signIn: false },
+    });
+  });
+
+  it('未ログインの両方 0 はログインへ誘う', () => {
+    expect(
+      resolveUsageNotice(usage({ tier: 'anonymous', remaining: { ai: 0, noAi: 0 } }), false)
+    ).toEqual({
+      message:
+        '今月の利用回数を使い切りました。ログインすると回数が増え、AI 解析も月 1 回お試しできます',
+      guidance: { plans: false, signIn: true },
+    });
+  });
+
+  it('AI なしだけ 0 でスイッチ off なら、AI ありを促す', () => {
+    expect(resolveUsageNotice(usage({ remaining: { ai: 1, noAi: 0 } }), false)).toEqual({
+      message: '今月の AI 解析なしの回数を使い切りました。AI 解析ありなら使えます',
+      guidance: { plans: true, signIn: false },
+    });
+  });
+
+  it('AI なしだけ 0 でもスイッチ on なら案内しない', () => {
+    expect(resolveUsageNotice(usage({ remaining: { ai: 1, noAi: 0 } }), true)).toBeNull();
   });
 });
 

@@ -856,6 +856,87 @@ describe('Home', () => {
       expect(screen.queryByRole('link', { name: 'ログインする' })).not.toBeInTheDocument();
     });
 
+    describe('回数が尽きているとき', () => {
+      const submit = () => screen.getByRole('button', { name: /アップロードして処理開始/ });
+
+      it('両方 0 のログイン済みは、送信を止めて案内を 1 組だけ出す', async () => {
+        const mockFetch = jest.fn();
+        global.fetch = withUsage(mockFetch, buildUsage({ remaining: { ai: 0, noAi: 0 } }));
+        render(<HomeWithAuth />);
+
+        expect(
+          await screen.findByText('今月の利用回数 (AI 解析あり・なし) を使い切りました')
+        ).toBeInTheDocument();
+        selectFile();
+        expect(submit()).toBeDisabled();
+        expect(screen.getAllByRole('link', { name: 'プランを見る' })).toHaveLength(1);
+
+        fireEvent.submit(submit().closest('form') as HTMLFormElement);
+        expect(mockFetch).not.toHaveBeenCalled();
+      });
+
+      it('AI なしだけ 0 は、スイッチ off で送信を止め、on に戻すと押せる', async () => {
+        global.fetch = withUsage(jest.fn(), buildUsage({ remaining: { ai: 1, noAi: 0 } }));
+        render(<HomeWithAuth />);
+        const toggle = await screen.findByRole('switch', { name: /AI 解析/ });
+        selectFile();
+        expect(toggle).toBeChecked();
+        expect(submit()).toBeEnabled();
+        expect(
+          screen.queryByText('今月の AI 解析なしの回数を使い切りました。AI 解析ありなら使えます')
+        ).not.toBeInTheDocument();
+
+        fireEvent.click(toggle);
+        expect(
+          screen.getByText('今月の AI 解析なしの回数を使い切りました。AI 解析ありなら使えます')
+        ).toBeInTheDocument();
+        expect(submit()).toBeDisabled();
+        expect(screen.getAllByRole('link', { name: 'プランを見る' })).toHaveLength(1);
+
+        fireEvent.click(toggle);
+        expect(submit()).toBeEnabled();
+      });
+
+      it('未ログインの両方 0 は、送信を止めてログインを案内する', async () => {
+        global.fetch = withUsage(
+          jest.fn(),
+          buildUsage({ tier: 'anonymous', remaining: { ai: 0, noAi: 0 } })
+        );
+        render(<HomeWithAuth />);
+
+        expect(
+          await screen.findByText(
+            '今月の利用回数を使い切りました。ログインすると回数が増え、AI 解析も月 1 回お試しできます'
+          )
+        ).toBeInTheDocument();
+        selectFile();
+        expect(submit()).toBeDisabled();
+        expect(screen.getAllByRole('link', { name: 'ログインする' })).toHaveLength(1);
+        expect(screen.queryByRole('link', { name: 'プランを見る' })).not.toBeInTheDocument();
+      });
+
+      it('AI ありだけ 0 で AI なしが残っていれば、AI なしで送れる', async () => {
+        global.fetch = withUsage(jest.fn(), buildUsage({ remaining: { ai: 0, noAi: 5 } }));
+        render(<HomeWithAuth />);
+        await screen.findByText('今月の AI 解析の回数を使い切りました');
+        selectFile();
+        expect(submit()).toBeEnabled();
+      });
+
+      it('上限なしは止めない', async () => {
+        const unlimited = {
+          ...buildUsage({ tier: 'pro' }),
+          limits: { aiPerMonth: null, noAiPerMonth: null, maxDurationSec: 14400 },
+          remaining: { ai: null, noAi: null },
+        };
+        global.fetch = withUsage(jest.fn(), unlimited);
+        render(<HomeWithAuth />);
+        await screen.findByText('今月の残り: 無制限');
+        selectFile();
+        expect(submit()).toBeEnabled();
+      });
+    });
+
     it('/api/usage が失敗したら残りとスイッチを出さず、aiAnalysis を送らずにアップロードできる', async () => {
       const mockFetch = jest.fn().mockResolvedValueOnce(jobResponse);
       global.fetch = withUsage(mockFetch, 'error');
@@ -1048,7 +1129,7 @@ describe('Home', () => {
           status: 429,
           json: async () => ({ error: 'NO_AI_LIMIT_EXCEEDED', message: '上限です' }),
         }),
-        buildUsage({ remaining: { ai: 1, noAi: 0 } })
+        buildUsage({ remaining: { ai: 1, noAi: 1 } })
       );
       render(<HomeWithAuth />);
       const toggle = await screen.findByRole('switch', { name: /AI 解析/ });
