@@ -17,6 +17,7 @@ on:
       - 'infra/tsconfig.json'
       - 'configs/**'
       - '.github/actions/**'
+      - '.node-version'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/tools-verify.yml'

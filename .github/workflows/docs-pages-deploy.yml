@@ -7,6 +7,7 @@ on:
     paths:
       - 'docs/**'
       - 'docs-site/**'
+      - '.node-version'
       - '.github/workflows/docs-pages-deploy.yml'
   workflow_dispatch:
 
@@ -29,7 +30,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '26'
+          node-version-file: .node-version
           cache: 'npm'
           cache-dependency-path: './package-lock.json'
 
