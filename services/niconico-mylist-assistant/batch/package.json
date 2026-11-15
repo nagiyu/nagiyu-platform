@@ -20,8 +20,7 @@
     "@nagiyu/aws": "*",
     "@nagiyu/common": "*",
     "@nagiyu/niconico-mylist-assistant-core": "*",
-    "playwright": "1.60.0",
-    "web-push": "^3.6.7"
+    "playwright": "1.60.0"
   },
   "devDependencies": {
     "@playwright/test": "1.60.0"

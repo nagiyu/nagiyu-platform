@@ -20,8 +20,7 @@
     "@aws-sdk/lib-dynamodb": "^3.1063.0",
     "@nagiyu/aws": "*",
     "@nagiyu/common": "*",
-    "sns-validator": "^0.3.5",
-    "web-push": "^3.6.7"
+    "sns-validator": "^0.3.5"
   },
   "devDependencies": {
     "@aws-sdk/client-dynamodb": "^3.1063.0",
