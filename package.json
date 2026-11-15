@@ -39,6 +39,9 @@
     "picomatch": "^4.0.4",
     "axios": ">=1.15.0",
     "playwright-core": "$@playwright/test",
+    "vitepress-plugin-mermaid": {
+      "mermaid": "^12.3.0"
+    },
     "vitepress": {
       "vite": "6.4.6",
       "@vitejs/plugin-vue": {
