@@ -15,7 +15,7 @@ sources:
   - services/stock-tracker/web/app/layout.tsx
   - services/stock-tracker/web/app/api/push/refresh/route.ts
   - libs/react/src/components/ServiceWorkerRegistration.tsx
-sources_hash: ac9c2874a67a9aaa7ef78cd96b47d285be0a63e284e785f56132d84f1ee686f5
+sources_hash: 454e4b4825d6708378024d2aae9b02e1ec82f1b3deedb95ec2e6a3ccd9fe3251
 terms: [stock-tracker/term/trading-hours, stock-tracker/term/price-source, stock-tracker/term/push-subscription, stock-tracker/term/temporary-alert]
 related_cards: [admin/flow/error-notification, stock-tracker/batch/minute, stock-tracker/batch/hourly, stock-tracker/batch/daily, stock-tracker/batch/temporary-alert-expiry, stock-tracker/api/alerts, stock-tracker/api/push, stock-tracker/screen/alerts, stock-tracker/screen/home]
 related_adr:

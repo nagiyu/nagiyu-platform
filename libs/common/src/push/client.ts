@@ -1,4 +1,4 @@
-import webpush from 'web-push';
+import * as webpush from 'web-push';
 import { logger } from '../logger/index.js';
 import { normalizeVapidKey } from './vapid.js';
 import type { NotificationPayload, PushSubscription, VapidConfig } from './types.js';

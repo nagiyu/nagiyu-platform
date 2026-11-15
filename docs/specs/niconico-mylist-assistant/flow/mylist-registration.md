@@ -14,7 +14,7 @@ sources:
   - services/niconico-mylist-assistant/batch/src/lib/web-push-client.ts
   - libs/common/src/push/client.ts
   - libs/react/src/components/ServiceWorkerRegistration.tsx
-sources_hash: b0ce4d759e0c13bd2fe2fb8fc69ba388cecf1314fb48f9d098bfe70dbc5b4cc6
+sources_hash: 4de3490a173db39bbeb0e9783b43db4bcbeb0b7e5620c420bcb6ed66f47843ed
 terms: [niconico-mylist-assistant/term/batch-job, niconico-mylist-assistant/term/user-session, platform/term/error-event]
 related_cards: [niconico-mylist-assistant/screen/mylist-register, niconico-mylist-assistant/screen/job-status, niconico-mylist-assistant/screen/home, niconico-mylist-assistant/api/mylist-register, niconico-mylist-assistant/api/batch-jobs, niconico-mylist-assistant/api/push, niconico-mylist-assistant/batch/mylist-register, niconico-mylist-assistant/flow/session-injection, admin/flow/error-notification]
 related_adr:
