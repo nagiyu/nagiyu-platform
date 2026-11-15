@@ -65,6 +65,14 @@ devDependencies は可能な限りモノレポルートで一元管理する。
 - **`$` 参照にした理由**: Playwright は `@playwright/test` と `playwright-core` を同じバージョン番号で揃えて出している。版を直接書くと、`@playwright/test` を更新するたびに overrides も手で直す必要があり、忘れると食い違いが再発する
 - **前提**: `$` で参照できるのはルートの直接依存だけである。`@playwright/test` をルートの依存から外す場合は、この overrides も見直す
 
+#### vitepress-plugin-mermaid の mermaid を 12 に固定する
+
+`vitepress-plugin-mermaid` の配下にある `mermaid` を `^12.3.0` に固定している。
+
+- **理由**: `vitepress-plugin-mermaid` は peerDependency を `mermaid: "10 || 11"` のまま宣言している。`docs-site` の `mermaid` だけを 12 に上げると、プラグイン用に 11 がルートへ残り、プラグインは 11 で図を描画する
+- **版を直接書いた理由**: `$` 参照で指せるのはルートの直接依存だけだが、`mermaid` は `docs-site` の依存である。そのため版を直接書いている。`docs-site` の `mermaid` を上げるときは、この overrides も合わせて直す
+- **外す条件**: `vitepress-plugin-mermaid` が peerDependency に `mermaid` 12 を含めたら、この overrides を外す
+
 ## 参考
 
 - [monorepo-structure.md](./monorepo-structure.md): モノレポ全体の構造
