@@ -6,6 +6,7 @@ on:
       - develop
       - integration/**
     paths:
+      - 'libs/**'
       - 'infra/ui-storybook/**'
       - 'infra/common/**'
       - 'infra/tsconfig.json'
