@@ -21,6 +21,7 @@ on:
       - 'package-lock.json'
       - '.github/workflows/codec-converter-verify.yml'
       - '.github/workflows/reusable-service-verify.yml'
+      - '.github/workflows/reusable-infra-verify.yml'
       - '.github/workflows/reusable-e2e.yml'
 
 permissions:
@@ -37,6 +38,14 @@ jobs:
     uses: ./.github/workflows/reusable-service-verify.yml
     with:
       dirs: services/codec-converter infra/codec-converter
+    permissions:
+      contents: read
+
+  infra-verify:
+    name: Infra Verify
+    uses: ./.github/workflows/reusable-infra-verify.yml
+    with:
+      dirs: infra/codec-converter
     permissions:
       contents: read
 
@@ -116,33 +125,11 @@ jobs:
       id-token: write
       contents: read
 
-  infra-type-check:
-    name: Infrastructure Type Check (Build)
-    runs-on: ubuntu-latest
-
-    permissions:
-      contents: read
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js and install dependencies
-        uses: ./.github/actions/setup-node
-        with:
-          cache-dependency-path: './package-lock.json'
-
-      - name: Build infra-common library
-        run: npm run build --workspace=@nagiyu/infra-common
-
-      - name: Build CDK project
-        run: npm run build --workspace=@nagiyu/infra-codec-converter
-
   report:
     name: Report Results to PR
     runs-on: ubuntu-latest
     if: always()
-    needs: [verify, nextjs-build, docker-build, e2e, infra-type-check]
+    needs: [verify, nextjs-build, docker-build, e2e, infra-verify]
 
     permissions:
       contents: read

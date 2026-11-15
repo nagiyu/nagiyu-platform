@@ -18,6 +18,7 @@ on:
       - 'package-lock.json'
       - '.github/workflows/infra-shared-verify.yml'
       - '.github/workflows/reusable-service-verify.yml'
+      - '.github/workflows/reusable-infra-verify.yml'
 
 # 同じ PR (push 起点ではブランチ) の古いコミットに対する検証は不要なため、新しい run が来たら打ち切る。
 concurrency:
@@ -33,85 +34,23 @@ jobs:
     permissions:
       contents: read
 
-  build:
-    name: Build CDK TypeScript
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js and install dependencies
-        uses: ./.github/actions/setup-node
-        with:
-          cache-dependency-path: './package-lock.json'
-
-      - name: Build TypeScript
-        run: npm run build --workspace=@nagiyu/infra-shared
-
-  synth:
-    name: CDK Synth Verification
-    runs-on: ubuntu-latest
-    needs: build
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js and install dependencies
-        uses: ./.github/actions/setup-node
-        with:
-          cache-dependency-path: './package-lock.json'
-
-      - name: Build TypeScript
-        run: npm run build --workspace=@nagiyu/infra-shared
-
-      - name: Synthesize CDK stacks
-        env:
-          DOMAIN_NAME: example.com
-        run: |
-          npm run synth --workspace=@nagiyu/infra-shared -- --all --context env=dev
-
-      - name: Synthesize CDK stacks (dev account scope)
-        env:
-          DOMAIN_NAME: example.com
-        run: |
-          npm run synth --workspace=@nagiyu/infra-shared -- --all --context env=dev --context accountScope=dev
-
-      - name: Validate generated CloudFormation templates
-        run: |
-          echo "Validating CloudFormation templates..."
-
-          if [ ! -d "infra/shared/cdk.out" ]; then
-            echo "Error: cdk.out directory not found"
-            exit 1
-          fi
-
-          echo "Generated templates:"
-          ls -la infra/shared/cdk.out/*.template.json 2>/dev/null || echo "No templates found"
-
-          template_count=$(ls infra/shared/cdk.out/*.template.json 2>/dev/null | wc -l)
-          echo "Total templates: $template_count"
-
-          if [ "$template_count" -eq 0 ]; then
-            echo "Error: No CloudFormation templates generated"
-            exit 1
-          fi
-
-          echo "✅ CDK synthesis successful"
-
-      - name: Upload CDK outputs as artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ env.SERVICE_ID }}-cdk-out
-          path: infra/shared/cdk.out/
-          retention-days: 7
+  infra-verify:
+    name: Infra Verify
+    uses: ./.github/workflows/reusable-infra-verify.yml
+    with:
+      dirs: infra/shared
+      # 既定の prod スコープと dev アカウントのスコープの両方で、組み立てが通ることを確かめる
+      synth-args: |
+        DOMAIN_NAME=example.com --all --context env=dev
+        DOMAIN_NAME=example.com --all --context env=dev --context accountScope=dev
+    permissions:
+      contents: read
 
   report:
     name: Report Results to PR
     runs-on: ubuntu-latest
     if: always()
-    needs: [verify, build, synth]
+    needs: [verify, infra-verify]
 
     permissions:
       contents: read

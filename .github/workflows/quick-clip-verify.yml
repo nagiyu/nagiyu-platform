@@ -22,6 +22,7 @@ on:
       - 'package-lock.json'
       - '.github/workflows/quick-clip-verify.yml'
       - '.github/workflows/reusable-service-verify.yml'
+      - '.github/workflows/reusable-infra-verify.yml'
       - '.github/workflows/reusable-e2e.yml'
 
 permissions:
@@ -38,6 +39,14 @@ jobs:
     uses: ./.github/workflows/reusable-service-verify.yml
     with:
       dirs: services/quick-clip infra/quick-clip
+    permissions:
+      contents: read
+
+  infra-verify:
+    name: Infra Verify
+    uses: ./.github/workflows/reusable-infra-verify.yml
+    with:
+      dirs: infra/quick-clip
     permissions:
       contents: read
 
@@ -143,25 +152,6 @@ jobs:
 
       - name: Build lambda zip package
         run: npm run build --workspace=@nagiyu/quick-clip-lambda-zip
-
-  build-infra:
-    name: Build Infrastructure Package
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js and install dependencies
-        uses: ./.github/actions/setup-node
-        with:
-          cache-dependency-path: './package-lock.json'
-
-      - name: Build common infrastructure package
-        run: npm run build --workspace=@nagiyu/infra-common
-
-      - name: Build infrastructure package
-        run: npm run build --workspace=@nagiyu/infra-quick-clip
 
   docker-build-web:
     name: Docker Build Web
@@ -321,12 +311,12 @@ jobs:
         build-batch,
         build-lambda-clip,
         build-lambda-zip,
-        build-infra,
         docker-build-web,
         docker-build-batch,
         docker-build-lambda-clip,
         docker-build-lambda-zip,
         e2e,
+        infra-verify,
       ]
     permissions:
       contents: read

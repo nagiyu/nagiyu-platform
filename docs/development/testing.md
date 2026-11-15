@@ -285,6 +285,7 @@ on:
             - 'package-lock.json'         # 依存関係ロック
             - '.github/workflows/hoge-verify.yml'  # ワークフロー自体
             - '.github/workflows/reusable-service-verify.yml' # 呼んでいる再利用ワークフロー
+            - '.github/workflows/reusable-infra-verify.yml'
             - '.github/workflows/reusable-e2e.yml'
 ```
 
@@ -344,7 +345,16 @@ lint・format・ユニットテスト・カバレッジ・契約テストは、�
 1. `{target}-verify.yml` を作り、`dirs` を渡して再利用ワークフローを呼ぶ。パッケージを同じディレクトリ配下に足すだけなら、ワークフローは変えない
 2. 検査をかけたいものは、そのパッケージに npm scripts を用意する。用意しなければ、その検査はかからない。**漏れても CI は赤くならない**ため、新しいパッケージには `lint` / `format:check` / `test` / `test:coverage` を揃えるのを基本とする
 3. ユニットテストの前に、web や batch が参照する `core` と、infra が参照する `@nagiyu/infra-common` はビルドされる。この前提から外れる構成 (別名の共有パッケージなど) では、ワークフロー側の変更が要る
-4. ビルド・Docker・synth・E2E・サービス固有の検査 (portal の内部リンクチェックなど) は、`{target}-verify.yml` 側にジョブとして残す。再利用ワークフローの対象外である
+4. infra があるなら、`{target}-verify.yml` に infra 用の再利用ワークフロー (`reusable-infra-verify.yml`) を呼ぶジョブも足す (下の「infra のビルドと synth」を参照)
+5. Next.js のビルド・Docker・E2E・サービス固有の検査 (portal の内部リンクチェックなど) は、`{target}-verify.yml` 側にジョブとして残す。再利用ワークフローの対象外である
+
+**infra のビルドと synth**:
+
+infra のビルド (tsc) と `cdk synth` は、lint などとは別の再利用ワークフロー (`reusable-infra-verify.yml`) で流す。呼び出し側は、`reusable-service-verify.yml` と並べて `dirs` を渡して呼ぶ。
+
+- **対象**: `infra` 配下 (`infra` 自体を含む) で、`build` を持つワークスペース。`synth` を持つものだけ synth をかける。`dirs` がワークスペースそのものを指すときは、その配下のワークスペースを拾わない (`dirs: infra` でルートの infra だけを検査し、`infra/*` は拾わない)
+- **synth の引数**: `synth-args` に 1 行 1 回で渡す。省略時は `--context env=dev` の 1 回。行の先頭の `KEY=VALUE` は環境変数として渡し、残りを `cdk synth` の引数にする (例: livetalk の `ENVIRONMENT=prod`)
+- **synth の前に別のビルドが要るとき**: `pre-synth-scripts` に `<ワークスペース名> <npm script 名>` を 1 行ずつ渡す。指定すると、共有ライブラリのビルド後に流す (ui-storybook は、synth が読む `libs/ui/storybook-static` を作るために使う)
 
 **検査の流し方**:
 

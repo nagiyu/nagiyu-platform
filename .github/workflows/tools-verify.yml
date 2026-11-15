@@ -22,6 +22,7 @@ on:
       - 'package-lock.json'
       - '.github/workflows/tools-verify.yml'
       - '.github/workflows/reusable-service-verify.yml'
+      - '.github/workflows/reusable-infra-verify.yml'
       - '.github/workflows/reusable-e2e.yml'
 
 permissions:
@@ -38,6 +39,14 @@ jobs:
     uses: ./.github/workflows/reusable-service-verify.yml
     with:
       dirs: services/tools infra/tools
+    permissions:
+      contents: read
+
+  infra-verify:
+    name: Infra Verify
+    uses: ./.github/workflows/reusable-infra-verify.yml
+    with:
+      dirs: infra/tools
     permissions:
       contents: read
 
@@ -104,7 +113,7 @@ jobs:
     name: Report Results to PR
     runs-on: ubuntu-latest
     if: always()
-    needs: [verify, nextjs-build, docker-build, e2e]
+    needs: [verify, nextjs-build, docker-build, e2e, infra-verify]
 
     permissions:
       contents: read
