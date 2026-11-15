@@ -8,6 +8,10 @@ import {
 } from '../../src/lib/web-push-client.js';
 import { normalizeVapidKey } from '@nagiyu/common';
 
+// web-push は ESM 専用で Jest が読み込めない。このテストは送信を検証しないため空のモックに差し替える。
+// web-push は @nagiyu/common の依存でこのサービスからは解決できないため virtual を付ける
+jest.mock('web-push', () => ({}), { virtual: true });
+
 describe('createBatchCompletionPayload', () => {
   test('全件成功時の通知ペイロード', () => {
     const payload = createBatchCompletionPayload('job-123', 10, 0, 10);
