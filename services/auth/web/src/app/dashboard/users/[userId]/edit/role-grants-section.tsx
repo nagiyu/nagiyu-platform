@@ -12,9 +12,8 @@ import {
   Typography,
 } from '@mui/material';
 import { Button, Chip, ErrorAlert, Select, TextField } from '@nagiyu/ui';
-import { PAID_ROLES } from '@nagiyu/common';
+import { PAID_ROLES, getRoleName } from '@nagiyu/common';
 import type { RoleGrant, RoleGrantSource, RoleGrantStatus } from '@nagiyu/common';
-import { getRoleName } from '@/lib/role-display';
 import {
   GRANT_NOTE_MAX_LENGTH,
   addPendingGrant,

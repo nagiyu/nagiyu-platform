@@ -6,9 +6,9 @@ service: auth
 sources:
   - services/auth/web/src/app/dashboard/users/page.tsx
   - services/auth/web/src/app/dashboard/users/users-table.tsx
-  - services/auth/web/src/lib/role-display.ts
+  - libs/common/src/auth/roles.ts
   - libs/ui/src/components/feedback/AccessDeniedView.tsx
-sources_hash: 7f96f8e7e69f915cd1663b642c4107ca81433027565828acb64a9fcbf158b09d
+sources_hash: 497cfa6b47b0db8067060726fac940f76a3bd1256a9dcd24e5cb27988d674320
 terms: [platform/term/role, auth/term/api-error]
 related_cards: [auth/screen/user-edit, auth/screen/dashboard, auth/api/users]
 ---

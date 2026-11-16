@@ -7,7 +7,7 @@ import { Button, Checkbox, ErrorAlert, LoadingState } from '@nagiyu/ui';
 import Link from 'next/link';
 import type { User } from '@nagiyu/common';
 import { MANUAL_ROLES } from '@/lib/manual-roles';
-import { getRoleDescription, getRoleName } from '@/lib/role-display';
+import { getRoleDescription, getRoleName } from '@nagiyu/common';
 import {
   EMPTY_PENDING_GRANT_CHANGES,
   buildGrantChanges,
