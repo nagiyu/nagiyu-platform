@@ -4,7 +4,7 @@ import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
 import * as acm from 'aws-cdk-lib/aws-certificatemanager';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
-import { SSM_PARAMETERS } from '../common/src/utils/ssm';
+import { SSM_PARAMETERS } from '@nagiyu/infra-common';
 
 export interface CloudFrontStackProps extends cdk.StackProps {
   environment: string;

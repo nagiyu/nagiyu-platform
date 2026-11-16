@@ -3,8 +3,7 @@ import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
-import { SSM_PARAMETERS } from '../common/src/utils/ssm';
-import { importSharedVpc } from '../common/src/utils/vpc';
+import { SSM_PARAMETERS, importSharedVpc } from '@nagiyu/infra-common';
 
 export interface AlbStackProps extends cdk.StackProps {
   environment: string;
