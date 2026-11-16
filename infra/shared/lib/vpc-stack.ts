@@ -2,7 +2,7 @@ import * as cdk from 'aws-cdk-lib';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
-import { SSM_PARAMETERS } from '../libs/utils/ssm';
+import { SSM_PARAMETERS } from '@nagiyu/infra-common';
 
 export interface VpcStackProps extends cdk.StackProps {
   environment: 'dev' | 'prod';
