@@ -6,7 +6,7 @@ service: platform
 sources:
   - libs/common/src/auth/roles.ts
   - libs/common/src/auth/permissions.ts
-sources_hash: f21b0de43fc945c7b2d4e0d4bfa4c8adfd3687ec3a3ebdde78f22c793ca175e9
+sources_hash: c46fa23fab9d715ba2279d62b90d0bddb9eb77ff4dffdc28f0d161a7be9a02d5
 related_cards: [auth/screen/user-edit, auth/api/users, auth/term/plan-tier]
 ---
 

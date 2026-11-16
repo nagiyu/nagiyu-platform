@@ -147,7 +147,7 @@ export const VALID_ROLES = Object.keys(ROLES) as string[];
  * @returns ROLES に定義された名前。未定義の ID はその ID 自身
  */
 export function getRoleName(roleId: string): string {
-  if (Object.hasOwn(ROLES, roleId)) {
+  if (Object.prototype.hasOwnProperty.call(ROLES, roleId)) {
     return ROLES[roleId as keyof typeof ROLES].name;
   }
   return roleId;
@@ -160,7 +160,7 @@ export function getRoleName(roleId: string): string {
  * @returns ROLES に定義された説明。未定義の ID は undefined
  */
 export function getRoleDescription(roleId: string): string | undefined {
-  if (Object.hasOwn(ROLES, roleId)) {
+  if (Object.prototype.hasOwnProperty.call(ROLES, roleId)) {
     return ROLES[roleId as keyof typeof ROLES].description;
   }
   return undefined;

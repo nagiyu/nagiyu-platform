@@ -9,7 +9,7 @@ sources:
   - libs/common/src/auth/roles.ts
   - services/auth/web/src/lib/auth/session.ts
   - libs/nextjs/src/session.ts
-sources_hash: 4e65ea8eeb26389d836f9d725e935ca3eeef5bf504cd1b4212e5feda80d2288d
+sources_hash: ec82571b0e77f32de29d4660ac0f98bd5f3bafce2a37fdf2262d95533167e811
 terms: [platform/term/role, auth/term/session-roles]
 related_cards: [auth/screen/users, auth/screen/plans, auth/screen/signin]
 ---
