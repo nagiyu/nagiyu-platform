@@ -6,11 +6,12 @@ service: admin
 sources:
   - infra/admin/lib/batch-lambda-stack.ts
   - infra/admin/lib/sns-stack.ts
+  - infra/common/src/utils/arn.ts
   - infra/common/src/functions/ecr-image-function.ts
   - infra/admin/lib/self-monitoring-alarms-stack.ts
   - services/admin/batch/src/alarm-ingest.ts
   - libs/aws/src/error-events/mapper.ts
-sources_hash: dfc5a7d8982fb868a6b73f4016ee2b5555bc46cc8bd8bab95e4904648d090811
+sources_hash: 35414ad5be044db18f6db2d39945a80051938d867ad4e1e2d33ec489e815d08a
 terms: [platform/term/error-event]
 related_cards: [admin/flow/error-notification, admin/batch/stream-handler, admin/term/error-event-key]
 related_adr:
