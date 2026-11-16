@@ -2,7 +2,7 @@ import * as cdk from 'aws-cdk-lib';
 import * as ecs from 'aws-cdk-lib/aws-ecs';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
-import { SSM_PARAMETERS } from '../libs/utils/ssm';
+import { SSM_PARAMETERS } from '@nagiyu/infra-common';
 
 export interface EcsSharedClusterStackProps extends cdk.StackProps {
   environment: 'dev' | 'prod';
