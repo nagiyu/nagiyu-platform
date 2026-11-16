@@ -257,7 +257,7 @@ update の変更の扱いは、次の 3 点を全 Mapper で揃える。
 ### 新規エンティティの実装順序
 
 1. **Entity**: DynamoDB 固有の属性を含まない、camelCase のビジネスオブジェクト。`createdAt` / `updatedAt` を数値ミリ秒で持つ
-2. **Mapper**: キーの組み立て、保存形式への変換 (PascalCase・ミリ秒・TTL の秒)、読み出し時の検証。保存形式を変えた場合は旧属性名も宣言する。`toUpdateAttributes` の patch の値は、`requiredPatchValue` (必須項目)・`optionalPatchValue` (任意項目)・`immutablePatchValue` (作成後に変えられない項目) で変換し、9 の扱いを Mapper ごとに書き写さない
+2. **Mapper**: キーの組み立て、保存形式への変換 (PascalCase・ミリ秒・TTL の秒)、読み出し時の検証。保存形式を変えた場合は旧属性名も宣言する。`toUpdateAttributes` の patch の値は、`requiredPatchValue` (必須項目)・`optionalPatchValue` (任意項目)・`immutablePatchValue` (作成後に変えられない項目) で変換し、9 の扱いを Mapper ごとに書き写さない。任意の属性は、無ければ未設定 (または既定値)、あって不正なら `InvalidEntityDataError` とする共通の読み取りで読み、欠落と破損を区別する。不正な値を欠落として黙って扱うと、壊れたデータに気づけないため
 3. **Repository Interface**: ビジネスキーでの CRUD と、意味のある名前のクエリ
 4. **DynamoDB 実装と InMemory 実装**: 単一アイテムの CRUD は EntityStore に任せ、独自のクエリだけを書く
 5. **テスト**: Mapper の変換 (旧形式の読み取りを含む)、Repository、E2E の各層
