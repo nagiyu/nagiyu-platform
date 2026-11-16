@@ -13,7 +13,7 @@ sources:
   - libs/aws/src/error-events/mapper.ts
   - libs/common/src/push/bulk.ts
   - libs/common/src/push/client.ts
-sources_hash: 0df7884936a8d043b277b0c87628148579281133da0eb8691a993f804fb2ea66
+sources_hash: 58d0083d5388e83d253fbd8a1b367ff6355d644bb92de7193c59997c2ca06daf
 terms: [platform/term/error-event, admin/term/push-subscription, admin/term/error-event-key]
 related_cards: [admin/flow/error-notification, admin/batch/alarm-ingest, admin/screen/error-detail]
 related_adr:

@@ -3,7 +3,7 @@
  */
 
 import type { ErrorEvent } from '@nagiyu/common';
-import { InMemorySingleTableStore } from '@nagiyu/aws';
+import { InMemoryErrorEventWriter, InMemorySingleTableStore } from '@nagiyu/aws';
 import { InMemoryErrorEventReader } from '../../../src/errors/in-memory-reader.js';
 
 const sampleEvent = (overrides: Partial<ErrorEvent> = {}): ErrorEvent => ({
@@ -20,15 +20,21 @@ const sampleEvent = (overrides: Partial<ErrorEvent> = {}): ErrorEvent => ({
 
 describe('InMemoryErrorEventReader', () => {
   let reader: InMemoryErrorEventReader;
+  let writer: InMemoryErrorEventWriter;
+
+  // 実際の書き込み経路 (Writer) と同じ形の Item を読むため、Writer で書く
+  const put = (event: ErrorEvent): Promise<void> => writer.put(event);
 
   beforeEach(() => {
-    reader = new InMemoryErrorEventReader();
+    const store = new InMemorySingleTableStore();
+    reader = new InMemoryErrorEventReader(store);
+    writer = new InMemoryErrorEventWriter(store);
   });
 
   it('list は put した順とは無関係に occurredAt 降順で返す', async () => {
-    reader.put(sampleEvent({ eventId: 'a', occurredAt: Date.parse('2026-05-06T00:00:00.000Z') }));
-    reader.put(sampleEvent({ eventId: 'b', occurredAt: Date.parse('2026-05-06T01:00:00.000Z') }));
-    reader.put(sampleEvent({ eventId: 'c', occurredAt: Date.parse('2026-05-05T23:00:00.000Z') }));
+    await put(sampleEvent({ eventId: 'a', occurredAt: Date.parse('2026-05-06T00:00:00.000Z') }));
+    await put(sampleEvent({ eventId: 'b', occurredAt: Date.parse('2026-05-06T01:00:00.000Z') }));
+    await put(sampleEvent({ eventId: 'c', occurredAt: Date.parse('2026-05-05T23:00:00.000Z') }));
 
     const result = await reader.list({});
     expect(result.items.map((e) => e.eventId)).toEqual(['b', 'a', 'c']);
@@ -36,8 +42,8 @@ describe('InMemoryErrorEventReader', () => {
   });
 
   it('serviceId で絞り込める', async () => {
-    reader.put(sampleEvent({ eventId: 'a', serviceId: 'stock-tracker' }));
-    reader.put(sampleEvent({ eventId: 'b', serviceId: 'admin' }));
+    await put(sampleEvent({ eventId: 'a', serviceId: 'stock-tracker' }));
+    await put(sampleEvent({ eventId: 'b', serviceId: 'admin' }));
 
     const result = await reader.list({ serviceId: 'stock-tracker' });
     expect(result.items).toHaveLength(1);
@@ -45,9 +51,9 @@ describe('InMemoryErrorEventReader', () => {
   });
 
   it('from / to で期間絞り込みできる', async () => {
-    reader.put(sampleEvent({ eventId: 'a', occurredAt: Date.parse('2026-05-01T00:00:00.000Z') }));
-    reader.put(sampleEvent({ eventId: 'b', occurredAt: Date.parse('2026-05-05T00:00:00.000Z') }));
-    reader.put(sampleEvent({ eventId: 'c', occurredAt: Date.parse('2026-05-10T00:00:00.000Z') }));
+    await put(sampleEvent({ eventId: 'a', occurredAt: Date.parse('2026-05-01T00:00:00.000Z') }));
+    await put(sampleEvent({ eventId: 'b', occurredAt: Date.parse('2026-05-05T00:00:00.000Z') }));
+    await put(sampleEvent({ eventId: 'c', occurredAt: Date.parse('2026-05-10T00:00:00.000Z') }));
 
     const result = await reader.list({
       from: '2026-05-04T00:00:00.000Z',
@@ -58,7 +64,7 @@ describe('InMemoryErrorEventReader', () => {
 
   it('limit + cursor でページングできる', async () => {
     for (let i = 0; i < 5; i++) {
-      reader.put(
+      await put(
         sampleEvent({
           eventId: `evt-${i}`,
           occurredAt: Date.parse(`2026-05-0${i + 1}T00:00:00.000Z`),
@@ -80,8 +86,8 @@ describe('InMemoryErrorEventReader', () => {
   });
 
   it('ちょうど limit 件で終わるページにも cursor を付け、次のページは空になる (実 DynamoDB と同じ)', async () => {
-    reader.put(sampleEvent({ eventId: 'a' }));
-    reader.put(sampleEvent({ eventId: 'b', occurredAt: Date.parse('2026-05-07T00:00:00.000Z') }));
+    await put(sampleEvent({ eventId: 'a' }));
+    await put(sampleEvent({ eventId: 'b', occurredAt: Date.parse('2026-05-07T00:00:00.000Z') }));
 
     const first = await reader.list({ limit: 2 });
     expect(first.nextCursor).not.toBeNull();
@@ -92,15 +98,15 @@ describe('InMemoryErrorEventReader', () => {
   });
 
   it('不正な cursor は先頭から読む', async () => {
-    reader.put(sampleEvent());
+    await put(sampleEvent());
 
     const result = await reader.list({ cursor: 'abc' });
     expect(result.items).toHaveLength(1);
   });
 
   it('同じ時刻の複数イベントは SK (eventId) の降順で返す', async () => {
-    reader.put(sampleEvent({ eventId: 'a' }));
-    reader.put(sampleEvent({ eventId: 'b' }));
+    await put(sampleEvent({ eventId: 'a' }));
+    await put(sampleEvent({ eventId: 'b' }));
 
     const result = await reader.list({});
     expect(result.items.map((e) => e.eventId)).toEqual(['b', 'a']);
@@ -136,21 +142,21 @@ describe('InMemoryErrorEventReader', () => {
 
   it('findById は eventId / occurredAt / serviceId 全一致で返す', async () => {
     const event = sampleEvent({ eventId: 'evt-1', serviceId: 's1' });
-    reader.put(event);
+    await put(event);
 
     const found = await reader.findById('evt-1', event.occurredAt, 's1');
     expect(found).toEqual(event);
   });
 
   it('findById は不一致のとき null', async () => {
-    reader.put(sampleEvent({ eventId: 'evt-1' }));
+    await put(sampleEvent({ eventId: 'evt-1' }));
     expect(
       await reader.findById('missing', Date.parse('2026-01-01T00:00:00.000Z'), 'stock-tracker')
     ).toBeNull();
   });
 
   it('reset で状態をクリア', async () => {
-    reader.put(sampleEvent());
+    await put(sampleEvent());
     reader.reset();
     const result = await reader.list({});
     expect(result.items).toEqual([]);
