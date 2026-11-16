@@ -2,6 +2,9 @@ import {
   readAttribute,
   readTimestamp,
   readOptionalTimestamp,
+  readOptionalField,
+  validateNumberField,
+  validateObjectField,
   toTtlSeconds,
   TTL_ATTRIBUTE_NAME,
 } from '../../../src/dynamodb/validators.js';
@@ -74,6 +77,35 @@ describe('readOptionalTimestamp', () => {
 
   it('あって不正なら InvalidEntityDataError', () => {
     expect(() => readOptionalTimestamp({ At: 'x' }, 'At')).toThrow(InvalidEntityDataError);
+  });
+});
+
+describe('readOptionalField', () => {
+  it('なければ undefined', () => {
+    expect(readOptionalField({}, 'Count', validateNumberField)).toBeUndefined();
+  });
+
+  it('あれば検証した値を返す', () => {
+    expect(readOptionalField({ Count: 3 }, 'Count', validateNumberField)).toBe(3);
+  });
+
+  it('あって不正なら InvalidEntityDataError', () => {
+    expect(() => readOptionalField({ Count: 'x' }, 'Count', validateNumberField)).toThrow(
+      InvalidEntityDataError
+    );
+  });
+
+  it('新名がなければ旧名から読み、エラーには新名を使う', () => {
+    expect(readOptionalField({ count: 5 }, 'Count', validateNumberField, ['count'])).toBe(5);
+    expect(() =>
+      readOptionalField({ count: 'x' }, 'Count', validateNumberField, ['count'])
+    ).toThrow('"Count"');
+  });
+
+  it('DynamoDB の NULL (null) は欠落ではなく検証に渡す', () => {
+    expect(() => readOptionalField({ Map: null }, 'Map', validateObjectField)).toThrow(
+      InvalidEntityDataError
+    );
   });
 });
 
