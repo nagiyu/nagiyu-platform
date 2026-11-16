@@ -2,6 +2,7 @@ import * as cdk from 'aws-cdk-lib';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import { Construct } from 'constructs';
+import { getSelfMonitoringTopicName } from './self-monitoring-topic';
 import { LambdaStackBase, LambdaStackBaseProps, getServiceUrl } from '@nagiyu/infra-common';
 
 export interface LambdaStackProps extends cdk.StackProps {
@@ -16,13 +17,6 @@ export interface LambdaStackProps extends cdk.StackProps {
    * process.env.APP_VERSION 経由で渡されます。
    */
   appVersion?: string;
-  /**
-   * 自己監視 SNS トピックの ARN
-   *
-   * Lambda環境変数 SNS_ALLOWED_TOPIC_ARN に設定され、
-   * /api/notify/sns が受け付ける送信元トピックの照合に使われます。
-   */
-  selfMonitoringTopicArn: string;
 }
 
 /**
@@ -30,7 +24,7 @@ export interface LambdaStackProps extends cdk.StackProps {
  */
 export class LambdaStack extends LambdaStackBase {
   constructor(scope: Construct, id: string, props: LambdaStackProps) {
-    const { environment, appVersion = '1.0.0', selfMonitoringTopicArn, ...stackProps } = props;
+    const { environment, appVersion = '1.0.0', ...stackProps } = props;
 
     // CDK context から secrets を取得
     // 未指定の場合はプレースホルダーを使用（deploy ジョブで実際の値に更新される）
@@ -99,9 +93,6 @@ export class LambdaStack extends LambdaStackBase {
           NEXT_PUBLIC_AUTH_URL: authUrl,
           VAPID_PUBLIC_KEY: vapidPublicKey,
           VAPID_PRIVATE_KEY: vapidPrivateKey,
-          // SNS 署名が正しくても送信元トピックは任意のため、
-          // /api/notify/sns は自己監視トピックからのメッセージだけを受け付ける
-          SNS_ALLOWED_TOPIC_ARN: selfMonitoringTopicArn,
         },
       },
       additionalPolicyStatements,
@@ -114,5 +105,16 @@ export class LambdaStack extends LambdaStackBase {
     };
 
     super(scope, id, baseProps);
+
+    // SNS 署名が正しくても送信元トピックは任意のため、
+    // /api/notify/sns は自己監視トピックからのメッセージだけを受け付ける。
+    // ARN はスタックの env から組み立てるため、super の後でしか設定できない
+    this.lambdaFunction.addEnvironment(
+      'SNS_ALLOWED_TOPIC_ARN',
+      this.formatArn({
+        service: 'sns',
+        resource: getSelfMonitoringTopicName(environment),
+      })
+    );
   }
 }

@@ -3,7 +3,8 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 import * as sns from 'aws-cdk-lib/aws-sns';
 import * as subscriptions from 'aws-cdk-lib/aws-sns-subscriptions';
 import { Construct } from 'constructs';
-import { getServiceUrl } from '@nagiyu/infra-common';
+import { getAdminAlarmTopicName, getServiceUrl } from '@nagiyu/infra-common';
+import { getSelfMonitoringTopicName } from './self-monitoring-topic';
 
 export interface SNSStackProps {
   environment: string;
@@ -34,7 +35,7 @@ export class SNSStack extends Construct {
     // 本流: 各サービスの CloudWatch Alarm 集約用
     // HTTPS subscription は意図的に付けない（alarm-ingest Lambda のみが subscribe する）
     this.alarmTopic = new sns.Topic(this, 'AlarmTopic', {
-      topicName: `nagiyu-admin-alarms-${environment}`,
+      topicName: getAdminAlarmTopicName(environment as 'dev' | 'prod'),
       displayName: `Admin Alarms (${environment})`,
     });
 
@@ -78,7 +79,7 @@ export class SNSStack extends Construct {
     // HTTPS subscription で /api/notify/sns に流し、新システムを介さず
     // Web Push を Admin 管理者へ届ける
     this.selfMonitoringTopic = new sns.Topic(this, 'SelfMonitoringTopic', {
-      topicName: `nagiyu-admin-self-monitoring-${environment}`,
+      topicName: getSelfMonitoringTopicName(environment),
       displayName: `Admin Self-Monitoring (${environment})`,
     });
     this.selfMonitoringTopic.addSubscription(

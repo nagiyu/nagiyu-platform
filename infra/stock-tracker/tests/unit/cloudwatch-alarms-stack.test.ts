@@ -53,7 +53,6 @@ function createTestStack(): { app: cdk.App; stack: CloudWatchAlarmsStack } {
     batchForecastFunction,
     dynamoTable,
     alarmTopic,
-    adminAlarmTopicArn: 'arn:aws:sns:us-east-1:123456789012:nagiyu-admin-alarms-dev',
     env,
   });
 
@@ -106,6 +105,20 @@ describe('CloudWatchAlarmsStack', () => {
     });
     expect(Object.keys(durationAlarms)).toHaveLength(0);
     expect(Object.keys(throttleAlarms)).toHaveLength(0);
+  });
+
+  it('admin 本流トピックの ARN がスタックの env（account / region）から組み立てられて通知先になる', () => {
+    const alarms = template.findResources('AWS::CloudWatch::Alarm', {
+      Properties: { AlarmName: 'stock-tracker-web-error-rate-dev' },
+    });
+    const [alarm] = Object.values(alarms);
+    // パーティションだけはトークンのまま残り、account / region は env の値で確定する
+    expect(alarm.Properties.AlarmActions).toContainEqual({
+      'Fn::Join': [
+        '',
+        ['arn:', { Ref: 'AWS::Partition' }, ':sns:us-east-1:123456789012:nagiyu-admin-alarms-dev'],
+      ],
+    });
   });
 
   it('合計17個のアラームが作成される', () => {
