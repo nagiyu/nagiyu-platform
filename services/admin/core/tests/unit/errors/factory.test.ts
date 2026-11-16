@@ -3,6 +3,8 @@
  */
 
 import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import type { ErrorEvent } from '@nagiyu/common';
+import { createErrorEventWriter, resetErrorEventWriter } from '@nagiyu/aws';
 import { createErrorEventReader, resetErrorEventReader } from '../../../src/errors/factory.js';
 import { DynamoDBErrorEventReader } from '../../../src/errors/dynamodb-reader.js';
 import { InMemoryErrorEventReader } from '../../../src/errors/in-memory-reader.js';
@@ -13,6 +15,7 @@ describe('createErrorEventReader', () => {
 
   beforeEach(() => {
     resetErrorEventReader();
+    resetErrorEventWriter();
     delete process.env.USE_IN_MEMORY_DB;
     delete process.env.DYNAMODB_TABLE_NAME;
   });
@@ -62,5 +65,25 @@ describe('createErrorEventReader', () => {
     const first = createErrorEventReader();
     resetErrorEventReader();
     expect(createErrorEventReader()).not.toBe(first);
+  });
+
+  it('InMemory では Writer が書いたイベントを Reader が読める', async () => {
+    process.env.USE_IN_MEMORY_DB = 'true';
+    const event: ErrorEvent = {
+      eventId: 'evt-1',
+      serviceId: 'stock-tracker',
+      source: 'application',
+      severity: 'error',
+      title: 'sample',
+      message: 'sample message',
+      context: '{}',
+      occurredAt: Date.parse('2026-05-06T00:00:00.000Z'),
+    };
+
+    await createErrorEventWriter().put(event);
+
+    const reader = createErrorEventReader();
+    expect((await reader.list({})).items).toEqual([event]);
+    expect(await reader.findById('evt-1', event.occurredAt, 'stock-tracker')).toEqual(event);
   });
 });

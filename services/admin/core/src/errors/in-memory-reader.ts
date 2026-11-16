@@ -25,8 +25,8 @@ import {
 /**
  * in-memory 実装。
  *
- * `put` で書き込みできるテスト用ヘルパーを兼ねており、
- * Reader / Writer の両方として使える簡易ストア。
+ * 書き込みは持たない。`InMemoryErrorEventWriter` に同じストアを渡して書くと、Item の形
+ * (`UpdatedAt` など) が実際の書き込み経路と揃う。
  */
 export class InMemoryErrorEventReader implements ErrorEventReader {
   private readonly store: InMemorySingleTableStore;
@@ -42,17 +42,7 @@ export class InMemoryErrorEventReader implements ErrorEventReader {
   }
 
   /**
-   * テスト用に 1 件追加する。
-   */
-  public put(event: ErrorEvent): void {
-    this.store.putByKey(
-      this.mapper.buildKeys(this.mapper.getKey(event)),
-      this.mapper.toItem(event)
-    );
-  }
-
-  /**
-   * ストアを空にする。テスト用。
+   * 共有ストアを空にする。Writer が同じストアに書いた Item も消える。テスト用。
    */
   public reset(): void {
     this.store.clear();
