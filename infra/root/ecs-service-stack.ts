@@ -6,9 +6,7 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
-import { SSM_PARAMETERS } from '../common/src/utils/ssm';
-import { importSharedVpc } from '../common/src/utils/vpc';
-import { getEcrRepositoryName } from '../common/src/utils/naming';
+import { SSM_PARAMETERS, importSharedVpc, getEcrRepositoryName } from '@nagiyu/infra-common';
 
 export interface EcsServiceStackProps extends cdk.StackProps {
   environment: string;
