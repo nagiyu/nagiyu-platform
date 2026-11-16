@@ -6,10 +6,10 @@ service: auth
 sources:
   - services/auth/web/src/app/page.tsx
   - services/auth/web/src/app/dashboard/page.tsx
-  - services/auth/web/src/lib/role-display.ts
+  - libs/common/src/auth/roles.ts
   - services/auth/web/src/lib/auth/session.ts
   - libs/nextjs/src/session.ts
-sources_hash: 0f74356b63050e1cf3b01a1d39ef1845644407ec7dcdfa8fea857781e8061f83
+sources_hash: 4e65ea8eeb26389d836f9d725e935ca3eeef5bf504cd1b4212e5feda80d2288d
 terms: [platform/term/role, auth/term/session-roles]
 related_cards: [auth/screen/users, auth/screen/plans, auth/screen/signin]
 ---

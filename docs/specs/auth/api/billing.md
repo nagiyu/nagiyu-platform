@@ -17,7 +17,7 @@ sources:
   - services/auth/core/src/billing/stripe-client.ts
   - services/auth/core/src/billing/sync.ts
   - libs/common/src/auth/roles.ts
-sources_hash: 287b4885342665c40fc733b5ec1f1d8274c37af42558ab6ce67c6380248b8023
+sources_hash: 883a904f90324a0be56923ab1a74e0784bf16ac91693879dc35eab49a20293e8
 terms: [auth/term/plan-tier, auth/term/callback-url, auth/term/api-error, platform/term/role]
 related_cards: [auth/screen/plans, auth/flow/billing-entitlement, auth/api/billing-webhook]
 related_adr:

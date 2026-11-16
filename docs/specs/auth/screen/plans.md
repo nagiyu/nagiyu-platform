@@ -14,7 +14,7 @@ sources:
   - services/auth/web/src/lib/callback-url.ts
   - services/auth/core/src/billing/checkout-policy.ts
   - libs/common/src/auth/roles.ts
-sources_hash: 7f3d6df75be69c93f3dc13b4ccac89420c6ec68b946d81942cb28e1243d093df
+sources_hash: 90f97c5c67d0a350ffe1951fa68c653ba54fa7b5f3dbcb9b3abf5d45e7abf5f8
 terms: [auth/term/plan-tier, auth/term/role-grant, auth/term/callback-url, platform/term/role]
 related_cards: [auth/api/billing, auth/flow/billing-entitlement, auth/screen/refresh, auth/screen/tokushoho, auth/screen/signin]
 related_adr:
