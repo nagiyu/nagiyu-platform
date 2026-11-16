@@ -135,8 +135,22 @@ describe('WebFactMapper', () => {
       );
     });
 
-    it('sourceUrls が配列でなければ空配列にする', () => {
+    it('SourceUrls が無ければ空配列にする', () => {
       expect(mapper.toEntity(buildItem({ SourceUrls: undefined })).sourceUrls).toEqual([]);
+    });
+
+    it('SourceUrls が空のリストなら空配列として読む', () => {
+      expect(mapper.toEntity(buildItem({ SourceUrls: [] })).sourceUrls).toEqual([]);
+    });
+
+    it.each([
+      ['文字列', 'https://example.com'],
+      ['null', null],
+      ['文字列以外の要素を含むリスト', ['https://example.com', 1]],
+    ])('SourceUrls が%sのときは InvalidEntityDataError をスローする', (_label, value) => {
+      expect(() => mapper.toEntity(buildItem({ SourceUrls: value }))).toThrow(
+        InvalidEntityDataError
+      );
     });
 
     it('旧形式の createdAt (ISO 文字列・エポック秒) をミリ秒で読む', () => {
