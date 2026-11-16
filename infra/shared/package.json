@@ -19,6 +19,7 @@
     "destroy": "cdk destroy"
   },
   "dependencies": {
+    "@nagiyu/infra-common": "*",
     "aws-cdk-lib": "^2.273.0"
   }
 }

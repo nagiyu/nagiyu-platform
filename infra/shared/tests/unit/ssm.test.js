@@ -1,7 +1,7 @@
 require('ts-node/register/transpile-only');
-const { SSM_PARAMETERS } = require('../../libs/utils/ssm');
+const { SSM_PARAMETERS } = require('@nagiyu/infra-common');
 
-// SSM パラメータ名は他スタック・他サービスが同じ文字列で参照する契約のため、変更を検知する
+// SSM パラメータ名は shared が書き込み、他サービスが同じ文字列で読む契約のため、書き込む側でも変更を検知する
 describe('SSM_PARAMETERS', () => {
   describe.each(['dev', 'prod'])('環境 %s のパラメータ名', (env) => {
     it.each([
