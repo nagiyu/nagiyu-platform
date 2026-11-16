@@ -13,7 +13,7 @@ sources:
   - libs/browser/src/push.ts
   - services/admin/core/src/notify/subscription-repository.ts
   - services/admin/core/src/notify/web-push-sender.ts
-sources_hash: d558160df9abbf886e816a0a00d6b11ffa0a7458d2500310f20892c4709cfeb6
+sources_hash: d11523c93b01c957b77f57b59d1d89a342a30dbebf3af86a5d3f7cb7fda0662d
 terms: [admin/term/push-subscription, admin/term/permission]
 related_cards: [admin/screen/dashboard, admin/api/notify, admin/api/notify-sns, admin/batch/stream-handler, admin/flow/error-notification]
 related_adr:
