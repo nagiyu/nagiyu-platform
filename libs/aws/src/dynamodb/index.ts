@@ -33,6 +33,7 @@ export {
   readAttribute,
   readTimestamp,
   readOptionalTimestamp,
+  readOptionalField,
   TTL_ATTRIBUTE_NAME,
   toTtlSeconds,
 } from './validators.js';

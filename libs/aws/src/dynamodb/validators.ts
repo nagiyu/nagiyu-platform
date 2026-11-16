@@ -328,6 +328,28 @@ export function readOptionalTimestamp(
   return readTimestamp(item, name, legacyNames, options);
 }
 
+/**
+ * 任意の属性を読み、`validate` で検証して返す。
+ * 属性がなければ undefined、あっても不正なら例外にする (欠落と破損を区別するため)。
+ *
+ * DynamoDB の NULL (値 null) は欠落ではなく値として `validate` に渡す。
+ *
+ * @param validate - 値の検証関数。`validateStringField` 等をそのまま渡せる。fieldName には新名 `name` を渡す
+ * @throws InvalidEntityDataError 値があって不正なとき
+ */
+export function readOptionalField<T>(
+  item: Record<string, unknown>,
+  name: string,
+  validate: (value: unknown, fieldName: string) => T,
+  legacyNames: readonly string[] = []
+): T | undefined {
+  const value = readAttribute(item, name, legacyNames);
+  if (value === undefined) {
+    return undefined;
+  }
+  return validate(value, name);
+}
+
 /** TTL 属性の名前。DynamoDB の TTL はエポック秒しか受け付けないため、他の時刻と単位が異なる */
 export const TTL_ATTRIBUTE_NAME = 'TTL';
 
