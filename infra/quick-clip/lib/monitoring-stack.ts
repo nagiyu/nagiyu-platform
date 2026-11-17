@@ -3,6 +3,7 @@ import * as events from 'aws-cdk-lib/aws-events';
 import * as targets from 'aws-cdk-lib/aws-events-targets';
 import * as sns from 'aws-cdk-lib/aws-sns';
 import { Construct } from 'constructs';
+import { getAdminAlarmTopicArn } from '@nagiyu/infra-common';
 import type { QuickClipEnvironment } from './environment';
 
 export interface MonitoringStackProps extends cdk.StackProps {
@@ -33,10 +34,7 @@ export class MonitoringStack extends cdk.Stack {
     // EventBridge（events.amazonaws.com）からの sns:Publish 許可は
     // admin 側スタック（infra/admin/lib/sns-stack.ts）の topic resource policy で
     // 同一アカウント限定で付与している。ここでは付与しない。
-    const topicArn = this.formatArn({
-      service: 'sns',
-      resource: `nagiyu-admin-alarms-${environment}`,
-    });
+    const topicArn = getAdminAlarmTopicArn(this, environment);
     const topic = sns.Topic.fromTopicArn(this, 'AdminAlarmTopic', topicArn);
 
     const rule = new events.Rule(this, 'BatchJobFailedRule', {

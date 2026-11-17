@@ -32,6 +32,8 @@ export {
   getEcsClusterArn,
   getBatchJobQueueArn,
   getBatchJobDefinitionArn,
+  getAdminAlarmTopicName,
+  getAdminAlarmTopicArn,
 } from './utils/arn';
 export { SSM_PARAMETERS } from './utils/ssm';
 export { SECRET_NAMES } from './utils/secrets';

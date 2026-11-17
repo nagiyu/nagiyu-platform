@@ -5,6 +5,7 @@ import * as sns from 'aws-cdk-lib/aws-sns';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import { Construct } from 'constructs';
+import { getAdminAlarmTopicArn } from '@nagiyu/infra-common';
 
 export interface CloudWatchAlarmsStackProps extends cdk.StackProps {
   environment: string;
@@ -17,7 +18,6 @@ export interface CloudWatchAlarmsStackProps extends cdk.StackProps {
   batchForecastFunction: lambda.IFunction;
   dynamoTable: dynamodb.ITable;
   alarmTopic: sns.ITopic;
-  adminAlarmTopicArn: string;
 }
 
 /**
@@ -41,11 +41,14 @@ export class CloudWatchAlarmsStack extends cdk.Stack {
       batchForecastFunction,
       dynamoTable,
       alarmTopic,
-      adminAlarmTopicArn,
     } = props;
 
     const alarmAction = new cloudwatch_actions.SnsAction(alarmTopic);
-    const adminAlarmTopic = sns.Topic.fromTopicArn(this, 'AdminAlarmTopic', adminAlarmTopicArn);
+    const adminAlarmTopic = sns.Topic.fromTopicArn(
+      this,
+      'AdminAlarmTopic',
+      getAdminAlarmTopicArn(this, environment as 'dev' | 'prod')
+    );
     const adminAlarmAction = new cloudwatch_actions.SnsAction(adminAlarmTopic);
 
     // Lambda Web - エラー率アラーム

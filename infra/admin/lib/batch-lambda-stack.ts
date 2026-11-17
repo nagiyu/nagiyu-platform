@@ -7,7 +7,7 @@ import * as sns from 'aws-cdk-lib/aws-sns';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
 import { SnsEventSource, DynamoEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
 import { Construct } from 'constructs';
-import { createEcrImageFunction, getServiceUrl } from '@nagiyu/infra-common';
+import { createEcrImageFunction, getAdminAlarmTopicArn, getServiceUrl } from '@nagiyu/infra-common';
 
 export interface BatchLambdaStackProps extends cdk.StackProps {
   environment: 'dev' | 'prod';
@@ -50,7 +50,7 @@ export class BatchLambdaStack extends cdk.Stack {
     const errorEventsTableName = `nagiyu-error-events-${environment}`;
     const errorEventsTableArn = `arn:aws:dynamodb:${region}:${account}:table/${errorEventsTableName}`;
     const adminTableArn = `arn:aws:dynamodb:${region}:${account}:table/${adminTableName}`;
-    const adminAlarmTopicArn = `arn:aws:sns:${region}:${account}:nagiyu-admin-alarms-${environment}`;
+    const adminAlarmTopicArn = getAdminAlarmTopicArn(this, environment);
 
     // Admin Web の URL（自分自身、Push 通知の遷移先）
     const adminUrl = getServiceUrl('admin', environment);
