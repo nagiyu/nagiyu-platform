@@ -5,11 +5,10 @@ import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as sns from 'aws-cdk-lib/aws-sns';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
 import { Construct } from 'constructs';
+import { getSelfMonitoringTopicName } from './self-monitoring-topic';
 
 export interface SelfMonitoringAlarmsStackProps extends cdk.StackProps {
   environment: 'dev' | 'prod';
-  /** 通知先となる自己監視 SNS Topic ARN */
-  selfMonitoringTopicArn: string;
   /** alarm-ingest Lambda */
   alarmIngestFunction: lambda.IFunction;
   /** stream-handler Lambda */
@@ -31,12 +30,15 @@ export class SelfMonitoringAlarmsStack extends cdk.Stack {
 
     const {
       environment,
-      selfMonitoringTopicArn,
       alarmIngestFunction,
       streamHandlerFunction,
       streamHandlerDeadLetterQueue,
     } = props;
 
+    const selfMonitoringTopicArn = this.formatArn({
+      service: 'sns',
+      resource: getSelfMonitoringTopicName(environment),
+    });
     const topic = sns.Topic.fromTopicArn(this, 'SelfMonitoringTopic', selfMonitoringTopicArn);
     const action = new cwActions.SnsAction(topic);
 

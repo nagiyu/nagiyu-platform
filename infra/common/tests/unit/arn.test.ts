@@ -1,3 +1,4 @@
+import * as cdk from 'aws-cdk-lib';
 import {
   getLambdaFunctionArn,
   getDynamoDBTableArn,
@@ -9,6 +10,8 @@ import {
   getEcsClusterArn,
   getBatchJobQueueArn,
   getBatchJobDefinitionArn,
+  getAdminAlarmTopicName,
+  getAdminAlarmTopicArn,
 } from '../../src/utils/arn';
 
 describe('arn utilities', () => {
@@ -71,5 +74,52 @@ describe('arn utilities', () => {
     expect(getBatchJobDefinitionArn(region, account, 'nagiyu-niconico-mylist-assistant-dev')).toBe(
       'arn:aws:batch:ap-northeast-1:123456789012:job-definition/nagiyu-niconico-mylist-assistant-dev'
     );
+  });
+
+  it('should generate admin alarm topic name', () => {
+    expect(getAdminAlarmTopicName('dev')).toBe('nagiyu-admin-alarms-dev');
+    expect(getAdminAlarmTopicName('prod')).toBe('nagiyu-admin-alarms-prod');
+  });
+
+  it('should resolve account and region to literals when the stack has env', () => {
+    const app = new cdk.App();
+    const stack = new cdk.Stack(app, 'WithEnv', { env: { account, region } });
+
+    // パーティションだけはトークンのまま残り、account / region は env の値で確定する
+    expect(stack.resolve(getAdminAlarmTopicArn(stack, 'dev'))).toEqual({
+      'Fn::Join': [
+        '',
+        [
+          'arn:',
+          { Ref: 'AWS::Partition' },
+          ':sns:ap-northeast-1:123456789012:nagiyu-admin-alarms-dev',
+        ],
+      ],
+    });
+  });
+
+  it('should keep account and region as tokens when the stack has no env', () => {
+    const app = new cdk.App();
+    const stack = new cdk.Stack(app, 'WithoutEnv');
+
+    const arn = getAdminAlarmTopicArn(stack, 'prod');
+
+    expect(cdk.Token.isUnresolved(arn)).toBe(true);
+    expect(arn).not.toContain('000000000000');
+    expect(arn).not.toContain('undefined');
+    expect(stack.resolve(arn)).toEqual({
+      'Fn::Join': [
+        '',
+        [
+          'arn:',
+          { Ref: 'AWS::Partition' },
+          ':sns:',
+          { Ref: 'AWS::Region' },
+          ':',
+          { Ref: 'AWS::AccountId' },
+          ':nagiyu-admin-alarms-prod',
+        ],
+      ],
+    });
   });
 });
