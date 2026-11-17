@@ -16,9 +16,9 @@ import { Construct } from 'constructs';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import {
   DEFAULT_LAMBDA_LOG_RETENTION,
-  createServiceBucket,
   DEFAULT_LAMBDA_TRACING,
   SSM_PARAMETERS,
+  createServiceBucket,
   grantErrorEventsWrite,
   importSharedVpc,
 } from '@nagiyu/infra-common';
