@@ -68,6 +68,10 @@ export { grantErrorEventsWrite } from './grants/error-events-writer';
 export { createEcrImageFunction } from './functions/ecr-image-function';
 export type { EcrImageFunctionProps } from './functions/ecr-image-function';
 
+// S3 bucket factory
+export { createServiceBucket } from './storage/service-bucket';
+export type { ServiceBucketProps } from './storage/service-bucket';
+
 // Stack base classes
 export { EcrStackBase } from './stacks/ecr-stack-base';
 export type { EcrStackBaseProps } from './stacks/ecr-stack-base';

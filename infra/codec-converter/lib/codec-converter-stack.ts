@@ -16,6 +16,7 @@ import { Construct } from 'constructs';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import {
   DEFAULT_LAMBDA_LOG_RETENTION,
+  createServiceBucket,
   DEFAULT_LAMBDA_TRACING,
   SSM_PARAMETERS,
   grantErrorEventsWrite,
@@ -50,10 +51,8 @@ export class CodecConverterStack extends cdk.Stack {
     const allowedOrigin = this.node.tryGetContext('allowedOrigin') || defaultOrigin;
 
     // S3 Bucket for input/output files
-    const storageBucket = new s3.Bucket(this, 'StorageBucket', {
+    const storageBucket = createServiceBucket(this, 'StorageBucket', {
       bucketName: `nagiyu-codec-converter-storage-${envName}`,
-      encryption: s3.BucketEncryption.S3_MANAGED,
-      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       versioned: false,
       lifecycleRules: [
         {

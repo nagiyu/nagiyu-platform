@@ -35,6 +35,23 @@ describe('ReportsHostingStack', () => {
     });
   });
 
+  it('HTTP アクセスを拒否するバケットポリシーを付ける', () => {
+    const app = new cdk.App();
+    const stack = new ReportsHostingStack(app, 'TestReportsHostingStack', STACK_PROPS);
+
+    const template = Template.fromStack(stack);
+    template.hasResourceProperties('AWS::S3::BucketPolicy', {
+      PolicyDocument: {
+        Statement: Match.arrayWith([
+          Match.objectLike({
+            Effect: 'Deny',
+            Condition: { Bool: { 'aws:SecureTransport': 'false' } },
+          }),
+        ]),
+      },
+    });
+  });
+
   it('3 日でレポートオブジェクトを削除するライフサイクルルールを設定する', () => {
     const app = new cdk.App();
     const stack = new ReportsHostingStack(app, 'TestReportsHostingStack', STACK_PROPS);
