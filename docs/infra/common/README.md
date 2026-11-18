@@ -467,7 +467,9 @@ const responseHeadersPolicy = new cloudfront.ResponseHeadersPolicy(this, 'Securi
 
 ### X-Frame-Options
 
-- フレーム内での表示を拒否 (DENY)
+- フレーム内での表示を拒否 (DENY)。これが既定である
+- 同じオリジンの iframe で自分の画面を描くサイトは、DENY だと表示できない。そのようなサイトだけ SAMEORIGIN にする。他サイトからの埋め込みは、SAMEORIGIN でも拒否される
+- SAMEORIGIN にしているのは、ストーリーを iframe の中に描く Storybook と、トレースのスナップショットを iframe の中に描く E2E レポートである
 
 ### X-XSS-Protection
 
