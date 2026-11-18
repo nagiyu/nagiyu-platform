@@ -42,6 +42,22 @@ test('S3 Bucket Created', () => {
   });
 });
 
+test('S3 Bucket denies non-HTTPS access', () => {
+  const { stack } = createTestStack();
+  const template = Template.fromStack(stack);
+
+  template.hasResourceProperties('AWS::S3::BucketPolicy', {
+    PolicyDocument: {
+      Statement: Match.arrayWith([
+        Match.objectLike({
+          Effect: 'Deny',
+          Condition: { Bool: { 'aws:SecureTransport': 'false' } },
+        }),
+      ]),
+    },
+  });
+});
+
 test('DynamoDB Table Created', () => {
   const { stack } = createTestStack();
   const template = Template.fromStack(stack);

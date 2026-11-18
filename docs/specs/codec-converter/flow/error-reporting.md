@@ -15,7 +15,7 @@ sources:
   - libs/aws/src/error-events/report.ts
   - libs/aws/src/error-events/with-error-reporting.ts
   - infra/codec-converter/lib/codec-converter-stack.ts
-sources_hash: 80138dbd56d9cf6c00b9869eafc45a9cae862964ba6e32f85c6289929dc0593a
+sources_hash: e7feab5afb91e33cb605caf61c7c18d5a43212a98b049b800849364a277330af
 terms: [platform/term/error-event]
 related_cards: [admin/flow/error-notification, codec-converter/api/jobs, codec-converter/batch/convert, codec-converter/flow/conversion]
 ---

@@ -18,6 +18,7 @@ import {
   DEFAULT_LAMBDA_LOG_RETENTION,
   DEFAULT_LAMBDA_TRACING,
   SSM_PARAMETERS,
+  createServiceBucket,
   grantErrorEventsWrite,
   importSharedVpc,
 } from '@nagiyu/infra-common';
@@ -50,10 +51,8 @@ export class CodecConverterStack extends cdk.Stack {
     const allowedOrigin = this.node.tryGetContext('allowedOrigin') || defaultOrigin;
 
     // S3 Bucket for input/output files
-    const storageBucket = new s3.Bucket(this, 'StorageBucket', {
+    const storageBucket = createServiceBucket(this, 'StorageBucket', {
       bucketName: `nagiyu-codec-converter-storage-${envName}`,
-      encryption: s3.BucketEncryption.S3_MANAGED,
-      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       versioned: false,
       lifecycleRules: [
         {
