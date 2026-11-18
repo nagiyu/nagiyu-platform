@@ -72,6 +72,15 @@ export type { EcrImageFunctionProps } from './functions/ecr-image-function';
 export { createServiceBucket } from './storage/service-bucket';
 export type { ServiceBucketProps } from './storage/service-bucket';
 
+// CloudFront parts
+export {
+  createResponseHeadersPolicy,
+  RESPONSE_HEADERS_POLICY_ERROR_MESSAGES,
+} from './cloudfront/response-headers-policy';
+export type { ResponseHeadersPolicyProps } from './cloudfront/response-headers-policy';
+export { createCloudFrontAliasRecord } from './cloudfront/alias-record';
+export type { CloudFrontAliasRecordProps } from './cloudfront/alias-record';
+
 // Stack base classes
 export { EcrStackBase } from './stacks/ecr-stack-base';
 export type { EcrStackBaseProps } from './stacks/ecr-stack-base';
