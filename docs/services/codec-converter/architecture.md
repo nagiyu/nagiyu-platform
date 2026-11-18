@@ -258,7 +258,7 @@ CDK スタック内で責務ごとに分離された構成:
 
 ### セキュリティヘッダー
 
-CloudFront の Response Headers Policy で付けているのは `X-Robots-Tag: noindex, nofollow` だけである。`Strict-Transport-Security` や `Content-Security-Policy` などのセキュリティヘッダーは、設計上の方針としては付ける想定だが、現状は設定していない。
+CloudFront の Response Headers Policy で、全サービス共通のセキュリティヘッダー (`Strict-Transport-Security`、`X-Content-Type-Options`、`X-Frame-Options: DENY`、`X-XSS-Protection`、`Referrer-Policy`) と `X-Robots-Tag: noindex, nofollow` を、すべての behavior に付けている。`Content-Security-Policy` は、設計上の方針としては付ける想定だが、現状は設定していない。
 
 ---
 
