@@ -81,7 +81,7 @@ export class ReportsHostingStack extends cdk.Stack {
       ),
     });
 
-    // セキュリティヘッダーを付け、検索エンジンにインデックスさせない（Portal 以外は常に noindex）。
+    // セキュリティヘッダーを付け、検索エンジンにインデックスさせない (Portal 以外は常に noindex)。
     // Playwright のレポートはトレースのスナップショットを同じオリジンの iframe で描くため、
     // DENY だと表示できない。SAMEORIGIN にとどめる。
     // dev と prod はアカウントが別で、ポリシー名はアカウント内で一意であればよいため、名前を固定する。

@@ -339,7 +339,7 @@ export class CodecConverterStack extends cdk.Stack {
       // ドメイン名（dev/prod 共通で baseDomain から組み立てる。envName によるプレフィックス分岐はしない）
       const domainName = `codec-converter.${baseDomain}`;
 
-      // セキュリティヘッダーを付け、検索エンジンにインデックスさせない（Portal 以外は常に noindex）
+      // セキュリティヘッダーを付け、検索エンジンにインデックスさせない (Portal 以外は常に noindex)
       const securityHeadersPolicy = createResponseHeadersPolicy(this, 'SecurityHeadersPolicy', {
         responseHeadersPolicyName: `nagiyu-codec-converter-security-headers-${envName}`,
         comment: `Security headers for codec-converter service (${envName})`,

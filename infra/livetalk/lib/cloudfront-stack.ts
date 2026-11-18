@@ -91,7 +91,7 @@ export class LiveTalkCloudFrontStack extends cdk.Stack {
       ),
     });
 
-    // セキュリティヘッダーを付け、検索エンジンにインデックスさせない（Portal 以外は常に noindex）
+    // セキュリティヘッダーを付け、検索エンジンにインデックスさせない (Portal 以外は常に noindex)
     const securityHeadersPolicy = createResponseHeadersPolicy(this, 'SecurityHeadersPolicy', {
       responseHeadersPolicyName: `nagiyu-livetalk-security-headers-${environment}`,
       comment: `Security headers for livetalk service (${environment})`,

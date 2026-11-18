@@ -64,8 +64,8 @@ export class StorybookStack extends cdk.Stack {
     );
     const certificate = acm.Certificate.fromCertificateArn(this, 'Certificate', certificateArn);
 
-    // セキュリティヘッダーを付け、検索エンジンにインデックスさせない（Portal 以外は常に noindex）。
-    // Storybook はストーリーを同じオリジンの iframe（iframe.html）で描くため、
+    // セキュリティヘッダーを付け、検索エンジンにインデックスさせない (Portal 以外は常に noindex)。
+    // Storybook はストーリーを同じオリジンの iframe (iframe.html) で描くため、
     // DENY だと表示できない。SAMEORIGIN にとどめる。
     const securityHeadersPolicy = createResponseHeadersPolicy(this, 'SecurityHeadersPolicy', {
       responseHeadersPolicyName: `nagiyu-ui-storybook-security-headers-${environment}`,
