@@ -60,8 +60,8 @@ export function createCloudFrontAliasRecord(
     zoneName ??
     ssm.StringParameter.valueForStringParameter(scope, SSM_PARAMETERS.ROUTE53_HOSTED_ZONE_NAME);
 
-  // 既存スタックの論理 ID を変えないため、ホストゾーンのコンストラクト ID は固定する。
-  const hostedZone = route53.HostedZone.fromHostedZoneAttributes(scope, 'HostedZone', {
+  // 同じ scope に複数のレコードを作っても ID が重ならないよう、レコードの ID から導く。
+  const hostedZone = route53.HostedZone.fromHostedZoneAttributes(scope, `${id}HostedZone`, {
     hostedZoneId,
     zoneName: resolvedZoneName,
   });
