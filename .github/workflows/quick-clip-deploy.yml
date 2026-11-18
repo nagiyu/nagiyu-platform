@@ -378,6 +378,7 @@ jobs:
             NagiyuQuickClipStorage${STACK_SUFFIX} \
             NagiyuQuickClipDynamoDB${STACK_SUFFIX} \
             NagiyuQuickClipBatch${STACK_SUFFIX} \
+            NagiyuQuickClipMonitoring${STACK_SUFFIX} \
             NagiyuQuickClipLambda${STACK_SUFFIX} \
             NagiyuQuickClipCloudFront${STACK_SUFFIX} \
             --context env="$ENVIRONMENT" \
