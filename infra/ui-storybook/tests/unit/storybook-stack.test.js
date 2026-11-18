@@ -114,11 +114,21 @@ describe('StorybookStack', () => {
     });
   });
 
-  it('X-Robots-Tag: noindex, nofollow ヘッダーポリシーが作成されること', () => {
+  it('セキュリティヘッダー (X-Frame-Options は SAMEORIGIN) と noindex を持つヘッダーポリシーが作成されること', () => {
     const template = synth();
     template.hasResourceProperties('AWS::CloudFront::ResponseHeadersPolicy', {
       ResponseHeadersPolicyConfig: Match.objectLike({
-        Name: 'nagiyu-ui-storybook-noindex-dev',
+        Name: 'nagiyu-ui-storybook-security-headers-dev',
+        SecurityHeadersConfig: Match.objectLike({
+          StrictTransportSecurity: Match.objectLike({
+            AccessControlMaxAgeSec: 63072000,
+            IncludeSubdomains: true,
+            Preload: true,
+            Override: true,
+          }),
+          ContentTypeOptions: { Override: true },
+          FrameOptions: { FrameOption: 'SAMEORIGIN', Override: true },
+        }),
         CustomHeadersConfig: {
           Items: Match.arrayWith([
             {
@@ -132,13 +142,13 @@ describe('StorybookStack', () => {
     });
   });
 
-  it('defaultBehavior に X-Robots-Tag ヘッダーポリシーが適用されること', () => {
+  it('defaultBehavior に セキュリティヘッダーポリシーが適用されること', () => {
     const template = synth();
     template.hasResourceProperties('AWS::CloudFront::Distribution', {
       DistributionConfig: Match.objectLike({
         DefaultCacheBehavior: Match.objectLike({
           ResponseHeadersPolicyId: Match.objectLike({
-            Ref: Match.stringLikeRegexp('^NoindexHeadersPolicy'),
+            Ref: Match.stringLikeRegexp('^SecurityHeadersPolicy'),
           }),
         }),
       }),

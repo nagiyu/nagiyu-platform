@@ -3,11 +3,14 @@ import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
 import * as acm from 'aws-cdk-lib/aws-certificatemanager';
-import * as route53 from 'aws-cdk-lib/aws-route53';
-import * as targets from 'aws-cdk-lib/aws-route53-targets';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
-import { SSM_PARAMETERS, createServiceBucket } from '@nagiyu/infra-common';
+import {
+  SSM_PARAMETERS,
+  createCloudFrontAliasRecord,
+  createResponseHeadersPolicy,
+  createServiceBucket,
+} from '@nagiyu/infra-common';
 
 export interface ReportsHostingStackProps extends cdk.StackProps {
   domainName: string;
@@ -78,6 +81,18 @@ export class ReportsHostingStack extends cdk.Stack {
       ),
     });
 
+    // セキュリティヘッダーを付け、検索エンジンにインデックスさせない (Portal 以外は常に noindex)。
+    // Playwright のレポートはトレースのスナップショットを同じオリジンの iframe で描くため、
+    // DENY だと表示できない。SAMEORIGIN にとどめる。
+    // dev と prod はアカウントが別で、ポリシー名はアカウント内で一意であればよいため、名前を固定する。
+    const securityHeadersPolicy = createResponseHeadersPolicy(this, 'SecurityHeadersPolicy', {
+      responseHeadersPolicyName: 'nagiyu-e2e-reports-security-headers',
+      comment: 'Security headers for e2e-reports service',
+      securityHeaders: true,
+      frameOption: 'SAMEORIGIN',
+      noindex: true,
+    });
+
     const reportsDomain = `${REPORTS_SUBDOMAIN}.${props.domainName}`;
 
     this.distribution = new cloudfront.Distribution(this, 'ReportsDistribution', {
@@ -88,6 +103,7 @@ export class ReportsHostingStack extends cdk.Stack {
         allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
         cachedMethods: cloudfront.CachedMethods.CACHE_GET_HEAD_OPTIONS,
         cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
+        responseHeadersPolicy: securityHeadersPolicy,
         compress: true,
         functionAssociations: [
           {
@@ -104,20 +120,11 @@ export class ReportsHostingStack extends cdk.Stack {
       priceClass: cloudfront.PriceClass.PRICE_CLASS_100,
     });
 
-    const hostedZoneId = ssm.StringParameter.valueForStringParameter(
-      this,
-      SSM_PARAMETERS.ROUTE53_HOSTED_ZONE_ID
-    );
-    const hostedZone = route53.HostedZone.fromHostedZoneAttributes(this, 'HostedZone', {
-      hostedZoneId,
-      zoneName: props.domainName,
-    });
-
-    new route53.ARecord(this, 'ReportsAliasRecord', {
-      zone: hostedZone,
+    createCloudFrontAliasRecord(this, 'ReportsAliasRecord', {
+      distribution: this.distribution,
       recordName: REPORTS_SUBDOMAIN,
-      target: route53.RecordTarget.fromAlias(new targets.CloudFrontTarget(this.distribution)),
       comment: 'E2E reports hosting (alias to CloudFront)',
+      zoneName: props.domainName,
     });
 
     new cdk.CfnOutput(this, 'BucketName', {
