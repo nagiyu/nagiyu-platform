@@ -56,14 +56,21 @@ describe('createCloudFrontAliasRecord', () => {
     expect(getRecord().Name).toBeDefined();
   });
 
-  it('ホストゾーンのコンストラクト ID を HostedZone に固定し、ARecord の ID は渡した値を使う', () => {
-    const record = createCloudFrontAliasRecord(stack, 'MyRecord', {
+  it('同じ scope に複数のレコードを作れる', () => {
+    const first = createCloudFrontAliasRecord(stack, 'FirstRecord', {
       distribution,
+      recordName: 'first',
+      comment: 'テスト用',
+    });
+    const second = createCloudFrontAliasRecord(stack, 'SecondRecord', {
+      distribution,
+      recordName: 'second',
       comment: 'テスト用',
     });
 
-    expect(record.node.id).toBe('MyRecord');
-    expect(stack.node.tryFindChild('HostedZone')).toBeDefined();
+    expect(first.node.id).toBe('FirstRecord');
+    expect(second.node.id).toBe('SecondRecord');
+    Template.fromStack(stack).resourceCountIs('AWS::Route53::RecordSet', 2);
   });
 
   it('既定では SSM のホストゾーン ID と名前を引く', () => {
