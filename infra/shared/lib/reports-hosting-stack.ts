@@ -7,7 +7,7 @@ import * as route53 from 'aws-cdk-lib/aws-route53';
 import * as targets from 'aws-cdk-lib/aws-route53-targets';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
-import { SSM_PARAMETERS } from '@nagiyu/infra-common';
+import { SSM_PARAMETERS, createServiceBucket } from '@nagiyu/infra-common';
 
 export interface ReportsHostingStackProps extends cdk.StackProps {
   domainName: string;
@@ -38,10 +38,8 @@ export class ReportsHostingStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: ReportsHostingStackProps) {
     super(scope, id, props);
 
-    this.bucket = new s3.Bucket(this, 'ReportsBucket', {
+    this.bucket = createServiceBucket(this, 'ReportsBucket', {
       bucketName: props.bucketName ?? DEFAULT_REPORTS_BUCKET_NAME,
-      encryption: s3.BucketEncryption.S3_MANAGED,
-      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       versioned: false,
       lifecycleRules: [
         {
