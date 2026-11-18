@@ -10,14 +10,14 @@ import * as acm from 'aws-cdk-lib/aws-certificatemanager';
 import * as batch from 'aws-cdk-lib/aws-batch';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as logs from 'aws-cdk-lib/aws-logs';
-import * as route53 from 'aws-cdk-lib/aws-route53';
-import * as targets from 'aws-cdk-lib/aws-route53-targets';
 import { Construct } from 'constructs';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import {
   DEFAULT_LAMBDA_LOG_RETENTION,
   DEFAULT_LAMBDA_TRACING,
   SSM_PARAMETERS,
+  createCloudFrontAliasRecord,
+  createResponseHeadersPolicy,
   createServiceBucket,
   grantErrorEventsWrite,
   importSharedVpc,
@@ -339,24 +339,13 @@ export class CodecConverterStack extends cdk.Stack {
       // ドメイン名（dev/prod 共通で baseDomain から組み立てる。envName によるプレフィックス分岐はしない）
       const domainName = `codec-converter.${baseDomain}`;
 
-      // 検索エンジンにインデックスさせない（Portal 以外は常に noindex）
-      const noindexHeadersPolicy = new cloudfront.ResponseHeadersPolicy(
-        this,
-        'NoindexHeadersPolicy',
-        {
-          responseHeadersPolicyName: `nagiyu-codec-converter-noindex-${envName}`,
-          comment: `X-Robots-Tag: noindex, nofollow for codec-converter (${envName})`,
-          customHeadersBehavior: {
-            customHeaders: [
-              {
-                header: 'X-Robots-Tag',
-                value: 'noindex, nofollow',
-                override: true,
-              },
-            ],
-          },
-        }
-      );
+      // セキュリティヘッダーを付け、検索エンジンにインデックスさせない（Portal 以外は常に noindex）
+      const securityHeadersPolicy = createResponseHeadersPolicy(this, 'SecurityHeadersPolicy', {
+        responseHeadersPolicyName: `nagiyu-codec-converter-security-headers-${envName}`,
+        comment: `Security headers for codec-converter service (${envName})`,
+        securityHeaders: true,
+        noindex: true,
+      });
 
       // CloudFront Distribution
       const distribution = new cloudfront.Distribution(this, 'Distribution', {
@@ -369,7 +358,7 @@ export class CodecConverterStack extends cdk.Stack {
           allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
           cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
           originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
-          responseHeadersPolicy: noindexHeadersPolicy,
+          responseHeadersPolicy: securityHeadersPolicy,
           compress: true,
         },
         additionalBehaviors: {
@@ -379,7 +368,7 @@ export class CodecConverterStack extends cdk.Stack {
             allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
             cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
             originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
-            responseHeadersPolicy: noindexHeadersPolicy,
+            responseHeadersPolicy: securityHeadersPolicy,
             compress: true,
           },
           '/_next/static/*': {
@@ -391,7 +380,7 @@ export class CodecConverterStack extends cdk.Stack {
               maxTtl: cdk.Duration.days(365),
               minTtl: cdk.Duration.days(365),
             }),
-            responseHeadersPolicy: noindexHeadersPolicy,
+            responseHeadersPolicy: securityHeadersPolicy,
             compress: true,
           },
           '/favicon.ico': {
@@ -403,7 +392,7 @@ export class CodecConverterStack extends cdk.Stack {
               maxTtl: cdk.Duration.days(1),
               minTtl: cdk.Duration.days(1),
             }),
-            responseHeadersPolicy: noindexHeadersPolicy,
+            responseHeadersPolicy: securityHeadersPolicy,
             compress: true,
           },
         },
@@ -413,23 +402,9 @@ export class CodecConverterStack extends cdk.Stack {
       // prod は既存の CNAME 直書き（infra/shared/lib/route53-records-stack.ts）で管理されているため、
       // ここではレコードを作成しない。
       if (envName === 'dev') {
-        const hostedZoneId = ssm.StringParameter.valueForStringParameter(
-          this,
-          SSM_PARAMETERS.ROUTE53_HOSTED_ZONE_ID
-        );
-        const hostedZoneName = ssm.StringParameter.valueForStringParameter(
-          this,
-          SSM_PARAMETERS.ROUTE53_HOSTED_ZONE_NAME
-        );
-        const hostedZone = route53.HostedZone.fromHostedZoneAttributes(this, 'HostedZone', {
-          hostedZoneId,
-          zoneName: hostedZoneName,
-        });
-
-        new route53.ARecord(this, 'AliasRecord', {
-          zone: hostedZone,
+        createCloudFrontAliasRecord(this, 'AliasRecord', {
+          distribution,
           recordName: 'codec-converter',
-          target: route53.RecordTarget.fromAlias(new targets.CloudFrontTarget(distribution)),
           comment: `Codec Converter (${envName}) - alias to CloudFront`,
         });
       }

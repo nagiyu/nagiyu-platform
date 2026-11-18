@@ -115,6 +115,11 @@ describe('LiveTalkCloudFrontStack', () => {
     });
   });
 
+  it('旧 noindex 専用ポリシーが残らないこと', () => {
+    const template = synth('dev');
+    template.resourceCountIs('AWS::CloudFront::ResponseHeadersPolicy', 1);
+  });
+
   it('prod 環境でも SSM Parameter を prod パスで出力する', () => {
     const template = synth('prod');
     template.hasResourceProperties('AWS::SSM::Parameter', {
@@ -250,6 +255,11 @@ describe('LiveTalkCloudFrontStack', () => {
     });
   });
 
+  it('旧 noindex 専用ポリシーが残らないこと', () => {
+    const template = synth('dev');
+    template.resourceCountIs('AWS::CloudFront::ResponseHeadersPolicy', 1);
+  });
+
   it('prod 環境でも assets バケット名を SSM Parameter (prod パス) で出力する', () => {
     const template = synth('prod');
     template.hasResourceProperties('AWS::SSM::Parameter', {
@@ -292,11 +302,21 @@ describe('LiveTalkCloudFrontStack', () => {
     });
   });
 
-  it('X-Robots-Tag: noindex, nofollow ヘッダーポリシーが作成されること', () => {
+  it('セキュリティヘッダーと X-Robots-Tag: noindex, nofollow を持つヘッダーポリシーが作成されること', () => {
     const template = synth('dev');
     template.hasResourceProperties('AWS::CloudFront::ResponseHeadersPolicy', {
       ResponseHeadersPolicyConfig: Match.objectLike({
-        Name: 'nagiyu-livetalk-noindex-dev',
+        Name: 'nagiyu-livetalk-security-headers-dev',
+        SecurityHeadersConfig: Match.objectLike({
+          StrictTransportSecurity: Match.objectLike({
+            AccessControlMaxAgeSec: 63072000,
+            IncludeSubdomains: true,
+            Preload: true,
+            Override: true,
+          }),
+          ContentTypeOptions: { Override: true },
+          FrameOptions: { FrameOption: 'DENY', Override: true },
+        }),
         CustomHeadersConfig: {
           Items: Match.arrayWith([
             {
@@ -310,21 +330,21 @@ describe('LiveTalkCloudFrontStack', () => {
     });
   });
 
-  it('defaultBehavior に X-Robots-Tag ヘッダーポリシーが適用されること', () => {
+  it('defaultBehavior に セキュリティヘッダーポリシーが適用されること', () => {
     const template = synth('dev');
     // ResponseHeadersPolicy の論理 ID を含む参照が DefaultCacheBehavior に存在することを確認
     template.hasResourceProperties('AWS::CloudFront::Distribution', {
       DistributionConfig: Match.objectLike({
         DefaultCacheBehavior: Match.objectLike({
           ResponseHeadersPolicyId: Match.objectLike({
-            Ref: Match.stringLikeRegexp('^NoindexHeadersPolicy'),
+            Ref: Match.stringLikeRegexp('^SecurityHeadersPolicy'),
           }),
         }),
       }),
     });
   });
 
-  it('/assets/* ビヘイビアにも X-Robots-Tag ヘッダーポリシーが適用されること', () => {
+  it('/assets/* ビヘイビアにも セキュリティヘッダーポリシーが適用されること', () => {
     const template = synth('dev');
     template.hasResourceProperties('AWS::CloudFront::Distribution', {
       DistributionConfig: Match.objectLike({
@@ -332,7 +352,7 @@ describe('LiveTalkCloudFrontStack', () => {
           Match.objectLike({
             PathPattern: '/assets/*',
             ResponseHeadersPolicyId: Match.objectLike({
-              Ref: Match.stringLikeRegexp('^NoindexHeadersPolicy'),
+              Ref: Match.stringLikeRegexp('^SecurityHeadersPolicy'),
             }),
           }),
         ]),
@@ -340,11 +360,16 @@ describe('LiveTalkCloudFrontStack', () => {
     });
   });
 
-  it('prod 環境でも X-Robots-Tag ヘッダーポリシー名に prod が含まれること', () => {
+  it('旧 noindex 専用ポリシーが残らないこと', () => {
+    const template = synth('dev');
+    template.resourceCountIs('AWS::CloudFront::ResponseHeadersPolicy', 1);
+  });
+
+  it('prod 環境でも ヘッダーポリシー名に prod が含まれること', () => {
     const template = synth('prod');
     template.hasResourceProperties('AWS::CloudFront::ResponseHeadersPolicy', {
       ResponseHeadersPolicyConfig: Match.objectLike({
-        Name: 'nagiyu-livetalk-noindex-prod',
+        Name: 'nagiyu-livetalk-security-headers-prod',
       }),
     });
   });

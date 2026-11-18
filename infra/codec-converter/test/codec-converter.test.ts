@@ -226,13 +226,23 @@ test('Lambda has Batch permissions', () => {
   });
 });
 
-test('X-Robots-Tag: noindex, nofollow ヘッダーポリシーが作成される', () => {
+test('セキュリティヘッダーと X-Robots-Tag: noindex, nofollow を持つヘッダーポリシーが作成される', () => {
   const { stack } = createTestStack();
   const template = Template.fromStack(stack);
 
   template.hasResourceProperties('AWS::CloudFront::ResponseHeadersPolicy', {
     ResponseHeadersPolicyConfig: Match.objectLike({
-      Name: Match.stringLikeRegexp('nagiyu-codec-converter-noindex-.*'),
+      Name: Match.stringLikeRegexp('nagiyu-codec-converter-security-headers-.*'),
+      SecurityHeadersConfig: Match.objectLike({
+        StrictTransportSecurity: Match.objectLike({
+          AccessControlMaxAgeSec: 63072000,
+          IncludeSubdomains: true,
+          Preload: true,
+          Override: true,
+        }),
+        ContentTypeOptions: { Override: true },
+        FrameOptions: { FrameOption: 'DENY', Override: true },
+      }),
       CustomHeadersConfig: {
         Items: Match.arrayWith([
           {
@@ -246,17 +256,21 @@ test('X-Robots-Tag: noindex, nofollow ヘッダーポリシーが作成される
   });
 });
 
-test('CloudFront defaultBehavior に X-Robots-Tag ヘッダーポリシーが適用される', () => {
+test('CloudFront の全 behavior にセキュリティヘッダーポリシーが適用される', () => {
   const { stack } = createTestStack();
   const template = Template.fromStack(stack);
 
+  const policyRef = Match.objectLike({
+    Ref: Match.stringLikeRegexp('^SecurityHeadersPolicy'),
+  });
   template.hasResourceProperties('AWS::CloudFront::Distribution', {
     DistributionConfig: Match.objectLike({
-      DefaultCacheBehavior: Match.objectLike({
-        ResponseHeadersPolicyId: Match.objectLike({
-          Ref: Match.stringLikeRegexp('^NoindexHeadersPolicy'),
-        }),
-      }),
+      DefaultCacheBehavior: Match.objectLike({ ResponseHeadersPolicyId: policyRef }),
+      CacheBehaviors: Match.arrayEquals([
+        Match.objectLike({ ResponseHeadersPolicyId: policyRef }),
+        Match.objectLike({ ResponseHeadersPolicyId: policyRef }),
+        Match.objectLike({ ResponseHeadersPolicyId: policyRef }),
+      ]),
     }),
   });
 });
