@@ -16,6 +16,7 @@ Codec Converter のインフラは CDK で定義されており、以下の構�
 infra/codec-converter/
 ├── lib/
 │   ├── codec-converter-stack.ts    # メインスタック
+│   ├── ecr-stacks.ts               # ECR スタック (Web 用と Batch 用)
 │   ├── policies/
 │   │   └── app-runtime-policy.ts   # Lambda 実行ロールが使用する実行権限
 │   └── roles/
@@ -53,63 +54,56 @@ infra/codec-converter/
 
 #### ステップ 1: ECR リポジトリの作成
 
-初回のみ、ECR リポジトリを作成します。
+ECR は本体とは別の 2 つのスタック (Web 用と Batch 用) にある。本体の Lambda とジョブ定義はイメージを参照するので、先にリポジトリを作ってイメージを push する。
 
 ```bash
-# dev 環境
-npm run deploy -w codec-converter -- --context env=dev --context deploymentPhase=ecr-only
-
-# prod 環境
-npm run deploy -w codec-converter -- --context env=prod --context deploymentPhase=ecr-only
+# dev 環境 (prod は env=prod、スタック名の末尾を Prod にする)
+npm run cdk --workspace=@nagiyu/infra-codec-converter -- deploy \
+    NagiyuCodecConverterECRDev NagiyuCodecConverterBatchECRDev \
+    --context env=dev
 ```
 
 #### ステップ 2: Docker イメージのビルド・プッシュ
 
+イメージのタグは 1 つだけ決め、Lambda 用と Batch 用の両方に同じタグを付ける。CI ではコミットの sha を使う。動くタグ (`latest`) は使わない。同じタグのままでは CloudFormation がイメージの入れ替わりに気づかず、Lambda もジョブ定義も更新されないためである。
+
+```bash
+export IMAGE_TAG=$(git rev-parse HEAD)
+export AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+export ECR_REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com"
+
+aws ecr get-login-password --region us-east-1 | \
+    docker login --username AWS --password-stdin ${ECR_REGISTRY}
+```
+
+ビルドは CI と同じく BuildKit を切って行う (`DOCKER_BUILDKIT=0`)。BuildKit が付ける attestation つきのイメージを、Lambda が受け付けないことがあるためである。
+
 ##### Lambda イメージ (Next.js)
 
 ```bash
-# 1. リポジトリ URI を取得
-export AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-export LAMBDA_REPO_URI="${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/codec-converter-dev"
+export LAMBDA_REPO_URI="${ECR_REGISTRY}/nagiyu-codec-converter-ecr-dev"
 
-# 2. ECR にログイン
-aws ecr get-login-password --region us-east-1 | \
-    docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com
-
-# 3. ビルド
-cd services/codec-converter
-docker build -t codec-converter:latest .
-
-# 4. タグ付け・プッシュ
-docker tag codec-converter:latest ${LAMBDA_REPO_URI}:latest
-docker push ${LAMBDA_REPO_URI}:latest
+DOCKER_BUILDKIT=0 docker build -t ${LAMBDA_REPO_URI}:${IMAGE_TAG} -f services/codec-converter/web/Dockerfile .
+docker push ${LAMBDA_REPO_URI}:${IMAGE_TAG}
 ```
 
 ##### Batch Worker イメージ (FFmpeg)
 
 ```bash
-# 1. リポジトリ URI を取得
-export WORKER_REPO_URI="${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/codec-converter-ffmpeg-dev"
+export WORKER_REPO_URI="${ECR_REGISTRY}/nagiyu-codec-converter-batch-ecr-dev"
 
-# 2. ビルド
-cd workers/codec-converter-ffmpeg
-docker build -t codec-converter-ffmpeg:latest .
-
-# 3. タグ付け・プッシュ
-docker tag codec-converter-ffmpeg:latest ${WORKER_REPO_URI}:latest
-docker push ${WORKER_REPO_URI}:latest
+DOCKER_BUILDKIT=0 docker build -t ${WORKER_REPO_URI}:${IMAGE_TAG} -f services/codec-converter/batch/Dockerfile .
+docker push ${WORKER_REPO_URI}:${IMAGE_TAG}
 ```
 
-#### ステップ 3: フルデプロイ
+#### ステップ 3: 本体のデプロイ
 
-すべてのリソース（Lambda, Batch, CloudFront など）をデプロイします。
+Lambda、Batch、CloudFront などをデプロイする。CDK は環境変数 `IMAGE_TAG` のタグを Lambda とジョブ定義に書き込むので、ステップ 2 と同じ値を渡す。
 
 ```bash
-# dev 環境
-npm run deploy -w codec-converter -- --context env=dev --context deploymentPhase=full
-
-# prod 環境
-npm run deploy -w codec-converter -- --context env=prod --context deploymentPhase=full
+# dev 環境 (prod は env=prod、スタック名を NagiyuCodecConverterProd にする)
+IMAGE_TAG=${IMAGE_TAG} npm run deploy --workspace=@nagiyu/infra-codec-converter -- \
+    NagiyuCodecConverterDev --context env=dev
 ```
 
 ---
@@ -124,22 +118,11 @@ npm run deploy -w codec-converter -- --context env=prod --context deploymentPhas
 
 ### 3.1 アプリケーションコードの更新
 
-Lambda (Next.js) またはWorker (FFmpeg) のコードを変更した場合:
-
-```bash
-# 1. Docker イメージをビルド・プッシュ（ステップ 2 と同じ）
-
-# 2. Lambda 関数を更新
-npm run deploy -w codec-converter -- --context env=dev --context deploymentPhase=full
-```
+Lambda (Next.js) または Worker (FFmpeg) のコードを変更した場合は、新しいタグでイメージを push し (ステップ 2)、同じタグを渡して本体をデプロイする (ステップ 3)。
 
 ### 3.2 インフラ設定の変更
 
-CDK スタック（IAM ロール、環境変数など）を変更した場合:
-
-```bash
-npm run deploy -w codec-converter -- --context env=dev --context deploymentPhase=full
-```
+CDK スタック (IAM ロール、環境変数など) だけを変更した場合は、ステップ 3 だけでよい。`IMAGE_TAG` には、いま動いているイメージのタグ (ECR に実在するもの) を渡す。イメージも作り直すなら、ステップ 2 から通す。
 
 ---
 
@@ -267,7 +250,7 @@ aws ecr get-login-password --region us-east-1 | \
 
 1. ECR イメージが存在するか確認
    ```bash
-   aws ecr describe-images --repository-name codec-converter-dev --region us-east-1
+   aws ecr describe-images --repository-name nagiyu-codec-converter-ecr-dev --region us-east-1
    ```
 2. Lambda の環境変数が正しく設定されているか確認
 3. Lambda 実行ロールに必要な権限があるか確認
@@ -278,23 +261,27 @@ aws ecr get-login-password --region us-east-1 | \
 
 ### 7.1 Lambda のロールバック
 
-以前のイメージタグに戻す:
+以前のイメージのタグを渡して、本体をデプロイし直す。
 
 ```bash
-# 1. 以前のイメージタグを確認
-aws ecr describe-images --repository-name codec-converter-dev --region us-east-1
+# 1. 以前のイメージのタグを確認
+aws ecr describe-images --repository-name nagiyu-codec-converter-ecr-dev --region us-east-1
 
-# 2. CDK で特定のイメージタグを指定してデプロイ
-npm run deploy -w codec-converter -- --context env=dev --context imageTag=<previous-tag> --context deploymentPhase=full
+# 2. そのタグを指定してデプロイ
+IMAGE_TAG=<previous-tag> npm run deploy --workspace=@nagiyu/infra-codec-converter -- \
+    NagiyuCodecConverterDev --context env=dev
 ```
+
+Batch 用のリポジトリにも同じタグのイメージが残っている必要がある。リポジトリは直近 10 イメージだけを残す。
 
 ### 7.2 インフラのロールバック
 
-CDK スタック全体をロールバックする場合は、Git で以前のコミットに戻してから再デプロイ:
+CDK スタック全体を戻す場合は、Git で以前のコミットに戻し、そのコミットのタグを渡して再デプロイする。
 
 ```bash
 git checkout <previous-commit>
-npm run deploy -w codec-converter -- --context env=dev --context deploymentPhase=full
+IMAGE_TAG=$(git rev-parse HEAD) npm run deploy --workspace=@nagiyu/infra-codec-converter -- \
+    NagiyuCodecConverterDev --context env=dev
 ```
 
 ---
@@ -306,11 +293,12 @@ npm run deploy -w codec-converter -- --context env=dev --context deploymentPhase
 **注意**: S3 バケットと DynamoDB テーブルは `removalPolicy: DESTROY` が設定されているため、スタック削除時にデータも削除されます。
 
 ```bash
-# dev 環境を削除
-npm run cdk -w codec-converter -- destroy --context env=dev --context deploymentPhase=full
+# dev 環境の本体を削除
+npm run cdk --workspace=@nagiyu/infra-codec-converter -- destroy NagiyuCodecConverterDev --context env=dev
 
 # ECR リポジトリも削除する場合
-npm run cdk -w codec-converter -- destroy --context env=dev --context deploymentPhase=ecr-only
+npm run cdk --workspace=@nagiyu/infra-codec-converter -- destroy \
+    NagiyuCodecConverterECRDev NagiyuCodecConverterBatchECRDev --context env=dev
 ```
 
 ---

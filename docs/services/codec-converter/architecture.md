@@ -303,10 +303,10 @@ CloudFront の Response Headers Policy で、全サービス共通のセキュ�
    - `develop` → `dev`
    - `master` → `prod`
 2. 共通ライブラリのビルド（依存関係順: common → browser → ui）
-3. Lambda コンテナイメージのビルド・プッシュ（ECR）
-4. Batch Worker コンテナイメージのビルド・プッシュ（ECR）
-5. Lambda関数の更新（イメージ URI 更新）
-6. Batchジョブ定義の更新
+3. ECR スタックのデプロイ（Web 用と Batch 用）
+4. Lambda コンテナイメージのビルド・プッシュ（タグはコミットの sha）
+5. Batch Worker コンテナイメージのビルド・プッシュ（同じタグ）
+6. 本体スタックのデプロイ（Lambda 関数と Batch ジョブ定義が、そのタグのイメージへ更新される）
 
 ### テスト戦略
 
