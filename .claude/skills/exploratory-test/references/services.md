@@ -38,17 +38,22 @@
 - Playwright の `fill()` は数十万文字で 30 秒のタイムアウトになる。巨大な入力は value setter と input イベントで流す。
 - クリップボードを使う機能は、context の permissions で許可する。
 - ロールは `x-test-user-roles` ヘッダで差し替える (対応しているサービスのみ)。
+- `ERROR_EVENTS_TABLE_NAME` が無いサービスでは、500 のたびにサーバーログへ `ERROR_EVENTS_TABLE_NAME が設定されていません` が出る。害はない。
+- `next dev` だけで起きる挙動がある。たとえば admin の一覧 API は、不正な cursor に `next dev` では 500 を返すが、本番ビルドでは 400 を返す。API のステータスが怪しいときは、本番ビルドでも確かめてもらうよう報告に書く。
 
 ## tools (段階 A)
 
 - 認証なし。環境変数も不要。`.env.test` が無いので、起動の形から `DOTENV_CONFIG_PATH` と `NODE_OPTIONS` の指定を外す。
 - 数十万文字の入力は value setter で流す。クリップボードを使うツールは permissions を許可する。
+- 初回の移行ダイアログは、`addInitScript` で `localStorage.setItem('tools-migration-dialog-shown', JSON.stringify('true'))` を入れると出ない。
+- Base64 と URL の画面は、モードの切り替えと変換のボタンが同じ表示名 (「エンコード」「デコード」)。変換のボタンは aria-label (`/^入力を/`) で取る。
 
 ## portal (段階 A)
 
 - 環境変数も seed もモックも不要。`.env.test` が無いので、起動の形から `DOTENV_CONFIG_PATH` と `NODE_OPTIONS` の指定を外す。
 - 記事の描画の不具合は CSS (MarkdownContent の sx) に集中している。はみ出しを `document.documentElement.scrollWidth` で見られる (`html` や `body` に `overflow-x: hidden` は無い)。併せて要素ごとの右端 (`getBoundingClientRect().right`) も測ると、はみ出している要素まで特定できる。閉じたドロワーの Paper は画面の外に置かれているので、測定から除く。
 - dev (https://dev.nagiyu.com) は認証不要で、ローカルと見比べられる。
+- 390px で問題が出なくても、320px で出ることがある。はみ出しは 320px でも測る。
 
 ## share-together (段階 A)
 
@@ -57,6 +62,8 @@
 - `POST /api/test/reset` に seed (users / groups / memberships / lists / todos。形は `tests/e2e/helpers` の `ResetSeedData`) を渡すと、他ユーザーのデータを作れる。招待する側とされる側、メンバーと非メンバーの状況を作れる。
 - reset はユーザーを作り直さない。同じタブで reset すると、sessionStorage の登録済みフラグのせいでデフォルトリストが無いままになる。毎回新しい browser context を使う。
 - `/api/auth/session` はテスト時に null を返す (ヘッダにアカウントメニューが出ないだけ)。
+- どのページにも `<main>` が 2 つある。`locator('main')` は strict mode 違反になるので、`main main` で取る。
+- reset の seed に `test-user-id` の users と既定の個人リストを自分で入れると、sessionStorage の登録済みフラグを気にせずに使える。
 
 ## stock-tracker (段階 A)
 
@@ -68,7 +75,9 @@
 - DailySummary は seed できないので、サマリーの詳細と確度の表示は探索できない。
 - アラートの作成には Web Push の購読のモックが要る (`tests/e2e/alert-management.spec.ts` の `mockPushSubscription`)。
 - チャート (TradingView) は TSE (例: `TSE:7203`) なら取得できる。NASDAQ は API キーを `NASDAQ` にする (`NSDQ` は無効)。
-- 「サマリー更新」は Lambda を呼ぶので、ローカルでは 500 になる。
+- 「サマリー更新」は、実在する dev の Lambda を呼びにいく。ローカルでは権限が無く 500 になるが、押さないか、route でモックする。
+- seed の tickers には `tickerId` を自分で渡す (`{取引所の API キー}:{シンボル}` にそろえる)。exchanges の取引時間は、`start` と `end` をトップレベルに置く。
+- 権限なしのロールは、`x-test-user-roles` に関係の無い文字列を入れれば作れる。
 
 ## niconico-mylist-assistant (段階 A)
 
@@ -78,6 +87,7 @@
     - `/api/mylist/register` と `/api/batch/status/**`
 - seed 動画のサムネイルは `https://example.com/*.jpg` なので、route で 1x1 の PNG を返す。
 - ニコニコの実 API は読み取りなら動く (検索、`sm9` の getthumbinfo)。外部への書き込み (マイリスト登録の実行) はしない。
+- 更新中で無効になったボタンへのクリックは、`page.mouse.click` を座標で打って確かめる。`force` のクリックはカードを開いてしまう。
 
 ## auth (段階 B)
 
@@ -85,6 +95,8 @@
 - ユーザーを seed する手段が無い (OAuth の signIn コールバックでしか作られない)。一覧と編集の UI は `page.route('**/api/users?*')` などでモックし、実 API は権限、検証、404 の確認に使う。
 - 「Google でサインイン」は、`accounts.google.com` を route で止めれば、遷移先と `authjs.callback-url` の Set-Cookie を観察できる。`next dev` では `__Host-` や `__Secure-` 付きの Cookie がブラウザに保存されない (Secure が付かない) ので、Set-Cookie ヘッダで確かめる。
 - 編集画面のチェックボックスの name は `exact: true` で指定する (`admin` が `stock-admin` にも部分一致する)。
+- 課金 (Stripe) は環境変数が無いと無効で、`/plans` は「準備中です」だけになる。プランの各状態はローカルでは探索できない。
+- サインアウトの実行と `/refresh` の更新は、`next dev` では CSRF の Cookie が保存されず、MissingCSRF で失敗する。ローカルでは確かめられない。
 
 ## livetalk (段階 B)
 
@@ -94,6 +106,9 @@
 - 同意は一度 POST すると保持される。リセットはサーバーの再起動か、`/api/consent` の GET のモック。
 - チャットは `page.route('**/api/chat')` で NDJSON を返せば、text / sentence (base64 の WAV) / safety / lifecycle / error / done を再現できる。音声つきはアゲハ (`?character=ageha`) で見る。
 - 記憶とノートは `/api/memory` と `/api/notes` の GET / DELETE をモックする。admin は `x-test-user-roles: livetalk-admin` で `/status` が開く。
+- 失敗した chat も、レートリミット (1 分 10 回) を消費する。画面の確認はモックで行う。
+- `DELETE /api/memory/:id` は、OpenAI のキーが無いと 500 になる。削除の画面は `**/api/memory/*` のモックで確かめる。
+- 同意モーダルのチェックボックスは `data-testid` が効かない。`getByRole('checkbox').nth(i)` で取る。
 
 ## admin (段階 B、偽の DynamoDB)
 
@@ -120,6 +135,8 @@
 - キー: PK=`ERROR_EVENT#<サービス>`、SK と GSI1SK=`OCCURRED#<iso>#<id>`、GSI1PK=`ERROR_EVENT_ALL`、GSI 名 `AllByOccurredAt`。
 - ロールは `x-test-user-roles` でサーバーとクライアントのセッションの両方に効く。空のロールは表現できず、既定の admin に戻る。
 - Push は headless の chromium では使えない。`PushManager.prototype.subscribe` を `addInitScript` でモックする。
+- 一覧 API が 500 を返すと、同じ errors テーブルへ `serviceId=admin` の事象が書かれ、一覧の件数が変わる。比較の前に `POST /__reset` で消して、seed を入れ直す。
+- 偽の DynamoDB の `/__log` で、GetItem と Query のキーを見られる。
 
 ## codec-converter (段階 C、偽の AWS)
 
@@ -138,6 +155,9 @@
 - ブラウザから署名付き URL へ直接 PUT するので、偽のサーバーは CORS に応える。
 - job と patch の引数は camelCase (`status` / `outputFile` / `errorMessage` / `expiresAt` など。`expiresAt` は秒)。偽のサーバーが保存時に、実データと同じ PascalCase (`Status` / `OutputFile` / `ErrorMessage` / `TTL` など) に直す。キーの `jobId` だけは camelCase のまま。
 - 管理用: `POST /__admin/job` (seed)、`POST /__admin/patch {jobId,status,outputFile,errorMessage}` (状態の遷移)、`POST /__admin/toggles` (障害注入: s3PutFail / s3HeadFail / batchFail / ddbFail / delayMs)。
+- `.env.test` が無いので、`DOTENV_CONFIG_PATH` と `NODE_OPTIONS` の指定は外し、環境変数を直接渡す。
+- アップロード中の「変換開始」ボタンは、role の名前で引けなくなる。`button[type=submit]` で取る。
+- 偽のサーバーは、署名、チェックサム、DynamoDB の 400KB の上限を検証しない。
 
 ## quick-clip (段階 C、偽の AWS)
 
@@ -161,3 +181,7 @@
 - `tests/fixtures/sample.mp4` は 14 バイトのダミー。マルチパートを試すなら、100MB 以上のファイルを作業ディレクトリに作り、使い終わったら消す。
 - 広告は `NEXT_PUBLIC_VAST_TAG_URL` を付けて再起動する (コンパイル時に埋め込まれる)。`page.route('https://imasdk.googleapis.com/**')` で abort や hang を制御する。
 - 見どころ画面は PC のみの仕様。採否のラジオは楽観更新ではないので、`check()` ではなく `click()`。
+- `AUTH_SECRET` にダミーの値を渡す。無いと `/api/auth/session` が毎回 500 になり、コンソールがエラーで埋まる (匿名での利用は動く)。
+- `putObject` の `key` は、先頭にバケット名を付ける (`qc-bucket/outputs/<jobId>/transcript.json`)。付けないと NoSuchKey になり、文字起こしは空で返る。
+- 偽のサーバーは UpdateItem の `ADD` に対応していない。利用回数が増えないので、利用上限の画面は `page.route` で `/api/usage` と `/api/jobs` をモックして見る。
+- `s3PutFail` は単一の PUT にだけ効き、マルチパートの UploadPart には効かない。
