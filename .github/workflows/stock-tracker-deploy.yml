@@ -53,12 +53,24 @@ jobs:
       environment: ${{ steps.setup-environment.outputs.environment }}
       stack-suffix: ${{ steps.setup-environment.outputs.stack-suffix }}
 
+    # 検査と同じ実行環境でビルドとデプロイを行うため、共通イメージの上で動かす。docker のデーモンはランナーのものを使う
+    container:
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v2
+
+    # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
+    defaults:
+      run:
+        shell: bash
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Setup Node.js and install dependencies
         uses: ./.github/actions/setup-node
+        with:
+          # Node はイメージに入っているものを使う
+          skip-setup-node: 'true'
 
       - name: Setup deployment environment
         id: setup-environment
@@ -100,6 +112,15 @@ jobs:
       image-uri: ${{ steps.build-image.outputs.image-uri }}
       app-version: ${{ steps.get-version.outputs.app-version }}
 
+    # 検査と同じ実行環境でビルドとデプロイを行うため、共通イメージの上で動かす。docker のデーモンはランナーのものを使う
+    container:
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v2
+
+    # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
+    defaults:
+      run:
+        shell: bash
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -115,6 +136,8 @@ jobs:
       - name: Build Web application
         uses: ./.github/actions/build-web-app
         with:
+          # Node はイメージに入っているものを使う
+          skip-setup-node: 'true'
           workspace: '@nagiyu/stock-tracker-web'
           shared-workspaces: '@nagiyu/stock-tracker-core'
 
@@ -163,6 +186,15 @@ jobs:
 
     outputs:
       image-uri: ${{ steps.build-image.outputs.image-uri }}
+
+    # 検査と同じ実行環境でビルドとデプロイを行うため、共通イメージの上で動かす。docker のデーモンはランナーのものを使う
+    container:
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v2
+
+    # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
+    defaults:
+      run:
+        shell: bash
 
     steps:
       - name: Checkout code
@@ -219,12 +251,24 @@ jobs:
     needs: [infrastructure-ecr, build-web, build-batch]
     environment: ${{ needs.infrastructure-ecr.outputs.environment }}
 
+    # 検査と同じ実行環境でビルドとデプロイを行うため、共通イメージの上で動かす。docker のデーモンはランナーのものを使う
+    container:
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v2
+
+    # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
+    defaults:
+      run:
+        shell: bash
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Setup Node.js and install dependencies
         uses: ./.github/actions/setup-node
+        with:
+          # Node はイメージに入っているものを使う
+          skip-setup-node: 'true'
 
       - name: Build common infrastructure package
         run: npm run build --workspace=@nagiyu/infra-common
@@ -276,6 +320,15 @@ jobs:
     runs-on: ubuntu-latest
     needs: [infrastructure-ecr, build-web, build-batch, infrastructure-app]
     environment: ${{ needs.infrastructure-ecr.outputs.environment }}
+
+    # 検査と同じ実行環境でビルドとデプロイを行うため、共通イメージの上で動かす。docker のデーモンはランナーのものを使う
+    container:
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v2
+
+    # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
+    defaults:
+      run:
+        shell: bash
 
     steps:
       - name: Checkout code
