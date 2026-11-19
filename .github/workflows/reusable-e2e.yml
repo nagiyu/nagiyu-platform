@@ -39,6 +39,11 @@ jobs:
     container:
       image: ghcr.io/nagiyu/nagiyu-platform/ci:${{ startsWith(matrix.project, 'webkit-') && 'webkit' || 'chromium' }}-v1
 
+    # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
+    defaults:
+      run:
+        shell: bash
+
     permissions:
       id-token: write
       contents: read
