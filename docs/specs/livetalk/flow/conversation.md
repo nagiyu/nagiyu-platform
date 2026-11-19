@@ -9,8 +9,8 @@ sources:
   - services/livetalk/core/src/usecases/chat-usecase.ts
   - services/livetalk/batch/src/handlers/consolidate-conversations.ts
   - services/livetalk/batch/src/handlers/acquire.ts
-sources_hash: a0e319eef24eb5070cc7aa894c59033946f1c598fb4a4cb7c9923bb128199a7f
-terms: [livetalk/term/chat-event, livetalk/term/safety, livetalk/term/topic, livetalk/term/study-topic, livetalk/term/freshness-check-request, livetalk/term/character]
+sources_hash: b5af8be92e1046987a74f7881c00d03880a6be07ed18855bf952c0cca2ba962e
+terms: [livetalk/term/consent, livetalk/term/chat-event, livetalk/term/safety, livetalk/term/topic, livetalk/term/study-topic, livetalk/term/freshness-check-request, livetalk/term/character]
 related_cards: [livetalk/screen/home, livetalk/api/chat, livetalk/batch/consolidate-conversations, livetalk/batch/acquire, livetalk/screen/memory, livetalk/screen/notes]
 related_adr:
   - services/livetalk/architecture.md#2.3
@@ -30,7 +30,7 @@ related_adr:
 
 ```mermaid
 flowchart TD
-    A[① ホーム画面が発言を送る] --> B[② チャット API が守りを確かめる<br/>同時の呼び出し・回数]
+    A[① ホーム画面が発言を送る] --> B[② チャット API が守りを確かめる<br/>同意・同時の呼び出し・回数]
     B --> C{③ セーフティ・知識の判定}
     C -->|キーワード検出| S[固定の応答と相談先]
     C -->|調べ済みでない外部の話題| T[勉強の依頼を登録して定型文]
@@ -43,7 +43,7 @@ flowchart TD
 ```
 
 1. **送信**: 画面が `POST /api/chat` に発言と[キャラクター](../term/character.md)を送る
-2. **守り**: 同じ利用者の同時の呼び出しは 1 本、回数は 1 分 10 回・1 時間 100 回まで。超えると 429 で、画面はやわらかい文言に置き換えて見せる ([チャット API](../api/chat.md))
+2. **守り**: まず[同意](../term/consent.md)が有効かを確かめる。有効でなければ 403 で断り、画面は同意のダイアログを開き直す。同じ利用者の同時の呼び出しは 1 本、回数は 1 分 10 回・1 時間 100 回まで。超えると 429 で、画面はやわらかい文言に置き換えて見せる ([チャット API](../api/chat.md))
 3. **判定**: 発言を保存したあと、[セーフティ](../term/safety.md)のキーワードを見る。当たれば LLM を使わず固定の応答を返す。そうでなければ話題を想起し、調べ済みの話題がなく外部の知識が要ると判定されたときは、[勉強の依頼](../term/study-topic.md)を登録して「勉強しておくね」の定型文を返す
 4. **応答**: 想起した[話題](../term/topic.md)と直近のノートを文脈に、LLM の応答を[チャットのイベント](../term/chat-event.md)として流す。文の区切りごとに音声を作り、LLM のあとに順に返す。応答を Moderation で検査し、止めたときは差し替える。想起した話題で期限切れの WEB fact があれば、[鮮度確認の依頼](../term/freshness-check-request.md)を記録する
 5. **表示**: 画面が文字を逐次表示し、音声を順に再生する。再生が終わると待機に戻る

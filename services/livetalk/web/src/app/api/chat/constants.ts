@@ -10,6 +10,8 @@ export const CHAT_ERROR_MESSAGES = {
   RATE_LIMIT_EXCEEDED: 'リクエストが多すぎます。しばらく待ってから再送してください',
   /** 同一ユーザーの並行リクエストが実行中 */
   CONCURRENT_REQUEST: '処理中のリクエストがあります。完了をお待ちください',
+  /** 現行の版の利用規約・プライバシーポリシー・年齢確認への同意が無い */
+  CONSENT_REQUIRED: '利用規約・プライバシーポリシーへの同意が必要です',
 } as const;
 
 export const CHAT_MAX_TEXT_LENGTH = 200;

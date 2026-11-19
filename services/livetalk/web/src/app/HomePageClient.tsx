@@ -72,7 +72,7 @@ function HomePageInner() {
   useCharacterQuerySync();
 
   // 同意状態管理 hook
-  const { consentPhase, markConsented } = useConsent();
+  const { consentPhase, markConsented, requireConsent } = useConsent();
 
   // オンボーディング管理 hook（consentPhase 依存）
   const {
@@ -116,6 +116,7 @@ function HomePageInner() {
     clearFirstWordText,
     clearOnboardingText,
     dismissOnboarding,
+    onConsentRequired: requireConsent,
     setLifecycleState,
   });
 

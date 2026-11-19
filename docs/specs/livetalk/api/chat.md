@@ -6,14 +6,15 @@ service: livetalk
 sources:
   - services/livetalk/web/src/app/api/chat/route.ts
   - services/livetalk/web/src/app/api/chat/constants.ts
+  - services/livetalk/web/src/lib/server/consent.ts
   - services/livetalk/core/src/usecases/chat-usecase.ts
   - services/livetalk/core/src/study/knowledge-gate.ts
   - services/livetalk/core/src/constants.ts
   - services/livetalk/core/src/repositories/chat-guard-counting.ts
   - services/livetalk/core/src/lib/chat-guard-window.ts
   - libs/aws/src/dynamodb/counter/try-increment-in-order.ts
-sources_hash: f72d6a7fb35988703c67bd8fd06c7d8636c4dbdc39bc2e5b53f2ad592adfd091
-terms: [livetalk/term/permission, livetalk/term/api-error, livetalk/term/chat-event, livetalk/term/safety, livetalk/term/character, livetalk/term/topic, livetalk/term/study-topic, livetalk/term/note, livetalk/term/lifecycle, livetalk/term/freshness-check-request]
+sources_hash: 73d5c5022f2446e2cb99f982b7bba915ef657dd3c67c52af05305b0d7a2842b7
+terms: [livetalk/term/permission, livetalk/term/api-error, livetalk/term/consent, livetalk/term/chat-event, livetalk/term/safety, livetalk/term/character, livetalk/term/topic, livetalk/term/study-topic, livetalk/term/note, livetalk/term/lifecycle, livetalk/term/freshness-check-request]
 related_cards: [livetalk/screen/home, livetalk/flow/conversation, livetalk/batch/consolidate-conversations, livetalk/batch/acquire, admin/flow/error-notification]
 related_adr:
   - services/livetalk/architecture.md#2.20
@@ -42,6 +43,7 @@ related_adr:
 
 - 成功は 200。`Content-Type: application/x-ndjson`、`Cache-Control: no-store`。本文は 1 行 1 イベントで、`text` が先に流れ、LLM が終わったあとに `sentence` が文の順に並び、最後に `done`
 - 流れが始まったあとの失敗は、状態を変えられないので `error` イベントで伝える
+- 入力を確かめたあと、ロックとレートリミットより前に、利用者の[同意](../term/consent.md)が有効かを確かめる。有効でなければ断り、ロックもレートリミットも数えない。同意を読めないときは通さず、500 で返す
 - 同じ利用者の同時の呼び出しは 1 本まで。ロックは 600 秒で自動的に外れる
 - 呼び出しの回数は、1 分あたり 10 回、1 時間あたり 100 回まで。1 分、1 時間の順に、上限に達していなければ 1 つ数える。断った呼び出しは、どちらの窓も数えない (1 時間で断ったときは、数えた 1 分を戻す)
 - 断ったときは `Retry-After` (断った窓の次の窓までの秒数) を付けて返す
@@ -84,6 +86,7 @@ flowchart TD
 | 本文が JSON のオブジェクトでない、`text` が文字列でない、`characterId` が登録外 | 400 | `INVALID_REQUEST` |
 | `text` が空 (空白のみ) | 400 | `EMPTY_TEXT` |
 | `text` が 200 文字を超える | 400 | `TEXT_TOO_LONG` |
+| [同意](../term/consent.md)が有効でない (記録がない、規約・プライバシーポリシーの版が古い、18 歳以上の自己申告がない) | 403 | `CONSENT_REQUIRED` |
 | 同じ利用者の別の呼び出しが処理中 | 429 | `CONCURRENT_REQUEST` |
 | 1 分または 1 時間の上限を超えた (ロックは外す) | 429 | `RATE_LIMIT_EXCEEDED` |
 
@@ -94,6 +97,7 @@ flowchart TD
 ```mermaid
 flowchart TD
     S[ホーム画面] --> A[チャット API]
+    A --> P[(プロフィールの同意)]
     A --> M[(会話履歴)]
     A --> T[(話題・ノート)]
     A --> Q[(勉強の依頼・鮮度確認の依頼)]
