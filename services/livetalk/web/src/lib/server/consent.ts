@@ -12,7 +12,7 @@ import type { UserConsents } from '@nagiyu/livetalk-core';
 export interface ConsentStatus {
   /** 現行の版の利用規約・プライバシーポリシー・年齢確認がすべて揃っているか */
   consented: boolean;
-  /** 保存されている同意の内容 (プロフィールが無い場合は undefined) */
+  /** 保存されている同意の内容 (プロフィールが無い場合、同意が未保存の場合は undefined) */
   consents: UserConsents | undefined;
 }
 

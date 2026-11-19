@@ -24,6 +24,19 @@ export default function ConsentModal({ open, onConsented }: ConsentModalProps) {
   const [ageChecked, setAgeChecked] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [prevOpen, setPrevOpen] = useState(open);
+
+  // ダイアログは常にマウントされているため、閉じた後も前回のチェックが残る。
+  // サーバーに同意を断られて開き直したときに、新しい版を読まずに押せないよう、開くたびに空から始める。
+  if (open !== prevOpen) {
+    setPrevOpen(open);
+    if (open) {
+      setTermsChecked(false);
+      setPrivacyChecked(false);
+      setAgeChecked(false);
+      setError(null);
+    }
+  }
 
   const allChecked = termsChecked && privacyChecked && ageChecked;
 
