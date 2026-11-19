@@ -3,7 +3,7 @@ import type { Redirect } from 'next/dist/lib/load-custom-routes';
 /**
  * 旧 URL から現行コンテンツへの恒久リダイレクトマッピング
  *
- * 旧 URL が検索インデックスに残存するため、301 リダイレクトで現行コンテンツへ集約する。
+ * 旧 URL が検索インデックスに残存するため、恒久リダイレクト (permanent: true は 308 を返す) で現行コンテンツへ集約する。
  * source: リダイレクト元の旧 URL
  * destination: 移転先（実在する記事・一覧ページ）
  */
