@@ -1,6 +1,6 @@
 # GitHub Actions のジョブを動かす共通イメージ。ステージ名がそのまま種類の名前になる。
 # ブラウザと OS の依存を実行のたびに apt で取ると、ランナーの状態で数十分止まるため、前もってイメージに入れる。
-# 版 (VERSION) と Playwright の版はルートの package.json の @playwright/test と揃える。
+# Playwright の版は、ルートの package.json の @playwright/test と揃える。ずれると、テストがブラウザを見つけられない。
 
 # ステージごとに再宣言しないと、ステージの中では値が見えない
 ARG PLAYWRIGHT_VERSION=1.60.0
