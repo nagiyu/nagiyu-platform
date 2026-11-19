@@ -54,6 +54,15 @@ jobs:
     name: Next.js Build Verification
     runs-on: ubuntu-latest
 
+    # E2E と同じ OS・Node で検査するため、共通イメージの上で動かす
+    container:
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v1
+
+    # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
+    defaults:
+      run:
+        shell: bash
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -62,6 +71,8 @@ jobs:
         uses: ./.github/actions/build-web-app
         with:
           workspace: '@nagiyu/tools'
+          # Node はイメージに入っているものを使う
+          skip-setup-node: 'true'
 
   docker-build:
     name: Docker Build Verification
