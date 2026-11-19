@@ -8,7 +8,7 @@ sources:
   - services/niconico-mylist-assistant/web/src/components/VideoSearchModal.tsx
   - services/niconico-mylist-assistant/web/src/lib/video-id-input.ts
   - services/niconico-mylist-assistant/web/src/lib/constants/errors.ts
-sources_hash: 209415edc03a3a92c3d74913de039cbe265f5008c9b9697b415b3ff0c0299542
+sources_hash: e1d3e5e28a0aec4b3c88e4635d31e1c175804b05bec5a5ff974db52176534d71
 terms: [niconico-mylist-assistant/term/video-id, niconico-mylist-assistant/term/video-basic-info]
 related_cards: [niconico-mylist-assistant/api/video-import, niconico-mylist-assistant/screen/videos, niconico-mylist-assistant/screen/home]
 related_adr:

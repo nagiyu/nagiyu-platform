@@ -31,7 +31,6 @@ export const ERROR_MESSAGES = {
  * ニコニコ動画のURL
  */
 export const NICONICO_URLS = {
-  LOGIN: 'https://account.nicovideo.jp/login',
   MYLIST: 'https://www.nicovideo.jp/my/mylist',
   VIDEO: 'https://www.nicovideo.jp/watch/',
 } as const;
@@ -48,10 +47,8 @@ export const DEFAULT_RETRY_CONFIG = {
  * タイムアウト設定（ミリ秒）
  */
 export const TIMEOUTS = {
-  LOGIN: 30000, // 30秒
   NAVIGATION: 30000, // 30秒
   VIDEO_REGISTRATION: 10000, // 10秒
-  TWO_FACTOR_AUTH_WAIT: 300000, // 5分（二段階認証コード入力待ち）
 } as const;
 
 /**
@@ -59,11 +56,6 @@ export const TIMEOUTS = {
  * ニコニコ動画サーバーへの配慮のため、最低2秒待機
  */
 export const VIDEO_REGISTRATION_WAIT = 2000; // 2秒
-
-/**
- * 二段階認証コードポーリング間隔（ミリ秒）
- */
-export const TWO_FACTOR_AUTH_POLL_INTERVAL = 5000; // 5秒
 
 /**
  * デフォルトのマイリスト名に付与するプレフィックス

@@ -8,7 +8,6 @@ import {
   DEFAULT_RETRY_CONFIG,
   TIMEOUTS,
   VIDEO_REGISTRATION_WAIT,
-  TWO_FACTOR_AUTH_POLL_INTERVAL,
 } from '../../src/constants';
 
 describe('constants', () => {
@@ -136,17 +135,6 @@ describe('constants', () => {
     });
   });
 
-  describe('TWO_FACTOR_AUTH_POLL_INTERVAL', () => {
-    it('5秒である', () => {
-      expect(TWO_FACTOR_AUTH_POLL_INTERVAL).toBe(5000);
-    });
-
-    it('正の整数である', () => {
-      expect(TWO_FACTOR_AUTH_POLL_INTERVAL).toBeGreaterThan(0);
-      expect(Number.isInteger(TWO_FACTOR_AUTH_POLL_INTERVAL)).toBe(true);
-    });
-  });
-
   describe('定数の一貫性', () => {
     it('動画登録待機時間がリトライ間隔と同じである', () => {
       // ニコニコ動画サーバーへの配慮として2秒待機が推奨
@@ -156,7 +144,6 @@ describe('constants', () => {
     it('全ての時間関連定数がミリ秒単位である', () => {
       // ミリ秒単位であることを確認（秒単位の値は1000以上になるはず）
       expect(VIDEO_REGISTRATION_WAIT).toBeGreaterThanOrEqual(1000);
-      expect(TWO_FACTOR_AUTH_POLL_INTERVAL).toBeGreaterThanOrEqual(1000);
       expect(DEFAULT_RETRY_CONFIG.initialDelayMs).toBeGreaterThanOrEqual(1000);
     });
   });

@@ -39,7 +39,6 @@ const config: Config = {
     'src/app/api/mylist/register/route.ts',
     'src/app/api/videos/bulk-import/route.ts',
     'src/app/api/videos/[id]/settings/route.ts',
-    'src/app/api/batch/2fa/route.ts',
     'src/app/api/batch/status/[jobId]/route.ts',
     '!src/**/*.d.ts',
   ],
