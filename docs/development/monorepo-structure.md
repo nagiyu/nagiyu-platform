@@ -685,44 +685,22 @@ libs/{library}/
 
 ## 9. 境界保護 (ESLint)
 
-### core の no-restricted-imports
+### core と batch の no-restricted-imports
 
-`services/{service}/core` では UI フレームワークのインポートを禁止する。
+`services/{service}/core` と `services/{service}/batch` では、UI フレームワークとブラウザ向けライブラリのインポートを禁止する。どちらも依存してよい libs は `libs/common` と `libs/aws` だけである。禁止の設定は `configs/eslint.config.core.mjs` に集め、各パッケージはそれを参照するだけにする。パッケージごとに書くと、書き忘れたパッケージで制限が効かなくなるためである。
 
-**`services/{service}/core/eslint.config.mjs` の例**:
+**`services/{service}/core/eslint.config.mjs` (batch も同じ) の例**:
 
 ```javascript
-import baseConfig from '../../../configs/eslint.config.base.mjs';
+import coreConfig from '../../../configs/eslint.config.core.mjs';
 
-export default [
-  ...baseConfig,
-  {
-    rules: {
-      'no-restricted-imports': [
-        'error',
-        {
-          patterns: [
-            {
-              group: ['react', 'react-dom', 'next', 'next/*'],
-              message:
-                'core パッケージでは UI フレームワークを使用できません。ビジネスロジックのみを実装してください。',
-            },
-            {
-              group: ['@mui/*'],
-              message: 'core パッケージでは Material-UI を使用できません。',
-            },
-          ],
-        },
-      ],
-    },
-  },
-];
+export default coreConfig;
 ```
 
 ### 設定のポイント
 
-- **目的**: ビジネスロジック（core）と UI（web）の境界を明確化
-- **効果**: 誤って UI 依存のコードを core に混入するのを防ぐ
+- **目的**: ビジネスロジック（core・batch）と UI（web）の境界を明確化
+- **効果**: 誤って UI 依存のコードを core・batch に混入するのを防ぐ
 - **カスタマイズ**: サービスの特性に応じて禁止パターンを追加可能
 
 ### libs/common の境界保護
