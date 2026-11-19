@@ -20,6 +20,16 @@ RUN curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tm
     && /tmp/aws/install \
     && rm -rf /tmp/awscliv2.zip /tmp/aws
 
+# イメージのビルドと push は、ジョブのコンテナに渡されるランナーの docker のデーモンで行うため、コマンドだけを入れる。
+# デーモンは古い API の版を順に受け付けなくなる。Debian の版はリリース時点で止まりランナーのデーモンに置いていかれるため、Docker の配布元から取る。
+RUN install -m 0755 -d /etc/apt/keyrings \
+    && curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian $(. /etc/os-release && echo "$VERSION_CODENAME") stable" \
+       > /etc/apt/sources.list.d/docker.list \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends docker-ce-cli \
+    && rm -rf /var/lib/apt/lists/*
+
 FROM base AS chromium
 ARG PLAYWRIGHT_VERSION
 # 実行時のユーザーやホームが変わっても同じ場所からブラウザを見つけられるよう、パスを固定する

@@ -16,6 +16,9 @@ fi
 docker run --rm "$IMAGE" aws --version
 docker run --rm "$IMAGE" git --version
 
+# コマンドの有無だけでなく、ランナーのデーモンと話せる (API の版が合う) ことを、ジョブと同じくソケットを渡して確かめる
+docker run --rm -v /var/run/docker.sock:/var/run/docker.sock "$IMAGE" docker version
+
 if [[ "$KIND" == "base" ]]; then
   exit 0
 fi
