@@ -16,7 +16,6 @@ on:
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/livetalk-deploy.yml'
-      - '.github/actions/update-lambda-image/**'
       - '.github/actions/health-check/**'
       - '.github/actions/push-ecr-image/**'
   workflow_dispatch:
@@ -31,6 +30,9 @@ on:
 
 env:
   AWS_REGION: us-east-1
+  # push するタグと CDK が指すタグを同じ値にするため、全ジョブで共有する。
+  # CDK はどのスタックを deploy するときもアプリ全体を合成するので、ECR だけの deploy にも要る。
+  IMAGE_TAG: ${{ github.sha }}
 
 permissions:
   id-token: write
@@ -144,19 +146,21 @@ jobs:
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Get ECR repository from SSM
+      - name: Get ECR repository from CDK stack
         id: get-ecr
         env:
-          ENVIRONMENT: ${{ needs.infrastructure-ecr.outputs.environment }}
+          STACK_SUFFIX: ${{ needs.infrastructure-ecr.outputs.stack-suffix }}
         run: |
-          REPOSITORY_URI=$(aws ssm get-parameter \
-            --name "/nagiyu/livetalk/${ENVIRONMENT}/ecr/repository-uri" \
-            --query "Parameter.Value" \
+          STACK_NAME="NagiyuLiveTalkEcr${STACK_SUFFIX}"
+
+          REPOSITORY_URI=$(aws cloudformation describe-stacks \
+            --stack-name "$STACK_NAME" \
+            --query "Stacks[0].Outputs[?OutputKey=='RepositoryUri'].OutputValue" \
             --output text \
             --region "${{ env.AWS_REGION }}")
 
           if [ -z "$REPOSITORY_URI" ]; then
-            echo "Error: Could not find LiveTalk ECR repository URI from SSM"
+            echo "Error: Could not find ECR repository URI from CDK stack $STACK_NAME"
             exit 1
           fi
 
@@ -171,8 +175,7 @@ jobs:
           dockerfile: services/livetalk/web/Dockerfile
           build-args: APP_VERSION=${{ steps.get-version.outputs.app-version }}
           tags: |
-            ${{ github.sha }}
-            latest
+            ${{ env.IMAGE_TAG }}
 
   build-batch:
     name: Build and Push Batch Image
@@ -194,25 +197,34 @@ jobs:
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Get ECR repository URI
+      - name: Get ECR repository from CDK stack
         id: get-ecr
         env:
-          ENVIRONMENT: ${{ needs.infrastructure-ecr.outputs.environment }}
+          STACK_SUFFIX: ${{ needs.infrastructure-ecr.outputs.stack-suffix }}
         run: |
-          # Batch ECR リポジトリ名は命名規則から決定論的に組み立てる（SSM 非依存）。
-          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-          REPOSITORY_URI="$ACCOUNT_ID.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/nagiyu-livetalk-batch-ecr-$ENVIRONMENT"
+          STACK_NAME="NagiyuLiveTalkBatchEcr${STACK_SUFFIX}"
+
+          REPOSITORY_URI=$(aws cloudformation describe-stacks \
+            --stack-name "$STACK_NAME" \
+            --query "Stacks[0].Outputs[?OutputKey=='RepositoryUri'].OutputValue" \
+            --output text \
+            --region "${{ env.AWS_REGION }}")
+
+          if [ -z "$REPOSITORY_URI" ]; then
+            echo "Error: Could not find ECR repository URI from CDK stack $STACK_NAME"
+            exit 1
+          fi
+
           echo "repository-uri=$REPOSITORY_URI" >> "$GITHUB_OUTPUT"
+          echo "ECR Repository (Batch): $REPOSITORY_URI"
 
       - name: Build and push Batch Docker image
         uses: ./.github/actions/push-ecr-image
         with:
           repository-uri: ${{ steps.get-ecr.outputs.repository-uri }}
           dockerfile: services/livetalk/batch/Dockerfile
-          # Batch Lambda が :latest を参照するため、latest も push する
           tags: |
-            ${{ github.sha }}
-            latest
+            ${{ env.IMAGE_TAG }}
 
   infrastructure-app:
     name: Deploy DynamoDB, ALB, ECS Service and Alarms Stacks
@@ -248,7 +260,6 @@ jobs:
         env:
           ENVIRONMENT: ${{ needs.build.outputs.environment }}
           STACK_SUFFIX: ${{ needs.build.outputs.stack-suffix }}
-          IMAGE_TAG: ${{ github.sha }}
           # CDK が process.env.APP_VERSION を読み、ECS Task の environment に注入する
           # /api/health の version 表示に利用される
           APP_VERSION: ${{ needs.build.outputs.app-version }}
@@ -368,7 +379,7 @@ jobs:
           VAPID_PUBLIC_KEY: ${{ env.VAPID_PUBLICKEY }}
           VAPID_PRIVATE_KEY: ${{ env.VAPID_PRIVATEKEY }}
         run: |
-          # Batch Lambda は build-batch で push 済みの :latest イメージを参照する。
+          # Batch Lambda は build-batch で push 済みの、IMAGE_TAG のタグのイメージを参照する。
           # ECR / イメージが先行しているため、Lambda 作成は失敗しない。
           npm run cdk --workspace=@nagiyu/infra-livetalk -- deploy \
             NagiyuLiveTalkBatch${STACK_SUFFIX} \
@@ -378,31 +389,6 @@ jobs:
             --require-approval never
 
           echo "LiveTalk Batch stack deployed (environment: $ENVIRONMENT)"
-
-      - name: Resolve Batch Lambda image URI
-        id: resolve-image
-        env:
-          ENVIRONMENT: ${{ needs.infrastructure-ecr.outputs.environment }}
-        run: |
-          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-          ECR_REGISTRY="$ACCOUNT_ID.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com"
-          IMAGE_URI="$ECR_REGISTRY/nagiyu-livetalk-batch-ecr-$ENVIRONMENT:latest"
-
-          echo "image-uri=$IMAGE_URI" >> "$GITHUB_OUTPUT"
-          echo "Batch Lambda image URI: $IMAGE_URI"
-
-      # 既存スタックへの再デプロイでは :latest タグが不変のため CloudFormation が
-      # Lambda コードを更新しない。全バッチ Lambda に明示的に最新イメージを反映する。
-      - name: Update Batch Lambda code with latest image
-        uses: ./.github/actions/update-lambda-image
-        with:
-          function-names: |
-            nagiyu-livetalk-batch-learn-user-activity-${{ needs.infrastructure-ecr.outputs.environment }}
-            nagiyu-livetalk-batch-notify-${{ needs.infrastructure-ecr.outputs.environment }}
-            nagiyu-livetalk-batch-consolidate-${{ needs.infrastructure-ecr.outputs.environment }}
-            nagiyu-livetalk-batch-acquire-${{ needs.infrastructure-ecr.outputs.environment }}
-          image-uri: ${{ steps.resolve-image.outputs.image-uri }}
-          region: ${{ env.AWS_REGION }}
 
   infrastructure-cloudfront:
     name: Deploy CloudFront Distribution
@@ -488,7 +474,6 @@ jobs:
             echo "- **Environment**: $ENVIRONMENT"
             echo "- **App Version**: $APP_VERSION"
             echo "- **Image (SHA tag)**: \`$IMAGE_URI\`"
-            echo "- **Latest tag**: same digest also pushed as \`:latest\`"
             echo "- **Batch Lambda（学習）**: \`nagiyu-livetalk-batch-learn-user-activity-$ENVIRONMENT\`（EventBridge 週次 JST 日曜 03:00）"
             echo "- **Batch Lambda（通知）**: \`nagiyu-livetalk-batch-notify-$ENVIRONMENT\`（EventBridge 毎時:30）"
             echo "- **Batch Lambda（集約）**: \`nagiyu-livetalk-batch-consolidate-$ENVIRONMENT\`（EventBridge 毎時:15）"
@@ -496,6 +481,6 @@ jobs:
             echo "- **ALB DNS**: \`$ALB_DNS\`"
             echo "- **Custom Domain**: https://$CUSTOM_DOMAIN"
             echo ""
-            echo "Note: Route53 ALIAS は LiveTalk CloudFront スタック内で同時作成される（infra/ui-storybook と同様のパターン）。"
+            echo "Note: Route53 ALIAS は LiveTalk CloudFront スタック内で同時作成される。"
             echo "ALB monthly fixed cost: ~\$22/month."
           } >> $GITHUB_STEP_SUMMARY
