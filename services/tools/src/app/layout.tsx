@@ -3,6 +3,7 @@ import { Box } from '@mui/material';
 import { AppThemeProvider, Header, Footer, type NavigationItem } from '@nagiyu/ui';
 import HomeIcon from '@mui/icons-material/Home';
 import MigrationDialog from '@/components/dialogs/MigrationDialog';
+import { SITE_URL } from '@/lib/site';
 import '@nagiyu/ui/tokens.css';
 import '@nagiyu/ui/base.css';
 import './globals.css';
@@ -18,11 +19,11 @@ export const metadata: Metadata = {
   authors: [{ name: 'nagiyu' }],
   creator: 'nagiyu',
   publisher: 'nagiyu',
-  metadataBase: new URL('https://nagiyu.com'),
+  metadataBase: new URL(SITE_URL),
   openGraph: {
     type: 'website',
     locale: 'ja_JP',
-    url: 'https://nagiyu.com',
+    url: SITE_URL,
     title: 'Tools - 便利なオンラインツール集',
     description:
       'Toolsは、日常的に便利なオンラインツール群を提供する無料のWebアプリケーションです。',
