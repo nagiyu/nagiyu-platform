@@ -9,16 +9,36 @@ inputs:
     description: Comma-separated non-lib workspaces (e.g. core packages) to build before target workspace
     required: false
     default: ''
+  skip-setup-node:
+    description: Set to 'true' to skip actions/setup-node and use the Node.js already in the runtime environment (e.g. a container image)
+    required: false
+    default: 'false'
 
 runs:
   using: composite
   steps:
     - name: Setup Node.js
+      if: inputs.skip-setup-node != 'true'
       uses: actions/setup-node@v4
       with:
         node-version-file: .node-version
         cache: 'npm'
         cache-dependency-path: './package-lock.json'
+
+    # setup-node の cache: 'npm' を使えない環境でも、npm ci が毎回レジストリから取り直さないようにする。
+    # キャッシュの場所は環境で変わるため、npm に聞く
+    - name: Get npm cache directory
+      id: npm-cache
+      if: inputs.skip-setup-node == 'true'
+      shell: bash
+      run: echo "dir=$(npm config get cache)" >> "$GITHUB_OUTPUT"
+
+    - name: Cache npm
+      if: inputs.skip-setup-node == 'true'
+      uses: actions/cache@v4
+      with:
+        path: ${{ steps.npm-cache.outputs.dir }}
+        key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
 
     - name: Install dependencies
       shell: bash
