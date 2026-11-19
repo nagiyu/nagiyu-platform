@@ -37,7 +37,7 @@ jobs:
     # ブラウザと OS の依存を実行のたびに apt で取ると、ランナーの置き場所で数十分止まるため、前もって入れたイメージの上で動かす。
     # WebKit は使うデバイスのジョブだけに入れる。env コンテキストは container.image で使えないため、イメージ名はここに直接書く。
     container:
-      image: ghcr.io/nagiyu/nagiyu-platform/ci:${{ startsWith(matrix.project, 'webkit-') && 'webkit' || 'chromium' }}-v1
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:${{ startsWith(matrix.project, 'webkit-') && 'webkit' || 'chromium' }}-v2
 
     # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
     defaults:

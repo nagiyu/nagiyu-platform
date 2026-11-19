@@ -53,6 +53,15 @@ jobs:
     name: Docker Build Verification (Batch)
     runs-on: ubuntu-latest
 
+    # 他の検査と同じ実行環境で確かめるため、共通イメージの上で動かす。docker のデーモンはランナーのものを使う
+    container:
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v2
+
+    # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
+    defaults:
+      run:
+        shell: bash
+
     permissions:
       id-token: write
       contents: read

@@ -56,7 +56,7 @@ jobs:
 
     # E2E と同じ OS・Node で検査するため、共通イメージの上で動かす
     container:
-      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v1
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v2
 
     # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
     defaults:
@@ -87,7 +87,7 @@ jobs:
 
     # E2E と同じ OS・Node で検査するため、共通イメージの上で動かす
     container:
-      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v1
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v2
 
     # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
     defaults:
@@ -113,7 +113,7 @@ jobs:
 
     # E2E と同じ OS・Node で検査するため、共通イメージの上で動かす
     container:
-      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v1
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v2
 
     # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
     defaults:
@@ -147,7 +147,7 @@ jobs:
 
     # E2E と同じ OS・Node で検査するため、共通イメージの上で動かす
     container:
-      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v1
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v2
 
     # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
     defaults:
@@ -181,7 +181,7 @@ jobs:
 
     # E2E と同じ OS・Node で検査するため、共通イメージの上で動かす
     container:
-      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v1
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v2
 
     # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
     defaults:
@@ -211,6 +211,15 @@ jobs:
   docker-build-web:
     name: Docker Build Web
     runs-on: ubuntu-latest
+
+    # 他の検査と同じ実行環境で確かめるため、共通イメージの上で動かす。docker のデーモンはランナーのものを使う
+    container:
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v2
+
+    # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
+    defaults:
+      run:
+        shell: bash
     needs: [build-web]
 
     permissions:
@@ -244,6 +253,15 @@ jobs:
   docker-build-batch:
     name: Docker Build Batch
     runs-on: ubuntu-latest
+
+    # 他の検査と同じ実行環境で確かめるため、共通イメージの上で動かす。docker のデーモンはランナーのものを使う
+    container:
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v2
+
+    # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
+    defaults:
+      run:
+        shell: bash
     needs: [build-batch]
 
     permissions:
@@ -277,6 +295,15 @@ jobs:
   docker-build-lambda-clip:
     name: Docker Build Lambda Clip
     runs-on: ubuntu-latest
+
+    # 他の検査と同じ実行環境で確かめるため、共通イメージの上で動かす。docker のデーモンはランナーのものを使う
+    container:
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v2
+
+    # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
+    defaults:
+      run:
+        shell: bash
     needs: [build-lambda-clip]
 
     permissions:
@@ -310,6 +337,15 @@ jobs:
   docker-build-lambda-zip:
     name: Docker Build Lambda Zip
     runs-on: ubuntu-latest
+
+    # 他の検査と同じ実行環境で確かめるため、共通イメージの上で動かす。docker のデーモンはランナーのものを使う
+    container:
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v2
+
+    # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
+    defaults:
+      run:
+        shell: bash
     needs: [build-lambda-zip]
 
     permissions:
