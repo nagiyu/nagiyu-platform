@@ -15,7 +15,6 @@ on:
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/quick-clip-deploy.yml'
-      - '.github/actions/update-lambda-image/**'
       - '.github/actions/health-check/**'
       - '.github/actions/push-ecr-image/**'
   workflow_dispatch:
@@ -34,6 +33,9 @@ permissions:
 
 env:
   AWS_REGION: us-east-1
+  # push するタグと CDK が指すタグを同じ値にするため、全ジョブで共有する。
+  # CDK はどのスタックを deploy するときもアプリ全体を合成するので、ECR だけの deploy にも要る。
+  IMAGE_TAG: ${{ github.sha }}
 
 # dev 環境は integration/** と develop で共有するため、ブランチではなくデプロイ先環境の単位で直列化する。
 # CDK デプロイを途中で止めるとスタックが更新中のまま残るので実行中の run は完走させ、待機中は最新の run だけを残す。
@@ -162,8 +164,7 @@ jobs:
             APP_VERSION=${{ steps.get-version.outputs.app-version }}
             NEXT_PUBLIC_VAST_TAG_URL=${{ steps.resolve-vast-url.outputs.vast-tag-url }}
           tags: |
-            ${{ github.sha }}
-            latest
+            ${{ env.IMAGE_TAG }}
 
   build-batch:
     name: Build and Push Batch Docker Image
@@ -219,7 +220,7 @@ jobs:
           dockerfile: services/quick-clip/batch/Dockerfile
           build-args: APP_VERSION=${{ steps.get-version.outputs.app-version }}
           tags: |
-            batch-latest
+            ${{ env.IMAGE_TAG }}
 
   build-lambda-clip:
     name: Build and Push Lambda Clip Docker Image
@@ -275,7 +276,7 @@ jobs:
           dockerfile: services/quick-clip/lambda/clip/Dockerfile
           build-args: APP_VERSION=${{ steps.get-version.outputs.app-version }}
           tags: |
-            latest
+            ${{ env.IMAGE_TAG }}
 
   build-lambda-zip:
     name: Build and Push Lambda Zip Docker Image
@@ -331,7 +332,7 @@ jobs:
           dockerfile: services/quick-clip/lambda/zip/Dockerfile
           build-args: APP_VERSION=${{ steps.get-version.outputs.app-version }}
           tags: |
-            latest
+            ${{ env.IMAGE_TAG }}
 
   infrastructure-app:
     name: Deploy Application Infrastructure
@@ -386,44 +387,6 @@ jobs:
             --context openAiApiKey="$OPENAI_API_KEY" \
             --context nextAuthSecret="${SECRET_VALUE}" \
             --require-approval never
-
-      - name: Resolve Lambda image URIs
-        id: resolve-image
-        env:
-          ENVIRONMENT: ${{ needs.infrastructure-ecr.outputs.environment }}
-        run: |
-          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-          ECR_REGISTRY="$ACCOUNT_ID.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com"
-
-          {
-            echo "web-image-uri=$ECR_REGISTRY/nagiyu-quick-clip-ecr-$ENVIRONMENT:latest"
-            echo "clip-image-uri=$ECR_REGISTRY/nagiyu-quick-clip-lambda-clip-ecr-$ENVIRONMENT:latest"
-            echo "zip-image-uri=$ECR_REGISTRY/nagiyu-quick-clip-lambda-zip-ecr-$ENVIRONMENT:latest"
-          } >> "$GITHUB_OUTPUT"
-
-      - name: Update web Lambda function code
-        uses: ./.github/actions/update-lambda-image
-        with:
-          function-names: |
-            nagiyu-quick-clip-web-${{ needs.infrastructure-ecr.outputs.environment }}
-          image-uri: ${{ steps.resolve-image.outputs.web-image-uri }}
-          region: ${{ env.AWS_REGION }}
-
-      - name: Update clip Lambda function code
-        uses: ./.github/actions/update-lambda-image
-        with:
-          function-names: |
-            nagiyu-quick-clip-clip-regenerate-${{ needs.infrastructure-ecr.outputs.environment }}
-          image-uri: ${{ steps.resolve-image.outputs.clip-image-uri }}
-          region: ${{ env.AWS_REGION }}
-
-      - name: Update zip Lambda function code
-        uses: ./.github/actions/update-lambda-image
-        with:
-          function-names: |
-            nagiyu-quick-clip-zip-generator-${{ needs.infrastructure-ecr.outputs.environment }}
-          image-uri: ${{ steps.resolve-image.outputs.zip-image-uri }}
-          region: ${{ env.AWS_REGION }}
 
   verify:
     name: Verify Deployment
