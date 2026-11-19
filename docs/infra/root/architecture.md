@@ -357,38 +357,44 @@ nagiyu-platform のルートドメインインフラは、以下の CDK スタ�
 
 #### 1. ECR リポジトリのデプロイ (初回のみ)
 
+CDK はどのスタックを deploy するときもアプリ全体を合成し、環境変数 `IMAGE_TAG` を読む。`IMAGE_TAG` が無いと合成が失敗するので、ECR だけの deploy にも値を渡す。値は次の手順で決めるタグと同じものにする。
+
 ```bash
+export IMAGE_TAG=$(git rev-parse HEAD)
+
 # ECR スタックをデプロイ
-npm run deploy --workspace=@nagiyu/infra -- nagiyu-root-ecr-dev
+IMAGE_TAG=${IMAGE_TAG} npm run deploy --workspace=@nagiyu/infra -- NagiyuPortalEcrDev
 ```
 
 #### 2. コンテナイメージのビルドとプッシュ
+
+イメージのタグは 1 つだけ決め、そのタグで build と push を行う。CI ではコミットの sha を使う。動くタグ (`latest`) は使わない。同じタグのままでは CloudFormation がイメージの入れ替わりに気づかず、ECS のタスク定義が更新されないためである。
 
 ```bash
 # ECR ログイン
 aws ecr get-login-password --region us-east-1 | \
   docker login --username AWS --password-stdin {account}.dkr.ecr.us-east-1.amazonaws.com
 
-# イメージビルド
+# ECR リポジトリの URI を ECR スタックの出力から取得
+REPOSITORY_URI=$(aws cloudformation describe-stacks \
+  --stack-name NagiyuPortalEcrDev \
+  --query "Stacks[0].Outputs[?OutputKey=='RepositoryUri'].OutputValue" \
+  --output text --region us-east-1)
+
+# イメージビルドとプッシュ (CI と同じく BuildKit を切る)
 cd services/root-webapp
-docker build -t nagiyu-root-webapp:latest .
-
-# イメージタグ付け
-docker tag nagiyu-root-webapp:latest \
-  {account}.dkr.ecr.us-east-1.amazonaws.com/nagiyu-root-webapp:latest
-
-# イメージプッシュ
-docker push {account}.dkr.ecr.us-east-1.amazonaws.com/nagiyu-root-webapp:latest
+DOCKER_BUILDKIT=0 docker build -t ${REPOSITORY_URI}:${IMAGE_TAG} .
+docker push ${REPOSITORY_URI}:${IMAGE_TAG}
 ```
 
 #### 3. インフラスタックのデプロイ
 
 ```bash
 # CDK で差分確認
-npm run diff --workspace=@nagiyu/infra -- nagiyu-root-webapp-dev
+IMAGE_TAG=${IMAGE_TAG} npm run diff --workspace=@nagiyu/infra -- nagiyu-root-webapp-dev
 
-# デプロイ
-npm run deploy --workspace=@nagiyu/infra -- nagiyu-root-webapp-dev
+# デプロイ (CDK が IMAGE_TAG のタグをタスク定義に書き込む)
+IMAGE_TAG=${IMAGE_TAG} npm run deploy --workspace=@nagiyu/infra -- nagiyu-root-webapp-dev
 ```
 
 #### 4. DNS レコードの設定
@@ -593,17 +599,13 @@ curl https://example.com/health
 **新しいイメージのデプロイ:**
 
 ```bash
-# 1. 新しいイメージをビルド・プッシュ
-docker build -t nagiyu-root-webapp:v1.2.3 .
-docker tag nagiyu-root-webapp:v1.2.3 \
-  {account}.dkr.ecr.us-east-1.amazonaws.com/nagiyu-root-webapp:v1.2.3
-docker push {account}.dkr.ecr.us-east-1.amazonaws.com/nagiyu-root-webapp:v1.2.3
+# 1. 新しいタグを決め、そのタグでイメージをビルド・プッシュ (手順 2 と同じ)
+export IMAGE_TAG=$(git rev-parse HEAD)
+DOCKER_BUILDKIT=0 docker build -t ${REPOSITORY_URI}:${IMAGE_TAG} .
+docker push ${REPOSITORY_URI}:${IMAGE_TAG}
 
-# 2. ECS Service を更新 (タスク定義を更新)
-aws ecs update-service \
-  --cluster nagiyu-root-webapp-dev-cluster \
-  --service nagiyu-root-webapp-dev-service \
-  --force-new-deployment
+# 2. 同じタグを渡して CDK で deploy する (タスク定義が新しいイメージを指し、ECS Service が切り替わる)
+IMAGE_TAG=${IMAGE_TAG} npm run deploy --workspace=@nagiyu/infra -- nagiyu-root-webapp-dev
 ```
 
 **ロールバック:**

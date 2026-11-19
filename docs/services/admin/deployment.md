@@ -80,39 +80,53 @@
 
 ### 3.2 ECR リポジトリの作成
 
+CDK はどのスタックを deploy するときもアプリ全体を合成し、環境変数 `IMAGE_TAG` を読む。`IMAGE_TAG` が無いと合成が失敗するので、ECR だけの deploy にも値を渡す。値は次節で決めるタグと同じものにする。
+
 ```bash
+export IMAGE_TAG=$(git rev-parse HEAD)
+
 # 開発環境
-npm run deploy -w @nagiyu/admin-infra -- --context env=dev --context deploymentPhase=ecr-only
+IMAGE_TAG=${IMAGE_TAG} npm run deploy -w @nagiyu/admin-infra -- --context env=dev --context deploymentPhase=ecr-only
 
 # 本番環境
-npm run deploy -w @nagiyu/admin-infra -- --context env=prod --context deploymentPhase=ecr-only
+IMAGE_TAG=${IMAGE_TAG} npm run deploy -w @nagiyu/admin-infra -- --context env=prod --context deploymentPhase=ecr-only
 ```
 
 ### 3.3 Docker イメージのビルドとプッシュ
 
+イメージのタグは 1 つだけ決め、そのタグで build と push を行う。CI ではコミットの sha を使う。動くタグ (`latest`) は使わない。同じタグのままでは CloudFormation がイメージの入れ替わりに気づかず、Lambda が更新されないためである。
+
 ```bash
-# 1. ECR にログイン
+# 1. タグを決める (3.2 と同じ値)
+export IMAGE_TAG=$(git rev-parse HEAD)
+
+# 2. ECR にログイン
 aws ecr get-login-password --region us-east-1 | \
     docker login --username AWS --password-stdin <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com
 
-# 2. イメージのビルド
-docker build -t admin:latest -f services/admin/web/Dockerfile .
+# 3. ECR リポジトリの URI を ECR スタックの出力から取得
+REPOSITORY_URI=$(aws cloudformation describe-stacks \
+    --stack-name NagiyuAdminECRDev \
+    --query "Stacks[0].Outputs[?OutputKey=='RepositoryUri'].OutputValue" \
+    --output text --region us-east-1)
 
-# 3. タグ付け
-docker tag admin:latest <ECR_REGISTRY>/admin-dev:latest
+# 4. イメージのビルド (CI と同じく BuildKit を切る)
+DOCKER_BUILDKIT=0 docker build -t ${REPOSITORY_URI}:${IMAGE_TAG} -f services/admin/web/Dockerfile .
 
-# 4. プッシュ
-docker push <ECR_REGISTRY>/admin-dev:latest
+# 5. プッシュ
+docker push ${REPOSITORY_URI}:${IMAGE_TAG}
 ```
 
 ### 3.4 アプリケーションリソースのデプロイ
 
+CDK は `IMAGE_TAG` のタグを Lambda に書き込むので、3.3 と同じ値を渡す。イメージの切り替えはこの deploy が行う。
+
 ```bash
 # 開発環境
-npm run deploy -w @nagiyu/admin-infra -- --context env=dev --context deploymentPhase=full
+IMAGE_TAG=${IMAGE_TAG} npm run deploy -w @nagiyu/admin-infra -- --context env=dev --context deploymentPhase=full
 
 # 本番環境
-npm run deploy -w @nagiyu/admin-infra -- --context env=prod --context deploymentPhase=full
+IMAGE_TAG=${IMAGE_TAG} npm run deploy -w @nagiyu/admin-infra -- --context env=prod --context deploymentPhase=full
 ```
 
 ### 3.5 動作確認
@@ -242,26 +256,14 @@ git push origin feature/new-feature
 
 ### 5.1 Docker イメージの手動デプロイ
 
-```bash
-# 1. ECR ログイン
-aws ecr get-login-password --region us-east-1 | \
-    docker login --username AWS --password-stdin <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com
-
-# 2. イメージのビルド
-docker build -t admin:latest -f services/admin/web/Dockerfile .
-
-# 3. タグ付け & プッシュ
-docker tag admin:latest <ECR_REGISTRY>/admin-dev:latest
-docker push <ECR_REGISTRY>/admin-dev:latest
-```
+タグの決め方と build / push の手順は 3.3 と同じである。
 
 ### 5.2 Lambda 関数の手動更新
 
+Lambda のイメージは CDK の deploy で切り替える。`aws lambda update-function-code` で直接差し替えると、CloudFormation の状態とずれる。push したタグを `IMAGE_TAG` に渡して deploy する。
+
 ```bash
-aws lambda update-function-code \
-    --function-name admin-dev \
-    --image-uri <ECR_REGISTRY>/admin-dev:latest \
-    --region us-east-1
+IMAGE_TAG=${IMAGE_TAG} npm run deploy -w @nagiyu/admin-infra -- --context env=dev --context deploymentPhase=full
 ```
 
 ---
@@ -418,11 +420,8 @@ git push origin develop
 # 前のイメージタグを確認
 aws ecr describe-images --repository-name admin-dev --region us-east-1
 
-# 前のイメージタグを指定してロールバック
-aws lambda update-function-code \
-    --function-name admin-dev \
-    --image-uri <ECR_REGISTRY>/admin-dev:<PREVIOUS_TAG> \
-    --region us-east-1
+# 前のイメージタグ (コミットの sha) を IMAGE_TAG に渡して deploy し直す
+IMAGE_TAG=<PREVIOUS_TAG> npm run deploy -w @nagiyu/admin-infra -- --context env=dev --context deploymentPhase=full
 ```
 
 ### 9.2 よくある障害と対処法
