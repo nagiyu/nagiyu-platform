@@ -11,30 +11,43 @@ jobs:
   create-review-issue:
     runs-on: ubuntu-latest
     steps:
+      # 過去 1 週間のコミットを git log で数えるため、履歴をすべて取得する
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
+      - name: Check existing open weekly-review issue
+        id: duplicate_check
+        uses: ./.github/actions/find-open-issue
+        with:
+          label: weekly-review
+
+      # 年・週番号・日付は JST で決める (UTC のままだと JST の日付とずれる時間帯がある)
       - name: Get current week info
         id: week_info
+        if: steps.duplicate_check.outputs.should_create == 'true'
         run: |
-          YEAR=$(date +%Y)
-          WEEK=$(date +%U)
-          DATE=$(date +%Y-%m-%d)
+          YEAR=$(TZ=Asia/Tokyo date +%Y)
+          WEEK=$(TZ=Asia/Tokyo date +%U)
+          DATE=$(TZ=Asia/Tokyo date +%Y-%m-%d)
 
-          echo "year=$YEAR" >> $GITHUB_OUTPUT
-          echo "week=$WEEK" >> $GITHUB_OUTPUT
-          echo "date=$DATE" >> $GITHUB_OUTPUT
-          echo "title=[Docs Review] ${YEAR}年第${WEEK}週 ドキュメントレビュー (${DATE})" >> $GITHUB_OUTPUT
+          echo "year=$YEAR" >> "$GITHUB_OUTPUT"
+          echo "week=$WEEK" >> "$GITHUB_OUTPUT"
+          echo "date=$DATE" >> "$GITHUB_OUTPUT"
+          echo "title=[Docs Review] ${YEAR}年第${WEEK}週 ドキュメントレビュー (${DATE})" >> "$GITHUB_OUTPUT"
 
       - name: Calculate next review date
         id: next_review
+        if: steps.duplicate_check.outputs.should_create == 'true'
         run: |
           # 次週月曜日を計算
-          NEXT_MONDAY=$(date -d "next monday" +%Y-%m-%d)
-          echo "next_date=$NEXT_MONDAY" >> $GITHUB_OUTPUT
+          NEXT_MONDAY=$(TZ=Asia/Tokyo date -d "next monday" +%Y-%m-%d)
+          echo "next_date=$NEXT_MONDAY" >> "$GITHUB_OUTPUT"
 
       - name: Find previous review issue
         id: prev_issue
+        if: steps.duplicate_check.outputs.should_create == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -47,39 +60,43 @@ jobs:
             --jq '.[0].number // ""')
 
           if [ -n "$PREV_ISSUE" ]; then
-            echo "prev_issue_number=#$PREV_ISSUE" >> $GITHUB_OUTPUT
+            echo "prev_issue_number=#$PREV_ISSUE" >> "$GITHUB_OUTPUT"
           else
-            echo "prev_issue_number=なし（初回レビュー）" >> $GITHUB_OUTPUT
+            echo "prev_issue_number=なし（初回レビュー）" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Count updated docs in last week
         id: metrics
+        if: steps.duplicate_check.outputs.should_create == 'true'
         run: |
           # 過去1週間で更新された .md ファイル数
           UPDATED_DOCS=$(git log --since="1 week ago" --name-only --pretty=format: -- docs/ .github/ | grep "\.md$" | sort -u | wc -l)
-          echo "updated_docs=$UPDATED_DOCS" >> $GITHUB_OUTPUT
+          echo "updated_docs=$UPDATED_DOCS" >> "$GITHUB_OUTPUT"
 
       - name: Detect policy changes in development docs
         id: policy_changes
+        if: steps.duplicate_check.outputs.should_create == 'true'
         run: |
           # 過去1週間の docs/development/ の変更を検出
           POLICY_CHANGES=$(git log --since="1 week ago" --oneline --no-merges -- docs/development/ | head -10)
 
-          # 複数行を保持するために改行をエスケープ
           if [ -n "$POLICY_CHANGES" ]; then
+            # コミット件名が区切りと一致して出力が壊れないよう、区切りは毎回ランダムにする
+            DELIMITER="EOF_$(openssl rand -hex 8)"
             {
-              echo 'policy_changes<<EOF'
+              echo "policy_changes<<$DELIMITER"
               echo "$POLICY_CHANGES"
-              echo EOF
-            } >> $GITHUB_OUTPUT
-            echo "has_changes=true" >> $GITHUB_OUTPUT
+              echo "$DELIMITER"
+            } >> "$GITHUB_OUTPUT"
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
           else
-            echo "policy_changes=変更なし" >> $GITHUB_OUTPUT
-            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "policy_changes=変更なし" >> "$GITHUB_OUTPUT"
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Prepare issue body from template
         id: issue_body
+        if: steps.duplicate_check.outputs.should_create == 'true'
         env:
           UPDATED_DOCS: ${{ steps.metrics.outputs.updated_docs }}
           PREV_ISSUE: ${{ steps.prev_issue.outputs.prev_issue_number }}
@@ -87,37 +104,20 @@ jobs:
           HAS_POLICY_CHANGES: ${{ steps.policy_changes.outputs.has_changes }}
           POLICY_CHANGES: ${{ steps.policy_changes.outputs.policy_changes }}
         run: |
-          # スクリプトを実行して Issue 本文を生成
-          BODY=$(.github/workflows/scripts/prepare-review-issue.sh)
-
-          # 出力を保存
-          {
-            echo 'issue_body<<EOF'
-            echo "$BODY"
-            echo EOF
-          } >> $GITHUB_OUTPUT
+          .github/workflows/scripts/prepare-review-issue.sh > "${RUNNER_TEMP}/issue_body.md"
+          echo "body_file=${RUNNER_TEMP}/issue_body.md" >> "$GITHUB_OUTPUT"
 
       - name: Create weekly review issue
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh issue create \
-            --title "${{ steps.week_info.outputs.title }}" \
-            --label "documentation,weekly-review" \
-            --body "${{ steps.issue_body.outputs.issue_body }}"
+        if: steps.duplicate_check.outputs.should_create == 'true'
+        uses: ./.github/actions/create-issue
+        with:
+          title: ${{ steps.week_info.outputs.title }}
+          labels: documentation,weekly-review
+          body-file: ${{ steps.issue_body.outputs.body_file }}
+          summary-heading: '✅ 週次ドキュメントレビュー Issue を作成しました'
+          summary-extra: |
+            **次回レビュー予定**: ${{ steps.next_review.outputs.next_date }}
+            **過去1週間の更新ドキュメント数**: ${{ steps.metrics.outputs.updated_docs }} ファイル
 
-      - name: Summary
-        run: |
-          echo "✅ 週次ドキュメントレビュー Issue を作成しました" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**タイトル**: ${{ steps.week_info.outputs.title }}" >> $GITHUB_STEP_SUMMARY
-          echo "**次回レビュー予定**: ${{ steps.next_review.outputs.next_date }}" >> $GITHUB_STEP_SUMMARY
-          echo "**過去1週間の更新ドキュメント数**: ${{ steps.metrics.outputs.updated_docs }} ファイル" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-
-          if [ "${{ steps.policy_changes.outputs.has_changes }}" == "true" ]; then
-            echo "⚠️ **開発方針ドキュメントに変更が検出されました**" >> $GITHUB_STEP_SUMMARY
-            echo "Priority 4 の「14. 方針変更の追従漏れチェック」を必ず実施してください。" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "📝 開発方針ドキュメントに変更なし" >> $GITHUB_STEP_SUMMARY
-          fi
+            ${{ steps.policy_changes.outputs.has_changes == 'true' && '⚠️ **開発方針ドキュメントに変更が検出されました**' || '📝 開発方針ドキュメントに変更なし' }}
+            ${{ steps.policy_changes.outputs.has_changes == 'true' && 'Priority 4 の「14. 方針変更の追従漏れチェック」を必ず実施してください。' || '' }}
