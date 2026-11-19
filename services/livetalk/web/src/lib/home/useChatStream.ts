@@ -64,6 +64,8 @@ export interface UseChatStreamDeps {
   clearOnboardingText: () => void;
   /** オンボーディングの案内を閉じる関数 (応答の最初の text を受けた時点で呼ぶ) */
   dismissOnboarding: () => void;
+  /** サーバーが同意なしと判定したときに呼ぶ関数 (同意ダイアログを開き直す) */
+  onConsentRequired: () => void;
   /** ライフサイクル状態を更新する setter */
   setLifecycleState: Dispatch<SetStateAction<LifecycleState>>;
 }
@@ -113,6 +115,7 @@ export function useChatStream(deps: UseChatStreamDeps): UseChatStreamResult {
     clearFirstWordText,
     clearOnboardingText,
     dismissOnboarding,
+    onConsentRequired,
     setLifecycleState,
   } = deps;
 
@@ -174,6 +177,13 @@ export function useChatStream(deps: UseChatStreamDeps): UseChatStreamResult {
 
         if (!response.ok || !response.body) {
           const errorCode = await readChatErrorCode(response);
+          if (errorCode === 'CONSENT_REQUIRED') {
+            // 同意ダイアログが代わりに案内するため、エラー文言も登録も出さない。
+            // false を返すので入力欄の文は残る。
+            setPhase('idle');
+            onConsentRequired();
+            return false;
+          }
           setErrorMessage(getChatErrorMessage(errorCode));
           dismissOnboardingOnce();
           setPhase('idle');
@@ -322,6 +332,7 @@ export function useChatStream(deps: UseChatStreamDeps): UseChatStreamResult {
       clearFirstWordText,
       clearOnboardingText,
       dismissOnboarding,
+      onConsentRequired,
       setLifecycleState,
       setPhase,
     ]

@@ -46,6 +46,7 @@ function makeDeps(overrides: Partial<UseChatStreamDeps> = {}): UseChatStreamDeps
     clearFirstWordText: jest.fn() as () => void,
     clearOnboardingText: jest.fn() as () => void,
     dismissOnboarding: jest.fn() as () => void,
+    onConsentRequired: jest.fn() as () => void,
     setLifecycleState: jest.fn() as unknown as Dispatch<SetStateAction<LifecycleState>>,
     ...overrides,
   };
@@ -336,6 +337,45 @@ describe('useChatStream', () => {
       });
 
       expect(ok).toBe(false);
+    });
+
+    it('CONSENT_REQUIRED は同意ダイアログを開き直し、エラー文言・登録なしで失敗として返す', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: false,
+        body: null,
+        status: 403,
+        json: async () => ({ error: 'CONSENT_REQUIRED', message: 'x' }),
+      });
+      const deps = makeDeps();
+      const { result } = renderHook(() => useChatStream(deps));
+
+      let ok: boolean | undefined;
+      await act(async () => {
+        ok = await result.current.handleSubmit('テスト');
+      });
+
+      expect(ok).toBe(false);
+      expect(deps.onConsentRequired).toHaveBeenCalledTimes(1);
+      expect(result.current.errorMessage).toBeNull();
+      expect(deps.setPhase).toHaveBeenLastCalledWith('idle');
+      expect(mockReportClientError).not.toHaveBeenCalled();
+    });
+
+    it('CONSENT_REQUIRED 以外のエラーでは同意ダイアログを開かない', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: false,
+        body: null,
+        status: 429,
+        json: async () => ({ error: 'RATE_LIMIT_EXCEEDED', message: 'x' }),
+      });
+      const deps = makeDeps();
+      const { result } = renderHook(() => useChatStream(deps));
+
+      await act(async () => {
+        await result.current.handleSubmit('テスト');
+      });
+
+      expect(deps.onConsentRequired).not.toHaveBeenCalled();
     });
 
     it('RATE_LIMIT_EXCEEDED のコードは休憩を促す文言になる', async () => {

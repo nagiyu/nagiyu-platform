@@ -18,6 +18,7 @@ import {
   createStudyTopicRepository,
 } from '@nagiyu/livetalk-core';
 import { getCharacterDefinition, hasCharacter } from '@/lib/characters/registry';
+import { getConsentStatus } from '@/lib/server/consent';
 import { getSession } from '@/lib/server/session';
 import { errorReporter, withApiErrorReporting } from '@/lib/server/api-error-reporting';
 import { getLLMClient } from '@/lib/server/llm';
@@ -55,10 +56,11 @@ function isChatRequest(
  *
  * ガード適用順（Issue #3528）:
  * 1. バリデーション（既存）
- * 2. in-flight ロック取得（取得失敗時は HTTP 429、DB 障害時はフェイルオープンで通す）
- * 3. レートリミットチェック（超過時は HTTP 429、DB 障害時はフェイルオープンで通す）
- * 4. ストリーム開始
- * 5. finally でロック解放（取得できた場合のみ）
+ * 2. 同意の確認（無効なら HTTP 403 CONSENT_REQUIRED、取得失敗は通さず 500）
+ * 3. in-flight ロック取得（取得失敗時は HTTP 429、DB 障害時はフェイルオープンで通す）
+ * 4. レートリミットチェック（超過時は HTTP 429、DB 障害時はフェイルオープンで通す）
+ * 5. ストリーム開始
+ * 6. finally でロック解放（取得できた場合のみ）
  *
  * サーバ側タイムアウトは上流クライアントのタイムアウトに委譲する設計
  * （route 層に決定論的な上限は持たない）。
@@ -113,6 +115,20 @@ export const POST = withApiErrorReporting(
     }
 
     const userId = session.user.id;
+
+    // ---- 同意の確認 ----
+    // 画面のダイアログだけでは API の直接呼び出しを止められないため、サーバーでも確かめる。
+    // ロック・レートの枠を同意のない呼び出しに使わせないよう、それらより前に置く。
+    // 規約上のゲートなので、ロックやレートリミットと違い障害時に通さない。
+    // 取得に失敗したら例外のまま伝播させ、withApiErrorReporting で 500 にする。
+    const { consented } = await getConsentStatus(userId);
+    if (!consented) {
+      return NextResponse.json(
+        { error: 'CONSENT_REQUIRED', message: CHAT_ERROR_MESSAGES.CONSENT_REQUIRED },
+        { status: 403 }
+      );
+    }
+
     const chatGuardRepository = createChatGuardRepository();
     const nowMs = Date.now();
 

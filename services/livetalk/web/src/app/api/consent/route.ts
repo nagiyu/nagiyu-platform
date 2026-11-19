@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
 import { readJsonObjectBody, withAuth } from '@nagiyu/nextjs';
 import {
-  isConsentValid,
   LIVETALK_TERMS_VERSION,
   LIVETALK_PRIVACY_VERSION,
   createProfileRepository,
 } from '@nagiyu/livetalk-core';
 import { getSession } from '@/lib/server/session';
+import { getConsentStatus } from '@/lib/server/consent';
 import { withApiErrorReporting } from '@/lib/server/api-error-reporting';
 import { CONSENT_ERROR_MESSAGES } from './constants';
 
@@ -37,11 +37,7 @@ export const GET = withApiErrorReporting(
   withAuth(getSession, 'livetalk:chat', async (session) => {
     const userId = session.user.id;
 
-    const profile = await createProfileRepository().getById({ userId });
-    const consented = isConsentValid(profile?.consents, {
-      termsVersion: LIVETALK_TERMS_VERSION,
-      privacyVersion: LIVETALK_PRIVACY_VERSION,
-    });
+    const { consented, consents } = await getConsentStatus(userId);
 
     return NextResponse.json({
       consented,
@@ -49,7 +45,7 @@ export const GET = withApiErrorReporting(
         terms: LIVETALK_TERMS_VERSION,
         privacy: LIVETALK_PRIVACY_VERSION,
       },
-      current: profile?.consents ?? null,
+      current: consents ?? null,
     });
   }),
   { error: 'FETCH_FAILED', message: CONSENT_ERROR_MESSAGES.FETCH_FAILED }
