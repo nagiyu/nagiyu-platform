@@ -34,18 +34,21 @@ jobs:
     name: Discover Infra Workspaces
     runs-on: ubuntu-latest
 
+    # E2E と同じ OS・Node で検査するため、共通イメージの上で動かす
+    container:
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v1
+
+    # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
+    defaults:
+      run:
+        shell: bash
+
     outputs:
       workspaces: ${{ steps.list.outputs.workspaces }}
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      # action は npm ci 前に動かすため、依存を入れずに Node だけを用意する
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version-file: .node-version
 
       # ディレクトリを渡すと module として読もうとして失敗するため、glob で渡す
       - name: Test workspace listing
@@ -62,6 +65,15 @@ jobs:
     name: Infra (${{ matrix.workspace.name }})
     runs-on: ubuntu-latest
     needs: [discover]
+
+    # E2E と同じ OS・Node で検査するため、共通イメージの上で動かす
+    container:
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v1
+
+    # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
+    defaults:
+      run:
+        shell: bash
 
     strategy:
       # 1 つの失敗で他のワークスペースの結果が見えなくならないようにする
@@ -83,6 +95,7 @@ jobs:
         uses: ./.github/actions/setup-node
         with:
           cache-dependency-path: './package-lock.json'
+          skip-setup-node: 'true'
 
       # infra の各パッケージは infra-common のビルド成果物を参照する
       - name: Build infra-common
