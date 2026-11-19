@@ -1,4 +1,6 @@
-const BASE_URL = 'https://nagiyu.com';
+import { SITE_URL } from './site';
+
+const BASE_URL = SITE_URL;
 
 export const homeStructuredData = {
   '@context': 'https://schema.org',

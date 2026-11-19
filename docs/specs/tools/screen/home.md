@@ -7,7 +7,7 @@ sources:
   - services/tools/src/app/page.tsx
   - services/tools/src/components/tools/ToolCard.tsx
   - services/tools/src/app/layout.tsx
-sources_hash: 3071ec5411d31c720b4114f86f79afc4c03a982771dbe7114558e4a3f8ffd6bd
+sources_hash: 8e275cb46108fd224ba896b95d5649c4d7f4c8fda4af32a8087e8353ebf16429
 terms: [tools/term/migration-dialog]
 related_cards: [tools/screen/transit-converter, tools/screen/json-formatter, tools/screen/vapid-generator, tools/screen/base64, tools/screen/url-encoder, tools/screen/hash-generator, tools/screen/timestamp-converter]
 related_adr:

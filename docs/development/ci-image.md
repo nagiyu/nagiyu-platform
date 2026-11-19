@@ -1,6 +1,6 @@
 # CI 共通イメージ
 
-E2E と、Node を使う検査 (サービスと infra の lint・テスト・ビルド・synth) のジョブは、GHCR に置いた共通イメージの上で動かす。ここには、イメージの構成の理由と、版を上げる手順を書く。
+E2E と、Node を使う検査 (サービスと infra の lint・テスト・ビルド・synth、libs の検査、全体の lint・format、docs のサイトのビルド) のジョブは、GHCR に置いた共通イメージの上で動かす。ここには、イメージの構成の理由と、版を上げる手順を書く。
 
 ## なぜイメージの上で動かすか
 
@@ -10,7 +10,7 @@ E2E と、Node を使う検査 (サービスと infra の lint・テスト・ビ
 
 | 種類 | 中身 | 使うジョブ |
 |---|---|---|
-| base | Node、AWS CLI、git、curl、unzip | サービスと infra の検査、他の種類の土台 |
+| base | Node、AWS CLI、git、curl、unzip | サービスと infra の検査、libs の検査、全体の lint・format、docs のサイトのビルド、他の種類の土台 |
 | chromium | base + Chromium | chromium のデバイスの E2E |
 | webkit | base + WebKit | webkit のデバイスの E2E |
 

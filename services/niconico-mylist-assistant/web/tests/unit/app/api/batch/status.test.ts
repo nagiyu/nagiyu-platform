@@ -101,8 +101,7 @@ describe('GET /api/batch/status/[jobId]', () => {
       result: { registeredCount: 2, failedCount: 1, totalCount: 3 },
       completedAt: new Date(completedAt).toISOString(),
     });
-    // 二段階認証コードなど内部の項目はレスポンスに含めない
-    expect(json).not.toHaveProperty('twoFactorAuthCode');
+    // 内部の項目はレスポンスに含めない
     expect(json).not.toHaveProperty('userId');
   });
 

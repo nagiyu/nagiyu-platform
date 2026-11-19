@@ -8,7 +8,7 @@ sources:
   - services/niconico-mylist-assistant/web/src/components/JobStatusPageClient.tsx
   - services/niconico-mylist-assistant/web/src/components/JobStatusDisplay.tsx
   - services/niconico-mylist-assistant/web/src/types/job.ts
-sources_hash: 3c258a742043ce5801341534226388b9ac1f9aa850b7b342ccb8e674274c420d
+sources_hash: a3e7c704984eec751de98f1f6a6666a09015f32a0faa178b2cf03aed8df02761
 terms: [niconico-mylist-assistant/term/batch-job]
 related_cards: [niconico-mylist-assistant/api/batch-jobs, niconico-mylist-assistant/screen/mylist-register, niconico-mylist-assistant/batch/mylist-register, niconico-mylist-assistant/flow/mylist-registration]
 ---
@@ -31,7 +31,7 @@ related_cards: [niconico-mylist-assistant/api/batch-jobs, niconico-mylist-assist
 |---|---|
 | 「登録画面に戻る」 | [マイリスト登録画面](./mylist-register.md)に移る |
 | ステータス | 札 (色つき)、アイコン、ジョブ ID、説明文 |
-| 進行中の帯 | 投入済み・実行中・二段階認証待ちのあいだ出る |
+| 進行中の帯 | 投入済み・実行中のあいだ出る |
 | 処理結果 | 結果があれば出す。「登録成功: N 件」「登録失敗: N 件」「総件数: N 件」と、エラーがあれば「エラー: ...」 |
 | 日時 | 作成日時、更新日時、完了日時 (あれば)。日本時間の `YYYY/MM/DD HH:mm:ss` |
 
@@ -41,12 +41,10 @@ related_cards: [niconico-mylist-assistant/api/batch-jobs, niconico-mylist-assist
 |---|---|---|
 | `SUBMITTED` | 投入済み | ジョブの実行を待機中... |
 | `RUNNING` | 実行中 | マイリスト登録処理を実行中... |
-| `WAITING_FOR_2FA` | 二段階認証待ち | 二段階認証が必要です。メールに送られた6桁のコードを入力してください。 |
 | `SUCCEEDED` | 完了 | マイリスト登録が完了しました |
 | `FAILED` | 失敗 | マイリスト登録に失敗しました |
 
 - 結果の帯は、`SUCCEEDED` なら緑、`FAILED` なら赤。一部の動画だけ登録に失敗しても `SUCCEEDED` で、失敗の件数に出る
-- `WAITING_FOR_2FA` のときだけ、「二段階認証コード」の入力欄 (6 文字、数字用のキーボード) と「コードを送信」を出す。6 文字そろうまで送信は押せない。今のバッチはこのステータスにしないので、通常は出ない
 
 ## 状態
 
@@ -66,7 +64,6 @@ related_cards: [niconico-mylist-assistant/api/batch-jobs, niconico-mylist-assist
 | 操作 | 結果 |
 |---|---|
 | 自動の取得 | 開いた直後に 1 回、その後は 5 秒ごと (最大 360 回 = 30 分)。`SUCCEEDED` か `FAILED` になるか、ジョブがないと分かると止める。[ジョブ API](../api/batch-jobs.md) (`GET /api/batch/status/{jobId}`) を呼ぶ |
-| コードを送信 | 6 桁の数字でなければ「6桁の数字を入力してください」。通れば[ジョブ API](../api/batch-jobs.md) (`POST /api/batch/2fa`) に送り、成功すると入力欄を空にする。失敗は入力欄の下に理由を出す |
 | 登録画面に戻る | [マイリスト登録画面](./mylist-register.md)に移る |
 
 ## 画面の見た目
@@ -90,14 +87,6 @@ related_cards: [niconico-mylist-assistant/api/batch-jobs, niconico-mylist-assist
 | スマホ | PC |
 |---|---|
 | ![ジョブの状態画面 実行中 (スマホ)](../../../images/specs/niconico-mylist-assistant/screen/job-status-running-mobile.png) | ![ジョブの状態画面 実行中 (PC)](../../../images/specs/niconico-mylist-assistant/screen/job-status-running-desktop.png) |
-
-### 二段階認証待ち
-
-コードを入力している途中 (6 文字に満たないので送れない)。
-
-| スマホ | PC |
-|---|---|
-| ![ジョブの状態画面 二段階認証待ち (スマホ)](../../../images/specs/niconico-mylist-assistant/screen/job-status-waiting-for-2fa-mobile.png) | ![ジョブの状態画面 二段階認証待ち (PC)](../../../images/specs/niconico-mylist-assistant/screen/job-status-waiting-for-2fa-desktop.png) |
 
 ### 完了
 
@@ -135,7 +124,6 @@ related_cards: [niconico-mylist-assistant/api/batch-jobs, niconico-mylist-assist
 flowchart TD
     R[マイリスト登録画面] -->|3 秒後に移る| S[ジョブの状態画面]
     S -->|5 秒ごとに取得| A1[ジョブ API<br/>status]
-    S -->|コードを送信| A2[ジョブ API<br/>2fa]
     S -->|登録画面に戻る| R
     A1 --> D[(ジョブの記録)]
 ```

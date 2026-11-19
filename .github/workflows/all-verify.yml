@@ -20,6 +20,15 @@ jobs:
     name: Lint All Workspaces
     runs-on: ubuntu-latest
 
+    # E2E と同じ OS・Node で検査するため、共通イメージの上で動かす
+    container:
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v1
+
+    # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
+    defaults:
+      run:
+        shell: bash
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -28,6 +37,7 @@ jobs:
         uses: ./.github/actions/setup-node
         with:
           cache-dependency-path: './package-lock.json'
+          skip-setup-node: 'true'
 
       - name: Run lint
         run: npm run lint
@@ -36,6 +46,15 @@ jobs:
     name: Format Check All Workspaces
     runs-on: ubuntu-latest
 
+    # E2E と同じ OS・Node で検査するため、共通イメージの上で動かす
+    container:
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v1
+
+    # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
+    defaults:
+      run:
+        shell: bash
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -44,6 +63,7 @@ jobs:
         uses: ./.github/actions/setup-node
         with:
           cache-dependency-path: './package-lock.json'
+          skip-setup-node: 'true'
 
       - name: Check formatting
         run: npm run format:check

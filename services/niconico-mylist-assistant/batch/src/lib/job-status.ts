@@ -9,7 +9,7 @@
 /**
  * バッチジョブの完了ステータス型
  *
- * BatchStatus（'SUBMITTED' | 'RUNNING' | 'WAITING_FOR_2FA' | 'SUCCEEDED' | 'FAILED'）の
+ * BatchStatus（'SUBMITTED' | 'RUNNING' | 'SUCCEEDED' | 'FAILED'）の
  * 完了系サブセット。
  */
 export type BatchJobFinalStatus = 'SUCCEEDED' | 'FAILED';

@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom';
 import { render, screen } from '@testing-library/react';
 import { NOT_FOUND_VIEW_MESSAGES } from '@nagiyu/ui';
-import NotFound from '@/app/not-found';
+import NotFound, { metadata } from '@/app/not-found';
 
 describe('NotFound', () => {
   it('既定の見出しとトップページへの導線を表示する', () => {
@@ -14,5 +14,9 @@ describe('NotFound', () => {
       'href',
       '/'
     );
+  });
+
+  it('metadata のタイトルを、画面の見出しと同じ文言にする', () => {
+    expect(metadata.title).toBe(NOT_FOUND_VIEW_MESSAGES.DEFAULT_TITLE);
   });
 });

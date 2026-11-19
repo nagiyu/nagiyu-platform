@@ -10,7 +10,7 @@ sources:
   - services/niconico-mylist-assistant/web/src/lib/mylist-register-validation.ts
   - services/niconico-mylist-assistant/web/src/lib/constants/errors.ts
   - services/niconico-mylist-assistant/web/src/types/mylist.ts
-sources_hash: 814fd47a6a8f21e5a66ceaf791e8fc9f0b1315e2611034e5d2b289c87676ed5b
+sources_hash: f54485151cf300016a9621b13b660a822b57992068900196c29861b5c463b088
 terms: [niconico-mylist-assistant/term/user-session, niconico-mylist-assistant/term/video-setting, niconico-mylist-assistant/term/batch-job]
 related_cards: [niconico-mylist-assistant/api/mylist-register, niconico-mylist-assistant/api/niconico-session, niconico-mylist-assistant/screen/job-status, niconico-mylist-assistant/flow/mylist-registration, niconico-mylist-assistant/flow/session-injection]
 related_adr:

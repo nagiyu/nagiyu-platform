@@ -62,7 +62,6 @@ describe('BatchJobMapper', () => {
       UserID: ['userId'],
       Status: ['status'],
       Result: ['result'],
-      TwoFactorAuthCode: ['twoFactorAuthCode'],
       PushSubscription: ['pushSubscription'],
     });
   });
@@ -89,19 +88,17 @@ describe('BatchJobMapper', () => {
     it('任意項目を PascalCase で保存し、ネストしたキーは変えない', () => {
       const item = mapper.toItem(
         buildEntity({
-          status: 'WAITING_FOR_2FA',
+          status: 'RUNNING',
           result: RESULT,
           completedAt: COMPLETED_AT,
-          twoFactorAuthCode: '123456',
           pushSubscription: PUSH_SUBSCRIPTION,
         })
       );
 
       expect(item).toMatchObject({
-        Status: 'WAITING_FOR_2FA',
+        Status: 'RUNNING',
         Result: RESULT,
         CompletedAt: COMPLETED_AT,
-        TwoFactorAuthCode: '123456',
         PushSubscription: PUSH_SUBSCRIPTION,
       });
     });
@@ -109,7 +106,7 @@ describe('BatchJobMapper', () => {
     it('任意項目がなければ属性を書かない', () => {
       const item = mapper.toItem(buildEntity());
 
-      for (const name of ['Result', 'CompletedAt', 'TwoFactorAuthCode', 'PushSubscription']) {
+      for (const name of ['Result', 'CompletedAt', 'PushSubscription']) {
         expect(item).not.toHaveProperty(name);
       }
     });
@@ -118,19 +115,11 @@ describe('BatchJobMapper', () => {
       const item = mapper.toItem(
         buildEntity({
           result: RESULT,
-          twoFactorAuthCode: '123456',
           pushSubscription: PUSH_SUBSCRIPTION,
         })
       );
 
-      for (const legacyName of [
-        'jobId',
-        'userId',
-        'status',
-        'result',
-        'twoFactorAuthCode',
-        'pushSubscription',
-      ]) {
+      for (const legacyName of ['jobId', 'userId', 'status', 'result', 'pushSubscription']) {
         expect(item).not.toHaveProperty(legacyName);
       }
     });
@@ -161,7 +150,6 @@ describe('BatchJobMapper', () => {
         buildItem({
           Result: RESULT,
           CompletedAt: COMPLETED_AT,
-          TwoFactorAuthCode: '123456',
           PushSubscription: PUSH_SUBSCRIPTION,
         })
       );
@@ -170,7 +158,6 @@ describe('BatchJobMapper', () => {
         buildEntity({
           result: RESULT,
           completedAt: COMPLETED_AT,
-          twoFactorAuthCode: '123456',
           pushSubscription: PUSH_SUBSCRIPTION,
         })
       );
@@ -185,7 +172,6 @@ describe('BatchJobMapper', () => {
         userId: 'user-1',
         status: 'SUCCEEDED',
         result: RESULT,
-        twoFactorAuthCode: '654321',
         pushSubscription: PUSH_SUBSCRIPTION,
         CreatedAt: CREATED_AT,
         UpdatedAt: UPDATED_AT,
@@ -198,7 +184,6 @@ describe('BatchJobMapper', () => {
           status: 'SUCCEEDED',
           result: RESULT,
           completedAt: COMPLETED_AT,
-          twoFactorAuthCode: '654321',
           pushSubscription: PUSH_SUBSCRIPTION,
         })
       );
@@ -209,13 +194,10 @@ describe('BatchJobMapper', () => {
         buildItem({
           Status: 'RUNNING',
           status: 'FAILED',
-          TwoFactorAuthCode: '111111',
-          twoFactorAuthCode: '222222',
         })
       );
 
       expect(entity.status).toBe('RUNNING');
-      expect(entity.twoFactorAuthCode).toBe('111111');
     });
 
     it.each(['JobID', 'UserID', 'Status', 'CreatedAt', 'UpdatedAt'])(
@@ -243,12 +225,6 @@ describe('BatchJobMapper', () => {
     it('オブジェクトでない Result は InvalidEntityDataError になる', () => {
       expect(() => mapper.toEntity(buildItem({ Result: 'x' }))).toThrow(InvalidEntityDataError);
       expect(() => mapper.toEntity(buildItem({ Result: [] }))).toThrow(InvalidEntityDataError);
-    });
-
-    it('文字列でない TwoFactorAuthCode は InvalidEntityDataError になる', () => {
-      expect(() => mapper.toEntity(buildItem({ TwoFactorAuthCode: 123456 }))).toThrow(
-        InvalidEntityDataError
-      );
     });
 
     it.each([
@@ -279,7 +255,6 @@ describe('BatchJobMapper', () => {
       expect(attributes.Status).toBe('SUCCEEDED');
       expect(attributes.Result).toEqual(RESULT);
       expect(attributes.CompletedAt).toBe(COMPLETED_AT);
-      expect(attributes.TwoFactorAuthCode).toBeUndefined();
       expect(attributes.PushSubscription).toBeUndefined();
     });
 
@@ -293,7 +268,6 @@ describe('BatchJobMapper', () => {
     it.each([
       ['result', 'Result'],
       ['completedAt', 'CompletedAt'],
-      ['twoFactorAuthCode', 'TwoFactorAuthCode'],
       ['pushSubscription', 'PushSubscription'],
     ] as const)('任意項目 %s は null で属性の削除になる', (field, attribute) => {
       expect(mapper.toUpdateAttributes({ [field]: null })[attribute]).toBe(REMOVE_ATTRIBUTE);
