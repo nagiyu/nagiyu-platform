@@ -10,6 +10,8 @@ Tools サービスの AWS インフラストラクチャの CDK 実装に関す�
 
 ## デプロイ
 
+以下の CDK コマンドはすべて、`IMAGE_TAG` に push 済みのイメージのタグを渡して実行します (前提条件を参照)。
+
 ### 開発環境
 ```bash
 cd infra/tools
@@ -72,6 +74,8 @@ npx cdk deploy --all --context env=prod
 
 Lambda デプロイ前に、ECR リポジトリにコンテナイメージがプッシュされている必要があります。
 
+CDK は環境変数 `IMAGE_TAG` のタグで Lambda のイメージを指します。synth / diff / deploy / destroy のどれも、`IMAGE_TAG` が無いと合成が失敗するので、push 済みのタグ (CI ではコミットの sha) を渡してください。
+
 ### コマンド
 
 すべてのコマンドは `infra/tools/` ディレクトリで実行します。
@@ -102,7 +106,7 @@ npm run diff:dev
 npm run diff:prod
 
 # 特定のスタック
-npx cdk diff Tools-Ecr-dev --context env=dev
+npx cdk diff NagiyuToolsEcrDev --context env=dev
 ```
 
 #### デプロイ
@@ -115,7 +119,7 @@ npm run deploy:dev
 npm run deploy:prod
 
 # 特定のスタックのみ
-npx cdk deploy Tools-Ecr-dev --context env=dev
+npx cdk deploy NagiyuToolsEcrDev --context env=dev
 npx cdk deploy Tools-Lambda-dev --context env=dev
 npx cdk deploy Tools-CloudFront-dev --context env=dev
 ```
@@ -126,39 +130,50 @@ npx cdk deploy Tools-CloudFront-dev --context env=dev
 # dev 環境 (逆順)
 npx cdk destroy Tools-CloudFront-dev --context env=dev
 npx cdk destroy Tools-Lambda-dev --context env=dev
-npx cdk destroy Tools-Ecr-dev --context env=dev
+npx cdk destroy NagiyuToolsEcrDev --context env=dev
 ```
 
 ### 初回デプロイ手順
 
 1. **ECR スタックのデプロイ**
 
+    CDK はどのスタックを deploy するときもアプリ全体を合成し、環境変数 `IMAGE_TAG` を読む。`IMAGE_TAG` が無いと合成が失敗するので、ECR だけの deploy にも値を渡す。値は次の手順で決めるタグと同じものにする。
+
     ```bash
+    export IMAGE_TAG=$(git rev-parse HEAD)
+
     cd infra/tools
-    npx cdk deploy Tools-Ecr-dev --context env=dev
+    IMAGE_TAG=${IMAGE_TAG} npx cdk deploy NagiyuToolsEcrDev --context env=dev
     ```
 
 2. **コンテナイメージのビルドとプッシュ**
 
+    イメージのタグは 1 つだけ決め、そのタグで build と push を行う。CI ではコミットの sha を使う。動くタグ (`latest`) は使わない。同じタグのままでは CloudFormation がイメージの入れ替わりに気づかず、Lambda が更新されないためである。
+
     ```bash
-    cd ../../services/tools
     # ECR ログイン
     aws ecr get-login-password --region us-east-1 | \
       docker login --username AWS --password-stdin <account-id>.dkr.ecr.us-east-1.amazonaws.com
 
-    # イメージビルド
-    docker build -t tools-app-dev .
-    docker tag tools-app-dev:latest <account-id>.dkr.ecr.us-east-1.amazonaws.com/tools-app-dev:latest
+    # ECR リポジトリの URI を ECR スタックの出力から取得
+    REPOSITORY_URI=$(aws cloudformation describe-stacks \
+      --stack-name NagiyuToolsEcrDev \
+      --query "Stacks[0].Outputs[?OutputKey=='RepositoryUri'].OutputValue" \
+      --output text --region us-east-1)
 
-    # プッシュ
-    docker push <account-id>.dkr.ecr.us-east-1.amazonaws.com/tools-app-dev:latest
+    # イメージビルドとプッシュ (モノレポルートから。CI と同じく BuildKit を切る)
+    cd ../..
+    DOCKER_BUILDKIT=0 docker build -t ${REPOSITORY_URI}:${IMAGE_TAG} -f services/tools/Dockerfile .
+    docker push ${REPOSITORY_URI}:${IMAGE_TAG}
     ```
 
 3. **Lambda スタックのデプロイ**
 
+    CDK は `IMAGE_TAG` のタグを Lambda に書き込むので、手順 2 と同じ値を渡す。イメージの切り替えはこの deploy が行う。
+
     ```bash
-    cd ../../infra/tools
-    npx cdk deploy Tools-Lambda-dev --context env=dev
+    cd infra/tools
+    IMAGE_TAG=${IMAGE_TAG} npx cdk deploy Tools-Lambda-dev --context env=dev
     ```
 
 4. **CloudFront スタックのデプロイ**
@@ -187,7 +202,7 @@ npm run build
 aws sts get-caller-identity
 
 # スタックの状態確認
-aws cloudformation describe-stacks --stack-name Tools-Ecr-dev --region us-east-1
+aws cloudformation describe-stacks --stack-name NagiyuToolsEcrDev --region us-east-1
 ```
 
 #### ECR イメージが見つからない

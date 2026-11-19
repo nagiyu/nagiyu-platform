@@ -49,32 +49,54 @@ aws secretsmanager put-secret-value \
 
 #### 4.2.1 ECR リポジトリ作成
 
+CDK はどのスタックを deploy するときもアプリ全体を合成し、環境変数 `IMAGE_TAG` を読む。`IMAGE_TAG` が無いと合成が失敗するので、ECR だけの deploy にも値を渡す。値は次節で決めるタグと同じものにする。
+
 ```bash
+export IMAGE_TAG=$(git rev-parse HEAD)
+
 cd infra/niconico-mylist-assistant
-npx cdk deploy NagiyuNiconicoMylistAssistantWebECR{Env} NagiyuNiconicoMylistAssistantBatchECR{Env} --context env={env}
+IMAGE_TAG=${IMAGE_TAG} npx cdk deploy NagiyuNiconicoMylistAssistantWebECR{Env} NagiyuNiconicoMylistAssistantBatchECR{Env} --context env={env}
 ```
 
 #### 4.2.2 Docker イメージビルド・プッシュ
 
+イメージのタグは 1 つだけ決め、Web 用と Batch 用の両方に同じタグを付ける。CI ではコミットの sha を使う。動くタグ (`latest`) は使わない。同じタグのままでは CloudFormation がイメージの入れ替わりに気づかず、Lambda もジョブ定義も更新されないためである。
+
+ビルドはモノレポルートから行い、CI と同じく BuildKit を切る (`DOCKER_BUILDKIT=0`)。
+
 ```bash
+# 4.2.1 と同じタグ
+export IMAGE_TAG=$(git rev-parse HEAD)
+
+aws ecr get-login-password --region us-east-1 | \
+    docker login --username AWS --password-stdin {account}.dkr.ecr.us-east-1.amazonaws.com
+
+# ECR リポジトリの URI は ECR スタックの出力から取得する
+WEB_REPO_URI=$(aws cloudformation describe-stacks \
+    --stack-name NagiyuNiconicoMylistAssistantWebECR{Env} \
+    --query "Stacks[0].Outputs[?OutputKey=='RepositoryUri'].OutputValue" \
+    --output text --region us-east-1)
+BATCH_REPO_URI=$(aws cloudformation describe-stacks \
+    --stack-name NagiyuNiconicoMylistAssistantBatchECR{Env} \
+    --query "Stacks[0].Outputs[?OutputKey=='RepositoryUri'].OutputValue" \
+    --output text --region us-east-1)
+
 # Web イメージ
-cd services/niconico-mylist-assistant/web
-docker build -t niconico-mylist-assistant-web-{env} .
-docker tag niconico-mylist-assistant-web-{env} {account}.dkr.ecr.us-east-1.amazonaws.com/nagiyu-niconico-mylist-assistant-web-ecr-{env}:latest
-docker push {account}.dkr.ecr.us-east-1.amazonaws.com/nagiyu-niconico-mylist-assistant-web-ecr-{env}:latest
+DOCKER_BUILDKIT=0 docker build -t ${WEB_REPO_URI}:${IMAGE_TAG} -f services/niconico-mylist-assistant/web/Dockerfile .
+docker push ${WEB_REPO_URI}:${IMAGE_TAG}
 
 # Batch イメージ
-cd services/niconico-mylist-assistant/batch
-docker build -t niconico-mylist-assistant-batch-{env} .
-docker tag niconico-mylist-assistant-batch-{env} {account}.dkr.ecr.us-east-1.amazonaws.com/nagiyu-niconico-mylist-assistant-batch-ecr-{env}:latest
-docker push {account}.dkr.ecr.us-east-1.amazonaws.com/nagiyu-niconico-mylist-assistant-batch-ecr-{env}:latest
+DOCKER_BUILDKIT=0 docker build -t ${BATCH_REPO_URI}:${IMAGE_TAG} -f services/niconico-mylist-assistant/batch/Dockerfile .
+docker push ${BATCH_REPO_URI}:${IMAGE_TAG}
 ```
 
 #### 4.2.3 インフラデプロイ
 
+CDK は `IMAGE_TAG` のタグを Lambda とジョブ定義に書き込むので、4.2.2 と同じ値を渡す。イメージの切り替えはこの deploy が行う。
+
 ```bash
 cd infra/niconico-mylist-assistant
-npx cdk deploy --all --context env={env}
+IMAGE_TAG=${IMAGE_TAG} npx cdk deploy --all --context env={env}
 ```
 
 ## 5. CI/CD
