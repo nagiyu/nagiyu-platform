@@ -16,6 +16,7 @@ Codec Converter のインフラは CDK で定義されており、以下の構�
 infra/codec-converter/
 ├── lib/
 │   ├── codec-converter-stack.ts    # メインスタック
+│   ├── ecr-stacks.ts               # ECR スタック (Web 用と Batch 用)
 │   ├── policies/
 │   │   └── app-runtime-policy.ts   # Lambda 実行ロールが使用する実行権限
 │   └── roles/
@@ -75,12 +76,14 @@ aws ecr get-login-password --region us-east-1 | \
     docker login --username AWS --password-stdin ${ECR_REGISTRY}
 ```
 
+ビルドは CI と同じく BuildKit を切って行う (`DOCKER_BUILDKIT=0`)。BuildKit が付ける attestation つきのイメージを、Lambda が受け付けないことがあるためである。
+
 ##### Lambda イメージ (Next.js)
 
 ```bash
 export LAMBDA_REPO_URI="${ECR_REGISTRY}/nagiyu-codec-converter-ecr-dev"
 
-docker build -t ${LAMBDA_REPO_URI}:${IMAGE_TAG} -f services/codec-converter/web/Dockerfile .
+DOCKER_BUILDKIT=0 docker build -t ${LAMBDA_REPO_URI}:${IMAGE_TAG} -f services/codec-converter/web/Dockerfile .
 docker push ${LAMBDA_REPO_URI}:${IMAGE_TAG}
 ```
 
@@ -89,7 +92,7 @@ docker push ${LAMBDA_REPO_URI}:${IMAGE_TAG}
 ```bash
 export WORKER_REPO_URI="${ECR_REGISTRY}/nagiyu-codec-converter-batch-ecr-dev"
 
-docker build -t ${WORKER_REPO_URI}:${IMAGE_TAG} -f services/codec-converter/batch/Dockerfile .
+DOCKER_BUILDKIT=0 docker build -t ${WORKER_REPO_URI}:${IMAGE_TAG} -f services/codec-converter/batch/Dockerfile .
 docker push ${WORKER_REPO_URI}:${IMAGE_TAG}
 ```
 
@@ -119,7 +122,7 @@ Lambda (Next.js) または Worker (FFmpeg) のコードを変更した場合は�
 
 ### 3.2 インフラ設定の変更
 
-CDK スタック (IAM ロール、環境変数など) だけを変更した場合も、ステップ 2 とステップ 3 を通す。`IMAGE_TAG` には ECR に実在するタグが要る。
+CDK スタック (IAM ロール、環境変数など) だけを変更した場合は、ステップ 3 だけでよい。`IMAGE_TAG` には、いま動いているイメージのタグ (ECR に実在するもの) を渡す。イメージも作り直すなら、ステップ 2 から通す。
 
 ---
 
@@ -247,7 +250,7 @@ aws ecr get-login-password --region us-east-1 | \
 
 1. ECR イメージが存在するか確認
    ```bash
-   aws ecr describe-images --repository-name codec-converter-dev --region us-east-1
+   aws ecr describe-images --repository-name nagiyu-codec-converter-ecr-dev --region us-east-1
    ```
 2. Lambda の環境変数が正しく設定されているか確認
 3. Lambda 実行ロールに必要な権限があるか確認

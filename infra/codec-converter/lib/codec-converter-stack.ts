@@ -89,7 +89,7 @@ export class CodecConverterStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
-    // ECR リポジトリは別スタック (ecr-stacks.ts) が作る。名前は同じ関数から導き、スタック間の Export / Import は作らない。
+    // ECR リポジトリは別スタックが作る。名前は同じ関数から導き、スタック間の Export / Import は作らない。
     // 本体の更新でリポジトリの有無に依存させないため fromRepositoryName で参照する。
     const ecrRepository = ecr.Repository.fromRepositoryName(
       this,

@@ -11,7 +11,7 @@ sources:
   - infra/codec-converter/lib/codec-converter-stack.ts
   - libs/aws/src/error-events/with-error-reporting.ts
   - libs/aws/src/error-events/report.ts
-sources_hash: d90822c87c86e170b671d6b8a3fb02901aa38c40cdd31cc18ee8c8f9a0b91b24
+sources_hash: ea9f25ba8ac5a71d8c83c3fc9fa5b62fca99be48db6fe6034485ceb8929807f5
 terms: [codec-converter/term/job, codec-converter/term/output-codec, codec-converter/term/job-definition-size, platform/term/error-event]
 related_cards: [codec-converter/api/jobs, codec-converter/flow/conversion, codec-converter/flow/error-reporting, admin/flow/error-notification]
 related_adr:
