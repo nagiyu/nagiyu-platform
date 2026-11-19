@@ -48,7 +48,9 @@ describe('structuredData', () => {
     expect(hashGeneratorStructuredData.url).toBe('https://tools.nagiyu.com/hash-generator');
 
     expect(timestampConverterStructuredData['@type']).toBe('WebApplication');
-    expect(timestampConverterStructuredData.url).toBe('https://tools.nagiyu.com/timestamp-converter');
+    expect(timestampConverterStructuredData.url).toBe(
+      'https://tools.nagiyu.com/timestamp-converter'
+    );
   });
 
   it('JSON-LD 文字列としてシリアライズできる', () => {
