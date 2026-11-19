@@ -30,25 +30,27 @@ describe('structuredData', () => {
 
   it('ツールページ用スキーマが WebApplication になっている', () => {
     expect(transitConverterStructuredData['@type']).toBe('WebApplication');
-    expect(transitConverterStructuredData.url).toBe('https://nagiyu.com/transit-converter');
+    expect(transitConverterStructuredData.url).toBe('https://tools.nagiyu.com/transit-converter');
 
     expect(jsonFormatterStructuredData['@type']).toBe('WebApplication');
-    expect(jsonFormatterStructuredData.url).toBe('https://nagiyu.com/json-formatter');
+    expect(jsonFormatterStructuredData.url).toBe('https://tools.nagiyu.com/json-formatter');
 
     expect(vapidGeneratorStructuredData['@type']).toBe('WebApplication');
-    expect(vapidGeneratorStructuredData.url).toBe('https://nagiyu.com/vapid-generator');
+    expect(vapidGeneratorStructuredData.url).toBe('https://tools.nagiyu.com/vapid-generator');
 
     expect(base64StructuredData['@type']).toBe('WebApplication');
-    expect(base64StructuredData.url).toBe('https://nagiyu.com/base64');
+    expect(base64StructuredData.url).toBe('https://tools.nagiyu.com/base64');
 
     expect(urlEncoderStructuredData['@type']).toBe('WebApplication');
-    expect(urlEncoderStructuredData.url).toBe('https://nagiyu.com/url-encoder');
+    expect(urlEncoderStructuredData.url).toBe('https://tools.nagiyu.com/url-encoder');
 
     expect(hashGeneratorStructuredData['@type']).toBe('WebApplication');
-    expect(hashGeneratorStructuredData.url).toBe('https://nagiyu.com/hash-generator');
+    expect(hashGeneratorStructuredData.url).toBe('https://tools.nagiyu.com/hash-generator');
 
     expect(timestampConverterStructuredData['@type']).toBe('WebApplication');
-    expect(timestampConverterStructuredData.url).toBe('https://nagiyu.com/timestamp-converter');
+    expect(timestampConverterStructuredData.url).toBe(
+      'https://tools.nagiyu.com/timestamp-converter'
+    );
   });
 
   it('JSON-LD 文字列としてシリアライズできる', () => {
