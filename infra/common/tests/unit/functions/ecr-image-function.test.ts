@@ -25,7 +25,18 @@ describe('createEcrImageFunction', () => {
     repository,
   });
 
+  const originalImageTag = process.env.IMAGE_TAG;
+
+  afterEach(() => {
+    if (originalImageTag === undefined) {
+      delete process.env.IMAGE_TAG;
+    } else {
+      process.env.IMAGE_TAG = originalImageTag;
+    }
+  });
+
   beforeEach(() => {
+    delete process.env.IMAGE_TAG;
     app = new cdk.App();
     stack = new cdk.Stack(app, 'TestStack');
     repository = ecr.Repository.fromRepositoryName(stack, 'Repo', 'nagiyu-sample-ecr-dev');
@@ -39,7 +50,7 @@ describe('createEcrImageFunction', () => {
   });
 
   describe('既定の構成', () => {
-    it('ECR イメージ (latest) から関数を作り、既定値を適用する', () => {
+    it('IMAGE_TAG 未指定のとき、ECR イメージ (latest) から関数を作り、既定値を適用する', () => {
       createEcrImageFunction(stack, 'SampleFunction', baseProps());
 
       const template = Template.fromStack(stack);
@@ -52,6 +63,15 @@ describe('createEcrImageFunction', () => {
         TracingConfig: { Mode: 'Active' },
       });
       expect(JSON.stringify(template.toJSON())).toContain(':latest');
+    });
+
+    it('IMAGE_TAG を指定すると、テンプレートがそのタグを指す', () => {
+      process.env.IMAGE_TAG = 'abc1234';
+      createEcrImageFunction(stack, 'SampleFunction', baseProps());
+
+      const json = JSON.stringify(Template.fromStack(stack).toJSON());
+      expect(json).toContain(':abc1234');
+      expect(json).not.toContain(':latest');
     });
 
     it('CloudFormation 管理の LogGroup を保持期間 30 日で作り、関数に渡す', () => {

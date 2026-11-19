@@ -11,7 +11,7 @@ sources:
   - infra/admin/lib/self-monitoring-alarms-stack.ts
   - services/admin/batch/src/alarm-ingest.ts
   - libs/aws/src/error-events/mapper.ts
-sources_hash: 35414ad5be044db18f6db2d39945a80051938d867ad4e1e2d33ec489e815d08a
+sources_hash: bdac617b2bdf6824cd8ecec552fe7bfc88f35d9566f8744719c5c6f187929542
 terms: [platform/term/error-event]
 related_cards: [admin/flow/error-notification, admin/batch/stream-handler, admin/term/error-event-key]
 related_adr:
