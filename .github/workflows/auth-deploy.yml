@@ -15,7 +15,6 @@ on:
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/auth-deploy.yml'
-      - '.github/actions/update-lambda-image/**'
       - '.github/actions/health-check/**'
       - '.github/actions/push-ecr-image/**'
   workflow_dispatch:
@@ -34,6 +33,9 @@ permissions:
 
 env:
   AWS_REGION: us-east-1
+  # push するタグと CDK が指すタグを同じ値にするため、全ジョブで共有する。
+  # CDK はどのスタックを deploy するときもアプリ全体を合成するので、ECR だけの deploy にも要る。
+  IMAGE_TAG: ${{ github.sha }}
 
 # dev 環境は integration/** と develop で共有するため、ブランチではなくデプロイ先環境の単位で直列化する。
 # CDK デプロイを途中で止めるとスタックが更新中のまま残るので実行中の run は完走させ、待機中は最新の run だけを残す。
@@ -176,8 +178,7 @@ jobs:
           dockerfile: services/auth/web/Dockerfile
           build-args: APP_VERSION=${{ steps.get-version.outputs.app-version }}
           tags: |
-            ${{ github.sha }}
-            latest
+            ${{ env.IMAGE_TAG }}
 
   deploy:
     name: Deploy to AWS Lambda
@@ -240,37 +241,6 @@ jobs:
             --context stripeWebhookSecret="$STRIPE_WEBHOOKSECRET" \
             --all \
             --require-approval never
-
-      - name: Get Lambda function details
-        id: get-lambda
-        env:
-          ENVIRONMENT: ${{ needs.build.outputs.environment }}
-        run: |
-          # Get Lambda function ARN from CloudFormation
-          FUNCTION_ARN=$(aws cloudformation describe-stacks \
-            --stack-name "NagiyuAuthLambda$(echo $ENVIRONMENT | sed 's/\(.\)/\U\1/')" \
-            --query "Stacks[0].Outputs[?OutputKey=='LambdaFunctionArn'].OutputValue" \
-            --output text \
-            --region "${{ env.AWS_REGION }}" 2>/dev/null || echo "")
-
-          if [ -z "$FUNCTION_ARN" ]; then
-            echo "Warning: Could not find Lambda function ARN from stack"
-            FUNCTION_NAME="nagiyu-auth-lambda-$ENVIRONMENT"
-          else
-            # Extract function name from ARN
-            FUNCTION_NAME=$(echo "$FUNCTION_ARN" | awk -F':' '{print $NF}')
-          fi
-
-          echo "function-name=$FUNCTION_NAME" >> "$GITHUB_OUTPUT"
-          echo "Lambda Function: $FUNCTION_NAME"
-
-      - name: Update Lambda function code
-        uses: ./.github/actions/update-lambda-image
-        with:
-          function-names: |
-            ${{ steps.get-lambda.outputs.function-name }}
-          image-uri: ${{ needs.build.outputs.image-uri }}
-          region: ${{ env.AWS_REGION }}
 
       - name: Get Lambda Function URL
         id: get-lambda-url
