@@ -1,0 +1,173 @@
+name: CI Image Build
+
+# GitHub Actions のジョブを動かす共通イメージ (base / chromium / webkit) をビルドし、GHCR に置く。
+# タグは <種類>-v<VERSION> で、同じタグは上書きしない。Dockerfile を変えたら VERSION を上げる。
+# PR ではビルドと動作確認だけを行い、push は develop への反映と手動実行でだけ行う。
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - 'integration/**'
+    paths:
+      - '.github/ci-image/**'
+      - '.github/workflows/ci-image-build.yml'
+  push:
+    branches:
+      - develop
+    paths:
+      - '.github/ci-image/**'
+      - '.github/workflows/ci-image-build.yml'
+  workflow_dispatch:
+
+env:
+  IMAGE_NAME: ghcr.io/nagiyu/nagiyu-platform/ci
+
+# PR の古いコミットに対する検証は不要なため打ち切る。
+# push を伴う run は途中で打ち切るとタグが中途半端に残るため、打ち切らず順に待たせる。
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  check-version:
+    name: Check Version
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    outputs:
+      version: ${{ steps.check.outputs.version }}
+      playwright-version: ${{ steps.check.outputs.playwright-version }}
+      kinds: ${{ steps.check.outputs.kinds }}
+      has-kinds: ${{ steps.check.outputs.has-kinds }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login to GHCR
+        env:
+          GH_ACTOR: ${{ github.actor }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: echo "$GH_TOKEN" | docker login ghcr.io -u "$GH_ACTOR" --password-stdin
+
+      # PR: 既に存在する版は Dockerfile の変更が反映されないため、上げ忘れとして落とす。
+      # push / 手動実行: 存在する種類は上書きしないため対象から外し、再実行しても壊れないようにする。
+      - name: Check existing tags
+        id: check
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+
+          version="$(tr -d '[:space:]' < .github/ci-image/VERSION)"
+          playwright_version="$(grep -m1 '^ARG PLAYWRIGHT_VERSION=' .github/ci-image/Dockerfile | cut -d= -f2)"
+          if [[ -z "$version" || -z "$playwright_version" ]]; then
+            echo "::error::VERSION または Dockerfile の PLAYWRIGHT_VERSION を読めませんでした"
+            exit 1
+          fi
+
+          kinds=()
+          existing=()
+          for kind in base chromium webkit; do
+            tag="${IMAGE_NAME}:${kind}-v${version}"
+            if output="$(docker manifest inspect "$tag" 2>&1)"; then
+              existing+=("$kind")
+            elif grep -qiE 'manifest unknown|name unknown|no such manifest|not found' <<< "$output"; then
+              # パッケージが 1 つも無い初回もここに来る
+              kinds+=("$kind")
+            else
+              echo "::error::${tag} の存在確認に失敗しました: ${output}"
+              exit 1
+            fi
+          done
+
+          if [[ "$EVENT_NAME" == "pull_request" ]]; then
+            if (( ${#existing[@]} > 0 )); then
+              echo "::error::VERSION (${version}) のイメージが既に GHCR にあります (${existing[*]})。Dockerfile を変えたら VERSION を上げてください。"
+              exit 1
+            fi
+          else
+            echo "既に存在するため push を飛ばす種類: ${existing[*]:-なし}"
+          fi
+
+          {
+            echo "version=${version}"
+            echo "playwright-version=${playwright_version}"
+            echo "kinds=$(printf '%s\n' "${kinds[@]:-}" | grep -v '^$' | jq -R . | jq -sc .)"
+            echo "has-kinds=$(( ${#kinds[@]} > 0 ))"
+          } >> "$GITHUB_OUTPUT"
+
+  # PR ではビルドが通ることだけを確かめる。push しないため packages: write は付けない
+  build:
+    name: Build (${{ matrix.kind }})
+    if: github.event_name == 'pull_request'
+    needs: [check-version]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        kind: [base, chromium, webkit]
+    env:
+      KIND: ${{ matrix.kind }}
+      VERSION: ${{ needs.check-version.outputs.version }}
+      PLAYWRIGHT_VERSION: ${{ needs.check-version.outputs.playwright-version }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build image
+        run: |
+          docker build --target "$KIND" \
+            --build-arg "PLAYWRIGHT_VERSION=${PLAYWRIGHT_VERSION}" \
+            -f .github/ci-image/Dockerfile \
+            -t "${IMAGE_NAME}:${KIND}-v${VERSION}" \
+            .github/ci-image
+
+      - name: Smoke test
+        run: .github/ci-image/smoke-test.sh "$KIND" "${IMAGE_NAME}:${KIND}-v${VERSION}"
+
+  publish:
+    name: Publish (${{ matrix.kind }})
+    if: github.event_name != 'pull_request' && needs.check-version.outputs.has-kinds == '1'
+    needs: [check-version]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        kind: ${{ fromJSON(needs.check-version.outputs.kinds) }}
+    env:
+      KIND: ${{ matrix.kind }}
+      VERSION: ${{ needs.check-version.outputs.version }}
+      PLAYWRIGHT_VERSION: ${{ needs.check-version.outputs.playwright-version }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login to GHCR
+        env:
+          GH_ACTOR: ${{ github.actor }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: echo "$GH_TOKEN" | docker login ghcr.io -u "$GH_ACTOR" --password-stdin
+
+      - name: Build image
+        run: |
+          docker build --target "$KIND" \
+            --build-arg "PLAYWRIGHT_VERSION=${PLAYWRIGHT_VERSION}" \
+            -f .github/ci-image/Dockerfile \
+            -t "${IMAGE_NAME}:${KIND}-v${VERSION}" \
+            .github/ci-image
+
+      - name: Smoke test
+        run: .github/ci-image/smoke-test.sh "$KIND" "${IMAGE_NAME}:${KIND}-v${VERSION}"
+
+      - name: Push image
+        run: docker push "${IMAGE_NAME}:${KIND}-v${VERSION}"
