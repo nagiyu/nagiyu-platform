@@ -172,7 +172,7 @@ def main():
     )
     result = result.replace('{{POLICY_LINE}}', build_policy_line(critical, high, failed_sources))
 
-    # 末尾の改行なしで出力（workflow側でbase64エンコードするため）
+    # テンプレート自身の末尾の改行をそのまま保つ
     print(result, end='')
 
 

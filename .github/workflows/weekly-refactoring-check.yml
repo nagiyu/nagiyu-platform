@@ -33,27 +33,11 @@ jobs:
           NEXT_SATURDAY=$(TZ=Asia/Tokyo date -d "next saturday" +%Y-%m-%d)
           echo "next_date=$NEXT_SATURDAY" >> "$GITHUB_OUTPUT"
 
-      - name: Check existing open code consolidation issue
+      - name: Check existing open code-consolidation issue
         id: duplicate_check
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          OPEN_ISSUES_JSON=$(gh issue list \
-            --label "code-consolidation" \
-            --state open \
-            --limit 1 \
-            --json number,url)
-
-          ISSUE_NUMBER=$(echo "$OPEN_ISSUES_JSON" | jq -r '.[0]? | .number // empty')
-          ISSUE_URL=$(echo "$OPEN_ISSUES_JSON" | jq -r '.[0]? | .url // empty')
-
-          if [ -n "$ISSUE_NUMBER" ]; then
-            echo "should_create=false" >> "$GITHUB_OUTPUT"
-            echo "open_issue_number=$ISSUE_NUMBER" >> "$GITHUB_OUTPUT"
-            echo "open_issue_url=$ISSUE_URL" >> "$GITHUB_OUTPUT"
-          else
-            echo "should_create=true" >> "$GITHUB_OUTPUT"
-          fi
+        uses: ./.github/actions/find-open-issue
+        with:
+          label: code-consolidation
 
       - name: Prepare issue body from template
         id: issue_body
@@ -62,43 +46,16 @@ jobs:
           NEXT_DATE: ${{ steps.next_date.outputs.next_date }}
           CREATE_TIME: ${{ steps.date_info.outputs.create_time }}
         run: |
-          .github/workflows/scripts/prepare-refactoring-issue.sh > "${RUNNER_TEMP}/issue_body.md"
+          .github/workflows/scripts/prepare-issue-body.sh .github/workflows/templates/weekly-refactoring-body.md > "${RUNNER_TEMP}/issue_body.md"
           echo "body_file=${RUNNER_TEMP}/issue_body.md" >> "$GITHUB_OUTPUT"
 
       - name: Create weekly refactoring issue
-        id: create_issue
         if: steps.duplicate_check.outputs.should_create == 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          ISSUE_TITLE: ${{ steps.date_info.outputs.title }}
-          ISSUE_BODY_FILE: ${{ steps.issue_body.outputs.body_file }}
-        run: |
-          ISSUE_URL=$(gh issue create \
-            --title "$ISSUE_TITLE" \
-            --label "refactoring,code-consolidation" \
-            --body-file "$ISSUE_BODY_FILE")
-          ISSUE_NUMBER="${ISSUE_URL##*/}"
-          echo "issue_url=$ISSUE_URL" >> "$GITHUB_OUTPUT"
-          echo "issue_number=$ISSUE_NUMBER" >> "$GITHUB_OUTPUT"
-
-      - name: Summary (created)
-        if: steps.duplicate_check.outputs.should_create == 'true'
-        run: |
-          echo "✅ 週次リファクタリング Issue を作成しました" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "**タイトル**: ${{ steps.date_info.outputs.title }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "**Issue**: #${{ steps.create_issue.outputs.issue_number }} (${{ steps.create_issue.outputs.issue_url }})" >> "$GITHUB_STEP_SUMMARY"
-          echo "**次回作成予定**: ${{ steps.next_date.outputs.next_date }}" >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Summary (skipped)
-        if: steps.duplicate_check.outputs.should_create != 'true'
-        run: |
-          echo "⏭️ 既存の code-consolidation ラベル付きオープンIssueが存在するため、新規作成をスキップしました" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          if [ -n "${{ steps.duplicate_check.outputs.open_issue_number }}" ] && [ -n "${{ steps.duplicate_check.outputs.open_issue_url }}" ]; then
-            echo "**既存Issue**: #${{ steps.duplicate_check.outputs.open_issue_number }} (${{ steps.duplicate_check.outputs.open_issue_url }})" >> "$GITHUB_STEP_SUMMARY"
-          elif [ -n "${{ steps.duplicate_check.outputs.open_issue_number }}" ]; then
-            echo "**既存Issue**: #${{ steps.duplicate_check.outputs.open_issue_number }}" >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "**既存Issue**: 取得できませんでした" >> "$GITHUB_STEP_SUMMARY"
-          fi
+        uses: ./.github/actions/create-issue
+        with:
+          title: ${{ steps.date_info.outputs.title }}
+          labels: refactoring,code-consolidation
+          body-file: ${{ steps.issue_body.outputs.body_file }}
+          summary-heading: '✅ 週次リファクタリング Issue を作成しました'
+          summary-extra: |
+            **次回作成予定**: ${{ steps.next_date.outputs.next_date }}

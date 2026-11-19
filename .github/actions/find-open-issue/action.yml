@@ -1,0 +1,60 @@
+name: Find Open Issue
+description: 指定ラベルの open な Issue を探し、あれば Summary にスキップした旨を書く
+
+inputs:
+  label:
+    description: 探す Issue のラベル
+    required: true
+
+outputs:
+  should_create:
+    description: 新規作成してよいか (open な Issue が無ければ true)
+    value: ${{ steps.find.outputs.should_create }}
+  open_issue_number:
+    description: 見つかった open な Issue の番号
+    value: ${{ steps.find.outputs.open_issue_number }}
+  open_issue_url:
+    description: 見つかった open な Issue の URL
+    value: ${{ steps.find.outputs.open_issue_url }}
+
+runs:
+  using: composite
+  steps:
+    - name: Find open issue
+      id: find
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        # checkout の有無に関わらず動くよう、対象リポジトリを明示する
+        GH_REPO: ${{ github.repository }}
+        LABEL: ${{ inputs.label }}
+      run: |
+        OPEN_ISSUES_JSON=$(gh issue list \
+          --label "$LABEL" \
+          --state open \
+          --limit 1 \
+          --json number,url)
+
+        ISSUE_NUMBER=$(echo "$OPEN_ISSUES_JSON" | jq -r '.[0]? | .number // empty')
+        ISSUE_URL=$(echo "$OPEN_ISSUES_JSON" | jq -r '.[0]? | .url // empty')
+
+        if [ -z "$ISSUE_NUMBER" ]; then
+          echo "should_create=true" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        {
+          echo "should_create=false"
+          echo "open_issue_number=$ISSUE_NUMBER"
+          echo "open_issue_url=$ISSUE_URL"
+        } >> "$GITHUB_OUTPUT"
+
+        {
+          echo "⏭️ 既存の $LABEL ラベル付きオープン Issue が存在するため、新規作成をスキップしました"
+          echo ""
+          if [ -n "$ISSUE_URL" ]; then
+            echo "**既存Issue**: #$ISSUE_NUMBER ($ISSUE_URL)"
+          else
+            echo "**既存Issue**: #$ISSUE_NUMBER"
+          fi
+        } >> "$GITHUB_STEP_SUMMARY"
