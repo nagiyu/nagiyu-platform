@@ -627,7 +627,7 @@ npm run check:internal-links
    - `public/` 配下の静的ファイル（画像等）
 5. リンク切れがあれば終了コード 1 で一覧を出力、なければ 0 で終了
 
-入口は CI が共通ライブラリをビルドせず `npm ci` だけで動かすため、TypeScript をビルドせず Node の型除去で `linkChecker.ts` を直接読み込む。そのため `linkChecker.ts` は外部依存を持たず、import に相対パスや拡張子の解決を要しない形を保つ。
+入口は CI が共通ライブラリをビルドせず `npm ci` だけで動かすため、TypeScript をビルドせず Node の型除去で `linkChecker.ts` を直接読み込む。そのため `linkChecker.ts` は Node の組み込みモジュール以外を import しない形を保つ (外部パッケージや、拡張子を省いた相対 import は解決できない)。
 
 ### ビジネスロジックとテスト
 

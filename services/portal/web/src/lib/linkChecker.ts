@@ -154,7 +154,6 @@ export function validateHref(
   if (techMatch) {
     const slug = techMatch[1];
     // /tech/category は廃止済みルートのため、記事として判定しそのまま無効とする。
-    // ただし source の redirect 定義内では参照されないため問題ない。
     if (techArticleExists(slug, contentDir)) return { valid: true, reason: '' };
     return { valid: false, reason: ERROR_MESSAGES.TECH_ARTICLE_NOT_FOUND(slug) };
   }
