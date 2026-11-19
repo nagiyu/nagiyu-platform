@@ -11,8 +11,11 @@ jobs:
   create-review-issue:
     runs-on: ubuntu-latest
     steps:
+      # 過去 1 週間のコミットを git log で数えるため、履歴をすべて取得する
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Check existing open weekly-review issue
         id: duplicate_check
