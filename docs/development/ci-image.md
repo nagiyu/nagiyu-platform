@@ -1,8 +1,8 @@
 # CI 共通イメージ
 
-E2E と、Node を使う検査 (lint・format・テスト・ビルド・synth) のジョブは、GHCR に置いた共通イメージの上で動かす。ここには、イメージの構成の理由と、版を上げる手順を書く。
+E2E と、Node を使う検査 (lint・format・テスト・ビルド・synth)、Docker のビルドの検査のジョブは、GHCR に置いた共通イメージの上で動かす。ここには、イメージの構成の理由と、版を上げる手順を書く。
 
-Docker のビルドの検査と、python3 を使う検査 (docs のリンク検査) は、ランナーのまま動かす。イメージに docker と python3 を入れていないため。
+python3 を使う検査 (docs のリンク検査) は、ランナーのまま動かす。イメージに python3 を入れていないため。
 
 ## なぜイメージの上で動かすか
 
@@ -12,12 +12,13 @@ Docker のビルドの検査と、python3 を使う検査 (docs のリンク検�
 
 | 種類 | 中身 | 使うジョブ |
 |---|---|---|
-| base | Node、AWS CLI、git、curl、unzip | Node を使う検査、他の種類の土台 |
+| base | Node、AWS CLI、git、curl、unzip、docker のコマンド | Node を使う検査、Docker のビルドの検査、他の種類の土台 |
 | chromium | base + Chromium | chromium のデバイスの E2E |
 | webkit | base + WebKit | webkit のデバイスの E2E |
 
 - ベースは `node:26-slim` (Debian)。本番の web は `node:26-alpine` だが、Playwright のブラウザは alpine では動かない。そのため、本番の batch と同じ Debian 系にしている
 - ブラウザの種類ごとにイメージを分けるのは、E2E のジョブが 1 つにつきブラウザを 1 つしか使わないため。もう一方のブラウザを抱えると、イメージが大きくなり取得も遅くなる
+- docker はコマンドだけを入れ、デーモンはジョブのコンテナに渡されるランナーのものを使う。コマンドは Debian ではなく Docker の配布元から取る。デーモンは古い API の版を順に受け付けなくなり、リリース時点で止まる Debian の版ではランナーのデーモンと話せなくなるため
 - Node はメジャーだけを指定している。イメージは作った時点のパッチを抱えるため、パッチを追うときは VERSION を上げて作り直す
 
 ## 版の決まり
@@ -30,6 +31,6 @@ Docker のビルドの検査と、python3 を使う検査 (docs のリンク検�
 2 本の PR に分ける。
 
 1. Dockerfile の版 (Playwright の版や Node のメジャー) と VERSION を上げる PR を先に入れ、イメージを作る
-2. `package.json` の `@playwright/test` と、E2E の再利用ワークフローのイメージのタグを替える PR を出す
+2. `package.json` の `@playwright/test` と、ワークフローのイメージのタグ (`ci:<種類>-v<VERSION>` を指すすべての箇所) を替える PR を出す
 
-1 本にまとめると、イメージができる前に E2E が走り、存在しないタグを取りに行って落ちる。
+1 本にまとめると、イメージができる前にジョブが走り、存在しないタグを取りに行って落ちる。

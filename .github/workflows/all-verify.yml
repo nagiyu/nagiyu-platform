@@ -22,7 +22,7 @@ jobs:
 
     # E2E と同じ OS・Node で検査するため、共通イメージの上で動かす
     container:
-      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v1
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v2
 
     # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
     defaults:
@@ -48,7 +48,7 @@ jobs:
 
     # E2E と同じ OS・Node で検査するため、共通イメージの上で動かす
     container:
-      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v1
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v2
 
     # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
     defaults:
