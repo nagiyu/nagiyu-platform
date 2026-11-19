@@ -15,7 +15,6 @@ on:
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/niconico-mylist-assistant-deploy.yml'
-      - '.github/actions/update-lambda-image/**'
       - '.github/actions/health-check/**'
       - '.github/actions/push-ecr-image/**'
   workflow_dispatch:
@@ -30,6 +29,9 @@ on:
 
 env:
   AWS_REGION: us-east-1
+  # push するタグと CDK が指すタグを同じ値にするため、全ジョブで共有する。
+  # CDK はどのスタックを deploy するときもアプリ全体を合成するので、ECR だけの deploy にも要る。
+  IMAGE_TAG: ${{ github.sha }}
 
 # dev 環境は integration/** と develop で共有するため、ブランチではなくデプロイ先環境の単位で直列化する。
 # CDK デプロイを途中で止めるとスタックが更新中のまま残るので実行中の run は完走させ、待機中は最新の run だけを残す。
@@ -50,7 +52,6 @@ jobs:
     outputs:
       environment: ${{ steps.setup-environment.outputs.environment }}
       stack-suffix: ${{ steps.setup-environment.outputs.stack-suffix }}
-      ecr-registry: ${{ steps.login-ecr.outputs.registry }}
 
     steps:
       - name: Checkout code
@@ -109,10 +110,6 @@ jobs:
             --context env=$ENVIRONMENT \
             --require-approval never
 
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
-
   build-web:
     name: Build and Push Web Image
     runs-on: ubuntu-latest
@@ -124,7 +121,6 @@ jobs:
       contents: read
 
     outputs:
-      image-tag: ${{ github.sha }}
       app-version: ${{ steps.get-version.outputs.app-version }}
 
     steps:
@@ -157,11 +153,24 @@ jobs:
       - name: Get ECR repository URI
         id: get-ecr
         env:
-          ENVIRONMENT: ${{ needs.prepare-infrastructure.outputs.environment }}
+          STACK_SUFFIX: ${{ needs.prepare-infrastructure.outputs.stack-suffix }}
         run: |
-          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-          REPOSITORY_URI="$ACCOUNT_ID.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/nagiyu-niconico-mylist-assistant-web-ecr-$ENVIRONMENT"
+          # CDK スタック名を構築
+          STACK_NAME="NagiyuNiconicoMylistAssistantWebECR${STACK_SUFFIX}"
+
+          REPOSITORY_URI=$(aws cloudformation describe-stacks \
+            --stack-name "$STACK_NAME" \
+            --query "Stacks[0].Outputs[?OutputKey=='RepositoryUri'].OutputValue" \
+            --output text \
+            --region "${{ env.AWS_REGION }}")
+
+          if [ -z "$REPOSITORY_URI" ]; then
+            echo "Error: Could not find ECR repository URI from CDK stack $STACK_NAME"
+            exit 1
+          fi
+
           echo "repository-uri=$REPOSITORY_URI" >> "$GITHUB_OUTPUT"
+          echo "ECR Repository: $REPOSITORY_URI"
 
       - name: Build and push Web Docker image
         uses: ./.github/actions/push-ecr-image
@@ -170,8 +179,7 @@ jobs:
           dockerfile: services/niconico-mylist-assistant/web/Dockerfile
           build-args: APP_VERSION=${{ steps.get-version.outputs.app-version }}
           tags: |
-            ${{ github.sha }}
-            latest
+            ${{ env.IMAGE_TAG }}
 
   build-batch:
     name: Build and Push Batch Worker Image
@@ -182,9 +190,6 @@ jobs:
     permissions:
       id-token: write
       contents: read
-
-    outputs:
-      image-tag: ${{ github.sha }}
 
     steps:
       - name: Checkout code
@@ -207,11 +212,24 @@ jobs:
       - name: Get ECR repository URI
         id: get-ecr
         env:
-          ENVIRONMENT: ${{ needs.prepare-infrastructure.outputs.environment }}
+          STACK_SUFFIX: ${{ needs.prepare-infrastructure.outputs.stack-suffix }}
         run: |
-          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-          REPOSITORY_URI="$ACCOUNT_ID.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/nagiyu-niconico-mylist-assistant-batch-ecr-$ENVIRONMENT"
+          # CDK スタック名を構築
+          STACK_NAME="NagiyuNiconicoMylistAssistantBatchECR${STACK_SUFFIX}"
+
+          REPOSITORY_URI=$(aws cloudformation describe-stacks \
+            --stack-name "$STACK_NAME" \
+            --query "Stacks[0].Outputs[?OutputKey=='RepositoryUri'].OutputValue" \
+            --output text \
+            --region "${{ env.AWS_REGION }}")
+
+          if [ -z "$REPOSITORY_URI" ]; then
+            echo "Error: Could not find ECR repository URI from CDK stack $STACK_NAME"
+            exit 1
+          fi
+
           echo "repository-uri=$REPOSITORY_URI" >> "$GITHUB_OUTPUT"
+          echo "ECR Repository: $REPOSITORY_URI"
 
       - name: Build and push Batch worker Docker image
         uses: ./.github/actions/push-ecr-image
@@ -220,8 +238,7 @@ jobs:
           dockerfile: services/niconico-mylist-assistant/batch/Dockerfile
           build-args: APP_VERSION=${{ steps.get-version.outputs.app-version }}
           tags: |
-            ${{ github.sha }}
-            latest
+            ${{ env.IMAGE_TAG }}
 
   deploy:
     name: Deploy Full Stack
@@ -287,26 +304,6 @@ jobs:
             --exclude "NagiyuNiconicoMylistAssistantS3${STACK_SUFFIX}"
 
           echo "Application infrastructure deployed (environment: $ENVIRONMENT)"
-
-      - name: Resolve Lambda image URI
-        id: resolve-image
-        env:
-          ENVIRONMENT: ${{ needs.prepare-infrastructure.outputs.environment }}
-        run: |
-          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-          ECR_REGISTRY="$ACCOUNT_ID.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com"
-          IMAGE_URI="$ECR_REGISTRY/nagiyu-niconico-mylist-assistant-web-ecr-$ENVIRONMENT:latest"
-
-          echo "image-uri=$IMAGE_URI" >> "$GITHUB_OUTPUT"
-          echo "Lambda image URI: $IMAGE_URI"
-
-      - name: Update Lambda function code with latest image
-        uses: ./.github/actions/update-lambda-image
-        with:
-          function-names: |
-            nagiyu-niconico-mylist-assistant-web-${{ needs.prepare-infrastructure.outputs.environment }}
-          image-uri: ${{ steps.resolve-image.outputs.image-uri }}
-          region: ${{ env.AWS_REGION }}
 
       - name: Display stack outputs
         env:
@@ -397,8 +394,8 @@ jobs:
           echo "=== Deployment Summary ===" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- **Environment**: $ENVIRONMENT" >> $GITHUB_STEP_SUMMARY
-          echo "- **Web Image Tag**: \`${{ needs.build-web.outputs.image-tag }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **Batch Image Tag**: \`${{ needs.build-batch.outputs.image-tag }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Web Image Tag**: \`${{ env.IMAGE_TAG }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Batch Image Tag**: \`${{ env.IMAGE_TAG }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **CloudFront Domain**: $CF_DOMAIN" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "✅ Deployment completed successfully!" >> $GITHUB_STEP_SUMMARY
