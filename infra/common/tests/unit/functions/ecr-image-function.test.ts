@@ -12,6 +12,7 @@ import {
   DEFAULT_LAMBDA_LOG_RETENTION,
   DEFAULT_LAMBDA_TRACING,
 } from '../../../src/constants/defaults';
+import { IMAGE_TAG_ERROR_MESSAGES } from '../../../src/utils/image-tag';
 
 describe('createEcrImageFunction', () => {
   let app: cdk.App;
@@ -36,7 +37,7 @@ describe('createEcrImageFunction', () => {
   });
 
   beforeEach(() => {
-    delete process.env.IMAGE_TAG;
+    process.env.IMAGE_TAG = 'test-tag';
     app = new cdk.App();
     stack = new cdk.Stack(app, 'TestStack');
     repository = ecr.Repository.fromRepositoryName(stack, 'Repo', 'nagiyu-sample-ecr-dev');
@@ -50,7 +51,15 @@ describe('createEcrImageFunction', () => {
   });
 
   describe('既定の構成', () => {
-    it('IMAGE_TAG 未指定のとき、ECR イメージ (latest) から関数を作り、既定値を適用する', () => {
+    it('IMAGE_TAG 未指定のとき、例外を投げる', () => {
+      delete process.env.IMAGE_TAG;
+      expect(() => createEcrImageFunction(stack, 'SampleFunction', baseProps())).toThrow(
+        IMAGE_TAG_ERROR_MESSAGES.IMAGE_TAG_REQUIRED
+      );
+    });
+
+    it('ECR イメージから関数を作り、既定値を適用する', () => {
+      process.env.IMAGE_TAG = 'abc1234';
       createEcrImageFunction(stack, 'SampleFunction', baseProps());
 
       const template = Template.fromStack(stack);
@@ -62,7 +71,7 @@ describe('createEcrImageFunction', () => {
         Architectures: ['x86_64'],
         TracingConfig: { Mode: 'Active' },
       });
-      expect(JSON.stringify(template.toJSON())).toContain(':latest');
+      expect(JSON.stringify(template.toJSON())).toContain(':abc1234');
     });
 
     it('IMAGE_TAG を指定すると、テンプレートがそのタグを指す', () => {

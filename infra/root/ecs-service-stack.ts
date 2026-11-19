@@ -6,7 +6,12 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
-import { SSM_PARAMETERS, importSharedVpc, getEcrRepositoryName } from '@nagiyu/infra-common';
+import {
+  SSM_PARAMETERS,
+  importSharedVpc,
+  getEcrRepositoryName,
+  getImageTag,
+} from '@nagiyu/infra-common';
 
 export interface EcsServiceStackProps extends cdk.StackProps {
   environment: string;
@@ -127,8 +132,8 @@ export class EcsServiceStack extends cdk.Stack {
 
     const ecrRepositoryUri = `${this.account}.dkr.ecr.${this.region}.amazonaws.com/${ecrRepoName}`;
 
-    // Get image tag from environment variable, default to 'latest'
-    const imageTag = process.env.IMAGE_TAG || 'latest';
+    // イメージタグは必須の環境変数 IMAGE_TAG から取得する
+    const imageTag = getImageTag();
 
     // Create Task Definition
     this.taskDefinition = new ecs.FargateTaskDefinition(

@@ -9,6 +9,21 @@ import { Match, Template } from 'aws-cdk-lib/assertions';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import { LambdaStack } from '../../lib/lambda-stack';
 
+// コンテナイメージを使うスタックは IMAGE_TAG が無いと合成できないため、テストごとにダミーを渡す
+const originalImageTag = process.env.IMAGE_TAG;
+
+beforeEach(() => {
+  process.env.IMAGE_TAG = 'test-tag';
+});
+
+afterEach(() => {
+  if (originalImageTag === undefined) {
+    delete process.env.IMAGE_TAG;
+  } else {
+    process.env.IMAGE_TAG = originalImageTag;
+  }
+});
+
 /**
  * テスト用 LambdaStack を生成するヘルパー
  */
