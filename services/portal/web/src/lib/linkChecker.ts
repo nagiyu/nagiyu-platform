@@ -24,8 +24,6 @@ export const ERROR_MESSAGES = {
 /**
  * public/ 配下の静的ファイルとして実在するか確認する。
  * パストラバーサル攻撃を防ぐため、解決後のパスが publicDir 配下であることを検証する。
- *
- * 同等のロジックを scripts/check-internal-links.mjs にも実装。両者を同期すること。
  */
 export function publicFileExists(href: string, publicDir: string): boolean {
   // クエリ文字列を除去（アンカーは呼び出し元で除去済みだが念のため除去）
