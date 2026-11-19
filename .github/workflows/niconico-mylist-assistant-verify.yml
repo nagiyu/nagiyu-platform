@@ -53,6 +53,16 @@ jobs:
   build-core:
     name: Build Core Package
     runs-on: ubuntu-latest
+
+    # E2E と同じ OS・Node で検査するため、共通イメージの上で動かす
+    container:
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v1
+
+    # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
+    defaults:
+      run:
+        shell: bash
+
     permissions:
       contents: read
 
@@ -64,6 +74,8 @@ jobs:
         uses: ./.github/actions/setup-node
         with:
           cache-dependency-path: './package-lock.json'
+          # Node はイメージに入っているものを使う
+          skip-setup-node: 'true'
 
       - name: Build shared libraries
         run: npm run build:libs
@@ -75,6 +87,15 @@ jobs:
     name: Build Web Package
     runs-on: ubuntu-latest
     needs: [build-core]
+
+    # E2E と同じ OS・Node で検査するため、共通イメージの上で動かす
+    container:
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v1
+
+    # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
+    defaults:
+      run:
+        shell: bash
 
     permissions:
       contents: read
@@ -91,11 +112,22 @@ jobs:
         with:
           workspace: '@nagiyu/niconico-mylist-assistant-web'
           shared-workspaces: '@nagiyu/niconico-mylist-assistant-core'
+          # Node はイメージに入っているものを使う
+          skip-setup-node: 'true'
 
   build-batch:
     name: Build Batch Package
     runs-on: ubuntu-latest
     needs: [build-core]
+
+    # E2E と同じ OS・Node で検査するため、共通イメージの上で動かす
+    container:
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v1
+
+    # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
+    defaults:
+      run:
+        shell: bash
 
     permissions:
       contents: read
@@ -108,6 +140,8 @@ jobs:
         uses: ./.github/actions/setup-node
         with:
           cache-dependency-path: './package-lock.json'
+          # Node はイメージに入っているものを使う
+          skip-setup-node: 'true'
 
       - name: Build shared libraries
         run: npm run build:libs
