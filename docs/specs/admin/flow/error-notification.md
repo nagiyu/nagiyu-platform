@@ -18,7 +18,7 @@ sources:
   - services/admin/batch/src/alarm-ingest.ts
   - services/admin/batch/src/stream-handler.ts
   - services/admin/web/src/app/api/notify/sns/route.ts
-sources_hash: cdbf5a3a0f7946767d09a5899f12e6c8791e7a3fda5dda01868860d4680c47c3
+sources_hash: f51a73f64471b89e91f54b8f6d07e0ecb7222490a6971d4f60cd7625c908a363
 terms: [platform/term/error-event]
 related_cards: [livetalk/batch/acquire, livetalk/batch/consolidate-conversations, livetalk/batch/notify, livetalk/batch/learn-user-activity, admin/batch/alarm-ingest, admin/batch/stream-handler, admin/api/notify-sns, admin/api/errors, admin/screen/errors, admin/screen/error-detail, admin/flow/push-subscription]
 related_adr:

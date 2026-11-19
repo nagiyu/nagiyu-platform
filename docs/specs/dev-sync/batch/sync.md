@@ -15,7 +15,7 @@ sources:
   - services/dev-sync/batch/src/lib/source-reader-client.ts
   - services/dev-sync/batch/src/lib/dynamo-store-adapter.ts
   - libs/aws/src/lambda/scheduled-handler.ts
-sources_hash: 0efb4662bebbdbec6ebc3b3516cfb84f82f1926c88b27f0836e43add1f7047cf
+sources_hash: ddf8177d2f459710a2dfb5a6e3f075a234c20eb472a439ff604a245efed1899c
 related_cards: [admin/flow/error-notification, platform/term/error-event]
 terms: [platform/term/error-event]
 related_adr:
