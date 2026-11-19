@@ -35,7 +35,7 @@ export interface EcrImageFunctionProps {
   deployEnvironment: Environment;
 
   /**
-   * イメージを取り込む ECR リポジトリ（タグは環境変数 `IMAGE_TAG`、未指定なら `latest`）
+   * イメージを取り込む ECR リポジトリ（タグは環境変数 `IMAGE_TAG`、必須）
    */
   repository: ecr.IRepository;
 

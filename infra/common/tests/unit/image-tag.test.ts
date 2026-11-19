@@ -1,4 +1,4 @@
-import { getImageTag } from '../../src/utils/image-tag';
+import { getImageTag, IMAGE_TAG_ERROR_MESSAGES } from '../../src/utils/image-tag';
 
 describe('getImageTag', () => {
   const originalImageTag = process.env.IMAGE_TAG;
@@ -16,13 +16,13 @@ describe('getImageTag', () => {
     expect(getImageTag()).toBe('abc1234');
   });
 
-  it('IMAGE_TAG が未指定なら latest を返す', () => {
+  it('IMAGE_TAG が未指定なら例外を投げる', () => {
     delete process.env.IMAGE_TAG;
-    expect(getImageTag()).toBe('latest');
+    expect(() => getImageTag()).toThrow(IMAGE_TAG_ERROR_MESSAGES.IMAGE_TAG_REQUIRED);
   });
 
-  it('IMAGE_TAG が空文字なら latest を返す', () => {
+  it('IMAGE_TAG が空文字なら例外を投げる', () => {
     process.env.IMAGE_TAG = '';
-    expect(getImageTag()).toBe('latest');
+    expect(() => getImageTag()).toThrow(IMAGE_TAG_ERROR_MESSAGES.IMAGE_TAG_REQUIRED);
   });
 });

@@ -1,6 +1,22 @@
 import * as cdk from 'aws-cdk-lib';
 import { Template, Match } from 'aws-cdk-lib/assertions';
+import { IMAGE_TAG_ERROR_MESSAGES } from '@nagiyu/infra-common';
 import * as CodecConverter from '../lib/codec-converter-stack';
+
+// コンテナイメージを使うスタックは IMAGE_TAG が無いと合成できないため、テストごとにダミーを渡す
+const originalImageTag = process.env.IMAGE_TAG;
+
+beforeEach(() => {
+  process.env.IMAGE_TAG = 'test-tag';
+});
+
+afterEach(() => {
+  if (originalImageTag === undefined) {
+    delete process.env.IMAGE_TAG;
+  } else {
+    process.env.IMAGE_TAG = originalImageTag;
+  }
+});
 
 // CloudFormation テンプレート上の Batch ResourceRequirements の要素
 type ResourceRequirement = { Type: string; Value: string };
@@ -352,17 +368,12 @@ describe('イメージのタグと ECR リポジトリ', () => {
     }
   });
 
-  test('IMAGE_TAG が無いときは latest を指す', () => {
+  test('IMAGE_TAG が無いときは例外を投げる', () => {
     delete process.env.IMAGE_TAG;
-    const { stack } = createTestStack({ env: 'prod' });
-    const template = Template.fromStack(stack);
 
-    const jobDefs = Object.values(template.findResources('AWS::Batch::JobDefinition'));
-    for (const jobDef of jobDefs) {
-      expect(flatten(jobDef.Properties.ContainerProperties.Image)).toMatch(
-        /nagiyu-codec-converter-batch-ecr-prod:latest$/
-      );
-    }
+    expect(() => createTestStack({ env: 'prod' })).toThrow(
+      IMAGE_TAG_ERROR_MESSAGES.IMAGE_TAG_REQUIRED
+    );
   });
 
   test('本体のスタックは ECR リポジトリを作らない', () => {

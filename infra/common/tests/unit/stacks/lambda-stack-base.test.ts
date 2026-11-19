@@ -2,6 +2,21 @@ import * as cdk from 'aws-cdk-lib';
 import { Match, Template } from 'aws-cdk-lib/assertions';
 import { LambdaStackBase } from '../../../src/stacks/lambda-stack-base';
 
+// コンテナイメージを使うスタックは IMAGE_TAG が無いと合成できないため、テストごとにダミーを渡す
+const originalImageTag = process.env.IMAGE_TAG;
+
+beforeEach(() => {
+  process.env.IMAGE_TAG = 'test-tag';
+});
+
+afterEach(() => {
+  if (originalImageTag === undefined) {
+    delete process.env.IMAGE_TAG;
+  } else {
+    process.env.IMAGE_TAG = originalImageTag;
+  }
+});
+
 describe('LambdaStackBase', () => {
   let app: cdk.App;
 

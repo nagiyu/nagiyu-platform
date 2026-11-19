@@ -37,7 +37,7 @@ export {
 } from './utils/arn';
 export { SSM_PARAMETERS } from './utils/ssm';
 export { SECRET_NAMES } from './utils/secrets';
-export { getImageTag } from './utils/image-tag';
+export { getImageTag, IMAGE_TAG_ERROR_MESSAGES } from './utils/image-tag';
 export { importSharedVpc } from './utils/vpc';
 export type { ImportedSharedVpc } from './utils/vpc';
 
