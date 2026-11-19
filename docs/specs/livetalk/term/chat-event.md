@@ -6,7 +6,7 @@ service: livetalk
 sources:
   - services/livetalk/core/src/usecases/chat-usecase.ts
   - services/livetalk/web/src/lib/home/useChatStream.ts
-sources_hash: 24616c06038a886cf349db9937468582d2ed2f2089be20b90a884db1ac3f32b5
+sources_hash: c41e218ff3b707d12b3a3ec07fe2728b15a0b05a61888a518f42ddc358b71aa5
 related_cards: [livetalk/api/chat, livetalk/screen/home, livetalk/flow/conversation]
 ---
 

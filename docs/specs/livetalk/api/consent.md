@@ -6,11 +6,12 @@ service: livetalk
 sources:
   - services/livetalk/web/src/app/api/consent/route.ts
   - services/livetalk/web/src/app/api/consent/constants.ts
+  - services/livetalk/web/src/lib/server/consent.ts
   - services/livetalk/core/src/lib/consent.ts
   - services/livetalk/core/src/constants.ts
-sources_hash: c9df0198efb3ac968cb2bdc21c6b6a5189246251f21bf169a487bd8098e35e4a
+sources_hash: ecde8c7f427051f2b8249d98b41bf6119636955464a88759a34108172139cb43
 terms: [livetalk/term/permission, livetalk/term/api-error, livetalk/term/consent]
-related_cards: [livetalk/screen/home]
+related_cards: [livetalk/screen/home, livetalk/api/chat]
 related_adr:
   - services/livetalk/architecture.md#2.9
 ---

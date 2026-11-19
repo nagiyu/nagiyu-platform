@@ -11,6 +11,8 @@ export interface UseConsentResult {
   consentPhase: ConsentPhase;
   /** 同意済みにマークする（ConsentModal の onConsented に渡す）。 */
   markConsented: () => void;
+  /** 同意が要る状態へ戻す (サーバーが同意なしと判定したときにダイアログを開き直す)。 */
+  requireConsent: () => void;
 }
 
 /**
@@ -38,5 +40,9 @@ export function useConsent(): UseConsentResult {
     setConsentPhase('done');
   }, []);
 
-  return { consentPhase, markConsented };
+  const requireConsent = useCallback(() => {
+    setConsentPhase('required');
+  }, []);
+
+  return { consentPhase, markConsented, requireConsent };
 }

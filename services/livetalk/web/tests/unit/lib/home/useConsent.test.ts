@@ -48,6 +48,34 @@ describe('useConsent', () => {
     });
   });
 
+  describe('requireConsent', () => {
+    it('同意済みから requireConsent を呼ぶと consentPhase が required に戻る', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        json: () => Promise.resolve({ consented: true }),
+      });
+      const { result } = renderHook(() => useConsent());
+      await waitFor(() => expect(result.current.consentPhase).toBe('done'));
+
+      act(() => {
+        result.current.requireConsent();
+      });
+
+      expect(result.current.consentPhase).toBe('required');
+    });
+
+    it('requireConsent は安定した関数参照を持つ', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        json: () => Promise.resolve({ consented: true }),
+      });
+      const { result, rerender } = renderHook(() => useConsent());
+      await waitFor(() => expect(result.current.consentPhase).toBe('done'));
+
+      const firstRef = result.current.requireConsent;
+      rerender();
+      expect(result.current.requireConsent).toBe(firstRef);
+    });
+  });
+
   describe('markConsented', () => {
     it('markConsented を呼ぶと consentPhase が done になる', async () => {
       global.fetch = jest.fn().mockResolvedValue({
