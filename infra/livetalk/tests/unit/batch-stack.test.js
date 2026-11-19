@@ -4,6 +4,21 @@ const { Template, Match } = require('aws-cdk-lib/assertions');
 require('ts-node/register/transpile-only');
 const { LiveTalkBatchStack } = require('../../lib/batch-stack');
 
+// コンテナイメージを使うスタックは IMAGE_TAG が無いと合成できないため、テストごとにダミーを渡す
+const originalImageTag = process.env.IMAGE_TAG;
+
+beforeEach(() => {
+  process.env.IMAGE_TAG = 'test-tag';
+});
+
+afterEach(() => {
+  if (originalImageTag === undefined) {
+    delete process.env.IMAGE_TAG;
+  } else {
+    process.env.IMAGE_TAG = originalImageTag;
+  }
+});
+
 const STACK_ENV = { account: '000000000000', region: 'us-east-1' };
 
 const synth = (environment = 'dev', overrides = {}) => {

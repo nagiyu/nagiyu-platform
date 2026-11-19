@@ -15,7 +15,6 @@ on:
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/stock-tracker-deploy.yml'
-      - '.github/actions/update-lambda-image/**'
       - '.github/actions/health-check/**'
       - '.github/actions/push-ecr-image/**'
   workflow_dispatch:
@@ -34,6 +33,9 @@ permissions:
 
 env:
   AWS_REGION: us-east-1
+  # push するタグと CDK が指すタグを同じ値にするため、全ジョブで共有する。
+  # CDK はどのスタックを deploy するときもアプリ全体を合成するので、ECR だけの deploy にも要る。
+  IMAGE_TAG: ${{ github.sha }}
 
 # dev 環境は integration/** と develop で共有するため、ブランチではなくデプロイ先環境の単位で直列化する。
 # CDK デプロイを途中で止めるとスタックが更新中のまま残るので実行中の run は完走させ、待機中は最新の run だけを残す。
@@ -151,8 +153,7 @@ jobs:
           dockerfile: services/stock-tracker/web/Dockerfile
           build-args: APP_VERSION=${{ steps.get-version.outputs.app-version }}
           tags: |
-            ${{ github.sha }}
-            latest
+            ${{ env.IMAGE_TAG }}
 
   build-batch:
     name: Build and Push Batch Docker Image
@@ -210,8 +211,7 @@ jobs:
           dockerfile: services/stock-tracker/batch/Dockerfile
           build-args: APP_VERSION=${{ steps.get-version.outputs.app-version }}
           tags: |
-            ${{ github.sha }}
-            latest
+            ${{ env.IMAGE_TAG }}
 
   infrastructure-app:
     name: Deploy Application Infrastructure
@@ -270,42 +270,6 @@ jobs:
             --exclude "NagiyuStockTrackerBatchECR${STACK_SUFFIX}"
 
           echo "Application infrastructure deployed (environment: $ENVIRONMENT)"
-
-      - name: Resolve Lambda image URIs
-        id: resolve-image
-        env:
-          ENVIRONMENT: ${{ needs.infrastructure-ecr.outputs.environment }}
-        run: |
-          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-          ECR_REGISTRY="$ACCOUNT_ID.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com"
-          WEB_IMAGE_URI="$ECR_REGISTRY/nagiyu-stock-tracker-web-ecr-$ENVIRONMENT:latest"
-          BATCH_IMAGE_URI="$ECR_REGISTRY/nagiyu-stock-tracker-batch-ecr-$ENVIRONMENT:latest"
-
-          echo "web-image-uri=$WEB_IMAGE_URI" >> "$GITHUB_OUTPUT"
-          echo "batch-image-uri=$BATCH_IMAGE_URI" >> "$GITHUB_OUTPUT"
-          echo "Web image URI: $WEB_IMAGE_URI"
-          echo "Batch image URI: $BATCH_IMAGE_URI"
-
-      - name: Update Web Lambda function code
-        uses: ./.github/actions/update-lambda-image
-        with:
-          function-names: |
-            nagiyu-stock-tracker-web-${{ needs.infrastructure-ecr.outputs.environment }}
-          image-uri: ${{ steps.resolve-image.outputs.web-image-uri }}
-          region: ${{ env.AWS_REGION }}
-
-      - name: Update Batch Lambda function code
-        uses: ./.github/actions/update-lambda-image
-        with:
-          function-names: |
-            nagiyu-stock-tracker-batch-minute-${{ needs.infrastructure-ecr.outputs.environment }}
-            nagiyu-stock-tracker-batch-hourly-${{ needs.infrastructure-ecr.outputs.environment }}
-            nagiyu-stock-tracker-batch-summary-${{ needs.infrastructure-ecr.outputs.environment }}
-            nagiyu-stock-tracker-batch-daily-${{ needs.infrastructure-ecr.outputs.environment }}
-            nagiyu-stock-tracker-batch-temporary-alert-expiry-${{ needs.infrastructure-ecr.outputs.environment }}
-            nagiyu-stock-tracker-batch-forecast-${{ needs.infrastructure-ecr.outputs.environment }}
-          image-uri: ${{ steps.resolve-image.outputs.batch-image-uri }}
-          region: ${{ env.AWS_REGION }}
 
   verify:
     name: Verify Deployment

@@ -111,8 +111,11 @@ jobs:
           done <<< "$PRE_SYNTH_SCRIPTS"
 
       # 入力をシェルのコマンド文字列へ直接埋め込んだり eval したりせず、配列で組み立てて渡す
+      # コンテナイメージを使うスタックは IMAGE_TAG が無いと合成できない。合成だけで実在のイメージは参照しないため、ダミーを渡す
       - name: Synthesize CDK stacks
         if: matrix.workspace.synth
+        env:
+          IMAGE_TAG: synth
         run: |
           set -euo pipefail
           synth_count=0

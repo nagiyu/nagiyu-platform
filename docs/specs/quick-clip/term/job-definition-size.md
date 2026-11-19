@@ -7,7 +7,7 @@ sources:
   - services/quick-clip/core/src/libs/job-definition-selector.ts
   - services/quick-clip/web/src/lib/server/submit-extract-job.ts
   - infra/quick-clip/lib/batch-stack.ts
-sources_hash: 39f82efd24248d6fa91b2ac8b03de407d8e5fd70c019beca4a2193d1046bd62c
+sources_hash: db3032f2b7239f1a954f620bcec2653a0e931fbadef4b52bb48463147bd2fbfb
 related_cards: [quick-clip/api/jobs, quick-clip/batch/extract, quick-clip/flow/extraction]
 related_adr:
   - services/quick-clip/architecture.md#ADR-009

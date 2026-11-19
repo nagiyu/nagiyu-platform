@@ -146,7 +146,7 @@ ECR イメージから Lambda 関数を 1 つ作る関数単位の共通部品�
 
 **主な機能:**
 
-- ECR イメージ (タグ `latest`) からの関数作成。`cmd` で同一イメージの複数ハンドラを使い分けられる
+- ECR イメージからの関数作成。タグは環境変数 `IMAGE_TAG` で渡す (必須。無指定を既定のタグへ落とすと、渡し忘れたデプロイが古いイメージへ黙って戻るため)。`cmd` で同一イメージの複数ハンドラを使い分けられる
 - ロググループ (保持期間 30 日) と X-Ray (ACTIVE) の既定設定
 - タグ (`Application` / `Service` / `Environment`) の付与。`Service` の値は `serviceName` で指定する
 - error-events テーブルへの書き込み (環境変数 `ERROR_EVENTS_TABLE_NAME` と書き込み権限)。`enableErrorEvents: false` で無効にできる

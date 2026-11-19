@@ -8,6 +8,7 @@ import { Construct } from 'constructs';
 import {
   getEcrRepositoryName,
   getDynamoDBTableName,
+  getImageTag,
   grantErrorEventsWrite,
   importSharedVpc,
 } from '@nagiyu/infra-common';
@@ -151,13 +152,12 @@ export class BatchStack extends cdk.Stack {
     });
 
     // Batch Job Definition - L1 construct for AssignPublicIp support
-    const batchImageTag = this.node.tryGetContext('batchImageTag') || 'latest';
     const jobDefinition = new batch.CfnJobDefinition(this, 'JobDefinition', {
       jobDefinitionName: `nagiyu-niconico-mylist-assistant-${env}`,
       type: 'container',
       platformCapabilities: ['FARGATE'],
       containerProperties: {
-        image: `${batchEcrRepository.repositoryUri}:${batchImageTag}`,
+        image: `${batchEcrRepository.repositoryUri}:${getImageTag()}`,
         resourceRequirements: [
           {
             type: 'VCPU',
