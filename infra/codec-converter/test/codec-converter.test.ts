@@ -309,50 +309,66 @@ describe('環境による分岐', () => {
   });
 });
 
-describe('デプロイフェーズ ecr-only', () => {
-  test('Web 用と Batch ワーカー用の ECR リポジトリが作成される', () => {
-    const { stack } = createTestStack({ deploymentPhase: 'ecr-only', env: 'dev' });
-    const template = Template.fromStack(stack);
+describe('イメージのタグと ECR リポジトリ', () => {
+  const originalImageTag = process.env.IMAGE_TAG;
 
-    template.resourceCountIs('AWS::ECR::Repository', 2);
-    template.hasResourceProperties('AWS::ECR::Repository', {
-      RepositoryName: 'nagiyu-codec-converter-dev',
-      ImageScanningConfiguration: { ScanOnPush: true },
-    });
-    template.hasResourceProperties('AWS::ECR::Repository', {
-      RepositoryName: 'nagiyu-codec-converter-ffmpeg-dev',
-      ImageScanningConfiguration: { ScanOnPush: true },
-    });
-  });
-
-  test('ECR リポジトリは削除時に保持される', () => {
-    const { stack } = createTestStack({ deploymentPhase: 'ecr-only' });
-    const template = Template.fromStack(stack);
-
-    const repositories = template.findResources('AWS::ECR::Repository');
-    for (const repository of Object.values(repositories)) {
-      expect(repository.DeletionPolicy).toBe('Retain');
+  afterEach(() => {
+    if (originalImageTag === undefined) {
+      delete process.env.IMAGE_TAG;
+    } else {
+      process.env.IMAGE_TAG = originalImageTag;
     }
   });
 
-  test('アプリケーションの Lambda・Batch・CloudFront は作成されない', () => {
-    const { stack } = createTestStack({ deploymentPhase: 'ecr-only' });
+  // Fn::Join で組み立てられるイメージ URI を文字列に直して比較する
+  function flatten(value: unknown): string {
+    if (typeof value === 'string') return value;
+    if (value && typeof value === 'object' && 'Fn::Join' in value) {
+      const [separator, parts] = (value as { 'Fn::Join': [string, unknown[]] })['Fn::Join'];
+      return parts.map((part) => (typeof part === 'string' ? part : '${ref}')).join(separator);
+    }
+    return '${ref}';
+  }
+
+  test('IMAGE_TAG を指定すると Lambda と Batch ジョブ定義が新しいリポジトリのそのタグを指す', () => {
+    process.env.IMAGE_TAG = 'abc123';
+    const { stack } = createTestStack({ env: 'dev' });
     const template = Template.fromStack(stack);
 
-    template.resourceCountIs('AWS::Lambda::Url', 0);
-    template.resourceCountIs('AWS::Batch::ComputeEnvironment', 0);
-    template.resourceCountIs('AWS::CloudFront::Distribution', 0);
+    const functions = Object.values(template.findResources('AWS::Lambda::Function')).filter(
+      (resource) => resource.Properties.PackageType === 'Image'
+    );
+    expect(functions).toHaveLength(1);
+    expect(flatten(functions[0].Properties.Code.ImageUri)).toMatch(
+      /nagiyu-codec-converter-ecr-dev:abc123$/
+    );
+
+    const jobDefs = Object.values(template.findResources('AWS::Batch::JobDefinition'));
+    expect(jobDefs).toHaveLength(4);
+    for (const jobDef of jobDefs) {
+      expect(flatten(jobDef.Properties.ContainerProperties.Image)).toMatch(
+        /nagiyu-codec-converter-batch-ecr-dev:abc123$/
+      );
+    }
   });
 
-  test('ecrRepositoryName を指定するとリポジトリ名に反映される', () => {
-    const { stack } = createTestStack({
-      deploymentPhase: 'ecr-only',
-      ecrRepositoryName: 'custom-repo',
-    });
+  test('IMAGE_TAG が無いときは latest を指す', () => {
+    delete process.env.IMAGE_TAG;
+    const { stack } = createTestStack({ env: 'prod' });
     const template = Template.fromStack(stack);
 
-    template.hasResourceProperties('AWS::ECR::Repository', {
-      RepositoryName: 'custom-repo',
-    });
+    const jobDefs = Object.values(template.findResources('AWS::Batch::JobDefinition'));
+    for (const jobDef of jobDefs) {
+      expect(flatten(jobDef.Properties.ContainerProperties.Image)).toMatch(
+        /nagiyu-codec-converter-batch-ecr-prod:latest$/
+      );
+    }
+  });
+
+  test('本体のスタックは ECR リポジトリを作らない', () => {
+    const { stack } = createTestStack();
+    const template = Template.fromStack(stack);
+
+    template.resourceCountIs('AWS::ECR::Repository', 0);
   });
 });

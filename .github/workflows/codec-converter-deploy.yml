@@ -15,7 +15,6 @@ on:
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/codec-converter-deploy.yml'
-      - '.github/actions/update-lambda-image/**'
       - '.github/actions/health-check/**'
       - '.github/actions/push-ecr-image/**'
   workflow_dispatch:
@@ -30,6 +29,9 @@ on:
 
 env:
   AWS_REGION: us-east-1
+  # push するタグと CDK が指すタグを同じ値にするため、全ジョブで共有する。
+  # CDK はどのスタックを deploy するときもアプリ全体を合成するので、ECR だけの deploy にも要る。
+  IMAGE_TAG: ${{ github.sha }}
 
 # dev 環境は integration/** と develop で共有するため、ブランチではなくデプロイ先環境の単位で直列化する。
 # CDK デプロイを途中で止めるとスタックが更新中のまま残るので実行中の run は完走させ、待機中は最新の run だけを残す。
@@ -50,7 +52,7 @@ jobs:
     outputs:
       environment: ${{ steps.setup-environment.outputs.environment }}
       stack-name: ${{ steps.setup-environment.outputs.stack-name }}
-      ecr-registry: ${{ steps.login-ecr.outputs.registry }}
+      stack-suffix: ${{ steps.setup-environment.outputs.stack-suffix }}
 
     steps:
       - name: Checkout code
@@ -94,42 +96,18 @@ jobs:
           npm run bootstrap --workspace=@nagiyu/infra-codec-converter -- aws://$ACCOUNT_ID/${{ env.AWS_REGION }} \
             --context env=${{ steps.setup-environment.outputs.environment }}
 
-      - name: Check if Web ECR repository exists
-        id: check-web-ecr
+      - name: Deploy ECR Stacks
         env:
           ENVIRONMENT: ${{ steps.setup-environment.outputs.environment }}
+          STACK_SUFFIX: ${{ steps.setup-environment.outputs.stack-suffix }}
         run: |
-          if aws ecr describe-repositories --repository-names nagiyu-codec-converter-$ENVIRONMENT --region ${{ env.AWS_REGION }} 2>/dev/null; then
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
-          fi
+          npm run cdk --workspace=@nagiyu/infra-codec-converter -- deploy \
+            NagiyuCodecConverterECR${STACK_SUFFIX} \
+            NagiyuCodecConverterBatchECR${STACK_SUFFIX} \
+            --context env="$ENVIRONMENT" \
+            --require-approval never
 
-      - name: Check if Batch ECR repository exists
-        id: check-batch-ecr
-        env:
-          ENVIRONMENT: ${{ steps.setup-environment.outputs.environment }}
-        run: |
-          if aws ecr describe-repositories --repository-names nagiyu-codec-converter-ffmpeg-$ENVIRONMENT --region ${{ env.AWS_REGION }} 2>/dev/null; then
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: CDK Deploy (Create ECR Repositories)
-        if: steps.check-web-ecr.outputs.exists == 'false' || steps.check-batch-ecr.outputs.exists == 'false'
-        env:
-          ENVIRONMENT: ${{ steps.setup-environment.outputs.environment }}
-        run: |
-          echo "Creating ECR repositories..."
-          npm run deploy --workspace=@nagiyu/infra-codec-converter -- ${{ steps.setup-environment.outputs.stack-name }} \
-            --context env=$ENVIRONMENT \
-            --context deploymentPhase=ecr-only \
-            --verbose
-
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
+          echo "ECR repositories deployed (environment: $ENVIRONMENT)"
 
   build-web:
     name: Build and Push Web Image
@@ -171,11 +149,23 @@ jobs:
       - name: Get ECR repository URI
         id: get-ecr
         env:
-          ENVIRONMENT: ${{ needs.prepare-infrastructure.outputs.environment }}
+          STACK_SUFFIX: ${{ needs.prepare-infrastructure.outputs.stack-suffix }}
         run: |
-          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-          REPOSITORY_URI="$ACCOUNT_ID.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/nagiyu-codec-converter-$ENVIRONMENT"
+          STACK_NAME="NagiyuCodecConverterECR${STACK_SUFFIX}"
+
+          REPOSITORY_URI=$(aws cloudformation describe-stacks \
+            --stack-name "$STACK_NAME" \
+            --query "Stacks[0].Outputs[?OutputKey=='RepositoryUri'].OutputValue" \
+            --output text \
+            --region "${{ env.AWS_REGION }}")
+
+          if [ -z "$REPOSITORY_URI" ]; then
+            echo "Error: Could not find ECR repository URI from CDK stack $STACK_NAME"
+            exit 1
+          fi
+
           echo "repository-uri=$REPOSITORY_URI" >> "$GITHUB_OUTPUT"
+          echo "ECR Repository: $REPOSITORY_URI"
 
       - name: Build and push Web Docker image
         uses: ./.github/actions/push-ecr-image
@@ -184,7 +174,7 @@ jobs:
           dockerfile: services/codec-converter/web/Dockerfile
           build-args: APP_VERSION=${{ steps.get-version.outputs.app-version }}
           tags: |
-            latest
+            ${{ env.IMAGE_TAG }}
 
   build-batch:
     name: Build and Push Batch Worker Image
@@ -217,11 +207,23 @@ jobs:
       - name: Get ECR repository URI
         id: get-ecr
         env:
-          ENVIRONMENT: ${{ needs.prepare-infrastructure.outputs.environment }}
+          STACK_SUFFIX: ${{ needs.prepare-infrastructure.outputs.stack-suffix }}
         run: |
-          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-          REPOSITORY_URI="$ACCOUNT_ID.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/nagiyu-codec-converter-ffmpeg-$ENVIRONMENT"
+          STACK_NAME="NagiyuCodecConverterBatchECR${STACK_SUFFIX}"
+
+          REPOSITORY_URI=$(aws cloudformation describe-stacks \
+            --stack-name "$STACK_NAME" \
+            --query "Stacks[0].Outputs[?OutputKey=='RepositoryUri'].OutputValue" \
+            --output text \
+            --region "${{ env.AWS_REGION }}")
+
+          if [ -z "$REPOSITORY_URI" ]; then
+            echo "Error: Could not find ECR repository URI from CDK stack $STACK_NAME"
+            exit 1
+          fi
+
           echo "repository-uri=$REPOSITORY_URI" >> "$GITHUB_OUTPUT"
+          echo "ECR Repository: $REPOSITORY_URI"
 
       - name: Build and push Batch worker Docker image
         uses: ./.github/actions/push-ecr-image
@@ -230,10 +232,10 @@ jobs:
           dockerfile: services/codec-converter/batch/Dockerfile
           build-args: APP_VERSION=${{ steps.get-version.outputs.app-version }}
           tags: |
-            latest
+            ${{ env.IMAGE_TAG }}
 
   deploy:
-    name: Deploy Full Stack
+    name: Deploy Application Stack
     runs-on: ubuntu-latest
     needs: [prepare-infrastructure, build-web, build-batch]
     environment: ${{ needs.prepare-infrastructure.outputs.environment }}
@@ -263,37 +265,15 @@ jobs:
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: CDK Deploy (Full Stack)
+      - name: CDK Deploy (Application Stack)
         env:
           ENVIRONMENT: ${{ needs.prepare-infrastructure.outputs.environment }}
           STACK_NAME: ${{ needs.prepare-infrastructure.outputs.stack-name }}
           APP_VERSION: ${{ needs.build-web.outputs.app-version }}
         run: |
-          echo "Deploying full stack..."
           npm run deploy --workspace=@nagiyu/infra-codec-converter -- $STACK_NAME \
             --context env=$ENVIRONMENT \
-            --context deploymentPhase=full \
             --verbose
-
-      - name: Resolve Lambda image URI
-        id: resolve-image
-        env:
-          ENVIRONMENT: ${{ needs.prepare-infrastructure.outputs.environment }}
-        run: |
-          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-          ECR_REGISTRY="$ACCOUNT_ID.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com"
-          IMAGE_URI="$ECR_REGISTRY/nagiyu-codec-converter-$ENVIRONMENT:latest"
-
-          echo "image-uri=$IMAGE_URI" >> "$GITHUB_OUTPUT"
-          echo "Lambda image URI: $IMAGE_URI"
-
-      - name: Update Lambda function code
-        uses: ./.github/actions/update-lambda-image
-        with:
-          function-names: |
-            nagiyu-codec-converter-${{ needs.prepare-infrastructure.outputs.environment }}
-          image-uri: ${{ steps.resolve-image.outputs.image-uri }}
-          region: ${{ env.AWS_REGION }}
 
       - name: Get Lambda Function URL
         id: get-lambda-url
