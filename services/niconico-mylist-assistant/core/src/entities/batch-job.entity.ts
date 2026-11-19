@@ -54,12 +54,6 @@ export interface BatchJobEntity {
   completedAt?: number;
 
   /**
-   * 二段階認証コード（Web から入力される、一時的なデータ）
-   * 使用後は削除される
-   */
-  twoFactorAuthCode?: string;
-
-  /**
    * Web Push サブスクリプション情報（バッチ完了通知用）
    * ジョブ作成時に設定される
    */
@@ -78,10 +72,7 @@ export type CreateBatchJobInput = Omit<BatchJobEntity, 'createdAt' | 'updatedAt'
  * 識別子と作成日時は作成後に変えられないため含めない。
  */
 export type UpdateBatchJobInput = EntityPatch<
-  Pick<
-    BatchJobEntity,
-    'status' | 'result' | 'completedAt' | 'twoFactorAuthCode' | 'pushSubscription'
-  >
+  Pick<BatchJobEntity, 'status' | 'result' | 'completedAt' | 'pushSubscription'>
 >;
 
 /**

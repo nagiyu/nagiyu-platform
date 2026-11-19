@@ -497,7 +497,7 @@ const mylistRegister: Scenario = {
   },
 };
 
-type JobStatus = 'SUBMITTED' | 'RUNNING' | 'WAITING_FOR_2FA' | 'SUCCEEDED' | 'FAILED';
+type JobStatus = 'SUBMITTED' | 'RUNNING' | 'SUCCEEDED' | 'FAILED';
 
 function job(status: JobStatus, extra: Record<string, unknown> = {}) {
   const created = NOW - 12 * 60 * 1000;
@@ -538,13 +538,6 @@ const jobStatus: Scenario = {
     await open(page, job('RUNNING'));
     await page.getByText('マイリスト登録処理を実行中').waitFor();
     await ctx.shot('running', { viewportOnly: true });
-
-    // 二段階認証待ち (コードの入力欄が出る)
-    page = await ctx.freshPage();
-    await open(page, job('WAITING_FOR_2FA'));
-    await page.getByLabel('二段階認証コード').fill('12');
-    await page.getByRole('button', { name: 'コードを送信' }).waitFor();
-    await ctx.shot('waiting-for-2fa', { viewportOnly: true });
 
     // 完了 (一部の動画は登録に失敗している)
     page = await ctx.freshPage();
