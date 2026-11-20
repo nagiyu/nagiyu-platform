@@ -83,9 +83,10 @@ describe('useConsent', () => {
 
   describe('requireConsent', () => {
     it('同意済みから requireConsent を呼ぶと consentPhase が required に戻る', async () => {
-      global.fetch = jest.fn().mockResolvedValue({
-        json: () => Promise.resolve({ consented: true }),
-      });
+      global.fetch = jest
+        .fn()
+        .mockResolvedValueOnce({ json: () => Promise.resolve({ consented: true }) })
+        .mockResolvedValueOnce({ json: () => Promise.resolve({ consented: false }) });
       const { result } = renderHook(() => useConsent());
       await waitFor(() => expect(result.current.consentPhase).toBe('done'));
 
@@ -110,6 +111,26 @@ describe('useConsent', () => {
 
       expect(global.fetch).toHaveBeenCalledTimes(2);
       expect(result.current.consentNotice.kind).toBe('revision');
+    });
+
+    it('取り直した結果が同意済みなら、ダイアログを出さずに done へ戻す', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        json: () => Promise.resolve({ consented: true }),
+      });
+      const { result } = renderHook(() => useConsent());
+      await waitFor(() => expect(result.current.consentPhase).toBe('done'));
+
+      let pending: Promise<void> = Promise.resolve();
+      act(() => {
+        pending = result.current.requireConsent();
+      });
+      // 取り直している間は送信できない
+      expect(result.current.consentPhase).toBe('checking');
+      await act(async () => {
+        await pending;
+      });
+
+      expect(result.current.consentPhase).toBe('done');
     });
 
     it('requireConsent で取得に失敗したら初回のお知らせで開く', async () => {

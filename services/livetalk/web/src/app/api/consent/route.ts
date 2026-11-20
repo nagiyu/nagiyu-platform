@@ -75,6 +75,13 @@ export const POST = withApiErrorReporting(
     const userId = session.user.id;
     const repository = createProfileRepository();
 
+    if (!body.termsAgreed || !body.privacyAgreed) {
+      return NextResponse.json(
+        { error: 'ALL_CONSENTS_REQUIRED', message: CONSENT_ERROR_MESSAGES.ALL_CONSENTS_REQUIRED },
+        { status: 400 }
+      );
+    }
+
     const recorded = (await repository.getById({ userId }))?.consents;
     // 申告が来ていないときは、記録済みの申告で足りるかを確かめる
     const keptAge =
@@ -82,7 +89,7 @@ export const POST = withApiErrorReporting(
         ? recorded.ageVerified
         : undefined;
 
-    if (!body.termsAgreed || !body.privacyAgreed || (body.ageVerified !== true && !keptAge)) {
+    if (body.ageVerified !== true && !keptAge) {
       return NextResponse.json(
         { error: 'ALL_CONSENTS_REQUIRED', message: CONSENT_ERROR_MESSAGES.ALL_CONSENTS_REQUIRED },
         { status: 400 }

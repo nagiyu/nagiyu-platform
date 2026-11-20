@@ -31,7 +31,7 @@ sources:
   - services/livetalk/web/src/lib/pwa/standalone.ts
   - services/livetalk/web/src/lib/pwa/messages.ts
   - services/livetalk/web/src/lib/account/useAccountDeletion.ts
-sources_hash: 81a0890664a02a0092ccd9c873d68a97815d7f786cf993c2b3506270108d32a8
+sources_hash: 15db29cb986822d036887f898ff9e6e905b3484286a0cb6474f1d089d2ab673f
 terms: [livetalk/term/permission, livetalk/term/character, livetalk/term/consent, livetalk/term/chat-event, livetalk/term/safety, livetalk/term/notification-event, livetalk/term/lifecycle]
 related_cards: [livetalk/screen/memory, livetalk/screen/notes, livetalk/screen/status, livetalk/screen/terms, livetalk/screen/privacy, livetalk/api/chat, livetalk/api/consent, livetalk/api/lifecycle, livetalk/api/push, livetalk/api/push-notification, livetalk/api/account, livetalk/api/client-log, livetalk/flow/conversation, livetalk/flow/notification-open]
 related_adr:
@@ -79,7 +79,7 @@ related_adr:
     - 送信に失敗したときは、ダイアログの中に「同意の送信に失敗しました。時間を置いて再試行してください。」を出す
 - 応答待ちのときは、状態が「考え中…」になり、入力欄と送信ボタンと、キャラクター選択が使えなくなる。応答が流れ始めると「話している」になり、音声の再生が終わると待機に戻る
 - 送信に失敗したときは、会話の領域に文言を出し、入力欄の文章は残す
-- 送信が同意のないことで断られた (`CONSENT_REQUIRED`) ときは、文言を出さず、同意のダイアログを開き直す。入力欄の文章は残り、同意したあとに送り直せる。この失敗は Admin へ報告しない。開き直すときは、同意の状態を取り直して初回か改定かを決め直す (取得に失敗したら初回の表示)。開き直したダイアログは、チェックがすべて外れた状態から始まる
+- 送信が同意のないことで断られた (`CONSENT_REQUIRED`) ときは、文言を出さず、同意のダイアログを開き直す。入力欄の文章は残り、同意したあとに送り直せる。この失敗は Admin へ報告しない。開き直すときは、同意の状態を取り直して初回か改定かを決め直す (取得に失敗したら初回の表示)。取り直している間は送信できず、取り直した結果が同意済み (別のタブで同意した後など) ならダイアログを出さない。開き直したダイアログは、チェックがすべて外れた状態から始まる
 
 | 失敗 | 画面の文言 |
 |---|---|

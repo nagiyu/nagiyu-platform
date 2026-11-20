@@ -58,14 +58,18 @@ export function useConsent(): UseConsentResult {
   }, []);
 
   const requireConsent = useCallback(async () => {
+    // 取り直す間も送信できないよう、先に確認中へ戻す
+    setConsentPhase('checking');
     // 改定の有無はサーバーの最新の記録で決める。画面を開いた後に版が上がることもある
     try {
-      const { notice } = await fetchConsent();
+      const { consented, notice } = await fetchConsent();
       setConsentNotice(notice);
+      // 別のタブで同意を済ませた後なら、ダイアログを出さずに送り直せる
+      setConsentPhase(consented ? 'done' : 'required');
     } catch {
       setConsentNotice({ kind: 'initial' });
+      setConsentPhase('required');
     }
-    setConsentPhase('required');
   }, []);
 
   return { consentPhase, consentNotice, markConsented, requireConsent };
