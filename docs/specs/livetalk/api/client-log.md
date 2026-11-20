@@ -7,7 +7,7 @@ sources:
   - services/livetalk/web/src/app/api/client-log/route.ts
   - services/livetalk/web/src/app/api/client-log/constants.ts
   - services/livetalk/web/src/lib/client-logger.ts
-sources_hash: 759be62fb916d3fd81908b4b18786d76ee8eb2030a365e46b95e902ba0c69a1c
+sources_hash: 2bb08980868a0644b5debe40a05d842fe6069c1dcfb8179595c5f41b7c1b5eaa
 terms: [livetalk/term/permission, livetalk/term/api-error, platform/term/error-event]
 related_cards: [livetalk/screen/home, admin/flow/error-notification]
 ---
@@ -34,6 +34,9 @@ related_cards: [livetalk/screen/home, admin/flow/error-notification]
 
 - 成功は本文なしの 204。報告の `serviceId` は `livetalk`。`context` には、先に利用者の ID を入れ、続けて受け取った `context` の項目を重ねる
 - 画面が送るのは、チャット通信の失敗、音声の再生・デコードの失敗、捕捉されなかった例外、画面の描画中の例外。画面側の送信は、失敗しても何もしない
+- 画面が送る `context` には、ブラウザの情報 (`userAgent`、ホーム画面から起動したか `standalone`) と、報告ごとの調査用の項目 (画面の名前 `screen`、音声の状態など) が入る。例外の値を持つ報告では、さらに `errorName` / `errorMessage` / `errorStack` を最後に重ねる。この 3 項目はサーバー側の報告と同じ組み立てで、Error でない値では `errorName` が値の型名になり、`errorStack` を持たない
+    - 例外の値を持つ報告: 描画中の例外、捕捉されなかった例外 (例外の値が取れたときだけ)、処理されなかった Promise の拒否、チャット通信の例外、音声のデコード・再生の失敗
+    - HTTP の状態での失敗と、ストリームの `error` イベントは、例外の値を持たないので 3 項目を付けない
 
 ## エラー
 

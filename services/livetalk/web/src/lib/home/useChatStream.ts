@@ -231,7 +231,8 @@ export function useChatStream(deps: UseChatStreamDeps): UseChatStreamResult {
                   screen: 'chat',
                   audioContextState: getContext()?.state,
                   sentenceReceived: sentenceReceivedRef.current,
-                }
+                },
+                { error: err }
               );
             }
           } else if (event.type === 'lifecycle') {
@@ -316,8 +317,8 @@ export function useChatStream(deps: UseChatStreamDeps): UseChatStreamResult {
             screen: 'chat',
             audioContextState: getContext()?.state,
             sentenceReceived: sentenceReceivedRef.current,
-            stack: error instanceof Error ? error.stack : undefined,
-          }
+          },
+          { error }
         );
         return false;
       }
@@ -344,11 +345,17 @@ export function useChatStream(deps: UseChatStreamDeps): UseChatStreamResult {
       setErrorMessage('音声再生中にエラーが発生しました。');
       // advance のみ hook に委譲（ログ・setErrorMessage・reportClientError はここで処理）
       advanceOnError();
-      reportClientError('warning', '音声再生エラー', error.message, {
-        screen: 'chat',
-        audioContextState: getContext()?.state,
-        sentenceReceived: sentenceReceivedRef.current,
-      });
+      reportClientError(
+        'warning',
+        '音声再生エラー',
+        error.message,
+        {
+          screen: 'chat',
+          audioContextState: getContext()?.state,
+          sentenceReceived: sentenceReceivedRef.current,
+        },
+        { error }
+      );
     },
     [advanceOnError, getContext]
   );
