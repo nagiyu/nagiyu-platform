@@ -72,7 +72,7 @@ function HomePageInner() {
   useCharacterQuerySync();
 
   // 同意状態管理 hook
-  const { consentPhase, markConsented, requireConsent } = useConsent();
+  const { consentPhase, consentNotice, markConsented, requireConsent } = useConsent();
 
   // オンボーディング管理 hook（consentPhase 依存）
   const {
@@ -136,7 +136,11 @@ function HomePageInner() {
 
   return (
     <>
-      <ConsentModal open={consentPhase === 'required'} onConsented={markConsented} />
+      <ConsentModal
+        open={consentPhase === 'required'}
+        onConsented={markConsented}
+        notice={consentNotice}
+      />
       <SafetyModal open={safetyOpen} resources={safetyResources} onClose={closeSafety} />
       <Container
         maxWidth="sm"
