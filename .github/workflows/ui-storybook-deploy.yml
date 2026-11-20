@@ -38,6 +38,15 @@ jobs:
     runs-on: ubuntu-latest
     environment: dev
 
+    # 検査と同じ実行環境でビルドとデプロイを行うため、共通イメージの上で動かす
+    container:
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v2
+
+    # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
+    defaults:
+      run:
+        shell: bash
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -45,6 +54,8 @@ jobs:
       - name: Setup Node.js and install dependencies
         uses: ./.github/actions/setup-node
         with:
+          # Node はイメージに入っているものを使う
+          skip-setup-node: 'true'
           cache-dependency-path: package-lock.json
 
       - name: Configure AWS credentials
