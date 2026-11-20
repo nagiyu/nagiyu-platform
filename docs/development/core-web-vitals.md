@@ -12,8 +12,6 @@ Portal サイトの Core Web Vitals を Lighthouse / PageSpeed Insights で測�
 | FCP（First Contentful Paint） | ≤ 1.8s | 1.8s〜3.0s | > 3.0s |
 | TTFB（Time to First Byte） | ≤ 800ms | 800ms〜1800ms | > 1800ms |
 
-基準値は `src/lib/coreWebVitals.ts` の `CWV_THRESHOLDS` で定数化している。
-
 ## 方法 1: PageSpeed Insights（外部サービス、推奨）
 
 1. [PageSpeed Insights](https://pagespeed.web.dev/) にアクセス
@@ -26,7 +24,6 @@ Portal サイトの Core Web Vitals を Lighthouse / PageSpeed Insights で測�
 | トップページ | `https://nagiyu.com/` |
 | 技術記事一覧 | `https://nagiyu.com/tech` |
 | 技術記事詳細（例） | `https://nagiyu.com/tech/{slug}` |
-| カテゴリ別ハブ（例） | `https://nagiyu.com/tech/category/{slug}` |
 | タグページ（例） | `https://nagiyu.com/tech/tags/{slug}` |
 | サービス一覧 | `https://nagiyu.com/services` |
 | サービス詳細（例） | `https://nagiyu.com/services/{slug}` |
@@ -113,5 +110,4 @@ Lighthouse スコア以外に、以下をマニュアルで確認する：
 
 ## 関連ファイル
 
-- 基準値定数: `services/portal/web/src/lib/coreWebVitals.ts`
 - Issue: #3312（Core Web Vitals / モバイル UX 実測と軽微修正）

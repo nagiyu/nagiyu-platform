@@ -73,12 +73,7 @@ A4 が `integration/3262-portal-adsense-improvement` へマージされた後、
 - 出力される `@context` が `https://schema.org` であること
 - `mainEntity` に FAQ アイテムが含まれていること
 
-### 2. テストの追加・更新
-
-A4 マージ後、`seoValidation.ts` に `validateFAQPageJsonLd` 関数が追加された場合は、
-対応するテストを `tests/unit/lib/seoValidation.test.ts` に追加すること。
-
-### 3. sitemap への影響
+### 2. sitemap への影響
 
 FAQ ページ（`/services/{slug}/faq`）は C2 時点でも sitemap に含まれている。
 A4 で sitemap 自体への変更がない場合は再確認不要。

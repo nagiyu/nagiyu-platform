@@ -24,8 +24,6 @@ export const ERROR_MESSAGES = {
 /**
  * public/ 配下の静的ファイルとして実在するか確認する。
  * パストラバーサル攻撃を防ぐため、解決後のパスが publicDir 配下であることを検証する。
- *
- * 同等のロジックを scripts/check-internal-links.mjs にも実装。両者を同期すること。
  */
 export function publicFileExists(href: string, publicDir: string): boolean {
   // クエリ文字列を除去（アンカーは呼び出し元で除去済みだが念のため除去）
@@ -156,7 +154,6 @@ export function validateHref(
   if (techMatch) {
     const slug = techMatch[1];
     // /tech/category は廃止済みルートのため、記事として判定しそのまま無効とする。
-    // ただし source の redirect 定義内では参照されないため問題ない。
     if (techArticleExists(slug, contentDir)) return { valid: true, reason: '' };
     return { valid: false, reason: ERROR_MESSAGES.TECH_ARTICLE_NOT_FOUND(slug) };
   }
