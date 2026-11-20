@@ -18,10 +18,8 @@ export default function ErrorPage({ error, retry }: { error: unknown; retry: () 
       'error',
       '画面表示中の例外',
       error instanceof Error ? error.message : String(error),
-      {
-        screen: 'error-boundary',
-        stack: error instanceof Error ? error.stack : undefined,
-      }
+      { screen: 'error-boundary' },
+      { error }
     );
   }, [error]);
 

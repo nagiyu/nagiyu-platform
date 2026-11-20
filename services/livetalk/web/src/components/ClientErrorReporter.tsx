@@ -6,12 +6,18 @@ import { reportClientError } from '@/lib/client-logger';
 export default function ClientErrorReporter() {
   useEffect(() => {
     function handleError(event: ErrorEvent) {
-      reportClientError('error', '未捕捉例外', event.message || '不明なエラー', {
-        screen: 'global',
-        stack: event.error instanceof Error ? event.error.stack : undefined,
-        filename: event.filename,
-        lineno: event.lineno,
-      });
+      reportClientError(
+        'error',
+        '未捕捉例外',
+        event.message || '不明なエラー',
+        {
+          screen: 'global',
+          filename: event.filename,
+          lineno: event.lineno,
+        },
+        // クロスオリジンの "Script error." では event.error が null になり、例外の値が無い
+        event.error != null ? { error: event.error } : undefined
+      );
     }
 
     function handleUnhandledRejection(event: PromiseRejectionEvent) {
@@ -20,10 +26,13 @@ export default function ClientErrorReporter() {
           ? event.reason.message
           : String(event.reason ?? '不明な Promise rejection');
 
-      reportClientError('error', '未処理の Promise rejection', message, {
-        screen: 'global',
-        stack: event.reason instanceof Error ? event.reason.stack : undefined,
-      });
+      reportClientError(
+        'error',
+        '未処理の Promise rejection',
+        message,
+        { screen: 'global' },
+        { error: event.reason }
+      );
     }
 
     window.addEventListener('error', handleError);
