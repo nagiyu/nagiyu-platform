@@ -52,7 +52,8 @@ describe('GlobalErrorPage', () => {
       'error',
       '画面表示中の例外',
       'テスト用の例外',
-      expect.objectContaining({ screen: 'error-boundary', stack: error.stack })
+      { screen: 'error-boundary' },
+      { error }
     );
   });
 
@@ -63,7 +64,8 @@ describe('GlobalErrorPage', () => {
       'error',
       '画面表示中の例外',
       '文字列の例外',
-      expect.objectContaining({ stack: undefined })
+      { screen: 'error-boundary' },
+      { error: '文字列の例外' }
     );
   });
 });

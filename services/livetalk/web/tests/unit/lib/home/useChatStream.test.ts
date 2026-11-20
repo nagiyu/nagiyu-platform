@@ -452,6 +452,7 @@ describe('useChatStream', () => {
         'チャット fetch 失敗',
         'HTTP 500',
         expect.objectContaining({ screen: 'chat' })
+        // 第 5 引数 (例外) を渡さないことも toHaveBeenCalledWith が検証する
       );
     });
   });
@@ -581,7 +582,8 @@ describe('useChatStream', () => {
         'warning',
         '音声 decode 失敗',
         'decode failure',
-        expect.objectContaining({ screen: 'chat', sentenceReceived: 1 })
+        expect.objectContaining({ screen: 'chat', sentenceReceived: 1 }),
+        { error: expect.objectContaining({ message: 'decode failure' }) }
       );
       consoleSpy.mockRestore();
     });
@@ -956,7 +958,8 @@ describe('useChatStream', () => {
         'error',
         'チャット通信エラー',
         'ネットワークエラー',
-        expect.objectContaining({ screen: 'chat', stack: expect.any(String) })
+        expect.objectContaining({ screen: 'chat' }),
+        { error: networkError }
       );
       consoleSpy.mockRestore();
     });
@@ -1053,7 +1056,8 @@ describe('useChatStream', () => {
         'warning',
         '音声再生エラー',
         '再生エラー',
-        expect.objectContaining({ screen: 'chat' })
+        expect.objectContaining({ screen: 'chat' }),
+        { error: expect.objectContaining({ message: '再生エラー' }) }
       );
       expect(consoleSpy).toHaveBeenCalledWith('[LiveTalk] 音声再生エラー', expect.any(Error));
       consoleSpy.mockRestore();

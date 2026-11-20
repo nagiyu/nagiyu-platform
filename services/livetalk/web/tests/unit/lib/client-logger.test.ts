@@ -154,3 +154,59 @@ describe('reportClientError', () => {
     expect(ts).toBeLessThanOrEqual(after);
   });
 });
+
+describe('reportClientError: 例外の項目', () => {
+  function sentContext(): Record<string, unknown> {
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(init.body as string) as Record<string, unknown>;
+    return body.context as Record<string, unknown>;
+  }
+
+  it('Error を渡すと errorName / errorMessage / errorStack が付き、stack は付かない', () => {
+    const error = new TypeError('壊れた');
+
+    reportClientError('error', 'タイトル', 'メッセージ', { screen: 'chat' }, { error });
+
+    const ctx = sentContext();
+    expect(ctx.errorName).toBe('TypeError');
+    expect(ctx.errorMessage).toBe('壊れた');
+    expect(ctx.errorStack).toBe(error.stack);
+    expect(ctx.screen).toBe('chat');
+    expect('stack' in ctx).toBe(false);
+  });
+
+  it('Error 以外を渡すと typeof が errorName になり errorStack は付かない', () => {
+    reportClientError('error', 'タイトル', 'メッセージ', undefined, { error: '文字列' });
+
+    const ctx = sentContext();
+    expect(ctx.errorName).toBe('string');
+    expect(ctx.errorMessage).toBe('文字列');
+    expect('errorStack' in ctx).toBe(false);
+  });
+
+  it('例外を渡さないと 3 項目は付かない', () => {
+    reportClientError('error', 'タイトル', 'メッセージ', { screen: 'chat' });
+
+    const ctx = sentContext();
+    expect('errorName' in ctx).toBe(false);
+    expect('errorMessage' in ctx).toBe(false);
+    expect('errorStack' in ctx).toBe(false);
+  });
+
+  it('呼び出し元の context では 3 項目を上書きできない', () => {
+    const error = new Error('本物');
+
+    reportClientError(
+      'error',
+      'タイトル',
+      'メッセージ',
+      { errorName: '偽', errorMessage: '偽', errorStack: '偽' },
+      { error }
+    );
+
+    const ctx = sentContext();
+    expect(ctx.errorName).toBe('Error');
+    expect(ctx.errorMessage).toBe('本物');
+    expect(ctx.errorStack).toBe(error.stack);
+  });
+});
