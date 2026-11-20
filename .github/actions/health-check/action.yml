@@ -29,4 +29,7 @@ runs:
         HEALTH_CHECK_PATH: ${{ inputs.path }}
         HEALTH_CHECK_MAX_ATTEMPTS: ${{ inputs.max-attempts }}
         HEALTH_CHECK_INTERVAL_SECONDS: ${{ inputs.interval-seconds }}
-      run: ${{ github.action_path }}/health-check.sh
+        # コンテナのジョブでは、run に式で埋め込んだ action_path がランナー側のパスのまま残り、スクリプトが見つからない。
+        # env に渡すとコンテナの中のパスに置き換わるため、env 経由で受け取る
+        HEALTH_CHECK_ACTION_PATH: ${{ github.action_path }}
+      run: '"$HEALTH_CHECK_ACTION_PATH/health-check.sh"'
