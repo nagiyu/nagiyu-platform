@@ -75,12 +75,12 @@ export const POST = withApiErrorReporting(
     const userId = session.user.id;
     const repository = createProfileRepository();
 
-    // 申告が来ていないときだけ、記録済みかを読んで確かめる
-    const recordedAge =
-      body.ageVerified === true
-        ? undefined
-        : (await repository.getById({ userId }))?.consents?.ageVerified;
-    const keptAge = recordedAge?.value === true ? recordedAge : undefined;
+    const recorded = (await repository.getById({ userId }))?.consents;
+    // 申告が来ていないときは、記録済みの申告で足りるかを確かめる
+    const keptAge =
+      body.ageVerified !== true && recorded?.ageVerified?.value === true
+        ? recorded.ageVerified
+        : undefined;
 
     if (!body.termsAgreed || !body.privacyAgreed || (body.ageVerified !== true && !keptAge)) {
       return NextResponse.json(
@@ -90,14 +90,24 @@ export const POST = withApiErrorReporting(
     }
 
     const now = Date.now();
+    // 改定のダイアログは変わった文書のチェックしか出さない。現行の版に同意済みの文書は、
+    // 実際に同意した日時を残すため記録を上書きしない
+    const termsAgreed =
+      recorded?.termsAgreed?.version === LIVETALK_TERMS_VERSION
+        ? recorded.termsAgreed
+        : { version: LIVETALK_TERMS_VERSION, agreedAt: now };
+    const privacyAgreed =
+      recorded?.privacyAgreed?.version === LIVETALK_PRIVACY_VERSION
+        ? recorded.privacyAgreed
+        : { version: LIVETALK_PRIVACY_VERSION, agreedAt: now };
 
     await repository.upsert(
       { userId },
       {
         lastActiveAt: now,
         consents: {
-          termsAgreed: { version: LIVETALK_TERMS_VERSION, agreedAt: now },
-          privacyAgreed: { version: LIVETALK_PRIVACY_VERSION, agreedAt: now },
+          termsAgreed,
+          privacyAgreed,
           ageVerified: keptAge ?? { value: true, verifiedAt: now },
         },
       }

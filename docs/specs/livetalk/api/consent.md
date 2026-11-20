@@ -9,7 +9,7 @@ sources:
   - services/livetalk/web/src/lib/server/consent.ts
   - services/livetalk/core/src/lib/consent.ts
   - services/livetalk/core/src/constants.ts
-sources_hash: 2037853a076a11fdb60f06abda855d94ec03d56dd7a54a83b49741620e074b50
+sources_hash: 16205d30db5170b3f2f12e762add171989c29dec2c541b230af72a44c82a1297
 terms: [livetalk/term/permission, livetalk/term/api-error, livetalk/term/consent]
 related_cards: [livetalk/screen/home, livetalk/api/chat]
 related_adr:
@@ -30,7 +30,7 @@ related_adr:
 ## 入力と出力
 
 - GET は `{ consented, requiredVersions: { terms, privacy }, current }` を返す。`current` は保存済みの同意の記録で、なければ null。`consented` は記録が今の版で有効なとき true
-- POST は `termsAgreed`、`privacyAgreed` を true で、`ageVerified` を true か省略 (false も同じ扱い) で受ける。保存するときの版は、今の規約とプライバシーポリシーの版。成功は `{ consented: true }`
+- POST は `termsAgreed`、`privacyAgreed` を true で、`ageVerified` を true か省略 (false も同じ扱い) で受ける。保存するときの版は、今の規約とプライバシーポリシーの版。今の版に同意済みの文書は、記録済みの版と日時をそのまま残し、版が違うか記録のない文書だけを今の日時で記録する。成功は `{ consented: true }`
 - `ageVerified` が true のときは、18 歳以上の申告を今の日時で新しく記録する。省略か false のときは、プロフィールを読み、記録済み (`value` が true) ならその値と日時をそのまま残す。記録がなければ 400
 - 保存は、同意の記録とあわせて最終の利用日時を更新する
 

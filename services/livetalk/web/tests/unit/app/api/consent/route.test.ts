@@ -266,12 +266,30 @@ describe('POST /api/consent', () => {
     );
   });
 
+  it('現行の版に同意済みの文書は、記録した日時を残し、変わった文書だけ更新する', async () => {
+    mockGetSession.mockResolvedValue(validSession);
+    const repo = makeProfileRepo({
+      ...consentedProfile,
+      consents: {
+        termsAgreed: { version: '1.0.0', agreedAt: 5 },
+        privacyAgreed: { version: '1.1.0', agreedAt: 7 },
+        ageVerified: { value: true, verifiedAt: 1234 },
+      },
+    });
+    mockGetProfileRepo.mockReturnValue(repo);
+    const res = await POST(buildPostRequest({ termsAgreed: true, privacyAgreed: true }));
+    expect(res.status).toBe(200);
+    const [, input] = (repo.upsert as jest.Mock).mock.calls[0];
+    expect(input.consents.privacyAgreed).toEqual({ version: '1.1.0', agreedAt: 7 });
+    expect(input.consents.termsAgreed.version).toBe('1.1.0');
+    expect(input.consents.termsAgreed.agreedAt).not.toBe(5);
+  });
+
   it('ageVerified: true のときは、記録があっても新しく記録する', async () => {
     mockGetSession.mockResolvedValue(validSession);
     const repo = makeProfileRepo();
     mockGetProfileRepo.mockReturnValue(repo);
     await POST(buildPostRequest({ termsAgreed: true, privacyAgreed: true, ageVerified: true }));
-    expect(repo.getById).not.toHaveBeenCalled();
     expect(repo.upsert).toHaveBeenCalledWith(
       { userId: 'u1' },
       expect.objectContaining({
