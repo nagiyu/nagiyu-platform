@@ -172,7 +172,6 @@ describe('POST /api/consent', () => {
     ['文字列', '"true"'],
     ['privacyAgreed が文字列', { termsAgreed: true, privacyAgreed: 'true', ageVerified: true }],
     ['ageVerified が数値', { termsAgreed: true, privacyAgreed: true, ageVerified: 1 }],
-    ['ageVerified が欠落', { termsAgreed: true, privacyAgreed: true }],
   ])('body が %s の場合は 400 で保存しない', async (_label, body) => {
     mockGetSession.mockResolvedValue(validSession);
     const repo = makeProfileRepo();
@@ -187,6 +186,7 @@ describe('POST /api/consent', () => {
 
   it('termsAgreed が false なら 400 ALL_CONSENTS_REQUIRED', async () => {
     mockGetSession.mockResolvedValue(validSession);
+    mockGetProfileRepo.mockReturnValue(makeProfileRepo());
     const res = await POST(
       buildPostRequest({ termsAgreed: false, privacyAgreed: true, ageVerified: true })
     );
@@ -195,8 +195,9 @@ describe('POST /api/consent', () => {
     expect(json.message).toBe(CONSENT_ERROR_MESSAGES.ALL_CONSENTS_REQUIRED);
   });
 
-  it('ageVerified が false なら 400 ALL_CONSENTS_REQUIRED', async () => {
+  it('ageVerified が false で、記録も無ければ 400 ALL_CONSENTS_REQUIRED', async () => {
     mockGetSession.mockResolvedValue(validSession);
+    mockGetProfileRepo.mockReturnValue(makeProfileRepo(null));
     const res = await POST(
       buildPostRequest({ termsAgreed: true, privacyAgreed: true, ageVerified: false })
     );
@@ -221,6 +222,78 @@ describe('POST /api/consent', () => {
         consents: expect.objectContaining({
           termsAgreed: expect.objectContaining({ version: '1.1.0' }),
           privacyAgreed: expect.objectContaining({ version: '1.1.0' }),
+          ageVerified: { value: true, verifiedAt: expect.any(Number) },
+        }),
+      })
+    );
+  });
+
+  it('ageVerified を省略したとき、記録が無ければ 400 で保存しない', async () => {
+    mockGetSession.mockResolvedValue(validSession);
+    const repo = makeProfileRepo({ ...consentedProfile, consents: undefined } as never);
+    mockGetProfileRepo.mockReturnValue(repo);
+    const res = await POST(buildPostRequest({ termsAgreed: true, privacyAgreed: true }));
+    expect(res.status).toBe(400);
+    const json = await res.json();
+    expect(json.message).toBe(CONSENT_ERROR_MESSAGES.ALL_CONSENTS_REQUIRED);
+    expect(repo.upsert).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['省略', { termsAgreed: true, privacyAgreed: true }],
+    ['false', { termsAgreed: true, privacyAgreed: true, ageVerified: false }],
+  ])('ageVerified を%sしたとき、記録済みの申告をそのまま残して版だけ更新する', async (_l, body) => {
+    mockGetSession.mockResolvedValue(validSession);
+    const repo = makeProfileRepo({
+      ...consentedProfile,
+      consents: {
+        termsAgreed: { version: '1.0.0', agreedAt: 5 },
+        privacyAgreed: { version: '1.0.0', agreedAt: 5 },
+        ageVerified: { value: true, verifiedAt: 1234 },
+      },
+    });
+    mockGetProfileRepo.mockReturnValue(repo);
+    const res = await POST(buildPostRequest(body));
+    expect(res.status).toBe(200);
+    expect(repo.upsert).toHaveBeenCalledWith(
+      { userId: 'u1' },
+      expect.objectContaining({
+        consents: expect.objectContaining({
+          termsAgreed: expect.objectContaining({ version: '1.1.0' }),
+          ageVerified: { value: true, verifiedAt: 1234 },
+        }),
+      })
+    );
+  });
+
+  it('現行の版に同意済みの文書は、記録した日時を残し、変わった文書だけ更新する', async () => {
+    mockGetSession.mockResolvedValue(validSession);
+    const repo = makeProfileRepo({
+      ...consentedProfile,
+      consents: {
+        termsAgreed: { version: '1.0.0', agreedAt: 5 },
+        privacyAgreed: { version: '1.1.0', agreedAt: 7 },
+        ageVerified: { value: true, verifiedAt: 1234 },
+      },
+    });
+    mockGetProfileRepo.mockReturnValue(repo);
+    const res = await POST(buildPostRequest({ termsAgreed: true, privacyAgreed: true }));
+    expect(res.status).toBe(200);
+    const [, input] = (repo.upsert as jest.Mock).mock.calls[0];
+    expect(input.consents.privacyAgreed).toEqual({ version: '1.1.0', agreedAt: 7 });
+    expect(input.consents.termsAgreed.version).toBe('1.1.0');
+    expect(input.consents.termsAgreed.agreedAt).not.toBe(5);
+  });
+
+  it('ageVerified: true のときは、記録があっても新しく記録する', async () => {
+    mockGetSession.mockResolvedValue(validSession);
+    const repo = makeProfileRepo();
+    mockGetProfileRepo.mockReturnValue(repo);
+    await POST(buildPostRequest({ termsAgreed: true, privacyAgreed: true, ageVerified: true }));
+    expect(repo.upsert).toHaveBeenCalledWith(
+      { userId: 'u1' },
+      expect.objectContaining({
+        consents: expect.objectContaining({
           ageVerified: { value: true, verifiedAt: expect.any(Number) },
         }),
       })

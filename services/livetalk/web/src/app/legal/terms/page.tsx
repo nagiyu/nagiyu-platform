@@ -2,6 +2,8 @@ import type { Metadata } from 'next';
 import { Container, Typography, Box } from '@mui/material';
 import { Link, LegalSections } from '@nagiyu/ui';
 import { LIVETALK_TERMS_VERSION } from '@nagiyu/livetalk-core';
+import LegalRevisionHistory from '@/components/LegalRevisionHistory';
+import { termsRevisions } from '@/lib/legal/revisions';
 import { liveTalkTermsSections } from '@/lib/legal/terms-data';
 
 export const metadata: Metadata = {
@@ -20,6 +22,8 @@ export default function TermsPage() {
       </Typography>
 
       <LegalSections sections={liveTalkTermsSections} />
+
+      <LegalRevisionHistory revisions={termsRevisions} />
 
       <Box sx={{ mt: 4, pt: 2, borderTop: 1, borderColor: 'divider' }}>
         <Link href="/legal/privacy">プライバシーポリシーを見る</Link>
