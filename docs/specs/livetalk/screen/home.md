@@ -31,7 +31,7 @@ sources:
   - services/livetalk/web/src/lib/pwa/standalone.ts
   - services/livetalk/web/src/lib/pwa/messages.ts
   - services/livetalk/web/src/lib/account/useAccountDeletion.ts
-sources_hash: 3c681b0d9446fe3209962c1fe96f0a10ef9ba332f943ebe04f4864eb5639e12a
+sources_hash: f6ecdc31c10d438e9a2e99565550cc701e96d3d366b92ea3af3c3d1a5dc45483
 terms: [livetalk/term/permission, livetalk/term/character, livetalk/term/consent, livetalk/term/chat-event, livetalk/term/safety, livetalk/term/notification-event, livetalk/term/lifecycle]
 related_cards: [livetalk/screen/memory, livetalk/screen/notes, livetalk/screen/status, livetalk/screen/terms, livetalk/screen/privacy, livetalk/api/chat, livetalk/api/consent, livetalk/api/lifecycle, livetalk/api/push, livetalk/api/push-notification, livetalk/api/account, livetalk/api/client-log, livetalk/flow/conversation, livetalk/flow/notification-open]
 related_adr:
