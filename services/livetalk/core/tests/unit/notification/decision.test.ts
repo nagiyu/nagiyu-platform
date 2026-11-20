@@ -15,14 +15,14 @@ import type { LifecycleEntity } from '../../../src/entities/lifecycle.entity.js'
 import type { NotificationEventEntity } from '../../../src/entities/notification-event.entity.js';
 import type { MessageEntity } from '../../../src/entities/message.entity.js';
 
-// UTC 12:00 固定 (getHours()=12, nowMinutes=720)
-const NOW_UTC_MS = Date.UTC(2026, 0, 1, 12, 0, 0);
+// 日本時間 12:00 固定 (nowMinutes=720)
+const NOW_UTC_MS = Date.UTC(2026, 0, 1, 3, 0, 0);
 const NOW_DATE = new Date(NOW_UTC_MS);
 
 const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;
 
-// UTC 12:00 で awake になるライフサイクル（睡眠帯: 23:00–09:00、夜明けに起きる）
+// 日本時間 12:00 で awake になるライフサイクル（睡眠帯: 23:00–09:00、夜明けに起きる）
 // bed=1380, wake=540, bed>=wake: sleeping = m>=1380 || m<540 → 720>=1380=false || 720<540=false → awake
 const AWAKE_LIFECYCLE: LifecycleEntity = {
   userId: 'u1',
@@ -33,7 +33,7 @@ const AWAKE_LIFECYCLE: LifecycleEntity = {
   updatedAt: 0,
 };
 
-// UTC 12:00 で sleeping になるライフサイクル（睡眠帯: 11:00–13:00）
+// 日本時間 12:00 で sleeping になるライフサイクル（睡眠帯: 11:00–13:00）
 // bed=660, wake=780, bed<wake: sleeping = m>=660 && m<780 → 720>=660=true && 720<780=true → sleeping
 const SLEEPING_LIFECYCLE: LifecycleEntity = {
   userId: 'u1',
@@ -338,7 +338,7 @@ describe('shouldNotifyNow', () => {
     });
 
     it('睡眠帯中は criticalTopicId があっても sleeping を返す', () => {
-      // SLEEPING_LIFECYCLE: UTC 12:00 は睡眠帯（11:00–13:00）
+      // SLEEPING_LIFECYCLE: 日本時間 12:00 は睡眠帯（11:00–13:00）
       const result = shouldNotifyNow({
         ...baseInput(),
         lifecycle: SLEEPING_LIFECYCLE,
@@ -394,7 +394,7 @@ describe('shouldNotifyNow', () => {
 
   describe('outside_window', () => {
     it('UserActivityProfile あり・時間帯外 → outside_window', () => {
-      // UTC 12:00: nowMinutes=720
+      // 日本時間 12:00: nowMinutes=720
       // morningPeak='05:00'(300): diff=420 > 90 → outside
       // eveningPeak='20:00'(1200): diff=480 > 90 → outside
       const lifecycleWithProfile: LifecycleEntity = {
@@ -445,7 +445,7 @@ describe('shouldNotifyNow', () => {
 
   describe('Phase 2: 活発ユーザー（高 intensity）の動作', () => {
     // 活発ユーザー: 7日間に 31 セッション（≒4.4/日 → factor≈2.95 → cap=3、interval≈8.1h）
-    // now = NOW_DATE（UTC 12:00, 2026-01-01）
+    // now = NOW_DATE（日本時間 12:00, 2026-01-01）
     // UserActivityProfile なし（時間帯ゲートをスキップ）
     function makeActiveUserSessions(): number[] {
       // 直近 7 日間に均等に 31 セッション配置

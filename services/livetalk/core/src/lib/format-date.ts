@@ -1,12 +1,13 @@
+import { toJstDateString } from '@nagiyu/common';
+
 /**
- * Unix ms を JST の "M月D日" 表記に変換する純粋関数。
+ * Unix ms を日本時間の "M月D日" 表記に変換する純粋関数。
  *
  * 依頼 provenance（`WebRawEntity.requestedAt` / `TopicEntity.requestedAt`）を
  * consolidation・generate-note のプロンプトへ自然な日本語日付として渡すために使う。
- * `notification/escalation.ts` の `toJstDateString` と同じく、本番は `TZ=Asia/Tokyo`
- * で実行されることを前提とする（ローカル時刻の getMonth/getDate をそのまま使う）。
+ * 実行環境のタイムゾーンに依らず日本時間の月日になる。
  */
 export function formatJstMonthDay(ms: number): string {
-  const d = new Date(ms);
-  return `${d.getMonth() + 1}月${d.getDate()}日`;
+  const [, month, day] = toJstDateString(ms).split('-').map(Number);
+  return `${month}月${day}日`;
 }

@@ -13,7 +13,7 @@ sources:
   - services/livetalk/core/src/study/active-window.ts
   - services/livetalk/core/src/study/freshness-check.ts
   - services/livetalk/core/src/constants.ts
-sources_hash: d0d5e8a8895efdf370dc457b21fdfae5189c205dc29b2f97c247261a7f373ae5
+sources_hash: 0aa1638ae7deb097ca54a345686e744fec17958a53cc2824bf76e913820bb3b1
 terms: [livetalk/term/care, livetalk/term/topic, livetalk/term/web-fact, livetalk/term/lifecycle, livetalk/term/user-activity-profile, livetalk/term/study-pause, livetalk/term/freshness-check-request]
 related_cards: [admin/flow/error-notification, livetalk/batch/acquire, livetalk/batch/learn-user-activity, livetalk/flow/notification-open, livetalk/api/push-notification]
 related_adr:

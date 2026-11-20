@@ -22,6 +22,7 @@ import type { ExplorationEntity } from '../entities/exploration.entity.js';
 import type { ExplorationRepository } from '../repositories/exploration.repository.interface.js';
 import type { FreshnessCheckRequestRepository } from '../repositories/freshness-check-request.repository.interface.js';
 import type { StudyTopicRepository } from '../repositories/study-topic.repository.interface.js';
+import { getJstHour } from '../lib/jst-clock.js';
 import { resolveLifecycleState } from '../lifecycle/state-resolver.js';
 import { selectRecentWebFacts } from '../knowledge/recent-web-facts.js';
 import { isStaleWebFact } from '../study/freshness-check.js';
@@ -112,7 +113,7 @@ export function shouldAcquireNow(lifecycle: LifecycleEntity, now: Date): ShouldA
 
   const profile = lifecycle.userActivityProfile;
   if (profile) {
-    const currentHour = now.getHours();
+    const currentHour = getJstHour(now);
     if (
       isNearPeak(currentHour, profile.morningPeak) ||
       isNearPeak(currentHour, profile.eveningPeak)

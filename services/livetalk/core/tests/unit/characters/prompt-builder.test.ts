@@ -1,3 +1,4 @@
+import { jst } from '../../helpers/jst.js';
 import {
   getTimeOfDay,
   buildSystemPrompt,
@@ -33,14 +34,14 @@ describe('getTimeOfDay', () => {
     [0, '夜'],
     [4, '夜'],
   ])('hour=%i → %s', (hour, expected) => {
-    const date = new Date(2026, 0, 1, hour, 0, 0);
+    const date = jst(2026, 0, 1, hour, 0, 0);
     expect(getTimeOfDay(date)).toBe(expected);
   });
 });
 
 describe('buildSystemPrompt', () => {
   it('キャラ名・時間帯・嗜好が含まれる', () => {
-    const now = new Date(2026, 0, 1, 10, 0, 0); // 朝
+    const now = jst(2026, 0, 1, 10, 0, 0); // 朝
     const prompt = buildSystemPrompt(hiyori, now);
     expect(prompt).toContain('桃瀬ひより');
     expect(prompt).toContain('朝');
@@ -49,7 +50,7 @@ describe('buildSystemPrompt', () => {
   });
 
   it('夜の場合は「夜」が含まれる', () => {
-    const now = new Date(2026, 0, 1, 22, 0, 0);
+    const now = jst(2026, 0, 1, 22, 0, 0);
     const prompt = buildSystemPrompt(hiyori, now);
     expect(prompt).toContain('夜');
   });
@@ -94,7 +95,7 @@ describe('buildChatMessages', () => {
   });
 
   it('system prompt に現在の時間帯が反映される', () => {
-    const morning = new Date(2026, 0, 1, 9, 0, 0);
+    const morning = jst(2026, 0, 1, 9, 0, 0);
     const messages = buildChatMessages(hiyori, morning, [], 'hi');
     expect(messages[0].content).toContain('朝');
   });
@@ -162,7 +163,7 @@ describe('buildSystemPrompt（recentNotes / 感想連携）', () => {
   });
 
   it('recentNotes がある場合はノートのタイトルと感想連携の指示が含まれる', () => {
-    const now = new Date(2026, 0, 1, 10, 0, 0);
+    const now = jst(2026, 0, 1, 10, 0, 0);
     const prompt = buildSystemPrompt(hiyori, now, undefined, [makeNote('コーヒーの効能')]);
     expect(prompt).toContain('最近ユーザーに渡したノート');
     expect(prompt).toContain('- コーヒーの効能');
@@ -170,7 +171,7 @@ describe('buildSystemPrompt（recentNotes / 感想連携）', () => {
   });
 
   it('recentNotes が空の場合はノートセクションを含まない', () => {
-    const now = new Date(2026, 0, 1, 10, 0, 0);
+    const now = jst(2026, 0, 1, 10, 0, 0);
     const prompt = buildSystemPrompt(hiyori, now, undefined, []);
     expect(prompt).not.toContain('最近ユーザーに渡したノート');
   });
