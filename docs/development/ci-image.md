@@ -1,18 +1,18 @@
 # CI 共通イメージ
 
-E2E と、Node を使う検査 (lint・format・テスト・ビルド・synth)、Docker のビルドの検査のジョブは、GHCR に置いた共通イメージの上で動かす。ここには、イメージの構成の理由と、版を上げる手順を書く。
+E2E と、Node を使う検査 (lint・format・テスト・ビルド・synth)、Docker のビルドの検査、deploy のジョブは、GHCR に置いた共通イメージの上で動かす。ここには、イメージの構成の理由と、版を上げる手順を書く。
 
 python3 を使う検査 (docs のリンク検査) は、ランナーのまま動かす。イメージに python3 を入れていないため。
 
 ## なぜイメージの上で動かすか
 
-ジョブの実行のたびにブラウザの OS 依存パッケージを apt で取ると、ランナーの置き場所によって取得が極端に遅くなり、ジョブが数十分止まる。また、検査と E2E で OS・Node を揃えると、環境差による失敗を避けられる。実行環境 (Node、AWS CLI、git、ブラウザ) を前もってイメージに入れ、ジョブの実行が外部からの取得に左右されないようにする。
+ジョブの実行のたびにブラウザの OS 依存パッケージを apt で取ると、ランナーの置き場所によって取得が極端に遅くなり、ジョブが数十分止まる。また、検査・E2E・deploy で OS・Node を揃えると、検査で通ったものが deploy で環境差によって落ちることを避けられる。実行環境 (Node、AWS CLI、git、ブラウザ) を前もってイメージに入れ、ジョブの実行が外部からの取得に左右されないようにする。
 
 ## 構成
 
 | 種類 | 中身 | 使うジョブ |
 |---|---|---|
-| base | Node、AWS CLI、git、curl、unzip、docker のコマンド | Node を使う検査、Docker のビルドの検査、他の種類の土台 |
+| base | Node、AWS CLI、git、curl、unzip、docker のコマンド | Node を使う検査、Docker のビルドの検査、deploy、他の種類の土台 |
 | chromium | base + Chromium | chromium のデバイスの E2E |
 | webkit | base + WebKit | webkit のデバイスの E2E |
 
@@ -31,6 +31,6 @@ python3 を使う検査 (docs のリンク検査) は、ランナーのまま動
 2 本の PR に分ける。
 
 1. Dockerfile の版 (Playwright の版や Node のメジャー) と VERSION を上げる PR を先に入れ、イメージを作る
-2. `package.json` の `@playwright/test` と、ワークフローのイメージのタグ (`ci:<種類>-v<VERSION>` を指すすべての箇所) を替える PR を出す
+2. `package.json` の `@playwright/test` (Node なら `.node-version`) と、ワークフローのイメージのタグ (`ci:<種類>-v<VERSION>` を指すすべての箇所) を替える PR を出す。deploy の workflow のタグも替わるため、この PR は dev へのデプロイを伴う
 
 1 本にまとめると、イメージができる前にジョブが走り、存在しないタグを取りに行って落ちる。
