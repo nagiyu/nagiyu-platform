@@ -53,6 +53,15 @@ jobs:
       environment: ${{ steps.setup-environment.outputs.environment }}
       stack-suffix: ${{ steps.setup-environment.outputs.stack-suffix }}
 
+    # 検査と同じ実行環境でビルドとデプロイを行うため、共通イメージの上で動かす。docker のデーモンはランナーのものを使う
+    container:
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v2
+
+    # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
+    defaults:
+      run:
+        shell: bash
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -64,6 +73,8 @@ jobs:
       - name: Setup Node.js and install dependencies
         uses: ./.github/actions/setup-node
         with:
+          # Node はイメージに入っているものを使う
+          skip-setup-node: 'true'
           cache-dependency-path: './package-lock.json'
 
       - name: Build common infrastructure package
@@ -123,6 +134,15 @@ jobs:
     outputs:
       app-version: ${{ steps.get-version.outputs.app-version }}
 
+    # 検査と同じ実行環境でビルドとデプロイを行うため、共通イメージの上で動かす。docker のデーモンはランナーのものを使う
+    container:
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v2
+
+    # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
+    defaults:
+      run:
+        shell: bash
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -141,6 +161,8 @@ jobs:
           # Next.js build時にAPI routeの評価で参照されるため、CIではダミー値を設定
           DYNAMODB_TABLE_NAME: dummy-table
         with:
+          # Node はイメージに入っているものを使う
+          skip-setup-node: 'true'
           workspace: '@nagiyu/niconico-mylist-assistant-web'
           shared-workspaces: '@nagiyu/niconico-mylist-assistant-core'
 
@@ -190,6 +212,15 @@ jobs:
     permissions:
       id-token: write
       contents: read
+
+    # 検査と同じ実行環境でビルドとデプロイを行うため、共通イメージの上で動かす。docker のデーモンはランナーのものを使う
+    container:
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v2
+
+    # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
+    defaults:
+      run:
+        shell: bash
 
     steps:
       - name: Checkout code
@@ -250,6 +281,15 @@ jobs:
       id-token: write
       contents: read
 
+    # 検査と同じ実行環境でビルドとデプロイを行うため、共通イメージの上で動かす。docker のデーモンはランナーのものを使う
+    container:
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v2
+
+    # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
+    defaults:
+      run:
+        shell: bash
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -257,6 +297,8 @@ jobs:
       - name: Setup Node.js and install dependencies
         uses: ./.github/actions/setup-node
         with:
+          # Node はイメージに入っているものを使う
+          skip-setup-node: 'true'
           cache-dependency-path: './package-lock.json'
 
       - name: Build common infrastructure package
@@ -348,6 +390,15 @@ jobs:
     permissions:
       id-token: write
       contents: read
+
+    # 検査と同じ実行環境でビルドとデプロイを行うため、共通イメージの上で動かす。docker のデーモンはランナーのものを使う
+    container:
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v2
+
+    # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
+    defaults:
+      run:
+        shell: bash
 
     steps:
       - name: Checkout code

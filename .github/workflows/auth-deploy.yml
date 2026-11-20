@@ -52,6 +52,15 @@ jobs:
     outputs:
       environment: ${{ steps.setup-environment.outputs.environment }}
 
+    # 検査と同じ実行環境でビルドとデプロイを行うため、共通イメージの上で動かす。docker のデーモンはランナーのものを使う
+    container:
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v2
+
+    # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
+    defaults:
+      run:
+        shell: bash
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -63,6 +72,8 @@ jobs:
       - name: Setup Node.js and install dependencies
         uses: ./.github/actions/setup-node
         with:
+          # Node はイメージに入っているものを使う
+          skip-setup-node: 'true'
           cache-dependency-path: package-lock.json
 
       - name: Build common infrastructure package
@@ -118,6 +129,15 @@ jobs:
       environment: ${{ needs.infrastructure.outputs.environment }}
       app-version: ${{ steps.get-version.outputs.app-version }}
 
+    # 検査と同じ実行環境でビルドとデプロイを行うため、共通イメージの上で動かす。docker のデーモンはランナーのものを使う
+    container:
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v2
+
+    # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
+    defaults:
+      run:
+        shell: bash
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -133,6 +153,8 @@ jobs:
       - name: Build Web application
         uses: ./.github/actions/build-web-app
         with:
+          # Node はイメージに入っているものを使う
+          skip-setup-node: 'true'
           workspace: '@nagiyu/auth-web'
           shared-workspaces: '@nagiyu/auth-core'
 
@@ -190,6 +212,15 @@ jobs:
       lambda-function-url: ${{ steps.get-lambda-url.outputs.function-url }}
       cloudfront-domain: ${{ steps.get-cloudfront.outputs.cloudfront-domain }}
 
+    # 検査と同じ実行環境でビルドとデプロイを行うため、共通イメージの上で動かす。docker のデーモンはランナーのものを使う
+    container:
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v2
+
+    # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
+    defaults:
+      run:
+        shell: bash
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -197,6 +228,8 @@ jobs:
       - name: Setup Node.js and install dependencies
         uses: ./.github/actions/setup-node
         with:
+          # Node はイメージに入っているものを使う
+          skip-setup-node: 'true'
           cache-dependency-path: package-lock.json
 
       - name: Build common infrastructure package
@@ -267,6 +300,15 @@ jobs:
     needs: [deploy, build]
     environment: ${{ needs.build.outputs.environment }}
 
+    # 検査と同じ実行環境でビルドとデプロイを行うため、共通イメージの上で動かす。docker のデーモンはランナーのものを使う
+    container:
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v2
+
+    # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
+    defaults:
+      run:
+        shell: bash
+
     steps:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -325,6 +367,15 @@ jobs:
     if: always()
     needs: [infrastructure, build, deploy, cloudfront-invalidation]
     environment: ${{ needs.infrastructure.outputs.environment }}
+
+    # 検査と同じ実行環境でビルドとデプロイを行うため、共通イメージの上で動かす。docker のデーモンはランナーのものを使う
+    container:
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v2
+
+    # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
+    defaults:
+      run:
+        shell: bash
 
     steps:
       - name: Configure AWS credentials
