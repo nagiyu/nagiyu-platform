@@ -1,7 +1,8 @@
+import { jst } from '../../helpers/jst.js';
 import { resolveLifecycleState } from '../../../src/lifecycle/state-resolver.js';
 
 function makeDate(hour: number, minute = 0): Date {
-  return new Date(2026, 0, 1, hour, minute, 0);
+  return jst(2026, 0, 1, hour, minute, 0);
 }
 
 describe('resolveLifecycleState', () => {

@@ -4,11 +4,12 @@ import type { NoteEntity } from '../entities/note.entity.js';
 import type { ChatMessage } from '../llm-client/types.js';
 import type { LifecycleState } from '../entities/lifecycle.entity.js';
 import type { RetrievedTopic } from '../knowledge/retrieval.js';
+import { getJstHour } from '../lib/jst-clock.js';
 
 export type TimeOfDay = '朝' | '昼' | '夜';
 
 export function getTimeOfDay(date: Date): TimeOfDay {
-  const hour = date.getHours();
+  const hour = getJstHour(date);
   if (hour >= 5 && hour < 12) return '朝';
   if (hour >= 12 && hour < 18) return '昼';
   return '夜';

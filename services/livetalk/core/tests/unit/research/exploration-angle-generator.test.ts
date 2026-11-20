@@ -1,3 +1,4 @@
+import { jst } from '../../helpers/jst.js';
 import { LLMExplorationAngleGenerator } from '../../../src/research/exploration-angle-generator.js';
 import type { ILLMClient } from '../../../src/llm-client/types.js';
 import type { ExplorationAnglePromptInput } from '../../../src/research/exploration-angle.prompt.js';
@@ -16,7 +17,7 @@ const input: ExplorationAnglePromptInput = {
   selfFactTexts: ['ボカロが好き'],
   knownWebFactTexts: ['新曲が公開された'],
   recentAngles: ['ボカロ 新作'],
-  today: new Date(2026, 10, 9),
+  today: jst(2026, 10, 9),
 };
 
 describe('LLMExplorationAngleGenerator', () => {

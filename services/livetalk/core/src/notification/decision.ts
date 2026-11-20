@@ -1,4 +1,5 @@
 import { toJstDayStartMs } from '@nagiyu/common';
+import { getJstMinutesOfDay } from '../lib/jst-clock.js';
 import type { LifecycleEntity } from '../entities/lifecycle.entity.js';
 import type { MessageEntity } from '../entities/message.entity.js';
 import type { NotificationEventEntity } from '../entities/notification-event.entity.js';
@@ -245,7 +246,7 @@ export function shouldNotifyNow(input: NotifyDecisionInput): NotifyDecision {
   // 5. 活動時間帯チェック
   const activityProfile = lifecycle.userActivityProfile;
   if (activityProfile) {
-    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    const nowMinutes = getJstMinutesOfDay(now);
     const morningPeakMins = peakToMinutes(activityProfile.morningPeak);
     const eveningPeakMins = peakToMinutes(activityProfile.eveningPeak);
     const inWindow =
