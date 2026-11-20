@@ -7,7 +7,7 @@ sources:
   - services/livetalk/core/src/entities/topic.entity.ts
   - services/livetalk/core/src/usecases/consolidate.usecase.ts
   - services/livetalk/core/src/constants.ts
-sources_hash: 59a6a2e4a5de908866b6cc55a8bb57cdb5b85ca585e6af3c3ae5d39096dbeacd
+sources_hash: d4a5223c68808351be71d05006e3f28ea630d3e4b3dcd8832373f20ebc6ca86b
 terms: [livetalk/term/topic, livetalk/term/self-fact]
 related_cards: [livetalk/batch/consolidate-conversations, livetalk/batch/acquire, livetalk/batch/notify]
 related_adr:

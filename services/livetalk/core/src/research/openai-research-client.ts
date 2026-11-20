@@ -80,7 +80,8 @@ export class OpenAIResearchClient implements IResearchClient {
               content: [
                 {
                   type: 'input_text',
-                  text: buildResearchPrompt(query, character),
+                  // リサーチは呼んだ時に実行されるため、今日は呼び出し時点の日付を渡す
+                  text: buildResearchPrompt(query, character, new Date()),
                 },
               ],
             },

@@ -11,7 +11,11 @@ import {
 import { cosineSimilarity } from '../memory/embedding.js';
 import { emitBatchMetricsLog, emitBatchMetricsEMF } from '../observability/metrics.js';
 import { defaultUlidFactory, type UlidFactory } from '../lib/ulid.js';
-import { formatJstMonthDay } from '../lib/format-date.js';
+import {
+  formatJstFactDate,
+  formatJstFullDateWithWeekday,
+  formatJstMonthDay,
+} from '../lib/format-date.js';
 import { selectRecentWebFacts } from '../knowledge/recent-web-facts.js';
 import { ConsolidationSchema } from '../llm-client/schemas/consolidation.schema.js';
 import { buildConsolidatePrompt } from './consolidate.prompt.js';
@@ -474,8 +478,13 @@ export async function consolidate(
 
   const promptMessages = buildConsolidatePrompt({
     characterName,
+    todayLabel: formatJstFullDateWithWeekday(readAt),
     candidateTopics,
-    newMessages: messages.map((m) => ({ role: m.role, text: m.text })),
+    newMessages: messages.map((m) => ({
+      role: m.role,
+      text: m.text,
+      createdAtLabel: formatJstFactDate(m.createdAt, readAt),
+    })),
     webRaws: webraws.map((w) => ({
       query: w.query,
       rawText: w.rawText,
