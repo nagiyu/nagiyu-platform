@@ -1544,7 +1544,9 @@ describe('runChatUseCase', () => {
       const systemMsg = streamArgs.find((m) => m.role === 'system');
       expect(systemMsg?.content).toContain('今の話題に関連');
       expect(systemMsg?.content).toContain('■ コーヒー');
-      expect(systemMsg?.content).toContain('（あなたが聞いたこと）朝コーヒーを飲む');
+      expect(systemMsg?.content).toMatch(
+        /（あなたが(\d+年)?\d+月\d+日に聞いたこと）朝コーヒーを飲む/
+      );
     });
 
     it('retrieve 失敗時は想起なしで会話を継続する（fail-warn）', async () => {
