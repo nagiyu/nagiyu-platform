@@ -20,6 +20,8 @@ sources:
   - services/livetalk/web/src/components/NotificationToggle.tsx
   - services/livetalk/web/src/lib/home/useChatStream.ts
   - services/livetalk/web/src/lib/home/useConsent.ts
+  - services/livetalk/web/src/lib/consent/notice.ts
+  - services/livetalk/web/src/lib/legal/revisions.ts
   - services/livetalk/web/src/lib/home/useOnboarding.ts
   - services/livetalk/web/src/lib/home/useFirstWord.ts
   - services/livetalk/web/src/lib/home/usePendingNotifications.ts
@@ -29,7 +31,7 @@ sources:
   - services/livetalk/web/src/lib/pwa/standalone.ts
   - services/livetalk/web/src/lib/pwa/messages.ts
   - services/livetalk/web/src/lib/account/useAccountDeletion.ts
-sources_hash: 9e497741924163adb5279a3b42f008330fab513910a64caf6fd5756faab8d812
+sources_hash: 81a0890664a02a0092ccd9c873d68a97815d7f786cf993c2b3506270108d32a8
 terms: [livetalk/term/permission, livetalk/term/character, livetalk/term/consent, livetalk/term/chat-event, livetalk/term/safety, livetalk/term/notification-event, livetalk/term/lifecycle]
 related_cards: [livetalk/screen/memory, livetalk/screen/notes, livetalk/screen/status, livetalk/screen/terms, livetalk/screen/privacy, livetalk/api/chat, livetalk/api/consent, livetalk/api/lifecycle, livetalk/api/push, livetalk/api/push-notification, livetalk/api/account, livetalk/api/client-log, livetalk/flow/conversation, livetalk/flow/notification-open]
 related_adr:
@@ -70,11 +72,14 @@ related_adr:
 ## 状態
 
 - 同意を確かめている間は、入力欄が使えない。未同意のとき、同意の取得に失敗したときは、同意のダイアログを出す
-    - 「利用規約に同意する」「プライバシーポリシーに同意する」「18 歳以上である (自己申告)」の 3 つにすべてチェックすると「利用開始」が押せる。規約とポリシーのリンクは別のタブで開く
+    - 初回は、タイトル「リブトークへようこそ」で、「利用規約に同意する」「プライバシーポリシーに同意する」「18 歳以上である (自己申告)」の 3 つにすべてチェックすると「利用開始」が押せる。規約とポリシーのリンクは別のタブで開く
+    - 規約かポリシーの同意が (前の版のものも含めて) 記録に残っているときは、改定のお知らせとして出す。タイトルは変わった文書に応じて「利用規約・プライバシーポリシーを改定しました」(片方だけなら「利用規約を改定しました」「プライバシーポリシーを改定しました」)。変わった文書ごとに、新しい版と施行日、記録した版より後の改定の要点 (箇条書き)、全文を別のタブで開くリンクを出す。要点はコードが持つ改定履歴から取り、記録した版が履歴にないときは今の版の要点だけにする。同意のチェックは変わった文書の分 (版を添える) で、揃うと「同意して続ける」が押せる。医療・カウンセリングでない旨の注意書きは出さない
+    - 18 歳以上の自己申告が記録済みなら、改定のお知らせでは年齢のチェックを出さず、同意を送るときも申告は送らない (記録はそのまま残る)。記録がなければ、改定のお知らせでも 3 つ目のチェックを出す
+    - 初回か改定かは `/api/consent` の応答で決める。変わった文書がなければ初回の表示にする。取得に失敗したときも初回の表示にする
     - 送信に失敗したときは、ダイアログの中に「同意の送信に失敗しました。時間を置いて再試行してください。」を出す
 - 応答待ちのときは、状態が「考え中…」になり、入力欄と送信ボタンと、キャラクター選択が使えなくなる。応答が流れ始めると「話している」になり、音声の再生が終わると待機に戻る
 - 送信に失敗したときは、会話の領域に文言を出し、入力欄の文章は残す
-- 送信が同意のないことで断られた (`CONSENT_REQUIRED`) ときは、文言を出さず、同意のダイアログを開き直す。入力欄の文章は残り、同意したあとに送り直せる。この失敗は Admin へ報告しない。開き直したダイアログは、3 つのチェックが外れた状態から始まる
+- 送信が同意のないことで断られた (`CONSENT_REQUIRED`) ときは、文言を出さず、同意のダイアログを開き直す。入力欄の文章は残り、同意したあとに送り直せる。この失敗は Admin へ報告しない。開き直すときは、同意の状態を取り直して初回か改定かを決め直す (取得に失敗したら初回の表示)。開き直したダイアログは、チェックがすべて外れた状態から始まる
 
 | 失敗 | 画面の文言 |
 |---|---|
@@ -95,7 +100,7 @@ related_adr:
 | 画面を開く | 同意 ([同意 API](../api/consent.md))、生活サイクル ([生活サイクル API](../api/lifecycle.md))、第一声と他のキャラクターの未読の知らせ ([通知まわりの API](../api/push-notification.md)) を読む |
 | 送信 | 発言を[チャット API](../api/chat.md) へ送り、[チャットのイベント](../term/chat-event.md)を受けて、応答を文字と音声で出す。成功すると入力欄を空にする |
 | 「キャラ：{名前}」 | 選択のダイアログを開く。登録のあるキャラクターを、名前、説明、モデル、音声とともにラジオボタンで並べる。「決定」で切り替え (ローカルストレージに残す)、「キャンセル」で閉じる |
-| 利用開始 | 同意を[同意 API](../api/consent.md) へ保存し、ダイアログを閉じる |
+| 利用開始 (改定のお知らせでは「同意して続ける」) | 同意を[同意 API](../api/consent.md) へ保存し、ダイアログを閉じる |
 | 「お知らせを受け取る」「通知を許可する」 | 通知を許可させ、購読を[購読の API](../api/push.md) へ登録する |
 | メニューの項目 | 記憶画面、ノート一覧画面、ステータス画面を開く |
 | ログアウト | Auth サービスのサインアウトへ移る |
@@ -126,6 +131,14 @@ related_adr:
 | スマホ |
 |---|
 | ![ホーム画面 初回アクセス (同意のダイアログ) (スマホ)](../../../images/specs/livetalk/screen/home-consent-mobile.png) |
+
+### 規約・ポリシーの改定
+
+前の版に同意済みで、18 歳以上の申告も記録済みの例。変わった文書ごとに要点を示し、年齢のチェックは出さない。ダイアログの中はスクロールできる。
+
+| スマホ |
+|---|
+| ![ホーム画面 規約・ポリシーの改定 (スマホ)](../../../images/specs/livetalk/screen/home-consent-revision-mobile.png) |
 
 ### 同意の送信に失敗したとき
 

@@ -13,7 +13,8 @@ import { CONSENT_ERROR_MESSAGES } from './constants';
 interface ConsentRequest {
   termsAgreed: boolean;
   privacyAgreed: boolean;
-  ageVerified: boolean;
+  /** 省略または false のときは、記録済みの申告をそのまま残す */
+  ageVerified?: boolean;
 }
 
 function isConsentRequest(
@@ -22,7 +23,7 @@ function isConsentRequest(
   return (
     typeof body.termsAgreed === 'boolean' &&
     typeof body.privacyAgreed === 'boolean' &&
-    typeof body.ageVerified === 'boolean'
+    (body.ageVerified === undefined || typeof body.ageVerified === 'boolean')
   );
 }
 
@@ -55,7 +56,8 @@ export const GET = withApiErrorReporting(
  * POST /api/consent
  *
  * 全ての同意を受け付けて DynamoDB Profile に永続化する。
- * 3 フラグが全て true でなければ 400 を返す。
+ * 規約・ポリシーの同意が true で、かつ 18 歳以上の自己申告が (今回の true か記録済みの true で)
+ * 揃わなければ 400 を返す。申告が記録済みなら、同意の取り直しでは申告を求めず、記録をそのまま残す。
  */
 export const POST = withApiErrorReporting(
   'Web API: 同意状態保存エラー',
@@ -70,7 +72,17 @@ export const POST = withApiErrorReporting(
 
     const body = bodyResult.body;
 
-    if (!body.termsAgreed || !body.privacyAgreed || !body.ageVerified) {
+    const userId = session.user.id;
+    const repository = createProfileRepository();
+
+    // 申告が来ていないときだけ、記録済みかを読んで確かめる
+    const recordedAge =
+      body.ageVerified === true
+        ? undefined
+        : (await repository.getById({ userId }))?.consents?.ageVerified;
+    const keptAge = recordedAge?.value === true ? recordedAge : undefined;
+
+    if (!body.termsAgreed || !body.privacyAgreed || (body.ageVerified !== true && !keptAge)) {
       return NextResponse.json(
         { error: 'ALL_CONSENTS_REQUIRED', message: CONSENT_ERROR_MESSAGES.ALL_CONSENTS_REQUIRED },
         { status: 400 }
@@ -78,16 +90,15 @@ export const POST = withApiErrorReporting(
     }
 
     const now = Date.now();
-    const userId = session.user.id;
 
-    await createProfileRepository().upsert(
+    await repository.upsert(
       { userId },
       {
         lastActiveAt: now,
         consents: {
           termsAgreed: { version: LIVETALK_TERMS_VERSION, agreedAt: now },
           privacyAgreed: { version: LIVETALK_PRIVACY_VERSION, agreedAt: now },
-          ageVerified: { value: true, verifiedAt: now },
+          ageVerified: keptAge ?? { value: true, verifiedAt: now },
         },
       }
     );
