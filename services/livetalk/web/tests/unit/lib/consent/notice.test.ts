@@ -89,7 +89,7 @@ describe('buildConsentNotice', () => {
     if (notice.kind !== 'revision') return;
     expect(notice.documents.map((d) => d.key)).toEqual(['privacy']);
     expect(notice.documents[0].summary).toEqual(
-      expect.arrayContaining([expect.stringContaining('OpenAI')])
+      expect.arrayContaining([expect.stringContaining('Anthropic')])
     );
   });
 

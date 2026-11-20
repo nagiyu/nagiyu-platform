@@ -28,7 +28,7 @@ test.describe('LiveTalk - 同意のダイアログ', () => {
       '利用規約・プライバシーポリシーを改定しました'
     );
     await expect(dialog.getByText('リブトークへようこそ')).toHaveCount(0);
-    await expect(dialog.getByText('OpenAI').first()).toBeVisible();
+    await expect(dialog.getByText('Anthropic').first()).toBeVisible();
     // 年齢の申告は記録済みなので、規約とポリシーの 2 つだけ
     await expect(dialog.getByRole('checkbox')).toHaveCount(2);
     await expect(dialog.getByTestId('consent-submit')).toHaveText('同意して続ける');

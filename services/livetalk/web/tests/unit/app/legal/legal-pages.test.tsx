@@ -28,6 +28,6 @@ describe('法務ページの改定履歴', () => {
 
     const history = screen.getByTestId('legal-revision-history');
     expect(history).toHaveTextContent('バージョン 1.1.0（2026年11月15日施行）');
-    expect(history).toHaveTextContent('OpenAI');
+    expect(history).toHaveTextContent('Anthropic');
   });
 });

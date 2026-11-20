@@ -9,7 +9,7 @@ sources:
   - services/livetalk/web/src/lib/legal/revisions.ts
   - services/livetalk/web/src/components/LegalRevisionHistory.tsx
   - libs/ui/src/components/legal/LegalSections.tsx
-sources_hash: 33c76c4dad5172d08ab053002ed113ec856f601faf6b4b4c409fb11f105497b4
+sources_hash: b6ef4b458cbddb7814fb9c45ec59e4b25198f963c83e6e5a79457b31bfb5d42a
 terms: [livetalk/term/consent]
 related_cards: [livetalk/screen/privacy, livetalk/screen/home]
 ---
