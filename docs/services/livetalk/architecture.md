@@ -798,7 +798,7 @@ DynamoDB Single Table（`nagiyu-livetalk-dynamodb-{env}`）。
 | learn-user-activity | [活動時間学習バッチ](../../specs/livetalk/batch/learn-user-activity.md) |
 | notify | [通知バッチ](../../specs/livetalk/batch/notify.md) |
 
-集約（畳み）と取得（Web アクセス）を別バッチに分けるのは、取得の失敗・レイテンシと畳みの整合性（カーソル前進）を独立に扱うため。時刻判定のため Web Task / 関連 Lambda には `TZ=Asia/Tokyo` を設定。
+集約（畳み）と取得（Web アクセス）を別バッチに分けるのは、取得の失敗・レイテンシと畳みの整合性（カーソル前進）を独立に扱うため。時刻と日付の判定は、コードで日本時間を明示して求めるため、実行環境のタイムゾーンに依存しない。Web Task / 関連 Lambda には `TZ=Asia/Tokyo` が入っているが、判定の正しさはこの設定に頼らない。
 
 ---
 
