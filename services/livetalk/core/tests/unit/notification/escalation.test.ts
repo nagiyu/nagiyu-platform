@@ -218,6 +218,43 @@ describe('detectCriticalTopic - eventDate ホライズン', () => {
     const result = await detectCriticalTopic(makeInput({ llmClient: makeLlmClient(todayStr) }));
     expect(result.isCritical).toBe(true);
   });
+
+  describe('日本時間 0〜9 時（UTC では前日）でも今日がずれない', () => {
+    // 日本時間 2026-06-07 00:30 = UTC 2026-06-06 15:30
+    const EARLY_MORNING = new Date('2026-06-07T00:30:00+09:00');
+
+    it('今日と同じ日付 → critical', async () => {
+      const result = await detectCriticalTopic(
+        makeInput({ now: EARLY_MORNING, llmClient: makeLlmClient('2026-06-07') })
+      );
+      expect(result.isCritical).toBe(true);
+    });
+
+    it('前日の日付 → 過去として非 critical', async () => {
+      const result = await detectCriticalTopic(
+        makeInput({ now: EARLY_MORNING, llmClient: makeLlmClient('2026-06-06') })
+      );
+      expect(result.isCritical).toBe(false);
+    });
+
+    it('ホライズン境界は今日から数えて当日含む', async () => {
+      const atBoundary = await detectCriticalTopic(
+        makeInput({ now: EARLY_MORNING, llmClient: makeLlmClient(HORIZON_BOUNDARY) })
+      );
+      const overBoundary = await detectCriticalTopic(
+        makeInput({ now: EARLY_MORNING, llmClient: makeLlmClient(OVER_HORIZON) })
+      );
+      expect(atBoundary.isCritical).toBe(true);
+      expect(overBoundary.isCritical).toBe(false);
+    });
+
+    it('プロンプトの今日の日付は日本時間の日付になる', async () => {
+      const llmClient = makeLlmClient('2026-06-07');
+      await detectCriticalTopic(makeInput({ now: EARLY_MORNING, llmClient }));
+      const messages = (llmClient.chatStructured as jest.Mock).mock.calls[0][0];
+      expect(messages[0].content).toContain('今日の日付: 2026-06-07（JST）');
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------
