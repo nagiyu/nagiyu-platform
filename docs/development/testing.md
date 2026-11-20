@@ -614,27 +614,28 @@ npm run check:internal-links
 
 ### スクリプトの動作
 
-`services/portal/web/scripts/check-internal-links.mjs` が以下を実施する:
+`services/portal/web/scripts/check-internal-links.mjs` は入口だけを担い、検査ロジックは `src/lib/linkChecker.ts` の `checkAllInternalLinks` に一本化している。入口は対象ディレクトリを渡して、結果を出力し終了コードを返す。
+
+`linkChecker.ts` は次を実施する:
 
 1. `src/content/` 配下の全 Markdown / MDX ファイルを走査
 2. `src/app/` 配下の全 TSX ファイルを走査
 3. 各ファイルから静的な内部リンクを抽出（Markdown 形式・JSX `href` 属性）
-4. 以下のルール対応で実在確認:
+4. 以下のルールで実在確認:
    - `/tech/{slug}` → `src/content/tech/{slug}.md`
-   - `/tech/tags/{tagSlug}` → タグ付き記事 1 件以上
-   - `/tech/category/{slug}` → `src/content/tech-category/{slug}.md` + 該当記事 1 件以上
-   - `/services/{slug}` → `src/content/services/{slug}/index.md`
-   - `/services/{slug}/{doc}` → `src/content/services/{slug}/{doc}.md`
-   - 静的ページ（`/`, `/about`, `/privacy`, `/terms` 等）→ `src/app/.../page.tsx`
+   - 静的ページ（`/`, `/about`, `/privacy`, `/terms`, `/tech`）、または `src/app/.../page.tsx` があるパス
+   - `public/` 配下の静的ファイル（画像等）
 5. リンク切れがあれば終了コード 1 で一覧を出力、なければ 0 で終了
+
+入口は CI が共通ライブラリをビルドせず `npm ci` だけで動かすため、TypeScript をビルドせず Node の型除去で `linkChecker.ts` を直接読み込む。この条件では、ビルドしていない共通ライブラリ (`@nagiyu/*`) と、拡張子を省いた相対 import が解決できない。そのため `linkChecker.ts` はこれらを import しない形を保つ。
 
 ### ビジネスロジックとテスト
 
-チェックロジックは `src/lib/linkChecker.ts` に切り出してあり、`tests/unit/lib/linkChecker.test.ts` で単体テストを実施（カバレッジ 99%+）。
+チェックロジックのテストは `tests/unit/lib/linkChecker.test.ts` にある。入口は薄く、ロジックを持たない。
 
 ### CI 組み込み
 
-スクリプトの実行時間は 30 秒以内（実測 < 100ms）のため、`portal-verify.yml` の `unit-test` ジョブの後続ジョブとして `check-internal-links` ステップを追加している。integration ブランチへの PR 時にも実行される。
+`portal-verify.yml` の `internal-links` ジョブが、`npm ci` のあとに実行する。integration ブランチへの PR 時にも走る。
 
 ### 注意事項
 
