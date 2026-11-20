@@ -136,9 +136,34 @@ describe('generateNotesForUser', () => {
     const prompt = JSON.stringify(spy.mock.calls[0][0]);
     // 新しい 10 件（事実2〜事実11）だけが載り、古い 2 件（事実0・事実1）は載らない
     expect(prompt).toContain('事実11');
-    expect(prompt).toContain('事実2（出典');
-    expect(prompt).not.toContain('事実1（出典');
+    expect(prompt).toContain('事実2（調べた日');
+    expect(prompt).not.toContain('事実1（調べた日');
     expect(prompt).not.toContain('事実0');
+  });
+
+  it('プロンプトに今日の日付と WEB fact の調べた日を渡す', async () => {
+    const judgedAt = Date.parse('2026-11-20T03:00:00Z');
+    await putTopic({ care: 3 });
+    await putWebFact('topic-001', {
+      text: '秋のイベント',
+      observedAt: Date.parse('2026-11-08T03:00:00Z'),
+    });
+    const llmClient = makeLLMClient([makeLetter()]);
+    const spy = jest.spyOn(llmClient, 'chatStructured');
+
+    await generateNotesForUser('u1', 'hiyori', {
+      topicRepo,
+      noteRepo,
+      noteSkipRepo,
+      llmClient,
+      characterName: '桃瀬ひより',
+      ulidFactory,
+      now: () => judgedAt,
+    });
+
+    const prompt = JSON.stringify(spy.mock.calls[0][0]);
+    expect(prompt).toContain('今日の日付：2026年11月20日(金)');
+    expect(prompt).toContain('秋のイベント（調べた日: 11月8日、出典');
   });
 
   it('絞られて見えなくなった WEB fact の追加でも、判断後に増えたかは全件で判定する', async () => {

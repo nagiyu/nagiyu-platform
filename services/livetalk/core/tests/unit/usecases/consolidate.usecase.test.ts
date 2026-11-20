@@ -1000,6 +1000,64 @@ describe('consolidate', () => {
     expect(capturedUserContent).toContain('既存本文F01');
   });
 
+  describe('日付をプロンプトに渡す', () => {
+    const runAndCapture = async (messageTimes: number[], readAt: number): Promise<string> => {
+      const { topicRepo, messageRepo, webRawRepo, cursorRepo } = makeRepos();
+      for (const [i, t] of messageTimes.entries()) {
+        tick = t;
+        await messageRepo.create({
+          userId: 'u1',
+          characterId: 'hiyori',
+          role: 'user',
+          text: `発話${i}`,
+        });
+      }
+      let capturedUserContent = '';
+      const llmClient: ILLMClient = {
+        async *chatStream() {
+          yield '';
+        },
+        async chatComplete() {
+          return '';
+        },
+        async chatStructured(messages) {
+          capturedUserContent = messages.find((m) => m.role === 'user')?.content ?? '';
+          return { topics: [makeTopicResult()] } as unknown as never;
+        },
+      };
+      await consolidate('u1', 'hiyori', {
+        topicRepo,
+        messageRepo,
+        webRawRepo,
+        cursorRepo,
+        llmClient,
+        embeddingClient: makeEmbeddingClient([1, 0]),
+        characterName: 'ひより',
+        now: () => readAt,
+      });
+      return capturedUserContent;
+    };
+
+    it('今日の日付と、各発話の発話日が日本時間の日付境界で付く', async () => {
+      const readAt = Date.parse('2026-11-22T03:00:00Z');
+      const content = await runAndCapture(
+        [Date.parse('2026-11-20T14:59:00Z'), Date.parse('2026-11-20T15:00:00Z')],
+        readAt
+      );
+
+      expect(content.startsWith('今日の日付: 2026年11月22日(日)')).toBe(true);
+      expect(content).toContain('[11月20日] ユーザー: 発話0');
+      expect(content).toContain('[11月21日] ユーザー: 発話1');
+    });
+
+    it('今日と年が違う発話は年付きになる', async () => {
+      const readAt = Date.parse('2026-01-05T03:00:00Z');
+      const content = await runAndCapture([Date.parse('2025-12-31T03:00:00Z')], readAt);
+
+      expect(content).toContain('[2025年12月31日] ユーザー: 発話0');
+    });
+  });
+
   describe('依頼由来 provenance（甲-1 / index 参照方式）', () => {
     it('request-origin WebRaw を LLM が sourceRequestIndices:[0] で指すと、Topic に WebRaw の権威ある原文・日時が焼かれる', async () => {
       const { topicRepo, messageRepo, webRawRepo, cursorRepo } = makeRepos();

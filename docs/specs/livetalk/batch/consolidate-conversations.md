@@ -10,7 +10,7 @@ sources:
   - services/livetalk/core/src/usecases/consolidate.usecase.ts
   - services/livetalk/core/src/usecases/generate-note.usecase.ts
   - services/livetalk/core/src/constants.ts
-sources_hash: e09648aaae0edda580dd6ce16ba0b8345ea42acd425c20d04c4e9687ed538a87
+sources_hash: 966adb2d1158b218f225f51aa6e7d0138059ade023e5294ec12de1cb398988b2
 terms: [livetalk/term/topic, livetalk/term/care, livetalk/term/self-fact, livetalk/term/web-fact, livetalk/term/webraw, livetalk/term/note]
 related_cards: [admin/flow/error-notification, livetalk/batch/acquire, livetalk/flow/conversation, livetalk/screen/memory, livetalk/screen/notes]
 related_adr:
@@ -58,6 +58,7 @@ flowchart TD
 - **①**: 会話用と WebRaw 用のカーソルを別々に持つ
 - **②**: 新しい内容の末尾 2000 文字を埋め込み、類似度 0.4 以上の上位 8 件を候補にする。各候補の既存の WEB fact は、新しい側 20 件を番号付きで LLM に見せる
 - **③**: 話題ごとに、既存の Topic へ名寄せするか、新しく作るかを決め、要約・[SELF fact](../term/self-fact.md)・[WEB fact](../term/web-fact.md) を返す
+    - LLM には今日の日付と、会話の各発話の発話日 (日本時間。今日と年が違うときだけ年付き) を渡す。SELF fact の本文では、「明日」などの相対的な日時を発話日を基準に年月日へ直し、予定が終わったという話もそのまま書かせる。WEB fact の本文では、取得内容にある開催日・期間・発売日を年付きで残させる
 - **④**: Topic のヘッダを書き、SELF fact と WEB fact を足す
     - 既存の Topic の更新は楽観ロックで書く。同じ Topic を指す結果は 1 つにまとめる
     - [care](../term/care.md): その話題の結果に SELF fact があるときだけ上げる。新規は 1、名寄せは +1。なければ新規は 0、名寄せはそのまま
@@ -95,6 +96,7 @@ flowchart TD
     - WEB fact がない
     - 前回「ノートにしない」と判断した後に、新しい WEB fact が増えていない
 - LLM は、SELF fact (なぜ調べたか) と新しい側 10 件の WEB fact から手紙を書く。書かないと判断したら、その時刻を記録して次へ進む
+    - LLM には今日の日付と、各 WEB fact の調べた日 (今日と年が違うときだけ年付き) も渡し、終わったことをこれからのこととして書かせない
 - ノートの生成の失敗は握って続ける
 
 ## 上限
