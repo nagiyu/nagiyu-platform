@@ -10,10 +10,13 @@ import { buildGenerateNotePrompt } from '../../../src/usecases/generate-note.pro
 describe('buildGenerateNotePrompt', () => {
   const baseInput = {
     characterName: 'ひより',
+    todayLabel: '2026年11月20日(金)',
     subject: 'コーヒーの効能',
     canonicalSummary: 'コーヒーには覚醒作用がある',
     selfFacts: [{ text: 'コーヒーが好き', provenance: '雑談' }],
-    webFacts: [{ text: '覚醒効果がある', sourceUrls: ['https://example.com/a'] }],
+    webFacts: [
+      { text: '覚醒効果がある', sourceUrls: ['https://example.com/a'], observedAtLabel: '11月8日' },
+    ],
   };
 
   it('system メッセージに捏造禁止ルールを含む', () => {
@@ -55,5 +58,18 @@ describe('buildGenerateNotePrompt', () => {
     expect(system.content).toContain('コーヒーの効能');
     expect(user.content).toContain('コーヒーが好き');
     expect(user.content).toContain('覚醒効果がある');
+  });
+
+  it('system メッセージに今日の日付と、終わった内容をこれからとして書かないルールを含む', () => {
+    const [system] = buildGenerateNotePrompt(baseInput);
+    expect(system.content).toContain('今日の日付：2026年11月20日(金)');
+    expect(system.content).toContain('終わったものをこれからのこととして');
+  });
+
+  it('WEB fact に調べた日が付く', () => {
+    const [, user] = buildGenerateNotePrompt(baseInput);
+    expect(user.content).toContain(
+      '- 覚醒効果がある（調べた日: 11月8日、出典: https://example.com/a）'
+    );
   });
 });

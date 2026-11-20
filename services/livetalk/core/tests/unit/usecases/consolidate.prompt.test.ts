@@ -4,6 +4,7 @@ describe('buildConsolidatePrompt', () => {
   it('system + user の 2 メッセージを返す', () => {
     const messages = buildConsolidatePrompt({
       characterName: '早瀬アゲハ',
+      todayLabel: '2026年11月20日(金)',
       candidateTopics: [],
       newMessages: [],
       webRaws: [],
@@ -17,27 +18,30 @@ describe('buildConsolidatePrompt', () => {
   it('ユーザーとキャラ両方の発話を含む会話で、user メッセージに話者ラベルが正しく付く', () => {
     const messages = buildConsolidatePrompt({
       characterName: '早瀬アゲハ',
+      todayLabel: '2026年11月20日(金)',
       candidateTopics: [],
       newMessages: [
-        { role: 'user', text: '最近せいろ蒸しにハマってるんだ' },
+        { role: 'user', text: '最近せいろ蒸しにハマってるんだ', createdAtLabel: '11月20日' },
         {
           role: 'assistant',
           text: '野菜は蒸すと甘みが増すよ！仕上げは塩とオリーブオイルがおすすめ',
+          createdAtLabel: '11月20日',
         },
       ],
       webRaws: [],
     });
 
     const userMessage = messages.find((m) => m.role === 'user');
-    expect(userMessage?.content).toContain('ユーザー: 最近せいろ蒸しにハマってるんだ');
+    expect(userMessage?.content).toContain('[11月20日] ユーザー: 最近せいろ蒸しにハマってるんだ');
     expect(userMessage?.content).toContain(
-      '早瀬アゲハ: 野菜は蒸すと甘みが増すよ！仕上げは塩とオリーブオイルがおすすめ'
+      '[11月20日] 早瀬アゲハ: 野菜は蒸すと甘みが増すよ！仕上げは塩とオリーブオイルがおすすめ'
     );
   });
 
   it('system メッセージにキャラ発話を selfFacts に入れない旨のガード指示が含まれる', () => {
     const messages = buildConsolidatePrompt({
       characterName: '早瀬アゲハ',
+      todayLabel: '2026年11月20日(金)',
       candidateTopics: [],
       newMessages: [],
       webRaws: [],
@@ -53,6 +57,7 @@ describe('buildConsolidatePrompt', () => {
   it('system メッセージに一般知識・第三者の意見を selfFacts に入れない旨のガード指示が含まれる', () => {
     const messages = buildConsolidatePrompt({
       characterName: '早瀬アゲハ',
+      todayLabel: '2026年11月20日(金)',
       candidateTopics: [],
       newMessages: [],
       webRaws: [],
@@ -67,6 +72,7 @@ describe('buildConsolidatePrompt', () => {
   it('system メッセージに webRaws が空のとき webFacts を空にする旨の指示が含まれる', () => {
     const messages = buildConsolidatePrompt({
       characterName: '早瀬アゲハ',
+      todayLabel: '2026年11月20日(金)',
       candidateTopics: [],
       newMessages: [],
       webRaws: [],
@@ -80,6 +86,7 @@ describe('buildConsolidatePrompt', () => {
   it('既存 Topic 候補が user メッセージの candidateSection に反映される', () => {
     const messages = buildConsolidatePrompt({
       characterName: '早瀬アゲハ',
+      todayLabel: '2026年11月20日(金)',
       candidateTopics: [
         {
           topicId: 'topic-1',
@@ -102,6 +109,7 @@ describe('buildConsolidatePrompt', () => {
   it('候補 Topic の既存の事実が番号付きで本文・揮発性・観測日とともに表示される', () => {
     const messages = buildConsolidatePrompt({
       characterName: '早瀬アゲハ',
+      todayLabel: '2026年11月20日(金)',
       candidateTopics: [
         {
           topicId: 'topic-1',
@@ -136,6 +144,7 @@ describe('buildConsolidatePrompt', () => {
   it('既存の事実が無い候補 Topic は「既存の事実: なし」と表示する', () => {
     const messages = buildConsolidatePrompt({
       characterName: '早瀬アゲハ',
+      todayLabel: '2026年11月20日(金)',
       candidateTopics: [
         {
           topicId: 'topic-1',
@@ -156,6 +165,7 @@ describe('buildConsolidatePrompt', () => {
   it('system メッセージに webFacts の見比べ基準が追記され、振り分け基準の文言も残っている', () => {
     const messages = buildConsolidatePrompt({
       characterName: '早瀬アゲハ',
+      todayLabel: '2026年11月20日(金)',
       candidateTopics: [],
       newMessages: [],
       webRaws: [],
@@ -171,6 +181,7 @@ describe('buildConsolidatePrompt', () => {
   it('候補 Topic が空なら candidateSection に「なし」と表示する', () => {
     const messages = buildConsolidatePrompt({
       characterName: '早瀬アゲハ',
+      todayLabel: '2026年11月20日(金)',
       candidateTopics: [],
       newMessages: [],
       webRaws: [],
@@ -183,6 +194,7 @@ describe('buildConsolidatePrompt', () => {
   it('webRaws が user メッセージの webRawSection に反映される', () => {
     const messages = buildConsolidatePrompt({
       characterName: '早瀬アゲハ',
+      todayLabel: '2026年11月20日(金)',
       candidateTopics: [],
       newMessages: [],
       webRaws: [
@@ -204,6 +216,7 @@ describe('buildConsolidatePrompt', () => {
   it('requestIndex 付きの webRaws は [依頼 #N] 依頼文・依頼日付きでレンダリングされる（甲-1: index 参照方式）', () => {
     const messages = buildConsolidatePrompt({
       characterName: '早瀬アゲハ',
+      todayLabel: '2026年11月20日(金)',
       candidateTopics: [],
       newMessages: [],
       webRaws: [
@@ -228,6 +241,7 @@ describe('buildConsolidatePrompt', () => {
   it('origin === "request" でも requestIndex が undefined（今回バッチ非採用）なら [依頼 #N] が付かない', () => {
     const messages = buildConsolidatePrompt({
       characterName: '早瀬アゲハ',
+      todayLabel: '2026年11月20日(金)',
       candidateTopics: [],
       newMessages: [],
       webRaws: [
@@ -249,6 +263,7 @@ describe('buildConsolidatePrompt', () => {
   it('origin === "auto"/"stale" の webRaws には [依頼 #N] が付かない', () => {
     const messages = buildConsolidatePrompt({
       characterName: '早瀬アゲハ',
+      todayLabel: '2026年11月20日(金)',
       candidateTopics: [],
       newMessages: [],
       webRaws: [
@@ -274,6 +289,7 @@ describe('buildConsolidatePrompt', () => {
   it('system メッセージに sourceRequestIndices を番号で返す指示・捏造禁止の指示が含まれる（甲-1: index 参照方式）', () => {
     const messages = buildConsolidatePrompt({
       characterName: '早瀬アゲハ',
+      todayLabel: '2026年11月20日(金)',
       candidateTopics: [],
       newMessages: [],
       webRaws: [],
@@ -290,6 +306,7 @@ describe('buildConsolidatePrompt', () => {
   it('newMessages・webRaws が空なら「なし」と表示する', () => {
     const messages = buildConsolidatePrompt({
       characterName: '早瀬アゲハ',
+      todayLabel: '2026年11月20日(金)',
       candidateTopics: [],
       newMessages: [],
       webRaws: [],
@@ -298,5 +315,44 @@ describe('buildConsolidatePrompt', () => {
     const userMessage = messages.find((m) => m.role === 'user');
     expect(userMessage?.content).toContain('新しい会話：\nなし');
     expect(userMessage?.content).toContain('新しい Web 取得生データ：\nなし');
+  });
+
+  it('user メッセージの先頭に今日の日付が入る', () => {
+    const messages = buildConsolidatePrompt({
+      characterName: '早瀬アゲハ',
+      todayLabel: '2026年11月20日(金)',
+      candidateTopics: [],
+      newMessages: [],
+      webRaws: [],
+    });
+
+    expect(messages[1].content.startsWith('今日の日付: 2026年11月20日(金)')).toBe(true);
+  });
+
+  it('年が違う発話は年付きのラベルがそのまま会話行に入る', () => {
+    const messages = buildConsolidatePrompt({
+      characterName: '早瀬アゲハ',
+      todayLabel: '2026年11月20日(金)',
+      candidateTopics: [],
+      newMessages: [{ role: 'user', text: '明日は仕事', createdAtLabel: '2025年12月31日' }],
+      webRaws: [],
+    });
+
+    expect(messages[1].content).toContain('[2025年12月31日] ユーザー: 明日は仕事');
+  });
+
+  it('system メッセージに相対日時の年月日化・終了の記録・webFacts の日付保持の指示が含まれる', () => {
+    const [system] = buildConsolidatePrompt({
+      characterName: '早瀬アゲハ',
+      todayLabel: '2026年11月20日(金)',
+      candidateTopics: [],
+      newMessages: [],
+      webRaws: [],
+    });
+
+    expect(system.content).toContain('相対的な日時を、発話日を基準に');
+    expect(system.content).toContain('発話日を添えてください');
+    expect(system.content).toContain('予定が終わった・済んだ・取りやめたと話した場合');
+    expect(system.content).toContain('開催日・期間・発売日などの日付を落とさず年付きで');
   });
 });
