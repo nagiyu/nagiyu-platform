@@ -1,7 +1,9 @@
-name: Verify - 仕様カードの鮮度
+name: Verify - docs の出典と配置
 
-# docs/specs/ の仕様カードはコードの写しで、frontmatter に元のソースのハッシュを持つ。
-# ソースを変えたのにカードを作り直していない PR を、マージ前に止める。
+# docs/ の文書は docs/layout.json の配置に置く。コードの写しになる文書は、
+# frontmatter に元のソースのハッシュを持つ。
+# 配置に当たらない文書と、ソースを変えたのに作り直していない文書を、マージ前に止める。
+# 未実装の仕様 (unimplemented: true) は develop / master に入れないため、その向きの PR では禁止する。
 # 依存を足さずランナーの Node で動かすため、setup-node は使わない。
 
 on:
@@ -12,7 +14,7 @@ on:
       - 'integration/**'
 
 env:
-  SERVICE_DISPLAY_NAME: Spec cards
+  SERVICE_DISPLAY_NAME: Docs structure
 
 # 同じ PR の古いコミットに対する検証は不要なため、新しい run が来たら打ち切る。
 concurrency:
@@ -25,8 +27,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: 仕様カードの鮮度と整合を検査
-        run: node .github/workflows/scripts/spec-cards.mjs check
+      - name: docs の配置と出典を検査
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          if [ "$BASE_REF" = "develop" ] || [ "$BASE_REF" = "master" ]; then
+            node .github/workflows/scripts/docs-structure.mjs check --forbid-unimplemented
+          else
+            node .github/workflows/scripts/docs-structure.mjs check
+          fi
 
   report:
     name: Report Results to PR
@@ -42,7 +51,7 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const results = { '仕様カードの鮮度': '${{ needs.check.result }}' };
+            const results = { 'docs の出典と配置': '${{ needs.check.result }}' };
             const statusEmoji = { 'success': '✅', 'failure': '❌', 'cancelled': '⚠️', 'skipped': '⏭️' };
             const allSuccess = Object.values(results).every(r => r === 'success');
             const header = allSuccess
@@ -56,7 +65,7 @@ jobs:
               body += `| ${job} | ${emoji} ${result} |\n`;
             }
             if (!allSuccess) {
-              body += '\n> 仕様カードの元のソースが変わっています。`spec-card` スキルに沿って、本文が今のコードと合っているかを確かめてからカードを作り直してください。\n';
+              body += '\n> 出典のコードが変わった文書は、`docs-write` スキルに沿って本文が今のコードと合っているかを確かめてから作り直してください。配置に当たらない文書は `docs/layout.json` の配置に置いてください。未実装の文書は develop / master に入れられません。\n';
             }
             body += `\n[View workflow run](${context.payload.repository.html_url}/actions/runs/${context.runId})`;
             github.rest.issues.createComment({ issue_number: context.issue.number, owner: context.repo.owner, repo: context.repo.repo, body: body });
