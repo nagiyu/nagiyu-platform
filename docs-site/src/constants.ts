@@ -10,11 +10,10 @@ export const SITE_CONFIG = {
 export const REPOSITORY_BLOB_URL = 'https://github.com/nagiyu/nagiyu-platform/blob/develop/';
 
 /**
- * サイドバーに出さない docs 直下の相対パス。旧配置のサービス文書の雛形で、読み物ではない。
- * ページ自体は残す (開発フローの文書が雛形のディレクトリへリンクしており、除くとリンク切れになる)。
+ * サイドバーに出さない docs 直下の相対パス。読み物でないページを除くための口で、今は除くものがない。
  * 新しい配置の雛形は layout.json の template から作る。
  */
-export const SIDEBAR_EXCLUDED = ['templates/**'];
+export const SIDEBAR_EXCLUDED: readonly string[] = [];
 
 export const ERROR_MESSAGES = {
   DOCS_DIR_NOT_FOUND: (dir: string) => `docs ディレクトリが見つかりません: ${dir}`,
