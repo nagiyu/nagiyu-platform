@@ -1,15 +1,9 @@
 ---
-id: niconico-mylist-assistant/api/push
-title: Push 通知 API
-kind: api
-service: niconico-mylist-assistant
 sources:
   - services/niconico-mylist-assistant/web/src/app/api/push/subscribe/route.ts
   - services/niconico-mylist-assistant/web/src/app/api/push/vapid-public-key/route.ts
   - libs/nextjs/src/push.ts
 sources_hash: 44d49f8dc25829acb2990bc0e9ea7a180f4bb1b505b7d2e9defff387f20deb8e
-terms: [niconico-mylist-assistant/term/api-error]
-related_cards: [niconico-mylist-assistant/screen/home, niconico-mylist-assistant/flow/mylist-registration, niconico-mylist-assistant/api/mylist-register]
 ---
 
 # Push 通知 API

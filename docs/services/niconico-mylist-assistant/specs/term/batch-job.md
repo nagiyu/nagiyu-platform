@@ -1,15 +1,10 @@
 ---
-id: niconico-mylist-assistant/term/batch-job
-title: マイリスト登録ジョブ
-kind: term
-service: niconico-mylist-assistant
 sources:
   - services/niconico-mylist-assistant/core/src/types/index.ts
   - services/niconico-mylist-assistant/core/src/entities/batch-job.entity.ts
   - services/niconico-mylist-assistant/core/src/mappers/batch-job.mapper.ts
   - services/niconico-mylist-assistant/batch/src/lib/job-status.ts
 sources_hash: 16a86fb089133c12e1c4dd7a1c5ee5f650f8ee1ce8b3f07da0d7659906cc2418
-related_cards: [niconico-mylist-assistant/api/batch-jobs, niconico-mylist-assistant/api/mylist-register, niconico-mylist-assistant/screen/job-status, niconico-mylist-assistant/batch/mylist-register, niconico-mylist-assistant/flow/mylist-registration]
 ---
 
 # マイリスト登録ジョブ
@@ -36,8 +31,3 @@ related_cards: [niconico-mylist-assistant/api/batch-jobs, niconico-mylist-assist
 
 - 完了の判定は、バッチが決める。全件の登録に失敗した (成功が 0 件で失敗が 1 件以上) ときだけ `FAILED`、それ以外 (全件成功、一部失敗) は `SUCCEEDED`。一部失敗かどうかは `result.failedCount` で見分ける
 - 記録は、作成の 7 日後以降に自動で消える (DynamoDB の TTL。消えるまでに遅れることがある)
-
-## 関連するカード
-
-- [ジョブ API](../api/batch-jobs.md): 記録の読み取り
-- [マイリスト登録バッチ](../batch/mylist-register.md): 記録を更新する

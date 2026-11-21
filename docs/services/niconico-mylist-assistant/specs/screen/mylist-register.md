@@ -1,8 +1,4 @@
 ---
-id: niconico-mylist-assistant/screen/mylist-register
-title: マイリスト登録画面
-kind: screen
-service: niconico-mylist-assistant
 sources:
   - services/niconico-mylist-assistant/web/src/app/mylist/register/page.tsx
   - services/niconico-mylist-assistant/web/src/components/MylistRegisterForm.tsx
@@ -11,11 +7,6 @@ sources:
   - services/niconico-mylist-assistant/web/src/lib/constants/errors.ts
   - services/niconico-mylist-assistant/web/src/types/mylist.ts
 sources_hash: f54485151cf300016a9621b13b660a822b57992068900196c29861b5c463b088
-terms: [niconico-mylist-assistant/term/user-session, niconico-mylist-assistant/term/video-setting, niconico-mylist-assistant/term/batch-job]
-related_cards: [niconico-mylist-assistant/api/mylist-register, niconico-mylist-assistant/api/niconico-session, niconico-mylist-assistant/screen/job-status, niconico-mylist-assistant/flow/mylist-registration, niconico-mylist-assistant/flow/session-injection]
-related_adr:
-  - services/niconico-mylist-assistant/requirements.md#2.4 マイリスト登録の制約
-  - services/niconico-mylist-assistant/architecture.md#2.13 認証方式：自動ログインから user_session 注入への移行
 ---
 
 # マイリスト登録画面
@@ -26,6 +17,18 @@ related_adr:
 
 - パスは `/mylist/register`。ヘッダーの「マイリスト登録」と、[ホーム画面](./home.md)の「マイリスト登録」から来る
 - [ジョブの状態画面](./job-status.md)の「登録画面に戻る」からも来る
+
+## 表示の条件
+
+登録ボタンを押せるのは、状態を取得できていて、セッションが保存されていて、無効でないときだけ。
+
+| 状態 | 登録ボタン | フォームの上の警告 |
+|---|---|---|
+| 取得前 | 押せない | なし |
+| 取得に失敗 | 押せない (再取得に成功すると解ける) | 「ニコニコセッションの状態を取得できませんでした。ページを再読み込みしてください。」 |
+| 未登録 | 押せない | 「ニコニコセッションが未登録です。「セッション管理」ボタンから user_session を登録してください。」 |
+| 無効 | 押せない | 「ニコニコセッションが無効です。「セッション管理」ボタンから user_session を更新してください。」 |
+| 有効、判定不能 | 押せる | なし |
 
 ## 表示するもの
 
@@ -46,19 +49,6 @@ related_adr:
 | 判定不能 | ニコニコ側の状態を確かめられなかった |
 | 未登録 | 保存したセッションがない |
 | 取得失敗 | 状態の取得に失敗した |
-
-## 表示の条件
-
-登録ボタンを押せるのは、状態を取得できていて、セッションが保存されていて、無効でないときだけ。
-
-| 状態 | 登録ボタン | フォームの上の警告 |
-|---|---|---|
-| 取得前 | 押せない | なし |
-| 取得に失敗 | 押せない (再取得に成功すると解ける) | 「ニコニコセッションの状態を取得できませんでした。ページを再読み込みしてください。」 |
-| 未登録 | 押せない | 「ニコニコセッションが未登録です。「セッション管理」ボタンから user_session を登録してください。」 |
-| 無効 | 押せない | 「ニコニコセッションが無効です。「セッション管理」ボタンから user_session を更新してください。」 |
-| 有効、判定不能 | 押せる | なし |
-
 
 ## 操作
 
@@ -98,13 +88,13 @@ related_adr:
 
 | スマホ | PC |
 |---|---|
-| ![マイリスト登録画面 通常表示 (スマホ)](../../../images/specs/niconico-mylist-assistant/screen/mylist-register-default-mobile.png) | ![マイリスト登録画面 通常表示 (PC)](../../../images/specs/niconico-mylist-assistant/screen/mylist-register-default-desktop.png) |
+| ![マイリスト登録画面 通常表示 (スマホ)](../../../../images/specs/niconico-mylist-assistant/screen/mylist-register-default-mobile.png) | ![マイリスト登録画面 通常表示 (PC)](../../../../images/specs/niconico-mylist-assistant/screen/mylist-register-default-desktop.png) |
 
 ### セッション管理のダイアログ
 
 | スマホ | PC |
 |---|---|
-| ![マイリスト登録画面 セッション管理のダイアログ (スマホ)](../../../images/specs/niconico-mylist-assistant/screen/mylist-register-session-dialog-mobile.png) | ![マイリスト登録画面 セッション管理のダイアログ (PC)](../../../images/specs/niconico-mylist-assistant/screen/mylist-register-session-dialog-desktop.png) |
+| ![マイリスト登録画面 セッション管理のダイアログ (スマホ)](../../../../images/specs/niconico-mylist-assistant/screen/mylist-register-session-dialog-mobile.png) | ![マイリスト登録画面 セッション管理のダイアログ (PC)](../../../../images/specs/niconico-mylist-assistant/screen/mylist-register-session-dialog-desktop.png) |
 
 ### セッションの保存に失敗したとき
 
@@ -112,13 +102,13 @@ related_adr:
 
 | スマホ | PC |
 |---|---|
-| ![マイリスト登録画面 セッションの保存に失敗したとき (スマホ)](../../../images/specs/niconico-mylist-assistant/screen/mylist-register-session-save-error-mobile.png) | ![マイリスト登録画面 セッションの保存に失敗したとき (PC)](../../../images/specs/niconico-mylist-assistant/screen/mylist-register-session-save-error-desktop.png) |
+| ![マイリスト登録画面 セッションの保存に失敗したとき (スマホ)](../../../../images/specs/niconico-mylist-assistant/screen/mylist-register-session-save-error-mobile.png) | ![マイリスト登録画面 セッションの保存に失敗したとき (PC)](../../../../images/specs/niconico-mylist-assistant/screen/mylist-register-session-save-error-desktop.png) |
 
 ### セッションの削除の確認
 
 | スマホ | PC |
 |---|---|
-| ![マイリスト登録画面 セッションの削除の確認 (スマホ)](../../../images/specs/niconico-mylist-assistant/screen/mylist-register-session-delete-confirm-mobile.png) | ![マイリスト登録画面 セッションの削除の確認 (PC)](../../../images/specs/niconico-mylist-assistant/screen/mylist-register-session-delete-confirm-desktop.png) |
+| ![マイリスト登録画面 セッションの削除の確認 (スマホ)](../../../../images/specs/niconico-mylist-assistant/screen/mylist-register-session-delete-confirm-mobile.png) | ![マイリスト登録画面 セッションの削除の確認 (PC)](../../../../images/specs/niconico-mylist-assistant/screen/mylist-register-session-delete-confirm-desktop.png) |
 
 ### セッションが無効なとき
 
@@ -126,13 +116,13 @@ related_adr:
 
 | スマホ | PC |
 |---|---|
-| ![マイリスト登録画面 セッションが無効なとき (スマホ)](../../../images/specs/niconico-mylist-assistant/screen/mylist-register-session-invalid-mobile.png) | ![マイリスト登録画面 セッションが無効なとき (PC)](../../../images/specs/niconico-mylist-assistant/screen/mylist-register-session-invalid-desktop.png) |
+| ![マイリスト登録画面 セッションが無効なとき (スマホ)](../../../../images/specs/niconico-mylist-assistant/screen/mylist-register-session-invalid-mobile.png) | ![マイリスト登録画面 セッションが無効なとき (PC)](../../../../images/specs/niconico-mylist-assistant/screen/mylist-register-session-invalid-desktop.png) |
 
 ### セッションが未登録のとき
 
 | スマホ | PC |
 |---|---|
-| ![マイリスト登録画面 セッションが未登録のとき (スマホ)](../../../images/specs/niconico-mylist-assistant/screen/mylist-register-session-none-mobile.png) | ![マイリスト登録画面 セッションが未登録のとき (PC)](../../../images/specs/niconico-mylist-assistant/screen/mylist-register-session-none-desktop.png) |
+| ![マイリスト登録画面 セッションが未登録のとき (スマホ)](../../../../images/specs/niconico-mylist-assistant/screen/mylist-register-session-none-mobile.png) | ![マイリスト登録画面 セッションが未登録のとき (PC)](../../../../images/specs/niconico-mylist-assistant/screen/mylist-register-session-none-desktop.png) |
 
 ### セッションの有効性を判定できないとき
 
@@ -140,13 +130,13 @@ related_adr:
 
 | スマホ | PC |
 |---|---|
-| ![マイリスト登録画面 セッションの有効性を判定できないとき (スマホ)](../../../images/specs/niconico-mylist-assistant/screen/mylist-register-session-unknown-mobile.png) | ![マイリスト登録画面 セッションの有効性を判定できないとき (PC)](../../../images/specs/niconico-mylist-assistant/screen/mylist-register-session-unknown-desktop.png) |
+| ![マイリスト登録画面 セッションの有効性を判定できないとき (スマホ)](../../../../images/specs/niconico-mylist-assistant/screen/mylist-register-session-unknown-mobile.png) | ![マイリスト登録画面 セッションの有効性を判定できないとき (PC)](../../../../images/specs/niconico-mylist-assistant/screen/mylist-register-session-unknown-desktop.png) |
 
 ### セッションの状態を取得できなかったとき
 
 | スマホ | PC |
 |---|---|
-| ![マイリスト登録画面 セッションの状態を取得できなかったとき (スマホ)](../../../images/specs/niconico-mylist-assistant/screen/mylist-register-session-fetch-error-mobile.png) | ![マイリスト登録画面 セッションの状態を取得できなかったとき (PC)](../../../images/specs/niconico-mylist-assistant/screen/mylist-register-session-fetch-error-desktop.png) |
+| ![マイリスト登録画面 セッションの状態を取得できなかったとき (スマホ)](../../../../images/specs/niconico-mylist-assistant/screen/mylist-register-session-fetch-error-mobile.png) | ![マイリスト登録画面 セッションの状態を取得できなかったとき (PC)](../../../../images/specs/niconico-mylist-assistant/screen/mylist-register-session-fetch-error-desktop.png) |
 
 ### 入力が範囲外のとき
 
@@ -154,7 +144,7 @@ related_adr:
 
 | スマホ | PC |
 |---|---|
-| ![マイリスト登録画面 入力が範囲外のとき (スマホ)](../../../images/specs/niconico-mylist-assistant/screen/mylist-register-input-error-mobile.png) | ![マイリスト登録画面 入力が範囲外のとき (PC)](../../../images/specs/niconico-mylist-assistant/screen/mylist-register-input-error-desktop.png) |
+| ![マイリスト登録画面 入力が範囲外のとき (スマホ)](../../../../images/specs/niconico-mylist-assistant/screen/mylist-register-input-error-mobile.png) | ![マイリスト登録画面 入力が範囲外のとき (PC)](../../../../images/specs/niconico-mylist-assistant/screen/mylist-register-input-error-desktop.png) |
 
 ### 登録できる動画がないとき
 
@@ -162,7 +152,7 @@ related_adr:
 
 | スマホ | PC |
 |---|---|
-| ![マイリスト登録画面 登録できる動画がないとき (スマホ)](../../../images/specs/niconico-mylist-assistant/screen/mylist-register-no-videos-mobile.png) | ![マイリスト登録画面 登録できる動画がないとき (PC)](../../../images/specs/niconico-mylist-assistant/screen/mylist-register-no-videos-desktop.png) |
+| ![マイリスト登録画面 登録できる動画がないとき (スマホ)](../../../../images/specs/niconico-mylist-assistant/screen/mylist-register-no-videos-mobile.png) | ![マイリスト登録画面 登録できる動画がないとき (PC)](../../../../images/specs/niconico-mylist-assistant/screen/mylist-register-no-videos-desktop.png) |
 
 ### 登録中
 
@@ -170,7 +160,7 @@ related_adr:
 
 | スマホ | PC |
 |---|---|
-| ![マイリスト登録画面 登録中 (スマホ)](../../../images/specs/niconico-mylist-assistant/screen/mylist-register-submitting-mobile.png) | ![マイリスト登録画面 登録中 (PC)](../../../images/specs/niconico-mylist-assistant/screen/mylist-register-submitting-desktop.png) |
+| ![マイリスト登録画面 登録中 (スマホ)](../../../../images/specs/niconico-mylist-assistant/screen/mylist-register-submitting-mobile.png) | ![マイリスト登録画面 登録中 (PC)](../../../../images/specs/niconico-mylist-assistant/screen/mylist-register-submitting-desktop.png) |
 
 ### 登録を依頼したとき
 
@@ -178,7 +168,7 @@ related_adr:
 
 | スマホ | PC |
 |---|---|
-| ![マイリスト登録画面 登録を依頼したとき (スマホ)](../../../images/specs/niconico-mylist-assistant/screen/mylist-register-submitted-mobile.png) | ![マイリスト登録画面 登録を依頼したとき (PC)](../../../images/specs/niconico-mylist-assistant/screen/mylist-register-submitted-desktop.png) |
+| ![マイリスト登録画面 登録を依頼したとき (スマホ)](../../../../images/specs/niconico-mylist-assistant/screen/mylist-register-submitted-mobile.png) | ![マイリスト登録画面 登録を依頼したとき (PC)](../../../../images/specs/niconico-mylist-assistant/screen/mylist-register-submitted-desktop.png) |
 
 ## つながり
 

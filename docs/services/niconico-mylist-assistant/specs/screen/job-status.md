@@ -1,16 +1,10 @@
 ---
-id: niconico-mylist-assistant/screen/job-status
-title: ジョブの状態画面
-kind: screen
-service: niconico-mylist-assistant
 sources:
   - services/niconico-mylist-assistant/web/src/app/mylist/status/[jobId]/page.tsx
   - services/niconico-mylist-assistant/web/src/components/JobStatusPageClient.tsx
   - services/niconico-mylist-assistant/web/src/components/JobStatusDisplay.tsx
   - services/niconico-mylist-assistant/web/src/types/job.ts
 sources_hash: a3e7c704984eec751de98f1f6a6666a09015f32a0faa178b2cf03aed8df02761
-terms: [niconico-mylist-assistant/term/batch-job]
-related_cards: [niconico-mylist-assistant/api/batch-jobs, niconico-mylist-assistant/screen/mylist-register, niconico-mylist-assistant/batch/mylist-register, niconico-mylist-assistant/flow/mylist-registration]
 ---
 
 # ジョブの状態画面
@@ -74,19 +68,19 @@ related_cards: [niconico-mylist-assistant/api/batch-jobs, niconico-mylist-assist
 
 | スマホ | PC |
 |---|---|
-| ![ジョブの状態画面 取得中 (スマホ)](../../../images/specs/niconico-mylist-assistant/screen/job-status-loading-mobile.png) | ![ジョブの状態画面 取得中 (PC)](../../../images/specs/niconico-mylist-assistant/screen/job-status-loading-desktop.png) |
+| ![ジョブの状態画面 取得中 (スマホ)](../../../../images/specs/niconico-mylist-assistant/screen/job-status-loading-mobile.png) | ![ジョブの状態画面 取得中 (PC)](../../../../images/specs/niconico-mylist-assistant/screen/job-status-loading-desktop.png) |
 
 ### 投入済み
 
 | スマホ | PC |
 |---|---|
-| ![ジョブの状態画面 投入済み (スマホ)](../../../images/specs/niconico-mylist-assistant/screen/job-status-submitted-mobile.png) | ![ジョブの状態画面 投入済み (PC)](../../../images/specs/niconico-mylist-assistant/screen/job-status-submitted-desktop.png) |
+| ![ジョブの状態画面 投入済み (スマホ)](../../../../images/specs/niconico-mylist-assistant/screen/job-status-submitted-mobile.png) | ![ジョブの状態画面 投入済み (PC)](../../../../images/specs/niconico-mylist-assistant/screen/job-status-submitted-desktop.png) |
 
 ### 実行中
 
 | スマホ | PC |
 |---|---|
-| ![ジョブの状態画面 実行中 (スマホ)](../../../images/specs/niconico-mylist-assistant/screen/job-status-running-mobile.png) | ![ジョブの状態画面 実行中 (PC)](../../../images/specs/niconico-mylist-assistant/screen/job-status-running-desktop.png) |
+| ![ジョブの状態画面 実行中 (スマホ)](../../../../images/specs/niconico-mylist-assistant/screen/job-status-running-mobile.png) | ![ジョブの状態画面 実行中 (PC)](../../../../images/specs/niconico-mylist-assistant/screen/job-status-running-desktop.png) |
 
 ### 完了
 
@@ -94,7 +88,7 @@ related_cards: [niconico-mylist-assistant/api/batch-jobs, niconico-mylist-assist
 
 | スマホ | PC |
 |---|---|
-| ![ジョブの状態画面 完了 (スマホ)](../../../images/specs/niconico-mylist-assistant/screen/job-status-succeeded-mobile.png) | ![ジョブの状態画面 完了 (PC)](../../../images/specs/niconico-mylist-assistant/screen/job-status-succeeded-desktop.png) |
+| ![ジョブの状態画面 完了 (スマホ)](../../../../images/specs/niconico-mylist-assistant/screen/job-status-succeeded-mobile.png) | ![ジョブの状態画面 完了 (PC)](../../../../images/specs/niconico-mylist-assistant/screen/job-status-succeeded-desktop.png) |
 
 ### 失敗
 
@@ -102,13 +96,13 @@ related_cards: [niconico-mylist-assistant/api/batch-jobs, niconico-mylist-assist
 
 | スマホ | PC |
 |---|---|
-| ![ジョブの状態画面 失敗 (スマホ)](../../../images/specs/niconico-mylist-assistant/screen/job-status-failed-mobile.png) | ![ジョブの状態画面 失敗 (PC)](../../../images/specs/niconico-mylist-assistant/screen/job-status-failed-desktop.png) |
+| ![ジョブの状態画面 失敗 (スマホ)](../../../../images/specs/niconico-mylist-assistant/screen/job-status-failed-mobile.png) | ![ジョブの状態画面 失敗 (PC)](../../../../images/specs/niconico-mylist-assistant/screen/job-status-failed-desktop.png) |
 
 ### ジョブが見つからないとき
 
 | スマホ | PC |
 |---|---|
-| ![ジョブの状態画面 ジョブが見つからないとき (スマホ)](../../../images/specs/niconico-mylist-assistant/screen/job-status-not-found-mobile.png) | ![ジョブの状態画面 ジョブが見つからないとき (PC)](../../../images/specs/niconico-mylist-assistant/screen/job-status-not-found-desktop.png) |
+| ![ジョブの状態画面 ジョブが見つからないとき (スマホ)](../../../../images/specs/niconico-mylist-assistant/screen/job-status-not-found-mobile.png) | ![ジョブの状態画面 ジョブが見つからないとき (PC)](../../../../images/specs/niconico-mylist-assistant/screen/job-status-not-found-desktop.png) |
 
 ### 取得に失敗したとき
 
@@ -116,7 +110,7 @@ related_cards: [niconico-mylist-assistant/api/batch-jobs, niconico-mylist-assist
 
 | スマホ | PC |
 |---|---|
-| ![ジョブの状態画面 取得に失敗したとき (スマホ)](../../../images/specs/niconico-mylist-assistant/screen/job-status-fetch-error-mobile.png) | ![ジョブの状態画面 取得に失敗したとき (PC)](../../../images/specs/niconico-mylist-assistant/screen/job-status-fetch-error-desktop.png) |
+| ![ジョブの状態画面 取得に失敗したとき (スマホ)](../../../../images/specs/niconico-mylist-assistant/screen/job-status-fetch-error-mobile.png) | ![ジョブの状態画面 取得に失敗したとき (PC)](../../../../images/specs/niconico-mylist-assistant/screen/job-status-fetch-error-desktop.png) |
 
 ## つながり
 
