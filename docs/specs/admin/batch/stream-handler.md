@@ -13,7 +13,8 @@ sources:
   - libs/aws/src/error-events/mapper.ts
   - libs/common/src/push/bulk.ts
   - libs/common/src/push/client.ts
-sources_hash: 0a557ce4d2eda544065edc61cd184331380d71f981dc79632335970e4796e30c
+  - libs/common/src/push-subscription/endpoint.ts
+sources_hash: 016109d1fb9d83c417dda55e0c2596285f6a53d37a16757c318068348436d459
 terms: [platform/term/error-event, admin/term/push-subscription, admin/term/error-event-key]
 related_cards: [admin/flow/error-notification, admin/batch/alarm-ingest, admin/screen/error-detail]
 related_adr:
@@ -61,7 +62,7 @@ flowchart TD
 | ⑤ | 題名は `title`、本文は `message` (空なら「エラー通知を受信しました」)、アイコンは `/icon-192x192.png` |
 | ⑥ | 通知の `data.url` は `{APP_URL}/errors/{eventId}?at={発生時刻のミリ秒}&serviceId={serviceId}` ([エラー詳細のキー](../term/error-event-key.md))。購読がなければ何も送らない |
 
-- 無効 (404、410) と分かった購読は、送ったあとに削除する。それ以外の送信の失敗は、警告ログに残して次の購読へ進む
+- 無効 (404、410)、または endpoint が既知の Push サービスの https URL でない (送らずに無効とする) と分かった購読は、送ったあとに削除する。それ以外の送信の失敗は、警告ログに残して次の購読へ進む
 - `notified` は、通知の中身を作って送りに行った件数で、購読が 0 件でも数える
 - 戻り値は `{ notified, skipped }`
 

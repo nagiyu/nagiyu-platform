@@ -9,8 +9,9 @@ sources:
   - services/niconico-mylist-assistant/batch/src/index.ts
   - services/niconico-mylist-assistant/batch/src/lib/web-push-client.ts
   - libs/common/src/push/client.ts
+  - libs/common/src/push-subscription/endpoint.ts
   - libs/react/src/components/ServiceWorkerRegistration.tsx
-sources_hash: ce1ddec1fbdc75356c27524a88815fa4d4a1376880ae3b5506e344cccf52e5ba
+sources_hash: f192377f53a7cf64851958dd1096f1b70524a737c5078d87338a44b76726a97c
 ---
 
 # マイリスト登録の経路
@@ -53,7 +54,7 @@ flowchart TD
 
 ## 失敗・取りこぼしのとき
 
-- 購読がない、または購読が無効 (宛先が 404 や 410 を返す) と、通知は届かない。記録は更新されているので、画面で結果を見られる。通知は再送しない
+- 購読がない、または購読が無効 (宛先が 404 や 410 を返す、または `endpoint` が既知の Push サービスの https URL でなく送らない) と、通知は届かない。記録は更新されているので、画面で結果を見られる。通知は再送しない
 - 通知の送信に失敗しても、ジョブの結果は変わらない
 - 記録の更新に失敗すると、通知も送らない。ジョブの記録の作成が API で失敗したときは、ジョブは動くが、記録がないので状態も通知も出ない ([マイリスト登録 API](../api/mylist-register.md))
 - バッチが時間切れで止められると、記録は `RUNNING` のまま残り、通知も出ない。画面は 30 分で取得を打ち切る

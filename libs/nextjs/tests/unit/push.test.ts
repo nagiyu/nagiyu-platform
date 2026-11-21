@@ -96,7 +96,7 @@ describe('validatePushSubscription', () => {
   it('有効なサブスクリプション情報の場合は true を返す', () => {
     expect(
       validatePushSubscription({
-        endpoint: 'https://example.com/push-endpoint',
+        endpoint: 'https://fcm.googleapis.com/fcm/send/push-endpoint',
         keys: {
           p256dh: 'test-p256dh-key',
           auth: 'test-auth-key',
@@ -117,10 +117,43 @@ describe('validatePushSubscription', () => {
     ).toBe(false);
   });
 
+  it.each([
+    'https://updates.push.services.mozilla.com/wpush/v2/abc',
+    'https://web.push.apple.com/abc',
+    'https://wns2-par02p.notify.windows.com/w/?token=abc',
+  ])('許可された Push サービスの endpoint は true を返す: %s', (endpoint) => {
+    expect(validatePushSubscription({ endpoint, keys: { p256dh: 'k', auth: 'a' } })).toBe(true);
+  });
+
+  it.each([
+    'javascript:alert(1)',
+    'http://fcm.googleapis.com/fcm/send/abc',
+    'https://fcm.googleapis.com:8443/fcm/send/abc',
+  ])('スキーム・ポートが不正な endpoint は警告なしで false を返す: %s', (endpoint) => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+    expect(validatePushSubscription({ endpoint, keys: { p256dh: 'k', auth: 'a' } })).toBe(false);
+    expect(warnSpy).not.toHaveBeenCalled();
+    warnSpy.mockRestore();
+  });
+
+  it.each([
+    ['https://example.com/x', 'example.com'],
+    ['https://127.0.0.1/x', '127.0.0.1'],
+    ['https://localhost/x', 'localhost'],
+    ['https://notify.windows.com/x', 'notify.windows.com'],
+    ['https://evilnotify.windows.com/x', 'evilnotify.windows.com'],
+  ])('許可外ホストは false を返し、ホスト名だけを警告に出す: %s', (endpoint, hostname) => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+    expect(validatePushSubscription({ endpoint, keys: { p256dh: 'k', auth: 'a' } })).toBe(false);
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    expect(warnSpy).toHaveBeenCalledWith(expect.any(String), hostname);
+    warnSpy.mockRestore();
+  });
+
   it('keys.auth が欠けている場合は false を返す', () => {
     expect(
       validatePushSubscription({
-        endpoint: 'https://example.com/push-endpoint',
+        endpoint: 'https://fcm.googleapis.com/fcm/send/push-endpoint',
         keys: {
           p256dh: 'test-p256dh-key',
         },
@@ -131,13 +164,15 @@ describe('validatePushSubscription', () => {
 
 describe('createSubscriptionId', () => {
   it('サブスクリプションIDを sub_ プレフィックス付きで生成する', async () => {
-    const subscriptionId = await createSubscriptionId('https://example.com/push-endpoint');
+    const subscriptionId = await createSubscriptionId(
+      'https://fcm.googleapis.com/fcm/send/push-endpoint'
+    );
 
     expect(subscriptionId).toMatch(/^sub_[a-f0-9]{32}$/);
   });
 
   it('同じ endpoint からは同じ ID が生成される', async () => {
-    const endpoint = 'https://example.com/push-endpoint';
+    const endpoint = 'https://fcm.googleapis.com/fcm/send/push-endpoint';
     const subscriptionId1 = await createSubscriptionId(endpoint);
     const subscriptionId2 = await createSubscriptionId(endpoint);
 
@@ -154,7 +189,7 @@ describe('createPushSubscribeRoute', () => {
     });
 
   const validSubscription = {
-    endpoint: 'https://example.com/push-endpoint',
+    endpoint: 'https://fcm.googleapis.com/fcm/send/push-endpoint',
     keys: {
       p256dh: 'test-p256dh-key',
       auth: 'test-auth-key',
