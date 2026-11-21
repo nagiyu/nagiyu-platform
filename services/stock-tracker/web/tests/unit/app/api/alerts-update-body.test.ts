@@ -41,7 +41,7 @@ describe('PUT /api/alerts/[id] のリクエストボディ', () => {
       { field: 'price', operator: 'lte', value: 110 },
     ],
     subscription: {
-      endpoint: 'https://example.com/endpoint',
+      endpoint: 'https://fcm.googleapis.com/fcm/send/endpoint',
       keys: { p256dh: 'p256dh-key', auth: 'auth-key' },
     },
     createdAt: 1704067200000,

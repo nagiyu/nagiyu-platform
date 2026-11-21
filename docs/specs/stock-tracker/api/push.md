@@ -9,7 +9,8 @@ sources:
   - services/stock-tracker/web/app/api/push/unsubscribe/route.ts
   - services/stock-tracker/web/app/api/push/vapid-public-key/route.ts
   - libs/nextjs/src/push.ts
-sources_hash: cf2dd57eddf08519db18bd10b3354b4bc870e7a46191698b99e1322ddc3ab072
+  - libs/common/src/push-subscription/endpoint.ts
+sources_hash: b35fef181a1dd08a633c066f51f3c07bfcf4d2ec22377ea04ce6ca76743a3bda
 terms: [stock-tracker/term/permission, stock-tracker/term/api-error, stock-tracker/term/push-subscription]
 related_cards: [stock-tracker/api/alerts, stock-tracker/screen/alerts, stock-tracker/flow/alert-notification, stock-tracker/batch/daily]
 ---
@@ -30,7 +31,7 @@ related_cards: [stock-tracker/api/alerts, stock-tracker/screen/alerts, stock-tra
 ## 入力と出力
 
 - 公開鍵の取得は `{ publicKey }` を返す。ブラウザが購読を作るときに使う
-- 購読 (subscribe) の入力は `{ subscription }`。`subscription` は `endpoint` (URL)、`keys.p256dh`、`keys.auth`。検証を通ると 201 で `{ success: true, subscriptionId }` を返す。`subscriptionId` は `endpoint` から決まる ID で、購読は保存しない
+- 購読 (subscribe) の入力は `{ subscription }`。`subscription` は `endpoint` (既知の Push サービスの https URL。許すホストは `fcm.googleapis.com`・`updates.push.services.mozilla.com`・`web.push.apple.com`・`*.notify.windows.com` で、ポートの指定は不可)、`keys.p256dh`、`keys.auth`。検証を通ると 201 で `{ success: true, subscriptionId }` を返す。`subscriptionId` は `endpoint` から決まる ID で、購読は保存しない
 - 更新 (refresh) の入力も `{ subscription }`。利用者の既存のアラート (最大 100 件) のうち、購読の内容が違うものを新しい購読に書き換え、`{ success: true, updatedCount }` を返す
     - 画面を開くたびに、ブラウザの再購読の結果をここへ送る
 - 解除 (unsubscribe) の入力は `{ endpoint }` (URL)。検証を通ると `{ success: true }` を返すだけで、アラートの購読は消さない

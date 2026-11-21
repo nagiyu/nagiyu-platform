@@ -40,7 +40,7 @@ describe('POST /api/alerts のリクエストボディ', () => {
   const mockGetExchangeById = jest.fn();
 
   const subscription = {
-    endpoint: 'https://example.com/endpoint',
+    endpoint: 'https://fcm.googleapis.com/fcm/send/endpoint',
     keys: { p256dh: 'p256dh-key', auth: 'auth-key' },
   };
 

@@ -51,3 +51,10 @@ export * from './error-event/index.js';
 
 // Push 購読 ID - endpoint から決定的に決まる ID
 export { createSubscriptionId } from './push-subscription/subscription-id.js';
+
+// Push endpoint 判定 - 既知の Push サービスのホストだけを許可する
+export { checkPushEndpoint } from './push-subscription/endpoint.js';
+export type {
+  PushEndpointCheckResult,
+  PushEndpointRejectReason,
+} from './push-subscription/endpoint.js';
