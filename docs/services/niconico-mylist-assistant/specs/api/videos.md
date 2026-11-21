@@ -1,8 +1,4 @@
 ---
-id: niconico-mylist-assistant/api/videos
-title: 動画 API
-kind: api
-service: niconico-mylist-assistant
 sources:
   - services/niconico-mylist-assistant/web/src/app/api/videos/route.ts
   - services/niconico-mylist-assistant/web/src/app/api/videos/[id]/route.ts
@@ -10,11 +6,6 @@ sources:
   - services/niconico-mylist-assistant/core/src/db/videos.ts
   - libs/nextjs/src/pagination.ts
 sources_hash: 2cd373010f2b82152334c76426bfbd6bad1fac340b0e21782db7d07f16f59226
-terms: [niconico-mylist-assistant/term/api-error, niconico-mylist-assistant/term/video-basic-info, niconico-mylist-assistant/term/video-setting]
-related_cards: [niconico-mylist-assistant/screen/videos, niconico-mylist-assistant/api/video-import, niconico-mylist-assistant/api/mylist-register]
-related_adr:
-  - services/niconico-mylist-assistant/architecture.md#2.9 動画一覧の名前検索アーキテクチャ
-  - services/niconico-mylist-assistant/architecture.md#2.12 動画削除時の他ユーザー UserVideoSetting の orphan（既知の制約）
 ---
 
 # 動画 API

@@ -1,16 +1,10 @@
 ---
-id: niconico-mylist-assistant/api/batch-jobs
-title: ジョブ API
-kind: api
-service: niconico-mylist-assistant
 sources:
   - services/niconico-mylist-assistant/web/src/app/api/batch/status/[jobId]/route.ts
   - services/niconico-mylist-assistant/core/src/db/batch-jobs.ts
   - services/niconico-mylist-assistant/core/src/mappers/batch-job.mapper.ts
   - libs/nextjs/src/auth.ts
 sources_hash: f38095eddc19d8af07c586384a1af2358e05d364d7ee7f2aedb49ffe39e45fe7
-terms: [niconico-mylist-assistant/term/api-error, niconico-mylist-assistant/term/batch-job]
-related_cards: [niconico-mylist-assistant/screen/job-status, niconico-mylist-assistant/api/mylist-register, niconico-mylist-assistant/batch/mylist-register]
 ---
 
 # ジョブ API

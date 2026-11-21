@@ -1,6 +1,6 @@
 # niconico-mylist-assistant デプロイ・運用
 
-この文書は、デプロイと運用の手順を書く。サービスが今どう動くかは[仕様カード](../../specs/README.md)にあり、バッチの動きは[マイリスト登録バッチ](../../specs/niconico-mylist-assistant/batch/mylist-register.md)を参照する。
+この文書は、デプロイと運用の手順を書く。サービスが今どう動くかは[仕様カード](../../specs/README.md)にあり、バッチの動きは[マイリスト登録バッチ](specs/batch/mylist-register.md)を参照する。
 
 ## 1. 環境構成
 

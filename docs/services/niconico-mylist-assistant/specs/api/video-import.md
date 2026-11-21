@@ -1,8 +1,4 @@
 ---
-id: niconico-mylist-assistant/api/video-import
-title: 動画取り込み API
-kind: api
-service: niconico-mylist-assistant
 sources:
   - services/niconico-mylist-assistant/web/src/app/api/videos/bulk-import/route.ts
   - services/niconico-mylist-assistant/web/src/app/api/videos/search/route.ts
@@ -11,11 +7,6 @@ sources:
   - services/niconico-mylist-assistant/core/src/niconico/search.ts
   - services/niconico-mylist-assistant/core/src/niconico/constants.ts
 sources_hash: a15c1f4f966fff2eb9c674b2a92121f6bf99f2d773b3bd1731d8372a6546efad
-terms: [niconico-mylist-assistant/term/api-error, niconico-mylist-assistant/term/video-id, niconico-mylist-assistant/term/video-basic-info, niconico-mylist-assistant/term/video-setting, platform/term/error-event]
-related_cards: [niconico-mylist-assistant/screen/import, niconico-mylist-assistant/api/videos, admin/flow/error-notification]
-related_adr:
-  - services/niconico-mylist-assistant/requirements.md#3.2 動画検索とインポート
-  - services/niconico-mylist-assistant/architecture.md#2.10 動画検索の既登録判定アーキテクチャ
 ---
 
 # 動画取り込み API
@@ -79,7 +70,7 @@ related_adr:
 | `q` が 100 文字を超える (検索) | 400 | 「検索キーワードは 100 文字以内で入力してください」 |
 | 検索ページが 404 以外の失敗を返した、想定外の失敗 | 500 | 「サーバーエラーが発生しました」 |
 
-- ニコニコ動画 API の取得に失敗した動画は、応答では `failedDetails` に入れ、1 件ずつ [ErrorEvent](../../platform/term/error-event.md) (「Niconico API エラー」) を Admin へ報告する。検索でも同じ報告が出る。一括インポートで保存に失敗した動画は「Web API: 動画一括登録の保存エラー」を報告する ([エラー通知の経路](../../admin/flow/error-notification.md))
+- ニコニコ動画 API の取得に失敗した動画は、応答では `failedDetails` に入れ、1 件ずつ [ErrorEvent](../../../../specs/platform/term/error-event.md) (「Niconico API エラー」) を Admin へ報告する。検索でも同じ報告が出る。一括インポートで保存に失敗した動画は「Web API: 動画一括登録の保存エラー」を報告する ([エラー通知の経路](../../../../specs/admin/flow/error-notification.md))
 - 一括インポートが `failed` を返しても、状態は 200。全件が失敗しても同じ
 
 ## つながり
@@ -92,3 +83,9 @@ flowchart TD
     A --> U[(ユーザー設定)]
     A -.->|失敗の報告| E[(error-events テーブル)]
 ```
+
+## 理由
+
+- 既登録かどうかの判定 (`isRegistered`) は、サーバーで行い、検索の応答に含める。画面は判定の材料を持たず、応答をそのまま使える
+- 判定の基準は[動画基本情報](../term/video-basic-info.md)の有無で、利用者の[ユーザー設定](../term/video-setting.md)は使わない。動画基本情報は全利用者で共通のデータで、取り込み済みの動画かどうかを表す
+- 検索結果の複数の動画は、動画基本情報の一括取得 (BatchGet) で確かめる。検索の件数に関わらず、確認の問い合わせは 1 リクエストで済む

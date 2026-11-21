@@ -1,16 +1,9 @@
 ---
-id: niconico-mylist-assistant/term/user-session
-title: user_session (ニコニコセッション)
-kind: term
-service: niconico-mylist-assistant
 sources:
   - services/niconico-mylist-assistant/core/src/niconico/session.ts
   - services/niconico-mylist-assistant/core/src/entities/niconico-credential.entity.ts
   - services/niconico-mylist-assistant/web/src/lib/niconico-session/index.ts
 sources_hash: 71a88a454fca3d85c002d81fd6a086d536818ae0d31717d39657a22e447cf287
-related_cards: [niconico-mylist-assistant/api/niconico-session, niconico-mylist-assistant/screen/mylist-register, niconico-mylist-assistant/flow/session-injection, niconico-mylist-assistant/batch/mylist-register]
-related_adr:
-  - services/niconico-mylist-assistant/architecture.md#2.13 認証方式：自動ログインから user_session 注入への移行
 ---
 
 # user_session (ニコニコセッション)
@@ -34,7 +27,11 @@ related_adr:
 
 - 保存済みの値を復号できない (壊れている) ときは、状態の取得は失敗にせず `invalid` として返す。画面から削除して入れ直せる
 
-## 関連するカード
+## 理由
 
-- [ニコニコセッション API](../api/niconico-session.md): 保存・状態の取得・削除
-- [セッションの登録から利用まで](../flow/session-injection.md): 保存した値がバッチで使われるまで
+- 保存の前に、ニコニコ動画で有効性を判定する。バッチの実行前にも判定し直すのは、保存したあとに失効しうるため
+- セッションの寿命は、実際にログインして確かめた次の挙動による
+    - 同じブラウザで再びログインすると、そのブラウザの前のセッションは置き換えられ、無効になる
+    - 別のブラウザ・コンテキスト (シークレットウィンドウや別の端末) のセッションは独立していて、一方のログインやログアウトに巻き込まれない
+    - セッションはおおむね 30 日で失効する (推定有効期限を「保存した時刻 + 30 日」にしているのはこのため)
+- そのため、このツールに渡すセッションは、シークレットウィンドウなど、普段使いと別のコンテキストで取る。普段使いのブラウザで取ると、次に普通にログインしたときに置き換えられて失効する

@@ -1,17 +1,9 @@
 ---
-id: niconico-mylist-assistant/api/niconico-session
-title: ニコニコセッション API
-kind: api
-service: niconico-mylist-assistant
 sources:
   - services/niconico-mylist-assistant/web/src/app/api/niconico/session/route.ts
   - services/niconico-mylist-assistant/web/src/lib/niconico-session/index.ts
   - services/niconico-mylist-assistant/core/src/niconico/session.ts
 sources_hash: 17480ce7490d9480c596c0504a8c2e7774d864e07eeb73705e5ff1ffbde9d302
-terms: [niconico-mylist-assistant/term/api-error, niconico-mylist-assistant/term/user-session]
-related_cards: [niconico-mylist-assistant/screen/mylist-register, niconico-mylist-assistant/flow/session-injection, niconico-mylist-assistant/api/mylist-register]
-related_adr:
-  - services/niconico-mylist-assistant/architecture.md#2.13 認証方式：自動ログインから user_session 注入への移行
 ---
 
 # ニコニコセッション API

@@ -1,8 +1,4 @@
 ---
-id: niconico-mylist-assistant/api/mylist-register
-title: マイリスト登録 API
-kind: api
-service: niconico-mylist-assistant
 sources:
   - services/niconico-mylist-assistant/web/src/app/api/mylist/register/route.ts
   - services/niconico-mylist-assistant/web/src/app/api/batch/submit/route.ts
@@ -12,11 +8,6 @@ sources:
   - services/niconico-mylist-assistant/core/src/db/videos.ts
   - libs/nextjs/src/push.ts
 sources_hash: a50f390a1c75dbe4007e4bef7ce37eee29194244432c764c67ede0c2178010c0
-terms: [niconico-mylist-assistant/term/api-error, niconico-mylist-assistant/term/user-session, niconico-mylist-assistant/term/video-setting, niconico-mylist-assistant/term/batch-job, platform/term/error-event]
-related_cards: [niconico-mylist-assistant/screen/mylist-register, niconico-mylist-assistant/batch/mylist-register, niconico-mylist-assistant/flow/mylist-registration, niconico-mylist-assistant/api/batch-jobs, admin/flow/error-notification]
-related_adr:
-  - services/niconico-mylist-assistant/architecture.md#2.5 マイリスト登録の設計方針
-  - services/niconico-mylist-assistant/architecture.md#2.8 動画選択ロジックの責務分離
 ---
 
 # マイリスト登録 API
@@ -82,7 +73,7 @@ flowchart TD
 | ジョブの記録の作成に失敗 | 500 | `DATABASE_ERROR` |
 | 投入の失敗などの想定外の失敗 | 500 | `BATCH_ERROR` |
 
-- 500 は [ErrorEvent](../../platform/term/error-event.md) として Admin に報告する。題名は、動画の取得の失敗が「DynamoDB 動画取得失敗」、ジョブ ID がないときが「Batch ジョブ ID 未取得」、記録の作成の失敗が「DynamoDB バッチジョブレコード作成失敗」、それ以外が「Batch ジョブ投入エラー」 ([エラー通知の経路](../../admin/flow/error-notification.md))
+- 500 は [ErrorEvent](../../../../specs/platform/term/error-event.md) として Admin に報告する。題名は、動画の取得の失敗が「DynamoDB 動画取得失敗」、ジョブ ID がないときが「Batch ジョブ ID 未取得」、記録の作成の失敗が「DynamoDB バッチジョブレコード作成失敗」、それ以外が「Batch ジョブ投入エラー」 ([エラー通知の経路](../../../../specs/admin/flow/error-notification.md))
 
 ## つながり
 
@@ -96,3 +87,8 @@ flowchart TD
     B --> W[マイリスト登録バッチ]
     A -.->|500 の報告| E[(error-events テーブル)]
 ```
+
+## 理由
+
+- 動画の絞り込みとランダムの抽出を分けている。絞り込み (お気に入り・スキップ) は[動画 API](./videos.md) の一覧と同じ処理 (`listVideosWithSettings`) が受け持ち、件数を指定しなければ絞り込み後の全件を返す。抽出 (`selectRandomVideos`) は必要な件数だけを選ぶ。この API は、絞り込み後の全件を母集団にして抽出する。一覧の 1 ページ分から選ぶと、先頭のページに偏るため
+- 抽出は Reservoir Sampling (Algorithm R) で行う。母集団を 1 回なめるだけで、保持するのは必要な件数分だけで済み、絞り込み後の先頭の動画に偏らず、どの動画も同じ確率で選ばれる

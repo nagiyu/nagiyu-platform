@@ -1,8 +1,4 @@
 ---
-id: niconico-mylist-assistant/screen/home
-title: ホーム画面
-kind: screen
-service: niconico-mylist-assistant
 sources:
   - services/niconico-mylist-assistant/web/src/app/page.tsx
   - services/niconico-mylist-assistant/web/src/app/layout.tsx
@@ -12,7 +8,6 @@ sources:
   - services/niconico-mylist-assistant/web/src/components/NotificationPermissionButton.tsx
   - libs/react/src/hooks/usePushSubscription.ts
 sources_hash: 876afd81a87204c4981f237e35aa1443548e13d0148fb6db0e0da948209c5b01
-related_cards: [niconico-mylist-assistant/screen/mylist-register, niconico-mylist-assistant/screen/import, niconico-mylist-assistant/screen/videos, niconico-mylist-assistant/api/push, niconico-mylist-assistant/flow/mylist-registration]
 ---
 
 # ホーム画面
@@ -67,7 +62,7 @@ related_cards: [niconico-mylist-assistant/screen/mylist-register, niconico-mylis
 
 | スマホ | PC |
 |---|---|
-| ![ホーム画面 通常表示 (スマホ)](../../../images/specs/niconico-mylist-assistant/screen/home-default-mobile.png) | ![ホーム画面 通常表示 (PC)](../../../images/specs/niconico-mylist-assistant/screen/home-default-desktop.png) |
+| ![ホーム画面 通常表示 (スマホ)](../../../../images/specs/niconico-mylist-assistant/screen/home-default-mobile.png) | ![ホーム画面 通常表示 (PC)](../../../../images/specs/niconico-mylist-assistant/screen/home-default-desktop.png) |
 
 ### 通知設定のダイアログ
 
@@ -75,7 +70,7 @@ related_cards: [niconico-mylist-assistant/screen/mylist-register, niconico-mylis
 
 | スマホ | PC |
 |---|---|
-| ![ホーム画面 通知設定のダイアログ (スマホ)](../../../images/specs/niconico-mylist-assistant/screen/home-notification-dialog-mobile.png) | ![ホーム画面 通知設定のダイアログ (PC)](../../../images/specs/niconico-mylist-assistant/screen/home-notification-dialog-desktop.png) |
+| ![ホーム画面 通知設定のダイアログ (スマホ)](../../../../images/specs/niconico-mylist-assistant/screen/home-notification-dialog-mobile.png) | ![ホーム画面 通知設定のダイアログ (PC)](../../../../images/specs/niconico-mylist-assistant/screen/home-notification-dialog-desktop.png) |
 
 ## つながり
 

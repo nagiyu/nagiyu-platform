@@ -1,8 +1,4 @@
 ---
-id: niconico-mylist-assistant/flow/mylist-registration
-title: マイリスト登録の経路
-kind: flow
-service: niconico-mylist-assistant
 sources:
   - services/niconico-mylist-assistant/web/src/components/MylistRegisterForm.tsx
   - services/niconico-mylist-assistant/web/src/components/JobStatusDisplay.tsx
@@ -15,11 +11,6 @@ sources:
   - libs/common/src/push/client.ts
   - libs/react/src/components/ServiceWorkerRegistration.tsx
 sources_hash: ce1ddec1fbdc75356c27524a88815fa4d4a1376880ae3b5506e344cccf52e5ba
-terms: [niconico-mylist-assistant/term/batch-job, niconico-mylist-assistant/term/user-session, platform/term/error-event]
-related_cards: [niconico-mylist-assistant/screen/mylist-register, niconico-mylist-assistant/screen/job-status, niconico-mylist-assistant/screen/home, niconico-mylist-assistant/api/mylist-register, niconico-mylist-assistant/api/batch-jobs, niconico-mylist-assistant/api/push, niconico-mylist-assistant/batch/mylist-register, niconico-mylist-assistant/flow/session-injection, admin/flow/error-notification]
-related_adr:
-  - services/niconico-mylist-assistant/architecture.md#2.1 AWS Batchの採用理由
-  - services/niconico-mylist-assistant/architecture.md#2.5 マイリスト登録の設計方針
 ---
 
 # マイリスト登録の経路
@@ -58,7 +49,7 @@ flowchart TD
 
 - **ジョブの状態画面**: ステータスと結果 (成功・失敗の件数、エラーの文)。完了 (`SUCCEEDED`) になると、画面の下にも完了の通知を出す
 - **端末の通知**: 依頼を出したときのブラウザの購読 1 件だけ。ほかの端末や、あとから有効にした購読には届かない
-- **Admin のエラー履歴**: バッチの失敗は [ErrorEvent](../../platform/term/error-event.md) として届く ([マイリスト登録バッチ](../batch/mylist-register.md)、[エラー通知の経路](../../admin/flow/error-notification.md))
+- **Admin のエラー履歴**: バッチの失敗は [ErrorEvent](../../../../specs/platform/term/error-event.md) として届く ([マイリスト登録バッチ](../batch/mylist-register.md)、[エラー通知の経路](../../../../specs/admin/flow/error-notification.md))
 
 ## 失敗・取りこぼしのとき
 

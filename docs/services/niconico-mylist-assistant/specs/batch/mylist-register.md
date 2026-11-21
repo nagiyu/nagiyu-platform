@@ -1,11 +1,5 @@
 ---
-id: niconico-mylist-assistant/batch/mylist-register
-title: マイリスト登録バッチ (mylist-register)
-kind: batch
-service: niconico-mylist-assistant
 sources:
-  - infra/niconico-mylist-assistant/lib/batch-stack.ts
-  - infra/niconico-mylist-assistant/lib/s3-stack.ts
   - services/niconico-mylist-assistant/batch/src/index.ts
   - services/niconico-mylist-assistant/batch/src/playwright-automation.ts
   - services/niconico-mylist-assistant/batch/src/constants.ts
@@ -14,18 +8,15 @@ sources:
   - services/niconico-mylist-assistant/batch/src/lib/web-push-client.ts
   - services/niconico-mylist-assistant/core/src/job-input/job-input.ts
   - services/niconico-mylist-assistant/core/src/niconico/session.ts
+  - services/niconico-mylist-assistant/batch/package.json
+  - services/niconico-mylist-assistant/batch/playwright.config.ts
+  - services/niconico-mylist-assistant/batch/.env.local.example
+  - services/niconico-mylist-assistant/batch/tests/integration/mylist-registration.spec.ts
   - libs/aws/src/error-events/with-error-reporting.ts
   - libs/aws/src/error-events/report.ts
   - libs/common/src/retry/retry.ts
   - libs/common/src/push/client.ts
-sources_hash: 01e1c4cf7cc82d71d2ecabe53b0a55f5348deb2bdb8e8d00c98034488446c3b3
-terms: [niconico-mylist-assistant/term/user-session, niconico-mylist-assistant/term/batch-job, platform/term/error-event]
-related_cards: [niconico-mylist-assistant/api/mylist-register, niconico-mylist-assistant/api/batch-jobs, niconico-mylist-assistant/screen/job-status, niconico-mylist-assistant/flow/mylist-registration, niconico-mylist-assistant/flow/session-injection, admin/flow/error-notification]
-related_adr:
-  - services/niconico-mylist-assistant/architecture.md#2.1 AWS Batchの採用理由
-  - services/niconico-mylist-assistant/architecture.md#2.5 マイリスト登録の設計方針
-  - services/niconico-mylist-assistant/architecture.md#2.13 認証方式：自動ログインから user_session 注入への移行
-  - services/niconico-mylist-assistant/requirements.md#2.1 安全性優先の原則
+sources_hash: 8704e5edba16a6c4ed1100358f7f6810a0991af64ba803171816a77aededeaf0
 ---
 
 # マイリスト登録バッチ (mylist-register)
@@ -45,18 +36,7 @@ related_adr:
 | `ENCRYPTED_USER_SESSION` | 暗号化した[ニコニコセッション](../term/user-session.md)。必須 |
 
 - ジョブ ID は、AWS Batch が設定する `AWS_BATCH_JOB_ID` から読む。空なら、ジョブの記録の更新と完了の通知は行わない
-- ジョブ定義が持つ環境変数
-
-| 環境変数 | 内容 |
-|---|---|
-| `DYNAMODB_TABLE_NAME`、`AWS_REGION` | 必須。なければ起動直後に例外 |
-| `ENCRYPTION_SECRET_NAME` | セッションの復号に使う鍵のシークレット名 (旧名 `SHARED_SECRET_KEY` でも読む) |
-| `VAPID_PUBLIC_KEY`、`VAPID_PRIVATE_KEY` | 完了通知の署名鍵 |
-| `ERROR_EVENTS_TABLE_NAME` | エラー履歴の報告先 |
-| `SCREENSHOT_BUCKET_NAME` | あれば、デバッグ用のスクリーンショットを S3 にも置く |
-
-- 実行基盤は Fargate の Batch。1 vCPU、メモリ 2,048 MB、パブリック IP あり。コンピュート環境の最大は 4 vCPU
-- ジョブ定義名とキュー名は `nagiyu-niconico-mylist-assistant-{env}`。ログは CloudWatch Logs `/aws/batch/nagiyu-niconico-mylist-assistant-{env}` (保持 1 週間)
+- 起動ごとに変わらない値 (テーブル名・リージョン・鍵のシークレット名・通知の署名鍵・エラー履歴の報告先・スクリーンショットのバケット) は、ジョブ定義が環境変数で渡す ([バッチの実行環境](../resource/batch-runtime.md))。`DYNAMODB_TABLE_NAME` と `AWS_REGION` が欠けると、起動直後に例外になる
 
 ## 処理
 
@@ -88,7 +68,7 @@ flowchart TD
 - 全削除は、そのアカウントのマイリストをすべて消す。既存のマイリストは 1 件も残らない
 - 動画の間には、最低 2 秒の待ちを置く。登録に失敗した動画のあとには、この待ちを置かない
 - ナビゲーションの待ちは 30 秒、動画ページでの 1 回の操作は 10 秒まで
-- スクリーンショット (全削除のあと、作成のあと、登録のあと、各段階の失敗) を `/tmp` に撮る。`SCREENSHOT_BUCKET_NAME` があれば、`screenshots/{時刻}-{名前}.png` として S3 にも置く (バケットは 7 日で消す)。撮影の失敗は無視する
+- スクリーンショット (全削除のあと、作成のあと、登録のあと、各段階の失敗) を `/tmp` に撮る。`SCREENSHOT_BUCKET_NAME` があれば、`screenshots/{時刻}-{名前}.png` として S3 にも置く (バケットの保持期間は[バッチの実行環境](../resource/batch-runtime.md))。撮影の失敗は無視する
 - ⑥〜⑧ のブラウザの処理で例外になった場合は、動画ごとの結果ではなく、全件の失敗として扱う (エラーの文は「マイリストの削除に失敗しました」「マイリストの作成に失敗しました」など)
 
 結果の保存と通知 (⑨)。
@@ -112,7 +92,7 @@ flowchart TD
 ## 上限
 
 - 動画ごとの再試行: 失敗してから最大 3 回。間隔は 2 秒で固定 (増やさない)。1 件につき最大 4 回試す。すべて失敗した動画は失敗に数え、次の動画に進む
-- ジョブのタイムアウト: 1,800 秒。AWS Batch の試行は 1 回だけで、再試行しない
+- ジョブのタイムアウトと AWS Batch の試行回数は[バッチの実行環境](../resource/batch-runtime.md)のジョブ定義で決まる。試行は 1 回だけで、Batch は再試行しない
 - 1 回の依頼で登録する動画は、API が選ぶ最大 100 件
 
 ## 失敗したとき
@@ -127,9 +107,9 @@ flowchart TD
 | 一部の動画の登録に失敗 | `SUCCEEDED` (`failedCount` が 1 以上) | なし | 送る (成功率の本文) | 0 |
 
 - 終了コードが 1 のとき、AWS Batch はジョブを失敗にする。試行は 1 回なので、再実行はしない
-- 1,800 秒を超えると Batch がジョブを止める。ワーカーは時間を見ておらず、ステータスを更新できないので、記録は `RUNNING` のまま残る。画面は 30 分で取得を打ち切る。Batch の失敗を拾う EventBridge のルールや CloudWatch Alarm は、niconico-mylist-assistant のインフラには定義されていない ([エラー通知の経路](../../admin/flow/error-notification.md)の `batch-event` の対象にならない)
+- ジョブ定義のタイムアウトを超えると Batch がジョブを止める。ワーカーは時間を見ておらず、ステータスを更新できないので、記録は `RUNNING` のまま残る。画面は 30 分で取得を打ち切る。Batch の失敗を拾う EventBridge のルールや CloudWatch Alarm は、niconico-mylist-assistant のインフラには定義されていない ([エラー通知の経路](../../../../specs/admin/flow/error-notification.md)の `batch-event` の対象にならない)
 - ジョブの記録の更新が失敗しても、バッチは警告やエラーのログを出して続ける (最終ステータスの更新が失敗すると、記録は `RUNNING` のまま残る)
-- 報告は [ErrorEvent](../../platform/term/error-event.md) で、`serviceId` は `niconico-mylist-assistant`。報告の書き込みに失敗しても、例外は伝えない
+- 報告は [ErrorEvent](../../../../specs/platform/term/error-event.md) で、`serviceId` は `niconico-mylist-assistant`。報告の書き込みに失敗しても、例外は伝えない
 
 ## つながり
 
@@ -145,3 +125,36 @@ flowchart TD
     W -.->|失敗の報告| E[(error-events テーブル)]
     E -->|Streams| M[Admin の Web Push]
 ```
+
+## 理由
+
+- 実行基盤は AWS Batch (Fargate) にする。100 件を 1 件ずつ登録し、動画の間に最低 2 秒待つと、待ちだけで最低 200 秒かかる。再試行やネットワークの遅延を含めると、Lambda の 15 分の上限では足りない。Batch は時間の上限が長く、Playwright をコンテナで動かせる
+- 動画の間に待ちを置くのは、ニコニコ動画のサーバーに負荷をかけないため。登録の前に既存のマイリストを全部消すのは、マイリストの上限 (100 件) を超えないため
+- ニコニコ動画は SPA で、画面の構造が予告なく変わりうる。操作は固定のセレクタで行い、新規作成の確定のクリックだけに、通常のクリックが効かないときのスクリプトでのクリックを置く。画面の構造が変わっても原因を追えるよう、全削除・作成・登録の各段階で、失敗した画面のスクリーンショットを残す
+- 実アカウントでの統合テストは、手元でだけ流し、CI では流さない
+    - 実アカウントの `user_session` が要る。CI に置くと、失効のたびに入れ替えが要る
+    - 外部のサイトへ実際にアクセスするため、結果が揺れ、CI の判定に使えない
+
+## 手順
+
+### 統合テストを流す
+
+テストは、本体の関数 (`src/playwright-automation.ts`) を実際のニコニコ動画に対して呼び、固定のセレクタの動作確認と、画面の変更の早期検知を行う。
+
+1. `services/niconico-mylist-assistant/batch/.env.local.example` を同じ場所の `.env.local` にコピーし、統合テストの環境変数を設定する。`.env.local` はバージョン管理に含まれない
+
+    | 環境変数 | 内容 |
+    |---|---|
+    | `NICONICO_TEST_USER_SESSION` | 必須。テスト専用アカウントの `user_session` の値。取り方は[ニコニコセッション](../term/user-session.md) |
+    | `TEST_VIDEO_IDS` | 任意。登録のテストに使う動画 ID のカンマ区切り (例: `sm9,sm10`)。なければ動画の登録のテストはスキップされる |
+
+2. 次を実行する
+
+    ```bash
+    npm run test:integration -w @nagiyu/niconico-mylist-assistant-batch
+    ```
+
+    ブラウザを表示するには `npm run test:integration:headed`、デバッグには `npm run test:integration:debug` を使う (同じ `-w` を付ける)
+
+- テストは、対象のアカウントの既存のマイリストを全部消す。必ずテスト専用のアカウントを使う
+- テストは 1 件ずつ (並列にしない) 流し、1 回の上限は 120 秒。リトライはしない
