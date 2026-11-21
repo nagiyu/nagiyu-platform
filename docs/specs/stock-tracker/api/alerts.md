@@ -45,7 +45,7 @@ related_cards: [stock-tracker/api/push, stock-tracker/screen/alerts, stock-track
 | `enabled` | 任意。省略すると有効 |
 | `temporary` | 任意。`true` で[一時通知](../term/temporary-alert.md) |
 | `customMessage` | 任意。前後の空白を除いて 500 文字以内。空なら保存しない |
-| `subscription` | 必須。[Web Push の購読](../term/push-subscription.md) (`endpoint` は URL、`keys.p256dh`、`keys.auth`) |
+| `subscription` | 必須。[Web Push の購読](../term/push-subscription.md) (`endpoint`、`keys.p256dh`、`keys.auth`。検証の条件は用語のカードのとおり) |
 
 - 条件が 2 件のとき、2 件の `operator` は `gte` と `lte` を 1 つずつ。`AND` は範囲内で `gte` の値が `lte` の値より小さく、`OR` は範囲外で `lte` の値が `gte` の値より小さい
 - 条件には、画面が割合で入力した記録として `isPercentage`、`percentageValue`、`basePrice` を付けられる。判定には `value` を使う

@@ -7,7 +7,8 @@ sources:
   - services/niconico-mylist-assistant/web/src/app/api/push/subscribe/route.ts
   - services/niconico-mylist-assistant/web/src/app/api/push/vapid-public-key/route.ts
   - libs/nextjs/src/push.ts
-sources_hash: 44d49f8dc25829acb2990bc0e9ea7a180f4bb1b505b7d2e9defff387f20deb8e
+  - libs/common/src/push-subscription/endpoint.ts
+sources_hash: 9aa120bd2282b818d6109f09e6af7a5755889345feae6c7130f38b7401a5059a
 terms: [niconico-mylist-assistant/term/api-error]
 related_cards: [niconico-mylist-assistant/screen/home, niconico-mylist-assistant/flow/mylist-registration, niconico-mylist-assistant/api/mylist-register]
 ---
@@ -26,7 +27,7 @@ related_cards: [niconico-mylist-assistant/screen/home, niconico-mylist-assistant
 ## 入力と出力
 
 - 公開鍵の取得は `{ publicKey }` を返す。ブラウザが購読を作るときに使う。値は環境変数 `VAPID_PUBLIC_KEY`
-- 購読 (`POST /api/push/subscribe`) の入力は `{ subscription }`。`subscription` は `endpoint` (URL)、`keys.p256dh`、`keys.auth`。検証を通ると 201 で `{ success: true, subscriptionId }` を返す。`subscriptionId` は `endpoint` から決まる ID
+- 購読 (`POST /api/push/subscribe`) の入力は `{ subscription }`。`subscription` は `endpoint` (既知の Push サービスの https URL。許すホストは `fcm.googleapis.com`・`updates.push.services.mozilla.com`・`web.push.apple.com`・`*.notify.windows.com` で、ポートの指定は不可)、`keys.p256dh`、`keys.auth`。検証を通ると 201 で `{ success: true, subscriptionId }` を返す。`subscriptionId` は `endpoint` から決まる ID
 - 購読の情報は保存しない。受け取って検証し、ID を返すだけ
 - 権限 (ロール) は問わない。ログインしていれば呼べる
 

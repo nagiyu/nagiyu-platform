@@ -25,7 +25,7 @@ describe('POST /api/push/refresh', () => {
   let consoleErrorSpy: jest.SpyInstance;
 
   const newSubscription = {
-    endpoint: 'https://example.com/new-endpoint',
+    endpoint: 'https://fcm.googleapis.com/fcm/send/new-endpoint',
     keys: { p256dh: 'new-p256dh', auth: 'new-auth' },
   };
 
@@ -57,7 +57,10 @@ describe('POST /api/push/refresh', () => {
       items: [
         {
           alertId: 'a1',
-          subscription: { endpoint: 'https://example.com/old', keys: newSubscription.keys },
+          subscription: {
+            endpoint: 'https://fcm.googleapis.com/fcm/send/old',
+            keys: newSubscription.keys,
+          },
         },
         { alertId: 'a2', subscription: newSubscription },
       ],
@@ -120,7 +123,7 @@ describe('POST /api/push/refresh', () => {
     ['文字列', 'subscription'],
     ['endpoint が URL 形式でない', { endpoint: 'not-a-url', keys: { p256dh: 'a', auth: 'b' } }],
     ['endpoint が数値', { endpoint: 1, keys: { p256dh: 'a', auth: 'b' } }],
-    ['keys が欠落', { endpoint: 'https://example.com/e' }],
+    ['keys が欠落', { endpoint: 'https://fcm.googleapis.com/fcm/send/e' }],
   ])(
     'subscription が不正（%s）な場合は 400 を返し、下流を呼ばない',
     async (_label, subscription) => {

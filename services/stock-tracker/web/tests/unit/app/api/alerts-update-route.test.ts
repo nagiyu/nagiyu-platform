@@ -33,7 +33,7 @@ describe('PUT /api/alerts/[id]', () => {
     enabled: true,
     conditionList: [{ field: 'price', operator: 'lte', value: 100 }],
     subscription: {
-      endpoint: 'https://example.com/endpoint',
+      endpoint: 'https://fcm.googleapis.com/fcm/send/endpoint',
       keys: {
         p256dh: 'p256dh-key',
         auth: 'auth-key',

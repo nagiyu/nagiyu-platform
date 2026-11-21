@@ -8,11 +8,12 @@ sources:
   - libs/common/src/push-subscription/subscription-id.ts
   - libs/common/src/push/bulk.ts
   - libs/common/src/push/client.ts
+  - libs/common/src/push-subscription/endpoint.ts
   - services/admin/core/src/notify/subscription-repository.ts
   - services/admin/core/src/notify/subscription-mapper.ts
   - services/admin/core/src/notify/subscription-types.ts
   - services/admin/core/src/notify/web-push-sender.ts
-sources_hash: 2b513fe525468b2c92370b651560d3d4d45b7ae4d89c37045977d3b74d273493
+sources_hash: 1abcead74a7bf66bc70bff3b9880dbc5a2ea130000fd74b49ed3abbce8ae1314
 related_cards: [admin/flow/push-subscription, admin/flow/error-notification, admin/api/notify, admin/api/notify-sns, admin/batch/stream-handler, admin/screen/dashboard]
 ---
 
@@ -31,6 +32,7 @@ related_cards: [admin/flow/push-subscription, admin/flow/error-notification, adm
 
 - 通知を出すときは、保存されている購読を全件読み、すべてに順に送る。利用者や権限では絞らない
 - 送ったときに、通知の送り先のサービスが 404 か 410 を返した購読は「無効」になり、送信の直後に削除する。無効の判定は、状態コードがなければ、エラーのメッセージに 404 か 410 を含むかで補う
+- `endpoint` が既知の Push サービスの https URL でない購読 (登録時の検証より前に保存されたものなど) は、送らずに「無効」とし、同じく削除する
 - 無効以外の送信の失敗は、ほかの購読への送信を止めずに、警告ログに残す。呼び出し元には「失敗した件数」として返る
 - 読めない項目 (属性の欠けなど) は、通知の配信を止めないよう除外し、件数と内訳 (先頭 10 件まで) をエラーログに出す
 - 削除は `endpoint` で引く。同じ `endpoint` の項目をすべて消し、消した件数を返す

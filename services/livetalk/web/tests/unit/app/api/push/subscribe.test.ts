@@ -36,7 +36,7 @@ const mockGetRepo = createPushSubscriptionRepository as jest.MockedFunction<
 >;
 
 const validSubscription = {
-  endpoint: 'https://example.com/push-endpoint',
+  endpoint: 'https://fcm.googleapis.com/fcm/send/push-endpoint',
   keys: { p256dh: 'p256dh-key', auth: 'auth-key' },
 };
 
