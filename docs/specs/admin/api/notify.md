@@ -8,9 +8,10 @@ sources:
   - services/admin/web/src/app/api/notify/vapid-key/route.ts
   - services/admin/web/src/lib/api-error-reporting.ts
   - libs/nextjs/src/push.ts
+  - libs/common/src/push-subscription/endpoint.ts
   - libs/nextjs/src/request-body.ts
   - services/admin/core/src/notify/subscription-repository.ts
-sources_hash: 74d4ec6e9f3fc917de44b98bb9611444c962bbae96fb8389c8f6a3a19b107640
+sources_hash: 6225c1273d614a542c5cbdbed1c812a39a623075367790eb3c1d4cea50bc3681
 terms: [admin/term/push-subscription, admin/term/permission, admin/term/api-error]
 related_cards: [admin/screen/dashboard, admin/flow/push-subscription, admin/api/notify-sns]
 ---
@@ -31,7 +32,7 @@ related_cards: [admin/screen/dashboard, admin/flow/push-subscription, admin/api/
 
 - 公開鍵の取得は `{ publicKey }` を返す。値は環境変数 `VAPID_PUBLIC_KEY`。ブラウザが購読を作るときに使う
 - 登録 (POST) の入力は購読そのもの。`{ subscription: ... }` で包まず、`endpoint` と `keys` をそのまま本文に置く
-    - 検証は、`endpoint` が URL として読めることと、`keys.p256dh`・`keys.auth` が空でない文字列であること
+    - 検証は、`endpoint` が https の URL で、ホストが既知の Push サービス (`fcm.googleapis.com`・`updates.push.services.mozilla.com`・`web.push.apple.com`、または `.notify.windows.com` で終わるもの) であり、ポートの指定がないことと、`keys.p256dh`・`keys.auth` が空でない文字列であること
     - 通ると、セッションの利用者 ID を付けて保存し、200 で `{ success: true, subscriptionId }` を返す。同じ `endpoint` はすでにあれば上書きで、件数は増えない
 - 解除 (DELETE) の入力は `{ endpoint }` (空でない文字列)。その `endpoint` の購読をすべて消し、200 で `{ success: true, deletedCount }` を返す。該当がなければ `deletedCount` は 0 で、エラーにはならない
 - 登録も解除も、購読は利用者に関係なく全体で 1 つの集まりとして扱う。解除は、登録した利用者かどうかを確かめない
