@@ -9,7 +9,7 @@ sources:
   - libs/nextjs/src/push.ts
   - libs/common/src/push-subscription/endpoint.ts
   - services/stock-tracker/core/src/entities/alert.entity.ts
-sources_hash: 136fe0aee7b08a4d3facc62f0677c8fe2c8f223fa4fb1a150b95f5968368b830
+sources_hash: 260ba3b2f7886e1f4ac4a9a719f78782b492b0e14e76557ed61570de9edb734e
 related_cards: [stock-tracker/flow/alert-notification, stock-tracker/api/push, stock-tracker/api/alerts, stock-tracker/batch/minute, stock-tracker/batch/hourly, stock-tracker/batch/daily]
 related_adr:
   - services/stock-tracker/architecture.md#2.4
@@ -24,7 +24,7 @@ related_adr:
 - アラートが 1 件ずつ自分の購読を持つ。購読だけを保存する場所はない
 - 作成時に入り、アラートの更新では変えられない。画面を開いたときの再購読で、利用者のアラートの購読がまとめて書き換わる ([Push 通知 API](../api/push.md))
 - 入力の検証は、`endpoint` が https の URL で、ホストが既知の Push サービス (`fcm.googleapis.com`・`updates.push.services.mozilla.com`・`web.push.apple.com`、または `.notify.windows.com` で終わるもの) であり、ポートの指定がないことと、`keys.p256dh`・`keys.auth` が空でない文字列であること
-- 送信したとき、通知の送り先のサービスが 404 か 410 を返した購読は「無効」になる。無効はエラーではなく、送信の結果として「送れなかった」を返す。アラートも購読も消えない
+- 送信したとき、通知の送り先のサービスが 404 か 410 を返した購読は「無効」になる。`endpoint` が既知の Push サービスの https URL でない購読は、送らずに無効とする。無効はエラーではなく、送信の結果として「送れなかった」を返す。アラートも購読も消えない
 - 無効以外の送信の失敗 (VAPID 鍵がないなど) は例外になる
 
 ## 関連するカード

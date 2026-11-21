@@ -18,7 +18,8 @@ sources:
   - libs/aws/src/error-events/report.ts
   - libs/common/src/retry/retry.ts
   - libs/common/src/push/client.ts
-sources_hash: 01e1c4cf7cc82d71d2ecabe53b0a55f5348deb2bdb8e8d00c98034488446c3b3
+  - libs/common/src/push-subscription/endpoint.ts
+sources_hash: a89e0f91e97b9b2b449c8bc124cd8e1256ed998e85854a39bf37dc484f4fd88d
 terms: [niconico-mylist-assistant/term/user-session, niconico-mylist-assistant/term/batch-job, platform/term/error-event]
 related_cards: [niconico-mylist-assistant/api/mylist-register, niconico-mylist-assistant/api/batch-jobs, niconico-mylist-assistant/screen/job-status, niconico-mylist-assistant/flow/mylist-registration, niconico-mylist-assistant/flow/session-injection, admin/flow/error-notification]
 related_adr:
@@ -107,7 +108,7 @@ flowchart TD
 | 成功が 0 件 | マイリスト登録に失敗しました (M 件) |
 | 一部失敗 | X 件登録完了、M 件失敗 (成功率 P%)。P は四捨五入した整数 |
 
-- 宛先が無効 (404 や 410) だと、警告を出すだけ。送信のほかの失敗も、ジョブの成否には影響しない
+- 宛先が無効 (404 や 410、または endpoint が既知の Push サービスの https URL でない (送らずに無効とする)) だと、警告を出すだけ。送信のほかの失敗も、ジョブの成否には影響しない
 
 ## 上限
 
