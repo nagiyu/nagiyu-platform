@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { createSubscriptionId } from '@nagiyu/common';
+import { checkPushEndpoint, createSubscriptionId } from '@nagiyu/common';
 import type { Permission, PushSubscription } from '@nagiyu/common';
 import { getAuthError } from './auth.js';
 import type { AuthFunction, SessionWithRoles } from './auth.js';
@@ -8,6 +8,10 @@ import type { AuthFunction, SessionWithRoles } from './auth.js';
 const ERROR_MESSAGES = {
   MISSING_VAPID_KEY: 'VAPID公開鍵が設定されていません',
   ON_ERROR_FAILED: '[push] onError コールバックが失敗しました',
+} as const;
+
+const WARN_MESSAGES = {
+  ENDPOINT_HOST_NOT_ALLOWED: '[push] 許可されていないホストの endpoint を拒否しました:',
 } as const;
 
 type VapidPublicKeyResponse = {
@@ -46,8 +50,10 @@ type ErrorResponse = {
 /**
  * Push サブスクリプション情報を検証する。
  *
- * endpoint が有効な URL 形式であり、keys.p256dh と keys.auth が
+ * endpoint が https で、既知の Push サービスのホストを指し、keys.p256dh と keys.auth が
  * 非空文字列で存在する場合に true を返す。
+ * ホストが一覧にないために拒否したときは、新しい Push サービスの検知用にホスト名だけを警告ログに出す
+ * (endpoint 全体は購読を特定できるため出さない)。
  */
 export function validatePushSubscription(subscription: unknown): subscription is PushSubscription {
   if (!subscription || typeof subscription !== 'object') {
@@ -60,9 +66,11 @@ export function validatePushSubscription(subscription: unknown): subscription is
     return false;
   }
 
-  try {
-    new URL(sub.endpoint);
-  } catch {
+  const endpointCheck = checkPushEndpoint(sub.endpoint);
+  if (!endpointCheck.allowed) {
+    if (endpointCheck.reason === 'HOST_NOT_ALLOWED') {
+      console.warn(WARN_MESSAGES.ENDPOINT_HOST_NOT_ALLOWED, endpointCheck.hostname);
+    }
     return false;
   }
 

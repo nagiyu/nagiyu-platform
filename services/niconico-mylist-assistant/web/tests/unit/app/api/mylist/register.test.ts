@@ -143,7 +143,7 @@ describe('POST /api/mylist/register', () => {
 
   it.each([
     ['endpoint が URL 形式でない', { endpoint: 'not-a-url', keys: { p256dh: 'a', auth: 'b' } }],
-    ['鍵が空', { endpoint: 'https://example.com/e', keys: { p256dh: '', auth: '' } }],
+    ['鍵が空', { endpoint: 'https://fcm.googleapis.com/fcm/send/e', keys: { p256dh: '', auth: '' } }],
     ['null', null],
   ])('pushSubscription が不正（%s）な場合は 400 を返す', async (_label, pushSubscription) => {
     mockGetSession.mockResolvedValue(MOCK_SESSION);
@@ -167,7 +167,7 @@ describe('POST /api/mylist/register', () => {
       makePostRequest({
         maxCount: 10,
         mylistName: 'テストマイリスト',
-        pushSubscription: { endpoint: 'https://example.com/e', keys: { p256dh: 'a', auth: 'b' } },
+        pushSubscription: { endpoint: 'https://fcm.googleapis.com/fcm/send/e', keys: { p256dh: 'a', auth: 'b' } },
       })
     );
 

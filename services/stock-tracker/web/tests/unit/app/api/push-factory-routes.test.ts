@@ -57,7 +57,7 @@ describe('Push 系ルートの 500 報告', () => {
       method: 'POST',
       body: JSON.stringify({
         subscription: {
-          endpoint: 'https://example.com/endpoint',
+          endpoint: 'https://fcm.googleapis.com/fcm/send/endpoint',
           keys: { p256dh: 'p256dh', auth: 'auth' },
         },
       }),

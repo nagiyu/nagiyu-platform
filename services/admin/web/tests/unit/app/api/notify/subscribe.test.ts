@@ -29,7 +29,7 @@ const mockCreateRepository = createPushSubscriptionRepository as jest.MockedFunc
 >;
 
 const validSubscription = {
-  endpoint: 'https://example.com/push-endpoint',
+  endpoint: 'https://fcm.googleapis.com/fcm/send/push-endpoint',
   keys: { p256dh: 'p256dh-key', auth: 'auth-key' },
 };
 
@@ -87,9 +87,9 @@ describe('POST /api/notify/subscribe', () => {
   );
 
   it.each([
-    ['鍵が空', { endpoint: 'https://example.com/e', keys: { p256dh: '', auth: '' } }],
+    ['鍵が空', { endpoint: 'https://fcm.googleapis.com/fcm/send/e', keys: { p256dh: '', auth: '' } }],
     ['endpoint が URL 形式でない', { endpoint: 'not-a-url', keys: { p256dh: 'a', auth: 'b' } }],
-    ['keys が無い', { endpoint: 'https://example.com/e' }],
+    ['keys が無い', { endpoint: 'https://fcm.googleapis.com/fcm/send/e' }],
   ])('購読が不正（%s）な場合は 400 を返し保存しない', async (_label, body) => {
     const response = await POST(createRequest(body));
 
