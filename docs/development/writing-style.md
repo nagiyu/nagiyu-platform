@@ -9,7 +9,7 @@
 ## 適用範囲
 
 - **対象**
-    - Markdown: `docs/`、`tasks/`、`CLAUDE.md`、スキル、エージェント定義など
+    - Markdown: `docs/`、`CLAUDE.md`、スキル、エージェント定義など
     - コードコメント (JSDoc を含む)
     - Claude の出力: PR 説明、Issue、コメント、コミットメッセージ
 - **対象外**
