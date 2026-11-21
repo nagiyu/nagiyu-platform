@@ -58,7 +58,7 @@ dev アカウントは prod アカウントから完全に独立させる方針�
 | ルート (dev)  | `dev.nagiyu.com`           | `dev.nagiyu.com`                              |
 
 - dev のゾーン自体が `dev.nagiyu.com` であるため、dev 側のサービスは prod と同じ相対名（例: `tools`）でレコードを作ればよく、`dev-` プレフィックスは不要になった。旧形式 `dev-{service}.nagiyu.com` は廃止している。
-- サブドメインは dev と prod で同じだが、サービスのディレクトリ名と違うものがある (livetalk は `live-talk`、ui-storybook は dev 専用で `storybook`)。また、livetalk・Storybook・reports は DNS レコードを自分のスタックで ALIAS として作り、下の prod 向け CNAME の一覧には載らない。codec-converter は dev だけ自分のスタックで作る。サービスごとのホスト名とレコードの作り方は、各サービスのデプロイ先の仕様 (`docs/services/<service>/specs/deploy.md`) と [共通基盤のデプロイ先](../../platform/specs/deploy.md) にある。
+- サブドメインは dev と prod で同じだが、サービスのディレクトリ名と違うものがある (livetalk は `live-talk`、ui-storybook は dev 専用で `storybook`)。また、livetalk・Storybook・reports は DNS レコードを自分のスタックで ALIAS として作り、shared の `NagiyuSharedRoute53Records` が持つ prod 向けの CNAME には含まれない。codec-converter は dev だけ自分のスタックで作る。サービスごとのホスト名とレコードの作り方は、各サービスのデプロイ先の仕様 (`docs/services/<service>/specs/deploy.md`) と [共通基盤のデプロイ先](../../platform/specs/deploy.md) にある。
 - apex (`nagiyu.com` / `dev.nagiyu.com`) は Route53 の制約により CNAME を貼れないため、CloudFront への ALIAS（A レコード）として登録します。
 
 ---
