@@ -1,0 +1,63 @@
+---
+sources:
+  - infra/auth/bin/auth.ts
+  - infra/auth/lib/cloudfront-stack.ts
+  - .github/workflows/auth-deploy.yml
+sources_hash: 477e0442436b98286a9d433ac2fcc041b9757a254b0ab3b3a3efccfc52e156fe
+---
+
+# Auth のデプロイ先
+
+Auth は、全サービスの認証を担う Web アプリ (Lambda の Function URL を CloudFront で配信) を AWS に載せる。dev と prod の両方にデプロイする。
+
+## ホスト名
+
+| 環境 | ホスト名 |
+|---|---|
+| dev | `auth.dev.nagiyu.com` |
+| prod | `auth.nagiyu.com` |
+
+DNS レコードは、dev は CloudFront の基底スタックが、prod は shared の CNAME が作る。詳しくは [DNS レコードの作り方](../../../platform/specs/deploy.md#dns-レコードの作り方) を参照。
+
+## スタック
+
+`infra/auth/bin/auth.ts` が、次の順に作る。環境は CDK の context `env` (既定は `dev`) で決まり、`{Env}` は `Dev` または `Prod`。
+
+| 順 | スタック | 役割 | 含む主なリソース |
+|---|---|---|---|
+| 1 | `NagiyuAuthDynamoDB{Env}` | ユーザー情報の保存 | DynamoDB のユーザーテーブル (Google のアカウント ID で引く GSI を持つ) |
+| 2 | `NagiyuAuthSecrets{Env}` | 認証のシークレット | Secrets Manager のシークレット (Google OAuth、NextAuth) |
+| 3 | `NagiyuAuthStripeSecrets{Env}` | 決済のシークレット | Secrets Manager のシークレット (Stripe) |
+| 4 | `NagiyuAuthECR{Env}` | イメージの置き場 | ECR リポジトリ |
+| 5 | `NagiyuAuthLambda{Env}` | Web アプリの実行 | Lambda 関数 (コンテナイメージ)、Function URL、実行ロール |
+| 6 | `NagiyuAuthCloudFront{Env}` | Web アプリの配信 | CloudFront ディストリビューション (Lambda の Function URL がオリジン)、セキュリティヘッダーと noindex、dev の ALIAS |
+
+- CloudFront のスタックは `us-east-1` に固定する (CloudFront の制約)。ほかのスタックのリージョンは、環境変数 `CDK_DEFAULT_REGION` で、未設定なら `us-east-1`。
+- CloudFront の価格クラスは、prod が `PriceClass_All`、dev が `PriceClass_100`。
+
+## デプロイの流れ
+
+`.github/workflows/auth-deploy.yml` が行う。
+
+| 項目 | 内容 |
+|---|---|
+| トリガー | develop・`integration/**`・master への push (`services/auth/**`、`libs/**`、`configs/**`、`infra/auth/**`、`infra/common/**`、`package.json`、`package-lock.json`、このワークフローとヘルスチェック・ECR push のアクションが変わったとき)。手動実行 (dev か prod を選ぶ) |
+| デプロイ先の環境 | [dev と prod の切り替え](../../../platform/specs/deploy.md#dev-と-prod-の切り替え) の規則 |
+| 並行実行 | 環境ごとに直列化する。実行中の run は止めず、待機中は最新だけ残す |
+| イメージのタグ | コミットの SHA |
+
+```mermaid
+flowchart TD
+    A[infrastructure<br/>DynamoDB・Secrets・ECR] --> B[build<br/>イメージ]
+    B --> C[deploy<br/>全スタック + ヘルスチェック]
+    C --> D[cloudfront-invalidation]
+    D --> E[summary]
+```
+
+| ジョブ | 内容 |
+|---|---|
+| `infrastructure` | CDK の Bootstrap の後、`NagiyuAuthDynamoDB{Env}`、`NagiyuAuthSecrets{Env}`、`NagiyuAuthStripeSecrets{Env}`、`NagiyuAuthECR{Env}` をデプロイする |
+| `build` | Web アプリをビルドし、イメージを ECR に push する |
+| `deploy` | Secrets Manager から Google OAuth・NextAuth・Stripe のシークレットを取り、CDK で全スタックをデプロイする (`--all`)。そのあと Lambda の Function URL に `/api/health` を GET し、200 を確認する |
+| `cloudfront-invalidation` | CloudFront のキャッシュを全パス (`/*`) 削除し、完了を待つ。ディストリビューションの ID が取れなければ、削除を飛ばす |
+| `summary` | 各ジョブの結果を要約に出す (`always`) |

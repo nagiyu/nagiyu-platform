@@ -1,0 +1,59 @@
+---
+sources:
+  - infra/tools/bin/tools.ts
+  - infra/tools/lib/cloudfront-stack.ts
+  - .github/workflows/tools-deploy.yml
+sources_hash: b6a4fcadec8ca5962a343811a76266aee1e1a12e4f59c3feb7dd3f621777de66
+---
+
+# Tools のデプロイ先
+
+Tools は、Web アプリ (Lambda の Function URL を CloudFront で配信) を AWS に載せる。dev と prod の両方にデプロイする。
+
+## ホスト名
+
+| 環境 | ホスト名 |
+|---|---|
+| dev | `tools.dev.nagiyu.com` |
+| prod | `tools.nagiyu.com` |
+
+DNS レコードは、dev は CloudFront の基底スタックが、prod は shared の CNAME が作る。詳しくは [DNS レコードの作り方](../../../platform/specs/deploy.md#dns-レコードの作り方) を参照。
+
+## スタック
+
+`infra/tools/bin/tools.ts` が、次の順に作る。環境は CDK の context `env` (既定は `dev`) で決まり、`{Env}` は `Dev` または `Prod`。
+
+| 順 | スタック | 役割 | 含む主なリソース |
+|---|---|---|---|
+| 1 | `NagiyuToolsEcr{Env}` | イメージの置き場 | ECR リポジトリ |
+| 2 | `NagiyuToolsLambda{Env}` | Web アプリの実行 | Lambda 関数 (コンテナイメージ)、Function URL、実行ロール。ECR のスタックに依存する |
+| 3 | `NagiyuToolsCloudFront{Env}` | Web アプリの配信 | CloudFront ディストリビューション (Lambda の Function URL がオリジン)、セキュリティヘッダーと noindex、dev の ALIAS。Lambda のスタックに依存する |
+
+CloudFront のスタックは `us-east-1` に固定する (CloudFront の制約)。ほかのスタックのリージョンは、環境変数 `CDK_DEFAULT_REGION` で、未設定なら `us-east-1`。
+
+## デプロイの流れ
+
+`.github/workflows/tools-deploy.yml` が行う。
+
+| 項目 | 内容 |
+|---|---|
+| トリガー | develop・`integration/**`・master への push (`services/tools/**`、`infra/tools/**`、`infra/common/**`、`libs/**`、`configs/**`、`package.json`、`package-lock.json`、このワークフローとヘルスチェック・ECR push のアクションが変わったとき)。手動実行 (dev か prod を選ぶ) |
+| デプロイ先の環境 | [dev と prod の切り替え](../../../platform/specs/deploy.md#dev-と-prod-の切り替え) の規則 |
+| 並行実行 | 環境ごとに直列化する。実行中の run は止めず、待機中は最新だけ残す |
+| イメージのタグ | コミットの SHA |
+
+```mermaid
+flowchart TD
+    A[infrastructure-ecr<br/>ECR] --> B[build<br/>イメージ]
+    B --> C[infrastructure-app<br/>Lambda + CloudFront]
+    C --> D[verify<br/>ヘルスチェック]
+```
+
+| ジョブ | 内容 |
+|---|---|
+| `infrastructure-ecr` | `NagiyuToolsEcr{Env}` をデプロイする |
+| `build` | Web アプリをビルドし、イメージを ECR に push する |
+| `infrastructure-app` | `NagiyuToolsLambda{Env}` と `NagiyuToolsCloudFront{Env}` をデプロイする |
+| `verify` | Lambda の Function URL に `/api/health` を GET し、200 を確認する |
+
+CloudFront のキャッシュ削除は行わない。
