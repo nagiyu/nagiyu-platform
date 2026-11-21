@@ -15,7 +15,7 @@ jest.mock('web-push', () => ({
 
 describe('sendWebPushNotification', () => {
   const subscription: PushSubscription = {
-    endpoint: 'https://example.com/push',
+    endpoint: 'https://fcm.googleapis.com/fcm/send/abc',
     keys: {
       p256dh: 'p256dh-key',
       auth: 'auth-key',
@@ -133,6 +133,31 @@ describe('sendWebPushNotification', () => {
     });
     expect(errorSpy).not.toHaveBeenCalled();
   });
+
+  test.each([
+    ['ホストが許可外', 'https://example.com/push', 'HOST_NOT_ALLOWED', { hostname: 'example.com' }],
+    ['http', 'http://fcm.googleapis.com/x', 'NOT_HTTPS', {}],
+    ['ポート指定あり', 'https://fcm.googleapis.com:8443/x', 'PORT_SPECIFIED', {}],
+    ['URL として不正', 'not a url', 'INVALID_URL', {}],
+  ])(
+    'endpoint が %s の場合は web-push を呼ばず false を返す',
+    async (_name, endpoint, reason, extra) => {
+      const warnSpy = jest.spyOn(logger, 'warn').mockImplementation();
+
+      const result = await sendWebPushNotification(
+        { ...subscription, endpoint },
+        payload,
+        vapidConfig
+      );
+
+      expect(result).toBe(false);
+      expect(webpush.sendNotification).not.toHaveBeenCalled();
+      expect(warnSpy).toHaveBeenCalledWith('許可されていない Push endpoint のため送信しません', {
+        reason,
+        ...extra,
+      });
+    }
+  );
 
   test('VAPID 設定が不足している場合は例外を投げる', async () => {
     const invalidConfig: VapidConfig = {
