@@ -2,73 +2,7 @@
 
 ## 目的
 
-ドキュメントを 2 層に分離し、開発時ドキュメントと永続化ドキュメントの役割・ライフサイクル・使い方を定義する。
-
----
-
-## 2 層ドキュメント構成
-
-```
-tasks/          ← 開発時ドキュメント（ephemeral）
-  └ 開発完了後に削除する
-
-docs/           ← 永続化ドキュメント（permanent）
-  └ コードを読んでも得られない「なぜ」を残す
-```
-
-「コードを読めばわかること」は書かない。ドキュメントに残す価値があるのは、コードからは読み取れないビジネス的な背景・意思決定の理由・UI 設計の判断根拠である。
-
-### ファイルの役割と配置
-
-| ファイル | tasks/ | docs/ | 役割 |
-|---------|:------:|:-----:|------|
-| `requirements.md` | ○（機能スコープ） | ○（サービス全体） | 何を作るか |
-| `external-design.md` | ○（UI 変更がある場合のみ） | ○ | どんな UI・データ構造にするか |
-| `design.md` | ○ | なし | どう実装するか（API・コンポーネント・型定義） |
-| `architecture.md` | なし | ○ | なぜその設計を選んだか（ADR） |
-
-実装タスクのフェーズ分け・進捗管理は **Issue 本文 + サブ Issue** で行う（`tasks.md` は廃止）。
-
----
-
-## 開発フロー
-
-```
-Issue 起票（背景・目的・スコープ）
-    ↓
-[大規模対応のみ] tasks/{feature-name}/ に仕様ドキュメントを作成
-    ↓
-実装（Issue 本文 + 存在すれば tasks/ を参照）
-    ↓
-[大規模対応のみ] 開発完了後：docs/ に永続化すべき情報を反映、tasks/ を削除
-    ↓
-PR マージ
-```
-
-### 開発時ドキュメントの作成
-
-**作成条件**:
-
-- **小規模対応**: `tasks/` ディレクトリは作成しない。必要な情報は Issue 本文に記載する
-- **大規模対応**: `tasks/{feature-name}/` ディレクトリを切り、以下のファイルを作成する
-
-| ファイル | 使用テンプレート | 作成条件 |
-|---------|--------------|---------|
-| `requirements.md` | `docs/templates/services/requirements.md` | 大規模時は常に作成（機能スコープで記述） |
-| `external-design.md` | `docs/templates/services/external-design.md` | 画面の追加・削除・大きな変更がある場合のみ |
-| `design.md` | `tasks/templates/design.md` | 大規模時は常に作成 |
-
-`requirements.md` と `external-design.md` は `docs/templates/services/` のテンプレートをそのまま使い、冒頭に開発時ドキュメントである旨のコメントを追加する。
-
-実装タスクのフェーズ分け・進捗管理は **Issue 本文 + サブ Issue** で行う（`tasks.md` は廃止）。
-
-### docs/ への移行
-
-開発が完全に完了したら `tasks/{feature-name}/design.md` の末尾にある「docs/ への移行メモ」を確認し、以下を行ってから tasks/ を削除する。
-
-- `tasks/requirements.md` → `docs/services/{service}/requirements.md` に統合
-- `tasks/external-design.md` → `docs/services/{service}/external-design.md` に統合（あれば）
-- `tasks/design.md` の重要な設計決定 → `docs/services/{service}/architecture.md` に ADR として追記
+ドキュメントとテストの対応 (V字モデル) と、ドキュメントで使う用語を定義する。docs の分類・配置・書き方は [docs の書き方](../platform/rules/docs.md) にある。
 
 ---
 
@@ -102,27 +36,6 @@ PR マージ
 
 ---
 
-## テンプレート一覧
-
-### tasks/ テンプレート
-
-| テンプレート | 説明 |
-|------------|------|
-| `tasks/templates/design.md` | 開発時技術設計（API・データモデル・コンポーネント） |
-
-`requirements.md` と `external-design.md` は `docs/templates/services/` のテンプレートを流用する（→ `tasks/templates/README.md`）。
-
-### docs/ テンプレート
-
-| テンプレート | 説明 |
-|------------|------|
-| `docs/templates/services/README.md` | サービス概要・クイックスタート |
-| `docs/templates/services/requirements.md` | ビジネス要件・ユースケース・ドメインオブジェクト |
-| `docs/templates/services/external-design.md` | 画面設計・概念データモデル・設計上の決定事項 |
-| `docs/templates/services/architecture.md` | アーキテクチャ設計決定記録（ADR） |
-
----
-
 ## 用語説明
 
 ### ドメインオブジェクト
@@ -144,8 +57,6 @@ PR マージ
 例：「ユーザーは複数のアラートを持つ」
     「アラートは 1 つの銘柄に紐づく」
 ```
-
-物理的な DB 設計（DynamoDB の PK/SK 設計など）は `tasks/design.md` に記述し、完了後に削除する。
 
 ### ADR（Architecture Decision Record）
 
@@ -171,25 +82,7 @@ ADR として記録すべき決定の例：
 
 ---
 
-## FAQ
-
-**Q: 小規模なバグ修正の場合、tasks/ ドキュメントは必要か？**
-A: 不要。必要な情報は Issue 本文に記載する。バグの原因が設計上の問題であり `docs/architecture.md` に追記すべき教訓がある場合は、直接 `docs/` を更新する。
-
-**Q: 既存サービスへの機能追加の場合、どのファイルを作成するか？**
-A: 変更する範囲に応じて必要なファイルを作成する。ユースケースが変わるなら `requirements.md`、UI が変わるなら `external-design.md`、実装が伴うなら `design.md`。実装タスクのフェーズ分けは Issue 本文 + サブ Issue で管理する。
-
-**Q: 開発中に仕様が変わった場合はどうするか？**
-A: `tasks/` のドキュメントのみを更新する。`docs/` は開発完了後に一括で更新する。途中で `docs/` を更新すると、仕様変更のたびに `tasks/` と `docs/` の両方を更新する二重管理になるため行わない。
-
-**Q: 同一サービスに複数の tasks が並行する場合はどうするか？**
-A: トピックブランチを分けて作業するため、`tasks/` の内容はブランチ間で干渉しない。`develop` へのマージ時には tasks/ が削除されていることを確認する。
-
----
-
 ## 関連ドキュメント
 
-- `tasks/templates/README.md` — tasks/ テンプレートの使い方
-- [docs/templates/services/](../templates/services/) — サービスドキュメントテンプレート
 - [docs/branching.md](../branching.md) — ブランチ戦略・CI/CD
 - [docs/development/testing.md](testing.md) — テスト戦略

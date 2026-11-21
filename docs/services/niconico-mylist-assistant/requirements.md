@@ -24,7 +24,7 @@
 
 - 各動画登録間に**最低2秒**の待機時間を設ける
 - ニコニコ動画のサーバーに過度な負荷をかけない
-- リトライは最大3回までに制限 (間隔・回数の今の値は[マイリスト登録バッチ](../../specs/niconico-mylist-assistant/batch/mylist-register.md)を参照)
+- リトライは最大3回までに制限 (間隔・回数の今の値は[マイリスト登録バッチ](specs/batch/mylist-register.md)を参照)
 
 この方針は、非公式ツールとしてサーバーに配慮する姿勢を示すものであり、実装において絶対に遵守すること。
 
@@ -32,8 +32,8 @@
 
 **動画基本情報（全ユーザー共通）とユーザー設定（ユーザー固有）を明確に分離する**
 
-- **動画基本情報**: ニコニコ動画から取得する全ユーザー共通のメタデータ。項目は[動画基本情報](../../specs/niconico-mylist-assistant/term/video-basic-info.md)を参照
-- **ユーザー設定**: 各ユーザーが個別に設定するメタデータ。項目は[ユーザー設定](../../specs/niconico-mylist-assistant/term/video-setting.md)を参照
+- **動画基本情報**: ニコニコ動画から取得する全ユーザー共通のメタデータ。項目は[動画基本情報](specs/term/video-basic-info.md)を参照
+- **ユーザー設定**: 各ユーザーが個別に設定するメタデータ。項目は[ユーザー設定](specs/term/video-setting.md)を参照
 
 この分離により、データの重複を避け、効率的なストレージ利用を実現する。
 
@@ -42,7 +42,7 @@
 **ニコニコへのログインは自動化せず、利用者が取得したセッション情報を用いる**
 
 - ニコニコのログイン画面に bot 対策が導入されたため、サーバーからの自動ログインは行わない（パスワードは扱わない・保存しない）
-- 利用者がブラウザでログインして得たセッション情報を、暗号化してユーザー単位で保存する (方式と扱いは[ニコニコセッション](../../specs/niconico-mylist-assistant/term/user-session.md)を参照)
+- 利用者がブラウザでログインして得たセッション情報を、暗号化してユーザー単位で保存する (方式と扱いは[ニコニコセッション](specs/term/user-session.md)を参照)
 - セッション情報は本人のみがアクセスでき、生の値はログ・レスポンス・クライアントに露出させない
 - 本ツールは本人専用の利用を前提とし、セキュリティは最小限の対策（暗号化・本人スコープ）とする
 - 設計の背景と判断はアーキテクチャドキュメントの「認証方式：自動ログインから user_session 注入への移行」を参照
@@ -61,7 +61,7 @@
 
 条件指定 (お気に入りのみ、スキップを除く等) により動画を選び、最大100個をランダムに選んでマイリストに自動登録する。
 
-今の挙動: [マイリスト登録画面](../../specs/niconico-mylist-assistant/screen/mylist-register.md)、[マイリスト登録 API](../../specs/niconico-mylist-assistant/api/mylist-register.md)、[マイリスト登録バッチ](../../specs/niconico-mylist-assistant/batch/mylist-register.md)、[登録の流れ](../../specs/niconico-mylist-assistant/flow/mylist-registration.md)
+今の挙動: [マイリスト登録画面](specs/screen/mylist-register.md)、[マイリスト登録 API](specs/api/mylist-register.md)、[マイリスト登録バッチ](specs/batch/mylist-register.md)、[登録の流れ](specs/flow/mylist-registration.md)
 
 ### 3.2 動画検索とインポート
 
@@ -70,19 +70,19 @@
 - 検索結果は、利用者が操作する前の時点で既登録かどうかを反映して表示する
 - 「既登録」の判定基準は動画基本情報への登録有無であり、ユーザー固有の設定は関与させない
 
-今の挙動: [動画取り込み画面](../../specs/niconico-mylist-assistant/screen/import.md)、[動画取り込み API](../../specs/niconico-mylist-assistant/api/video-import.md)
+今の挙動: [動画取り込み画面](specs/screen/import.md)、[動画取り込み API](specs/api/video-import.md)
 
 ### 3.3 動画一括インポート
 
 動画IDの一覧から動画基本情報を取得して保存する。
 
-今の挙動: [動画取り込み画面](../../specs/niconico-mylist-assistant/screen/import.md)、[動画取り込み API](../../specs/niconico-mylist-assistant/api/video-import.md)
+今の挙動: [動画取り込み画面](specs/screen/import.md)、[動画取り込み API](specs/api/video-import.md)
 
 ### 3.4 ユーザー設定管理
 
 登録済み動画のお気に入り・スキップ・メモを編集する。
 
-今の挙動: [動画管理画面](../../specs/niconico-mylist-assistant/screen/videos.md)、[動画 API](../../specs/niconico-mylist-assistant/api/videos.md)
+今の挙動: [動画管理画面](specs/screen/videos.md)、[動画 API](specs/api/videos.md)
 
 ## 4. 技術的制約と対策方針
 
@@ -90,13 +90,13 @@
 
 **課題**: ニコニコ動画はSPAであり、HTML構造が予告なく変更される可能性がある。
 
-**対策方針**: 構造の変更に備え、操作の失敗を画面ごとに検知してスクリーンショットを残し、原因を追えるようにする。複数の抽出戦略を並行して試す案もあったが、今のバッチは固定のセレクタで操作し、フォールバックは一部の操作 (新規作成の確定のクリック) に限る。今の挙動は[マイリスト登録バッチ](../../specs/niconico-mylist-assistant/batch/mylist-register.md)を参照。
+**対策方針**: 構造の変更に備え、操作の失敗を画面ごとに検知してスクリーンショットを残し、原因を追えるようにする。複数の抽出戦略を並行して試す案もあったが、今のバッチは固定のセレクタで操作し、フォールバックは一部の操作 (新規作成の確定のクリック) に限る。今の挙動は[マイリスト登録バッチ](specs/batch/mylist-register.md)を参照。
 
 ### 4.2 ニコニコ動画APIのRate Limiting
 
 **対策方針**:
 
-- 失敗した動画の登録を、固定の間隔で限られた回数だけ再試行する (回数と間隔は[マイリスト登録バッチ](../../specs/niconico-mylist-assistant/batch/mylist-register.md)を参照)
+- 失敗した動画の登録を、固定の間隔で限られた回数だけ再試行する (回数と間隔は[マイリスト登録バッチ](specs/batch/mylist-register.md)を参照)
 - API エラー時のログを詳細に記録
 - 待機時間の遵守（マイリスト登録: 最低2秒）
 

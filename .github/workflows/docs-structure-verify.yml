@@ -1,0 +1,71 @@
+name: Verify - docs の出典と配置
+
+# docs/ の文書は docs/layout.json の配置に置く。コードの写しになる文書は、
+# frontmatter に元のソースのハッシュを持つ。
+# 配置に当たらない文書と、ソースを変えたのに作り直していない文書を、マージ前に止める。
+# 未実装の仕様 (unimplemented: true) は develop / master に入れないため、その向きの PR では禁止する。
+# 依存を足さずランナーの Node で動かすため、setup-node は使わない。
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - master
+      - 'integration/**'
+
+env:
+  SERVICE_DISPLAY_NAME: Docs structure
+
+# 同じ PR の古いコミットに対する検証は不要なため、新しい run が来たら打ち切る。
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: docs の配置と出典を検査
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          if [ "$BASE_REF" = "develop" ] || [ "$BASE_REF" = "master" ]; then
+            node .github/workflows/scripts/docs-structure.mjs check --forbid-unimplemented
+          else
+            node .github/workflows/scripts/docs-structure.mjs check
+          fi
+
+  report:
+    name: Report Results to PR
+    runs-on: ubuntu-latest
+    if: always()
+    needs: [check]
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Create PR Comment
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const results = { 'docs の出典と配置': '${{ needs.check.result }}' };
+            const statusEmoji = { 'success': '✅', 'failure': '❌', 'cancelled': '⚠️', 'skipped': '⏭️' };
+            const allSuccess = Object.values(results).every(r => r === 'success');
+            const header = allSuccess
+              ? '## ✅ [${{ env.SERVICE_DISPLAY_NAME }}] Verification Passed'
+              : '## ❌ [${{ env.SERVICE_DISPLAY_NAME }}] Verification Failed';
+            let body = `${header}\n\n`;
+            body += '| Job | Status |\n';
+            body += '|-----|--------|\n';
+            for (const [job, result] of Object.entries(results)) {
+              const emoji = statusEmoji[result] || '❓';
+              body += `| ${job} | ${emoji} ${result} |\n`;
+            }
+            if (!allSuccess) {
+              body += '\n> 出典のコードが変わった文書は、`docs-write` スキルに沿って本文が今のコードと合っているかを確かめてから作り直してください。配置に当たらない文書は `docs/layout.json` の配置に置いてください。未実装の文書は develop / master に入れられません。\n';
+            }
+            body += `\n[View workflow run](${context.payload.repository.html_url}/actions/runs/${context.runId})`;
+            github.rest.issues.createComment({ issue_number: context.issue.number, owner: context.repo.owner, repo: context.repo.repo, body: body });
