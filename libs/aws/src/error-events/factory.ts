@@ -5,28 +5,33 @@
  */
 
 import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
-import { createRepositoryFactory } from '../dynamodb/repository-factory.js';
-import { requireDynamoParams } from '../dynamodb/repository-registry.js';
+import { registerDynamoRepositories } from '../dynamodb/repository-registry.js';
+import { InMemorySingleTableStore } from '../dynamodb/in-memory/single-table-store.js';
 import { DynamoDBErrorEventWriter } from './dynamodb-writer.js';
 import { InMemoryErrorEventWriter } from './in-memory-writer.js';
+import { getInMemoryErrorEventStore, resetInMemoryErrorEventStore } from './in-memory-store.js';
 import type { ErrorEventWriter } from './writer.js';
 
-const errorEventWriterFactory = createRepositoryFactory<
-  ErrorEventWriter,
-  [DynamoDBDocumentClient | undefined, string | undefined]
->({
-  createInMemoryRepository: () => new InMemoryErrorEventWriter(),
-  createDynamoDBRepository: (docClient, tableName) => {
-    const params = requireDynamoParams(docClient, tableName);
-    return new DynamoDBErrorEventWriter(params.docClient, params.tableName);
+// 共有ストアは Reader 側の registry からも参照されるため、registry 内ではなく globalThis に置く
+const errorEventWriterRegistry = registerDynamoRepositories<
+  { errorEventWriter: ErrorEventWriter },
+  InMemorySingleTableStore
+>(
+  {
+    errorEventWriter: {
+      createInMemoryRepository: (store) => new InMemoryErrorEventWriter(store),
+      createDynamoDBRepository: ({ docClient, tableName }) =>
+        new DynamoDBErrorEventWriter(docClient, tableName),
+    },
   },
-});
+  { keyPrefix: 'error-events', createSharedStore: getInMemoryErrorEventStore }
+);
 
 /**
  * `ErrorEventWriter` を生成する。
  *
- * - `USE_IN_MEMORY_DB=true` のとき in-memory 実装
- * - それ以外は DynamoDB 実装（docClient / tableName 必須）
+ * - `USE_IN_MEMORY_DB=true` のとき in-memory 実装 (共有ストアに書く)
+ * - それ以外で引数省略時は env から `getDynamoDBDocumentClient()` / `getTableName()` を呼出
  *
  * 一度生成されたインスタンスはシングルトンとして再利用される。
  * テストで状態分離が必要な場合は `resetErrorEventWriter()` を呼んでから再生成すること。
@@ -35,12 +40,16 @@ export function createErrorEventWriter(
   docClient?: DynamoDBDocumentClient,
   tableName?: string
 ): ErrorEventWriter {
-  return errorEventWriterFactory.createRepository(docClient, tableName);
+  return errorEventWriterRegistry.errorEventWriter.createRepository(docClient, tableName);
 }
 
 /**
- * 内部のシングルトンインスタンスを破棄する。テスト用。
+ * Writer のインスタンスと InMemory の共有ストアを破棄する。テスト用。
+ *
+ * 共有ストアに Item が残ると、固定の eventId で書き直したときに重複で落ちるため、
+ * インスタンスと一緒に捨てる。
  */
 export function resetErrorEventWriter(): void {
-  errorEventWriterFactory.resetRepository();
+  errorEventWriterRegistry.resetAll();
+  resetInMemoryErrorEventStore();
 }

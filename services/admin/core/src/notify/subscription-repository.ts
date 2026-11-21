@@ -161,13 +161,16 @@ export class InMemoryPushSubscriptionRepository implements PushSubscriptionRepos
 
 const pushSubscriptionRegistry = registerDynamoRepositories<{
   pushSubscription: PushSubscriptionRepository;
-}>({
-  pushSubscription: {
-    createInMemoryRepository: () => new InMemoryPushSubscriptionRepository(),
-    createDynamoDBRepository: ({ docClient, tableName }) =>
-      new DynamoDBPushSubscriptionRepository(docClient, tableName),
+}>(
+  {
+    pushSubscription: {
+      createInMemoryRepository: () => new InMemoryPushSubscriptionRepository(),
+      createDynamoDBRepository: ({ docClient, tableName }) =>
+        new DynamoDBPushSubscriptionRepository(docClient, tableName),
+    },
   },
-});
+  { keyPrefix: 'admin' }
+);
 
 export function createPushSubscriptionRepository(
   docClient?: DynamoDBDocumentClient,

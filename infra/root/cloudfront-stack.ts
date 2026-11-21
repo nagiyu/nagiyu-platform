@@ -4,7 +4,7 @@ import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
 import * as acm from 'aws-cdk-lib/aws-certificatemanager';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
-import { SSM_PARAMETERS } from '../common/src/utils/ssm';
+import { SSM_PARAMETERS, createResponseHeadersPolicy } from '@nagiyu/infra-common';
 
 export interface CloudFrontStackProps extends cdk.StackProps {
   environment: string;
@@ -40,6 +40,14 @@ export class CloudFrontStack extends cdk.Stack {
     // Import domain name based on environment
     const domainName = environment === 'prod' ? 'nagiyu.com' : 'dev.nagiyu.com';
 
+    // セキュリティヘッダーを付ける。portal の prod は検索エンジンに載せるため noindex にしない
+    const securityHeadersPolicy = createResponseHeadersPolicy(this, 'SecurityHeadersPolicy', {
+      responseHeadersPolicyName: `nagiyu-portal-security-headers-${environment}`,
+      comment: `Security headers for portal service (${environment})`,
+      securityHeaders: true,
+      noindex: false,
+    });
+
     // Create CloudFront Distribution
     this.distribution = new cloudfront.Distribution(this, 'Distribution', {
       comment: `CloudFront distribution for nagiyu root domain (${environment})`,
@@ -47,6 +55,9 @@ export class CloudFrontStack extends cdk.Stack {
       certificate: certificate,
       priceClass: cloudfront.PriceClass.PRICE_CLASS_100, // North America & Europe
       httpVersion: cloudfront.HttpVersion.HTTP2_AND_3,
+      // CDK の既定値が変わっても値が動かないよう、現行の値を明記する
+      enableIpv6: true,
+      minimumProtocolVersion: cloudfront.SecurityPolicyProtocol.TLS_V1_2_2021,
       defaultBehavior: {
         origin: new origins.HttpOrigin(albDnsName, {
           protocolPolicy: cloudfront.OriginProtocolPolicy.HTTP_ONLY,
@@ -59,6 +70,7 @@ export class CloudFrontStack extends cdk.Stack {
         cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
         originRequestPolicy:
           cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
+        responseHeadersPolicy: securityHeadersPolicy,
       },
     });
 

@@ -12,6 +12,10 @@ import {
   type StreamHandlerEvent,
 } from '../../src/stream-handler.js';
 
+// web-push は ESM 専用で Jest が読み込めない。このテストは送信を検証しないため空のモックに差し替える。
+// web-push は @nagiyu/common の依存でこのサービスからは解決できないため virtual を付ける
+jest.mock('web-push', () => ({}), { virtual: true });
+
 const sampleEvent: ErrorEvent = {
   eventId: 'evt-1',
   serviceId: 'stock-tracker',

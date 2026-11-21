@@ -133,39 +133,53 @@ aws secretsmanager create-secret \
 
 ### 3.3 ECR リポジトリの作成
 
+CDK はどのスタックを deploy するときもアプリ全体を合成し、環境変数 `IMAGE_TAG` を読む。`IMAGE_TAG` が無いと合成が失敗するので、ECR だけの deploy にも値を渡す。値は次節で決めるタグと同じものにする。
+
 ```bash
+export IMAGE_TAG=$(git rev-parse HEAD)
+
 # 開発環境
-npm run deploy -w auth -- --context env=dev --context deploymentPhase=ecr-only
+IMAGE_TAG=${IMAGE_TAG} npm run deploy -w auth -- --context env=dev --context deploymentPhase=ecr-only
 
 # 本番環境
-npm run deploy -w auth -- --context env=prod --context deploymentPhase=ecr-only
+IMAGE_TAG=${IMAGE_TAG} npm run deploy -w auth -- --context env=prod --context deploymentPhase=ecr-only
 ```
 
 ### 3.4 Docker イメージのビルドとプッシュ
 
+イメージのタグは 1 つだけ決め、そのタグで build と push を行う。CI ではコミットの sha を使う。動くタグ (`latest`) は使わない。同じタグのままでは CloudFormation がイメージの入れ替わりに気づかず、Lambda が更新されないためである。
+
 ```bash
-# 1. ECR にログイン
+# 1. タグを決める (3.3 と同じ値)
+export IMAGE_TAG=$(git rev-parse HEAD)
+
+# 2. ECR にログイン
 aws ecr get-login-password --region us-east-1 | \
     docker login --username AWS --password-stdin <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com
 
-# 2. イメージのビルド (モノレポルートから)
-docker build -t auth:latest -f services/auth/Dockerfile .
+# 3. ECR リポジトリの URI を ECR スタックの出力から取得
+REPOSITORY_URI=$(aws cloudformation describe-stacks \
+    --stack-name NagiyuAuthECRDev \
+    --query "Stacks[0].Outputs[?OutputKey=='RepositoryUri'].OutputValue" \
+    --output text --region us-east-1)
 
-# 3. タグ付け
-docker tag auth:latest <ECR_REGISTRY>/auth-dev:latest
+# 4. イメージのビルド (モノレポルートから。CI と同じく BuildKit を切る)
+DOCKER_BUILDKIT=0 docker build -t ${REPOSITORY_URI}:${IMAGE_TAG} -f services/auth/Dockerfile .
 
-# 4. プッシュ
-docker push <ECR_REGISTRY>/auth-dev:latest
+# 5. プッシュ
+docker push ${REPOSITORY_URI}:${IMAGE_TAG}
 ```
 
 ### 3.5 アプリケーションリソースのデプロイ
 
+CDK は `IMAGE_TAG` のタグを Lambda に書き込むので、3.4 と同じ値を渡す。イメージの切り替えはこの deploy が行う。
+
 ```bash
 # 開発環境
-npm run deploy -w auth -- --context env=dev --context deploymentPhase=full
+IMAGE_TAG=${IMAGE_TAG} npm run deploy -w auth -- --context env=dev --context deploymentPhase=full
 
 # 本番環境
-npm run deploy -w auth -- --context env=prod --context deploymentPhase=full
+IMAGE_TAG=${IMAGE_TAG} npm run deploy -w auth -- --context env=prod --context deploymentPhase=full
 ```
 
 ### 3.6 初期管理者ユーザーの登録
@@ -238,7 +252,7 @@ Auth サービスでは、以下の GitHub Actions ワークフローを使用�
 
 1 本で、PR の向き先によって Fast / Full を出し分ける。Fast は integration/\*\* 向けで E2E は chromium-mobile のみ、Full は develop 向けで E2E は全デバイス (chromium-desktop, chromium-mobile, webkit-mobile) に加えてテストカバレッジチェック (80%以上必須) を行う。
 
-なお `auth-verify.yml` はインフラ (CDK) 用の別ワークフローである。
+インフラ (CDK) のビルドと synth も、このワークフローの `infra-verify` ジョブで検査する。
 
 #### 2. デプロイワークフロー (`.github/workflows/auth-deploy.yml`)
 
@@ -325,28 +339,14 @@ git push origin feature/add-github-oauth
 
 ### 5.1 Docker イメージの手動デプロイ
 
-緊急時や CI/CD が利用できない場合の手順:
-
-```bash
-# 1. ECR ログイン
-aws ecr get-login-password --region us-east-1 | \
-    docker login --username AWS --password-stdin <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com
-
-# 2. イメージのビルド (モノレポルートから)
-docker build -t auth:latest -f services/auth/Dockerfile .
-
-# 3. タグ付け & プッシュ
-docker tag auth:latest <ECR_REGISTRY>/auth-dev:latest
-docker push <ECR_REGISTRY>/auth-dev:latest
-```
+緊急時や CI/CD が利用できない場合は、3.4 と同じ手順でタグを決めて build と push を行う。
 
 ### 5.2 Lambda 関数の手動更新
 
+Lambda のイメージは CDK の deploy で切り替える。`aws lambda update-function-code` で直接差し替えると、CloudFormation の状態とずれる。push したタグを `IMAGE_TAG` に渡して deploy する。
+
 ```bash
-aws lambda update-function-code \
-    --function-name auth-dev \
-    --image-uri <ECR_REGISTRY>/auth-dev:latest \
-    --region us-east-1
+IMAGE_TAG=${IMAGE_TAG} npm run deploy -w auth -- --context env=dev --context deploymentPhase=full
 ```
 
 ---
@@ -531,17 +531,24 @@ npm audit fix --force
 
 #### 本番の Stripe を有効化する
 
-Stripe の事業者の情報 (公開用の事業者名・サポートの連絡先) は、本番環境を有効化してからでないと設定できない。サンドボックスとは別に、本番の環境で次を用意する。
+Stripe の事業者の情報 (公開用の事業者名・サポートの連絡先) は、本番環境を有効化してからでないと設定できない。サンドボックスとは別に、本番の環境で次を用意する。本番の審査では料金が本番のサイトに出ている必要があるため、有効化の申請を出したら、審査を待たずに 1 から 4 まで進めて、プランの画面に価格を出す。
 
-1. **商品と価格**: 段ごとに商品を作り、それぞれに 1 か月ごとの価格を付ける。価格の lookup_key は、有料ロールの ID (`livetalk-standard`、`quick-clip-pro` など) にする。どの有料ロールが付くかも、プランの画面の価格の取得も、この lookup_key で決まる。有料ロールの ID でない lookup_key は無視される。商品の説明は段の説明としてプランの画面に表示される (空なら出ない)。機能 (Entitlements) は使わないので作らない。金額は、サンドボックスで決めた価格と同じにする。価格はコードにも docs にも持たず、サンドボックスの価格が決定の置き場所になっているため、サンドボックスの各価格を見て同じ金額で作る
-2. **Customer Portal**: 解約・支払い方法の変更・請求の履歴に加え、プランの切り替えを利用者に開く。切り替えの対象に、段の商品と価格を入れる (Auth が上げを送る確認画面は、ここに入っている価格にしか切り替えられない)。比例配分はオンにして即時に請求する。下げは Auth が予約するので、Portal のダウングレードの設定には依らない。解約は期間の終わりに効かせる。プランの画面と特定商取引法に基づく表記で、解約しても期間の終わりまで使えると案内しているため
-3. **通知の受け口**: `https://auth.nagiyu.com/api/billing/webhook` を登録する。通知の種類は、サンドボックスの受け口と同じものを選ぶ (Auth が作る下げの予約に関わる subscription_schedule のイベントを含む)。受け口は、顧客 ID を含む通知を、その顧客の契約を取り直す合図として扱う
-4. **鍵**: 本番の秘密鍵と、受け口の署名鍵を `nagiyu-auth-stripe-prod` に入れ、Auth を再デプロイする (→ [3.8 Stripe の鍵の登録](#38-stripe-の鍵の登録))
-5. **表記の URL**: 特定商取引法に基づく表記のページ (`https://auth.nagiyu.com/legal/tokushoho`) の URL を Stripe に登録する。本番の審査で確かめられる
-
-6. **新しい購入のメール通知**: Stripe のダッシュボード (本番) で、自分のアカウントの「通知の受け取り (Communication preferences)」を開き、「支払いの成功 (Successful payments)」のメールを有効にする。運営者が新しい購入を知るための設定で、Auth にはこのための仕組みを持たない。顧客への領収書のメール (設定 → 顧客へのメール) とは別の設定で、そちらは顧客に届くものなので、これでは通知されない。Stripe のメニューの場所は変わりうるため、見つからなければ設定の検索で「Communication preferences」を探す
-
-本番の審査では、料金が本番のサイトに出ている必要がある。価格はコードに持たないので、本番の価格はそれまでに Stripe 上で決めればよい。
+1. **商品と価格**: 段ごとに商品を作り、それぞれに 1 か月ごとの価格を付ける。価格の lookup_key は、有料ロールの ID (`livetalk-standard`、`quick-clip-pro` など) にする。どの有料ロールが付くかも、プランの画面の価格の取得も、この lookup_key で決まる。有料ロールの ID でない lookup_key は無視される。商品の説明は段の説明としてプランの画面と決済画面に表示される (空なら出ない)。改行は反映されないので 1 段落で書く。説明に段の中身 (回数など) を書いたサービスは、その値を変えたら説明も直す。機能 (Entitlements) は使わないので作らない。金額は、サンドボックスで決めた価格と同じにする。価格はコードにも docs にも持たず、サンドボックスの価格が決定の置き場所になっているため、サンドボックスの各価格を見て同じ金額で作る。本番の有効化のときにサンドボックスから商品をコピーできるが、コピーするのは本番で売るサービスの商品だけにし、コピー後に lookup_key が付いているかを確かめる。売らないサービスの価格が本番にあると、プランの画面にそのサービスが出る
+2. **Customer Portal**: 解約・支払い方法の変更・請求の履歴に加え、プランの切り替えを利用者に開く。切り替えの対象に、段の商品と価格を入れる (Auth が上げを送る確認画面は、ここに入っている価格にしか切り替えられない)。比例配分はオンにして即時に請求する。解約は期間の終わりに効かせる。プランの画面と特定商取引法に基づく表記で、解約しても期間の終わりまで使えると案内しているため
+    - **下げ (費用のみが減少する変更) は請求期間の終了時に適用する**: Auth から下げるときは Auth が予約するのでこの設定に依らないが、利用者は「契約を管理」から Portal の一般の切り替えでも下げられる。すぐに適用にすると、そこから下げたときに日割りのクレジットが出て、下げは期末から・返金なしという案内と食い違う。ただし、段ごとに商品を分けているため、別の商品の間の下げにこの設定が効くかは確かめていない (→ [アーキテクチャ](./architecture.md) の ADR-013)
+    - **顧客情報は名前とメールアドレスだけを更新できるようにする**: 領収書の宛名と届け先を本人が直せるようにするため。住所と電話番号はデジタルのサービスで使わないので、預からない。Auth は顧客を ID で紐づけているので、メールアドレスが変わっても契約は切れない
+3. **通知の受け口**: `https://auth.nagiyu.com/api/billing/webhook` を登録する。受け口は、顧客 ID を含む通知を、その顧客の契約を取り直す合図として扱うので、契約の状態が変わるときに届く次のイベントを選ぶ。作ると出る署名シークレットを 4 で使う
+    - `checkout.session.completed`
+    - `customer.subscription.created`、`customer.subscription.updated`、`customer.subscription.deleted`
+    - `subscription_schedule.created`、`subscription_schedule.updated`、`subscription_schedule.released`、`subscription_schedule.canceled`、`subscription_schedule.completed` (Auth が作る下げの予約に関わるもの)
+4. **鍵**: 本番の秘密鍵と、受け口の署名鍵を `nagiyu-auth-stripe-prod` に入れ、Auth を再デプロイする (→ [3.8 Stripe の鍵の登録](#38-stripe-の鍵の登録))。秘密鍵は、権限が「重要な操作を除くフルアクセス」の制限付きキーにする。Auth が使うのは顧客・価格・決済画面・Customer Portal・契約・予約の操作だけで、入金や資金の移動は使わない。漏れたときにお金を動かされないようにしつつ、権限を細かく選んで足りずに本番で失敗するのを避けるため。制限付きキーは `rk_live_` で始まるが、そのまま秘密鍵として入れてよい
+5. **表記の URL とビジネスのサイト**: 特定商取引法に基づく表記のページ (`https://auth.nagiyu.com/legal/tokushoho`) の URL を Stripe に登録する。本番の審査で確かめられる。申請のビジネスのウェブサイトには、売っているサービスのページを入れる。Portal (技術ブログ) は、サービス・プランの画面・表記のどれにもつながっておらず、審査で売っているものと価格にたどり着けないため
+6. **新しい購入のメール通知**: Stripe のダッシュボード (本番) で、コミュニケーション設定 (Communication preferences) の「Payment receipts」にある「Successful payment receipt」のメールを有効にする。運営者が新しい購入を知るための設定で、Auth にはこのための仕組みを持たない。顧客への領収書のメール (設定 → 顧客へのメール) とは別の設定で、そちらは顧客に届くものなので、これでは通知されない。更新の支払いの失敗に気づけるよう、「Failed payments」のメールも有効にしておく。Stripe のメニューの場所は変わりうるため、見つからなければ設定の検索で「Communication preferences」を探す
+7. **動作の確認**: 自分のカードで本番の決済を試さない。本物の支払い方法で本番を試すことは Stripe の利用規約で禁じられている (→ [Stripe のテストの案内](https://docs.stripe.com/testing))。少額の割引で試しても、日本円は 50 円未満だと請求されず、決済を確かめられない。代わりに、100% 割引のクーポンで 0 円の契約を作って、通知からロールが付くまでを確かめる。支払い成功のメールと決済そのものは、最初の本物の購入で確かめる
+    1. 確かめに使うアカウントでプランの画面から申し込みを押し、決済画面を閉じる。これで、そのユーザーに紐づいた Stripe の顧客ができる。Auth は顧客に付けたユーザー ID で同期するので、Stripe の画面で顧客を作るのでは確かめられない
+    2. 100% 割引・期間 1 回のクーポンを作り、その顧客に段の契約をクーポン付きで作る。支払い方法は請求書の送信にすると、カードが要らない
+    3. そのアカウントに段のロールが付き、プランの画面に契約中と出ることを確かめる
+    4. 契約を解約し、クーポンを削除する。期間 1 回のクーポンを残したまま契約が続くと、次の更新で正規の金額が請求される
 
 #### 契約中のユーザーを削除するとき
 
@@ -591,11 +598,8 @@ git push origin develop
 # 前のイメージタグを確認
 aws ecr describe-images --repository-name auth-dev --region us-east-1
 
-# 前のイメージタグを指定してロールバック
-aws lambda update-function-code \
-    --function-name auth-dev \
-    --image-uri <ECR_REGISTRY>/auth-dev:<PREVIOUS_TAG> \
-    --region us-east-1
+# 前のイメージタグ (コミットの sha) を IMAGE_TAG に渡して deploy し直す
+IMAGE_TAG=<PREVIOUS_TAG> npm run deploy -w auth -- --context env=dev --context deploymentPhase=full
 ```
 
 ### 9.2 よくある障害と対処法
@@ -697,7 +701,7 @@ npm run cdk -w auth -- destroy --context env=dev
 # ECR イメージの削除
 aws ecr batch-delete-image \
     --repository-name auth-dev \
-    --image-ids imageTag=latest \
+    --image-ids "$(aws ecr list-images --repository-name auth-dev --query 'imageIds[*]' --output json --region us-east-1)" \
     --region us-east-1
 ```
 

@@ -14,6 +14,7 @@ import {
   type EntityPatch,
 } from '@nagiyu/aws';
 import type { WebRawEntity, WebRawKey, WebRawOrigin } from '../entities/webraw.entity.js';
+import { readSourceUrls } from './source-urls.js';
 import { buildUserPK, buildWebRawSK } from './keys.js';
 
 /**
@@ -87,7 +88,7 @@ export class WebRawMapper implements EntityMapper<WebRawEntity, WebRawKey> {
       rawId: validateStringField(item.RawID, 'RawID'),
       query: validateStringField(item.Query, 'Query'),
       rawText: validateStringField(item.RawText, 'RawText', { allowEmpty: true }),
-      sourceUrls: Array.isArray(item.SourceUrls) ? (item.SourceUrls as string[]) : [],
+      sourceUrls: readSourceUrls(item),
       origin,
       createdAt: readTimestamp(item, 'CreatedAt'),
       ...(item.RequestText !== undefined && {

@@ -89,9 +89,13 @@ async function selectCharacter(page: Page, characterId: string): Promise<void> {
  * ホーム画面が開くときに読む API を、既定の応答にそろえる。
  * 同意済み・生活サイクルは起きている・未消化の通知はない、が既定。
  */
-async function mockHomeApis(page: Page, consented = true): Promise<void> {
+async function mockHomeApis(
+  page: Page,
+  consented = true,
+  consentExtra: Record<string, unknown> = {}
+): Promise<void> {
   await muteClientLog(page);
-  await mockJson(page, '**/api/consent', { consented });
+  await mockJson(page, '**/api/consent', { consented, ...consentExtra });
   await mockJson(page, '**/api/lifecycle*', { state: 'awake' });
   await page.route('**/api/push/first-word*', (route) => route.fulfill({ status: 204 }));
   await mockJson(page, '**/api/push/pending', []);
@@ -190,6 +194,28 @@ const home: Scenario = {
     await page.goto('/');
     await page.getByText('リブトークへようこそ').waitFor();
     await ctx.shot('consent');
+
+    // 規約・ポリシーの改定 (前の版 1.0.0 に同意済み。年齢の申告は記録済み)
+    const revisionPage = await ctx.freshPage();
+    await snoozeOnboarding(revisionPage);
+    await mockHomeApis(revisionPage, false, {
+      requiredVersions: { terms: '1.1.0', privacy: '1.1.0' },
+      current: {
+        termsAgreed: { version: '1.0.0', agreedAt: 1 },
+        privacyAgreed: { version: '1.0.0', agreedAt: 1 },
+        ageVerified: { value: true, verifiedAt: 1 },
+      },
+    });
+    await revisionPage.goto('/');
+    await revisionPage.getByText('利用規約・プライバシーポリシーを改定しました').first().waitFor();
+    await ctx.shot('consent-revision');
+
+    // 同意の取り直しに戻って、以降の撮影は初回のダイアログから続ける
+    page = await ctx.freshPage();
+    await snoozeOnboarding(page);
+    await mockHomeApis(page, false);
+    await page.goto('/');
+    await page.getByText('リブトークへようこそ').waitFor();
 
     // 同意の送信に失敗した (3 つにチェックして「利用開始」)
     await page.route('**/api/consent', (route) =>
@@ -616,6 +642,11 @@ const terms: Scenario = {
     await ready(page, 'バージョン');
     // 本文は長いので、画面の上部だけを撮る
     await ctx.shot('default', { viewportOnly: true });
+
+    // 末尾の改定履歴
+    const history = page.getByTestId('legal-revision-history');
+    await history.scrollIntoViewIfNeeded();
+    await ctx.shot('revision-history', { around: history });
   },
 };
 
@@ -626,6 +657,11 @@ const privacy: Scenario = {
     await page.goto('/legal/privacy');
     await ready(page, 'バージョン');
     await ctx.shot('default', { viewportOnly: true });
+
+    // 末尾の改定履歴
+    const history = page.getByTestId('legal-revision-history');
+    await history.scrollIntoViewIfNeeded();
+    await ctx.shot('revision-history', { around: history });
   },
 };
 

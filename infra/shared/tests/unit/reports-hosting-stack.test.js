@@ -35,6 +35,23 @@ describe('ReportsHostingStack', () => {
     });
   });
 
+  it('HTTP アクセスを拒否するバケットポリシーを付ける', () => {
+    const app = new cdk.App();
+    const stack = new ReportsHostingStack(app, 'TestReportsHostingStack', STACK_PROPS);
+
+    const template = Template.fromStack(stack);
+    template.hasResourceProperties('AWS::S3::BucketPolicy', {
+      PolicyDocument: {
+        Statement: Match.arrayWith([
+          Match.objectLike({
+            Effect: 'Deny',
+            Condition: { Bool: { 'aws:SecureTransport': 'false' } },
+          }),
+        ]),
+      },
+    });
+  });
+
   it('3 日でレポートオブジェクトを削除するライフサイクルルールを設定する', () => {
     const app = new cdk.App();
     const stack = new ReportsHostingStack(app, 'TestReportsHostingStack', STACK_PROPS);
@@ -100,6 +117,49 @@ describe('ReportsHostingStack', () => {
               EventType: 'viewer-request',
             }),
           ]),
+        }),
+      }),
+    });
+  });
+
+  it('セキュリティヘッダー (X-Frame-Options は SAMEORIGIN) と noindex を持つヘッダーポリシーを作成する', () => {
+    const app = new cdk.App();
+    const stack = new ReportsHostingStack(app, 'TestReportsHostingStack', STACK_PROPS);
+
+    const template = Template.fromStack(stack);
+    template.hasResourceProperties('AWS::CloudFront::ResponseHeadersPolicy', {
+      ResponseHeadersPolicyConfig: Match.objectLike({
+        Name: 'nagiyu-e2e-reports-security-headers',
+        SecurityHeadersConfig: Match.objectLike({
+          StrictTransportSecurity: Match.objectLike({
+            AccessControlMaxAgeSec: 63072000,
+            IncludeSubdomains: true,
+            Preload: true,
+            Override: true,
+          }),
+          ContentTypeOptions: { Override: true },
+          FrameOptions: { FrameOption: 'SAMEORIGIN', Override: true },
+        }),
+        CustomHeadersConfig: {
+          Items: Match.arrayWith([
+            { Header: 'X-Robots-Tag', Value: 'noindex, nofollow', Override: true },
+          ]),
+        },
+      }),
+    });
+  });
+
+  it('デフォルトビヘイビアにセキュリティヘッダーポリシーを適用する', () => {
+    const app = new cdk.App();
+    const stack = new ReportsHostingStack(app, 'TestReportsHostingStack', STACK_PROPS);
+
+    const template = Template.fromStack(stack);
+    template.hasResourceProperties('AWS::CloudFront::Distribution', {
+      DistributionConfig: Match.objectLike({
+        DefaultCacheBehavior: Match.objectLike({
+          ResponseHeadersPolicyId: Match.objectLike({
+            Ref: Match.stringLikeRegexp('^SecurityHeadersPolicy'),
+          }),
         }),
       }),
     });

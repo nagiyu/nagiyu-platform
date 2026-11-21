@@ -189,4 +189,4 @@ export const metadata: Metadata = {
 
 - [Portal アーキテクチャ](../services/portal/architecture.md) - AdSense 対応の経緯・ADR-001
 - [Portal 要件定義書](../services/portal/requirements.md) - ビジネスゴール
-- [SEO 再検証メモ](./seo-revalidation-notes.md) - C-2 で追加したメタデータ・sitemap 検証ユーティリティの使い方（integration マージ後に参照可能）
+- [SEO 再検証メモ](./seo-revalidation-notes.md) - メタデータ・JSON-LD・sitemap の再検証手順

@@ -77,8 +77,7 @@ describe('DynamoDBBatchJobRepository', () => {
           Type: 'BATCH_JOB',
           jobId: 'job-1',
           userId: 'user-1',
-          status: 'WAITING_FOR_2FA',
-          twoFactorAuthCode: '123456',
+          status: 'RUNNING',
           pushSubscription: {
             endpoint: 'https://push.example.com/abc',
             keys: { p256dh: 'p', auth: 'a' },
@@ -93,8 +92,7 @@ describe('DynamoDBBatchJobRepository', () => {
       expect(result).toEqual({
         jobId: 'job-1',
         userId: 'user-1',
-        status: 'WAITING_FOR_2FA',
-        twoFactorAuthCode: '123456',
+        status: 'RUNNING',
         pushSubscription: {
           endpoint: 'https://push.example.com/abc',
           keys: { p256dh: 'p', auth: 'a' },
@@ -199,14 +197,14 @@ describe('DynamoDBBatchJobRepository', () => {
       expect(parsed.remove).toEqual(expect.arrayContaining(['status', 'result']));
     });
 
-    it('twoFactorAuthCode を null にすると属性を削除する', async () => {
+    it('pushSubscription を null にすると属性を削除する', async () => {
       ddbMock.on(UpdateCommand).resolves({ Attributes: sampleItem });
 
-      await repository.update('job-1', 'user-1', { twoFactorAuthCode: null });
+      await repository.update('job-1', 'user-1', { pushSubscription: null });
 
       const parsed = parseUpdateExpression(ddbMock.commandCalls(UpdateCommand)[0].args[0].input);
       expect(parsed.remove).toEqual(
-        expect.arrayContaining(['TwoFactorAuthCode', 'twoFactorAuthCode'])
+        expect.arrayContaining(['PushSubscription', 'pushSubscription'])
       );
     });
 

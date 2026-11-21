@@ -9,6 +9,7 @@ import FingerprintIcon from '@mui/icons-material/Fingerprint';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import ToolCard from '@/components/tools/ToolCard';
 import { homeStructuredData, toJsonLd } from '@/lib/structuredData';
+import { SITE_URL } from '@/lib/site';
 import { Tool } from '@/types/tools';
 
 export const metadata: Metadata = {
@@ -21,7 +22,7 @@ export const metadata: Metadata = {
       'Toolsは、日常的に便利なオンラインツール群を提供する無料のWebアプリケーションです。',
   },
   alternates: {
-    canonical: 'https://nagiyu.com',
+    canonical: SITE_URL,
   },
 };
 

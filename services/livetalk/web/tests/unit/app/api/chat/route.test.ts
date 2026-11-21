@@ -43,17 +43,33 @@ jest.mock('@nagiyu/livetalk-core', () => ({
   createConsolidationCursorRepository: jest.fn().mockReturnValue({}),
   createSafetyEventRepository: jest.fn().mockReturnValue({}),
   createChatGuardRepository: jest.fn(),
+  createProfileRepository: jest.fn(),
 }));
 
 import {
   runChatUseCase,
   createMessageRepository,
   createChatGuardRepository,
+  createProfileRepository,
 } from '@nagiyu/livetalk-core';
 
 const mockGetSession = getSession as jest.MockedFunction<typeof getSession>;
 const mockRunChatUseCase = runChatUseCase as jest.Mock;
 const mockGetChatGuardRepository = createChatGuardRepository as jest.Mock;
+const mockGetProfileRepository = createProfileRepository as jest.Mock;
+
+const consentedConsents = {
+  termsAgreed: { version: '1.1.0', agreedAt: 0 },
+  privacyAgreed: { version: '1.1.0', agreedAt: 0 },
+  ageVerified: { value: true, verifiedAt: 0 },
+};
+
+/** getById が返すプロフィールを差し替えたプロフィールリポジトリのモックを仕込む */
+const mockProfile = (profile: { consents?: unknown } | null) => {
+  const getById = jest.fn().mockResolvedValue(profile);
+  mockGetProfileRepository.mockReturnValue({ getById });
+  return getById;
+};
 
 /** デフォルトのガードモック（全て通過させる） */
 const makeDefaultGuardMock = () => ({
@@ -98,6 +114,7 @@ describe('POST /api/chat', () => {
     (getVoiceClient as jest.Mock).mockReturnValue({});
     (createMessageRepository as jest.Mock).mockReturnValue({});
     mockGetChatGuardRepository.mockReturnValue(makeDefaultGuardMock());
+    mockProfile({ consents: consentedConsents });
   });
 
   afterEach(() => {
@@ -324,6 +341,71 @@ describe('POST /api/chat', () => {
       expect(res.status).toBe(400);
       const json = await res.json();
       expect(json.message).toBe(CHAT_ERROR_MESSAGES.INVALID_REQUEST);
+    });
+
+    // ---- ガード: 同意の確認 ----
+
+    it.each([
+      ['プロフィールがない', null],
+      [
+        '利用規約の版が古い',
+        { consents: { ...consentedConsents, termsAgreed: { version: '1.0.0', agreedAt: 0 } } },
+      ],
+      [
+        'プライバシーポリシーの版が古い',
+        { consents: { ...consentedConsents, privacyAgreed: { version: '1.0.0', agreedAt: 0 } } },
+      ],
+      [
+        '年齢が未確認',
+        { consents: { ...consentedConsents, ageVerified: { value: false, verifiedAt: 0 } } },
+      ],
+      ['同意が未保存', {}],
+    ])(
+      '%s場合は 403 CONSENT_REQUIRED で、ロック・レート・ストリームを使わない',
+      async (_l, profile) => {
+        mockProfile(profile);
+        const guard = makeDefaultGuardMock();
+        mockGetChatGuardRepository.mockReturnValue(guard);
+
+        const res = await POST(buildRequest({ text: 'こんにちは' }));
+        expect(res.status).toBe(403);
+        const json = await res.json();
+        expect(json).toEqual({
+          error: 'CONSENT_REQUIRED',
+          message: CHAT_ERROR_MESSAGES.CONSENT_REQUIRED,
+        });
+        expect(guard.acquireLock).not.toHaveBeenCalled();
+        expect(guard.tryConsumeRateLimit).not.toHaveBeenCalled();
+        expect(mockRunChatUseCase).not.toHaveBeenCalled();
+      }
+    );
+
+    it('同意が有効なら従来どおり 200 でストリームする', async () => {
+      const getById = mockProfile({ consents: consentedConsents });
+      const res = await POST(buildRequest({ text: 'こんにちは' }));
+      expect(res.status).toBe(200);
+      expect(getById).toHaveBeenCalledWith({ userId: 'u1' });
+      expect(mockRunChatUseCase).toHaveBeenCalled();
+    });
+
+    it('入力の検証に失敗する場合は同意を確認しない', async () => {
+      const getById = mockProfile(null);
+      const res = await POST(buildRequest({ text: '   ' }));
+      expect(res.status).toBe(400);
+      expect(getById).not.toHaveBeenCalled();
+    });
+
+    it('プロフィール取得に失敗したら通さず 500 を返し、ロック・レートを使わない', async () => {
+      const getById = jest.fn().mockRejectedValue(new Error('DynamoDB down'));
+      mockGetProfileRepository.mockReturnValue({ getById });
+      const guard = makeDefaultGuardMock();
+      mockGetChatGuardRepository.mockReturnValue(guard);
+
+      const res = await POST(buildRequest({ text: 'こんにちは' }));
+      expect(res.status).toBe(500);
+      expect(guard.acquireLock).not.toHaveBeenCalled();
+      expect(guard.tryConsumeRateLimit).not.toHaveBeenCalled();
+      expect(mockRunChatUseCase).not.toHaveBeenCalled();
     });
 
     // ---- ガード適用順: ロック取得 → レートリミット ----

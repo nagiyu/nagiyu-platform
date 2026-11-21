@@ -915,22 +915,21 @@ it('should calculate total', () => {
 
 #### MUST: インフラチェックを実施 (該当する場合)
 
-サービスに対応する CDK スタックが infra/ 配下にある場合、インフラコードのビルドと CDK 構文チェックを実施:
+サービスに対応する CDK スタックが infra/ 配下にある場合、インフラコードのビルドと CDK 構文チェックは、`{target}-verify.yml` に手で書かず、再利用ワークフロー (`reusable-infra-verify.yml`) を `dirs` を渡して呼ぶ。
 
 ```yaml
-- name: Build infrastructure
-  run: npm run build --workspace @nagiyu/infra
-
-- name: CDK Synth Check
-  run: npm run synth --workspace @nagiyu/infra
+infra-verify:
+  name: Infra Verify
+  uses: ./.github/workflows/reusable-infra-verify.yml
+  with:
+    dirs: infra/<service>
+  permissions:
+    contents: read
 ```
 
-**注意**: CDK synth は全スタックを検証するため、サービス固有のスタックのみを検証したい場合は以下のように指定:
-
-```yaml
-- name: CDK Synth Check (specific stack)
-  run: npm run synth --workspace @nagiyu/infra -- <StackName>
-```
+- 対象は `dirs` 配下で `build` を持つ infra のワークスペースで、`synth` を持つものには synth もかける
+- synth の引数は `synth-args` で渡す (省略時は `--context env=dev`)。環境変数が要るときは、行の先頭に `KEY=VALUE` で書く。詳細は [テスト戦略](./testing.md) の「infra のビルドと synth」を参照
+- **理由**: ビルドと synth をワークフローごとに手で書くと、書き方がばらつき、検査し忘れたり別のワークスペースを検査したりする
 
 #### MUST: 品質チェックとテストは再利用ワークフローで実施
 

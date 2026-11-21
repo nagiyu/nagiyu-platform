@@ -11,7 +11,6 @@ import { test, expect } from '@playwright/test';
  */
 test.describe('Dashboard Display', () => {
   const testUserEmail = process.env.TEST_USER_EMAIL || 'test@example.com';
-  const testUserRoles = process.env.TEST_USER_ROLES?.split(',') || ['admin'];
 
   test.beforeEach(async ({ page }) => {
     // SKIP_AUTH_CHECK=true の環境では認証チェックがスキップされるため、
@@ -30,11 +29,10 @@ test.describe('Dashboard Display', () => {
 
     // ロールが表示されることを確認
     await expect(page.getByText('ロール:')).toBeVisible();
-    for (const role of testUserRoles) {
-      // user-role の testid が付いた Chip 要素内のロールを確認
-      // （ヘッダーの "Admin" と区別するため、UI ライブラリのクラス名ではなく testid で特定する）
-      await expect(page.locator(`[data-testid="user-role"]`, { hasText: role })).toBeVisible();
-    }
+    // .env.test の TEST_USER_ROLES=admin を前提に、Chip には ID ではなく表示名が出ることを確かめる。
+    // 期待値を ROLES から引かないのは、画面に出る文字列そのものを確かめるため
+    // （ヘッダーの "Admin" と区別するため、UI ライブラリのクラス名ではなく testid で特定する）
+    await expect(page.locator(`[data-testid="user-role"]`, { hasText: '管理者' })).toBeVisible();
 
     // 認証ステータスが表示されることを確認
     await expect(

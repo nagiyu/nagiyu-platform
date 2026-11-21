@@ -22,6 +22,7 @@ on:
       - 'package-lock.json'
       - '.github/workflows/dev-sync-verify.yml'
       - '.github/workflows/reusable-service-verify.yml'
+      - '.github/workflows/reusable-infra-verify.yml'
 
 permissions:
   contents: read
@@ -40,31 +41,26 @@ jobs:
     permissions:
       contents: read
 
-  cdk-synth:
-    name: Synthesize Infrastructure
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js and install dependencies
-        uses: ./.github/actions/setup-node
-        with:
-          cache-dependency-path: './package-lock.json'
-
-      - name: Build common infrastructure package
-        run: npm run build --workspace=@nagiyu/infra-common
-
-      - name: Build CDK TypeScript
-        run: npm run build --workspace=@nagiyu/infra-dev-sync
-
-      - name: Synthesize CDK stack
-        run: npm run synth --workspace=@nagiyu/infra-dev-sync -- --context env=dev
+  infra-verify:
+    name: Infra Verify
+    uses: ./.github/workflows/reusable-infra-verify.yml
+    with:
+      dirs: infra/dev-sync
+    permissions:
+      contents: read
 
   docker-build:
     name: Docker Build Verification (Batch)
     runs-on: ubuntu-latest
+
+    # 他の検査と同じ実行環境で確かめるため、共通イメージの上で動かす。docker のデーモンはランナーのものを使う
+    container:
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v2
+
+    # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
+    defaults:
+      run:
+        shell: bash
 
     permissions:
       id-token: write
@@ -90,7 +86,7 @@ jobs:
     name: Report Results to PR
     runs-on: ubuntu-latest
     if: always()
-    needs: [verify, cdk-synth, docker-build]
+    needs: [verify, docker-build, infra-verify]
 
     permissions:
       contents: read

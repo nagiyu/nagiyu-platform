@@ -30,10 +30,17 @@ export interface ConsolidatePromptCandidateTopic {
 export interface ConsolidatePromptInput {
   /** キャラ名 */
   characterName: string;
+  /** 今日の日付ラベル ("YYYY年M月D日(曜)" 表記)。相対的な日時を年月日に直す基準 */
+  todayLabel: string;
   /** 埋め込み近傍で絞った既存 Topic 候補一覧 */
   candidateTopics: ConsolidatePromptCandidateTopic[];
   /** 未集約の新規会話メッセージ（時系列順） */
-  newMessages: Array<{ role: 'user' | 'assistant'; text: string }>;
+  newMessages: Array<{
+    role: 'user' | 'assistant';
+    text: string;
+    /** 発話日ラベル (年が今日と違うときだけ年付きの "M月D日" 表記) */
+    createdAtLabel: string;
+  }>;
   /** 未集約の新規 Web 取得生データ（P1 では通常空） */
   webRaws: Array<{
     query: string;
@@ -62,7 +69,7 @@ export interface ConsolidatePromptInput {
  * merge（名寄せ）か新規作成かを LLM に判断させるための system + user メッセージを返す。
  */
 export function buildConsolidatePrompt(input: ConsolidatePromptInput): ChatMessage[] {
-  const { characterName, candidateTopics, newMessages, webRaws } = input;
+  const { characterName, todayLabel, candidateTopics, newMessages, webRaws } = input;
 
   const candidateSection =
     candidateTopics.length > 0
@@ -87,7 +94,10 @@ export function buildConsolidatePrompt(input: ConsolidatePromptInput): ChatMessa
   const messagesSection =
     newMessages.length > 0
       ? newMessages
-          .map((m) => `${m.role === 'user' ? 'ユーザー' : characterName}: ${m.text}`)
+          .map(
+            (m) =>
+              `[${m.createdAtLabel}] ${m.role === 'user' ? 'ユーザー' : characterName}: ${m.text}`
+          )
           .join('\n')
       : 'なし';
 
@@ -113,7 +123,7 @@ export function buildConsolidatePrompt(input: ConsolidatePromptInput): ChatMessa
   targetTopicId に指定して merge（名寄せ）してください。
 - 明確に一致する候補がない場合は、targetTopicId を空文字（""）にして新規 Topic として扱ってください。
 - 1 回の入力に複数の話題が混在する場合は、topics 配列に複数件を返してください。
-- 「新しい会話」の発話には話者ラベル（「ユーザー:」「${characterName}:」）が付いています。
+- 「新しい会話」の発話には発話日（[11月20日] のような表記）と話者ラベル（「ユーザー:」「${characterName}:」）が付いています。
   selfFacts に入れてよいのは「ユーザー:」とラベル付けされた発話に由来する、ユーザー自身についての
   事実のみです。「${characterName}:」（キャラ自身）の発話は、意見・見解・推し・提案・一般知識を
   含め、selfFacts に絶対に入れないでください。
@@ -126,6 +136,13 @@ export function buildConsolidatePrompt(input: ConsolidatePromptInput): ChatMessa
   入れます。一方で ${characterName} が「野菜は蒸すと甘みが増す」「仕上げは塩とオリーブオイルがおすすめ」
   のように発言した場合、それはキャラの見解・一般知識であり selfFacts にも webFacts にも入れず、
   どこにも保存しないでください。
+- selfFacts の text では、「明日」「来週」「今度の土曜」などの相対的な日時を、発話日を基準に
+  年月日（年付き、例: 2026年11月21日）に直して書いてください。曜日だけ・時間帯だけなど年月日が
+  決まらない言い方は、発話日を添えてください（例: 2026年11月20日に聞いた時点で「週末に旅行」）。
+- ユーザーが、予定が終わった・済んだ・取りやめたと話した場合は、そのことも selfFacts に書いて
+  ください（例: 「2026年11月21日の仕事は終わった」）。
+- webFacts の text では、取得内容にある開催日・期間・発売日などの日付を落とさず年付きで書いて
+  ください。終わっているものは、終わっていると書いてください。
 - selfFacts の provenance には、根拠となった発話の要旨を短く記録してください（誤マージが判明した際に
   出所から可逆化できるようにするため）。
 - canonicalSummary には、候補 Topic に付随する既存要約（あれば）と新情報をマージし、重複を排除して
@@ -147,7 +164,9 @@ export function buildConsolidatePrompt(input: ConsolidatePromptInput): ChatMessa
     新規 Topic（targetTopicId が空文字）の webFacts は常に add です。憶測で番号を作らないでください。
 - 出力はすべて日本語で書いてください。`;
 
-  const userPrompt = `候補 Topic 一覧（埋め込み近傍で絞り込み済み）：
+  const userPrompt = `今日の日付: ${todayLabel}
+
+候補 Topic 一覧（埋め込み近傍で絞り込み済み）：
 ${candidateSection}
 
 新しい会話：

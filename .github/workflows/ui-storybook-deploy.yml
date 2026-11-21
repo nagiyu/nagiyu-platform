@@ -9,6 +9,7 @@ on:
     paths:
       - 'libs/**'
       - 'infra/ui-storybook/**'
+      - 'infra/common/**'
       - 'package.json'
       - 'package-lock.json'
       - '.node-version'
@@ -37,6 +38,15 @@ jobs:
     runs-on: ubuntu-latest
     environment: dev
 
+    # 検査と同じ実行環境でビルドとデプロイを行うため、共通イメージの上で動かす
+    container:
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v2
+
+    # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
+    defaults:
+      run:
+        shell: bash
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -44,6 +54,8 @@ jobs:
       - name: Setup Node.js and install dependencies
         uses: ./.github/actions/setup-node
         with:
+          # Node はイメージに入っているものを使う
+          skip-setup-node: 'true'
           cache-dependency-path: package-lock.json
 
       - name: Configure AWS credentials
@@ -54,6 +66,9 @@ jobs:
 
       - name: Build shared libraries
         run: npm run build:libs
+
+      - name: Build common infrastructure package
+        run: npm run build --workspace=@nagiyu/infra-common
 
       - name: Build Storybook static site
         run: npm run build-storybook --workspace=@nagiyu/ui

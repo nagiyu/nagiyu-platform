@@ -10,13 +10,15 @@ sources:
   - infra/common/src/functions/ecr-image-function.ts
   - infra/shared/lib/error-events-table-stack.ts
   - infra/admin/lib/sns-stack.ts
+  - infra/admin/lib/self-monitoring-topic.ts
+  - infra/common/src/utils/arn.ts
   - infra/admin/lib/batch-lambda-stack.ts
   - infra/admin/lib/self-monitoring-alarms-stack.ts
   - infra/livetalk/lib/alarms-stack.ts
   - services/admin/batch/src/alarm-ingest.ts
   - services/admin/batch/src/stream-handler.ts
   - services/admin/web/src/app/api/notify/sns/route.ts
-sources_hash: 79eec0dbb418f21b8ce609fe0bfef5ca4fc8bbb1eaf64d331fac0f884ff28ba4
+sources_hash: 67732fed6fb20a8fc8046d037aab16aaadebed50a61d276b2f4472ff8e400bcf
 terms: [platform/term/error-event]
 related_cards: [livetalk/batch/acquire, livetalk/batch/consolidate-conversations, livetalk/batch/notify, livetalk/batch/learn-user-activity, admin/batch/alarm-ingest, admin/batch/stream-handler, admin/api/notify-sns, admin/api/errors, admin/screen/errors, admin/screen/error-detail, admin/flow/push-subscription]
 related_adr:

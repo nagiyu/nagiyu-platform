@@ -39,14 +39,32 @@ jobs:
   site-build:
     name: サイトのビルド
     runs-on: ubuntu-latest
+
+    # E2E と同じ OS・Node で検査するため、共通イメージの上で動かす。
+    # link-check は python3 を使い、イメージに無いためランナーで動かす
+    container:
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v2
+
+    # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
+    defaults:
+      run:
+        shell: bash
+
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      # setup-node の cache: 'npm' を使わないため、npm のキャッシュは自前で続ける。
+      # キャッシュの場所は環境で変わるため、npm に聞く
+      - name: Get npm cache directory
+        id: npm-cache
+        run: echo "dir=$(npm config get cache)" >> "$GITHUB_OUTPUT"
+
+      # キーは setup-node の action と同じ形にして、ロックファイルが同じなら共有する
+      - name: Cache npm
+        uses: actions/cache@v4
         with:
-          node-version-file: .node-version
-          cache: 'npm'
-          cache-dependency-path: './package-lock.json'
+          path: ${{ steps.npm-cache.outputs.dir }}
+          key: ${{ runner.os }}-node-${{ hashFiles('./package-lock.json') }}
 
       # テストやビルドの道具 (jest など) はルートにあるため、ルートと docs-site だけを入れる
       - name: 依存をインストール

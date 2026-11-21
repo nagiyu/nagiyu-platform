@@ -37,7 +37,7 @@ nagiyu プラットフォーム全体で共有されるインフラストラク�
 
 各スタックは CloudFormation Export を使用して、他のサービスから参照可能なリソースを公開しています。
 
-Export 名は `infra/shared/libs/utils/exports.ts` で一元管理されています。
+SSM パラメータ名の定義は `infra/common` の `SSM_PARAMETERS` に集約されています (→ [CDK ユーティリティ](./cdk-utils.md))。
 
 ## デプロイ
 

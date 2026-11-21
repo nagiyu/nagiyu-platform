@@ -13,7 +13,6 @@ on:
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/dev-sync-deploy.yml'
-      - '.github/actions/update-lambda-image/**'
       - '.github/actions/push-ecr-image/**'
   workflow_dispatch:
     inputs:
@@ -30,6 +29,9 @@ permissions:
 
 env:
   AWS_REGION: us-east-1
+  # push するタグと CDK が指すタグを同じ値にするため、全ジョブで共有する。
+  # CDK はどのスタックを deploy するときもアプリ全体を合成するので、ECR だけの deploy にも要る。
+  IMAGE_TAG: ${{ github.sha }}
 
 # dev 環境は integration/** と develop で共有するため、ブランチではなくデプロイ先環境の単位で直列化する。
 # CDK デプロイを途中で止めるとスタックが更新中のまま残るので実行中の run は完走させ、待機中は最新の run だけを残す。
@@ -47,6 +49,15 @@ jobs:
       environment: ${{ steps.setup-environment.outputs.environment }}
       stack-suffix: ${{ steps.setup-environment.outputs.stack-suffix }}
 
+    # 検査と同じ実行環境でビルドとデプロイを行うため、共通イメージの上で動かす。docker のデーモンはランナーのものを使う
+    container:
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v2
+
+    # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
+    defaults:
+      run:
+        shell: bash
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -58,6 +69,8 @@ jobs:
       - name: Setup Node.js and install dependencies
         uses: ./.github/actions/setup-node
         with:
+          # Node はイメージに入っているものを使う
+          skip-setup-node: 'true'
           cache-dependency-path: package-lock.json
 
       - name: Build common infrastructure package
@@ -91,6 +104,15 @@ jobs:
 
     outputs:
       image-uri: ${{ steps.build-image.outputs.image-uri }}
+
+    # 検査と同じ実行環境でビルドとデプロイを行うため、共通イメージの上で動かす。docker のデーモンはランナーのものを使う
+    container:
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v2
+
+    # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
+    defaults:
+      run:
+        shell: bash
 
     steps:
       - name: Checkout code
@@ -129,16 +151,23 @@ jobs:
         with:
           repository-uri: ${{ steps.get-ecr.outputs.repository-uri }}
           dockerfile: services/dev-sync/batch/Dockerfile
-          # CDK 側が tagOrDigest: 'latest' を参照するため、latest も push する
           tags: |
-            ${{ github.sha }}
-            latest
+            ${{ env.IMAGE_TAG }}
 
   deploy-main:
     name: Deploy Main Stack
     runs-on: ubuntu-latest
     needs: [deploy-ecr, build-batch]
     environment: dev
+
+    # 検査と同じ実行環境でビルドとデプロイを行うため、共通イメージの上で動かす。docker のデーモンはランナーのものを使う
+    container:
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v2
+
+    # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
+    defaults:
+      run:
+        shell: bash
 
     steps:
       - name: Checkout code
@@ -147,6 +176,8 @@ jobs:
       - name: Setup Node.js and install dependencies
         uses: ./.github/actions/setup-node
         with:
+          # Node はイメージに入っているものを使う
+          skip-setup-node: 'true'
           cache-dependency-path: package-lock.json
 
       - name: Build common infrastructure package
@@ -172,30 +203,20 @@ jobs:
             --context env="$ENVIRONMENT" \
             --require-approval never
 
-      - name: Resolve Lambda image URI
-        id: resolve-image
-        env:
-          ENVIRONMENT: ${{ needs.deploy-ecr.outputs.environment }}
-        run: |
-          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-          IMAGE_URI="$ACCOUNT_ID.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/nagiyu-dev-sync-ecr-$ENVIRONMENT:latest"
-
-          echo "image-uri=$IMAGE_URI" >> "$GITHUB_OUTPUT"
-          echo "Lambda image URI: $IMAGE_URI"
-
-      - name: Update Lambda function with latest image
-        uses: ./.github/actions/update-lambda-image
-        with:
-          function-names: |
-            nagiyu-dev-sync-${{ needs.deploy-ecr.outputs.environment }}
-          image-uri: ${{ steps.resolve-image.outputs.image-uri }}
-          region: ${{ env.AWS_REGION }}
-
   summary:
     name: Deployment Summary
     runs-on: ubuntu-latest
     if: always()
     needs: [deploy-ecr, build-batch, deploy-main]
+
+    # 検査と同じ実行環境でビルドとデプロイを行うため、共通イメージの上で動かす。docker のデーモンはランナーのものを使う
+    container:
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v2
+
+    # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
+    defaults:
+      run:
+        shell: bash
 
     steps:
       - name: Display deployment summary

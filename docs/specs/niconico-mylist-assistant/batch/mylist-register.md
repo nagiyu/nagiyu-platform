@@ -18,7 +18,7 @@ sources:
   - libs/aws/src/error-events/report.ts
   - libs/common/src/retry/retry.ts
   - libs/common/src/push/client.ts
-sources_hash: 02a1364293baacb841fda2280ef9534e7622aa5a6c5f5e3f53580ba492d994e7
+sources_hash: 01e1c4cf7cc82d71d2ecabe53b0a55f5348deb2bdb8e8d00c98034488446c3b3
 terms: [niconico-mylist-assistant/term/user-session, niconico-mylist-assistant/term/batch-job, platform/term/error-event]
 related_cards: [niconico-mylist-assistant/api/mylist-register, niconico-mylist-assistant/api/batch-jobs, niconico-mylist-assistant/screen/job-status, niconico-mylist-assistant/flow/mylist-registration, niconico-mylist-assistant/flow/session-injection, admin/flow/error-notification]
 related_adr:

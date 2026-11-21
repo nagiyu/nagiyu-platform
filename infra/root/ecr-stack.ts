@@ -1,6 +1,6 @@
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
-import { EcrStackBase, EcrStackBaseProps } from '../common/src/stacks/ecr-stack-base';
+import { EcrStackBase, EcrStackBaseProps } from '@nagiyu/infra-common';
 
 export interface EcrStackProps extends cdk.StackProps {
   environment: string;

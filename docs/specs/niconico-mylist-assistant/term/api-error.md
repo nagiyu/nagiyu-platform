@@ -11,7 +11,7 @@ sources:
   - libs/nextjs/src/auth.ts
   - libs/common/src/constants/error-codes.ts
   - libs/common/src/constants/error-messages.ts
-sources_hash: 505afbd32deb940b04e9ff1c0f52a8de3b7aeeec81b7d74a358f4763c8cf48fb
+sources_hash: 3b7d1fbd3c7e536ab87752fdb1e4e1358af29ccf59835207ec5295408967fb03
 terms: [platform/term/error-event]
 related_cards: [admin/flow/error-notification]
 ---
@@ -24,7 +24,7 @@ niconico-mylist-assistant の API が失敗したときに返す本文の形と�
 
 | 形 | 本文 | 使う API |
 |---|---|---|
-| A | `{ error: { code, message, details? } }` | 動画一覧 (`GET /api/videos`)、二段階認証コード (`POST /api/batch/2fa`)、ジョブの状態の 404 |
+| A | `{ error: { code, message, details? } }` | 動画一覧 (`GET /api/videos`)、ジョブの状態の 404 |
 | B | `{ error: <日本語の文> }` | 動画の取得・削除・設定更新、動画の検索、一括インポート、テスト用 API |
 | C | `{ error: <コード>, message: <日本語の文> }` | マイリスト登録、ニコニコセッション、ジョブの状態 (未ログインと想定外の失敗)、Push |
 
@@ -35,7 +35,7 @@ niconico-mylist-assistant の API が失敗したときに返す本文の形と�
 
 | 本文の形 | 500 の本文 |
 |---|---|
-| A (動画一覧、二段階認証コード) | `code` が `DATABASE_ERROR`、`message` が「データベースへのアクセスに失敗しました」 |
+| A (動画一覧) | `code` が `DATABASE_ERROR`、`message` が「データベースへのアクセスに失敗しました」 |
 | B | 「サーバーエラーが発生しました」 |
 | C (マイリスト登録) | `error` が `BATCH_ERROR`、`message` が「バッチジョブの投入に失敗しました」 |
 | C (ニコニコセッション) | `error` が `SESSION_STATUS_ERROR`、`SESSION_SAVE_ERROR`、`SESSION_DELETE_ERROR` (操作ごと) |

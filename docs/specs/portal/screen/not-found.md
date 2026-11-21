@@ -7,7 +7,7 @@ sources:
   - services/portal/web/src/app/not-found.tsx
   - services/portal/web/src/app/tech/[slug]/page.tsx
   - libs/ui/src/components/feedback/NotFoundView.tsx
-sources_hash: 4c98b6f41c551ea5162b870b6cd899997f0d764578eefe3a5721fcc6dea8ad71
+sources_hash: 7910472227f5d9f52ac335bdf0e47b31c3cecbb599e705f689a1ac2bec4da6df
 related_cards: [portal/screen/home, portal/screen/tech-article, portal/screen/tech]
 ---
 
@@ -30,7 +30,8 @@ related_cards: [portal/screen/home, portal/screen/tech-article, portal/screen/te
 | 説明 | 「お探しのページは移動または削除されたか、URL が間違っている可能性があります。」 |
 | ボタン | 「トップページへ戻る」 |
 
-- 文言は `@nagiyu/ui` の共通の部品 (`NotFoundView`) のもので、Portal は変えていない
+- ページのタイトル (ブラウザのタブに出るもの) は「ページが見つかりません - nagiyu」
+- 見出し・説明・ボタンの文言は `@nagiyu/ui` の共通の部品 (`NotFoundView`) のもので、Portal は変えていない
 
 ## 操作
 

@@ -19,7 +19,6 @@ on:
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/root-deploy.yml'
-      - '.github/actions/update-lambda-image/**'
       - '.github/actions/health-check/**'
       - '.github/actions/push-ecr-image/**'
   workflow_dispatch:
@@ -34,6 +33,9 @@ on:
 
 env:
   AWS_REGION: us-east-1
+  # push するタグと CDK が指すタグを同じ値にするため、全ジョブで共有する。
+  # CDK はどのスタックを deploy するときもアプリ全体を合成するので、ECR だけの deploy にも要る。
+  IMAGE_TAG: ${{ github.sha }}
 
 permissions:
   id-token: write
@@ -55,12 +57,24 @@ jobs:
       environment: ${{ steps.setup-environment.outputs.environment }}
       stack-suffix: ${{ steps.setup-environment.outputs.stack-suffix }}
 
+    # 検査と同じ実行環境でビルドとデプロイを行うため、共通イメージの上で動かす。docker のデーモンはランナーのものを使う
+    container:
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v2
+
+    # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
+    defaults:
+      run:
+        shell: bash
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Setup Node.js and install dependencies
         uses: ./.github/actions/setup-node
+        with:
+          # Node はイメージに入っているものを使う
+          skip-setup-node: 'true'
 
       - name: Setup deployment environment
         id: setup-environment
@@ -100,6 +114,15 @@ jobs:
       stack-suffix: ${{ needs.infrastructure-ecr.outputs.stack-suffix }}
       app-version: ${{ steps.get-version.outputs.app-version }}
 
+    # 検査と同じ実行環境でビルドとデプロイを行うため、共通イメージの上で動かす。docker のデーモンはランナーのものを使う
+    container:
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v2
+
+    # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
+    defaults:
+      run:
+        shell: bash
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -115,6 +138,8 @@ jobs:
       - name: Build Web application
         uses: ./.github/actions/build-web-app
         with:
+          # Node はイメージに入っているものを使う
+          skip-setup-node: 'true'
           workspace: '@nagiyu/portal-web'
 
       - name: Configure AWS credentials
@@ -154,7 +179,7 @@ jobs:
             APP_VERSION=${{ steps.get-version.outputs.app-version }}
             NAGIYU_ENV=${{ needs.infrastructure-ecr.outputs.environment }}
           tags: |
-            latest
+            ${{ env.IMAGE_TAG }}
 
   infrastructure-app:
     name: Deploy Application Infrastructure
@@ -162,12 +187,24 @@ jobs:
     needs: build
     environment: ${{ needs.build.outputs.environment }}
 
+    # 検査と同じ実行環境でビルドとデプロイを行うため、共通イメージの上で動かす。docker のデーモンはランナーのものを使う
+    container:
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v2
+
+    # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
+    defaults:
+      run:
+        shell: bash
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Setup Node.js and install dependencies
         uses: ./.github/actions/setup-node
+        with:
+          # Node はイメージに入っているものを使う
+          skip-setup-node: 'true'
 
       - name: Build common infrastructure package
         run: npm run build --workspace=@nagiyu/infra-common
@@ -195,35 +232,12 @@ jobs:
 
           echo "Lambda and CloudFront deployed (environment: $ENVIRONMENT)"
 
-      - name: Resolve Lambda image URI (dev)
-        id: resolve-image
-        if: needs.build.outputs.environment == 'dev'
-        env:
-          ENVIRONMENT: ${{ needs.build.outputs.environment }}
-        run: |
-          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-          ECR_REGISTRY="${ACCOUNT_ID}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com"
-          IMAGE_URI="${ECR_REGISTRY}/nagiyu-portal-ecr-${ENVIRONMENT}:latest"
-
-          echo "image-uri=$IMAGE_URI" >> "$GITHUB_OUTPUT"
-          echo "Lambda image URI: $IMAGE_URI"
-
-      - name: Update Lambda function with latest image (dev)
-        if: needs.build.outputs.environment == 'dev'
-        uses: ./.github/actions/update-lambda-image
-        with:
-          function-names: |
-            nagiyu-portal-lambda-${{ needs.build.outputs.environment }}
-          image-uri: ${{ steps.resolve-image.outputs.image-uri }}
-          region: ${{ env.AWS_REGION }}
-
       # Prod 環境: ECS Cluster + ALB + ECS Service + CloudFront スタック
       - name: Deploy ECS Cluster, ALB, ECS Service and CloudFront Stacks (prod)
         if: needs.build.outputs.environment == 'prod'
         env:
           ENVIRONMENT: ${{ needs.build.outputs.environment }}
           STACK_SUFFIX: ${{ needs.build.outputs.stack-suffix }}
-          IMAGE_TAG: latest
         run: |
           npm run cdk --workspace=@nagiyu/infra -- deploy \
             NagiyuRootCluster${STACK_SUFFIX} \
@@ -233,19 +247,6 @@ jobs:
             --require-approval never
 
           echo "ECS Cluster, ALB, Service and CloudFront deployed (environment: $ENVIRONMENT)"
-
-      - name: Force new ECS service deployment (prod)
-        if: needs.build.outputs.environment == 'prod'
-        env:
-          ENVIRONMENT: ${{ needs.build.outputs.environment }}
-        run: |
-          aws ecs update-service \
-            --cluster "nagiyu-root-cluster-${ENVIRONMENT}" \
-            --service "nagiyu-root-service-${ENVIRONMENT}" \
-            --force-new-deployment \
-            --region "${{ env.AWS_REGION }}"
-
-          echo "ECS service deployment triggered."
 
       - name: Wait for ECS service to stabilize (prod)
         if: needs.build.outputs.environment == 'prod'
@@ -265,6 +266,15 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build, infrastructure-app]
     environment: ${{ needs.build.outputs.environment }}
+
+    # 検査と同じ実行環境でビルドとデプロイを行うため、共通イメージの上で動かす。docker のデーモンはランナーのものを使う
+    container:
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v2
+
+    # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
+    defaults:
+      run:
+        shell: bash
 
     steps:
       - name: Checkout code

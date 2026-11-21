@@ -6,6 +6,10 @@ import { createAlertNotificationPayload } from '../../../src/lib/web-push-client
 import { normalizeVapidKey } from '@nagiyu/common';
 import type { AlertEntity } from '@nagiyu/stock-tracker-core';
 
+// web-push は ESM 専用で Jest が読み込めない。このテストは送信を検証しないため空のモックに差し替える。
+// web-push は @nagiyu/common の依存でこのサービスからは解決できないため virtual を付ける
+jest.mock('web-push', () => ({}), { virtual: true });
+
 describe('web-push-client', () => {
   let mockAlert: AlertEntity;
 

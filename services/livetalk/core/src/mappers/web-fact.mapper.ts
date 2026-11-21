@@ -12,6 +12,7 @@ import {
   type EntityPatch,
 } from '@nagiyu/aws';
 import type { WebFactEntity, WebFactKey, WebFactVolatility } from '../entities/web-fact.entity.js';
+import { readSourceUrls } from './source-urls.js';
 import { buildUserPK, buildWebFactSK } from './keys.js';
 
 const WEB_FACT_VOLATILITIES: readonly WebFactVolatility[] = [
@@ -86,7 +87,7 @@ export class WebFactMapper implements EntityMapper<WebFactEntity, WebFactKey> {
       topicId: validateStringField(item.TopicID, 'TopicID'),
       factId: validateStringField(item.FactID, 'FactID'),
       text: validateStringField(item.Text, 'Text'),
-      sourceUrls: Array.isArray(item.SourceUrls) ? (item.SourceUrls as string[]) : [],
+      sourceUrls: readSourceUrls(item),
       volatility: validateEnumField(item.Volatility, 'Volatility', WEB_FACT_VOLATILITIES),
       observedAt: validateTimestampField(item.ObservedAt, 'ObservedAt'),
       createdAt: readTimestamp(item, 'CreatedAt'),

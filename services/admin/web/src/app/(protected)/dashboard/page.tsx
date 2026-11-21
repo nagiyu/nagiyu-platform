@@ -1,6 +1,6 @@
 import { Box, Card, CardContent, Typography } from '@mui/material';
 import { Chip } from '@nagiyu/ui';
-import { hasPermission } from '@nagiyu/common';
+import { getRoleName, hasPermission } from '@nagiyu/common';
 import { getSession } from '@/lib/auth/session';
 import { redirect } from 'next/navigation';
 import DashboardRoleCards from '@/components/dashboard/DashboardRoleCards';
@@ -38,7 +38,7 @@ export default async function DashboardPage() {
           <Box sx={{ mt: 1, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
             {user.roles.map((role) => (
               <Chip key={role} size="sm" data-testid="user-role">
-                {role}
+                {getRoleName(role)}
               </Chip>
             ))}
           </Box>

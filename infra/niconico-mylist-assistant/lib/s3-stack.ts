@@ -1,6 +1,7 @@
 import * as cdk from 'aws-cdk-lib';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import { Construct } from 'constructs';
+import { createServiceBucket } from '@nagiyu/infra-common';
 
 export interface S3StackProps extends cdk.StackProps {
   environment: string;
@@ -14,6 +15,7 @@ export interface S3StackProps extends cdk.StackProps {
  * セキュリティ設定:
  * - パブリックアクセスをブロック
  * - 暗号化を有効化 (SSE-S3)
+ * - HTTPS 以外のアクセスを拒否
  * - ライフサイクルルールで7日後に削除（スクリーンショットは一時的なデバッグ用のため）
  */
 export class S3Stack extends cdk.Stack {
@@ -26,10 +28,8 @@ export class S3Stack extends cdk.Stack {
     const { environment } = props;
 
     // スクリーンショット保存用バケット
-    this.screenshotBucket = new s3.Bucket(this, 'ScreenshotBucket', {
+    this.screenshotBucket = createServiceBucket(this, 'ScreenshotBucket', {
       bucketName: `nagiyu-niconico-mylist-assistant-screenshots-${environment}`,
-      encryption: s3.BucketEncryption.S3_MANAGED,
-      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       removalPolicy: cdk.RemovalPolicy.RETAIN, // 本番データ保護のため RETAIN
       autoDeleteObjects: false,
       lifecycleRules: [

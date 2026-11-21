@@ -1,3 +1,4 @@
+import { jst } from '../../helpers/jst.js';
 import { buildExplorationAnglePrompt } from '../../../src/research/exploration-angle.prompt.js';
 
 describe('buildExplorationAnglePrompt', () => {
@@ -7,7 +8,7 @@ describe('buildExplorationAnglePrompt', () => {
     selfFactTexts: ['ボカロが好き', '最近ライブに行った'],
     knownWebFactTexts: ['新曲が公開された'],
     recentAngles: ['ボカロ 新作'],
-    today: new Date(2026, 0, 5),
+    today: jst(2026, 0, 5),
   };
 
   it('system と user のメッセージを返し、user に材料が入る', () => {

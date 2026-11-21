@@ -10,10 +10,10 @@ sources:
   - services/auth/web/src/app/dashboard/users/[userId]/edit/stripe-customer-section.tsx
   - services/auth/web/src/lib/role-grant-editing.ts
   - services/auth/web/src/lib/stripe-customer-client.ts
-  - services/auth/web/src/lib/role-display.ts
+  - libs/common/src/auth/roles.ts
   - services/auth/web/src/lib/manual-roles.ts
   - libs/common/src/auth/role-grants.ts
-sources_hash: 04a9c00fab4bb7ac7761124c0cab675bb6a77b4b100c46566b7f5c3d24029d14
+sources_hash: fae0666194923c4814330241d5712726855ea221c9f6ba3a392aa69aa4b58272
 terms: [platform/term/role, auth/term/role-grant, auth/term/api-error]
 related_cards: [auth/screen/users, auth/api/users, auth/flow/billing-entitlement]
 related_adr:

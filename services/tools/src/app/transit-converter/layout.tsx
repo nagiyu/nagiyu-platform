@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { toJsonLd, transitConverterStructuredData } from '@/lib/structuredData';
+import { SITE_URL } from '@/lib/site';
 
 export const metadata: Metadata = {
   title: '乗り換え変換ツール',
@@ -11,7 +12,7 @@ export const metadata: Metadata = {
     description: '乗り換え案内のテキストを整形してコピーするツールです。',
   },
   alternates: {
-    canonical: 'https://nagiyu.com/transit-converter',
+    canonical: `${SITE_URL}/transit-converter`,
   },
 };
 

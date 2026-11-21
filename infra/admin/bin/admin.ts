@@ -38,15 +38,10 @@ new ECRStack(app, `NagiyuAdminECR${envSuffix}`, {
   description: `Admin Service ECR - ${env} environment`,
 });
 
-// 自己監視 SNS Topic の ARN
-// Lambda (受け口の許可トピック) と自己監視アラーム (通知先) の両方で同じ値を使う
-const selfMonitoringTopicArn = `arn:aws:sns:${stackEnv.region}:${process.env.CDK_DEFAULT_ACCOUNT}:nagiyu-admin-self-monitoring-${env}`;
-
 // Lambda スタックを作成
 const lambdaStack = new LambdaStack(app, `NagiyuAdminLambda${envSuffix}`, {
   environment: env,
   appVersion: appVersion,
-  selfMonitoringTopicArn,
   env: stackEnv,
   description: `Admin Service Lambda - ${env} environment`,
 });
@@ -80,7 +75,6 @@ const batchLambdaStack = new BatchLambdaStack(app, `NagiyuAdminBatchLambda${envS
 // 別 SNS Topic 経由で検知し、既存 /api/notify/sns へ HTTPS 配信する
 new SelfMonitoringAlarmsStack(app, `NagiyuAdminSelfMonitoring${envSuffix}`, {
   environment: env as 'dev' | 'prod',
-  selfMonitoringTopicArn,
   alarmIngestFunction: batchLambdaStack.alarmIngestFunction,
   streamHandlerFunction: batchLambdaStack.streamHandlerFunction,
   streamHandlerDeadLetterQueue: batchLambdaStack.streamHandlerDeadLetterQueue,

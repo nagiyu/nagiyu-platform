@@ -12,8 +12,8 @@ import {
 } from '@mui/material';
 import { Button, Chip, ErrorAlert, LoadingState } from '@nagiyu/ui';
 import Link from 'next/link';
+import { getRoleName } from '@nagiyu/common';
 import type { User } from '@nagiyu/common';
-import { getRoleName } from '@/lib/role-display';
 
 interface UsersTableProps {
   canAssignRoles: boolean;

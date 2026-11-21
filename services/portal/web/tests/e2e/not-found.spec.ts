@@ -8,6 +8,7 @@ test.describe('存在しない URL', () => {
     await expect(
       page.getByRole('heading', { level: 1, name: 'ページが見つかりません' })
     ).toBeVisible();
+    await expect(page).toHaveTitle('ページが見つかりません - nagiyu');
     await expect(page.getByText('This page could not be found')).toHaveCount(0);
   });
 });
@@ -24,5 +25,6 @@ test.describe('存在しない記事の URL (JavaScript 無効)', () => {
     await expect(
       page.getByRole('heading', { level: 1, name: 'ページが見つかりません' })
     ).toBeVisible();
+    await expect(page).toHaveTitle('ページが見つかりません - nagiyu');
   });
 });

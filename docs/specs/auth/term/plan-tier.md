@@ -6,7 +6,7 @@ service: auth
 sources:
   - libs/common/src/auth/roles.ts
   - services/auth/web/src/lib/plans.ts
-sources_hash: f68195491bae42e24156e13f66381d9edcb0e98c177e4c3e05bc91189f04315b
+sources_hash: 9e69a5f9f2863393d624869a8f18144d9afc55a3c9d17eb1567e13d0f8e0678e
 terms: [platform/term/role]
 related_cards: [auth/screen/plans, auth/api/billing, auth/flow/billing-entitlement]
 related_adr:

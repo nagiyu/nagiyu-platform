@@ -1,6 +1,22 @@
 import * as cdk from 'aws-cdk-lib';
 import { Template, Match } from 'aws-cdk-lib/assertions';
+import { IMAGE_TAG_ERROR_MESSAGES } from '@nagiyu/infra-common';
 import * as CodecConverter from '../lib/codec-converter-stack';
+
+// コンテナイメージを使うスタックは IMAGE_TAG が無いと合成できないため、テストごとにダミーを渡す
+const originalImageTag = process.env.IMAGE_TAG;
+
+beforeEach(() => {
+  process.env.IMAGE_TAG = 'test-tag';
+});
+
+afterEach(() => {
+  if (originalImageTag === undefined) {
+    delete process.env.IMAGE_TAG;
+  } else {
+    process.env.IMAGE_TAG = originalImageTag;
+  }
+});
 
 // CloudFormation テンプレート上の Batch ResourceRequirements の要素
 type ResourceRequirement = { Type: string; Value: string };
@@ -38,6 +54,22 @@ test('S3 Bucket Created', () => {
           },
         },
       ],
+    },
+  });
+});
+
+test('S3 Bucket denies non-HTTPS access', () => {
+  const { stack } = createTestStack();
+  const template = Template.fromStack(stack);
+
+  template.hasResourceProperties('AWS::S3::BucketPolicy', {
+    PolicyDocument: {
+      Statement: Match.arrayWith([
+        Match.objectLike({
+          Effect: 'Deny',
+          Condition: { Bool: { 'aws:SecureTransport': 'false' } },
+        }),
+      ]),
     },
   });
 });
@@ -210,13 +242,23 @@ test('Lambda has Batch permissions', () => {
   });
 });
 
-test('X-Robots-Tag: noindex, nofollow ヘッダーポリシーが作成される', () => {
+test('セキュリティヘッダーと X-Robots-Tag: noindex, nofollow を持つヘッダーポリシーが作成される', () => {
   const { stack } = createTestStack();
   const template = Template.fromStack(stack);
 
   template.hasResourceProperties('AWS::CloudFront::ResponseHeadersPolicy', {
     ResponseHeadersPolicyConfig: Match.objectLike({
-      Name: Match.stringLikeRegexp('nagiyu-codec-converter-noindex-.*'),
+      Name: Match.stringLikeRegexp('nagiyu-codec-converter-security-headers-.*'),
+      SecurityHeadersConfig: Match.objectLike({
+        StrictTransportSecurity: Match.objectLike({
+          AccessControlMaxAgeSec: 63072000,
+          IncludeSubdomains: true,
+          Preload: true,
+          Override: true,
+        }),
+        ContentTypeOptions: { Override: true },
+        FrameOptions: { FrameOption: 'DENY', Override: true },
+      }),
       CustomHeadersConfig: {
         Items: Match.arrayWith([
           {
@@ -230,17 +272,21 @@ test('X-Robots-Tag: noindex, nofollow ヘッダーポリシーが作成される
   });
 });
 
-test('CloudFront defaultBehavior に X-Robots-Tag ヘッダーポリシーが適用される', () => {
+test('CloudFront の全 behavior にセキュリティヘッダーポリシーが適用される', () => {
   const { stack } = createTestStack();
   const template = Template.fromStack(stack);
 
+  const policyRef = Match.objectLike({
+    Ref: Match.stringLikeRegexp('^SecurityHeadersPolicy'),
+  });
   template.hasResourceProperties('AWS::CloudFront::Distribution', {
     DistributionConfig: Match.objectLike({
-      DefaultCacheBehavior: Match.objectLike({
-        ResponseHeadersPolicyId: Match.objectLike({
-          Ref: Match.stringLikeRegexp('^NoindexHeadersPolicy'),
-        }),
-      }),
+      DefaultCacheBehavior: Match.objectLike({ ResponseHeadersPolicyId: policyRef }),
+      CacheBehaviors: Match.arrayEquals([
+        Match.objectLike({ ResponseHeadersPolicyId: policyRef }),
+        Match.objectLike({ ResponseHeadersPolicyId: policyRef }),
+        Match.objectLike({ ResponseHeadersPolicyId: policyRef }),
+      ]),
     }),
   });
 });
@@ -279,50 +325,61 @@ describe('環境による分岐', () => {
   });
 });
 
-describe('デプロイフェーズ ecr-only', () => {
-  test('Web 用と Batch ワーカー用の ECR リポジトリが作成される', () => {
-    const { stack } = createTestStack({ deploymentPhase: 'ecr-only', env: 'dev' });
-    const template = Template.fromStack(stack);
+describe('イメージのタグと ECR リポジトリ', () => {
+  const originalImageTag = process.env.IMAGE_TAG;
 
-    template.resourceCountIs('AWS::ECR::Repository', 2);
-    template.hasResourceProperties('AWS::ECR::Repository', {
-      RepositoryName: 'nagiyu-codec-converter-dev',
-      ImageScanningConfiguration: { ScanOnPush: true },
-    });
-    template.hasResourceProperties('AWS::ECR::Repository', {
-      RepositoryName: 'nagiyu-codec-converter-ffmpeg-dev',
-      ImageScanningConfiguration: { ScanOnPush: true },
-    });
-  });
-
-  test('ECR リポジトリは削除時に保持される', () => {
-    const { stack } = createTestStack({ deploymentPhase: 'ecr-only' });
-    const template = Template.fromStack(stack);
-
-    const repositories = template.findResources('AWS::ECR::Repository');
-    for (const repository of Object.values(repositories)) {
-      expect(repository.DeletionPolicy).toBe('Retain');
+  afterEach(() => {
+    if (originalImageTag === undefined) {
+      delete process.env.IMAGE_TAG;
+    } else {
+      process.env.IMAGE_TAG = originalImageTag;
     }
   });
 
-  test('アプリケーションの Lambda・Batch・CloudFront は作成されない', () => {
-    const { stack } = createTestStack({ deploymentPhase: 'ecr-only' });
+  // Fn::Join で組み立てられるイメージ URI を文字列に直して比較する
+  function flatten(value: unknown): string {
+    if (typeof value === 'string') return value;
+    if (value && typeof value === 'object' && 'Fn::Join' in value) {
+      const [separator, parts] = (value as { 'Fn::Join': [string, unknown[]] })['Fn::Join'];
+      return parts.map((part) => (typeof part === 'string' ? part : '${ref}')).join(separator);
+    }
+    return '${ref}';
+  }
+
+  test('IMAGE_TAG を指定すると Lambda と Batch ジョブ定義が新しいリポジトリのそのタグを指す', () => {
+    process.env.IMAGE_TAG = 'abc123';
+    const { stack } = createTestStack({ env: 'dev' });
     const template = Template.fromStack(stack);
 
-    template.resourceCountIs('AWS::Lambda::Url', 0);
-    template.resourceCountIs('AWS::Batch::ComputeEnvironment', 0);
-    template.resourceCountIs('AWS::CloudFront::Distribution', 0);
+    const functions = Object.values(template.findResources('AWS::Lambda::Function')).filter(
+      (resource) => resource.Properties.PackageType === 'Image'
+    );
+    expect(functions).toHaveLength(1);
+    expect(flatten(functions[0].Properties.Code.ImageUri)).toMatch(
+      /nagiyu-codec-converter-ecr-dev:abc123$/
+    );
+
+    const jobDefs = Object.values(template.findResources('AWS::Batch::JobDefinition'));
+    expect(jobDefs).toHaveLength(4);
+    for (const jobDef of jobDefs) {
+      expect(flatten(jobDef.Properties.ContainerProperties.Image)).toMatch(
+        /nagiyu-codec-converter-batch-ecr-dev:abc123$/
+      );
+    }
   });
 
-  test('ecrRepositoryName を指定するとリポジトリ名に反映される', () => {
-    const { stack } = createTestStack({
-      deploymentPhase: 'ecr-only',
-      ecrRepositoryName: 'custom-repo',
-    });
+  test('IMAGE_TAG が無いときは例外を投げる', () => {
+    delete process.env.IMAGE_TAG;
+
+    expect(() => createTestStack({ env: 'prod' })).toThrow(
+      IMAGE_TAG_ERROR_MESSAGES.IMAGE_TAG_REQUIRED
+    );
+  });
+
+  test('本体のスタックは ECR リポジトリを作らない', () => {
+    const { stack } = createTestStack();
     const template = Template.fromStack(stack);
 
-    template.hasResourceProperties('AWS::ECR::Repository', {
-      RepositoryName: 'custom-repo',
-    });
+    template.resourceCountIs('AWS::ECR::Repository', 0);
   });
 });
