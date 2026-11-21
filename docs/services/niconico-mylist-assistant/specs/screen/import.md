@@ -1,19 +1,10 @@
 ---
-id: niconico-mylist-assistant/screen/import
-title: 動画一括インポート画面
-kind: screen
-service: niconico-mylist-assistant
 sources:
   - services/niconico-mylist-assistant/web/src/app/import/page.tsx
   - services/niconico-mylist-assistant/web/src/components/VideoSearchModal.tsx
   - services/niconico-mylist-assistant/web/src/lib/video-id-input.ts
   - services/niconico-mylist-assistant/web/src/lib/constants/errors.ts
 sources_hash: e1d3e5e28a0aec4b3c88e4635d31e1c175804b05bec5a5ff974db52176534d71
-terms: [niconico-mylist-assistant/term/video-id, niconico-mylist-assistant/term/video-basic-info]
-related_cards: [niconico-mylist-assistant/api/video-import, niconico-mylist-assistant/screen/videos, niconico-mylist-assistant/screen/home]
-related_adr:
-  - services/niconico-mylist-assistant/requirements.md#3.2 動画検索とインポート
-  - services/niconico-mylist-assistant/requirements.md#3.3 動画一括インポート
 ---
 
 # 動画一括インポート画面
@@ -93,13 +84,13 @@ related_adr:
 
 | スマホ | PC |
 |---|---|
-| ![動画一括インポート画面 通常表示 (スマホ)](../../../images/specs/niconico-mylist-assistant/screen/import-default-mobile.png) | ![動画一括インポート画面 通常表示 (PC)](../../../images/specs/niconico-mylist-assistant/screen/import-default-desktop.png) |
+| ![動画一括インポート画面 通常表示 (スマホ)](../../../../images/specs/niconico-mylist-assistant/screen/import-default-mobile.png) | ![動画一括インポート画面 通常表示 (PC)](../../../../images/specs/niconico-mylist-assistant/screen/import-default-desktop.png) |
 
 ### 100 件を超えたとき
 
 | スマホ | PC |
 |---|---|
-| ![動画一括インポート画面 100 件を超えたとき (スマホ)](../../../images/specs/niconico-mylist-assistant/screen/import-too-many-mobile.png) | ![動画一括インポート画面 100 件を超えたとき (PC)](../../../images/specs/niconico-mylist-assistant/screen/import-too-many-desktop.png) |
+| ![動画一括インポート画面 100 件を超えたとき (スマホ)](../../../../images/specs/niconico-mylist-assistant/screen/import-too-many-mobile.png) | ![動画一括インポート画面 100 件を超えたとき (PC)](../../../../images/specs/niconico-mylist-assistant/screen/import-too-many-desktop.png) |
 
 ### 形式が正しくない動画 ID
 
@@ -107,7 +98,7 @@ related_adr:
 
 | スマホ | PC |
 |---|---|
-| ![動画一括インポート画面 形式が正しくない動画 ID (スマホ)](../../../images/specs/niconico-mylist-assistant/screen/import-invalid-ids-mobile.png) | ![動画一括インポート画面 形式が正しくない動画 ID (PC)](../../../images/specs/niconico-mylist-assistant/screen/import-invalid-ids-desktop.png) |
+| ![動画一括インポート画面 形式が正しくない動画 ID (スマホ)](../../../../images/specs/niconico-mylist-assistant/screen/import-invalid-ids-mobile.png) | ![動画一括インポート画面 形式が正しくない動画 ID (PC)](../../../../images/specs/niconico-mylist-assistant/screen/import-invalid-ids-desktop.png) |
 
 ### インポート中
 
@@ -115,7 +106,7 @@ related_adr:
 
 | スマホ | PC |
 |---|---|
-| ![動画一括インポート画面 インポート中 (スマホ)](../../../images/specs/niconico-mylist-assistant/screen/import-importing-mobile.png) | ![動画一括インポート画面 インポート中 (PC)](../../../images/specs/niconico-mylist-assistant/screen/import-importing-desktop.png) |
+| ![動画一括インポート画面 インポート中 (スマホ)](../../../../images/specs/niconico-mylist-assistant/screen/import-importing-mobile.png) | ![動画一括インポート画面 インポート中 (PC)](../../../../images/specs/niconico-mylist-assistant/screen/import-importing-desktop.png) |
 
 ### インポート結果
 
@@ -123,7 +114,7 @@ related_adr:
 
 | スマホ | PC |
 |---|---|
-| ![動画一括インポート画面 インポート結果 (スマホ)](../../../images/specs/niconico-mylist-assistant/screen/import-result-mobile.png) | ![動画一括インポート画面 インポート結果 (PC)](../../../images/specs/niconico-mylist-assistant/screen/import-result-desktop.png) |
+| ![動画一括インポート画面 インポート結果 (スマホ)](../../../../images/specs/niconico-mylist-assistant/screen/import-result-mobile.png) | ![動画一括インポート画面 インポート結果 (PC)](../../../../images/specs/niconico-mylist-assistant/screen/import-result-desktop.png) |
 
 ### インポートに失敗したとき
 
@@ -131,7 +122,7 @@ related_adr:
 
 | スマホ | PC |
 |---|---|
-| ![動画一括インポート画面 インポートに失敗したとき (スマホ)](../../../images/specs/niconico-mylist-assistant/screen/import-import-error-mobile.png) | ![動画一括インポート画面 インポートに失敗したとき (PC)](../../../images/specs/niconico-mylist-assistant/screen/import-import-error-desktop.png) |
+| ![動画一括インポート画面 インポートに失敗したとき (スマホ)](../../../../images/specs/niconico-mylist-assistant/screen/import-import-error-mobile.png) | ![動画一括インポート画面 インポートに失敗したとき (PC)](../../../../images/specs/niconico-mylist-assistant/screen/import-import-error-desktop.png) |
 
 ### 検索ダイアログ
 
@@ -139,7 +130,7 @@ related_adr:
 
 | スマホ | PC |
 |---|---|
-| ![動画一括インポート画面 検索ダイアログ (スマホ)](../../../images/specs/niconico-mylist-assistant/screen/import-search-dialog-mobile.png) | ![動画一括インポート画面 検索ダイアログ (PC)](../../../images/specs/niconico-mylist-assistant/screen/import-search-dialog-desktop.png) |
+| ![動画一括インポート画面 検索ダイアログ (スマホ)](../../../../images/specs/niconico-mylist-assistant/screen/import-search-dialog-mobile.png) | ![動画一括インポート画面 検索ダイアログ (PC)](../../../../images/specs/niconico-mylist-assistant/screen/import-search-dialog-desktop.png) |
 
 ### 検索結果
 
@@ -147,19 +138,19 @@ related_adr:
 
 | スマホ | PC |
 |---|---|
-| ![動画一括インポート画面 検索結果 (スマホ)](../../../images/specs/niconico-mylist-assistant/screen/import-search-results-mobile.png) | ![動画一括インポート画面 検索結果 (PC)](../../../images/specs/niconico-mylist-assistant/screen/import-search-results-desktop.png) |
+| ![動画一括インポート画面 検索結果 (スマホ)](../../../../images/specs/niconico-mylist-assistant/screen/import-search-results-mobile.png) | ![動画一括インポート画面 検索結果 (PC)](../../../../images/specs/niconico-mylist-assistant/screen/import-search-results-desktop.png) |
 
 ### 検索結果が 0 件のとき
 
 | スマホ | PC |
 |---|---|
-| ![動画一括インポート画面 検索結果が 0 件のとき (スマホ)](../../../images/specs/niconico-mylist-assistant/screen/import-search-empty-mobile.png) | ![動画一括インポート画面 検索結果が 0 件のとき (PC)](../../../images/specs/niconico-mylist-assistant/screen/import-search-empty-desktop.png) |
+| ![動画一括インポート画面 検索結果が 0 件のとき (スマホ)](../../../../images/specs/niconico-mylist-assistant/screen/import-search-empty-mobile.png) | ![動画一括インポート画面 検索結果が 0 件のとき (PC)](../../../../images/specs/niconico-mylist-assistant/screen/import-search-empty-desktop.png) |
 
 ### 検索に失敗したとき
 
 | スマホ | PC |
 |---|---|
-| ![動画一括インポート画面 検索に失敗したとき (スマホ)](../../../images/specs/niconico-mylist-assistant/screen/import-search-error-mobile.png) | ![動画一括インポート画面 検索に失敗したとき (PC)](../../../images/specs/niconico-mylist-assistant/screen/import-search-error-desktop.png) |
+| ![動画一括インポート画面 検索に失敗したとき (スマホ)](../../../../images/specs/niconico-mylist-assistant/screen/import-search-error-mobile.png) | ![動画一括インポート画面 検索に失敗したとき (PC)](../../../../images/specs/niconico-mylist-assistant/screen/import-search-error-desktop.png) |
 
 ## つながり
 

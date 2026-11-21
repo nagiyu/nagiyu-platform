@@ -1,8 +1,4 @@
 ---
-id: niconico-mylist-assistant/flow/session-injection
-title: セッションの登録から利用まで
-kind: flow
-service: niconico-mylist-assistant
 sources:
   - services/niconico-mylist-assistant/web/src/components/NiconicoSessionManager.tsx
   - services/niconico-mylist-assistant/web/src/components/MylistRegisterForm.tsx
@@ -13,11 +9,6 @@ sources:
   - services/niconico-mylist-assistant/batch/src/index.ts
   - services/niconico-mylist-assistant/batch/src/playwright-automation.ts
 sources_hash: 74cbc2f13e3dd7d616b53a725a66fa20465995bb0a754e753732c102ff2ed9e3
-terms: [niconico-mylist-assistant/term/user-session]
-related_cards: [niconico-mylist-assistant/screen/mylist-register, niconico-mylist-assistant/api/niconico-session, niconico-mylist-assistant/api/mylist-register, niconico-mylist-assistant/batch/mylist-register, niconico-mylist-assistant/flow/mylist-registration]
-related_adr:
-  - services/niconico-mylist-assistant/architecture.md#2.13 認証方式：自動ログインから user_session 注入への移行
-  - services/niconico-mylist-assistant/requirements.md#2.3 セキュリティ方針
 ---
 
 # セッションの登録から利用まで

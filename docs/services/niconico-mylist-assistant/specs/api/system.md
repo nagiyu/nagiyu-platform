@@ -1,8 +1,4 @@
 ---
-id: niconico-mylist-assistant/api/system
-title: システム系の API
-kind: api
-service: niconico-mylist-assistant
 sources:
   - services/niconico-mylist-assistant/web/src/app/api/health/route.ts
   - services/niconico-mylist-assistant/web/src/app/api/auth/[...nextauth]/route.ts
@@ -11,8 +7,6 @@ sources:
   - libs/nextjs/src/health.ts
   - libs/nextjs/src/session.ts
 sources_hash: 7ef52556611da824f37741e5c515bf4fb0b08619ba005a524470610311c26354
-terms: [niconico-mylist-assistant/term/api-error]
-related_cards: [niconico-mylist-assistant/api/niconico-session, niconico-mylist-assistant/api/video-import]
 ---
 
 # システム系の API

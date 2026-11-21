@@ -1,8 +1,4 @@
 ---
-id: niconico-mylist-assistant/screen/videos
-title: 動画管理画面
-kind: screen
-service: niconico-mylist-assistant
 sources:
   - services/niconico-mylist-assistant/web/src/app/mylist/page.tsx
   - services/niconico-mylist-assistant/web/src/components/VideoList.tsx
@@ -11,11 +7,6 @@ sources:
   - services/niconico-mylist-assistant/web/src/components/VideoListPagination.tsx
   - services/niconico-mylist-assistant/web/src/components/VideoDetailModal.tsx
 sources_hash: 71af2db88da9c32a95483310cbdc1b852733b1dc412e646ad71ccceb1851fabc
-terms: [niconico-mylist-assistant/term/video-setting, niconico-mylist-assistant/term/video-basic-info]
-related_cards: [niconico-mylist-assistant/api/videos, niconico-mylist-assistant/screen/import, niconico-mylist-assistant/screen/mylist-register]
-related_adr:
-  - services/niconico-mylist-assistant/architecture.md#2.9 動画一覧の名前検索アーキテクチャ
-  - services/niconico-mylist-assistant/requirements.md#3.4 ユーザー設定管理
 ---
 
 # 動画管理画面
@@ -85,7 +76,7 @@ related_adr:
 
 | スマホ | PC |
 |---|---|
-| ![動画管理画面 通常表示 (スマホ)](../../../images/specs/niconico-mylist-assistant/screen/videos-default-mobile.png) | ![動画管理画面 通常表示 (PC)](../../../images/specs/niconico-mylist-assistant/screen/videos-default-desktop.png) |
+| ![動画管理画面 通常表示 (スマホ)](../../../../images/specs/niconico-mylist-assistant/screen/videos-default-mobile.png) | ![動画管理画面 通常表示 (PC)](../../../../images/specs/niconico-mylist-assistant/screen/videos-default-desktop.png) |
 
 ### ページ送り
 
@@ -93,7 +84,7 @@ related_adr:
 
 | スマホ | PC |
 |---|---|
-| ![動画管理画面 ページ送り (スマホ)](../../../images/specs/niconico-mylist-assistant/screen/videos-pagination-mobile.png) | ![動画管理画面 ページ送り (PC)](../../../images/specs/niconico-mylist-assistant/screen/videos-pagination-desktop.png) |
+| ![動画管理画面 ページ送り (スマホ)](../../../../images/specs/niconico-mylist-assistant/screen/videos-pagination-mobile.png) | ![動画管理画面 ページ送り (PC)](../../../../images/specs/niconico-mylist-assistant/screen/videos-pagination-desktop.png) |
 
 ### お気に入りで絞り込んだ状態
 
@@ -101,7 +92,7 @@ URL に `favorite=true` を付けて開いた状態。
 
 | スマホ | PC |
 |---|---|
-| ![動画管理画面 お気に入りで絞り込んだ状態 (スマホ)](../../../images/specs/niconico-mylist-assistant/screen/videos-filtered-mobile.png) | ![動画管理画面 お気に入りで絞り込んだ状態 (PC)](../../../images/specs/niconico-mylist-assistant/screen/videos-filtered-desktop.png) |
+| ![動画管理画面 お気に入りで絞り込んだ状態 (スマホ)](../../../../images/specs/niconico-mylist-assistant/screen/videos-filtered-mobile.png) | ![動画管理画面 お気に入りで絞り込んだ状態 (PC)](../../../../images/specs/niconico-mylist-assistant/screen/videos-filtered-desktop.png) |
 
 ### 動画の詳細ダイアログ
 
@@ -109,13 +100,13 @@ URL に `favorite=true` を付けて開いた状態。
 
 | スマホ | PC |
 |---|---|
-| ![動画管理画面 動画の詳細ダイアログ (スマホ)](../../../images/specs/niconico-mylist-assistant/screen/videos-detail-dialog-mobile.png) | ![動画管理画面 動画の詳細ダイアログ (PC)](../../../images/specs/niconico-mylist-assistant/screen/videos-detail-dialog-desktop.png) |
+| ![動画管理画面 動画の詳細ダイアログ (スマホ)](../../../../images/specs/niconico-mylist-assistant/screen/videos-detail-dialog-mobile.png) | ![動画管理画面 動画の詳細ダイアログ (PC)](../../../../images/specs/niconico-mylist-assistant/screen/videos-detail-dialog-desktop.png) |
 
 ### メモを保存せずに閉じようとしたとき
 
 | スマホ | PC |
 |---|---|
-| ![動画管理画面 メモを保存せずに閉じようとしたとき (スマホ)](../../../images/specs/niconico-mylist-assistant/screen/videos-discard-confirm-mobile.png) | ![動画管理画面 メモを保存せずに閉じようとしたとき (PC)](../../../images/specs/niconico-mylist-assistant/screen/videos-discard-confirm-desktop.png) |
+| ![動画管理画面 メモを保存せずに閉じようとしたとき (スマホ)](../../../../images/specs/niconico-mylist-assistant/screen/videos-discard-confirm-mobile.png) | ![動画管理画面 メモを保存せずに閉じようとしたとき (PC)](../../../../images/specs/niconico-mylist-assistant/screen/videos-discard-confirm-desktop.png) |
 
 ### 動画の削除の確認
 
@@ -123,19 +114,19 @@ URL に `favorite=true` を付けて開いた状態。
 
 | スマホ | PC |
 |---|---|
-| ![動画管理画面 動画の削除の確認 (スマホ)](../../../images/specs/niconico-mylist-assistant/screen/videos-delete-confirm-mobile.png) | ![動画管理画面 動画の削除の確認 (PC)](../../../images/specs/niconico-mylist-assistant/screen/videos-delete-confirm-desktop.png) |
+| ![動画管理画面 動画の削除の確認 (スマホ)](../../../../images/specs/niconico-mylist-assistant/screen/videos-delete-confirm-mobile.png) | ![動画管理画面 動画の削除の確認 (PC)](../../../../images/specs/niconico-mylist-assistant/screen/videos-delete-confirm-desktop.png) |
 
 ### 動画がないとき
 
 | スマホ | PC |
 |---|---|
-| ![動画管理画面 動画がないとき (スマホ)](../../../images/specs/niconico-mylist-assistant/screen/videos-empty-mobile.png) | ![動画管理画面 動画がないとき (PC)](../../../images/specs/niconico-mylist-assistant/screen/videos-empty-desktop.png) |
+| ![動画管理画面 動画がないとき (スマホ)](../../../../images/specs/niconico-mylist-assistant/screen/videos-empty-mobile.png) | ![動画管理画面 動画がないとき (PC)](../../../../images/specs/niconico-mylist-assistant/screen/videos-empty-desktop.png) |
 
 ### 一覧の取得に失敗したとき
 
 | スマホ | PC |
 |---|---|
-| ![動画管理画面 一覧の取得に失敗したとき (スマホ)](../../../images/specs/niconico-mylist-assistant/screen/videos-fetch-error-mobile.png) | ![動画管理画面 一覧の取得に失敗したとき (PC)](../../../images/specs/niconico-mylist-assistant/screen/videos-fetch-error-desktop.png) |
+| ![動画管理画面 一覧の取得に失敗したとき (スマホ)](../../../../images/specs/niconico-mylist-assistant/screen/videos-fetch-error-mobile.png) | ![動画管理画面 一覧の取得に失敗したとき (PC)](../../../../images/specs/niconico-mylist-assistant/screen/videos-fetch-error-desktop.png) |
 
 ## つながり
 
