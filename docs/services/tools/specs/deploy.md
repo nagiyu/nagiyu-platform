@@ -23,11 +23,11 @@ DNS レコードは、dev は CloudFront の基底スタックが、prod は sha
 
 `infra/tools/bin/tools.ts` が、次の順に作る。環境は CDK の context `env` (既定は `dev`) で決まり、`{Env}` は `Dev` または `Prod`。
 
-| 順 | スタック | 役割 | 含む主なリソース |
+| 順 | スタック | 役割 | 含むリソース |
 |---|---|---|---|
 | 1 | `NagiyuToolsEcr{Env}` | イメージの置き場 | ECR リポジトリ |
-| 2 | `NagiyuToolsLambda{Env}` | Web アプリの実行 | Lambda 関数 (コンテナイメージ)、Function URL、実行ロール。ECR のスタックに依存する |
-| 3 | `NagiyuToolsCloudFront{Env}` | Web アプリの配信 | CloudFront ディストリビューション (Lambda の Function URL がオリジン)、セキュリティヘッダーと noindex、dev の ALIAS。Lambda のスタックに依存する |
+| 2 | `NagiyuToolsLambda{Env}` | Web アプリの実行 | Lambda (Function URL つき) |
+| 3 | `NagiyuToolsCloudFront{Env}` | Web アプリの配信 | CloudFront、Route53 の ALIAS (dev のみ) |
 
 CloudFront のスタックは `us-east-1` に固定する (CloudFront の制約)。ほかのスタックのリージョンは、環境変数 `CDK_DEFAULT_REGION` で、未設定なら `us-east-1`。
 
@@ -54,6 +54,6 @@ flowchart TD
 | `infrastructure-ecr` | `NagiyuToolsEcr{Env}` をデプロイする |
 | `build` | Web アプリをビルドし、イメージを ECR に push する |
 | `infrastructure-app` | `NagiyuToolsLambda{Env}` と `NagiyuToolsCloudFront{Env}` をデプロイする |
-| `verify` | Lambda の Function URL に `/api/health` を GET し、200 を確認する |
+| `verify` | Lambda の Function URL でヘルスチェックを行う ([ヘルスチェック](../../../platform/specs/deploy.md#ヘルスチェック)) |
 
 CloudFront のキャッシュ削除は行わない。

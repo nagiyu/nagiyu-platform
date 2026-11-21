@@ -23,17 +23,16 @@ DNS レコードは、dev は CloudFront の基底スタックが、prod は sha
 
 `infra/auth/bin/auth.ts` が、次の順に作る。環境は CDK の context `env` (既定は `dev`) で決まり、`{Env}` は `Dev` または `Prod`。
 
-| 順 | スタック | 役割 | 含む主なリソース |
+| 順 | スタック | 役割 | 含むリソース |
 |---|---|---|---|
-| 1 | `NagiyuAuthDynamoDB{Env}` | ユーザー情報の保存 | DynamoDB のユーザーテーブル (Google のアカウント ID で引く GSI を持つ) |
-| 2 | `NagiyuAuthSecrets{Env}` | 認証のシークレット | Secrets Manager のシークレット (Google OAuth、NextAuth) |
-| 3 | `NagiyuAuthStripeSecrets{Env}` | 決済のシークレット | Secrets Manager のシークレット (Stripe) |
+| 1 | `NagiyuAuthDynamoDB{Env}` | ユーザー情報の保存 | DynamoDB テーブル |
+| 2 | `NagiyuAuthSecrets{Env}` | 認証のシークレット | Secrets Manager のシークレット |
+| 3 | `NagiyuAuthStripeSecrets{Env}` | 決済のシークレット | Secrets Manager のシークレット |
 | 4 | `NagiyuAuthECR{Env}` | イメージの置き場 | ECR リポジトリ |
-| 5 | `NagiyuAuthLambda{Env}` | Web アプリの実行 | Lambda 関数 (コンテナイメージ)、Function URL、実行ロール |
-| 6 | `NagiyuAuthCloudFront{Env}` | Web アプリの配信 | CloudFront ディストリビューション (Lambda の Function URL がオリジン)、セキュリティヘッダーと noindex、dev の ALIAS |
+| 5 | `NagiyuAuthLambda{Env}` | Web アプリの実行 | Lambda (Function URL つき) |
+| 6 | `NagiyuAuthCloudFront{Env}` | Web アプリの配信 | CloudFront、Route53 の ALIAS (dev のみ) |
 
 - CloudFront のスタックは `us-east-1` に固定する (CloudFront の制約)。ほかのスタックのリージョンは、環境変数 `CDK_DEFAULT_REGION` で、未設定なら `us-east-1`。
-- CloudFront の価格クラスは、prod が `PriceClass_All`、dev が `PriceClass_100`。
 
 ## デプロイの流れ
 
@@ -58,6 +57,6 @@ flowchart TD
 |---|---|
 | `infrastructure` | CDK の Bootstrap の後、`NagiyuAuthDynamoDB{Env}`、`NagiyuAuthSecrets{Env}`、`NagiyuAuthStripeSecrets{Env}`、`NagiyuAuthECR{Env}` をデプロイする |
 | `build` | Web アプリをビルドし、イメージを ECR に push する |
-| `deploy` | Secrets Manager から Google OAuth・NextAuth・Stripe のシークレットを取り、CDK で全スタックをデプロイする (`--all`)。そのあと Lambda の Function URL に `/api/health` を GET し、200 を確認する |
+| `deploy` | Secrets Manager の値を取り出し、CDK で全スタックをデプロイする (`--all`)。そのあと Lambda の Function URL でヘルスチェックを行う ([ヘルスチェック](../../../platform/specs/deploy.md#ヘルスチェック)) |
 | `cloudfront-invalidation` | CloudFront のキャッシュを全パス (`/*`) 削除し、完了を待つ。ディストリビューションの ID が取れなければ、削除を飛ばす |
 | `summary` | 各ジョブの結果を要約に出す (`always`) |

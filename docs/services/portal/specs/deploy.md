@@ -1,15 +1,10 @@
 ---
 sources:
   - infra/bin/nagiyu-platform.ts
-  - infra/root/ecr-stack.ts
-  - infra/root/portal-lambda-stack.ts
   - infra/root/cloudfront-lambda-stack.ts
-  - infra/root/ecs-cluster-stack.ts
-  - infra/root/alb-stack.ts
-  - infra/root/ecs-service-stack.ts
   - infra/root/cloudfront-stack.ts
   - .github/workflows/root-deploy.yml
-sources_hash: 8beede464a2943dc9c4662801f1d68d601970e4d458a2c1565eb1996d799d655
+sources_hash: e9c7a6205cd2a1dd9e62d2222a4b6c62b971ea6196a7b8d3dfd15b077d1b8bf1
 ---
 
 # Portal のデプロイ先
@@ -31,15 +26,15 @@ DNS レコードは、dev は `NagiyuRootCloudFrontDev` がゾーンの頂点に
 
 環境は環境変数 `ENVIRONMENT` (既定は `dev`) で決まり、`{Env}` は `Dev` / `Prod` である。`infra/bin/nagiyu-platform.ts` は、ECR のスタックを両環境で作り、それ以外は環境で分岐する。
 
-| 環境 | 順 | スタック | 役割 | 含む主なリソース |
+| 環境 | 順 | スタック | 役割 | 含むリソース |
 |---|---|---|---|---|
 | 共通 | 1 | `NagiyuPortalEcr{Env}` | イメージの置き場 | ECR リポジトリ |
-| dev | 2 | `NagiyuPortalLambdaDev` | アプリの実行 | Lambda (1024 MB、タイムアウト 30 秒)、Function URL。ECR に依存する |
-| dev | 3 | `NagiyuRootCloudFrontDev` | 公開の入口と DNS | CloudFront ディストリビューション (オリジンは Function URL)、Route53 の ALIAS。セキュリティヘッダーを付け、prod 以外は noindex にする。Lambda に依存する |
-| prod | 2 | `NagiyuRootClusterProd` | 実行基盤 | ECS クラスタ (`nagiyu-root-cluster-prod`、Fargate と Fargate Spot) |
-| prod | 3 | `NagiyuRootAlbProd` | アプリの入口 | 専用 ALB、ターゲットグループ (ポート 3000、ヘルスチェック `/api/health`)、セキュリティグループ |
-| prod | 4 | `NagiyuRootServiceProd` | アプリの実行 | Fargate サービス (希望数 1、コンテナ `portal-app`)、タスク定義、ログ、IAM ロール。Cluster・ALB・ECR に依存する |
-| prod | 5 | `NagiyuRootCloudFrontProd` | 公開の入口 | CloudFront ディストリビューション (オリジンは ALB の HTTP 80)、セキュリティヘッダー (noindex なし)。ALB に依存する |
+| dev | 2 | `NagiyuPortalLambdaDev` | アプリの実行 | Lambda (Function URL つき) |
+| dev | 3 | `NagiyuRootCloudFrontDev` | 公開の入口と DNS | CloudFront、Route53 の ALIAS |
+| prod | 2 | `NagiyuRootClusterProd` | 実行基盤 | ECS クラスター |
+| prod | 3 | `NagiyuRootAlbProd` | アプリの入口 | ALB |
+| prod | 4 | `NagiyuRootServiceProd` | アプリの実行 | ECS サービス (Fargate) |
+| prod | 5 | `NagiyuRootCloudFrontProd` | 公開の入口 | CloudFront |
 
 dev の CloudFront スタックは、共通の CloudFront の基底スタックの上に作る。prod の CloudFront スタックは基底スタックを使わず、ALB の DNS 名と証明書を SSM から読んで直接組み立てる。
 
@@ -50,7 +45,7 @@ dev の CloudFront スタックは、共通の CloudFront の基底スタック�
 | 項目 | 内容 |
 |---|---|
 | トリガー | develop・`integration/**`・master への push (Portal・`infra/root/`・`infra/bin/`・libs・configs などのパスが変わったとき)。手動実行 (dev / prod を選ぶ) |
-| デプロイ先の環境 | 手動実行は入力値。master への push は prod。それ以外は dev |
+| デプロイ先の環境 | [dev と prod の切り替え](../../../platform/specs/deploy.md#dev-と-prod-の切り替え) の規則 |
 | 並行実行 | 環境ごとに直列化する。実行中の run は止めず、待機中は最新だけ残す |
 | イメージのタグ | コミットの SHA |
 
@@ -70,4 +65,4 @@ flowchart TD
 | `infrastructure-ecr` | ECR のスタックをデプロイする |
 | `build` | イメージをビルドして ECR に push する |
 | `infrastructure-app` | dev は Lambda と CloudFront のスタックをデプロイする。prod は Cluster・ALB・Service・CloudFront のスタックをデプロイし、ECS サービスが安定するまで待つ |
-| `verify` | CloudFront のスタックの出力からディストリビューションのドメイン名を取り出し、`https://<ドメイン名>/api/health` のヘルスチェックを行う。環境の独自ドメインではなく CloudFront のドメインを叩く |
+| `verify` | CloudFront のスタックの出力からディストリビューションのドメイン名を取り出し、ヘルスチェックを行う ([ヘルスチェック](../../../platform/specs/deploy.md#ヘルスチェック))。環境の独自ドメインではなく CloudFront のドメインを叩く |

@@ -23,12 +23,12 @@ DNS レコードは、dev は CloudFront の基底スタックが、prod は sha
 
 `infra/share-together/bin/share-together.ts` が、次の順に作る。環境は CDK の context `env` (既定は `dev`) で決まり、`{Env}` は `Dev` または `Prod`。
 
-| 順 | スタック | 役割 | 含む主なリソース |
+| 順 | スタック | 役割 | 含むリソース |
 |---|---|---|---|
-| 1 | `NagiyuShareTogetherDynamoDB{Env}` | データの保存 | DynamoDB のメインテーブル |
+| 1 | `NagiyuShareTogetherDynamoDB{Env}` | データの保存 | DynamoDB テーブル |
 | 2 | `NagiyuShareTogetherECR{Env}` | イメージの置き場 | ECR リポジトリ |
-| 3 | `NagiyuShareTogetherLambda{Env}` | Web アプリの実行 | Lambda 関数 (コンテナイメージ)、Function URL、実行ロール、実行時の管理ポリシー。DynamoDB と ECR のスタックに依存する |
-| 4 | `NagiyuShareTogetherCloudFront{Env}` | Web アプリの配信 | CloudFront ディストリビューション (Lambda の Function URL がオリジン)、noindex、dev の ALIAS。Lambda のスタックに依存する |
+| 3 | `NagiyuShareTogetherLambda{Env}` | Web アプリの実行 | Lambda (Function URL つき) |
+| 4 | `NagiyuShareTogetherCloudFront{Env}` | Web アプリの配信 | CloudFront、Route53 の ALIAS (dev のみ) |
 
 CloudFront のスタックは `us-east-1` に固定する (CloudFront の制約)。ほかのスタックのリージョンは、環境変数 `CDK_DEFAULT_REGION` で、未設定なら `us-east-1`。
 
@@ -46,13 +46,13 @@ CloudFront のスタックは `us-east-1` に固定する (CloudFront の制約)
 ```mermaid
 flowchart TD
     A[infrastructure-ecr<br/>ECR + DynamoDB] --> B[build<br/>イメージ]
-    B --> C[infrastructure-app<br/>Lambda + CloudFront + ヘルスチェック]
+    B --> C[infrastructure-app<br/>全スタック + ヘルスチェック]
 ```
 
 | ジョブ | 内容 |
 |---|---|
 | `infrastructure-ecr` | `NagiyuShareTogetherECR{Env}` と `NagiyuShareTogetherDynamoDB{Env}` をデプロイする |
 | `build` | Web アプリをビルドし、イメージを ECR に push する |
-| `infrastructure-app` | Secrets Manager から認証用のシークレット (`nagiyu-auth-nextauth-secret-{env}`) を取り、ECR のスタックを除く全スタックをデプロイする (`--all --exclude`)。そのあと Lambda の Function URL に `/api/health` を GET し、200 を確認する |
+| `infrastructure-app` | Secrets Manager の値を取り出し、全スタックをデプロイする (`--all`)。ワークフローは `--exclude` で ECR のスタックを除くつもりで渡しているが、CDK CLI は `--exclude` を受け付けず無視するため、ECR のスタックも含めた全スタックが対象になる。そのあと Lambda の Function URL でヘルスチェックを行う ([ヘルスチェック](../../../platform/specs/deploy.md#ヘルスチェック)) |
 
 ヘルスチェックは別のジョブにせず、`infrastructure-app` の中で行う。CloudFront のキャッシュ削除は行わない。
