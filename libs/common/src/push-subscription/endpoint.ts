@@ -25,7 +25,7 @@ export type PushEndpointRejectReason =
 /** endpoint 判定の結果。拒否のうち HOST_NOT_ALLOWED のときだけ hostname を持つ */
 export type PushEndpointCheckResult =
   | { allowed: true; hostname: string }
-  | { allowed: false; reason: 'INVALID_URL' | 'NOT_HTTPS' | 'PORT_SPECIFIED' }
+  | { allowed: false; reason: Exclude<PushEndpointRejectReason, 'HOST_NOT_ALLOWED'> }
   | { allowed: false; reason: 'HOST_NOT_ALLOWED'; hostname: string };
 
 /**

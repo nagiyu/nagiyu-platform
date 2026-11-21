@@ -11,7 +11,7 @@ sources:
   - libs/common/src/push-subscription/endpoint.ts
   - libs/nextjs/src/request-body.ts
   - services/admin/core/src/notify/subscription-repository.ts
-sources_hash: 6225c1273d614a542c5cbdbed1c812a39a623075367790eb3c1d4cea50bc3681
+sources_hash: 11efd7bf39c5a48b431761e0cdf1082ab0cdd283b46d77141172388db9859e13
 terms: [admin/term/push-subscription, admin/term/permission, admin/term/api-error]
 related_cards: [admin/screen/dashboard, admin/flow/push-subscription, admin/api/notify-sns]
 ---

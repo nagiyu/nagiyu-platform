@@ -8,7 +8,7 @@ sources:
   - services/niconico-mylist-assistant/web/src/app/api/push/vapid-public-key/route.ts
   - libs/nextjs/src/push.ts
   - libs/common/src/push-subscription/endpoint.ts
-sources_hash: a5695626d2ab13a0ac7fa67ec83002b78858bce88f6cfafb1ece3b0324016e26
+sources_hash: 9aa120bd2282b818d6109f09e6af7a5755889345feae6c7130f38b7401a5059a
 terms: [niconico-mylist-assistant/term/api-error]
 related_cards: [niconico-mylist-assistant/screen/home, niconico-mylist-assistant/flow/mylist-registration, niconico-mylist-assistant/api/mylist-register]
 ---

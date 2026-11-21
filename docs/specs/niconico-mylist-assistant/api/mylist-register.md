@@ -12,7 +12,7 @@ sources:
   - services/niconico-mylist-assistant/core/src/db/videos.ts
   - libs/nextjs/src/push.ts
   - libs/common/src/push-subscription/endpoint.ts
-sources_hash: dece6bc49c2d6ce25fcfda7222e5580d000eb6ed30cd9b986dad5721e5d22cdb
+sources_hash: a1b65bea46f930ba64dfd7ee7787f560e868abecdedf77f797b3e498ae431727
 terms: [niconico-mylist-assistant/term/api-error, niconico-mylist-assistant/term/user-session, niconico-mylist-assistant/term/video-setting, niconico-mylist-assistant/term/batch-job, platform/term/error-event]
 related_cards: [niconico-mylist-assistant/screen/mylist-register, niconico-mylist-assistant/batch/mylist-register, niconico-mylist-assistant/flow/mylist-registration, niconico-mylist-assistant/api/batch-jobs, admin/flow/error-notification]
 related_adr:

@@ -10,7 +10,7 @@ sources:
   - services/stock-tracker/web/app/api/push/vapid-public-key/route.ts
   - libs/nextjs/src/push.ts
   - libs/common/src/push-subscription/endpoint.ts
-sources_hash: 3cbd49dcceb682ebbac181bf78cf35cc5b2d76ea1fe1d7254092ec58ae52424a
+sources_hash: b35fef181a1dd08a633c066f51f3c07bfcf4d2ec22377ea04ce6ca76743a3bda
 terms: [stock-tracker/term/permission, stock-tracker/term/api-error, stock-tracker/term/push-subscription]
 related_cards: [stock-tracker/api/alerts, stock-tracker/screen/alerts, stock-tracker/flow/alert-notification, stock-tracker/batch/daily]
 ---

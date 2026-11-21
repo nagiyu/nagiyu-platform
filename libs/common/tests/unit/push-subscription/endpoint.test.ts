@@ -29,7 +29,7 @@ describe('checkPushEndpoint', () => {
     }
   );
 
-  it('javascript: は https でないとして拒否する', () => {
+  it('ホスト部を持つ javascript:// 形式も https でないとして拒否する', () => {
     expect(checkPushEndpoint('javascript://fcm.googleapis.com/%0aalert(1)')).toEqual({
       allowed: false,
       reason: 'NOT_HTTPS',

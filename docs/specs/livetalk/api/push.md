@@ -8,7 +8,7 @@ sources:
   - services/livetalk/web/src/app/api/push/vapid-public-key/route.ts
   - libs/nextjs/src/push.ts
   - libs/common/src/push-subscription/endpoint.ts
-sources_hash: ed386672b5e18e398f2e279171c1c35ea4cf61cd52d235216198b42bb8067c44
+sources_hash: bd9fb60716caecceb6ae247fa787913aab8d6971c3c3af8229c42e5f64e8496f
 terms: [livetalk/term/permission, livetalk/term/api-error]
 related_cards: [livetalk/screen/home, livetalk/batch/notify, livetalk/api/push-notification]
 related_adr:
