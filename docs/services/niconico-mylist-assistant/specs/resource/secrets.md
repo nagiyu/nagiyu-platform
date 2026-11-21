@@ -67,7 +67,6 @@ sources_hash: 52bd2342116afe93d870c73c7e2ef51cd42444c80ef4ddff630902b99b07b487
 
     ```bash
     aws secretsmanager put-secret-value \
-        --profile nagiyu-{env} \
         --secret-id nagiyu-niconico-mylist-assistant-vapid-{env} \
         --secret-string '{"publicKey":"...","privateKey":"..."}' \
         --region us-east-1
