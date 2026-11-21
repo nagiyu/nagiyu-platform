@@ -57,7 +57,10 @@ describe('POST /api/push/refresh', () => {
       items: [
         {
           alertId: 'a1',
-          subscription: { endpoint: 'https://fcm.googleapis.com/fcm/send/old', keys: newSubscription.keys },
+          subscription: {
+            endpoint: 'https://fcm.googleapis.com/fcm/send/old',
+            keys: newSubscription.keys,
+          },
         },
         { alertId: 'a2', subscription: newSubscription },
       ],

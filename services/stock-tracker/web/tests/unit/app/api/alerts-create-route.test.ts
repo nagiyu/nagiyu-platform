@@ -61,7 +61,10 @@ describe('POST /api/alerts', () => {
 
   it.each([
     ['endpoint が URL 形式でない', { endpoint: 'not-a-url', keys: { p256dh: 'a', auth: 'b' } }],
-    ['p256dh が空', { endpoint: 'https://fcm.googleapis.com/fcm/send/e', keys: { p256dh: '', auth: 'b' } }],
+    [
+      'p256dh が空',
+      { endpoint: 'https://fcm.googleapis.com/fcm/send/e', keys: { p256dh: '', auth: 'b' } },
+    ],
     ['auth が欠落', { endpoint: 'https://fcm.googleapis.com/fcm/send/e', keys: { p256dh: 'a' } }],
   ])('subscription が不正（%s）な場合は 400 を返す', async (_label, subscription) => {
     const response = await POST(createRequest({ ...validRequestBody, subscription }));
