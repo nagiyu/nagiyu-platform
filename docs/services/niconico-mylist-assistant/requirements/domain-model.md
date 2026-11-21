@@ -25,7 +25,7 @@ flowchart TD
     video[動画]
     setting[動画の設定]
     job[登録ジョブ]
-    session[ニコニコのセッション]
+    session["ニコニコの<br/>セッション"]
     mylist[マイリスト]
     user -- "付ける (0..多)" --> setting
     setting -- "対象 (1)" --> video
