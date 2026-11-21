@@ -376,10 +376,6 @@
     "specs/tools/term/clipboard-actions.md",
     "specs/tools/term/migration-dialog.md",
     "specs/tools/term/snackbar.md",
-    "specs/tools/term/vapid-key.md",
-    "templates/services/README.md",
-    "templates/services/architecture.md",
-    "templates/services/external-design.md",
-    "templates/services/requirements.md"
+    "specs/tools/term/vapid-key.md"
   ]
 }
