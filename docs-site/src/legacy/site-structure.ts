@@ -1,6 +1,7 @@
 /**
- * サイドバーの章立て。docs のディレクトリ構成ではなく、読み手が探す順に並べる。
+ * 旧配置の文書のサイドバーの章立て。docs のディレクトリ構成ではなく、読み手が探す順に並べる。
  * 章の中のページ一覧は docs から自動で作るため、ページを足してもここは書き換えない。
+ * 旧配置がなくなるときは、このディレクトリごと消す。
  */
 
 /** サービスごとの小見出しになるカードの種別。ディレクトリ名と表示名の対応はここだけで持つ。 */
@@ -20,6 +21,8 @@ export type StructureNode =
   /** ディレクトリを入れ子のまま自動で並べる。README.md があれば入口にする */
   | { type: 'directory'; path: string; title?: string; collapsed?: boolean }
   | { type: 'group'; title: string; collapsed: boolean; items: readonly StructureNode[] }
+  /** 新しい配置の `platform/` の下の木をそのまま差し込む */
+  | { type: 'platformTree' }
   | {
       type: 'services';
       /** 設計資料のディレクトリ */
@@ -73,6 +76,7 @@ export const SITE_STRUCTURE: readonly StructureNode[] = [
     title: '共通基盤',
     collapsed: false,
     items: [
+      { type: 'platformTree' },
       { type: 'directory', path: 'specs/platform/term', title: '共通の用語' },
       { type: 'directory', path: 'libs', title: 'ライブラリ' },
       { type: 'directory', path: 'infra', title: 'インフラ' },
