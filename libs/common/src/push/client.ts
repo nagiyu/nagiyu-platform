@@ -1,10 +1,12 @@
 import * as webpush from 'web-push';
 import { logger } from '../logger/index.js';
+import { checkPushEndpoint } from '../push-subscription/endpoint.js';
 import { normalizeVapidKey } from './vapid.js';
 import type { NotificationPayload, PushSubscription, VapidConfig } from './types.js';
 
 const ERROR_MESSAGES = {
   VAPID_NOT_CONFIGURED: 'VAPID キーが設定されていません',
+  ENDPOINT_NOT_ALLOWED: '許可されていない Push endpoint のため送信しません',
 } as const;
 
 type WebPushError = {
@@ -35,6 +37,19 @@ export async function sendWebPushNotification(
 
   if (!normalizedPublicKey || !normalizedPrivateKey || !subject) {
     throw new Error(ERROR_MESSAGES.VAPID_NOT_CONFIGURED);
+  }
+
+  // web-push は endpoint のスキームを見ず hostname と port だけで常に https 送信するため、
+  // 登録時の検証を通っていない保存済みの購読が送信のたびに任意の宛先へ飛ぶ。
+  // false は呼び出し側で「無効な購読」として扱われ削除されるので、データ移行なしで不正な購読が片付く。
+  const endpointCheck = checkPushEndpoint(subscription.endpoint);
+  if (!endpointCheck.allowed) {
+    // endpoint 全体は宛先の情報を含むためログに出さず、理由とホスト名だけにする
+    logger.warn(ERROR_MESSAGES.ENDPOINT_NOT_ALLOWED, {
+      reason: endpointCheck.reason,
+      ...(endpointCheck.reason === 'HOST_NOT_ALLOWED' ? { hostname: endpointCheck.hostname } : {}),
+    });
+    return false;
   }
 
   try {
