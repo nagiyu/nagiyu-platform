@@ -184,6 +184,24 @@ describe('POST /api/client-log', () => {
     );
   });
 
+  it('context.userId が送られてもセッションの userId で報告する', async () => {
+    mockGetSession.mockResolvedValue(validSession);
+    const res = await POST(
+      buildRequest({
+        severity: 'error',
+        title: 'T',
+        message: 'M',
+        context: { userId: 'attacker', screen: 'chat' },
+      })
+    );
+    expect(res.status).toBe(204);
+    expect(mockReportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        context: { userId: 'u1', screen: 'chat' },
+      })
+    );
+  });
+
   it('occurredAt が渡されたとき reportErrorEvent に渡される', async () => {
     mockGetSession.mockResolvedValue(validSession);
     const occurredAt = '2026-06-03T00:00:00.000Z';
