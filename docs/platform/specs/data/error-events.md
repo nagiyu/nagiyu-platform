@@ -96,4 +96,4 @@ sources_hash: 979dec932ff365fc5d328e371184dd7f647774a8e60c13c5d08a799c3e47233c
 - `SK` に発生時刻を入れる。サービスごとの一覧が、並べ替えなしで時系列になる
 - ストリームを有効にし、`NEW_IMAGE` を流す。INSERT をきっかけに Web Push を送るため
 - prod のテーブルは残す。削除するとエラー履歴が失われる
-- 書き手と読み手が別々にキーの形を持つと、項目を足したときに片方だけ更新される。保存の形は `libs/aws/src/error-events/mapper.ts` の 1 か所にある
+- ErrorEvent と DynamoDB の項目の相互の変換 (キーの組み立て、属性名) は、`libs/aws/src/error-events/mapper.ts` の `ErrorEventMapper` だけが持つ。書く側 (各サービスが使う `libs/aws` の書き込み) と読む側 (Admin) は、どちらもこれを使う。変換を書く側と読む側で別々に持つと、項目を足したときに片方だけが直り、Admin が新しい項目を読めなくなるため
