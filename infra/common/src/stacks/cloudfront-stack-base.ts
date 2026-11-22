@@ -161,7 +161,7 @@ export class CloudFrontStackBase extends cdk.Stack {
       functionUrl,
     });
 
-    // OAC の署名は本文の SHA256 を要るため、POST / PUT の本文のハッシュを origin-request で付ける
+    // OAC の署名は本文の SHA256 が要るため、POST / PUT の本文のハッシュを origin-request で付ける
     const edgeLambdas = createBodyHashEdgeLambdas(this, 'BodyHashEdgeFunction');
 
     // ACM 証明書の参照

@@ -73,6 +73,15 @@ describe('body-hash edge handler', () => {
     expect(result.headers['x-amz-content-sha256']).toBeUndefined();
   });
 
+  it('本文が無い GET では、ビューアーが付けたハッシュを消す', () => {
+    const request = createRequest('GET');
+    request.headers['x-amz-content-sha256'] = [{ key: 'x-amz-content-sha256', value: 'forged' }];
+
+    const result = processRequest(request) as EdgeRequest;
+
+    expect(result.headers['x-amz-content-sha256']).toBeUndefined();
+  });
+
   it('body 自体が無い要求は何もしない', () => {
     const request = createRequest('GET');
 

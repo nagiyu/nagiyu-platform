@@ -74,7 +74,7 @@ export function createFunctionUrlOrigin(
   const originAccessControl = new cloudfront.CfnOriginAccessControl(scope, `${id}Oac`, {
     originAccessControlConfig: {
       name: props.originAccessControlName,
-      description: 'Lambda Function URL への CloudFront からの署名付きアクセス',
+      description: 'Signed access from CloudFront to the Lambda Function URL',
       originAccessControlOriginType: 'lambda',
       signingBehavior: 'always',
       signingProtocol: 'sigv4',

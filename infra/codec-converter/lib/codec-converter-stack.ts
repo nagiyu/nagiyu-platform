@@ -319,7 +319,7 @@ export class CodecConverterStack extends cdk.Stack {
       functionUrl: functionUrl.url,
     });
 
-    // OAC の署名は本文の SHA256 を要るため、本文を受ける behavior では origin-request で付ける。
+    // OAC の署名は本文の SHA256 が要るため、本文を受ける behavior では origin-request で付ける。
     // GET / HEAD だけを受ける静的アセットの behavior には本文が無いので付けない。
     const edgeLambdas = createBodyHashEdgeLambdas(this, 'BodyHashEdgeFunction');
 

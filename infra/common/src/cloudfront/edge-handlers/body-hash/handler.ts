@@ -62,7 +62,7 @@ export function calculateBodyHash(body: EdgeRequestBody): string {
  * その場で 413 を返す。
  *
  * @param request CloudFront の要求
- * @returns ヘッダーを足した要求、または 413 のレスポンス
+ * @returns ヘッダーを足した (または消した) 要求、または 413 のレスポンス
  */
 export function processRequest<T extends EdgeRequest>(request: T): T | EdgeResponse {
   const body = request.body;
@@ -70,6 +70,8 @@ export function processRequest<T extends EdgeRequest>(request: T): T | EdgeRespo
   const requiresHash = METHODS_REQUIRING_HASH.includes(request.method.toUpperCase());
 
   if (!hasBody && !requiresHash) {
+    // ビューアーが付けた値が残ると、署名に使われて不一致になるため消す
+    delete request.headers[CONTENT_SHA256_HEADER];
     return request;
   }
 

@@ -38,7 +38,7 @@ export function createBodyHashEdgeLambdas(scope: Construct, id: string): cloudfr
     memorySize: 128,
     // origin-request の上限 (30 秒) に対し、ハッシュ計算だけなので短く切る
     timeout: cdk.Duration.seconds(5),
-    description: 'origin-request で本文の SHA256 を x-amz-content-sha256 に入れる',
+    description: 'Sets x-amz-content-sha256 to the SHA256 of the request body on origin-request',
   });
 
   return [

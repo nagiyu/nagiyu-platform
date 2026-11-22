@@ -3,7 +3,7 @@ sources:
   - infra/codec-converter/bin/codec-converter.ts
   - infra/codec-converter/lib/codec-converter-stack.ts
   - .github/workflows/codec-converter-deploy.yml
-sources_hash: d8bc3650fa19a8005c816d669e6814caed4316a2e3af8865ae63d130ae03d529
+sources_hash: 488bcf21130164984f1779a700503a04b14a38605d859258594490ec2e8dbb21
 ---
 
 # Codec Converter のデプロイ先

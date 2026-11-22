@@ -130,7 +130,7 @@ OAC で署名した Function URL は、POST / PUT の本文の SHA256 が `x-amz
 
 | 条件 | 扱い |
 |---|---|
-| メソッドが GET などで、本文が無い | 何もしない |
+| メソッドが GET などで、本文が無い | `x-amz-content-sha256` を付けない。ビューアーが付けていたら消す (署名に使われて不一致になるため) |
 | 本文がある、またはメソッドが POST / PUT / PATCH | 本文の SHA256 (hex) を `x-amz-content-sha256` に入れる (本文が空でも入れる) |
 | 本文が切り詰められている (`inputTruncated`) | オリジンへ送らず、その場で 413 (`text/plain`) を返す |
 
@@ -145,11 +145,13 @@ Lambda@Edge を付ける behavior は次のとおり。
 
 関数は Lambda@Edge の制約で環境変数と ARM64 を使えず、ハンドラーは他のモジュールを読み込まない。実行ロールは Lambda と Lambda@Edge の両方に信頼させる。
 
+Lambda@Edge の複製は、配信から外したあとも数時間残る。その間は関数を消せないため、配信のスタックの削除や作り直しはすぐには終わらない。
+
 ### ヘルスチェック
 
 `.github/actions/health-check/action.yml` が、呼び出し側が渡した URL (`base-url`) にパスを足して GET し、200 が返るまで再試行する。既定のパスは `/api/health`、最大 10 回、間隔 10 秒で、尽きたらジョブを失敗させる。再試行と失敗の扱いは `.github/actions/health-check/health-check.sh` が決める。URL が空のときも失敗させる。
 
-叩く先はサービスごとに違う (ALB の DNS 名、CloudFront のドメイン)。Lambda の Function URL を CloudFront で配信するサービスは、Function URL ではなく CloudFront のドメインを叩く。署名つきの経路 (次節) を含めて確かめるためである。サービスの文書は、どこを叩くか (またはヘルスチェックがないこと) だけを書く。
+叩く先はサービスごとに違う (ALB の DNS 名、CloudFront のドメイン)。Lambda の Function URL を CloudFront で配信するサービスは、Function URL ではなく CloudFront のドメインを叩く。署名つきの経路 (上の「Function URL の配信 (OAC)」) を含めて確かめるためである。サービスの文書は、どこを叩くか (またはヘルスチェックがないこと) だけを書く。
 
 ### ECR リポジトリ
 
