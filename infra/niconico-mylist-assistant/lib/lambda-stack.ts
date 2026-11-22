@@ -4,7 +4,7 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 import * as ecr from 'aws-cdk-lib/aws-ecr';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import { Construct } from 'constructs';
-import { createEcrImageFunction, getServiceUrl } from '@nagiyu/infra-common';
+import { createEcrImageFunction, getServiceUrl, grantCloudFrontInvoke } from '@nagiyu/infra-common';
 import { WebRuntimePolicy } from './policies/web-runtime-policy';
 
 export interface LambdaStackProps extends cdk.StackProps {
@@ -127,6 +127,10 @@ export class LambdaStack extends cdk.Stack {
         maxAge: cdk.Duration.seconds(86400),
       },
     });
+
+    // CloudFront (OAC) の署名付きアクセスを許可する。配信は別スタックで後から作られるため、
+    // アカウント内の全配信で許可する。
+    grantCloudFrontInvoke(this.webFunction);
 
     // 共通部品が付けるタグ (Application / Service / Environment) に無いもの
     cdk.Tags.of(this.webFunction).add('Temp', 'Temp');
