@@ -4,10 +4,8 @@ sources:
   - infra/niconico-mylist-assistant/bin/niconico-mylist-assistant.ts
   - infra/niconico-mylist-assistant/lib/policies/web-runtime-policy.ts
   - infra/niconico-mylist-assistant/lib/policies/batch-runtime-policy.ts
-  - libs/aws/src/crypto/encryption.ts
-  - libs/common/src/push/config.ts
   - .github/workflows/niconico-mylist-assistant-deploy.yml
-sources_hash: 52bd2342116afe93d870c73c7e2ef51cd42444c80ef4ddff630902b99b07b487
+sources_hash: c2602216853fe0d548d885c6de9f46232a001813dc54d45def7cea3d6655856b
 ---
 
 # シークレット
@@ -30,7 +28,7 @@ sources_hash: 52bd2342116afe93d870c73c7e2ef51cd42444c80ef4ddff630902b99b07b487
 | 暗号化キー | 32 文字のランダムな文字列 (除外する文字なし) | デプロイで自動生成する。手で作らない |
 | VAPID キー | JSON `{"publicKey": "...", "privateKey": "..."}` | 仮の値 `PLACEHOLDER` (公開鍵・秘密鍵とも) で作られ、実際のキーで上書きする (下の「手順」) |
 
-- 暗号化の方式は AES-256-GCM。シークレットの文字列を UTF-8 のバイト列にし、先頭の 32 バイトをキーにする。32 バイトに満たなければ失敗する。取得したキーは、プロセスの中で使い回す
+- 暗号化の方式と鍵の扱いは[暗号化](../../../../platform/specs/lib/aws/crypto.md)のとおり。シークレットの文字列は先頭の 32 バイトを鍵にするので、32 文字のランダムな文字列で足りる
 - VAPID キーは、環境ごとに別のキーを使う
 
 ## 環境変数
@@ -49,7 +47,7 @@ sources_hash: 52bd2342116afe93d870c73c7e2ef51cd42444c80ef4ddff630902b99b07b487
 | Web の実行ロール | 暗号化キーと VAPID キーのシークレットの `secretsmanager:GetSecretValue` |
 | バッチのジョブロール | 同上 |
 
-- VAPID キーのシークレットの読み取りを許可しているが、実行中のコードは VAPID キーを環境変数から読む
+- VAPID キーのシークレットの読み取りを許可しているが、実行中のコードは VAPID キーを環境変数から読む ([Web Push](../../../../platform/specs/lib/common/web-push.md)の VAPID 設定)
 
 ## 手順
 

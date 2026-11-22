@@ -6,9 +6,7 @@ sources:
   - services/niconico-mylist-assistant/web/src/lib/niconico-session/index.ts
   - services/niconico-mylist-assistant/core/src/job-input/job-input.ts
   - services/niconico-mylist-assistant/core/src/db/videos.ts
-  - libs/nextjs/src/push.ts
-  - libs/common/src/push-subscription/endpoint.ts
-sources_hash: a1b65bea46f930ba64dfd7ee7787f560e868abecdedf77f797b3e498ae431727
+sources_hash: 0a79aef66a0b5cc6375800c6af44b87b8ede6497d999a3980f285d1b22d7b780
 ---
 
 # マイリスト登録 API
@@ -30,7 +28,7 @@ sources_hash: a1b65bea46f930ba64dfd7ee7787f560e868abecdedf77f797b3e498ae431727
 | `mylistName` | 必須。前後の空白を除いて 1〜50 文字 (コードポイントで数える) |
 | `favoriteOnly` | 任意。真偽値。`true` ならお気に入りの動画だけを対象にする |
 | `excludeSkip` | 任意。真偽値。`true` ならスキップの動画を対象から外す |
-| `pushSubscription` | 任意。完了を知らせる Web Push の宛先。`endpoint` (既知の Push サービスの https URL。許すホストは `fcm.googleapis.com`・`updates.push.services.mozilla.com`・`web.push.apple.com`・`*.notify.windows.com` で、ポートの指定は不可)、`keys.p256dh`、`keys.auth` が要る |
+| `pushSubscription` | 任意。完了を知らせる Web Push の宛先。`endpoint`、`keys.p256dh`、`keys.auth` が要る。検証は[Web Push のルート](../../../../platform/specs/lib/nextjs/push-routes.md)の購読の検証のとおり (`endpoint` の条件は [Web Push](../../../../platform/specs/lib/common/web-push.md)) |
 
 - `favoriteOnly` と `excludeSkip` を省略すると、どちらも `false` と同じ (絞り込まない)。画面は `excludeSkip` を既定でオンにして送る
 - 保存済みの[ニコニコセッション](../term/user-session.md)が要る。リクエストには含めず、サーバーが保存した値を使う。有効かどうかは、この API では確かめない (バッチの実行前に確かめる)
