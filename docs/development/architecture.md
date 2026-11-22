@@ -621,4 +621,4 @@ NextAuth v5 (Auth.js) は以下の複数のクッキーを使用するため、*
 - [service-template.md](./service-template.md): サービステンプレート
 - [testing.md](./testing.md): テスト戦略
 - [shared-libraries.md](./shared-libraries.md): 共通ライブラリ設計
-- [ライブラリの仕様](../platform/specs/lib/): API クライアント・認証設定など共通ライブラリの機能
+- ライブラリの仕様 (`docs/platform/specs/lib/`): API クライアント・認証設定など共通ライブラリの機能

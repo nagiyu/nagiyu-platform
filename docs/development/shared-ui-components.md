@@ -484,7 +484,7 @@ dev 環境の Storybook で視覚レビューが完結する点が、本ガバ�
 
 - [ブランチ戦略](../branching.md)
 - [共通ライブラリ設計](shared-libraries.md)
-- [ライブラリの仕様](../platform/specs/lib/)
+- ライブラリの仕様 (`docs/platform/specs/lib/`)
 - [コーディング規約](rules.md)
 - [テスト戦略](testing.md)
 - [開発フロー](flow.md)

@@ -725,6 +725,6 @@ export default {
 
 - [コーディング規約・べからず集](./rules.md): TypeScript、エラーハンドリング、テストルール
 - [共通ライブラリ設計](./shared-libraries.md): core パッケージの責務と依存関係
-- [ライブラリの仕様](../platform/specs/lib/): バリデーションの共通型・ヘルパー、リクエストボディの読み取り
+- ライブラリの仕様 (`docs/platform/specs/lib/`): バリデーションの共通型・ヘルパー、リクエストボディの読み取り
 - [アーキテクチャ方針](./architecture.md): レイヤー分離、ビジネスロジックの実装
 - [テスト戦略](./testing.md): テストカバレッジ、モック戦略
