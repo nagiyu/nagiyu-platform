@@ -57,7 +57,7 @@ npx cdk deploy --all --context env=prod
 
 #### CloudFront Distribution
 
-- オリジン: Lambda Function URL
+- オリジン: Lambda Function URL (OAC で署名して呼ぶ。POST / PUT の本文は Lambda@Edge が SHA256 を付ける)
 - カスタムドメイン: `{env}-tools.nagiyu.com` (prod: `tools.nagiyu.com`)
 - セキュリティヘッダー: HSTS, X-Content-Type-Options, X-Frame-Options など
 - キャッシュポリシー: 無効 (動的コンテンツのため)

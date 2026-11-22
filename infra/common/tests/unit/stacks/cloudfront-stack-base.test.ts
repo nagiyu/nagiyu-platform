@@ -514,4 +514,64 @@ describe('CloudFrontStackBase', () => {
       });
     });
   });
+
+  describe('OAC と Lambda@Edge', () => {
+    it('Function URL のオリジンに OAC が付き、default behavior に本文付きの origin-request が付く', () => {
+      const stack = new CloudFrontStackBase(app, 'TestOacStack', {
+        serviceName: 'tools',
+        environment: 'dev',
+        functionUrl: 'https://example.lambda-url.ap-northeast-1.on.aws/',
+        certificateArn: 'arn:aws:acm:us-east-1:123456789012:certificate/test',
+      });
+
+      const template = Template.fromStack(stack);
+
+      template.hasResourceProperties('AWS::CloudFront::OriginAccessControl', {
+        OriginAccessControlConfig: {
+          Name: 'nagiyu-tools-lambda-oac-dev',
+          OriginAccessControlOriginType: 'lambda',
+          SigningBehavior: 'always',
+          SigningProtocol: 'sigv4',
+        },
+      });
+      template.hasResourceProperties('AWS::CloudFront::Distribution', {
+        DistributionConfig: {
+          Origins: [Match.objectLike({ OriginAccessControlId: Match.anyValue() })],
+          DefaultCacheBehavior: {
+            LambdaFunctionAssociations: [
+              Match.objectLike({ EventType: 'origin-request', IncludeBody: true }),
+            ],
+          },
+        },
+      });
+    });
+
+    it('CloudFront Function と Lambda@Edge が共存する', () => {
+      const stack = new CloudFrontStackBase(app, 'TestOacCoexistStack', {
+        serviceName: 'tools',
+        environment: 'dev',
+        functionUrl: 'https://example.lambda-url.ap-northeast-1.on.aws/',
+        certificateArn: 'arn:aws:acm:us-east-1:123456789012:certificate/test',
+        createFunctionAssociations: (scope) => [
+          {
+            function: new cloudfront.Function(scope, 'CoexistFunction', {
+              code: cloudfront.FunctionCode.fromInline(
+                'function handler(event) { return event.request; }'
+              ),
+            }),
+            eventType: cloudfront.FunctionEventType.VIEWER_REQUEST,
+          },
+        ],
+      });
+
+      Template.fromStack(stack).hasResourceProperties('AWS::CloudFront::Distribution', {
+        DistributionConfig: {
+          DefaultCacheBehavior: {
+            FunctionAssociations: [Match.objectLike({ EventType: 'viewer-request' })],
+            LambdaFunctionAssociations: [Match.objectLike({ EventType: 'origin-request' })],
+          },
+        },
+      });
+    });
+  });
 });

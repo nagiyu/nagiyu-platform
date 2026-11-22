@@ -4,7 +4,6 @@ import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
-import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
 import * as ecr from 'aws-cdk-lib/aws-ecr';
 import * as acm from 'aws-cdk-lib/aws-certificatemanager';
 import * as batch from 'aws-cdk-lib/aws-batch';
@@ -16,9 +15,12 @@ import {
   DEFAULT_LAMBDA_LOG_RETENTION,
   DEFAULT_LAMBDA_TRACING,
   SSM_PARAMETERS,
+  createBodyHashEdgeLambdas,
   createCloudFrontAliasRecord,
+  createFunctionUrlOrigin,
   createResponseHeadersPolicy,
   createServiceBucket,
+  grantCloudFrontInvoke,
   grantErrorEventsWrite,
   getEcrRepositoryName,
   getImageTag,
@@ -311,32 +313,44 @@ export class CodecConverterStack extends cdk.Stack {
       noindex: true,
     });
 
+    // Function URL のオリジン。OAC で署名して呼ぶ。1 つを全 behavior で共有する。
+    const { origin: functionUrlOrigin } = createFunctionUrlOrigin(this, 'FunctionUrl', {
+      originAccessControlName: `nagiyu-codec-converter-lambda-oac-${envName}`,
+      functionUrl: functionUrl.url,
+    });
+
+    // OAC の署名は本文の SHA256 が要るため、本文を受ける behavior では origin-request で付ける。
+    // GET / HEAD だけを受ける静的アセットの behavior には本文が無いので付けない。
+    const edgeLambdas = createBodyHashEdgeLambdas(this, 'BodyHashEdgeFunction');
+
     // CloudFront Distribution
     const distribution = new cloudfront.Distribution(this, 'Distribution', {
       comment: `Codec Converter distribution for ${envName}`,
       domainNames: [domainName],
       certificate: certificate,
       defaultBehavior: {
-        origin: new origins.FunctionUrlOrigin(functionUrl),
+        origin: functionUrlOrigin,
         viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
         allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
         cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
         originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
         responseHeadersPolicy: securityHeadersPolicy,
         compress: true,
+        edgeLambdas,
       },
       additionalBehaviors: {
         '/api/*': {
-          origin: new origins.FunctionUrlOrigin(functionUrl),
+          origin: functionUrlOrigin,
           viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
           allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
           cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
           originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
           responseHeadersPolicy: securityHeadersPolicy,
           compress: true,
+          edgeLambdas,
         },
         '/_next/static/*': {
-          origin: new origins.FunctionUrlOrigin(functionUrl),
+          origin: functionUrlOrigin,
           viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
           cachePolicy: new cloudfront.CachePolicy(this, 'NextStaticCachePolicy', {
             cachePolicyName: `nagiyu-codec-converter-next-static-${envName}`,
@@ -348,7 +362,7 @@ export class CodecConverterStack extends cdk.Stack {
           compress: true,
         },
         '/favicon.ico': {
-          origin: new origins.FunctionUrlOrigin(functionUrl),
+          origin: functionUrlOrigin,
           viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
           cachePolicy: new cloudfront.CachePolicy(this, 'FaviconCachePolicy', {
             cachePolicyName: `nagiyu-codec-converter-favicon-${envName}`,
@@ -360,6 +374,17 @@ export class CodecConverterStack extends cdk.Stack {
           compress: true,
         },
       },
+    });
+
+    // CloudFront (OAC) の署名付きアクセスを、この配信に限って許可する。
+    // 同じスタックなので配信の ARN で絞れる。
+    grantCloudFrontInvoke(nextjsFunction, {
+      sourceArn: this.formatArn({
+        service: 'cloudfront',
+        region: '',
+        resource: 'distribution',
+        resourceName: distribution.distributionId,
+      }),
     });
 
     // dev 環境のみ、dev アカウントの Route53 ゾーンへ CloudFront 向け ALIAS A レコードを作成する。

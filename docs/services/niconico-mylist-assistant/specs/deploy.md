@@ -3,7 +3,7 @@ sources:
   - infra/niconico-mylist-assistant/bin/niconico-mylist-assistant.ts
   - infra/niconico-mylist-assistant/lib/cloudfront-stack.ts
   - .github/workflows/niconico-mylist-assistant-deploy.yml
-sources_hash: 742956814e72f39bbba59c19efb4480882a4aefc9eda85e71effa5c5ec1436ee
+sources_hash: f904f1e722d04ed2256a85290c65056a4935ac74e232542c4d9fb3f87dd93648
 ---
 
 # niconico-mylist-assistant のデプロイ先
@@ -62,7 +62,7 @@ flowchart TD
 | `build-web` | Web アプリをビルドし、イメージを ECR に push する |
 | `build-batch` | バッチのワーカーのイメージを ECR に push する (`prepare-infrastructure` の後、`build-web` と並行) |
 | `deploy` | Secrets Manager の値を取り出し、全スタックをデプロイする (`--all`)。ワークフローは `--exclude` で `prepare-infrastructure` のスタックを除くつもりで渡しているが、CDK CLI は `--exclude` を受け付けず無視するため、先行の 5 つのスタックも含めた全スタックが対象になる |
-| `verify` | Lambda の Function URL でヘルスチェックを行う ([ヘルスチェック](../../../platform/specs/deploy.md#ヘルスチェック)) |
+| `verify` | CloudFront のスタックの出力からディストリビューションのドメイン名を取り出し、そのドメインでヘルスチェックを行う ([ヘルスチェック](../../../platform/specs/deploy.md#ヘルスチェック)) |
 
 CloudFront のキャッシュ削除は行わない。
 

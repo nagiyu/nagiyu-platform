@@ -3,7 +3,8 @@ sources:
   - infra/niconico-mylist-assistant/lib/lambda-stack.ts
   - infra/niconico-mylist-assistant/lib/policies/web-runtime-policy.ts
   - infra/niconico-mylist-assistant/bin/niconico-mylist-assistant.ts
-sources_hash: a3edf564214e66758bb1dfb24d8d45f405083514bb251ace33fee08b30425ed3
+  - infra/common/src/grants/cloudfront-invoke.ts
+sources_hash: 6e644b16a576c03a737ad0fcd874e6c500494a7683b7d093b535acffb42e1cf4
 ---
 
 # Web の実行環境
@@ -29,6 +30,7 @@ Next.js の Web を動かす Lambda 関数と、その実行ロール・ログ�
 | メモリ | 1,024 MB |
 | タイムアウト | 30 秒 |
 | Function URL の認証 | なし |
+| CloudFront からの呼び出しの許可 | `cloudfront.amazonaws.com` に、`lambda:InvokeFunctionUrl` (AWS_IAM) と、Function URL 経由に限った `lambda:InvokeFunction` を許す。対象はこのアカウントの全ディストリビューション |
 | Function URL の CORS | すべてのオリジン・メソッド・ヘッダーを許可。プリフライトの結果を 86,400 秒保持する |
 
 - 表にない項目 (アーキテクチャ、X-Ray、ログの保持期間、イメージのタグ、タグ) は、[Lambda 関数の共通部品](../../../../platform/specs/resource/lambda-function.md)の既定値のまま

@@ -381,4 +381,33 @@ describe('LambdaStackBase', () => {
       expect(collectIds(true, 'WebFunction')).toEqual(collectIds(false, 'WebFunction'));
     });
   });
+
+  describe('CloudFront からの呼び出し許可', () => {
+    it('CloudFront に 2 つの許可を足し、公開の許可と authType NONE は残す', () => {
+      const stack = new LambdaStackBase(app, 'TestCloudFrontGrantStack', {
+        serviceName: 'tools',
+        environment: 'dev',
+        ecrRepositoryName: 'nagiyu-tools-ecr-dev',
+      });
+
+      const template = Template.fromStack(stack);
+
+      template.hasResourceProperties('AWS::Lambda::Url', { AuthType: 'NONE' });
+      template.hasResourceProperties('AWS::Lambda::Permission', {
+        Action: 'lambda:InvokeFunctionUrl',
+        Principal: '*',
+        FunctionUrlAuthType: 'NONE',
+      });
+      template.hasResourceProperties('AWS::Lambda::Permission', {
+        Action: 'lambda:InvokeFunctionUrl',
+        Principal: 'cloudfront.amazonaws.com',
+        FunctionUrlAuthType: 'AWS_IAM',
+      });
+      template.hasResourceProperties('AWS::Lambda::Permission', {
+        Action: 'lambda:InvokeFunction',
+        Principal: 'cloudfront.amazonaws.com',
+        InvokedViaFunctionUrl: true,
+      });
+    });
+  });
 });
