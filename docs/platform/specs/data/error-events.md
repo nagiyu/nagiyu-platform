@@ -24,7 +24,7 @@ sources_hash: 979dec932ff365fc5d328e371184dd7f647774a8e60c13c5d08a799c3e47233c
 | ポイントインタイムリカバリ | 有効 |
 | TTL の属性 | `TTL` |
 | ストリーム | 有効 (`NEW_IMAGE`) |
-| 削除ポリシー | prod は残す。dev は削除する |
+| スタックを消したとき | prod はテーブルを残す (`RETAIN`)。dev はテーブルも消す (`DESTROY`) |
 
 タグは `Application` が `nagiyu`、`Service` が `platform`、`Component` が `error-events`、`Environment` が環境名。
 
@@ -95,5 +95,5 @@ sources_hash: 979dec932ff365fc5d328e371184dd7f647774a8e60c13c5d08a799c3e47233c
 - 全サービス横断の一覧に GSI を使う。パーティションキーが `serviceId` のままでは、サービスをまたぐ時系列の取得ができない。GSI のパーティションキーは固定値にしている
 - `SK` に発生時刻を入れる。サービスごとの一覧が、並べ替えなしで時系列になる
 - ストリームを有効にし、`NEW_IMAGE` を流す。INSERT をきっかけに Web Push を送るため
-- prod のテーブルは残す。削除するとエラー履歴が失われる
+- prod でだけテーブルを残すのは、スタックを消したり作り直したりしたときに、prod のエラー履歴を失わないため。dev の履歴は失っても困らないので、スタックと一緒に消して、作り直しを妨げないようにする
 - ErrorEvent と DynamoDB の項目の相互の変換 (キーの組み立て、属性名) は、`libs/aws/src/error-events/mapper.ts` の `ErrorEventMapper` だけが持つ。書く側 (各サービスが使う `libs/aws` の書き込み) と読む側 (Admin) は、どちらもこれを使う。変換を書く側と読む側で別々に持つと、項目を足したときに片方だけが直り、Admin が新しい項目を読めなくなるため
