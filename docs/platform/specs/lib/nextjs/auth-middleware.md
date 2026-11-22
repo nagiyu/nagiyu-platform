@@ -1,7 +1,8 @@
 ---
 sources:
   - libs/nextjs/src/middleware.ts
-sources_hash: 89760585585605cb08652be84c5c6eaedbe65950740e08db278e8466537a5568
+  - libs/nextjs/package.json
+sources_hash: cd23a1ed2c65654528bc832d34987dd9da5cafb1a9066ececc0447cd74c9e04a
 ---
 
 # 認証ミドルウェア
@@ -55,7 +56,7 @@ const authMiddleware = createAuthMiddleware({
 | `/api` または `/api/` 配下 | 403 の JSON `{ error: 'FORBIDDEN', message: 'この操作を実行する権限がありません' }` |
 | それ以外 (ページ) | `forbiddenPath` へのリダイレクト。元のパスと検索文字列を、クエリ `from` に入れる |
 
-ページのリダイレクト先のオリジンは、環境変数 `APP_URL` があればそれ、なければリクエストの URL のオリジン。`/apixyz` のように接頭辞だけが一致するパスは API とみなさない。
+ページのリダイレクト先のオリジンは、環境変数 `APP_URL` が未設定 (`undefined`) のときだけリクエストの URL のオリジン。`APP_URL=""` のときは空文字のままになり、`forbiddenPath` の解決に失敗する。`/apixyz` のように接頭辞だけが一致するパスは API とみなさない。
 
 ### サインインへのリダイレクト
 
@@ -64,7 +65,7 @@ const authMiddleware = createAuthMiddleware({
 | 項目 | 値 |
 |---|---|
 | サインインのオリジン | `getSignInBaseUrl` が返した値。オプションがなければリクエストの URL のオリジン |
-| 戻り先 (既定) | `APP_URL` があれば `{APP_URL}{パス}{検索文字列}`。なければパスだけ (検索文字列を含まない) |
+| 戻り先 (既定) | `APP_URL` が空でなければ `{APP_URL}{パス}{検索文字列}`。空または未設定ならパスだけ (検索文字列を含まない) |
 
 `getSignInBaseUrl` を渡したのに空を返したとき (環境変数の設定漏れ) は、サインインへ飛ばさず、ログに `NEXT_PUBLIC_AUTH_URL or NEXTAUTH_URL is not set` を出す。応答は `onAuthConfigError` の戻り値、なければ 500 の JSON `{ error: 'Authentication configuration error' }`。
 

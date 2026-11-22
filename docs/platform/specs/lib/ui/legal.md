@@ -5,18 +5,14 @@ sources:
   - libs/ui/src/components/dialogs/LegalDialog.tsx
   - libs/ui/src/components/dialogs/PrivacyPolicyDialog.tsx
   - libs/ui/src/components/dialogs/TermsOfServiceDialog.tsx
-  - libs/ui/src/data/termsOfServiceData.ts
-  - libs/ui/src/data/privacyPolicyData.ts
   - libs/ui/src/data/commercialTransactionsData.ts
   - libs/ui/src/types/legal.ts
-sources_hash: d0093634635fad56a56d7191e136fed4eb38d7725f2ce23e87e5b3d178e974ec
+sources_hash: a168699c3ed4ae0c52e0191259b6e93885520a0b77a54732a3b0fe8a9fc081dc
 ---
 
 # 法務の文書
 
 利用規約・プライバシーポリシー・特定商取引法に基づく表記の、共通の文面と、それを描く部品。条文のデータと部品を共有することで、どのサービスでも同じ文面を出す。`@nagiyu/ui` から import する。
-
-`PrivacyPolicyDialog` と `TermsOfServiceDialog` は、サービスからは直接は使われていない ([Footer](./footer.md) が中で使う)。
 
 ## 使い方
 
@@ -68,7 +64,7 @@ sources_hash: d0093634635fad56a56d7191e136fed4eb38d7725f2ce23e87e5b3d178e974ec
     | `linkKind` | 描き方 |
     |---|---|
     | `mailto` | 内容の全体をメールアドレスのリンクにする |
-    | `plans` | `linkText` と最初に一致する部分だけを `plansHref` へのリンクにする。`linkText` がなければリンクにしない |
+    | `plans` | `linkText` が内容に含まれれば、最初に一致する部分だけを `plansHref` へのリンクにする。含まれなければ、内容の後ろにリンクを足す。`linkText` がなければリンクにしない |
     | なし | 文字列のまま |
 
 ### ダイアログ
@@ -76,9 +72,9 @@ sources_hash: d0093634635fad56a56d7191e136fed4eb38d7725f2ce23e87e5b3d178e974ec
 - 規約とポリシーで枠・タイトル・閉じるボタンをそろえる (枠は内部の部品 `LegalDialog`。公開しない)
 - タイトルは固定で、「利用規約」「プライバシーポリシー」
 - 幅は `md` の最大幅で、横いっぱいに広げる。本文が長いときはダイアログの中でスクロールする
-- 右上の閉じるアイコンと、下の「閉じる」ボタンのどちらでも `onClose` を呼ぶ。背景のクリックでも呼ぶ
+- 右上の閉じるアイコンと、下の「閉じる」ボタンのどちらでも `onClose` を呼ぶ。背景のクリックと Escape キーでも呼ぶ
 - 本文は `LegalSections` で描く
 
 ## 理由
 
-- 規約・ポリシー・特定商取引の文面を、データとして 1 か所に持つ。サービスごとに写しを持つと、文面がずれるため。サービスごとに変えたいときは、`sections` を差し替える
+- 規約・ポリシー・特定商取引の文面を、データとして 1 か所に持つ。サービスごとに写しを持つと、文面がずれるため。利用規約とプライバシーポリシーは、サービスごとに変えたいときに `sections` を差し替えられる (`CommercialTransactionsTable` には差し替えの props がない)

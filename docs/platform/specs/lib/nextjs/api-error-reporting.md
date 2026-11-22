@@ -55,14 +55,14 @@ export const GET = withApiErrorReporting('GET /api/items', async (request: NextR
 
 | 項目 | 内容 |
 |---|---|
-| `method` / `pathname` | `handler` の第 1 引数が `Request` のときだけ入る。クエリは個人情報を含みうるため入れない |
-| そのほか | 例外から作ったコンテキスト (共通ライブラリのエラーのコンテキスト) |
+| `method` / `pathname` | `handler` の第 1 引数が `Request` のときだけ入る。URL を解析できないときは `method` だけ。クエリは個人情報を含みうるため入れない |
+| そのほか | `buildErrorContext` の項目 (`errorName` / `errorMessage` / `errorStack`)。[エラーイベントの型とヘルパー](../common/error-event.md)にある |
 
-`report` が失敗 (例外) しても、レスポンスは変わらない。例外は握り、`[withApiErrorReporting] エラー報告に失敗しました` をログに出す。
+`report` が失敗 (例外) しても、レスポンスは変わらない。例外は握り、`[withApiErrorReporting] エラー報告に失敗しました` をログに出す。`toErrorResponse` が例外を投げたときは握らず、そのまま投げ返す。
 
 ## 理由
 
 - 報告は、例外を最後に受け止める層だけが行う方針のため、ルートの入口で 1 回だけ行う
 - `report` を、呼び出し側から渡させる。`@nagiyu/nextjs` は `@nagiyu/aws` に依存しないため、エラーイベントの書き込みを直接呼べない。`ApiErrorReportInput` は、`@nagiyu/aws` の `ReportErrorEventInput` に代入できる形にそろえてある
-- `toErrorResponse` を差し替えられるようにする。サービスごとにエラーの形式が異なる場合に、それを保ったまま報告だけ足せるようにするため
+- `toErrorResponse` を差し替えられるようにする。サービス固有のエラー形式を保つため
 - 正常に返した 4xx / 5xx は報告しない。ハンドラ自身が返したものは想定内のため

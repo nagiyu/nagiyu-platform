@@ -57,7 +57,7 @@ import { SessionHeader, SessionProviderWrapper } from '@nagiyu/ui/session-provid
 
 ## 理由
 
-- next-auth に依存する部品を専用のサブパスに分ける。メインの `@nagiyu/ui` から import できるようにすると、next-auth を使わないサービスにまでこの依存が伝わるため。`next-auth` は `peerDependencies` に置き、`session-provider` のサブパスを使うサービスだけが依存を負う
+- next-auth に依存する部品を専用のサブパスに分ける。メインの入口 (`@nagiyu/ui`) に混ぜると、import の連鎖で next-auth が読み込まれてしまうため。`next-auth` は `peerDependencies` に置き、optional ではないので、`@nagiyu/ui` を使うサービスはどれも満たす必要がある。サブパスで防げるのは、メインの入口から next-auth が読み込まれることだけ
 - 読み込み中にログインボタンを出さない。ログイン済みの利用者に、一瞬ログインボタンが見えてしまうため
 
 ## 手順

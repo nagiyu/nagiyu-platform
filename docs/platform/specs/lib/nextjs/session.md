@@ -1,7 +1,8 @@
 ---
 sources:
   - libs/nextjs/src/session.ts
-sources_hash: 710dd960caee3fcef8e69e422b6b760fb852024509f022a238fd2082b8c19d81
+  - libs/nextjs/package.json
+sources_hash: 22cf37a66db6ac54a49793db63bc718769a9f9f9cc2be1654d2441f7e78e8000
 ---
 
 # セッション取得とテストセッション
@@ -13,7 +14,7 @@ sources_hash: 710dd960caee3fcef8e69e422b6b760fb852024509f022a238fd2082b8c19d81
 | 関数 | 内容 |
 |---|---|
 | `createSessionGetter({ auth, defaultRoles? })` | サーバー側で使う、セッションを返す関数を作る。未認証なら `null` を返す |
-| `createClientSessionGetHandler(originalGet, { defaultRoles? }?)` | NextAuth の `handlers.GET` を包み、テスト時だけ `/api/auth/session` にテストセッションを返す GET ハンドラを作る |
+| `createClientSessionGetHandler(originalGet, { defaultRoles? }?)` | NextAuth の `handlers.GET` 全体を包み、`/api/auth/session` へのリクエストだけを (`SKIP_AUTH_CHECK` が `'true'` のとき) テストセッションに差し替える GET ハンドラを作る |
 | `resolveTestUser({ defaultRoles?, roles? }?)` | 環境変数からテストユーザーを作る |
 | `parseTestUserRoles(value)` | `,` 区切りのロール文字列を配列にする |
 | `createTestSessionExpires()` | テストセッションの有効期限 (ISO 8601) を作る |
@@ -51,7 +52,7 @@ export const GET = createClientSessionGetHandler((req: NextRequest) => handlers.
 
 ### テストセッション
 
-テストセッションは `SKIP_AUTH_CHECK` が `'true'` のときだけ作られ、本番の認証経路では使われない。
+`createSessionGetter` と `createClientSessionGetHandler` は、`SKIP_AUTH_CHECK` が `'true'` のときだけテストセッションを作る。`resolveTestUser` は環境変数を見ずにテストユーザーを作るため、呼び出し側が使う条件を決める。
 
 | 項目 | 値 |
 |---|---|

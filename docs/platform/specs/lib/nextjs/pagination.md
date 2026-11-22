@@ -29,10 +29,10 @@ export async function GET(request: NextRequest) {
 
 | クエリ | 戻り値の項目 | 既定値 | 条件 |
 |---|---|---|---|
-| `limit` | `limit` | 50 | 整数で 1 から 100 |
+| `limit` | `limit` | 50 (クエリがない、または空文字のとき) | 整数で 1 から 100 |
 | `lastKey` | `cursor` | なし | 空文字ならなし |
 
-- `limit` は `parseInt` で読む。数値として読めない、または範囲外なら `PaginationValidationError` を投げる (`code` は `INVALID_LIMIT`、メッセージは「limit は 1 から 100 の間で指定してください」)。`handleApiError` が 400 の `VALIDATION_ERROR` に変換する ([エラーレスポンス](./error-response.md))
+- `limit` は `parseInt` (10 進) で読むため、`10abc` は 10、`1.9` は 1 として受け付ける。数値として読めない、または範囲外なら `PaginationValidationError` を投げる (`code` は `INVALID_LIMIT`、メッセージは「limit は 1 から 100 の間で指定してください」)。`handleApiError` が 400 の `VALIDATION_ERROR` に変換する ([エラーレスポンス](./error-response.md))
 - `cursor` は `lastKey` の文字列をそのまま返し、デコードしない。戻り値は、リポジトリのページネーションのオプションとして渡せる
 
 ### レスポンス

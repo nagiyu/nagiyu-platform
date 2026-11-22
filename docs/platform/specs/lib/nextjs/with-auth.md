@@ -8,7 +8,7 @@ sources_hash: 6f6e1b48bd5d6f05868648a875b9df1f93e12874c901ec57540141da0e7b1250
 
 API ルートのハンドラを、認証と権限の確認で包む。`@nagiyu/nextjs` から import する。
 
-`@nagiyu/common` にも同名の `getAuthError` があるが、こちらは `permission` を省略 (または `null`) でき、`Session` に限らず `user.roles` を持つセッションを受け取る。
+`@nagiyu/common` にも同名の `getAuthError` がある。違いは[ロールと権限](../common/roles-and-permissions.md)にある。
 
 ## 使い方
 
@@ -17,7 +17,7 @@ API ルートのハンドラを、認証と権限の確認で包む。`@nagiyu/n
 | `withAuth(auth, permission, handler)` | NextAuth の `auth` 関数、必要な権限 (権限を問わないなら `null`)、ハンドラ (第 1 引数がセッション、残りは元のハンドラの引数) | 認証と権限を確認してから `handler` を呼ぶハンドラ |
 | `getAuthError(session, permission?)` | セッション (未認証なら `null`)、必要な権限 | エラー (`message` と `statusCode`)。問題がなければ `null` |
 | `getOptionalSession(auth)` | `auth` 関数 | セッション。未認証なら `null` |
-| `getSessionOrThrow(auth)` | `auth` 関数 | セッション。未認証なら `Error('UNAUTHORIZED')` を投げる |
+| `getSessionOrThrow(auth)` | `auth` 関数 | セッション。未認証なら `Error('UNAUTHORIZED')` を投げる。`handleApiError` ([エラーレスポンス](./error-response.md)) では 500 になり、[API ルートのエラー報告](./api-error-reporting.md)の報告の対象になる |
 
 `auth` 関数とセッションの型は、`user.roles` (文字列の配列) を持つ型であればよい。
 

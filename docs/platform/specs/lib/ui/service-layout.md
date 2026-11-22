@@ -9,7 +9,7 @@ sources_hash: a3d938f76008a55971dd9af6d71991153b1b79e6a01bf7f09eab63193396e0ed
 
 # サービスのレイアウト
 
-サービスのページ全体の枠。MUI のテーマと CSS リセットを当てたうえで、ヘッダー、本文、フッターを縦に並べる。`ServiceLayout` を `@nagiyu/ui/service-layout` (メインの `@nagiyu/ui` からも import できる) から使う。テーマだけを当てる `AppThemeProvider` も提供する。
+サービスのページ全体の枠。MUI のテーマと `CssBaseline` を当てたうえで、ヘッダー、本文、フッターを縦に並べる。`ServiceLayout` を `@nagiyu/ui/service-layout` (メインの `@nagiyu/ui` からも import できる) から使う。テーマだけを当てる `AppThemeProvider` も提供する。
 
 ## 使い方
 
@@ -35,7 +35,7 @@ sources_hash: a3d938f76008a55971dd9af6d71991153b1b79e6a01bf7f09eab63193396e0ed
 
 ### AppLayout
 
-`children` と、省略できる `themeOverride` (MUI の `Theme`) を受け取る。`@nagiyu/ui` から import できるが、サービスからは使われていない。
+`children` と、省略できる `themeOverride` (MUI の `Theme`) を受け取る。`@nagiyu/ui` から import できる。
 
 ## 振る舞い
 

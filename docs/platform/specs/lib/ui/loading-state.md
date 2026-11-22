@@ -20,13 +20,13 @@ sources_hash: c19bc40937fbeecf433a985452f9642c658f0bbc48e43645369e9cb3488e4b54
 | `variant` | `page` / `inline` | `page` | 画面全体の読み込み / 一覧や表の中の読み込み |
 | `minHeight` | 数値、文字列、`xs` 〜 `xl` ごとの数値 | `page` は 400、`inline` は指定なし | 最小の高さ |
 | `size` | number | 40 | スピナーの大きさ (px) |
-| `data-testid` | string | なし | 外側の要素の ID。E2E から特定するため |
+| `data-testid` | string | なし | 外側の要素に付ける `data-testid` 属性。E2E から特定するため |
 
 ## 振る舞い
 
 | `variant` | メッセージの表示 | 余白 |
 |---|---|---|
-| `page` | スピナーの下に出す | なし |
+| `page` | スピナーの下に出す。スピナーにも `aria-label` としてメッセージが付く | なし |
 | `inline` | 出さない。読み上げ用にスピナーの `aria-label` だけに使う | 上下に余白を付ける |
 
 - 呼び出し側が `minHeight` を指定したら、`inline` でもそれを使う

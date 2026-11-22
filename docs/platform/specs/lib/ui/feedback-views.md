@@ -22,8 +22,8 @@ sources_hash: 7fffab378cd58cca06d4b37c66cac0ba4f99245cb6af4840156f53c3e4e29afa
 
 ```tsx
 // error.tsx
-export default function Error({ reset }: { reset: () => void }) {
-    return <ErrorView onRetry={reset} />;
+export default function Error({ retry }: { retry: () => void }) {
+    return <ErrorView onRetry={retry} />;
 }
 ```
 
@@ -48,7 +48,6 @@ export default function Error({ reset }: { reset: () => void }) {
 - 戻り先は `callbackUrl`。省略すると、ボタンを押した時点の現在の URL を使う。サーバー側のレンダリングでは `window` がなく、画面遷移で URL が変わることもあるため、押した時点で決める
 - `onRefresh` / `onSignOut` に関数を渡すと、`window.location.assign` の代わりにその関数が (作った URL を引数に) 呼ばれる
 - auth サービス自身で使うときは `authUrl` に空文字を渡す。同じオリジンの相対 URL になる ([auth サービスへの URL](./auth-urls.md))
-- 本文の枠に `role="main"` を付ける
 
 ### NotFoundView
 
@@ -63,7 +62,15 @@ export default function Error({ reset }: { reset: () => void }) {
 
 - 強調のボタンは、画面でいちばん取ってほしい操作の 1 つだけ。再試行があれば再試行、なければトップへ戻る
 - エラーのメッセージや digest は表示しない。ログも出さない。ログの出力はサービスの `error.tsx` が行う
-- `NotFoundView` と `ErrorView` には `role="main"` を付けない。サービスのレイアウトがすでに `main` を持ち、この画面はその内側に描かれるため
+
+### role="main"
+
+| 部品 | `role="main"` |
+|---|---|
+| `AccessDeniedView` | 本文の枠に付ける |
+| `NotFoundView` | 付けない。サービスのレイアウトがすでに `main` を持ち、この画面はその内側に描かれるため |
+| `ErrorView` | 付けない。`NotFoundView` と同じ |
+| `GlobalErrorView` | 自分で `main` を描き、その中に `ErrorView` を置く。`ErrorView` が `main` を持たないため |
 
 ### GlobalErrorView
 

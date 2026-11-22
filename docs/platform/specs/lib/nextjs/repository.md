@@ -1,12 +1,13 @@
 ---
 sources:
   - libs/nextjs/src/repository.ts
-sources_hash: 8dfd905afbc0284a3442c1d179cbef556a4d7e681a58bb5fe177687fa6e1991d
+  - libs/nextjs/package.json
+sources_hash: 50d5df36c87c73e9576ccad448a2c33ab65af28cd353e03c74aacb452bb346bf
 ---
 
 # リポジトリの初期化
 
-API ルートのハンドラに、DynamoDB のリポジトリを組み立てて渡す。`@nagiyu/nextjs` から import する。サービスからは使われていない。
+API ルートのハンドラに、DynamoDB のリポジトリを組み立てて渡す。`@nagiyu/nextjs` から import する。
 
 ## 使い方
 

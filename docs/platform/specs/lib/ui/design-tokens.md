@@ -4,12 +4,13 @@ sources:
   - libs/ui/src/styles/tokens.ts
   - libs/ui/src/styles/theme.ts
   - libs/ui/src/styles/base.css
-sources_hash: 39b95dd4688e87f9f5433685eedefe13a4632fad90f5b9360ad7bc3e372fc202
+  - libs/ui/package.json
+sources_hash: c572dfe30e475e9adec373e950b543acdbabce0b4d7f186cddf8ac2f5f2a6acc
 ---
 
 # デザイントークン
 
-色・余白・文字・角丸・影などの値を CSS 変数として配る仕組み。`@nagiyu/ui/tokens.css` が変数を定義し、`@nagiyu/ui/base.css` が最小限のリセットを当てる。TypeScript からは `@nagiyu/ui/tokens` (メインの `@nagiyu/ui` からも import できる) の `tokens` で変数への参照を得る。MUI のテーマ (`theme`) も同じ値から作る。
+色・余白・文字・角丸・影などの値を CSS 変数として配る仕組み。`@nagiyu/ui/tokens.css` が変数を定義し、`@nagiyu/ui/base.css` が最小限のリセットを当てる。TypeScript からは `@nagiyu/ui/tokens` (メインの `@nagiyu/ui` からも import できる) の `tokens` で変数への参照を得る。MUI のテーマ (`theme`) は、`tokens` から `breakpoints` だけを取り、palette の値は `tokens.css` の Primitive の具体値を写して持つ。
 
 ## 使い方
 
@@ -43,7 +44,7 @@ const style = { color: tokens.color.action.primary.default };
 | カテゴリ | Semantic の名前 | 値 |
 |---|---|---|
 | 背景 | `--color-bg-canvas` / `-surface` / `-subtle` | ライトは gray-50 / white / gray-100 |
-| 文字 | `--color-fg-default` / `-muted` / `-disabled` / `-on-accent` | 黒の 87% / 60% / 38% の不透明度。`on-accent` は white |
+| 文字 | `--color-fg-default` / `-muted` / `-disabled` / `-on-accent` ライトは黒の 87% / 60% / 38% の不透明度。`on-accent` は white |
 | 枠線 | `--color-border-default` / `-subtle` / `-strong` | ライトは gray-300 / 200 / 400 |
 | アクション | `--color-action-{role}` と `-hover` / `-active` / `-subtle` / `-fg` | role は primary / secondary / danger / warning / success / info / neutral |
 | 余白 | `--spacing-xs` / `sm` / `md` / `lg` / `xl` / `2xl` | 4 / 8 / 16 / 24 / 32 / 48 px |
@@ -58,7 +59,7 @@ const style = { color: tokens.color.action.primary.default };
 | 遷移の曲線 | `--easing-linear` / `in` / `out` / `in-out` | |
 
 - Primitive の余白は 0 から 64 px まで (`--primitive-space-0` 〜 `--primitive-space-16`)。Semantic の余白はその一部を名前に割り当てる
-- Primitive の文字サイズは `3xl` (2rem) と `4xl` (2.5rem) まであり、Semantic には `xl` までしかない
+- Primitive の文字サイズは `2xl` (1.75rem)、`3xl` (2rem)、`4xl` (2.5rem) まであり、Semantic には `xl` までしかない
 - ブレークポイントは Primitive の CSS 変数 `--primitive-breakpoint-sm` / `md` / `lg` / `xl` (600 / 900 / 1200 / 1536 px) だけで、Semantic はない。TypeScript の `breakpoints` は `xs: 0` を加えた数値 (0 / 600 / 900 / 1200 / 1536) で、MUI のテーマに渡す
 - `tokens.color.action` は neutral を持たない (primary / secondary / danger / warning / success / info の 6 色)。neutral の変数 (`--color-action-neutral-*`) は CSS から参照する
 
