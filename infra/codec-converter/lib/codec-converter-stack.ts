@@ -10,20 +10,25 @@ import * as acm from 'aws-cdk-lib/aws-certificatemanager';
 import * as batch from 'aws-cdk-lib/aws-batch';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as logs from 'aws-cdk-lib/aws-logs';
-import * as route53 from 'aws-cdk-lib/aws-route53';
-import * as targets from 'aws-cdk-lib/aws-route53-targets';
 import { Construct } from 'constructs';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import {
   DEFAULT_LAMBDA_LOG_RETENTION,
   DEFAULT_LAMBDA_TRACING,
   SSM_PARAMETERS,
+  createCloudFrontAliasRecord,
+  createResponseHeadersPolicy,
+  createServiceBucket,
   grantErrorEventsWrite,
+  getEcrRepositoryName,
+  getImageTag,
   importSharedVpc,
 } from '@nagiyu/infra-common';
 import { AppRuntimePolicy } from './policies/app-runtime-policy';
 import { LambdaExecutionRole } from './roles/lambda-execution-role';
 import { BatchJobRole } from './roles/batch-job-role';
+
+import { BATCH_ECR_SERVICE_NAME, WEB_ECR_SERVICE_NAME } from './ecr-stacks';
 
 export interface CodecConverterStackProps extends cdk.StackProps {
   appVersion?: string;
@@ -50,10 +55,8 @@ export class CodecConverterStack extends cdk.Stack {
     const allowedOrigin = this.node.tryGetContext('allowedOrigin') || defaultOrigin;
 
     // S3 Bucket for input/output files
-    const storageBucket = new s3.Bucket(this, 'StorageBucket', {
+    const storageBucket = createServiceBucket(this, 'StorageBucket', {
       bucketName: `nagiyu-codec-converter-storage-${envName}`,
-      encryption: s3.BucketEncryption.S3_MANAGED,
-      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       versioned: false,
       lifecycleRules: [
         {
@@ -86,400 +89,329 @@ export class CodecConverterStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
-    // Deployment phase control
-    const deploymentPhase = this.node.tryGetContext('deploymentPhase') || 'full';
+    // ECR リポジトリは別スタックが作る。名前は同じ関数から導き、スタック間の Export / Import は作らない。
+    // 本体の更新でリポジトリの有無に依存させないため fromRepositoryName で参照する。
+    const ecrRepository = ecr.Repository.fromRepositoryName(
+      this,
+      'EcrRepository',
+      getEcrRepositoryName(WEB_ECR_SERVICE_NAME, envName as 'dev' | 'prod')
+    );
+    const workerEcrRepository = ecr.Repository.fromRepositoryName(
+      this,
+      'WorkerEcrRepository',
+      getEcrRepositoryName(BATCH_ECR_SERVICE_NAME, envName as 'dev' | 'prod')
+    );
 
-    // ECR repository for Lambda container image
-    const ecrRepositoryName =
-      this.node.tryGetContext('ecrRepositoryName') || `nagiyu-codec-converter-${envName}`;
-    const imageTag = this.node.tryGetContext('imageTag') || 'latest';
+    // Lambda と Batch のイメージのタグは、どちらもデプロイで push した 1 つのタグを指す。
+    const imageTag = getImageTag();
 
-    // Create or reference Web ECR repository based on deployment phase
-    const ecrRepository =
-      deploymentPhase === 'ecr-only'
-        ? new ecr.Repository(this, 'EcrRepository', {
-            repositoryName: ecrRepositoryName,
-            imageScanOnPush: true,
-            lifecycleRules: [
-              {
-                description: 'Keep last 10 images',
-                maxImageCount: 10,
-                rulePriority: 1,
-              },
-            ],
-            removalPolicy: cdk.RemovalPolicy.RETAIN,
-          })
-        : ecr.Repository.fromRepositoryName(this, 'EcrRepository', ecrRepositoryName);
+    // IAM Role for Batch Job Execution
+    const batchJobExecutionRole = new iam.Role(this, 'BatchJobExecutionRole', {
+      assumedBy: new iam.ServicePrincipal('ecs-tasks.amazonaws.com'),
+      description: 'Execution role for Batch job tasks',
+      managedPolicies: [
+        iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AmazonECSTaskExecutionRolePolicy'),
+      ],
+    });
 
-    // Create or reference Batch worker ECR repository based on deployment phase
-    const workerEcrRepository =
-      deploymentPhase === 'ecr-only'
-        ? new ecr.Repository(this, 'WorkerEcrRepository', {
-            repositoryName: `nagiyu-codec-converter-ffmpeg-${envName}`,
-            imageScanOnPush: true,
-            lifecycleRules: [
-              {
-                description: 'Keep last 10 images',
-                maxImageCount: 10,
-                rulePriority: 1,
-              },
-            ],
-            removalPolicy: cdk.RemovalPolicy.RETAIN,
-          })
-        : ecr.Repository.fromRepositoryName(
-            this,
-            'WorkerEcrRepository',
-            `nagiyu-codec-converter-ffmpeg-${envName}`
-          );
+    // Grant Batch job access to ECR
+    workerEcrRepository.grantPull(batchJobExecutionRole);
 
-    // Only create Lambda, Batch, and other resources in 'full' deployment phase
-    if (deploymentPhase === 'full') {
-      // IAM Role for Batch Job Execution
-      const batchJobExecutionRole = new iam.Role(this, 'BatchJobExecutionRole', {
-        assumedBy: new iam.ServicePrincipal('ecs-tasks.amazonaws.com'),
-        description: 'Execution role for Batch job tasks',
-        managedPolicies: [
-          iam.ManagedPolicy.fromAwsManagedPolicyName(
-            'service-role/AmazonECSTaskExecutionRolePolicy'
-          ),
-        ],
-      });
+    // IAM Role for Batch Job (container runtime)
+    const batchJobRole = new BatchJobRole(this, 'BatchJobRole', {
+      storageBucket,
+      jobsTable,
+    });
+    grantErrorEventsWrite(this, batchJobRole, envName as 'dev' | 'prod');
 
-      // Grant Batch job access to ECR
-      workerEcrRepository.grantPull(batchJobExecutionRole);
+    const { vpc, publicSubnetIds } = importSharedVpc(this, 'SharedVpc', envName as 'dev' | 'prod');
 
-      // IAM Role for Batch Job (container runtime)
-      const batchJobRole = new BatchJobRole(this, 'BatchJobRole', {
-        storageBucket,
-        jobsTable,
-      });
-      grantErrorEventsWrite(this, batchJobRole, envName as 'dev' | 'prod');
+    // Create security group for Batch compute environment
+    const batchSecurityGroup = new ec2.SecurityGroup(this, 'BatchSecurityGroup', {
+      vpc: vpc,
+      description: 'Security group for Batch Fargate tasks',
+      allowAllOutbound: true,
+    });
 
-      const { vpc, publicSubnetIds } = importSharedVpc(
-        this,
-        'SharedVpc',
-        envName as 'dev' | 'prod'
-      );
+    // Batch Compute Environment (Fargate) - L1 construct for assignPublicIp support
+    const computeEnvironment = new batch.CfnComputeEnvironment(this, 'ComputeEnvironment', {
+      computeEnvironmentName: `nagiyu-codec-converter-${envName}`,
+      type: 'MANAGED',
+      state: 'ENABLED',
+      computeResources: {
+        type: 'FARGATE',
+        maxvCpus: 16, // Supports multiple job sizes: small (1 vCPU) to xlarge (4 vCPU)
+        subnets: publicSubnetIds,
+        securityGroupIds: [batchSecurityGroup.securityGroupId],
+      },
+    });
 
-      // Create security group for Batch compute environment
-      const batchSecurityGroup = new ec2.SecurityGroup(this, 'BatchSecurityGroup', {
-        vpc: vpc,
-        description: 'Security group for Batch Fargate tasks',
-        allowAllOutbound: true,
-      });
-
-      // Batch Compute Environment (Fargate) - L1 construct for assignPublicIp support
-      const computeEnvironment = new batch.CfnComputeEnvironment(this, 'ComputeEnvironment', {
-        computeEnvironmentName: `nagiyu-codec-converter-${envName}`,
-        type: 'MANAGED',
-        state: 'ENABLED',
-        computeResources: {
-          type: 'FARGATE',
-          maxvCpus: 16, // Supports multiple job sizes: small (1 vCPU) to xlarge (4 vCPU)
-          subnets: publicSubnetIds,
-          securityGroupIds: [batchSecurityGroup.securityGroupId],
-        },
-      });
-
-      // Batch Job Queue - L1 construct
-      const jobQueue = new batch.CfnJobQueue(this, 'JobQueue', {
-        jobQueueName: `nagiyu-codec-converter-${envName}`,
-        priority: 1,
-        state: 'ENABLED',
-        computeEnvironmentOrder: [
-          {
-            computeEnvironment: computeEnvironment.attrComputeEnvironmentArn,
-            order: 1,
-          },
-        ],
-      });
-
-      // CloudWatch Log Group for Batch (created explicitly to avoid conflicts)
-      const batchLogGroup = new logs.LogGroup(this, 'BatchLogGroup', {
-        logGroupName: `/aws/batch/nagiyu-codec-converter-${envName}`,
-        retention: logs.RetentionDays.ONE_WEEK,
-        removalPolicy: cdk.RemovalPolicy.DESTROY,
-      });
-
-      // Batch Job Definitions - Multiple definitions for dynamic resource allocation
-      const workerImageTag = this.node.tryGetContext('workerImageTag') || 'latest';
-
-      // Define resource configurations for each job size
-      const jobDefinitions = [
-        { size: 'small', vcpu: '1', memory: '2048' },
-        { size: 'medium', vcpu: '2', memory: '4096' },
-        { size: 'large', vcpu: '4', memory: '8192' },
-        { size: 'xlarge', vcpu: '4', memory: '16384' },
-      ];
-
-      // Create job definitions using a loop (DRY principle)
-      const createdJobDefinitions = jobDefinitions.map((config) => {
-        return new batch.CfnJobDefinition(this, `JobDefinition-${config.size}`, {
-          jobDefinitionName: `nagiyu-codec-converter-${envName}-${config.size}`,
-          type: 'container',
-          platformCapabilities: ['FARGATE'],
-          containerProperties: {
-            image: `${workerEcrRepository.repositoryUri}:${workerImageTag}`,
-            resourceRequirements: [
-              {
-                type: 'VCPU',
-                value: config.vcpu,
-              },
-              {
-                type: 'MEMORY',
-                value: config.memory,
-              },
-            ],
-            executionRoleArn: batchJobExecutionRole.roleArn,
-            jobRoleArn: batchJobRole.roleArn,
-            networkConfiguration: {
-              assignPublicIp: 'ENABLED',
-            },
-            logConfiguration: {
-              logDriver: 'awslogs',
-              options: {
-                'awslogs-group': batchLogGroup.logGroupName,
-                'awslogs-region': this.region,
-                'awslogs-stream-prefix': 'batch',
-              },
-            },
-            environment: [
-              {
-                name: 'DYNAMODB_TABLE_NAME',
-                value: jobsTable.tableName,
-              },
-              {
-                name: 'S3_BUCKET',
-                value: storageBucket.bucketName,
-              },
-              {
-                name: 'AWS_REGION',
-                value: this.region,
-              },
-              {
-                name: 'ERROR_EVENTS_TABLE_NAME',
-                value: `nagiyu-error-events-${envName}`,
-              },
-            ],
-          },
-          retryStrategy: {
-            attempts: 2, // 1 retry = 2 attempts total
-          },
-          timeout: {
-            attemptDurationSeconds: 7200, // 2 hours
-          },
-        });
-      });
-
-      // Keep reference to medium job definition for backward compatibility (default)
-      const jobDefinition = createdJobDefinitions[1]; // medium is at index 1
-
-      // Application Runtime Policy (Lambda 実行ロールが使用)
-      const appRuntimePolicy = new AppRuntimePolicy(this, 'AppRuntimePolicy', {
-        storageBucket,
-        jobsTable,
-        jobQueueArn: jobQueue.attrJobQueueArn,
-        jobDefinitionPrefix: `nagiyu-codec-converter-${envName}`,
-        envName,
-      });
-
-      // Lambda Execution Role
-      const lambdaExecutionRole = new LambdaExecutionRole(this, 'LambdaExecutionRole', {
-        appRuntimePolicy,
-      });
-      grantErrorEventsWrite(this, lambdaExecutionRole, envName as 'dev' | 'prod');
-
-      // CloudWatch Log Group for Lambda (created explicitly to avoid conflicts)
-      const lambdaLogGroup = new logs.LogGroup(this, 'LambdaLogGroup', {
-        logGroupName: `/aws/lambda/nagiyu-codec-converter-${envName}`,
-        retention: DEFAULT_LAMBDA_LOG_RETENTION,
-        removalPolicy: cdk.RemovalPolicy.DESTROY,
-      });
-
-      // Lambda Function for Next.js application
-      const nextjsFunction = new lambda.DockerImageFunction(this, 'NextjsFunction', {
-        functionName: `nagiyu-codec-converter-${envName}`,
-        code: lambda.DockerImageCode.fromEcr(ecrRepository, {
-          tagOrDigest: imageTag,
-        }),
-        memorySize: 1024,
-        timeout: cdk.Duration.seconds(30),
-        role: lambdaExecutionRole,
-        logGroup: lambdaLogGroup,
-        tracing: DEFAULT_LAMBDA_TRACING,
-        environment: {
-          APP_VERSION: appVersion,
-          DYNAMODB_TABLE_NAME: jobsTable.tableName,
-          S3_BUCKET: storageBucket.bucketName,
-          BATCH_JOB_QUEUE: jobQueue.jobQueueName || `nagiyu-codec-converter-${envName}`,
-          BATCH_JOB_DEFINITION_PREFIX: `nagiyu-codec-converter-${envName}`, // Prefix for all job definitions (e.g., nagiyu-codec-converter-dev-small)
-          ERROR_EVENTS_TABLE_NAME: `nagiyu-error-events-${envName}`,
-          // AWS_REGION is automatically provided by Lambda runtime
-        },
-        // Note: Lambda Web Adapter must be included in the Docker image itself
-        // Layers are not supported for container image functions
-      });
-
-      // Function URL for Lambda
-      const functionUrl = nextjsFunction.addFunctionUrl({
-        authType: lambda.FunctionUrlAuthType.NONE,
-        cors: {
-          allowedOrigins: ['*'],
-          allowedMethods: [lambda.HttpMethod.ALL],
-          allowedHeaders: ['*'],
-          maxAge: cdk.Duration.hours(1),
-        },
-      });
-
-      const certificate = acm.Certificate.fromCertificateArn(
-        this,
-        'Certificate',
-        ssm.StringParameter.valueForStringParameter(this, SSM_PARAMETERS.ACM_CERTIFICATE_ARN)
-      );
-
-      // ドメイン名（dev/prod 共通で baseDomain から組み立てる。envName によるプレフィックス分岐はしない）
-      const domainName = `codec-converter.${baseDomain}`;
-
-      // 検索エンジンにインデックスさせない（Portal 以外は常に noindex）
-      const noindexHeadersPolicy = new cloudfront.ResponseHeadersPolicy(
-        this,
-        'NoindexHeadersPolicy',
+    // Batch Job Queue - L1 construct
+    const jobQueue = new batch.CfnJobQueue(this, 'JobQueue', {
+      jobQueueName: `nagiyu-codec-converter-${envName}`,
+      priority: 1,
+      state: 'ENABLED',
+      computeEnvironmentOrder: [
         {
-          responseHeadersPolicyName: `nagiyu-codec-converter-noindex-${envName}`,
-          comment: `X-Robots-Tag: noindex, nofollow for codec-converter (${envName})`,
-          customHeadersBehavior: {
-            customHeaders: [
-              {
-                header: 'X-Robots-Tag',
-                value: 'noindex, nofollow',
-                override: true,
-              },
-            ],
-          },
-        }
-      );
+          computeEnvironment: computeEnvironment.attrComputeEnvironmentArn,
+          order: 1,
+        },
+      ],
+    });
 
-      // CloudFront Distribution
-      const distribution = new cloudfront.Distribution(this, 'Distribution', {
-        comment: `Codec Converter distribution for ${envName}`,
-        domainNames: [domainName],
-        certificate: certificate,
-        defaultBehavior: {
+    // CloudWatch Log Group for Batch (created explicitly to avoid conflicts)
+    const batchLogGroup = new logs.LogGroup(this, 'BatchLogGroup', {
+      logGroupName: `/aws/batch/nagiyu-codec-converter-${envName}`,
+      retention: logs.RetentionDays.ONE_WEEK,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+    // Batch Job Definitions - Multiple definitions for dynamic resource allocation
+    // Define resource configurations for each job size
+    const jobDefinitions = [
+      { size: 'small', vcpu: '1', memory: '2048' },
+      { size: 'medium', vcpu: '2', memory: '4096' },
+      { size: 'large', vcpu: '4', memory: '8192' },
+      { size: 'xlarge', vcpu: '4', memory: '16384' },
+    ];
+
+    // Create job definitions using a loop (DRY principle)
+    const createdJobDefinitions = jobDefinitions.map((config) => {
+      return new batch.CfnJobDefinition(this, `JobDefinition-${config.size}`, {
+        jobDefinitionName: `nagiyu-codec-converter-${envName}-${config.size}`,
+        type: 'container',
+        platformCapabilities: ['FARGATE'],
+        containerProperties: {
+          image: `${workerEcrRepository.repositoryUri}:${imageTag}`,
+          resourceRequirements: [
+            {
+              type: 'VCPU',
+              value: config.vcpu,
+            },
+            {
+              type: 'MEMORY',
+              value: config.memory,
+            },
+          ],
+          executionRoleArn: batchJobExecutionRole.roleArn,
+          jobRoleArn: batchJobRole.roleArn,
+          networkConfiguration: {
+            assignPublicIp: 'ENABLED',
+          },
+          logConfiguration: {
+            logDriver: 'awslogs',
+            options: {
+              'awslogs-group': batchLogGroup.logGroupName,
+              'awslogs-region': this.region,
+              'awslogs-stream-prefix': 'batch',
+            },
+          },
+          environment: [
+            {
+              name: 'DYNAMODB_TABLE_NAME',
+              value: jobsTable.tableName,
+            },
+            {
+              name: 'S3_BUCKET',
+              value: storageBucket.bucketName,
+            },
+            {
+              name: 'AWS_REGION',
+              value: this.region,
+            },
+            {
+              name: 'ERROR_EVENTS_TABLE_NAME',
+              value: `nagiyu-error-events-${envName}`,
+            },
+          ],
+        },
+        retryStrategy: {
+          attempts: 2, // 1 retry = 2 attempts total
+        },
+        timeout: {
+          attemptDurationSeconds: 7200, // 2 hours
+        },
+      });
+    });
+
+    // Keep reference to medium job definition for backward compatibility (default)
+    const jobDefinition = createdJobDefinitions[1]; // medium is at index 1
+
+    // Application Runtime Policy (Lambda 実行ロールが使用)
+    const appRuntimePolicy = new AppRuntimePolicy(this, 'AppRuntimePolicy', {
+      storageBucket,
+      jobsTable,
+      jobQueueArn: jobQueue.attrJobQueueArn,
+      jobDefinitionPrefix: `nagiyu-codec-converter-${envName}`,
+      envName,
+    });
+
+    // Lambda Execution Role
+    const lambdaExecutionRole = new LambdaExecutionRole(this, 'LambdaExecutionRole', {
+      appRuntimePolicy,
+    });
+    grantErrorEventsWrite(this, lambdaExecutionRole, envName as 'dev' | 'prod');
+
+    // CloudWatch Log Group for Lambda (created explicitly to avoid conflicts)
+    const lambdaLogGroup = new logs.LogGroup(this, 'LambdaLogGroup', {
+      logGroupName: `/aws/lambda/nagiyu-codec-converter-${envName}`,
+      retention: DEFAULT_LAMBDA_LOG_RETENTION,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+    // Lambda Function for Next.js application
+    const nextjsFunction = new lambda.DockerImageFunction(this, 'NextjsFunction', {
+      functionName: `nagiyu-codec-converter-${envName}`,
+      code: lambda.DockerImageCode.fromEcr(ecrRepository, {
+        tagOrDigest: imageTag,
+      }),
+      memorySize: 1024,
+      timeout: cdk.Duration.seconds(30),
+      role: lambdaExecutionRole,
+      logGroup: lambdaLogGroup,
+      tracing: DEFAULT_LAMBDA_TRACING,
+      environment: {
+        APP_VERSION: appVersion,
+        DYNAMODB_TABLE_NAME: jobsTable.tableName,
+        S3_BUCKET: storageBucket.bucketName,
+        BATCH_JOB_QUEUE: jobQueue.jobQueueName || `nagiyu-codec-converter-${envName}`,
+        BATCH_JOB_DEFINITION_PREFIX: `nagiyu-codec-converter-${envName}`, // Prefix for all job definitions (e.g., nagiyu-codec-converter-dev-small)
+        ERROR_EVENTS_TABLE_NAME: `nagiyu-error-events-${envName}`,
+        // AWS_REGION is automatically provided by Lambda runtime
+      },
+      // Note: Lambda Web Adapter must be included in the Docker image itself
+      // Layers are not supported for container image functions
+    });
+
+    // Function URL for Lambda
+    const functionUrl = nextjsFunction.addFunctionUrl({
+      authType: lambda.FunctionUrlAuthType.NONE,
+      cors: {
+        allowedOrigins: ['*'],
+        allowedMethods: [lambda.HttpMethod.ALL],
+        allowedHeaders: ['*'],
+        maxAge: cdk.Duration.hours(1),
+      },
+    });
+
+    const certificate = acm.Certificate.fromCertificateArn(
+      this,
+      'Certificate',
+      ssm.StringParameter.valueForStringParameter(this, SSM_PARAMETERS.ACM_CERTIFICATE_ARN)
+    );
+
+    // ドメイン名（dev/prod 共通で baseDomain から組み立てる。envName によるプレフィックス分岐はしない）
+    const domainName = `codec-converter.${baseDomain}`;
+
+    // セキュリティヘッダーを付け、検索エンジンにインデックスさせない (Portal 以外は常に noindex)
+    const securityHeadersPolicy = createResponseHeadersPolicy(this, 'SecurityHeadersPolicy', {
+      responseHeadersPolicyName: `nagiyu-codec-converter-security-headers-${envName}`,
+      comment: `Security headers for codec-converter service (${envName})`,
+      securityHeaders: true,
+      noindex: true,
+    });
+
+    // CloudFront Distribution
+    const distribution = new cloudfront.Distribution(this, 'Distribution', {
+      comment: `Codec Converter distribution for ${envName}`,
+      domainNames: [domainName],
+      certificate: certificate,
+      defaultBehavior: {
+        origin: new origins.FunctionUrlOrigin(functionUrl),
+        viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+        allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
+        cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
+        originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
+        responseHeadersPolicy: securityHeadersPolicy,
+        compress: true,
+      },
+      additionalBehaviors: {
+        '/api/*': {
           origin: new origins.FunctionUrlOrigin(functionUrl),
           viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
           allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
           cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
           originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
-          responseHeadersPolicy: noindexHeadersPolicy,
+          responseHeadersPolicy: securityHeadersPolicy,
           compress: true,
         },
-        additionalBehaviors: {
-          '/api/*': {
-            origin: new origins.FunctionUrlOrigin(functionUrl),
-            viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
-            allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
-            cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
-            originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
-            responseHeadersPolicy: noindexHeadersPolicy,
-            compress: true,
-          },
-          '/_next/static/*': {
-            origin: new origins.FunctionUrlOrigin(functionUrl),
-            viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
-            cachePolicy: new cloudfront.CachePolicy(this, 'NextStaticCachePolicy', {
-              cachePolicyName: `nagiyu-codec-converter-next-static-${envName}`,
-              defaultTtl: cdk.Duration.days(365),
-              maxTtl: cdk.Duration.days(365),
-              minTtl: cdk.Duration.days(365),
-            }),
-            responseHeadersPolicy: noindexHeadersPolicy,
-            compress: true,
-          },
-          '/favicon.ico': {
-            origin: new origins.FunctionUrlOrigin(functionUrl),
-            viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
-            cachePolicy: new cloudfront.CachePolicy(this, 'FaviconCachePolicy', {
-              cachePolicyName: `nagiyu-codec-converter-favicon-${envName}`,
-              defaultTtl: cdk.Duration.days(1),
-              maxTtl: cdk.Duration.days(1),
-              minTtl: cdk.Duration.days(1),
-            }),
-            responseHeadersPolicy: noindexHeadersPolicy,
-            compress: true,
-          },
+        '/_next/static/*': {
+          origin: new origins.FunctionUrlOrigin(functionUrl),
+          viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+          cachePolicy: new cloudfront.CachePolicy(this, 'NextStaticCachePolicy', {
+            cachePolicyName: `nagiyu-codec-converter-next-static-${envName}`,
+            defaultTtl: cdk.Duration.days(365),
+            maxTtl: cdk.Duration.days(365),
+            minTtl: cdk.Duration.days(365),
+          }),
+          responseHeadersPolicy: securityHeadersPolicy,
+          compress: true,
         },
-      });
+        '/favicon.ico': {
+          origin: new origins.FunctionUrlOrigin(functionUrl),
+          viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+          cachePolicy: new cloudfront.CachePolicy(this, 'FaviconCachePolicy', {
+            cachePolicyName: `nagiyu-codec-converter-favicon-${envName}`,
+            defaultTtl: cdk.Duration.days(1),
+            maxTtl: cdk.Duration.days(1),
+            minTtl: cdk.Duration.days(1),
+          }),
+          responseHeadersPolicy: securityHeadersPolicy,
+          compress: true,
+        },
+      },
+    });
 
-      // dev 環境のみ、dev アカウントの Route53 ゾーンへ CloudFront 向け ALIAS A レコードを作成する。
-      // prod は既存の CNAME 直書き（infra/shared/lib/route53-records-stack.ts）で管理されているため、
-      // ここではレコードを作成しない。
-      if (envName === 'dev') {
-        const hostedZoneId = ssm.StringParameter.valueForStringParameter(
-          this,
-          SSM_PARAMETERS.ROUTE53_HOSTED_ZONE_ID
-        );
-        const hostedZoneName = ssm.StringParameter.valueForStringParameter(
-          this,
-          SSM_PARAMETERS.ROUTE53_HOSTED_ZONE_NAME
-        );
-        const hostedZone = route53.HostedZone.fromHostedZoneAttributes(this, 'HostedZone', {
-          hostedZoneId,
-          zoneName: hostedZoneName,
-        });
-
-        new route53.ARecord(this, 'AliasRecord', {
-          zone: hostedZone,
-          recordName: 'codec-converter',
-          target: route53.RecordTarget.fromAlias(new targets.CloudFrontTarget(distribution)),
-          comment: `Codec Converter (${envName}) - alias to CloudFront`,
-        });
-      }
-
-      // Outputs
-      new cdk.CfnOutput(this, 'StorageBucketName', {
-        value: storageBucket.bucketName,
-        description: 'S3 bucket name for codec converter storage',
-      });
-
-      new cdk.CfnOutput(this, 'JobsTableName', {
-        value: jobsTable.tableName,
-        description: 'DynamoDB table name for codec converter jobs',
-      });
-
-      new cdk.CfnOutput(this, 'LambdaFunctionArn', {
-        value: nextjsFunction.functionArn,
-        description: 'Lambda function ARN for Next.js application',
-      });
-
-      new cdk.CfnOutput(this, 'LambdaFunctionUrl', {
-        value: functionUrl.url,
-        description: 'Lambda Function URL',
-      });
-
-      new cdk.CfnOutput(this, 'CloudFrontDistributionId', {
-        value: distribution.distributionId,
-        description: 'CloudFront distribution ID',
-      });
-
-      new cdk.CfnOutput(this, 'CloudFrontDomainName', {
-        value: distribution.distributionDomainName,
-        description: 'CloudFront distribution domain name',
-      });
-
-      new cdk.CfnOutput(this, 'WorkerEcrRepositoryUri', {
-        value: workerEcrRepository.repositoryUri,
-        description: 'ECR repository URI for Batch worker',
-      });
-
-      new cdk.CfnOutput(this, 'BatchJobQueueArn', {
-        value: jobQueue.attrJobQueueArn,
-        description: 'Batch job queue ARN',
-      });
-
-      new cdk.CfnOutput(this, 'BatchJobDefinitionArn', {
-        value: jobDefinition.attrJobDefinitionArn,
-        description: 'Batch job definition ARN',
+    // dev 環境のみ、dev アカウントの Route53 ゾーンへ CloudFront 向け ALIAS A レコードを作成する。
+    // prod は既存の CNAME 直書き（infra/shared/lib/route53-records-stack.ts）で管理されているため、
+    // ここではレコードを作成しない。
+    if (envName === 'dev') {
+      createCloudFrontAliasRecord(this, 'AliasRecord', {
+        distribution,
+        recordName: 'codec-converter',
+        comment: `Codec Converter (${envName}) - alias to CloudFront`,
       });
     }
+
+    // Outputs
+    new cdk.CfnOutput(this, 'StorageBucketName', {
+      value: storageBucket.bucketName,
+      description: 'S3 bucket name for codec converter storage',
+    });
+
+    new cdk.CfnOutput(this, 'JobsTableName', {
+      value: jobsTable.tableName,
+      description: 'DynamoDB table name for codec converter jobs',
+    });
+
+    new cdk.CfnOutput(this, 'LambdaFunctionArn', {
+      value: nextjsFunction.functionArn,
+      description: 'Lambda function ARN for Next.js application',
+    });
+
+    new cdk.CfnOutput(this, 'LambdaFunctionUrl', {
+      value: functionUrl.url,
+      description: 'Lambda Function URL',
+    });
+
+    new cdk.CfnOutput(this, 'CloudFrontDistributionId', {
+      value: distribution.distributionId,
+      description: 'CloudFront distribution ID',
+    });
+
+    new cdk.CfnOutput(this, 'CloudFrontDomainName', {
+      value: distribution.distributionDomainName,
+      description: 'CloudFront distribution domain name',
+    });
+
+    new cdk.CfnOutput(this, 'BatchJobQueueArn', {
+      value: jobQueue.attrJobQueueArn,
+      description: 'Batch job queue ARN',
+    });
+
+    new cdk.CfnOutput(this, 'BatchJobDefinitionArn', {
+      value: jobDefinition.attrJobDefinitionArn,
+      description: 'Batch job definition ARN',
+    });
   }
 }

@@ -259,6 +259,7 @@ E2Eテストを持つサービスでは、1つのワークフローファイル�
     - `develop` へのPR では 3 デバイス、それ以外は chromium-mobile のみ (呼び出し側が `full: ${{ github.base_ref == 'develop' }}` を渡す)
     - サービスごとの違い (先にビルドする core、web のディレクトリ、レポートの置き場所、追加の環境変数) は入力で渡す
     - サービスごとに E2E のジョブを書かない。デバイス × サービスの数だけジョブをコピーすると、修正が一部のワークフローにしか入らなくなる
+    - E2E のジョブは、ブラウザと依存を入れた CI 共通イメージの上で動かす ([CI 共通イメージ](ci-image.md))
 - カバレッジチェック: `develop` へのPR のみ実行（`if: github.base_ref == 'develop'`）
 - 目的: 1ファイルで Fast（chromium-mobile のみ）と Full（全デバイス + カバレッジ）を制御
 
@@ -280,11 +281,11 @@ on:
             - 'libs/**'                   # ターゲットと依存ライブラリ
             - 'configs/**'                # 共有設定
             - '.github/actions/**'        # 共有 composite action
-            - '.node-version'             # runner の Node のバージョン
             - 'package.json'              # ルートパッケージ定義
             - 'package-lock.json'         # 依存関係ロック
             - '.github/workflows/hoge-verify.yml'  # ワークフロー自体
             - '.github/workflows/reusable-service-verify.yml' # 呼んでいる再利用ワークフロー
+            - '.github/workflows/reusable-infra-verify.yml'
             - '.github/workflows/reusable-e2e.yml'
 ```
 
@@ -298,7 +299,7 @@ on:
     - **ターゲット**: 変更対象のディレクトリ（例: `services/hoge/**`）
     - **依存対象**: 依存ライブラリは個別に列挙せず `libs/**` とする。共通インフラ部品・共有設定も含める (理由と対象は [コーディング規約](./rules.md) の「Verify ワークフローは PR をトリガーとし、パスフィルターを設定」を参照)
     - **ルートパッケージ**: `package.json`, `package-lock.json`
-    - **Node のバージョン**: `.node-version`。workflow の Node は `actions/setup-node` がこのファイルから読む。足すのは、Node が変わると結果が変わりうる workflow に限る。runner の Node でビルド・テスト・synth する verify と、runner の Node で作ったものをそのまま公開する deploy (docs サイト、Storybook) がこれに当たる。アプリを Docker の中で作る deploy には足さない。動く Node は Dockerfile のベースイメージで決まり、`.node-version` だけを変えてもデプロイされる中身は変わらないため
+    - **Node のバージョン**: 足さなくてよい。workflow の Node は CI 共通イメージで決まり ([CI 共通イメージ](./ci-image.md))、Node を上げるときはイメージのタグを替える workflow 自体の変更として検査が走るため。`.node-version` を読むのは、ローカルの開発と、イメージを使わない workflow (`weekly-npm-check.yml`) だけ
     - **ワークフロー自体**: ワークフロー定義ファイルと、そこから呼ぶ再利用ワークフロー。再利用ワークフローを直したときに、呼び出し側の verify が走らないと検証から漏れる
 
 3. **ワークスペース指定**: パッケージ名を使用
@@ -344,7 +345,16 @@ lint・format・ユニットテスト・カバレッジ・契約テストは、�
 1. `{target}-verify.yml` を作り、`dirs` を渡して再利用ワークフローを呼ぶ。パッケージを同じディレクトリ配下に足すだけなら、ワークフローは変えない
 2. 検査をかけたいものは、そのパッケージに npm scripts を用意する。用意しなければ、その検査はかからない。**漏れても CI は赤くならない**ため、新しいパッケージには `lint` / `format:check` / `test` / `test:coverage` を揃えるのを基本とする
 3. ユニットテストの前に、web や batch が参照する `core` と、infra が参照する `@nagiyu/infra-common` はビルドされる。この前提から外れる構成 (別名の共有パッケージなど) では、ワークフロー側の変更が要る
-4. ビルド・Docker・synth・E2E・サービス固有の検査 (portal の内部リンクチェックなど) は、`{target}-verify.yml` 側にジョブとして残す。再利用ワークフローの対象外である
+4. infra があるなら、`{target}-verify.yml` に infra 用の再利用ワークフロー (`reusable-infra-verify.yml`) を呼ぶジョブも足す (下の「infra のビルドと synth」を参照)
+5. Next.js のビルド・Docker・E2E・サービス固有の検査 (portal の内部リンクチェックなど) は、`{target}-verify.yml` 側にジョブとして残す。再利用ワークフローの対象外である
+
+**infra のビルドと synth**:
+
+infra のビルド (tsc) と `cdk synth` は、lint などとは別の再利用ワークフロー (`reusable-infra-verify.yml`) で流す。呼び出し側は、`reusable-service-verify.yml` と並べて `dirs` を渡して呼ぶ。
+
+- **対象**: `infra` 配下 (`infra` 自体を含む) で、`build` を持つワークスペース。`synth` を持つものだけ synth をかける。`dirs` がワークスペースそのものを指すときは、その配下のワークスペースを拾わない (`dirs: infra` でルートの infra だけを検査し、`infra/*` は拾わない)
+- **synth の引数**: `synth-args` に 1 行 1 回で渡す。省略時は `--context env=dev` の 1 回。行の先頭の `KEY=VALUE` は環境変数として渡し、残りを `cdk synth` の引数にする (例: livetalk の `ENVIRONMENT=prod`)
+- **synth の前に別のビルドが要るとき**: `pre-synth-scripts` に `<ワークスペース名> <npm script 名>` を 1 行ずつ渡す。指定すると、共有ライブラリのビルド後に流す (ui-storybook は、synth が読む `libs/ui/storybook-static` を作るために使う)
 
 **検査の流し方**:
 
@@ -603,27 +613,28 @@ npm run check:internal-links
 
 ### スクリプトの動作
 
-`services/portal/web/scripts/check-internal-links.mjs` が以下を実施する:
+`services/portal/web/scripts/check-internal-links.mjs` は入口だけを担い、検査ロジックは `src/lib/linkChecker.ts` の `checkAllInternalLinks` に一本化している。入口は対象ディレクトリを渡して、結果を出力し終了コードを返す。
+
+`linkChecker.ts` は次を実施する:
 
 1. `src/content/` 配下の全 Markdown / MDX ファイルを走査
 2. `src/app/` 配下の全 TSX ファイルを走査
 3. 各ファイルから静的な内部リンクを抽出（Markdown 形式・JSX `href` 属性）
-4. 以下のルール対応で実在確認:
+4. 以下のルールで実在確認:
    - `/tech/{slug}` → `src/content/tech/{slug}.md`
-   - `/tech/tags/{tagSlug}` → タグ付き記事 1 件以上
-   - `/tech/category/{slug}` → `src/content/tech-category/{slug}.md` + 該当記事 1 件以上
-   - `/services/{slug}` → `src/content/services/{slug}/index.md`
-   - `/services/{slug}/{doc}` → `src/content/services/{slug}/{doc}.md`
-   - 静的ページ（`/`, `/about`, `/privacy`, `/terms` 等）→ `src/app/.../page.tsx`
+   - 静的ページ（`/`, `/about`, `/privacy`, `/terms`, `/tech`）、または `src/app/.../page.tsx` があるパス
+   - `public/` 配下の静的ファイル（画像等）
 5. リンク切れがあれば終了コード 1 で一覧を出力、なければ 0 で終了
+
+入口は CI が共通ライブラリをビルドせず `npm ci` だけで動かすため、TypeScript をビルドせず Node の型除去で `linkChecker.ts` を直接読み込む。この条件では、ビルドしていない共通ライブラリ (`@nagiyu/*`) と、拡張子を省いた相対 import が解決できない。そのため `linkChecker.ts` はこれらを import しない形を保つ。
 
 ### ビジネスロジックとテスト
 
-チェックロジックは `src/lib/linkChecker.ts` に切り出してあり、`tests/unit/lib/linkChecker.test.ts` で単体テストを実施（カバレッジ 99%+）。
+チェックロジックのテストは `tests/unit/lib/linkChecker.test.ts` にある。入口は薄く、ロジックを持たない。
 
 ### CI 組み込み
 
-スクリプトの実行時間は 30 秒以内（実測 < 100ms）のため、`portal-verify.yml` の `unit-test` ジョブの後続ジョブとして `check-internal-links` ステップを追加している。integration ブランチへの PR 時にも実行される。
+`portal-verify.yml` の `internal-links` ジョブが、`npm ci` のあとに実行する。integration ブランチへの PR 時にも走る。
 
 ### 注意事項
 

@@ -1,0 +1,157 @@
+name: Reusable Infra Verify
+
+# infra のビルド (tsc) と cdk synth をワークフローごとに手で書くと、形がばらついて検査が漏れる。
+# ディレクトリから infra のワークスペースを導き、ビルドと synth を一律にかける。
+# lint / format / test は reusable-service-verify が受け持つため、ここでは扱わない。
+on:
+  workflow_call:
+    inputs:
+      dirs:
+        description: 対象のディレクトリ (空白または改行区切り。例 "infra/quick-clip")。ワークスペースそのものを指すと、その配下は拾わない
+        required: true
+        type: string
+      synth-args:
+        description: >-
+          synth の実行ごとの引数 (複数行)。空でない 1 行が synth 1 回にあたる。
+          行の先頭の KEY=VALUE の形のトークンは環境変数として渡し、残りを cdk synth の引数にする。
+          トークンは空白で分けるため、空白を含む値は渡せない (引用符で囲んでもまとまらない)
+        required: false
+        type: string
+        default: --context env=dev
+      pre-synth-scripts:
+        description: >-
+          synth の前に流す npm script (複数行)。1 行が "<ワークスペース名> <npm script 名>"。
+          指定があれば、先に npm run build:libs を流す
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  discover:
+    name: Discover Infra Workspaces
+    runs-on: ubuntu-latest
+
+    # E2E と同じ OS・Node で検査するため、共通イメージの上で動かす
+    container:
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v2
+
+    # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
+    defaults:
+      run:
+        shell: bash
+
+    outputs:
+      workspaces: ${{ steps.list.outputs.workspaces }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # ディレクトリを渡すと module として読もうとして失敗するため、glob で渡す
+      - name: Test workspace listing
+        run: node --test '.github/actions/list-service-workspaces/*.test.js'
+
+      - name: List workspaces
+        id: list
+        uses: ./.github/actions/list-service-workspaces
+        with:
+          dirs: ${{ inputs.dirs }}
+          mode: infra
+
+  check:
+    name: Infra (${{ matrix.workspace.name }})
+    runs-on: ubuntu-latest
+    needs: [discover]
+
+    # E2E と同じ OS・Node で検査するため、共通イメージの上で動かす
+    container:
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v2
+
+    # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
+    defaults:
+      run:
+        shell: bash
+
+    strategy:
+      # 1 つの失敗で他のワークスペースの結果が見えなくならないようにする
+      fail-fast: false
+      matrix:
+        workspace: ${{ fromJSON(needs.discover.outputs.workspaces) }}
+
+    env:
+      # inputs や matrix の値を run に直接埋め込むとインジェクションになるため、env 経由で渡す
+      WORKSPACE_NAME: ${{ matrix.workspace.name }}
+      SYNTH_ARGS: ${{ inputs.synth-args }}
+      PRE_SYNTH_SCRIPTS: ${{ inputs.pre-synth-scripts }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
+        with:
+          cache-dependency-path: './package-lock.json'
+          skip-setup-node: 'true'
+
+      # infra の各パッケージは infra-common のビルド成果物を参照する
+      - name: Build infra-common
+        if: matrix.workspace.name != '@nagiyu/infra-common'
+        run: npm run build --workspace=@nagiyu/infra-common
+
+      - name: Build
+        run: npm run build --workspace="$WORKSPACE_NAME"
+
+      # synth が libs のビルド成果物 (storybook-static など) を asset として読む場合に、先に作る
+      - name: Run pre-synth scripts
+        if: matrix.workspace.synth && inputs.pre-synth-scripts != ''
+        run: |
+          set -euo pipefail
+          npm run build:libs
+          while IFS= read -r line || [ -n "$line" ]; do
+            read -r -a fields <<< "$line"
+            if [ "${#fields[@]}" -eq 0 ]; then
+              continue
+            fi
+            if [ "${#fields[@]}" -ne 2 ]; then
+              echo "::error::pre-synth-scripts の行は '<ワークスペース名> <npm script 名>' の形で指定してください: $line"
+              exit 1
+            fi
+            npm run "${fields[1]}" --workspace="${fields[0]}"
+          done <<< "$PRE_SYNTH_SCRIPTS"
+
+      # 入力をシェルのコマンド文字列へ直接埋め込んだり eval したりせず、配列で組み立てて渡す
+      # コンテナイメージを使うスタックは IMAGE_TAG が無いと合成できない。合成だけで実在のイメージは参照しないため、ダミーを渡す
+      - name: Synthesize CDK stacks
+        if: matrix.workspace.synth
+        env:
+          IMAGE_TAG: synth
+        run: |
+          set -euo pipefail
+          synth_count=0
+          while IFS= read -r line || [ -n "$line" ]; do
+            read -r -a tokens <<< "$line"
+            if [ "${#tokens[@]}" -eq 0 ]; then
+              continue
+            fi
+            synth_count=$((synth_count + 1))
+            env_vars=()
+            synth_args=()
+            for token in "${tokens[@]}"; do
+              if [ "${#synth_args[@]}" -eq 0 ] && [[ "$token" =~ ^[A-Za-z_][A-Za-z0-9_]*= ]]; then
+                env_vars+=("$token")
+              else
+                synth_args+=("$token")
+              fi
+            done
+            echo "synth: ${env_vars[*]:-} ${synth_args[*]:-}"
+            env "${env_vars[@]}" npm run synth --workspace="$WORKSPACE_NAME" -- "${synth_args[@]}"
+          done <<< "$SYNTH_ARGS"
+          # 1 回も synth しないまま成功すると、検査したつもりになるため止める
+          if [ "$synth_count" -eq 0 ]; then
+            echo "::error::synth-args に synth の実行が 1 行もありません"
+            exit 1
+          fi

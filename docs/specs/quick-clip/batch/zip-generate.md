@@ -9,7 +9,7 @@ sources:
   - infra/quick-clip/lib/monitoring-stack.ts
   - libs/aws/src/error-events/with-error-reporting.ts
   - libs/aws/src/error-events/report.ts
-sources_hash: 3968a5e51fb54cd4354e36f2c22287cf583e2e51f726bce9340abe4ddba09d20
+sources_hash: a53be08a6435ee6c703b753bcd7ef3adf49829115924ee8f4a39c42d37260338
 terms: [quick-clip/term/highlight, quick-clip/term/transcript, platform/term/error-event]
 related_cards: [quick-clip/api/download, quick-clip/screen/highlights, quick-clip/batch/extract, admin/flow/error-notification]
 related_adr:

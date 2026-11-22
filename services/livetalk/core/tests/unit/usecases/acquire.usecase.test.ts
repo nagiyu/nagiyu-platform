@@ -1,3 +1,4 @@
+import { jst } from '../../helpers/jst.js';
 import { EntityNotFoundError, InMemorySingleTableStore } from '@nagiyu/aws';
 import {
   acquireForUser,
@@ -71,9 +72,9 @@ function makeAngleGenerator(angle: string | null = null): IExplorationAngleGener
 
 describe('shouldAcquireNow', () => {
   // 14:00 ローカル時刻（起床中・非ピーク）
-  const awakeNonPeak = new Date(2026, 5, 1, 14, 0, 0);
+  const awakeNonPeak = jst(2026, 5, 1, 14, 0, 0);
   // 03:00 ローカル時刻（就寝中）
-  const sleeping = new Date(2026, 4, 31, 3, 0, 0);
+  const sleeping = jst(2026, 4, 31, 3, 0, 0);
 
   it('起床中かつ非ピーク時間は awake=true, skipSelfStudy=false', () => {
     const result = shouldAcquireNow(makeLifecycle(), awakeNonPeak);
@@ -118,7 +119,7 @@ describe('buildLatestInfoQuery', () => {
 });
 
 describe('acquireForUser', () => {
-  const awakeNonPeak = new Date(2026, 5, 1, 14, 0, 0);
+  const awakeNonPeak = jst(2026, 5, 1, 14, 0, 0);
   const NOW_MS = awakeNonPeak.getTime();
 
   let topicRepo: InMemoryTopicRepository;
@@ -157,7 +158,7 @@ describe('acquireForUser', () => {
   });
 
   it('就寝中は全スキップする', async () => {
-    const sleeping = new Date(2026, 4, 31, 3, 0, 0);
+    const sleeping = jst(2026, 4, 31, 3, 0, 0);
     const researchClient = makeResearchClient();
     const changeDetector = makeChangeDetector();
 
@@ -1972,7 +1973,7 @@ describe('acquireForUser', () => {
 });
 
 describe('acquireForUser: care 自発リサーチの探索の角度', () => {
-  const awakeNonPeak = new Date(2026, 5, 1, 14, 0, 0);
+  const awakeNonPeak = jst(2026, 5, 1, 14, 0, 0);
   const NOW_MS = awakeNonPeak.getTime();
   const COOLDOWN_MS = 24 * 60 * 60 * 1000;
   const researchAllowance: ResearchAllowance = { tryConsume: async () => true };

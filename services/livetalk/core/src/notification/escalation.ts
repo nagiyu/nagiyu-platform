@@ -1,9 +1,12 @@
-import { formatLocalDate } from '@nagiyu/common';
+import { parseJstDateString, toJstDateString, toJstDayStartMs } from '@nagiyu/common';
 import type { ILLMClient } from '../llm-client/types.js';
 import { EscalationSchema } from '../llm-client/schemas/escalation.schema.js';
 import type { TopicEntity } from '../entities/topic.entity.js';
 import type { WebFactEntity } from '../entities/web-fact.entity.js';
 import { NOTIFY_CRITICAL_EVENT_HORIZON_DAYS } from '../constants.js';
+
+/** 日本時間に夏時間はなく、1 日は固定長で足せる */
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
  * escalation 判定 1 候補分について LLM に渡す WEB fact を絞り込む件数。
@@ -55,23 +58,6 @@ export interface DetectCriticalInput {
 }
 
 /**
- * "YYYY-MM-DD" 文字列をローカル時刻の午前 0 時として Date に変換する。解析失敗は null を返す。
- *
- * タイムゾーン非依存（ローカル時刻）で統一することで、本番（TZ=Asia/Tokyo）でも
- * テスト環境（UTC）でも now.setHours(0,0,0,0) と比較できる。
- */
-function parseDateString(dateStr: string): Date | null {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return null;
-  const parts = dateStr.split('-').map(Number);
-  if (parts.length !== 3) return null;
-  const [year, month, day] = parts;
-  // Date コンストラクタに年月日を直接渡す（ローカル時刻の午前 0 時）
-  const d = new Date(year, month - 1, day);
-  if (isNaN(d.getTime())) return null;
-  return d;
-}
-
-/**
  * LLM に今日の日付を含む厳格なプロンプトで eventDate を抽出させる。
  */
 function buildEscalationPrompt(todayStr: string): string {
@@ -96,14 +82,11 @@ function buildEscalationPrompt(todayStr: string): string {
 function isUrgent(eventDate: string | null, now: Date): boolean {
   if (!eventDate) return false;
 
-  const parsed = parseDateString(eventDate);
-  if (!parsed) return false;
+  const parsed = parseJstDateString(eventDate);
+  if (parsed === null) return false;
 
-  const todayStart = new Date(now);
-  todayStart.setHours(0, 0, 0, 0);
-
-  const horizonEnd = new Date(todayStart);
-  horizonEnd.setDate(horizonEnd.getDate() + NOTIFY_CRITICAL_EVENT_HORIZON_DAYS);
+  const todayStart = toJstDayStartMs(now.getTime());
+  const horizonEnd = todayStart + NOTIFY_CRITICAL_EVENT_HORIZON_DAYS * DAY_MS;
 
   // 今日以降かつ horizon 以内（当日含む、horizon の当日含む）
   return parsed >= todayStart && parsed <= horizonEnd;
@@ -145,8 +128,7 @@ export async function detectCriticalTopic(input: DetectCriticalInput): Promise<E
     else sentDatesByTopic.set(sent.topicId, new Set([sent.eventDate]));
   }
 
-  // Node.js は TZ=Asia/Tokyo で実行される前提のため、ローカル時刻で読むと JST の日付になる
-  const todayStr = formatLocalDate(now);
+  const todayStr = toJstDateString(now.getTime());
 
   for (const candidate of candidates) {
     const { topic, webFacts } = candidate;

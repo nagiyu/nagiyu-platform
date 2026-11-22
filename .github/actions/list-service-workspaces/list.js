@@ -7,7 +7,22 @@ const ERROR_MESSAGES = {
   DIRS_REQUIRED: 'dirs が指定されていません',
   NO_WORKSPACES: '検査をかけるワークスペースが見つかりません。dirs を確認してください',
   WORKSPACES_NOT_FOUND: 'ルートの package.json に workspaces が定義されていません',
+  NO_INFRA_WORKSPACES:
+    'build を持つ infra のワークスペースが見つかりません。dirs を確認してください',
+  INVALID_MODE: 'mode が不正です。service または infra を指定してください',
 };
+
+const MODES = {
+  service: 'service',
+  infra: 'infra',
+};
+
+// infra の検査は lint や test の有無に関わらず、ビルドできることと synth できることだけを見る
+const INFRA_SCRIPT_NAMES = {
+  build: 'build',
+  synth: 'synth',
+};
+const INFRA_ROOT_LOCATION = 'infra';
 
 // 検査の要否は、テストの中身ではなく npm scripts の有無だけで決める。呼び出し側のワークフローが検査を個別に並べなくて済む
 const SCRIPT_NAMES = {
@@ -45,12 +60,23 @@ function normalizeDir(dir) {
 /**
  * ワークスペースの location が、指定ディレクトリのいずれかと一致するか配下にあるかを返す。
  * 前方一致だけにすると `services/admin` が `services/admin-tools` を拾うため、区切りまで含めて比較する。
+ * ワークスペースそのものを指したディレクトリは、そのワークスペースだけを対象にする。
+ * `infra` がワークスペースでもあるため、これを許すと `infra/*` まで巻き込んでしまう。
  * @param {string} location
  * @param {string[]} dirs 正規化済みのディレクトリ
+ * @param {Set<string>} [workspaceLocations] 全ワークスペースの location。省略時は配下を常に拾う
  * @returns {boolean}
  */
-function isTargetLocation(location, dirs) {
-  return dirs.some((dir) => location === dir || location.startsWith(`${dir}/`));
+function isTargetLocation(location, dirs, workspaceLocations) {
+  return dirs.some((dir) => {
+    if (location === dir) {
+      return true;
+    }
+    if (workspaceLocations && workspaceLocations.has(dir)) {
+      return false;
+    }
+    return location.startsWith(`${dir}/`);
+  });
 }
 
 /**
@@ -94,6 +120,62 @@ function buildPrebuildList(workspaces) {
 }
 
 /**
+ * dirs の入力を正規化した配列にする。空ならエラーにする。
+ * @param {string | undefined} dirs
+ * @returns {string[]}
+ */
+function parseDirs(dirs) {
+  const targetDirs = splitList(dirs).map(normalizeDir);
+  if (targetDirs.length === 0) {
+    throw new Error(ERROR_MESSAGES.DIRS_REQUIRED);
+  }
+  return targetDirs;
+}
+
+/**
+ * ワークスペースが infra 配下 (`infra` 自体または `infra/` 配下) かを返す。
+ * @param {string} location
+ * @returns {boolean}
+ */
+function isInfraLocation(location) {
+  return location === INFRA_ROOT_LOCATION || location.startsWith(INFRA_PREFIX);
+}
+
+/**
+ * infra の検査対象 (build を持つ infra 配下のワークスペース) と、synth の有無を導く純粋関数。
+ * lint や test を持たないワークスペースも対象にするため、service モードの hasAnyCheck は通さない。
+ * @param {{
+ *   candidates: Array<{ name: string, location: string, scripts?: Record<string, string> }>,
+ *   dirs: string,
+ * }} params
+ * @returns {{ workspaces: string }} workspaces は [{name, location, synth}] の JSON
+ */
+function deriveInfraOutputs({ candidates, dirs }) {
+  const targetDirs = parseDirs(dirs);
+  const workspaceLocations = new Set(candidates.map((candidate) => candidate.location));
+
+  const entries = candidates
+    .filter(
+      (candidate) =>
+        isInfraLocation(candidate.location) &&
+        isTargetLocation(candidate.location, targetDirs, workspaceLocations) &&
+        Boolean(candidate.scripts && candidate.scripts[INFRA_SCRIPT_NAMES.build])
+    )
+    .map(({ name, location, scripts }) => ({
+      name,
+      location,
+      synth: Boolean(scripts[INFRA_SCRIPT_NAMES.synth]),
+    }))
+    .sort((a, b) => a.location.localeCompare(b.location));
+
+  if (entries.length === 0) {
+    throw new Error(ERROR_MESSAGES.NO_INFRA_WORKSPACES);
+  }
+
+  return { workspaces: JSON.stringify(entries) };
+}
+
+/**
  * ワークスペース候補から、GITHUB_OUTPUT に出す値を導く純粋関数。
  * @param {{
  *   candidates: Array<{ name: string, location: string, scripts?: Record<string, string> }>,
@@ -103,14 +185,12 @@ function buildPrebuildList(workspaces) {
  * @returns {{ workspaces: string, contractWorkspaces: string, hasContract: string, prebuild: string }}
  */
 function deriveOutputs({ candidates, dirs, coverageExclude }) {
-  const targetDirs = splitList(dirs).map(normalizeDir);
-  if (targetDirs.length === 0) {
-    throw new Error(ERROR_MESSAGES.DIRS_REQUIRED);
-  }
+  const targetDirs = parseDirs(dirs);
+  const workspaceLocations = new Set(candidates.map((candidate) => candidate.location));
 
   const excluded = splitList(coverageExclude);
   const entries = candidates
-    .filter((candidate) => isTargetLocation(candidate.location, targetDirs))
+    .filter((candidate) => isTargetLocation(candidate.location, targetDirs, workspaceLocations))
     .map((candidate) => buildWorkspaceEntry(candidate, excluded))
     // 検査のスクリプトを 1 つも持たないワークスペースは、何もしないジョブが立つだけなので除く
     .filter(hasAnyCheck)
@@ -192,6 +272,20 @@ function writeOutputs(outputs) {
  */
 function run() {
   const root = process.env.GITHUB_WORKSPACE || process.cwd();
+  const mode = process.env.LIST_MODE || MODES.service;
+
+  if (mode === MODES.infra) {
+    const infraOutputs = deriveInfraOutputs({
+      candidates: readCandidates(root),
+      dirs: process.env.LIST_DIRS,
+    });
+    writeOutputs({ workspaces: infraOutputs.workspaces });
+    return;
+  }
+  if (mode !== MODES.service) {
+    throw new Error(ERROR_MESSAGES.INVALID_MODE);
+  }
+
   const outputs = deriveOutputs({
     candidates: readCandidates(root),
     dirs: process.env.LIST_DIRS,
@@ -223,5 +317,7 @@ module.exports = {
   buildWorkspaceEntry,
   buildPrebuildList,
   deriveOutputs,
+  deriveInfraOutputs,
+  isInfraLocation,
   readCandidates,
 };

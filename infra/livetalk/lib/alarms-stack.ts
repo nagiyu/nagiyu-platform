@@ -4,7 +4,12 @@ import * as cwActions from 'aws-cdk-lib/aws-cloudwatch-actions';
 import * as sns from 'aws-cdk-lib/aws-sns';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
-import { Environment, SSM_PARAMETERS, getDynamoDBTableName } from '@nagiyu/infra-common';
+import {
+  Environment,
+  SSM_PARAMETERS,
+  getAdminAlarmTopicArn,
+  getDynamoDBTableName,
+} from '@nagiyu/infra-common';
 
 export interface LiveTalkAlarmsStackProps extends cdk.StackProps {
   environment: Environment;
@@ -23,10 +28,7 @@ export class LiveTalkAlarmsStack extends cdk.Stack {
     const { environment } = props;
 
     // 通知先 SNS Topic（admin 本流）
-    const topicArn = this.formatArn({
-      service: 'sns',
-      resource: `nagiyu-admin-alarms-${environment}`,
-    });
+    const topicArn = getAdminAlarmTopicArn(this, environment);
     const topic = sns.Topic.fromTopicArn(this, 'AdminAlarmTopic', topicArn);
     const action = new cwActions.SnsAction(topic);
 

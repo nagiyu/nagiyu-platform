@@ -8,7 +8,7 @@ sources:
   - libs/common/src/push/client.ts
   - libs/nextjs/src/push.ts
   - services/stock-tracker/core/src/entities/alert.entity.ts
-sources_hash: 31926696311054e42b78f2c6c8d89271d531efadae98a7aa46d5f0be8c203c2c
+sources_hash: a36af252d597fc7cea49aa99bc6c0cda3d5202576f8cdd766fce0b8a4785c185
 related_cards: [stock-tracker/flow/alert-notification, stock-tracker/api/push, stock-tracker/api/alerts, stock-tracker/batch/minute, stock-tracker/batch/hourly, stock-tracker/batch/daily]
 related_adr:
   - services/stock-tracker/architecture.md#2.4

@@ -1,8 +1,8 @@
 import {
-  ROLES,
   BILLING_SERVICES,
   compareBillingTier,
   getBillingTierRoleIds,
+  getRoleName,
   isRoleGrantActive,
 } from '@nagiyu/common';
 import type { RoleGrant } from '@nagiyu/common';
@@ -206,7 +206,7 @@ function resolveScheduledChangeLabel(
   const date = formatPlanDate(change.startsAt);
   for (const [roleId, price] of input.prices ?? []) {
     if (price.id === change.priceId) {
-      return `${date}から${ROLES[roleId as keyof typeof ROLES].name}に変わります`;
+      return `${date}から${getRoleName(roleId)}に変わります`;
     }
   }
   return `${date}に別の段に変わります`;
@@ -270,7 +270,7 @@ export function buildPlanServices(input: BuildPlanServicesInput): PlanService[] 
 
       tiers.push({
         roleId: tier.roleId,
-        name: ROLES[tier.roleId as keyof typeof ROLES].name,
+        name: getRoleName(tier.roleId),
         description: formatPlanDescription(tier.price),
         priceLabel,
         priceFetchFailed: input.prices === null,
@@ -288,7 +288,7 @@ export function buildPlanServices(input: BuildPlanServicesInput): PlanService[] 
             : null,
         downgradeConfirmMessage:
           action === 'downgrade' && serviceSubscription
-            ? `${formatPlanDate(serviceSubscription.currentPeriodEnd)}から${ROLES[tier.roleId as keyof typeof ROLES].name}に変わります。それまでは今の段のまま使えます。返金はありません。`
+            ? `${formatPlanDate(serviceSubscription.currentPeriodEnd)}から${getRoleName(tier.roleId)}に変わります。それまでは今の段のまま使えます。返金はありません。`
             : null,
       });
     }

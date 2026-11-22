@@ -10,7 +10,7 @@ sources:
   - services/portal/web/src/lib/pageMetadata.ts
   - services/portal/web/src/lib/redirects.ts
   - services/portal/web/next.config.ts
-sources_hash: c1e6b0706b1b322846985664341db198edffd246930a22864893875748a28d25
+sources_hash: 89f876874d2026a272f9de55344789292b0947b968b6466a35645a52db91fb0a
 terms: [portal/term/article, portal/term/tag, portal/term/category]
 related_cards: [portal/screen/home, portal/screen/tech-article, portal/flow/article-publishing]
 related_adr:
@@ -26,7 +26,7 @@ related_adr:
 
 - パスは `/tech`
 - ヘッダーとフッターの「技術記事」、[ホーム画面](./home.md)の「技術記事を読む」「すべての技術記事を見る」から来る
-- 次の URL は、ここへリダイレクトする (恒久リダイレクト)
+- 次の URL は、ここへリダイレクトする (恒久リダイレクト。ステータスは 308)
     - 撤去した記事の旧 URL
     - `/services` と配下
     - `/tech/tags/...` と `/tech/category/...`

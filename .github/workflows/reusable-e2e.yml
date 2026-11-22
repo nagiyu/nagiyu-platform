@@ -33,8 +33,16 @@ on:
 jobs:
   e2e:
     name: E2E Tests (${{ matrix.project }})
-    # Playwright 1.60.0 は Ubuntu 26.04 (ubuntu-latest) に対応しておらず、ブラウザを入れられないため固定する。
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
+    # ブラウザと OS の依存を実行のたびに apt で取ると、ランナーの置き場所で数十分止まるため、前もって入れたイメージの上で動かす。
+    # WebKit は使うデバイスのジョブだけに入れる。env コンテキストは container.image で使えないため、イメージ名はここに直接書く。
+    container:
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:${{ startsWith(matrix.project, 'webkit-') && 'webkit' || 'chromium' }}-v2
+
+    # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
+    defaults:
+      run:
+        shell: bash
 
     permissions:
       id-token: write
@@ -62,10 +70,31 @@ jobs:
         with:
           workspace: ${{ inputs.workspace }}
           shared-workspaces: ${{ inputs.shared-workspaces }}
+          # Node はイメージに入っているものを使う
+          skip-setup-node: 'true'
 
-      - name: Install Playwright Browsers
-        run: npx playwright install --with-deps ${{ startsWith(matrix.project, 'webkit-') && 'webkit' || 'chromium' }}
-        working-directory: ./${{ inputs.web-dir }}
+      # イメージのブラウザは Playwright の版ごとに置き場所が決まる。ずれるとテストがブラウザを見つけられず、原因が分かりにくい落ち方をするため、先に確かめる。
+      - name: Verify Playwright version matches CI image
+        env:
+          BROWSER: ${{ startsWith(matrix.project, 'webkit-') && 'webkit' || 'chromium' }}
+        run: |
+          set -euo pipefail
+
+          # --dry-run は、インストールされた @playwright/test が要求するブラウザの置き場所を、取得せずに出力する
+          locations="$(npx playwright install --dry-run "$BROWSER" | sed -n 's/^ *Install location: *//p')"
+          if [[ -z "$locations" ]]; then
+            echo "::error::Playwright が要求するブラウザの置き場所を読み取れませんでした"
+            exit 1
+          fi
+
+          missing=0
+          while IFS= read -r location; do
+            if [[ ! -d "$location" ]]; then
+              echo "::error::${location} がイメージにありません。イメージの Playwright と package.json の @playwright/test の版がずれています。.github/ci-image の Dockerfile の PLAYWRIGHT_VERSION と VERSION を上げてイメージを作り直し、その後このワークフローのイメージのタグを替えてください。"
+              missing=1
+            fi
+          done <<< "$locations"
+          exit "$missing"
 
       # デバイスの絞り込みは、共通の Playwright 設定が PROJECT 環境変数で行う
       - name: Run Playwright tests (${{ matrix.project }})

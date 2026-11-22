@@ -10,7 +10,7 @@ sources:
   - libs/nextjs/src/push.ts
   - libs/nextjs/src/request-body.ts
   - services/admin/core/src/notify/subscription-repository.ts
-sources_hash: 94caedf06ded0be24efdf8d9dae8256af42630f2451bb9c4f713d3cb82507936
+sources_hash: 74d4ec6e9f3fc917de44b98bb9611444c962bbae96fb8389c8f6a3a19b107640
 terms: [admin/term/push-subscription, admin/term/permission, admin/term/api-error]
 related_cards: [admin/screen/dashboard, admin/flow/push-subscription, admin/api/notify-sns]
 ---

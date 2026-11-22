@@ -11,6 +11,8 @@ const {
   buildWorkspaceEntry,
   buildPrebuildList,
   deriveOutputs,
+  deriveInfraOutputs,
+  isInfraLocation,
 } = require('./list.js');
 
 const ALL_SCRIPTS = {
@@ -178,4 +180,99 @@ test('deriveOutputs は検査できるワークスペースが 0 件ならエラ
       }),
     { message: ERROR_MESSAGES.NO_WORKSPACES }
   );
+});
+
+const NESTED_CANDIDATES = [
+  { name: '@nagiyu/infra', location: 'infra', scripts: { build: 'tsc', synth: 'cdk synth' } },
+  { name: '@nagiyu/infra-common', location: 'infra/common', scripts: ALL_SCRIPTS },
+  { name: '@nagiyu/tools', location: 'services/tools', scripts: ALL_SCRIPTS },
+  { name: '@nagiyu/tools-extra', location: 'services/tools/extra', scripts: ALL_SCRIPTS },
+  { name: '@nagiyu/auth-core', location: 'services/auth/core', scripts: ALL_SCRIPTS },
+  { name: '@nagiyu/auth-web', location: 'services/auth/web', scripts: ALL_SCRIPTS },
+];
+
+test('isTargetLocation はワークスペースそのものを指したディレクトリの配下を拾わない', () => {
+  const locations = new Set(NESTED_CANDIDATES.map((candidate) => candidate.location));
+  assert.equal(isTargetLocation('infra', ['infra'], locations), true);
+  assert.equal(isTargetLocation('infra/common', ['infra'], locations), false);
+  assert.equal(isTargetLocation('services/tools/extra', ['services/tools'], locations), false);
+});
+
+test('isTargetLocation はワークスペースではないディレクトリの配下を拾う', () => {
+  const locations = new Set(NESTED_CANDIDATES.map((candidate) => candidate.location));
+  assert.equal(isTargetLocation('services/auth/core', ['services/auth'], locations), true);
+  assert.equal(isTargetLocation('services/auth/web', ['services/auth'], locations), true);
+  assert.equal(isTargetLocation('infra/common', ['infra/common'], locations), true);
+});
+
+test('deriveOutputs はワークスペースを指した dirs でそのワークスペースだけを出す', () => {
+  const names = (dirs) =>
+    JSON.parse(deriveOutputs({ candidates: NESTED_CANDIDATES, dirs }).workspaces).map(
+      (workspace) => workspace.name
+    );
+  assert.deepEqual(names('services/tools'), ['@nagiyu/tools']);
+  assert.deepEqual(names('infra/common'), ['@nagiyu/infra-common']);
+  assert.deepEqual(names('services/auth'), ['@nagiyu/auth-core', '@nagiyu/auth-web']);
+});
+
+const INFRA_CANDIDATES = [
+  { name: '@nagiyu/infra', location: 'infra', scripts: { build: 'tsc', synth: 'cdk synth' } },
+  { name: '@nagiyu/infra-common', location: 'infra/common', scripts: ALL_SCRIPTS },
+  {
+    name: '@nagiyu/infra-a',
+    location: 'infra/a',
+    scripts: { build: 'tsc', synth: 'cdk synth', lint: 'eslint' },
+  },
+  { name: '@nagiyu/infra-b', location: 'infra/b', scripts: { build: 'tsc', test: 'jest' } },
+  { name: '@nagiyu/infra-nobuild', location: 'infra/nobuild', scripts: { lint: 'eslint' } },
+  { name: '@nagiyu/a-core', location: 'services/a/core', scripts: ALL_SCRIPTS },
+  { name: '@nagiyu/a-build', location: 'services/a/build', scripts: { build: 'tsc' } },
+];
+
+test('isInfraLocation は infra 自体と infra/ 配下だけを infra とする', () => {
+  assert.equal(isInfraLocation('infra'), true);
+  assert.equal(isInfraLocation('infra/a'), true);
+  assert.equal(isInfraLocation('infra-other/a'), false);
+  assert.equal(isInfraLocation('services/a/core'), false);
+});
+
+test('deriveInfraOutputs は build を持つ infra のワークスペースと synth の有無を出す', () => {
+  const outputs = deriveInfraOutputs({ candidates: INFRA_CANDIDATES, dirs: 'infra/a infra/b' });
+  assert.deepEqual(JSON.parse(outputs.workspaces), [
+    { name: '@nagiyu/infra-a', location: 'infra/a', synth: true },
+    { name: '@nagiyu/infra-b', location: 'infra/b', synth: false },
+  ]);
+});
+
+test('deriveInfraOutputs は lint や test を持たないルートの infra も対象にし、配下は拾わない', () => {
+  const outputs = deriveInfraOutputs({ candidates: INFRA_CANDIDATES, dirs: 'infra' });
+  assert.deepEqual(JSON.parse(outputs.workspaces), [
+    { name: '@nagiyu/infra', location: 'infra', synth: true },
+  ]);
+});
+
+test('deriveInfraOutputs は infra 以外のワークスペースを build があっても除く', () => {
+  const outputs = deriveInfraOutputs({
+    candidates: INFRA_CANDIDATES,
+    dirs: 'services/a infra/a',
+  });
+  assert.deepEqual(
+    JSON.parse(outputs.workspaces).map((workspace) => workspace.name),
+    ['@nagiyu/infra-a']
+  );
+});
+
+test('deriveInfraOutputs は dirs が空ならエラーにする', () => {
+  assert.throws(() => deriveInfraOutputs({ candidates: INFRA_CANDIDATES, dirs: '' }), {
+    message: ERROR_MESSAGES.DIRS_REQUIRED,
+  });
+});
+
+test('deriveInfraOutputs は build を持つ infra が 0 件ならエラーにする', () => {
+  assert.throws(() => deriveInfraOutputs({ candidates: INFRA_CANDIDATES, dirs: 'infra/nobuild' }), {
+    message: ERROR_MESSAGES.NO_INFRA_WORKSPACES,
+  });
+  assert.throws(() => deriveInfraOutputs({ candidates: INFRA_CANDIDATES, dirs: 'services/a' }), {
+    message: ERROR_MESSAGES.NO_INFRA_WORKSPACES,
+  });
 });

@@ -1,4 +1,5 @@
 import type { LifecycleState } from '../entities/lifecycle.entity.js';
+import { getJstMinutesOfDay } from '../lib/jst-clock.js';
 import { LIFECYCLE_DEFAULT_BEDTIME, LIFECYCLE_DEFAULT_WAKE_UP_TIME } from '../constants.js';
 
 /**
@@ -16,7 +17,7 @@ function toMinutes(hhmm: string): number {
  *   - bed < wake（例: 02:00–09:30）: m >= bed && m < wake で sleeping
  *   - bed >= wake（例: 23:30–09:30）: m >= bed || m < wake で sleeping
  *
- * @param now      判定基準の Date（TZ=Asia/Tokyo が前提）
+ * @param now      判定基準の Date（日本時間で時刻を読む）
  * @param bedtime  就寝時刻 "HH:mm"（省略時はデフォルト定数を使用）
  * @param wakeUpTime 起床時刻 "HH:mm"（省略時はデフォルト定数を使用）
  */
@@ -25,7 +26,7 @@ export function resolveLifecycleState(
   bedtime: string = LIFECYCLE_DEFAULT_BEDTIME,
   wakeUpTime: string = LIFECYCLE_DEFAULT_WAKE_UP_TIME
 ): LifecycleState {
-  const m = now.getHours() * 60 + now.getMinutes();
+  const m = getJstMinutesOfDay(now);
   const bed = toMinutes(bedtime);
   const wake = toMinutes(wakeUpTime);
 

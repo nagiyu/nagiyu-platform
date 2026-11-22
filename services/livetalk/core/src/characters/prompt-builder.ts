@@ -4,11 +4,13 @@ import type { NoteEntity } from '../entities/note.entity.js';
 import type { ChatMessage } from '../llm-client/types.js';
 import type { LifecycleState } from '../entities/lifecycle.entity.js';
 import type { RetrievedTopic } from '../knowledge/retrieval.js';
+import { getJstHour } from '../lib/jst-clock.js';
+import { formatJstFactDate, formatJstFullDateWithWeekday } from '../lib/format-date.js';
 
 export type TimeOfDay = '朝' | '昼' | '夜';
 
 export function getTimeOfDay(date: Date): TimeOfDay {
-  const hour = date.getHours();
+  const hour = getJstHour(date);
   if (hour >= 5 && hour < 12) return '朝';
   if (hour >= 12 && hour < 18) return '昼';
   return '夜';
@@ -29,22 +31,30 @@ function buildSleepingPrompt(): string {
 
 /**
  * 想起（関連度 only）で選抜された Topic 群を「あなたが覚えていること（今の話題に関連）」
- * セクションとして描画する（リブトーク知識再設計 P2 / #3698）。
+ * セクションとして描画する。
+ *
+ * 各 fact には、聞いた日（SELF）・調べた日（WEB）を今日から見た表記で添える。
+ * 「明日」などの相対表現を含む事実が、今日から見た時制に誤読されるのを防ぐため。
  *
  * SELF/WEB それぞれ、facet が空なら該当行を出さない。
  * SELF/WEB が両方 0 件の Topic は「■ subject」見出しごとスキップする（fresh-eyes レビュー指摘）。
  * 全 Topic がスキップされ描画対象がなくなった場合は空文字を返す（呼び出し側でセクション自体を出さない）。
  */
-function buildTopicsSection(retrievedTopics: RetrievedTopic[]): string {
+function buildTopicsSection(retrievedTopics: RetrievedTopic[], now: Date): string {
+  const nowMs = now.getTime();
   const topicBlocks = retrievedTopics
     .filter((rt) => rt.selfFacts.length > 0 || rt.webFacts.length > 0)
     .map((rt) => {
       const lines: string[] = [`■ ${rt.topic.subject}`];
       for (const selfFact of rt.selfFacts) {
-        lines.push(`- （あなたが聞いたこと）${selfFact.text}`);
+        lines.push(
+          `- （あなたが${formatJstFactDate(selfFact.createdAt, nowMs)}に聞いたこと）${selfFact.text}`
+        );
       }
       for (const webFact of rt.webFacts) {
-        lines.push(`- （あなたが調べたこと）${webFact.text}`);
+        lines.push(
+          `- （あなたが${formatJstFactDate(webFact.observedAt, nowMs)}に調べたこと）${webFact.text}`
+        );
       }
       return lines.join('\n');
     });
@@ -55,10 +65,9 @@ function buildTopicsSection(retrievedTopics: RetrievedTopic[]): string {
 }
 
 /**
- * system prompt を組み立てる（リブトーク知識・記憶再設計 P5 / Topic 中心モデルへ簡素化）。
+ * system prompt を組み立てる。
  *
- * 旧 Tier memory / MemorySummary / 旧 Knowledge / 通知起点 KNOWLEDGE のセクション生成は撤去済み。
- * 想起は Topic（関連度 only）のみを扱う。
+ * 今日の日付(日本時間)と日付の扱いのルールを常に含める。想起は Topic（関連度 only）のみを扱う。
  */
 export function buildSystemPrompt(
   character: CharacterDefinition,
@@ -78,12 +87,19 @@ export function buildSystemPrompt(
 口調: ${personality.speechStyle}
 好きなもの: ${likesList}
 苦手なもの: ${dislikesList}
+今日の日付: ${formatJstFullDateWithWeekday(now.getTime())}
 現在の時間帯: ${timeOfDay}
 
 会話のルール:
 - 質問攻めにしない。まず自分の気持ちや体験を話し、相手が自然に話したくなる流れを作る
 - 返答は短く（1〜3 文程度）、テンポよく続ける
-- セーフティ対応は後続ロジックで処理されるため、ここでは扱わない`.trim();
+- セーフティ対応は後続ロジックで処理されるため、ここでは扱わない
+
+日付の扱い:
+- 日時を含む話題では、必ず今日の日付と比べて、過去・今日・これからのどれかを判断してから話す
+- 終わったイベントや過ぎた予定を、これからのこととして話さない
+- 覚えていることの「明日」「来週」などの言い方は、それを聞いた日から見た言い方。今日の日付に置き換えて考える
+- いつのことか分からない話題は、時期を決めつけない`.trim();
 
   const isSleeping = lifecycleState === 'sleeping';
   const hasRecentNotes = recentNotes !== undefined && recentNotes.length > 0;
@@ -102,7 +118,7 @@ export function buildSystemPrompt(
   }
 
   if (hasTopics) {
-    sections.push(buildTopicsSection(retrievedTopics!));
+    sections.push(buildTopicsSection(retrievedTopics!, now));
   }
 
   if (hasRecentNotes) {

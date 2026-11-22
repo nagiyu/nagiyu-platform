@@ -23,6 +23,15 @@ jobs:
     name: Discover Workspaces
     runs-on: ubuntu-latest
 
+    # E2E と同じ OS・Node で検査するため、共通イメージの上で動かす
+    container:
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v2
+
+    # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
+    defaults:
+      run:
+        shell: bash
+
     outputs:
       workspaces: ${{ steps.list.outputs.workspaces }}
       contract-workspaces: ${{ steps.list.outputs.contract-workspaces }}
@@ -32,12 +41,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      # action は npm ci 前に動かすため、依存を入れずに Node だけを用意する
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version-file: .node-version
 
       # ディレクトリを渡すと module として読もうとして失敗するため、glob で渡す
       - name: Test workspace listing
@@ -54,6 +57,15 @@ jobs:
     name: Check (${{ matrix.workspace.name }})
     runs-on: ubuntu-latest
     needs: [discover]
+
+    # E2E と同じ OS・Node で検査するため、共通イメージの上で動かす
+    container:
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v2
+
+    # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
+    defaults:
+      run:
+        shell: bash
 
     strategy:
       # 1 つの失敗で他のワークスペースの結果が見えなくならないようにする
@@ -74,6 +86,7 @@ jobs:
         uses: ./.github/actions/setup-node
         with:
           cache-dependency-path: './package-lock.json'
+          skip-setup-node: 'true'
 
       # ビルド後の dist/ を prettier が拾って落ちるため、ビルドより前に流す。
       # lint が落ちても後続を流し、1 回の run で全部の結果が見えるようにする
@@ -116,16 +129,25 @@ jobs:
     needs: [discover]
     if: needs.discover.outputs.has-contract == 'true'
 
+    # E2E と同じ OS・Node で検査するため、共通イメージの上で動かす
+    container:
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v2
+
+    # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
+    defaults:
+      run:
+        shell: bash
+
     strategy:
       fail-fast: false
       matrix:
         workspace: ${{ fromJSON(needs.discover.outputs.contract-workspaces) }}
 
+    # ジョブがコンテナで動くため、サービスコンテナとは同じネットワーク上でサービス名で届く。
+    # ホストへ公開しないので ports は指定しない
     services:
       dynamodb-local:
         image: amazon/dynamodb-local
-        ports:
-          - 8000:8000
 
     env:
       WORKSPACE_NAME: ${{ matrix.workspace }}
@@ -139,6 +161,7 @@ jobs:
         uses: ./.github/actions/setup-node
         with:
           cache-dependency-path: './package-lock.json'
+          skip-setup-node: 'true'
 
       - name: Build dependencies
         run: |
@@ -150,13 +173,13 @@ jobs:
       - name: Wait for DynamoDB Local
         run: |
           for i in $(seq 1 30); do
-            curl -s http://localhost:8000 >/dev/null 2>&1 && break
+            curl -s http://dynamodb-local:8000 >/dev/null 2>&1 && break
             sleep 1
           done
 
       - name: Run contract tests
         env:
-          DYNAMODB_ENDPOINT: http://localhost:8000
+          DYNAMODB_ENDPOINT: http://dynamodb-local:8000
           AWS_REGION: us-east-1
           AWS_ACCESS_KEY_ID: test
           AWS_SECRET_ACCESS_KEY: test

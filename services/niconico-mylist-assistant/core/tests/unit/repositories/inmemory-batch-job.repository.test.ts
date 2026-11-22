@@ -16,6 +16,11 @@ const CREATED_AT = 1704067200000;
 const PK = 'USER#user-1';
 const SK = 'BATCH_JOB#job-1';
 
+const PUSH_SUBSCRIPTION = {
+  endpoint: 'https://push.example.com/abc',
+  keys: { p256dh: 'p', auth: 'a' },
+};
+
 const input: CreateBatchJobInput = {
   jobId: 'job-1',
   userId: 'user-1',
@@ -93,21 +98,21 @@ describe('InMemoryBatchJobRepository', () => {
     });
 
     it('指定しなかった項目は変えない', async () => {
-      await repository.create({ ...input, twoFactorAuthCode: '123456' });
+      await repository.create({ ...input, pushSubscription: PUSH_SUBSCRIPTION });
 
       const result = await repository.update('job-1', 'user-1', { status: 'RUNNING' });
 
       expect(result.status).toBe('RUNNING');
-      expect(result.twoFactorAuthCode).toBe('123456');
+      expect(result.pushSubscription).toEqual(PUSH_SUBSCRIPTION);
     });
 
-    it('twoFactorAuthCode を null にすると削除する', async () => {
-      await repository.create({ ...input, twoFactorAuthCode: '123456' });
+    it('pushSubscription を null にすると削除する', async () => {
+      await repository.create({ ...input, pushSubscription: PUSH_SUBSCRIPTION });
 
-      const result = await repository.update('job-1', 'user-1', { twoFactorAuthCode: null });
+      const result = await repository.update('job-1', 'user-1', { pushSubscription: null });
 
-      expect(result.twoFactorAuthCode).toBeUndefined();
-      expect(store.get(PK, SK)).not.toHaveProperty('TwoFactorAuthCode');
+      expect(result.pushSubscription).toBeUndefined();
+      expect(store.get(PK, SK)).not.toHaveProperty('PushSubscription');
     });
 
     it('status に null を渡すと InvalidEntityDataError を投げる', async () => {
@@ -170,15 +175,15 @@ describe('InMemoryBatchJobRepository', () => {
       Type: 'BATCH_JOB',
       jobId: 'job-1',
       userId: 'user-1',
-      status: 'WAITING_FOR_2FA',
-      twoFactorAuthCode: '123456',
+      status: 'SUBMITTED',
+      pushSubscription: PUSH_SUBSCRIPTION,
       CreatedAt: CREATED_AT,
       UpdatedAt: CREATED_AT,
       TTL: 1,
     };
 
     it('PascalCase の属性名と TTL で保存する', async () => {
-      const created = await repository.create({ ...input, twoFactorAuthCode: '123456' });
+      const created = await repository.create({ ...input, pushSubscription: PUSH_SUBSCRIPTION });
 
       const item = store.get(PK, SK);
 
@@ -187,10 +192,10 @@ describe('InMemoryBatchJobRepository', () => {
         JobID: 'job-1',
         UserID: 'user-1',
         Status: 'SUBMITTED',
-        TwoFactorAuthCode: '123456',
+        PushSubscription: PUSH_SUBSCRIPTION,
         TTL: Math.floor(created.createdAt / 1000) + 7 * 24 * 60 * 60,
       });
-      for (const legacyName of ['jobId', 'userId', 'status', 'twoFactorAuthCode']) {
+      for (const legacyName of ['jobId', 'userId', 'status', 'pushSubscription']) {
         expect(item).not.toHaveProperty(legacyName);
       }
     });
@@ -201,8 +206,8 @@ describe('InMemoryBatchJobRepository', () => {
       expect(await repository.getById('job-1', 'user-1')).toEqual({
         jobId: 'job-1',
         userId: 'user-1',
-        status: 'WAITING_FOR_2FA',
-        twoFactorAuthCode: '123456',
+        status: 'SUBMITTED',
+        pushSubscription: PUSH_SUBSCRIPTION,
         createdAt: CREATED_AT,
         updatedAt: CREATED_AT,
       });
@@ -213,14 +218,14 @@ describe('InMemoryBatchJobRepository', () => {
 
       const result = await repository.update('job-1', 'user-1', {
         status: 'RUNNING',
-        twoFactorAuthCode: null,
+        pushSubscription: null,
       });
 
       expect(result.status).toBe('RUNNING');
-      expect(result.twoFactorAuthCode).toBeUndefined();
+      expect(result.pushSubscription).toBeUndefined();
       const item = store.get(PK, SK);
       expect(item).toMatchObject({ Status: 'RUNNING', TTL: 1 });
-      for (const name of ['status', 'twoFactorAuthCode', 'TwoFactorAuthCode']) {
+      for (const name of ['status', 'pushSubscription', 'PushSubscription']) {
         expect(item).not.toHaveProperty(name);
       }
       // 更新していない項目は旧名のまま残り、読み取りは引き続き成功する

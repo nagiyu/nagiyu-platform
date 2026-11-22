@@ -22,6 +22,7 @@ on:
       - 'package-lock.json'
       - '.github/workflows/niconico-mylist-assistant-verify.yml'
       - '.github/workflows/reusable-service-verify.yml'
+      - '.github/workflows/reusable-infra-verify.yml'
       - '.github/workflows/reusable-e2e.yml'
 
 permissions:
@@ -41,9 +42,27 @@ jobs:
     permissions:
       contents: read
 
+  infra-verify:
+    name: Infra Verify
+    uses: ./.github/workflows/reusable-infra-verify.yml
+    with:
+      dirs: infra/niconico-mylist-assistant
+    permissions:
+      contents: read
+
   build-core:
     name: Build Core Package
     runs-on: ubuntu-latest
+
+    # E2E と同じ OS・Node で検査するため、共通イメージの上で動かす
+    container:
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v2
+
+    # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
+    defaults:
+      run:
+        shell: bash
+
     permissions:
       contents: read
 
@@ -55,6 +74,8 @@ jobs:
         uses: ./.github/actions/setup-node
         with:
           cache-dependency-path: './package-lock.json'
+          # Node はイメージに入っているものを使う
+          skip-setup-node: 'true'
 
       - name: Build shared libraries
         run: npm run build:libs
@@ -62,31 +83,19 @@ jobs:
       - name: Build core library
         run: npm run build --workspace=@nagiyu/niconico-mylist-assistant-core
 
-  build-infra:
-    name: Build Infrastructure Package
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js and install dependencies
-        uses: ./.github/actions/setup-node
-        with:
-          cache-dependency-path: './package-lock.json'
-
-      - name: Build common infrastructure package
-        run: npm run build --workspace=@nagiyu/infra-common
-
-      - name: Build CDK TypeScript
-        run: npm run build --workspace=@nagiyu/infra-niconico-mylist-assistant
-
   build-web:
     name: Build Web Package
     runs-on: ubuntu-latest
     needs: [build-core]
+
+    # E2E と同じ OS・Node で検査するため、共通イメージの上で動かす
+    container:
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v2
+
+    # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
+    defaults:
+      run:
+        shell: bash
 
     permissions:
       contents: read
@@ -103,11 +112,22 @@ jobs:
         with:
           workspace: '@nagiyu/niconico-mylist-assistant-web'
           shared-workspaces: '@nagiyu/niconico-mylist-assistant-core'
+          # Node はイメージに入っているものを使う
+          skip-setup-node: 'true'
 
   build-batch:
     name: Build Batch Package
     runs-on: ubuntu-latest
     needs: [build-core]
+
+    # E2E と同じ OS・Node で検査するため、共通イメージの上で動かす
+    container:
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v2
+
+    # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
+    defaults:
+      run:
+        shell: bash
 
     permissions:
       contents: read
@@ -120,6 +140,8 @@ jobs:
         uses: ./.github/actions/setup-node
         with:
           cache-dependency-path: './package-lock.json'
+          # Node はイメージに入っているものを使う
+          skip-setup-node: 'true'
 
       - name: Build shared libraries
         run: npm run build:libs
@@ -133,6 +155,15 @@ jobs:
   docker-build-web:
     name: Docker Build Web
     runs-on: ubuntu-latest
+
+    # 他の検査と同じ実行環境で確かめるため、共通イメージの上で動かす。docker のデーモンはランナーのものを使う
+    container:
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v2
+
+    # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
+    defaults:
+      run:
+        shell: bash
     needs: [build-web]
 
     permissions:
@@ -166,6 +197,15 @@ jobs:
   docker-build-batch:
     name: Docker Build Batch
     runs-on: ubuntu-latest
+
+    # 他の検査と同じ実行環境で確かめるため、共通イメージの上で動かす。docker のデーモンはランナーのものを使う
+    container:
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v2
+
+    # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
+    defaults:
+      run:
+        shell: bash
     needs: [build-batch]
 
     permissions:
@@ -220,12 +260,12 @@ jobs:
       [
         verify,
         build-core,
-        build-infra,
         build-web,
         build-batch,
         docker-build-web,
         docker-build-batch,
         e2e,
+        infra-verify,
       ]
 
     permissions:

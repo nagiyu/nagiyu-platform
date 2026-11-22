@@ -6,7 +6,7 @@ service: tools
 sources:
   - services/tools/src/components/dialogs/MigrationDialog.tsx
   - services/tools/src/app/layout.tsx
-sources_hash: 382918c04fd481cedb4c5cfe7e1845d1a30b5c304003fd440eb49b02b3a4549e
+sources_hash: 0d68d9f5075a6c26b30c1453ab58e492aa36e6708883f7242bcfada52058db17
 related_cards: [tools/screen/home]
 related_adr:
   - services/tools/requirements.md#F-006: 初回訪問ダイアログ

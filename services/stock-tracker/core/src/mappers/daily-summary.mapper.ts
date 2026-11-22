@@ -7,9 +7,11 @@
 import {
   immutablePatchValue,
   optionalPatchValue,
+  readOptionalField,
   readTimestamp,
   requiredPatchValue,
   validateNumberField,
+  validateObjectField,
   validateStringField,
   type DynamoDBAttributes,
   type DynamoDBKey,
@@ -56,18 +58,6 @@ export const DAILY_SUMMARY_FORECAST_FIELD_ATTRIBUTES = [
   'SellPatternCount',
   'CreatedAt',
 ] as const;
-
-/** Item の任意の数値属性を読む。属性がなければ undefined、あって不正なら例外にする */
-function readOptionalNumber(item: DynamoDBAttributes, name: string): number | undefined {
-  return item[name] === undefined ? undefined : validateNumberField(item[name], name);
-}
-
-/** パターン判定結果マップを読む。マップでない値は未設定として扱う */
-function readPatternResults(value: unknown): DailySummaryEntity['patternResults'] {
-  return value && typeof value === 'object' && !Array.isArray(value)
-    ? (value as DailySummaryEntity['patternResults'])
-    : undefined;
-}
 
 /**
  * Daily Summary Mapper
@@ -187,10 +177,14 @@ export class DailySummaryMapper implements EntityMapper<DailySummaryEntity, Dail
       high: validateNumberField(item.High, 'High'),
       low: validateNumberField(item.Low, 'Low'),
       close: validateNumberField(item.Close, 'Close'),
-      volume: readOptionalNumber(item, 'Volume'),
-      patternResults: readPatternResults(item.PatternResults),
-      buyPatternCount: readOptionalNumber(item, 'BuyPatternCount'),
-      sellPatternCount: readOptionalNumber(item, 'SellPatternCount'),
+      volume: readOptionalField(item, 'Volume', validateNumberField),
+      patternResults: readOptionalField(
+        item,
+        'PatternResults',
+        validateObjectField<NonNullable<DailySummaryEntity['patternResults']>>
+      ),
+      buyPatternCount: readOptionalField(item, 'BuyPatternCount', validateNumberField),
+      sellPatternCount: readOptionalField(item, 'SellPatternCount', validateNumberField),
       createdAt: readTimestamp(item, 'CreatedAt'),
     };
   }

@@ -2,8 +2,6 @@ import * as cdk from 'aws-cdk-lib';
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
 import * as acm from 'aws-cdk-lib/aws-certificatemanager';
-import * as route53 from 'aws-cdk-lib/aws-route53';
-import * as targets from 'aws-cdk-lib/aws-route53-targets';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
 import { SSM_PARAMETERS } from '../utils/ssm';
@@ -11,7 +9,8 @@ import { CloudFrontConfig } from '../types/cloudfront-config';
 import { Environment } from '../types/environment';
 import { getCloudFrontDomainName, getRootDomainName } from '../utils/naming';
 import { DEFAULT_CLOUDFRONT_CONFIG, mergeConfig } from '../constants/defaults';
-import { SECURITY_HEADERS } from '../constants/security-headers';
+import { createResponseHeadersPolicy } from '../cloudfront/response-headers-policy';
+import { createCloudFrontAliasRecord } from '../cloudfront/alias-record';
 
 /**
  * CloudFrontStackBase のエラーメッセージ定数
@@ -166,53 +165,12 @@ export class CloudFrontStackBase extends cdk.Stack {
 
     // セキュリティヘッダーポリシーの作成（セキュリティヘッダーまたは noindex のいずれかが有効な場合）
     if (config.enableSecurityHeaders || config.noindex) {
-      this.responseHeadersPolicy = new cloudfront.ResponseHeadersPolicy(
-        this,
-        'SecurityHeadersPolicy',
-        {
-          responseHeadersPolicyName: `nagiyu-${serviceName}-security-headers-${environment}`,
-          comment: `Security headers for ${serviceName} service (${environment})`,
-          ...(config.enableSecurityHeaders && {
-            securityHeadersBehavior: {
-              strictTransportSecurity: {
-                accessControlMaxAge: cdk.Duration.seconds(
-                  SECURITY_HEADERS.strictTransportSecurity.accessControlMaxAge
-                ),
-                includeSubdomains: SECURITY_HEADERS.strictTransportSecurity.includeSubdomains,
-                preload: SECURITY_HEADERS.strictTransportSecurity.preload,
-                override: SECURITY_HEADERS.strictTransportSecurity.override,
-              },
-              contentTypeOptions: {
-                override: SECURITY_HEADERS.contentTypeOptions.override,
-              },
-              frameOptions: {
-                frameOption: cloudfront.HeadersFrameOption.DENY,
-                override: SECURITY_HEADERS.frameOptions.override,
-              },
-              xssProtection: {
-                protection: SECURITY_HEADERS.xssProtection.protection,
-                modeBlock: SECURITY_HEADERS.xssProtection.modeBlock,
-                override: SECURITY_HEADERS.xssProtection.override,
-              },
-              referrerPolicy: {
-                referrerPolicy: cloudfront.HeadersReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN,
-                override: SECURITY_HEADERS.referrerPolicy.override,
-              },
-            },
-          }),
-          ...(config.noindex && {
-            customHeadersBehavior: {
-              customHeaders: [
-                {
-                  header: 'X-Robots-Tag',
-                  value: 'noindex, nofollow',
-                  override: true,
-                },
-              ],
-            },
-          }),
-        }
-      );
+      this.responseHeadersPolicy = createResponseHeadersPolicy(this, 'SecurityHeadersPolicy', {
+        responseHeadersPolicyName: `nagiyu-${serviceName}-security-headers-${environment}`,
+        comment: `Security headers for ${serviceName} service (${environment})`,
+        securityHeaders: config.enableSecurityHeaders,
+        noindex: config.noindex,
+      });
     }
 
     // TLS バージョンの設定
@@ -273,19 +231,6 @@ export class CloudFrontStackBase extends cdk.Stack {
     // prod は既存の CNAME 直書き（infra/shared/lib/route53-records-stack.ts）で
     // 管理されているため、ここではレコードを作成しない。
     if (environment === 'dev') {
-      const hostedZoneId = ssm.StringParameter.valueForStringParameter(
-        this,
-        SSM_PARAMETERS.ROUTE53_HOSTED_ZONE_ID
-      );
-      const hostedZoneName = ssm.StringParameter.valueForStringParameter(
-        this,
-        SSM_PARAMETERS.ROUTE53_HOSTED_ZONE_NAME
-      );
-      const hostedZone = route53.HostedZone.fromHostedZoneAttributes(this, 'HostedZone', {
-        hostedZoneId,
-        zoneName: hostedZoneName,
-      });
-
       // domainName がゾーンルート（例: dev.nagiyu.com）と一致する場合はゾーン頂点に、
       // それ以外はゾーンルートからの相対名（例: share-together）でレコードを作成する。
       // ゾーン外の domainName は誤った Route53 レコードを作ってしまうため、synth を失敗させる。
@@ -300,10 +245,9 @@ export class CloudFrontStackBase extends cdk.Stack {
         ? undefined
         : domainName.slice(0, domainName.length - devZoneSuffix.length);
 
-      new route53.ARecord(this, 'AliasRecord', {
-        zone: hostedZone,
+      createCloudFrontAliasRecord(this, 'AliasRecord', {
+        distribution: this.distribution,
         recordName: relativeRecordName,
-        target: route53.RecordTarget.fromAlias(new targets.CloudFrontTarget(this.distribution)),
         comment: `${serviceName} (${environment}) - alias to CloudFront`,
       });
     }

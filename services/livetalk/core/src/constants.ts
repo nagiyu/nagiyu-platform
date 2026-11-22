@@ -100,9 +100,10 @@ export const STUDY_TOPIC_GATE_PRIORITY = 10;
 
 /**
  * ノート生成（リブトーク知識・記憶再設計 P4「ノート（ギフト化）」）: Topic をノート化する
- * 際の care 閾値。care は新規 Topic 作成時に 1、consolidation での既存 Topic 更新（名寄せ）時に
- * +1 されるため、この値は「数回話題に触れた（会話・調べ物が複数回積み上がった）Topic」を
- * 目安にした値（乱発防止のための品質ゲート）。
+ * 際の care 閾値。care は consolidation で SELF fact を伴う集約（利用者が会話で触れた集約）の
+ * ときだけ上がり、新規 Topic は 1、既存 Topic の更新（名寄せ）は +1 になる。キャラの自発
+ * リサーチだけの集約では、新規 Topic は 0、既存 Topic はそのまま。そのため、この値は
+ * 「利用者が数回会話で触れた Topic」を目安にした値（乱発防止のための品質ゲート）。
  */
 export const NOTE_CARE_THRESHOLD = 3;
 
@@ -218,10 +219,10 @@ export const NOTIFICATION_EVENT_TTL_SECONDS = 30 * 24 * 60 * 60;
  * critical 通知に必要な Topic.care の下限。
  *
  * care は「ユーザー起点の fold」（SELF fact を伴う集約）でのみ上昇する（新規 Topic は 1、既存
- * Topic 更新・名寄せは +1）。キャラの自発リサーチ（WEB only の fold）では上がらないため、値が
- * 積み上がるのは集約バッチ稼働後かつユーザーが会話で触れた話題のみ。稼働直後は高 care Topic が
- * 存在せず critical 通知が発火しない（＝当面静穏）ことを許容する設計判断。要観測・要調整。
- * care 上昇ポリシーの詳細は consolidate.usecase.ts を参照。
+ * Topic 更新・名寄せは +1）。キャラの自発リサーチ（WEB only の fold）では上がらず、その fold で
+ * 作られた新規 Topic は 0 から始まるため、値が積み上がるのは集約バッチ稼働後かつユーザーが
+ * 会話で触れた話題のみ。稼働直後は高 care Topic が存在せず critical 通知が発火しない
+ * （＝当面静穏）ことを許容する設計判断。要観測・要調整。
  */
 export const NOTIFY_CRITICAL_CARE_THRESHOLD = 3;
 

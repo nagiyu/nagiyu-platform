@@ -11,18 +11,16 @@ import {
   LinearProgress,
   Stack,
 } from '@mui/material';
-import { Button, Chip, ErrorAlert, TextField } from '@nagiyu/ui';
+import { Chip, ErrorAlert } from '@nagiyu/ui';
 import {
   CheckCircle as CheckCircleIcon,
   Error as ErrorIcon,
   HourglassEmpty as HourglassIcon,
   PlayArrow as PlayArrowIcon,
-  Security as SecurityIcon,
 } from '@mui/icons-material';
 import type { JobStatusDisplayProps, JobStatusState } from '@/types/job';
 import { DEFAULT_POLLING_CONFIG } from '@/types/job';
 import type { BatchStatus, BatchJobStatusResponse } from '@nagiyu/niconico-mylist-assistant-core';
-import { TWO_FACTOR_AUTH_CODE_REGEX } from '@nagiyu/niconico-mylist-assistant-core';
 
 const ERROR_MESSAGES = {
   FETCH_FAILED: 'ジョブステータスの取得に失敗しました',
@@ -57,10 +55,6 @@ export default function JobStatusDisplay({ jobId, onComplete, onError }: JobStat
     isLoading: true,
   });
 
-  const [twoFactorAuthCode, setTwoFactorAuthCode] = useState('');
-  const [isSubmitting2FA, setIsSubmitting2FA] = useState(false);
-  const [twoFAError, setTwoFAError] = useState<string | null>(null);
-
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const attemptCountRef = useRef(0);
   const hasCompletedRef = useRef(false);
@@ -71,46 +65,6 @@ export default function JobStatusDisplay({ jobId, onComplete, onError }: JobStat
     onCompleteRef.current = onComplete;
     onErrorRef.current = onError;
   }, [onComplete, onError]);
-
-  /**
-   * 二段階認証コードを送信
-   */
-  const handleSubmit2FA = useCallback(async () => {
-    if (!TWO_FACTOR_AUTH_CODE_REGEX.test(twoFactorAuthCode)) {
-      setTwoFAError('6桁の数字を入力してください');
-      return;
-    }
-
-    setIsSubmitting2FA(true);
-    setTwoFAError(null);
-
-    try {
-      const response = await fetch('/api/batch/2fa', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          jobId,
-          code: twoFactorAuthCode,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error?.message || '二段階認証コードの送信に失敗しました');
-      }
-
-      // 成功したらコードをクリア
-      setTwoFactorAuthCode('');
-      setTwoFAError(null);
-    } catch (error) {
-      console.error('二段階認証コード送信エラー:', error);
-      setTwoFAError(error instanceof Error ? error.message : '送信に失敗しました');
-    } finally {
-      setIsSubmitting2FA(false);
-    }
-  }, [jobId, twoFactorAuthCode]);
 
   /**
    * ジョブステータスを取得
@@ -236,8 +190,6 @@ export default function JobStatusDisplay({ jobId, onComplete, onError }: JobStat
         return <HourglassIcon sx={{ fontSize: 40 }} />;
       case 'RUNNING':
         return <PlayArrowIcon sx={{ fontSize: 40 }} />;
-      case 'WAITING_FOR_2FA':
-        return <SecurityIcon sx={{ fontSize: 40, color: 'warning.main' }} />;
       case 'SUCCEEDED':
         return <CheckCircleIcon sx={{ fontSize: 40, color: 'success.main' }} />;
       case 'FAILED':
@@ -256,8 +208,6 @@ export default function JobStatusDisplay({ jobId, onComplete, onError }: JobStat
         return 'primary';
       case 'RUNNING':
         return 'primary';
-      case 'WAITING_FOR_2FA':
-        return 'warning';
       case 'SUCCEEDED':
         return 'success';
       case 'FAILED':
@@ -274,8 +224,6 @@ export default function JobStatusDisplay({ jobId, onComplete, onError }: JobStat
         return '投入済み';
       case 'RUNNING':
         return '実行中';
-      case 'WAITING_FOR_2FA':
-        return '二段階認証待ち';
       case 'SUCCEEDED':
         return '完了';
       case 'FAILED':
@@ -319,8 +267,6 @@ export default function JobStatusDisplay({ jobId, onComplete, onError }: JobStat
               <Typography variant="body2" color="text.secondary">
                 {state.status === 'RUNNING' && 'マイリスト登録処理を実行中...'}
                 {state.status === 'SUBMITTED' && 'ジョブの実行を待機中...'}
-                {state.status === 'WAITING_FOR_2FA' &&
-                  '二段階認証が必要です。メールに送られた6桁のコードを入力してください。'}
                 {state.status === 'SUCCEEDED' && 'マイリスト登録が完了しました'}
                 {state.status === 'FAILED' && 'マイリスト登録に失敗しました'}
               </Typography>
@@ -328,52 +274,8 @@ export default function JobStatusDisplay({ jobId, onComplete, onError }: JobStat
           </Box>
 
           {/* プログレスバー（実行中のみ） */}
-          {state.status &&
-            (state.status === 'SUBMITTED' ||
-              state.status === 'RUNNING' ||
-              state.status === 'WAITING_FOR_2FA') && <LinearProgress />}
-
-          {/* 二段階認証コード入力フォーム */}
-          {state.status === 'WAITING_FOR_2FA' && (
-            <Box
-              sx={{
-                p: 2,
-                bgcolor: 'warning.light',
-                borderRadius: 1,
-              }}
-            >
-              <Typography variant="body2" gutterBottom>
-                <strong>二段階認証コード入力</strong>
-              </Typography>
-              <Typography variant="body2" gutterBottom color="text.secondary">
-                メールに送られた6桁の数字を入力してください。
-              </Typography>
-              <Stack spacing={2} sx={{ mt: 2 }}>
-                <TextField
-                  label="二段階認証コード"
-                  value={twoFactorAuthCode}
-                  onChange={(e) => {
-                    setTwoFactorAuthCode(e.target.value);
-                    setTwoFAError(null);
-                  }}
-                  placeholder="000000"
-                  maxLength={6}
-                  inputMode="numeric"
-                  error={!!twoFAError}
-                  helperText={twoFAError}
-                  disabled={isSubmitting2FA}
-                  fullWidth
-                />
-                <Button
-                  variant="solid"
-                  onClick={handleSubmit2FA}
-                  loading={isSubmitting2FA}
-                  disabled={twoFactorAuthCode.length !== 6}
-                >
-                  {isSubmitting2FA ? '送信中...' : 'コードを送信'}
-                </Button>
-              </Stack>
-            </Box>
+          {state.status && (state.status === 'SUBMITTED' || state.status === 'RUNNING') && (
+            <LinearProgress />
           )}
 
           {/* 結果表示 */}

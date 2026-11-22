@@ -368,7 +368,7 @@ NEXTAUTH_URL=https://auth.dev.nagiyu.com
 
 | ワークフロー    | トリガー                           | 実行内容                                                                                                                       |
 | --------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| auth-verify-app | PR to `integration/**` / `develop` | Fast (integration 向け): ビルド、ユニット、E2E (chromium-mobile) / Full (develop 向け): 上記に加えカバレッジ、E2E (全デバイス) |
+| auth-verify-app | PR to `integration/**` / `develop` | Fast (integration 向け): ビルド、ユニット、CDK のビルドと synth、E2E (chromium-mobile) / Full (develop 向け): 上記に加えカバレッジ、E2E (全デバイス) |
 | auth-deploy     | Push to `develop` or `master`      | デプロイ（テストは verify で完了済み）                                                                                         |
 
 ### 7.2 ブランチ保護ルール

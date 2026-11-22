@@ -15,6 +15,7 @@ import {
   getDynamoDBTableArn,
   getDynamoDBTableName,
   getEcrRepositoryName,
+  getImageTag,
   getServiceUrl,
   grantErrorEventsWrite,
   importSharedVpc,
@@ -40,7 +41,7 @@ export interface LiveTalkEcsServiceStackProps extends cdk.StackProps {
  * - SSM Parameter に Service 名を出力
  * - Component: livetalk タグを付与
  *
- * イメージタグは `IMAGE_TAG` 環境変数から取得し、Task Definition のリビジョンが
+ * イメージタグは必須の `IMAGE_TAG` 環境変数から取得し、Task Definition のリビジョンが
  * 更新されるたびに force-new-deployment でローリングデプロイされる想定。
  */
 export class LiveTalkEcsServiceStack extends cdk.Stack {
@@ -202,7 +203,7 @@ export class LiveTalkEcsServiceStack extends cdk.Stack {
 
     const ecrRepositoryUri = `${this.account}.dkr.ecr.${this.region}.amazonaws.com/${ecrRepoName}`;
 
-    const imageTag = process.env.IMAGE_TAG || 'latest';
+    const imageTag = getImageTag();
 
     // Phase 1f で VOICEVOX コンテナを同一 Task に追加。web と VOICEVOX が同居する。
     //

@@ -9,7 +9,9 @@ sources:
   - services/admin/core/src/notify/web-push-sender.ts
   - libs/nextjs/src/request-body.ts
   - infra/admin/lib/sns-stack.ts
-sources_hash: 70187370588161cb6f34f82f189da40d98a01d198288b9a11b94ab3e33482292
+  - infra/admin/lib/lambda-stack.ts
+  - infra/admin/lib/self-monitoring-topic.ts
+sources_hash: e3214d2ee195e13d02ff1d6ee34eae925fb64aa865c65d2357e6de5a9262ef9d
 terms: [admin/term/push-subscription, admin/term/api-error]
 related_cards: [admin/flow/error-notification, admin/api/notify, admin/batch/stream-handler]
 related_adr:

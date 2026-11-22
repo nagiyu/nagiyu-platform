@@ -28,7 +28,6 @@ import type { BatchResult, BatchStatus } from '../types/index.js';
 const BATCH_STATUSES = [
   'SUBMITTED',
   'RUNNING',
-  'WAITING_FOR_2FA',
   'SUCCEEDED',
   'FAILED',
 ] as const satisfies readonly BatchStatus[];
@@ -50,7 +49,6 @@ export class BatchJobMapper implements EntityMapper<BatchJobEntity, BatchJobKey>
     UserID: ['userId'],
     Status: ['status'],
     Result: ['result'],
-    TwoFactorAuthCode: ['twoFactorAuthCode'],
     PushSubscription: ['pushSubscription'],
   } as const;
 
@@ -97,9 +95,6 @@ export class BatchJobMapper implements EntityMapper<BatchJobEntity, BatchJobKey>
     if (entity.completedAt !== undefined) {
       item.CompletedAt = entity.completedAt;
     }
-    if (entity.twoFactorAuthCode !== undefined) {
-      item.TwoFactorAuthCode = entity.twoFactorAuthCode;
-    }
     if (entity.pushSubscription !== undefined) {
       item.PushSubscription = entity.pushSubscription;
     }
@@ -124,7 +119,6 @@ export class BatchJobMapper implements EntityMapper<BatchJobEntity, BatchJobKey>
       Status: requiredPatchValue(changes.status, 'Status'),
       Result: optionalPatchValue(changes.result),
       CompletedAt: optionalPatchValue(changes.completedAt),
-      TwoFactorAuthCode: optionalPatchValue(changes.twoFactorAuthCode),
       PushSubscription: optionalPatchValue(changes.pushSubscription),
     };
   }
@@ -159,11 +153,6 @@ export class BatchJobMapper implements EntityMapper<BatchJobEntity, BatchJobKey>
     const completedAt = readOptionalTimestamp(item, 'CompletedAt');
     if (completedAt !== undefined) {
       entity.completedAt = completedAt;
-    }
-
-    const twoFactorAuthCode = readAttribute(item, 'TwoFactorAuthCode', legacy.TwoFactorAuthCode);
-    if (twoFactorAuthCode !== undefined) {
-      entity.twoFactorAuthCode = validateStringField(twoFactorAuthCode, 'TwoFactorAuthCode');
     }
 
     const pushSubscription = readAttribute(item, 'PushSubscription', legacy.PushSubscription);

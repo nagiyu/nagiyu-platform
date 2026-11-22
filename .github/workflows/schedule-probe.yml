@@ -1,0 +1,23 @@
+# 定時実行の起動の遅れを計測するための一時的なワークフロー。
+# 金曜 18:17 UTC の定時実行が 5 時間以上遅れて起動するため、
+# 遅れが「分 (0 分か 17 分か)」と「時間帯」のどちらで決まるかを切り分ける。
+# 起動時刻は Actions の実行記録 (作成時刻と run-name の cron) から集計する。計測が済んだら削除する。
+name: Schedule Probe
+run-name: 'Schedule Probe (${{ github.event.schedule }})'
+
+on:
+  schedule:
+    - cron: '0 * * * *'
+    - cron: '17 * * * *'
+
+permissions: {}
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    steps:
+      - name: 起動した cron を記録する
+        env:
+          SCHEDULE: ${{ github.event.schedule }}
+        run: echo "cron=${SCHEDULE} started_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"

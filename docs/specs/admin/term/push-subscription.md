@@ -12,7 +12,7 @@ sources:
   - services/admin/core/src/notify/subscription-mapper.ts
   - services/admin/core/src/notify/subscription-types.ts
   - services/admin/core/src/notify/web-push-sender.ts
-sources_hash: c506d3bf5a88eb27b5a60a669ccaa88d282ea39b47ee124464f7102ab814dc86
+sources_hash: 2b513fe525468b2c92370b651560d3d4d45b7ae4d89c37045977d3b74d273493
 related_cards: [admin/flow/push-subscription, admin/flow/error-notification, admin/api/notify, admin/api/notify-sns, admin/batch/stream-handler, admin/screen/dashboard]
 ---
 

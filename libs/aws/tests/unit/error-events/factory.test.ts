@@ -9,6 +9,19 @@ import {
 } from '../../../src/error-events/factory.js';
 import { DynamoDBErrorEventWriter } from '../../../src/error-events/dynamodb-writer.js';
 import { InMemoryErrorEventWriter } from '../../../src/error-events/in-memory-writer.js';
+import { getInMemoryErrorEventStore } from '../../../src/error-events/in-memory-store.js';
+import type { ErrorEvent } from '@nagiyu/common';
+
+const sampleEvent = (): ErrorEvent => ({
+  eventId: 'evt-1',
+  serviceId: 'svc',
+  source: 'application',
+  severity: 'error',
+  title: 't',
+  message: 'm',
+  context: '{}',
+  occurredAt: Date.parse('2026-05-06T00:00:00.000Z'),
+});
 
 describe('createErrorEventWriter', () => {
   const originalUseInMemory = process.env.USE_IN_MEMORY_DB;
@@ -43,19 +56,45 @@ describe('createErrorEventWriter', () => {
     expect(writer).toBeInstanceOf(DynamoDBErrorEventWriter);
   });
 
-  it('USE_IN_MEMORY_DB が未設定で docClient が欠けているときは例外を投げる', () => {
+  it('USE_IN_MEMORY_DB が未設定で tableName が引数・env のどちらにもないときは例外を投げる', () => {
     delete process.env.USE_IN_MEMORY_DB;
-    expect(() => createErrorEventWriter(undefined, 'tbl')).toThrow(
-      'DynamoDB 実装には docClient と tableName が必要です'
+    delete process.env.DYNAMODB_TABLE_NAME;
+    const mockClient = { send: jest.fn() } as unknown as DynamoDBDocumentClient;
+    expect(() => createErrorEventWriter(mockClient, undefined)).toThrow(
+      '環境変数 DYNAMODB_TABLE_NAME が設定されていません'
     );
   });
 
-  it('USE_IN_MEMORY_DB が未設定で tableName が欠けているときは例外を投げる', () => {
+  it('USE_IN_MEMORY_DB が未設定で引数省略時は env の tableName で DynamoDB 実装を返す', () => {
     delete process.env.USE_IN_MEMORY_DB;
-    const mockClient = { send: jest.fn() } as unknown as DynamoDBDocumentClient;
-    expect(() => createErrorEventWriter(mockClient, undefined)).toThrow(
-      'DynamoDB 実装には docClient と tableName が必要です'
-    );
+    process.env.DYNAMODB_TABLE_NAME = 'env-tbl';
+    try {
+      expect(createErrorEventWriter()).toBeInstanceOf(DynamoDBErrorEventWriter);
+    } finally {
+      delete process.env.DYNAMODB_TABLE_NAME;
+    }
+  });
+
+  it('in-memory 実装は共有ストアに書き込む', async () => {
+    process.env.USE_IN_MEMORY_DB = 'true';
+
+    await createErrorEventWriter().put(sampleEvent());
+
+    expect(
+      getInMemoryErrorEventStore()
+        .scanAll()
+        .map((item) => item.eventId ?? item.EventId)
+    ).toHaveLength(1);
+  });
+
+  it('resetErrorEventWriter は共有ストアも破棄し、同じ eventId で書き直せる', async () => {
+    process.env.USE_IN_MEMORY_DB = 'true';
+    await createErrorEventWriter().put(sampleEvent());
+
+    resetErrorEventWriter();
+
+    expect(getInMemoryErrorEventStore().size()).toBe(0);
+    await expect(createErrorEventWriter().put(sampleEvent())).resolves.toBeUndefined();
   });
 
   it('生成された Writer はシングルトンとして再利用される', () => {

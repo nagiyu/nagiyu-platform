@@ -6,7 +6,7 @@ import * as logs from 'aws-cdk-lib/aws-logs';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import { Construct } from 'constructs';
-import { grantErrorEventsWrite, importSharedVpc } from '@nagiyu/infra-common';
+import { getImageTag, grantErrorEventsWrite, importSharedVpc } from '@nagiyu/infra-common';
 import type { QuickClipEnvironment } from './environment';
 
 export interface BatchStackProps extends cdk.StackProps {
@@ -77,7 +77,7 @@ export class BatchStack extends cdk.Stack {
     });
 
     const batchRepositoryName = `nagiyu-quick-clip-batch-ecr-${props.environment}`;
-    const batchImage = `${this.account}.dkr.ecr.${this.region}.amazonaws.com/${batchRepositoryName}:batch-latest`;
+    const batchImage = `${this.account}.dkr.ecr.${this.region}.amazonaws.com/${batchRepositoryName}:${getImageTag()}`;
     const jobDefinitionPrefix = `nagiyu-quick-clip-${props.environment}`;
 
     // small ジョブ定義は当初 1 vCPU だったが、小サイズ×長尺(低ビットレート)動画では

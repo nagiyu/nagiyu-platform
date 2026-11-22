@@ -108,6 +108,23 @@ describe('OpenAIResearchClient', () => {
     expect(LLM_REASONING_EFFORT.research).toBe('low');
   });
 
+  it('呼び出し時点の今日の日付を含むプロンプトを送る', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-11-20T03:00:00Z'));
+    try {
+      const mockParse = jest.fn().mockResolvedValue({
+        output_parsed: { topic: 'a', summary: 'b', sourceUrls: [], rawComment: 'c' },
+      });
+      const mockClient = { responses: { parse: mockParse } } as unknown as OpenAI;
+
+      await new OpenAIResearchClient({ client: mockClient }).research('コーヒー', character);
+
+      const text = mockParse.mock.calls[0][0].input[0].content[0].text as string;
+      expect(text).toContain('今日の日付: 2026年11月20日(金)');
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it('effort 上書き指定が SDK 呼び出しに反映される', async () => {
     const expected = {
       topic: 'コーヒー',

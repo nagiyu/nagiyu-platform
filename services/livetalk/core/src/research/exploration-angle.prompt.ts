@@ -1,3 +1,4 @@
+import { toJstDateString } from '@nagiyu/common';
 import type { ChatMessage } from '../llm-client/types.js';
 
 /** 角度の生成に渡す材料 */
@@ -14,14 +15,6 @@ export interface ExplorationAnglePromptInput {
   recentAngles: readonly string[];
   /** 今日の日付。年を含むクエリを作れるようにするために渡す */
   today: Date;
-}
-
-/** 年月日を `YYYY-MM-DD` で返す。ログ・プロンプトの表記をタイムゾーンの影響から切り離すためローカル時刻で組む */
-function formatDate(date: Date): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
 }
 
 function bulletList(items: readonly string[]): string {
@@ -53,7 +46,7 @@ export function buildExplorationAnglePrompt(input: ExplorationAnglePromptInput):
   ].join('\n');
 
   const user = [
-    `# 今日の日付\n${formatDate(input.today)}`,
+    `# 今日の日付\n${toJstDateString(input.today.getTime())}`,
     `# 起点の話題\n${input.subject}`,
     `# 起点の話題の要約\n${input.canonicalSummary || '(なし)'}`,
     `# 利用者の発言から得た事実\n${bulletList(input.selfFactTexts)}`,

@@ -1,3 +1,4 @@
+import { buildErrorContext } from '@nagiyu/common';
 import type { ErrorSeverity } from '@nagiyu/common';
 
 export type ClientSeverity = Extract<ErrorSeverity, 'warning' | 'error' | 'critical'>;
@@ -7,7 +8,6 @@ export interface ClientErrorContext {
   audioContextState?: string;
   sentenceReceived?: number;
   streamDone?: boolean;
-  stack?: string;
   filename?: string;
   lineno?: number;
   [key: string]: unknown;
@@ -28,11 +28,25 @@ function collectBaseContext(): Record<string, unknown> {
   };
 }
 
+/** 例外の値を持つ報告で渡すオプション */
+export interface ReportClientErrorOptions {
+  /** 例外の値。キー自体を渡したときだけ errorName / errorMessage / errorStack を context に付ける */
+  error?: unknown;
+}
+
+/**
+ * 画面側の例外をサーバーへ報告する。
+ *
+ * 例外の項目 (errorName / errorMessage / errorStack) はサーバー側と同じ buildErrorContext で組み立てる。
+ * 呼び出し元の context で上書きされて項目がばらつかないよう、最後に重ねる。
+ * 例外の値を持たない報告 (HTTP ステータスでの失敗など) は options を渡さず、項目を付けない。
+ */
 export function reportClientError(
   severity: ClientSeverity,
   title: string,
   message: string,
-  context?: ClientErrorContext
+  context?: ClientErrorContext,
+  options?: ReportClientErrorOptions
 ): void {
   /* istanbul ignore next */
   if (typeof window === 'undefined') return;
@@ -44,6 +58,7 @@ export function reportClientError(
     context: {
       ...collectBaseContext(),
       ...context,
+      ...(options && 'error' in options ? buildErrorContext(options.error) : {}),
     },
     occurredAt: new Date().toISOString(),
   };

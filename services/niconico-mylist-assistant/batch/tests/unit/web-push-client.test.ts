@@ -2,11 +2,12 @@
  * Web Push クライアントのユニットテスト
  */
 
-import {
-  createBatchCompletionPayload,
-  createTwoFactorAuthRequiredPayload,
-} from '../../src/lib/web-push-client.js';
+import { createBatchCompletionPayload } from '../../src/lib/web-push-client.js';
 import { normalizeVapidKey } from '@nagiyu/common';
+
+// web-push は ESM 専用で Jest が読み込めない。このテストは送信を検証しないため空のモックに差し替える。
+// web-push は @nagiyu/common の依存でこのサービスからは解決できないため virtual を付ける
+jest.mock('web-push', () => ({}), { virtual: true });
 
 describe('createBatchCompletionPayload', () => {
   test('全件成功時の通知ペイロード', () => {
@@ -82,44 +83,6 @@ describe('createBatchCompletionPayload', () => {
         type: 'batch-completion',
       },
     });
-  });
-});
-
-describe('createTwoFactorAuthRequiredPayload', () => {
-  test('二段階認証待機通知ペイロード', () => {
-    const payload = createTwoFactorAuthRequiredPayload('job-2fa-123');
-
-    expect(payload).toEqual({
-      title: '二段階認証が必要です',
-      body: 'マイリスト登録を続行するには、二段階認証コードを入力してください',
-      icon: '/icon-192x192.png',
-      data: {
-        jobId: 'job-2fa-123',
-        type: '2fa-required',
-        url: '/mylist/status/job-2fa-123',
-      },
-    });
-  });
-
-  test('ジョブIDがURLに正しく含まれる', () => {
-    const jobId = 'test-job-999';
-    const payload = createTwoFactorAuthRequiredPayload(jobId);
-
-    expect(payload.data?.url).toBe(`/mylist/status/${jobId}`);
-  });
-
-  test('通知タイプが正しく設定される', () => {
-    const payload = createTwoFactorAuthRequiredPayload('any-job-id');
-
-    expect(payload.data?.type).toBe('2fa-required');
-  });
-
-  test('バッチ完了通知と異なる通知タイプ', () => {
-    const completionPayload = createBatchCompletionPayload('job-1', 10, 0, 10);
-    const twoFAPayload = createTwoFactorAuthRequiredPayload('job-2');
-
-    expect(completionPayload.data?.type).toBe('batch-completion');
-    expect(twoFAPayload.data?.type).toBe('2fa-required');
   });
 });
 

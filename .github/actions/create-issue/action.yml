@@ -1,0 +1,66 @@
+name: Create Issue
+description: 本文ファイルから Issue を起票し、結果を Summary に書く
+
+inputs:
+  title:
+    description: Issue のタイトル
+    required: true
+  labels:
+    description: 付与するラベル (カンマ区切り)
+    required: true
+  body-file:
+    description: Issue 本文を書いたファイルのパス
+    required: true
+  summary-heading:
+    description: Summary の見出し
+    required: true
+  summary-extra:
+    description: Summary の末尾に足す Markdown (複数行可)
+    required: false
+    default: ''
+
+outputs:
+  issue_number:
+    description: 作成した Issue の番号
+    value: ${{ steps.create.outputs.issue_number }}
+  issue_url:
+    description: 作成した Issue の URL
+    value: ${{ steps.create.outputs.issue_url }}
+
+runs:
+  using: composite
+  steps:
+    - name: Create issue
+      id: create
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        # checkout の有無に関わらず動くよう、対象リポジトリを明示する
+        GH_REPO: ${{ github.repository }}
+        TITLE: ${{ inputs.title }}
+        LABELS: ${{ inputs.labels }}
+        BODY_FILE: ${{ inputs.body-file }}
+        SUMMARY_HEADING: ${{ inputs.summary-heading }}
+        SUMMARY_EXTRA: ${{ inputs.summary-extra }}
+      run: |
+        # Assignee・マイルストーンは付けない (人が付ける)
+        ISSUE_URL=$(gh issue create \
+          --title "$TITLE" \
+          --label "$LABELS" \
+          --body-file "$BODY_FILE")
+        ISSUE_NUMBER="${ISSUE_URL##*/}"
+
+        {
+          echo "issue_url=$ISSUE_URL"
+          echo "issue_number=$ISSUE_NUMBER"
+        } >> "$GITHUB_OUTPUT"
+
+        {
+          echo "$SUMMARY_HEADING"
+          echo ""
+          echo "**タイトル**: $TITLE"
+          echo "**Issue**: #$ISSUE_NUMBER ($ISSUE_URL)"
+          if [ -n "$SUMMARY_EXTRA" ]; then
+            echo "$SUMMARY_EXTRA"
+          fi
+        } >> "$GITHUB_STEP_SUMMARY"

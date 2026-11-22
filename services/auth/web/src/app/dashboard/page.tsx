@@ -1,10 +1,9 @@
 import { redirect } from 'next/navigation';
-import { hasPermission } from '@nagiyu/common';
+import { getRoleName, hasPermission } from '@nagiyu/common';
 import { Box, Container, Paper, Typography, Card, CardContent } from '@mui/material';
 import { Button, Chip } from '@nagiyu/ui';
 import Link from 'next/link';
 import { getSession } from '@/lib/auth/session';
-import { getRoleName } from '@/lib/role-display';
 
 export default async function DashboardPage() {
   const session = await getSession();

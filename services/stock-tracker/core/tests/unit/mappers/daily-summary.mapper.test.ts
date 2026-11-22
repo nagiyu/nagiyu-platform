@@ -249,8 +249,10 @@ describe('DailySummaryMapper', () => {
       ['配列', ['a']],
       ['文字列', 'MATCHED'],
       ['null', null],
-    ])('PatternResults が%sのときは未設定として扱う', (_label, value) => {
-      expect(mapper.toEntity(buildItem({ PatternResults: value })).patternResults).toBeUndefined();
+    ])('PatternResults が%sのときは InvalidEntityDataError をスローする', (_label, value) => {
+      expect(() => mapper.toEntity(buildItem({ PatternResults: value }))).toThrow(
+        InvalidEntityDataError
+      );
     });
 
     it.each(['TickerID', 'ExchangeID', 'Date', 'Open', 'High', 'Low', 'Close', 'CreatedAt'])(

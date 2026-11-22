@@ -5,11 +5,6 @@
  * JobStatusDisplay は実物を使い、fetch のみモック化する。
  */
 
-// モック: niconico-mylist-assistant-core は DB 層を含み jsdom で読み込めないため、使う値だけ差し替える
-jest.mock('@nagiyu/niconico-mylist-assistant-core', () => ({
-  TWO_FACTOR_AUTH_CODE_REGEX: /^\d{6}$/,
-}));
-
 jest.mock('next/navigation', () => ({
   useRouter: () => ({ push: jest.fn() }),
 }));

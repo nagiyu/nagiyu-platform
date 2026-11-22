@@ -21,6 +21,7 @@ on:
       - 'package-lock.json'
       - '.github/workflows/auth-verify-app.yml'
       - '.github/workflows/reusable-service-verify.yml'
+      - '.github/workflows/reusable-infra-verify.yml'
       - '.github/workflows/reusable-e2e.yml'
 
 permissions:
@@ -36,7 +37,22 @@ jobs:
     name: Verify
     uses: ./.github/workflows/reusable-service-verify.yml
     with:
-      dirs: services/auth
+      dirs: services/auth infra/auth
+    permissions:
+      contents: read
+
+  infra-verify:
+    name: Infra Verify
+    uses: ./.github/workflows/reusable-infra-verify.yml
+    with:
+      dirs: infra/auth
+      synth-args: >-
+        --context env=dev
+        --context googleClientId=dummy-client-id-for-verification
+        --context googleClientSecret=dummy-secret-for-verification
+        --context nextAuthSecret=dummy-auth-secret-for-verification
+        --context stripeSecretKey=dummy-stripe-secret-key-for-verification
+        --context stripeWebhookSecret=dummy-stripe-webhook-secret-for-verification
     permissions:
       contents: read
 
@@ -57,6 +73,15 @@ jobs:
     name: Next.js Build Verification
     runs-on: ubuntu-latest
 
+    # E2E と同じ OS・Node で検査するため、共通イメージの上で動かす
+    container:
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v2
+
+    # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
+    defaults:
+      run:
+        shell: bash
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -66,10 +91,21 @@ jobs:
         with:
           workspace: '@nagiyu/auth-web'
           shared-workspaces: '@nagiyu/auth-core'
+          # Node はイメージに入っているものを使う
+          skip-setup-node: 'true'
 
   docker-build:
     name: Docker Build Verification
     runs-on: ubuntu-latest
+
+    # 他の検査と同じ実行環境で確かめるため、共通イメージの上で動かす。docker のデーモンはランナーのものを使う
+    container:
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v2
+
+    # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
+    defaults:
+      run:
+        shell: bash
     needs: [build]
 
     permissions:
@@ -104,7 +140,7 @@ jobs:
     name: Report Results to PR
     runs-on: ubuntu-latest
     if: always()
-    needs: [verify, e2e, build, docker-build]
+    needs: [verify, e2e, build, docker-build, infra-verify]
 
     permissions:
       contents: read

@@ -11,6 +11,12 @@ on:
       - develop
     paths:
       - 'services/portal/**'
+      - 'infra/bin/**'
+      - 'infra/root/**'
+      - 'infra/common/**'
+      - 'infra/package.json'
+      - 'infra/cdk.json'
+      - 'infra/tsconfig.json'
       - 'libs/**'
       - 'configs/**'
       - '.github/actions/**'
@@ -19,6 +25,7 @@ on:
       - 'package-lock.json'
       - '.github/workflows/portal-verify.yml'
       - '.github/workflows/reusable-service-verify.yml'
+      - '.github/workflows/reusable-infra-verify.yml'
       - '.github/workflows/reusable-e2e.yml'
 
 permissions:
@@ -38,9 +45,26 @@ jobs:
     permissions:
       contents: read
 
+  infra-verify:
+    name: Infra Verify
+    uses: ./.github/workflows/reusable-infra-verify.yml
+    with:
+      dirs: infra
+    permissions:
+      contents: read
+
   build:
     name: Next.js Build Verification
     runs-on: ubuntu-latest
+
+    # E2E と同じ OS・Node で検査するため、共通イメージの上で動かす
+    container:
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v2
+
+    # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
+    defaults:
+      run:
+        shell: bash
 
     steps:
       - name: Checkout code
@@ -50,10 +74,21 @@ jobs:
         uses: ./.github/actions/build-web-app
         with:
           workspace: '@nagiyu/portal-web'
+          # Node はイメージに入っているものを使う
+          skip-setup-node: 'true'
 
   docker-build:
     name: Docker Build Verification
     runs-on: ubuntu-latest
+
+    # 他の検査と同じ実行環境で確かめるため、共通イメージの上で動かす。docker のデーモンはランナーのものを使う
+    container:
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v2
+
+    # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
+    defaults:
+      run:
+        shell: bash
     needs: [build]
 
     permissions:
@@ -89,6 +124,15 @@ jobs:
     name: Check Internal Links
     runs-on: ubuntu-latest
 
+    # E2E と同じ OS・Node で検査するため、共通イメージの上で動かす
+    container:
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v2
+
+    # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
+    defaults:
+      run:
+        shell: bash
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -97,6 +141,8 @@ jobs:
         uses: ./.github/actions/setup-node
         with:
           cache-dependency-path: './package-lock.json'
+          # Node はイメージに入っているものを使う
+          skip-setup-node: 'true'
 
       - name: 内部リンクチェック
         run: npm run check:internal-links --workspace @nagiyu/portal-web
@@ -118,7 +164,7 @@ jobs:
     name: Report Results to PR
     runs-on: ubuntu-latest
     if: always()
-    needs: [verify, build, docker-build, internal-links, e2e]
+    needs: [verify, build, docker-build, internal-links, e2e, infra-verify]
 
     permissions:
       contents: read

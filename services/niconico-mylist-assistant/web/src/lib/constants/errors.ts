@@ -39,7 +39,6 @@ export const ERROR_MESSAGES = {
   MYLIST_NAME_MUST_BE_STRING: 'mylistName は文字列である必要があります',
   MYLIST_NAME_TOO_LONG: 'マイリスト名は 50 文字以内で入力してください',
   MYLIST_NAME_INPUT_REQUIRED: 'マイリスト名を入力してください',
-  JOB_ID_MUST_BE_STRING: 'jobId は文字列である必要があります',
   USER_SESSION_REQUIRED: 'user_session は必須です',
   USER_SESSION_MUST_BE_STRING: 'user_session は文字列である必要があります',
   NO_VIDEOS_AVAILABLE: '登録可能な動画が見つかりませんでした',

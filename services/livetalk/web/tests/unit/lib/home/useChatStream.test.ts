@@ -46,6 +46,7 @@ function makeDeps(overrides: Partial<UseChatStreamDeps> = {}): UseChatStreamDeps
     clearFirstWordText: jest.fn() as () => void,
     clearOnboardingText: jest.fn() as () => void,
     dismissOnboarding: jest.fn() as () => void,
+    onConsentRequired: jest.fn() as () => void,
     setLifecycleState: jest.fn() as unknown as Dispatch<SetStateAction<LifecycleState>>,
     ...overrides,
   };
@@ -338,6 +339,45 @@ describe('useChatStream', () => {
       expect(ok).toBe(false);
     });
 
+    it('CONSENT_REQUIRED は同意ダイアログを開き直し、エラー文言・登録なしで失敗として返す', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: false,
+        body: null,
+        status: 403,
+        json: async () => ({ error: 'CONSENT_REQUIRED', message: 'x' }),
+      });
+      const deps = makeDeps();
+      const { result } = renderHook(() => useChatStream(deps));
+
+      let ok: boolean | undefined;
+      await act(async () => {
+        ok = await result.current.handleSubmit('テスト');
+      });
+
+      expect(ok).toBe(false);
+      expect(deps.onConsentRequired).toHaveBeenCalledTimes(1);
+      expect(result.current.errorMessage).toBeNull();
+      expect(deps.setPhase).toHaveBeenLastCalledWith('idle');
+      expect(mockReportClientError).not.toHaveBeenCalled();
+    });
+
+    it('CONSENT_REQUIRED 以外のエラーでは同意ダイアログを開かない', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: false,
+        body: null,
+        status: 429,
+        json: async () => ({ error: 'RATE_LIMIT_EXCEEDED', message: 'x' }),
+      });
+      const deps = makeDeps();
+      const { result } = renderHook(() => useChatStream(deps));
+
+      await act(async () => {
+        await result.current.handleSubmit('テスト');
+      });
+
+      expect(deps.onConsentRequired).not.toHaveBeenCalled();
+    });
+
     it('RATE_LIMIT_EXCEEDED のコードは休憩を促す文言になる', async () => {
       global.fetch = jest.fn().mockResolvedValue({
         ok: false,
@@ -412,6 +452,7 @@ describe('useChatStream', () => {
         'チャット fetch 失敗',
         'HTTP 500',
         expect.objectContaining({ screen: 'chat' })
+        // 第 5 引数 (例外) を渡さないことも toHaveBeenCalledWith が検証する
       );
     });
   });
@@ -541,7 +582,8 @@ describe('useChatStream', () => {
         'warning',
         '音声 decode 失敗',
         'decode failure',
-        expect.objectContaining({ screen: 'chat', sentenceReceived: 1 })
+        expect.objectContaining({ screen: 'chat', sentenceReceived: 1 }),
+        { error: expect.objectContaining({ message: 'decode failure' }) }
       );
       consoleSpy.mockRestore();
     });
@@ -916,7 +958,8 @@ describe('useChatStream', () => {
         'error',
         'チャット通信エラー',
         'ネットワークエラー',
-        expect.objectContaining({ screen: 'chat', stack: expect.any(String) })
+        expect.objectContaining({ screen: 'chat' }),
+        { error: networkError }
       );
       consoleSpy.mockRestore();
     });
@@ -1013,7 +1056,8 @@ describe('useChatStream', () => {
         'warning',
         '音声再生エラー',
         '再生エラー',
-        expect.objectContaining({ screen: 'chat' })
+        expect.objectContaining({ screen: 'chat' }),
+        { error: expect.objectContaining({ message: '再生エラー' }) }
       );
       expect(consoleSpy).toHaveBeenCalledWith('[LiveTalk] 音声再生エラー', expect.any(Error));
       consoleSpy.mockRestore();

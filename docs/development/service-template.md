@@ -249,35 +249,13 @@ lint の glob はクォートして eslint に解釈させる。`npm run` は `s
 
 #### core パッケージの境界保護
 
-`core` パッケージでは UI フレームワークのインポートを禁止する。
+`core` パッケージでは UI フレームワークとブラウザ向けライブラリのインポートを禁止する。禁止の設定は `configs/eslint.config.core.mjs` にまとめてあり、参照するだけでよい。
 
 ```javascript
 // core/eslint.config.mjs
-import baseConfig from '../../../configs/eslint.config.base.mjs';
+import coreConfig from '../../../configs/eslint.config.core.mjs';
 
-export default [
-    ...baseConfig,
-    {
-        rules: {
-        'no-restricted-imports': [
-            'error',
-            {
-            patterns: [
-                {
-                    group: ['react', 'react-dom', 'next', 'next/*'],
-                    message:
-                        'core パッケージでは UI フレームワークを使用できません。ビジネスロジックのみを実装してください。',
-                },
-                {
-                    group: ['@mui/*'],
-                    message: 'core パッケージでは Material-UI を使用できません。',
-                },
-            ],
-            },
-        ],
-        },
-    },
-];
+export default coreConfig;
 ```
 
 #### web パッケージ
@@ -291,11 +269,13 @@ export default webConfig;
 
 #### batch パッケージ
 
+batch も core と同じく、依存してよい libs は `libs/common` と `libs/aws` だけなので、core と同じ設定を参照する。
+
 ```javascript
 // batch/eslint.config.mjs
-import baseConfig from '../../../configs/eslint.config.base.mjs';
+import coreConfig from '../../../configs/eslint.config.core.mjs';
 
-export default baseConfig;
+export default coreConfig;
 ```
 
 ### 設定ファイルの継承
@@ -560,7 +540,7 @@ services/{service}/
 
 - [ ] `configs/` の共通設定を extends
     - [ ] `tsconfig.base.json` を extends（web は `tsconfig.web.json` を extends）
-    - [ ] `eslint.config.base.mjs` を extends (web は `eslint.config.web.mjs` を extends)
+    - [ ] eslint の共通設定を extends (core と batch は `eslint.config.core.mjs`、web は `eslint.config.web.mjs`、それ以外は `eslint.config.base.mjs`)
     - [ ] `.prettierrc` を継承
 
 - [ ] TypeScript Project References を設定

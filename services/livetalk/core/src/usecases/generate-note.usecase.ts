@@ -13,6 +13,7 @@ import type { NoteSkipRepository } from '../repositories/note-skip.repository.in
 import type { TopicRepository } from '../repositories/topic.repository.interface.js';
 import { defaultUlidFactory, type UlidFactory } from '../lib/ulid.js';
 import { selectRecentWebFacts } from '../knowledge/recent-web-facts.js';
+import { formatJstFactDate, formatJstFullDateWithWeekday } from '../lib/format-date.js';
 import { buildGenerateNotePrompt } from './generate-note.prompt.js';
 
 export interface GenerateNotesParams {
@@ -128,12 +129,14 @@ export async function generateNotesForUser(
 
       const promptMessages = buildGenerateNotePrompt({
         characterName,
+        todayLabel: formatJstFullDateWithWeekday(judgedAt),
         subject: topic.subject,
         canonicalSummary: topic.canonicalSummary,
         selfFacts: bundle.selfFacts.map((f) => ({ text: f.text, provenance: f.provenance })),
         webFacts: selectRecentWebFacts(bundle.webFacts, WEB_FACT_NOTE_LIMIT).map((f) => ({
           text: f.text,
           sourceUrls: f.sourceUrls,
+          observedAtLabel: formatJstFactDate(f.observedAt, judgedAt),
         })),
       });
 

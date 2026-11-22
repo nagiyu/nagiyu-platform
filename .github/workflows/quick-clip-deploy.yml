@@ -15,7 +15,6 @@ on:
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/quick-clip-deploy.yml'
-      - '.github/actions/update-lambda-image/**'
       - '.github/actions/health-check/**'
       - '.github/actions/push-ecr-image/**'
   workflow_dispatch:
@@ -34,6 +33,9 @@ permissions:
 
 env:
   AWS_REGION: us-east-1
+  # push するタグと CDK が指すタグを同じ値にするため、全ジョブで共有する。
+  # CDK はどのスタックを deploy するときもアプリ全体を合成するので、ECR だけの deploy にも要る。
+  IMAGE_TAG: ${{ github.sha }}
 
 # dev 環境は integration/** と develop で共有するため、ブランチではなくデプロイ先環境の単位で直列化する。
 # CDK デプロイを途中で止めるとスタックが更新中のまま残るので実行中の run は完走させ、待機中は最新の run だけを残す。
@@ -51,12 +53,24 @@ jobs:
       environment: ${{ steps.setup-environment.outputs.environment }}
       stack-suffix: ${{ steps.setup-environment.outputs.stack-suffix }}
 
+    # 検査と同じ実行環境でビルドとデプロイを行うため、共通イメージの上で動かす。docker のデーモンはランナーのものを使う
+    container:
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v2
+
+    # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
+    defaults:
+      run:
+        shell: bash
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Setup Node.js and install dependencies
         uses: ./.github/actions/setup-node
+        with:
+          # Node はイメージに入っているものを使う
+          skip-setup-node: 'true'
 
       - name: Setup deployment environment
         id: setup-environment
@@ -96,6 +110,15 @@ jobs:
       image-uri: ${{ steps.build-image.outputs.image-uri }}
       app-version: ${{ steps.get-version.outputs.app-version }}
 
+    # 検査と同じ実行環境でビルドとデプロイを行うため、共通イメージの上で動かす。docker のデーモンはランナーのものを使う
+    container:
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v2
+
+    # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
+    defaults:
+      run:
+        shell: bash
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -110,6 +133,8 @@ jobs:
       - name: Build web application
         uses: ./.github/actions/build-web-app
         with:
+          # Node はイメージに入っているものを使う
+          skip-setup-node: 'true'
           workspace: '@nagiyu/quick-clip-web'
           shared-workspaces: '@nagiyu/quick-clip-core'
 
@@ -162,8 +187,7 @@ jobs:
             APP_VERSION=${{ steps.get-version.outputs.app-version }}
             NEXT_PUBLIC_VAST_TAG_URL=${{ steps.resolve-vast-url.outputs.vast-tag-url }}
           tags: |
-            ${{ github.sha }}
-            latest
+            ${{ env.IMAGE_TAG }}
 
   build-batch:
     name: Build and Push Batch Docker Image
@@ -173,6 +197,15 @@ jobs:
 
     outputs:
       image-uri: ${{ steps.build-image.outputs.image-uri }}
+
+    # 検査と同じ実行環境でビルドとデプロイを行うため、共通イメージの上で動かす。docker のデーモンはランナーのものを使う
+    container:
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v2
+
+    # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
+    defaults:
+      run:
+        shell: bash
 
     steps:
       - name: Checkout code
@@ -219,7 +252,7 @@ jobs:
           dockerfile: services/quick-clip/batch/Dockerfile
           build-args: APP_VERSION=${{ steps.get-version.outputs.app-version }}
           tags: |
-            batch-latest
+            ${{ env.IMAGE_TAG }}
 
   build-lambda-clip:
     name: Build and Push Lambda Clip Docker Image
@@ -229,6 +262,15 @@ jobs:
 
     outputs:
       image-uri: ${{ steps.build-image.outputs.image-uri }}
+
+    # 検査と同じ実行環境でビルドとデプロイを行うため、共通イメージの上で動かす。docker のデーモンはランナーのものを使う
+    container:
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v2
+
+    # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
+    defaults:
+      run:
+        shell: bash
 
     steps:
       - name: Checkout code
@@ -275,7 +317,7 @@ jobs:
           dockerfile: services/quick-clip/lambda/clip/Dockerfile
           build-args: APP_VERSION=${{ steps.get-version.outputs.app-version }}
           tags: |
-            latest
+            ${{ env.IMAGE_TAG }}
 
   build-lambda-zip:
     name: Build and Push Lambda Zip Docker Image
@@ -285,6 +327,15 @@ jobs:
 
     outputs:
       image-uri: ${{ steps.build-image.outputs.image-uri }}
+
+    # 検査と同じ実行環境でビルドとデプロイを行うため、共通イメージの上で動かす。docker のデーモンはランナーのものを使う
+    container:
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v2
+
+    # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
+    defaults:
+      run:
+        shell: bash
 
     steps:
       - name: Checkout code
@@ -331,7 +382,7 @@ jobs:
           dockerfile: services/quick-clip/lambda/zip/Dockerfile
           build-args: APP_VERSION=${{ steps.get-version.outputs.app-version }}
           tags: |
-            latest
+            ${{ env.IMAGE_TAG }}
 
   infrastructure-app:
     name: Deploy Application Infrastructure
@@ -339,12 +390,24 @@ jobs:
     needs: [infrastructure-ecr, build-web, build-batch, build-lambda-clip, build-lambda-zip]
     environment: ${{ needs.infrastructure-ecr.outputs.environment }}
 
+    # 検査と同じ実行環境でビルドとデプロイを行うため、共通イメージの上で動かす。docker のデーモンはランナーのものを使う
+    container:
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v2
+
+    # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
+    defaults:
+      run:
+        shell: bash
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Setup Node.js and install dependencies
         uses: ./.github/actions/setup-node
+        with:
+          # Node はイメージに入っているものを使う
+          skip-setup-node: 'true'
 
       - name: Build common infrastructure package
         run: npm run build --workspace=@nagiyu/infra-common
@@ -378,6 +441,7 @@ jobs:
             NagiyuQuickClipStorage${STACK_SUFFIX} \
             NagiyuQuickClipDynamoDB${STACK_SUFFIX} \
             NagiyuQuickClipBatch${STACK_SUFFIX} \
+            NagiyuQuickClipMonitoring${STACK_SUFFIX} \
             NagiyuQuickClipLambda${STACK_SUFFIX} \
             NagiyuQuickClipCloudFront${STACK_SUFFIX} \
             --context env="$ENVIRONMENT" \
@@ -386,49 +450,20 @@ jobs:
             --context nextAuthSecret="${SECRET_VALUE}" \
             --require-approval never
 
-      - name: Resolve Lambda image URIs
-        id: resolve-image
-        env:
-          ENVIRONMENT: ${{ needs.infrastructure-ecr.outputs.environment }}
-        run: |
-          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-          ECR_REGISTRY="$ACCOUNT_ID.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com"
-
-          {
-            echo "web-image-uri=$ECR_REGISTRY/nagiyu-quick-clip-ecr-$ENVIRONMENT:latest"
-            echo "clip-image-uri=$ECR_REGISTRY/nagiyu-quick-clip-lambda-clip-ecr-$ENVIRONMENT:latest"
-            echo "zip-image-uri=$ECR_REGISTRY/nagiyu-quick-clip-lambda-zip-ecr-$ENVIRONMENT:latest"
-          } >> "$GITHUB_OUTPUT"
-
-      - name: Update web Lambda function code
-        uses: ./.github/actions/update-lambda-image
-        with:
-          function-names: |
-            nagiyu-quick-clip-web-${{ needs.infrastructure-ecr.outputs.environment }}
-          image-uri: ${{ steps.resolve-image.outputs.web-image-uri }}
-          region: ${{ env.AWS_REGION }}
-
-      - name: Update clip Lambda function code
-        uses: ./.github/actions/update-lambda-image
-        with:
-          function-names: |
-            nagiyu-quick-clip-clip-regenerate-${{ needs.infrastructure-ecr.outputs.environment }}
-          image-uri: ${{ steps.resolve-image.outputs.clip-image-uri }}
-          region: ${{ env.AWS_REGION }}
-
-      - name: Update zip Lambda function code
-        uses: ./.github/actions/update-lambda-image
-        with:
-          function-names: |
-            nagiyu-quick-clip-zip-generator-${{ needs.infrastructure-ecr.outputs.environment }}
-          image-uri: ${{ steps.resolve-image.outputs.zip-image-uri }}
-          region: ${{ env.AWS_REGION }}
-
   verify:
     name: Verify Deployment
     runs-on: ubuntu-latest
     needs: [infrastructure-ecr, build-web, build-batch, infrastructure-app]
     environment: ${{ needs.infrastructure-ecr.outputs.environment }}
+
+    # 検査と同じ実行環境でビルドとデプロイを行うため、共通イメージの上で動かす。docker のデーモンはランナーのものを使う
+    container:
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v2
+
+    # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
+    defaults:
+      run:
+        shell: bash
 
     steps:
       - name: Checkout code

@@ -32,9 +32,12 @@ export {
   getEcsClusterArn,
   getBatchJobQueueArn,
   getBatchJobDefinitionArn,
+  getAdminAlarmTopicName,
+  getAdminAlarmTopicArn,
 } from './utils/arn';
 export { SSM_PARAMETERS } from './utils/ssm';
 export { SECRET_NAMES } from './utils/secrets';
+export { getImageTag, IMAGE_TAG_ERROR_MESSAGES } from './utils/image-tag';
 export { importSharedVpc } from './utils/vpc';
 export type { ImportedSharedVpc } from './utils/vpc';
 
@@ -65,6 +68,19 @@ export { grantErrorEventsWrite } from './grants/error-events-writer';
 // Lambda function factory
 export { createEcrImageFunction } from './functions/ecr-image-function';
 export type { EcrImageFunctionProps } from './functions/ecr-image-function';
+
+// S3 bucket factory
+export { createServiceBucket } from './storage/service-bucket';
+export type { ServiceBucketProps } from './storage/service-bucket';
+
+// CloudFront parts
+export {
+  createResponseHeadersPolicy,
+  RESPONSE_HEADERS_POLICY_ERROR_MESSAGES,
+} from './cloudfront/response-headers-policy';
+export type { ResponseHeadersPolicyProps } from './cloudfront/response-headers-policy';
+export { createCloudFrontAliasRecord } from './cloudfront/alias-record';
+export type { CloudFrontAliasRecordProps } from './cloudfront/alias-record';
 
 // Stack base classes
 export { EcrStackBase } from './stacks/ecr-stack-base';

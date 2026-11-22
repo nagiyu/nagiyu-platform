@@ -12,6 +12,7 @@ import {
   DEFAULT_LAMBDA_TRACING,
 } from '../constants/defaults';
 import { grantErrorEventsWrite } from '../grants/error-events-writer';
+import { getImageTag } from '../utils/image-tag';
 
 /**
  * ECR イメージ Lambda 関数のプロパティ
@@ -34,7 +35,7 @@ export interface EcrImageFunctionProps {
   deployEnvironment: Environment;
 
   /**
-   * イメージを取り込む ECR リポジトリ（タグは `latest` 固定）
+   * イメージを取り込む ECR リポジトリ（タグは環境変数 `IMAGE_TAG`、必須）
    */
   repository: ecr.IRepository;
 
@@ -172,7 +173,7 @@ export function createEcrImageFunction(
     runtime: lambda.Runtime.FROM_IMAGE,
     handler: lambda.Handler.FROM_IMAGE,
     code: lambda.Code.fromEcrImage(repository, {
-      tagOrDigest: 'latest',
+      tagOrDigest: getImageTag(),
       cmd,
     }),
     role,

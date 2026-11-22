@@ -17,42 +17,17 @@ jobs:
     outputs:
       should_create: ${{ steps.duplicate_check.outputs.should_create }}
     steps:
+      # ローカル action を参照するため .github/actions だけ取得する
+      - name: Checkout actions
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/actions
+
       - name: Check existing open weekly-check issue
         id: duplicate_check
-        env:
-          GH_TOKEN: ${{ github.token }}
-          # checkout しないため、対象リポジトリを明示する
-          GH_REPO: ${{ github.repository }}
-        run: |
-          OPEN_ISSUES_JSON=$(gh issue list \
-            --label "weekly-check" \
-            --state open \
-            --limit 1 \
-            --json number,url)
-
-          ISSUE_NUMBER=$(echo "$OPEN_ISSUES_JSON" | jq -r '.[0]? | .number // empty')
-          ISSUE_URL=$(echo "$OPEN_ISSUES_JSON" | jq -r '.[0]? | .url // empty')
-
-          if [ -n "$ISSUE_NUMBER" ]; then
-            echo "should_create=false" >> "$GITHUB_OUTPUT"
-            echo "open_issue_number=$ISSUE_NUMBER" >> "$GITHUB_OUTPUT"
-            echo "open_issue_url=$ISSUE_URL" >> "$GITHUB_OUTPUT"
-          else
-            echo "should_create=true" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Summary (skipped)
-        if: steps.duplicate_check.outputs.should_create != 'true'
-        run: |
-          echo "⏭️ 既存の weekly-check ラベル付きオープン Issue が存在するため、新規作成をスキップしました" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          if [ -n "${{ steps.duplicate_check.outputs.open_issue_number }}" ] && [ -n "${{ steps.duplicate_check.outputs.open_issue_url }}" ]; then
-            echo "**既存Issue**: #${{ steps.duplicate_check.outputs.open_issue_number }} (${{ steps.duplicate_check.outputs.open_issue_url }})" >> "$GITHUB_STEP_SUMMARY"
-          elif [ -n "${{ steps.duplicate_check.outputs.open_issue_number }}" ]; then
-            echo "**既存Issue**: #${{ steps.duplicate_check.outputs.open_issue_number }}" >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "**既存Issue**: 取得できませんでした" >> "$GITHUB_STEP_SUMMARY"
-          fi
+        uses: ./.github/actions/find-open-issue
+        with:
+          label: weekly-check
 
   npm-check:
     needs: duplicate-check
@@ -134,25 +109,15 @@ jobs:
           CREATE_TIME=$(TZ=Asia/Tokyo date +"%Y-%m-%d %H:%M JST")
           export CREATE_TIME
           # Python スクリプトでBase64デコードして本文を生成
-          BODY=$(python3 .github/workflows/scripts/prepare-npm-issue.py)
-          # 生成した本文をBase64エンコードして保存
-          ENCODED=$(echo "$BODY" | base64 -w 0)
-          echo "issue_body=$ENCODED" >> "$GITHUB_OUTPUT"
+          python3 .github/workflows/scripts/prepare-npm-issue.py > "${RUNNER_TEMP}/issue_body.md"
+          echo "body_file=${RUNNER_TEMP}/issue_body.md" >> "$GITHUB_OUTPUT"
 
       - name: Create npm management issue
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          # Base64デコードしてIssue本文を取得
-          BODY=$(echo "${{ steps.issue_body.outputs.issue_body }}" | base64 -d)
-          gh issue create \
-            --title "${{ steps.week_info.outputs.title }}" \
-            --label "dependencies,weekly-check" \
-            --body "$BODY"
-
-      - name: Summary
-        run: |
-          echo "✅ 週次npm管理レポート Issue を作成しました" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**タイトル**: ${{ steps.week_info.outputs.title }}" >> $GITHUB_STEP_SUMMARY
-          echo "**次回チェック予定**: ${{ steps.next_check.outputs.next_date }}" >> $GITHUB_STEP_SUMMARY
+        uses: ./.github/actions/create-issue
+        with:
+          title: ${{ steps.week_info.outputs.title }}
+          labels: dependencies,weekly-check
+          body-file: ${{ steps.issue_body.outputs.body_file }}
+          summary-heading: '✅ 週次npm管理レポート Issue を作成しました'
+          summary-extra: |
+            **次回チェック予定**: ${{ steps.next_check.outputs.next_date }}
