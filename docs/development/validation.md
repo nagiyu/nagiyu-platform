@@ -88,57 +88,7 @@ export function validateUser(user: unknown): ValidationResult {
 
 ## ValidationResult型
 
-### 型定義
-
-```typescript
-/**
- * バリデーション結果
- */
-export type ValidationResult = {
-    /** バリデーション成功フラグ */
-    valid: boolean;
-    /** エラーメッセージ配列（valid が false の場合のみ） */
-    errors?: string[];
-};
-```
-
-### 使用例
-
-```typescript
-// バリデーション成功
-const result1: ValidationResult = { valid: true };
-
-// バリデーション失敗
-const result2: ValidationResult = {
-    valid: false,
-    errors: ['ユーザー名は必須です', 'メールアドレスの形式が不正です'],
-};
-```
-
-### 設計上の考慮点
-
-#### シンプルな構造
-
-- `valid` フラグで成功/失敗を明確に判定
-- `errors` 配列で複数のエラーメッセージを返却可能
-- 追加の情報が必要な場合は拡張可能
-
-#### TypeScript型ガードとの互換性
-
-```typescript
-function processUser(user: unknown): void {
-    const result = validateUser(user);
-    
-    if (!result.valid) {
-        // エラーハンドリング
-        console.error(result.errors);
-        return;
-    }
-    
-    // この時点で user は型安全に扱える
-    // （型アサーションまたは型ガードと組み合わせて使用）
-}
-```
+`ValidationResult` 型の定義と、`isValidNumber` などの汎用ヘルパーは [common の validation](../platform/specs/lib/common/validation.md) を参照する。
 
 ---
 
@@ -196,14 +146,7 @@ ERROR_MESSAGES.REQUIRED = '変更不可';
 
 ## 汎用ヘルパー関数
 
-**MAY**: サービス固有の要件に応じて、以下のようなヘルパー関数を追加可能。
-
-- **文字列チェック**: `isNonEmptyString()` - 文字列が空でないかチェック
-- **正規表現チェック**: `isValidEmail()`, `isValidUrl()`, `isValidUUID()` など
-- **フォーマットチェック**: `isValidDateFormat()`, `isValidTimeFormat()` など
-- **範囲チェック**: `isInRange(value, min, max)`, `isValidPrice()`, `isValidQuantity()` など
-- **タイムスタンプチェック**: `isValidTimestamp()` - Unix タイムスタンプの妥当性検証
-- **配列チェック**: `isNonEmptyArray()`, `hasUniqueElements()` など
+**MAY**: サービス固有の要件に応じて、`isNonEmptyString()` や `isValidEmail()`、範囲チェックなどのヘルパー関数を追加してよい。共通のヘルパーは [common の validation](../platform/specs/lib/common/validation.md) を参照する。
 
 **配置**: `validation/helpers.ts` に集約する。
 
@@ -399,7 +342,7 @@ return errors.length === 0 ? { valid: true } : { valid: false, errors };
 
 壊れた JSON・本文 `null`・配列・プリミティブは、利用者の入力の誤りである。`request.json()` を直接呼ぶと、これらが例外やプロパティ参照の失敗としてルートの汎用 catch に落ち、500 になる。500 の経路ではエラーを通報するため、利用者の入力ミスが障害の通知に混ざり、本物の障害が埋もれる。
 
-`readJsonObjectBody` は例外を投げず、読めたかどうかだけを返す。400 のレスポンスの形は、各サービスが自前で組み立てる。読めた値の各項目は `unknown` のままなので、型は呼び出し側で確かめる (型が違えば 400)。
+振る舞いは [リクエストボディの読み取り](../platform/specs/lib/nextjs/request-body.md) を参照する。400 のレスポンスの形は、各サービスが自前で組み立てる。読めた値の各項目は `unknown` のままなので、型は呼び出し側で確かめる (型が違えば 400)。
 
 ### バリデーションの実行
 
@@ -782,5 +725,6 @@ export default {
 
 - [コーディング規約・べからず集](./rules.md): TypeScript、エラーハンドリング、テストルール
 - [共通ライブラリ設計](./shared-libraries.md): core パッケージの責務と依存関係
+- [ライブラリの仕様](../platform/specs/lib/): バリデーションの共通型・ヘルパー、リクエストボディの読み取り
 - [アーキテクチャ方針](./architecture.md): レイヤー分離、ビジネスロジックの実装
 - [テスト戦略](./testing.md): テストカバレッジ、モック戦略

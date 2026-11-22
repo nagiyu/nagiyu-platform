@@ -14,7 +14,7 @@
 
 - **ライブラリ非依存**: コンポーネントの Props には MUI 固有の型を一切露出させない。将来 MUI 以外（Base UI / shadcn/ui 等）への差し替えが可能な構造を維持する。
 - **トークン駆動**: 色・余白・タイポグラフィ等は CSS 変数として定義したデザイントークンを参照する。コンポーネントは MUI Theme ではなくトークンに依存する。
-- **薄いコア + 段階拡張**: Phase 1〜4 で段階的にコンポーネントを追加し、各 Phase で API 設計・移行・ESLint 強制を 1 セットとする。
+- **薄いコア + 段階拡張**: コンポーネントを段階的に追加し、追加ごとに API 設計・移行・ESLint 強制を 1 セットとする。
 - **業界標準パターンの採用**: API 命名・コンポジション構造は Radix / shadcn / Mantine 等の業界標準と整合させ、将来の差し替え時の摩擦を最小化する。
 
 ---
@@ -23,14 +23,12 @@
 
 ### 対象（ラップして共通化する）
 
-`libs/ui/` 配下に共通コンポーネントとして実装する対象。
+`libs/ui/` 配下に共通コンポーネントとして実装する対象。機能は [ui の仕様](../platform/specs/lib/ui/) を参照。
 
-| Phase | コンポーネント                                        | 統合する MUI                                                                                     |
-| ----- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| 1     | `Button` / `TextField` / `Checkbox` / `Chip` / `Link` | 同名の MUI コンポーネント                                                                        |
-| 2     | `Select`                                              | `Select` + `MenuItem` + `FormControl` + `InputLabel`                                             |
-| 3     | `Card` / `Tabs` / `List`                              | `Card` + `CardContent` + `CardActions` + `CardActionArea` / `Tabs` + `Tab` / `List` + `ListItem` |
-| 4     | `Snackbar` / `Pagination` / `Badge` / `Paper`         | 同名の MUI コンポーネント                                                                        |
+| コンポーネント | 統合する MUI |
+| --- | --- |
+| `Button` / `TextField` / `Checkbox` / `Chip` / `Link` | 同名の MUI コンポーネント |
+| `Select` | `Select` + `MenuItem` + `FormControl` + `InputLabel` |
 
 ### 対象外（MUI 直接利用 OK）
 
@@ -44,79 +42,15 @@
 
 ### 既存ラッパー（個別仕様）
 
-以下は Phase 1〜4 のアトミックなラッパー対象とは別に、個別仕様で提供される共通コンポーネント。引き続き利用するが、汎用的な再設計はスコープ外。
+上のアトミックなラッパー対象とは別に、個別仕様で提供される共通コンポーネントがある (`Header` / `Footer` / `ServiceLayout` / `AppThemeProvider` / `SessionHeader` / `ConfirmDialog` / `LegalSections` など)。各部品の使い方と振る舞いは [ui の仕様](../platform/specs/lib/ui/) を参照する。サービスに課す利用の規則は次のとおり。
 
-- `Header` / `Footer` / `AppLayout` / `ServiceLayout`
-- `AppThemeProvider`
-- `SessionProviderWrapper` / `SessionHeader`（`next-auth` に依存するため、barrel ではなく subpath `@nagiyu/ui/session-provider` で提供 → 後述）
-- `ErrorAlert`
-- `LoadingState`
-- `PrivacyPolicyDialog` / `TermsOfServiceDialog` / `ConfirmDialog`
-- `LegalSections`
-- `CommercialTransactionsTable`
-
-#### `ServiceLayout` と `AppThemeProvider` の使い分け
-
-`libs/ui` は 2 系統のレイアウト・プロバイダーを提供する。サービスの性質に応じて選択する。
-
-| プロバイダー       | 用途                                                                        | 含まれる要素                                                                                           |
-| ------------------ | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `ServiceLayout`    | ヘッダ・フッタを含む標準的なサービス（admin / niconico / stock-tracker 等） | `AppLayout`（= `AppRouterCacheProvider + ThemeProvider + CssBaseline`） + `Header` + `main` + `Footer` |
-| `AppThemeProvider` | ヘッダ・フッタを持たない埋め込み系サービス（portal / tools 等）             | `AppRouterCacheProvider + ThemeProvider + CssBaseline` のみ                                            |
-
-- `ServiceLayout` を採用するサービスは、独自の `ThemeRegistry` を作らず `ServiceLayout` をルートレイアウトで直接利用する（過去 Issue #2148 / #2249 の方針）。
-- `ServiceLayout` を採用しないサービスは `AppThemeProvider` を利用し、`AppRouterCacheProvider + ThemeProvider + CssBaseline` の定型を独自実装しない。
-- サービス固有の追加要素（tools の `MigrationDialog` 等）は `AppThemeProvider` の `children` として合成する。
-
-#### next-auth に依存するコンポーネントは subpath export で提供する
-
-`next-auth`（ESM 配布）に依存する `SessionProviderWrapper` / `SessionHeader` は、`@nagiyu/ui` の barrel（`src/index.ts`）からではなく、専用 subpath `@nagiyu/ui/session-provider` から named export で提供する。実際に next-auth を使うサービスだけがここから import する。
-
-- **なぜ barrel に載せないか**: barrel から re-export すると、`Button` など無関係なコンポーネントを import しただけで `@nagiyu/ui` の**全利用サービス**（現状 9 サービス）が `next-auth` を推移的に読み込む（barrel は先頭から評価されるため）。結果、各サービスの Jest が ESM の `next-auth` を変換対象に含める設定（`transformIgnorePatterns`）を持たないと `Cannot use import statement outside a module` で落ち、`next build` にも不要なコストが乗る。subpath に隔離することで、この負担を実利用サービスだけに閉じ込める。
-- **依存の持たせ方**: `next-auth` は `@nagiyu/ui` の `peerDependency`（実利用サービスが供給）とする。利用サービス側の `jest.config.ts` は `transformIgnorePatterns` で `next-auth` 系を変換対象に含める（`services/portal/web` の既存パターンと同型）。
-- **一般則**: 重量級・ESM-only の依存を持つ共通コンポーネントは、barrel に混ぜず subpath export で提供する（Issue #3603 で導入）。
-
-#### Navigation の集約
-
-`Header` は `navigationItems: NavigationItem[]` プロパティを受け取り、デスクトップでは横並びメニュー、モバイルではハンバーガー Drawer に切り替える。サービスは独自 `Navigation` コンポーネントを実装せず、ナビ項目を `Header` に渡す。
-
-- **権限による出し分けは `Header` が行う**: 項目に `requiredPermission` を付け、`Header` にユーザーのロール (`roles`) を渡すと、権限を満たさない項目は表示されない。子をすべて除かれた親項目も表示しない。サービスは項目を静的に宣言し、権限の判定を自前で書かない。
-- `roles` 未指定は「権限なし」として扱う。読み込み中や未ログインで、権限の要る項目が一瞬見えることを防ぐため。
-- **バッジなどのカスタム要素は `actions` スロットに置く**: `NavigationItem` の `label: string` では表せない要素 (share-together の招待件数バッジ等) は、ツールバー右側の `actions` に渡す。`Header` を作り直したり、`headerSlot` で丸ごと置き換えたりしない。`actions` はモバイルでも Drawer に隠さずツールバーに残す。通知のように常に目に入るべき要素を想定しているため。
-
-#### アカウントメニューの集約
-
-`Header` は `user`（表示名・メール・アバター）を渡すと、アバターをトリガーにしたアカウントメニューを表示し、`onLogout` / `onDeleteAccount` をメニュー項目として提供する。ログアウト・退会はどのサービスでも要る汎用操作のため、共通 `Header` に第一級の受け皿を置く。サービスは本体画面にログアウト・退会の導線を自前で並べず、`headerProps` のコールバックに寄せる。
-
-- `onDeleteAccount` は**任意コールバック**。`Header` は退会フロー自体を持たず（サービス固有を知らず generic なまま）、退会モーダル等の実体は各サービスが保持してコールバックで注入する。退会を提供するサービスだけが opt-in する。
-- 後方互換: `user` 未指定時はアカウントメニューを描画しない。`user` 無しで `onLogout` のみ渡した場合は、従来どおり単独のログアウトボタンを表示する。
-- サインアウトは Cookie 発行元の auth サービスへ集約する方針のため、`onLogout` は `buildSignOutUrl` で生成した URL へ遷移させる（`authUrl` はビルド時インライン化を避けるためサーバーでランタイム env から解決して渡す）。
-
-#### ログインのあるサービスは `SessionHeader` を使う
-
-`SessionHeader` は、next-auth のセッションから `Header` の `user` / `roles` / `onLogout` を組み立てる。ログインのあるサービスは、ルートレイアウトで `SessionProviderWrapper` の内側に置き、`ServiceLayout` の `headerSlot` に渡す。ユーザー表示とサインアウトはすべてのログインのあるサービスでこの部品から提供し、セッションからヘッダーを組み立てる処理を各サービスで書かない。
-
-- `Header` 自体は next-auth に依存させない。セッションを持たないサービスでも、`roles` や `actions` を含めてそのまま使えるようにするため。
-- クライアントの `useSession()` は自サービスの `/api/auth/session` を取得する。サービスには NextAuth の route を置き、GET だけを公開する (サインアウトは auth サービスに集約しているため、POST は受けない)。
-- `authUrl` をランタイム env から読むため、`SessionHeader` を置くルートレイアウトは動的レンダリングにする。静的にプリレンダされると、ビルド時の空文字が HTML に固定され、サインアウト先が壊れる。
-- ログインが任意のサービスは `showSignIn` を指定する。未ログインのときだけ、ヘッダーにログインボタンが出る (読み込み中は出さない)。ログインを強制しないサービスには、ログインの入口が他に無いため。既定は出さない
-- 退会のようにサービス固有のフローを持つ場合は、`SessionHeader` に `onDeleteAccount` を渡し、モーダル等の実体はサービス側の薄いコンポーネントで持つ。
-
-#### 利用規約・プライバシーポリシーは `LegalSections` で描画する
-
-利用規約とプライバシーポリシーは、ダイアログでもページでも `LegalSections` で描画する。サービスが独自の規約・ポリシーを持つ場合も、`@nagiyu/ui` のデータ形式で文面を定義して渡し、描画ループや型を自前で書かない。
-
-- **データ形式は規約とポリシーで 1 つにする**: 規約の形式 (本文 + 番号付きリスト) は、ポリシーの形式 (本文 + 入れ子の番号付きリスト + リンク) の一部として表せる。形式を分けておく理由がないため、ポリシーの形式に揃えている。
-- **見た目はサービス間で揃え、描画部品にオプションを持たせない**: 余白・改行・リンク色をサービスごとに変えられるようにすると、同じ描画が再び分かれていく。本文の改行は常に表示する (文面の `\n` をそのまま改行にする)。
-
-#### 特定商取引法に基づく表記は共通のデータと部品で描画する
-
-課金を受けるサービスは、特定商取引法に基づく表記を、`@nagiyu/ui` の共通のデータと表示部品で描画する。各サービスは表記のページを自分のサービスに置き、文面を自前で持たない。課金を受けるサービスが増えても、表記が食い違わないようにするため。利用規約・プライバシーポリシーと同じ作りに揃えている。
-
-- **価格は表記に持たせない**: 販売価格は金額を書かず、プランのページへのリンクにする。価格を Stripe の 1 か所で管理し、表記と食い違わないようにするため。リンク先はサービスから受け取る。プランのページは Auth にあるので、Auth 以外のサービスは Auth の絶対 URL を渡す
-- **フッターから案内する**: 共通のフッターは、表記のページへのリンク先を受け取ったときだけ、リンクを表示する。課金を受けないサービスには出さない
-- **表記のページとフッターのリンクは、有料機能を持つサービスが足す**: 今は Auth と Quick Clip が出している。他のサービスは、それぞれの有料機能の対応で足す
-- 表記を portal に置かない理由や文面の判断は、[Auth サービスのアーキテクチャ](../services/auth/architecture.md) の ADR を参照
+- `ServiceLayout` を採用するサービスは、独自の `ThemeRegistry` を作らず `ServiceLayout` をルートレイアウトで直接利用する。`ServiceLayout` を採用しないサービスは `AppThemeProvider` を利用し、`AppRouterCacheProvider + ThemeProvider + CssBaseline` の定型を独自実装しない。
+- 重量級・ESM-only の依存 (`next-auth` など) を持つ共通コンポーネントは、barrel に混ぜず subpath export で提供する。barrel から re-export すると、無関係なコンポーネントを import しただけで `@nagiyu/ui` の全利用サービスがその依存を推移的に読み込み、各サービスの Jest が ESM を変換対象に含める設定を持たないと落ちるためである。依存は `@nagiyu/ui` の `peerDependency` とし、実際に使うサービスが供給する。
+- サービスは独自の `Navigation` コンポーネントを実装せず、ナビ項目を `Header` に渡す。権限による出し分けも `Header` に任せ、権限の判定を自前で書かない。バッジなどのカスタム要素は `Header` を作り直さず `actions` スロットに渡す。
+- ログアウト・退会の導線は本体画面に自前で並べず、`Header` のアカウントメニューに寄せる。退会フローの実体は各サービスが持ち、コールバックで注入する。
+- ログインのあるサービスは、セッションからヘッダーを組み立てる処理を自前で書かず、`SessionHeader` を使う。
+- 利用規約・プライバシーポリシーは、ダイアログでもページでも `LegalSections` で描画する。サービス独自の文面も `@nagiyu/ui` のデータ形式で渡し、描画ループや型を自前で書かない。見た目はサービス間で揃え、描画部品にオプションを持たせない (同じ描画が再び分かれていくため)。
+- 課金を受けるサービスは、特定商取引法に基づく表記を `@nagiyu/ui` の共通のデータと表示部品で描画する。各サービスは表記のページを自分のサービスに置き、文面を自前で持たない (食い違いを防ぐため)。表記を portal に置かない理由や文面の判断は、[Auth サービスのアーキテクチャ](../services/auth/architecture.md) の ADR を参照。
 
 ---
 
@@ -214,47 +148,9 @@ type Props = {
 
 ---
 
-## デザイントークン仕様
+## CSS の規約
 
-### 構造
-
-トークンは **2 層構造** で定義する。
-
-| 層            | 役割                         | 例                                                   |
-| ------------- | ---------------------------- | ---------------------------------------------------- |
-| **Primitive** | 生の値（色、px、フォント等） | `--primitive-blue-500: #3B82F6;`                     |
-| **Semantic**  | 意味（文脈・用途）           | `--color-action-primary: var(--primitive-blue-500);` |
-
-**コンポーネントは Semantic トークンのみ参照**する。テーマ切替（ライト・ダーク・サービス別アクセント）は Primitive の割り当てを変えることで実現する。
-
-### カテゴリ
-
-| カテゴリ   | 例                                                                                                                |
-| ---------- | ----------------------------------------------------------------------------------------------------------------- |
-| color      | `bg.surface` / `bg.subtle` / `fg.default` / `fg.muted` / `border.default` / `action.primary` / `action.danger` 等 |
-| spacing    | `xs` / `sm` / `md` / `lg` / `xl` / `2xl`                                                                          |
-| typography | `fontSize.{xs..xl}` / `fontWeight.{regular,medium,bold}` / `lineHeight.{tight,normal,loose}` / `fontFamily`       |
-| radius     | `none` / `sm` / `md` / `lg` / `full`                                                                              |
-| shadow     | `sm` / `md` / `lg` / `xl`                                                                                         |
-| breakpoint | `sm` / `md` / `lg` / `xl`                                                                                         |
-| zIndex     | `dropdown` / `sticky` / `modal` / `toast` / `tooltip`                                                             |
-| transition | `duration.{fast,normal,slow}` / `easing.{linear,in,out,inOut}`                                                    |
-
-### 実装方式
-
-- **CSS 変数**を `libs/ui/src/styles/tokens.css` に定義する。
-- TS 側からは `libs/ui/src/styles/tokens.ts` で参照ヘルパーと型を提供する。
-- 共通ラッパーコンポーネントは `tokens.css` の CSS 変数を直接参照する（MUI Theme を経由しない）。
-- MUI Theme（`libs/ui/src/styles/theme.ts`）は移行期の互換性のために維持するが、`palette` は MUI 内部の色解析（`alpha()` / `decomposeColor()`）の制約により具体的な色値を保持する。`tokens.css` の Primitive 値と一致させること。`borderRadius` / `boxShadow` / `transition` 等の非カラー値は CSS 変数をそのまま参照できる。
-
-### サービス側での読み込み
-
-サービスのルートレイアウト（`app/layout.tsx`）で `@nagiyu/ui/tokens.css` と `@nagiyu/ui/base.css` をこの順に import すること。tokens はトークンを `:root` レベルで利用可能にし、base はプラットフォーム共通のリセット (全要素の box-sizing・margin・padding と、リンクの色・下線) を当てる。
-
-```tsx
-import '@nagiyu/ui/tokens.css';
-import '@nagiyu/ui/base.css';
-```
+デザイントークン (構造・カテゴリ・実装方式・読み込み・テーマ切替) は [デザイントークン](../platform/specs/lib/ui/design-tokens.md) を参照する。サービスのルートレイアウトでは `@nagiyu/ui/tokens.css` と `@nagiyu/ui/base.css` をこの順に import する。
 
 ### グローバル CSS の置き場所
 
@@ -275,37 +171,9 @@ import '@nagiyu/ui/base.css';
     - 空状態の文言は表の外に置く。表の行に置くと、横スクロールする表の幅の中央に置かれ、狭い画面では見えない位置に出る。
 - **和文のラベルと値を 1 行に並べるときは、ラベルを折り返さない**。値に `anywhere` を付けても、ブラウザは先にラベルの途中 (和文の文字間) で改行する。
 
-### テーマ切替
-
-- **ライト・ダーク**: `[data-theme='dark']` で Primitive を上書きする。
-- **サービス別アクセント**: 必要に応じて `[data-service='{service-name}']` で `--color-action-primary` 等を上書きする。デフォルトは単一値で運用し、各サービスでの上書きは必要が生じた段階で追加する。
-- **マルチブランド**: 現状未対応。将来必要になれば `[data-brand='...']` で同様に拡張する。
-
 ---
 
-## ファイル構成
-
-```
-libs/ui/
-├── src/
-│   ├── components/
-│   │   └── {Component}/
-│   │       ├── {Component}.tsx           # 実装
-│   │       ├── {Component}.stories.tsx   # Storybook（隣接配置）
-│   │       └── index.ts                  # 再エクスポート
-│   ├── styles/
-│   │   ├── tokens.css                    # CSS 変数定義
-│   │   ├── base.css                      # プラットフォーム共通のリセット
-│   │   ├── tokens.ts                     # TS 参照ヘルパー・型
-│   │   └── theme.ts                      # MUI Theme（CSS 変数参照）
-│   └── index.ts
-└── tests/
-    └── components/
-        └── {Component}/
-            └── {Component}.test.tsx      # ユニット + a11y テスト（分離配置）
-```
-
-### Stories とテストの配置方針
+## Stories とテストの配置
 
 - **Stories**（`*.stories.tsx`）は **`src/` 配下にコンポーネント隣接**で配置する。Storybook はテストではなくカタログ・プレビュー用途のため、CLAUDE.md の「テスト分離方針」の対象外として扱う。
 - **テスト**（`*.test.tsx`）は CLAUDE.md の規約通り、**`tests/` 配下に分離**して配置する。
@@ -342,21 +210,7 @@ libs/ui/
 
 | 種別                     | ツール                 | 配置                       |
 | ------------------------ | ---------------------- | -------------------------- |
-| ビジュアルリグレッション | Playwright + Storybook | `tests/visual/`            |
 | インタラクションテスト   | Storybook Play 関数    | Stories 内（Phase 3 以降） |
-
-#### ビジュアルリグレッションテスト（Phase 1 以降で本格運用）
-
-`libs/ui/tests/visual/` 配下に Playwright のテストを配置し、Storybook の各 Story（`iframe.html?id=...`）をスクリーンショット差分で検証する。Phase 0-4 時点ではディレクトリ・設定とも未作成。Phase 1 以降の Button 実装と並行して以下の構成で導入する。
-
-```
-libs/ui/tests/visual/
-├── playwright.config.ts       # Storybook URL を baseURL に設定
-└── components/
-    └── Button.spec.ts         # 各 Story のスクリーンショット
-```
-
-運用は既存 Playwright（Fast CI: chromium-mobile のみ / Full CI: 全デバイス）の方針に揃える。差分があればテスト失敗 → 視覚レビューでベースライン更新を承認。
 
 ### カバレッジ閾値
 
@@ -566,25 +420,6 @@ dev 環境の Storybook で視覚レビューが完結する点が、本ガバ�
 - セマンティック色（`primary` / `danger` 等）は意図ベースの命名で、テーマ切替時にも壊れない。視覚的命名（`blue` / `red` 等）は禁止。
 - `asChild` は型推論が単純で、Next.js の `<Link>` のような外部コンポーネント統合が容易。
 
-### ADR-7: デザイントークンは CSS 変数で実装する
-
-**背景**: ライブラリ非依存・動的テーマ切替の両立が必要だった。
-
-**決定**: CSS 変数（`:root`）+ TS 型定義の組み合わせで実装する。
-
-**根拠**:
-
-- MUI / shadcn / Tailwind すべてで CSS 変数を消費可能。ライブラリ非依存性を構造的に担保する唯一の方法。
-- 動的テーマ切替（ライト・ダーク・サービス別）が CSS のみで完結する。
-- 将来どのライブラリに移っても、トークン定義は無変更で持ち越せる。
-
-**却下案**:
-
-- **純粋な TS オブジェクト**: JS 経由でしか使えず、CSS から参照できない。
-- **Tailwind config 直書き**: Tailwind ロックインが発生し、差し替え自由度が落ちる。
-
-**実装上の制約**: MUI の `palette` には CSS 変数を渡せない（MUI 内部の `alpha()` / `decomposeColor()` が色値の文字列パースを行うため、リテラルが要求される）。このため `theme.ts` の `palette` は具体値を保持し、`tokens.css` の Primitive と一致させる運用とする。
-
 ### ADR-8: Storybook を採用し、dev 環境の `storybook.nagiyu.com` で配信する
 
 **背景**: 共通 UI ライブラリには視覚プレビュー手段が事実上必須で、AI（Claude）と人がレビューを分担する運用に組み込みやすい媒体が必要だった。
@@ -649,6 +484,7 @@ dev 環境の Storybook で視覚レビューが完結する点が、本ガバ�
 
 - [ブランチ戦略](../branching.md)
 - [共通ライブラリ設計](shared-libraries.md)
+- [ライブラリの仕様](../platform/specs/lib/)
 - [コーディング規約](rules.md)
 - [テスト戦略](testing.md)
 - [開発フロー](flow.md)

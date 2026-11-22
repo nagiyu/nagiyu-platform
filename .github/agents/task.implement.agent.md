@@ -191,6 +191,7 @@ nagiyu-platform は複数のアプリケーションとインフラをホスト�
         - 共通設定ファイル (`configs.md`)
         - テスト戦略 (`testing.md`)
         - 共通ライブラリ設計 (`shared-libraries.md`)
+        - 共通ライブラリの仕様 (`docs/platform/specs/lib/`)
 
 2. **技術スタック**:
     - `tasks/{feature-name}/design.md` または `tasks/{feature-name}/requirements.md` から技術スタックを確認
