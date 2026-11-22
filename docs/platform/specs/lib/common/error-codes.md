@@ -12,7 +12,9 @@ sources_hash: 380138a40eadef1cd6e23055c2c48d0b4328aeda5c2dde89835af002c9cda51e
 
 API が返すエラーコード、画面に出す共通のエラーメッセージ、HTTP ステータスの定数、API の応答の型、エラーからメッセージを取り出す関数。メインの `@nagiyu/common` から import する。
 
-## エラーコード
+## 使い方
+
+### エラーコード
 
 `ERROR_CODES` は、API の応答の `error` に入れるコード。値はキーと同じ文字列。型 `ErrorCode` はこの値の和集合。
 
@@ -23,7 +25,7 @@ API が返すエラーコード、画面に出す共通のエラーメッセー�
 | サーバー | `INTERNAL_ERROR` |
 | リソース | `NOT_FOUND`、`ALREADY_EXISTS` |
 
-## エラーメッセージ
+### エラーメッセージ
 
 `COMMON_ERROR_MESSAGES` は、サービス共通の日本語のメッセージ。型 `CommonErrorMessageKey` はキーの和集合。
 
@@ -54,7 +56,7 @@ API が返すエラーコード、画面に出す共通のエラーメッセー�
 
 API のクライアントが応答のエラーコードをメッセージに変える対応は、[API クライアント](./api-client.md) にある。
 
-## HTTP ステータス
+### HTTP ステータス
 
 `HTTP_STATUS` は、よく使うものだけを定義した定数。
 
@@ -68,20 +70,18 @@ API のクライアントが応答のエラーコードをメッセージに変�
 | `NOT_FOUND` | 404 |
 | `INTERNAL_SERVER_ERROR` | 500 |
 
-サービスからは使われていない。
-
-## 応答の型
+### 応答の型
 
 | 型 | 形 |
 |---|---|
 | `ApiSuccessResponse<T>` | `{ data: T }` |
 | `APIErrorResponse` (別名 `ErrorResponse`) | `{ error: string, message: string, details?: string[] }`。`error` はエラーコード |
 | `ApiResponse<T>` | `ApiSuccessResponse<T>` と `APIErrorResponse` の和集合 |
-| `PaginatedResponse<T>` | `{ items: T[], pagination: { count: number, lastKey?: string } }`。`lastKey` は base64 エンコードした DynamoDB の `LastEvaluatedKey` |
+| `PaginatedResponse<T>` | `{ items: T[], pagination: { count: number, lastKey?: string } }`。`lastKey` は次のページを取るためのキー。形式はこの型では決めない。`@nagiyu/nextjs` の `createPaginatedResponse` の戻りの型 |
 
-エラーの応答は、`error` と `message` が並ぶ平らな形。`{ error: { code, message } }` のような入れ子の形は使わない。API クライアントは、`error` と `message` がどちらも文字列の応答だけを、エラーの応答として読む。`PaginatedResponse` はサービスからは使われていない。
+エラーの応答は、`error` と `message` が並ぶ平らな形。API クライアントがどの応答をエラーの応答として読むかは、[API クライアント](./api-client.md) にある。
 
-## エラーからメッセージを取り出す
+### エラーからメッセージを取り出す
 
 | 関数 | 内容 |
 |---|---|

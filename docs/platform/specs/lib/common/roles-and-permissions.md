@@ -11,11 +11,13 @@ sources_hash: d07e8cda775b5fcffc2fca1af28f91e87b933b049c24efa903e688fca6331ac1
 
 ユーザー・セッションの型と、ロール (`ROLES`)、権限の判定をまとめた部品。ロールはコードで定義し、DB には持たない。メインの `@nagiyu/common` から import する。
 
-## 型
+## 使い方
+
+### 型
 
 | 型 | 内容 |
 |---|---|
-| `User` | DB に保存するユーザー。`userId` (UUID v4)、`googleId`、`email`、`name`、`roles` (ロール ID の配列)、`roleGrants` (課金の権利。一度も付けていないユーザーには無い)、`stripeCustomerId`、`createdAt` / `updatedAt` (Unix ミリ秒)、`lastLoginAt` (任意)、`picture` (任意) |
+| `User` | DB に保存するユーザー。`userId` (UUID v4)、`googleId`、`email`、`name`、`roles` (ロール ID の配列)、`roleGrants` (課金の権利。一度も付けていないユーザーには無い)、`stripeCustomerId` (任意)、`createdAt` / `updatedAt` (Unix ミリ秒)、`lastLoginAt` (任意)、`picture` (任意) |
 | `SessionUser` | JWT から復元する、リクエスト時点の認証済みユーザー。`id`、`email`、`name`、`image` (任意)、`roles` だけを持つ。`googleId` や作成日時など、JWT に載らない値は持たない |
 | `Session` | `user` (`SessionUser`) と `expires` (ISO 8601 の文字列) |
 | `Permission` | `{resource}:{action}` 形式の権限の文字列の型 |
@@ -23,7 +25,7 @@ sources_hash: d07e8cda775b5fcffc2fca1af28f91e87b933b049c24efa903e688fca6331ac1
 
 `roleGrants` の型は [課金の権利](./role-grants.md) にある。
 
-## ロール
+### ロール
 
 `ROLES` は、ロール ID をキーにした定義の表。各ロールは `id`、`name` (表示名)、`description`、`permissions` を持つ。有料ロールだけ `billing` (サービス ID と段の順位) を持つ。`description` は管理画面のロール割り当てにそのまま表示される。
 
@@ -47,7 +49,7 @@ sources_hash: d07e8cda775b5fcffc2fca1af28f91e87b933b049c24efa903e688fca6331ac1
 - `quick-clip-pro` が `quick-clip:standard` を含むのは、上の段が下の段の権限を含むため
 - `quick-clip-unlimited` と `billing-tester` は、売らず課金とも結びつけないので `billing` を持たない。`billing-tester` は本番以外の環境でテスト用の決済を始めるためのロールで、管理者の権限とは分けてある
 
-### ロールの参照
+#### ロールの参照
 
 | 関数・定数 | 内容 |
 |---|---|
@@ -58,7 +60,7 @@ sources_hash: d07e8cda775b5fcffc2fca1af28f91e87b933b049c24efa903e688fca6331ac1
 - 保存データと API はロール ID のまま扱い、画面に出すときだけ名前と説明に変換する。未定義の ID でも表示が消えないよう、`getRoleName` は ID を返す
 - どちらの関数も `ROLES` 自身のキーだけを引く。外部由来の文字列が `constructor` のようにプロトタイプのプロパティと同名でも拾わない
 
-### 有料ロール
+#### 有料ロール
 
 有料ロールのサービスと段は `billing` が決める。ロール ID の文字列からは読み取らない。
 
@@ -79,7 +81,9 @@ sources_hash: d07e8cda775b5fcffc2fca1af28f91e87b933b049c24efa903e688fca6331ac1
 
 `PAID_ROLES` は、権利を付けるときの検証と選択肢にだけ使う。権利の読み取りや有効なロールの算出では絞らない。
 
-## 権限の判定
+## 振る舞い
+
+### 権限の判定
 
 | 関数 | 引数 | 戻り値・失敗したとき |
 |---|---|---|
@@ -94,9 +98,8 @@ const canChat = hasUserPermission(session?.user, 'livetalk:chat');
 ```
 
 - `hasUserPermission` が `roles` を `unknown` で受けるのは、next-auth の型拡張に依存せず、未ログイン・`roles` 未設定・想定外の型のどれでも例外にしたくないため
-- `hasAnyPermission` と `hasAllPermissions` は、サービスからは使われていない
 
-## 認可エラーの判定
+### 認可エラーの判定
 
 `getAuthError(session, permission)` は、セッションと必要な権限から、返すべきエラーを決める。
 
@@ -108,4 +111,4 @@ const canChat = hasUserPermission(session?.user, 'livetalk:chat');
 
 メッセージの文言は [エラーコードとエラーメッセージ](./error-codes.md) にある。
 
-`@nagiyu/nextjs` にも同名の `getAuthError` があり、サービスが使うのはそちら ([with-auth](../nextjs/with-auth.md))。こちらはサービスからは使われていない。
+`@nagiyu/nextjs` にも同名の `getAuthError` がある ([with-auth](../nextjs/with-auth.md))。違いは次のとおり。こちらは `permission` が必須で、`Session` を受け取る。未認証のメッセージは `COMMON_ERROR_MESSAGES.UNAUTHORIZED` (`@nagiyu/nextjs` のものは `ログインが必要です`)。`@nagiyu/nextjs` のものは `permission` を省略でき、`user.roles` を持つセッションなら受け取る。

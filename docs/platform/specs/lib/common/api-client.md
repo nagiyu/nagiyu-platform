@@ -9,7 +9,7 @@ sources_hash: 389ee817db26333c100c0d1ff95a1f68dce5cf0422e249240afb6091d2d5676b
 
 # API クライアント
 
-リトライとエラーの変換を持つ `fetch` のラッパー。JSON の API を呼び、失敗を `APIError` にして投げる。待機の関数 `sleep` もここにある。メインの `@nagiyu/common` から import する。サービスからは使われていない。
+リトライとエラーの変換を持つ `fetch` のラッパー。JSON の API を呼び、失敗を `APIError` にして投げる。待機の関数 `sleep` もここにある。メインの `@nagiyu/common` から import する。
 
 バックエンドの処理を再試行する [リトライ](./retry.md) とは別のもの。こちらは HTTP の応答とネットワークの失敗を見て再試行を決める。
 
@@ -26,6 +26,10 @@ sources_hash: 389ee817db26333c100c0d1ff95a1f68dce5cf0422e249240afb6091d2d5676b
 | `calculateBackoffDelay(attempt, config)` | 試行の番号 (0 始まり)、`RetryConfig` | 待機時間 (ミリ秒) |
 | `mapAPIErrorToMessage(errorResponse, serviceMessages?)` | エラーの応答、コードごとのメッセージ (任意) | 画面に出すメッセージ |
 | `isRetryableError(status)` | HTTP ステータス | 再試行してよいか |
+| `getErrorTypeFromStatus(status)` | HTTP ステータス | `errorInfo.type` の値。500 以上は `error`、400 台は `warning`、それ以外は `info` |
+| `parseErrorResponse(response)` | `Response` | 応答の本文を `{ error, message }` として読んだもの。読めなければ下の「失敗したとき」の既定の形 |
+| `handleFetchError(error)` | 捕まえた例外 | ネットワークの失敗・タイムアウト・それ以外に分けた `errorInfo` (`shouldRetry` を持つ) |
+| `extractErrorInfo(response)` | エラーの `Response` | `parseErrorResponse` と `mapAPIErrorToMessage` を通した `errorInfo` |
 | `sleep(ms)` | ミリ秒 | その時間だけ待つ `Promise` |
 
 `APIRequestOptions` は `RequestInit` に `retry` (`RetryConfig` の一部) と `timeout` (ミリ秒) を足したもの。`post` と `put` で `headers` を渡すと、`Content-Type` に重ねて指定できる。
@@ -83,12 +87,14 @@ const items = await get<Item[]>('/api/items', { retry: { maxRetries: 1 } });
 |---|---|---|
 | 応答があり、ステータスが 500 以上 | `error` | 下のエラーコードの対応で決まる |
 | 応答があり、ステータスが 400 台 | `warning` | 同上 |
-| ネットワークの失敗 | `error` | ネットワーク接続を確認してください |
-| タイムアウト | `error` | 接続がタイムアウトしました。しばらくしてから再度お試しください |
-| 上のほか (本文を JSON として読めない成功の応答を含む) | `error` | 予期しないエラーが発生しました |
+| ネットワークの失敗 | `error` | `COMMON_ERROR_MESSAGES.NETWORK_ERROR` |
+| タイムアウト | `error` | `COMMON_ERROR_MESSAGES.TIMEOUT_ERROR` |
+| 上のほか (本文を JSON として読めない成功の応答を含む) | `error` | `COMMON_ERROR_MESSAGES.UNKNOWN_ERROR` |
+
+各メッセージの文言は [エラーコード・エラーメッセージ・応答の型](./error-codes.md) にある。
 
 - 成功の応答 (`ok`) は、本文の有無を見ずに `response.json()` を呼ぶ。本文のない応答 (204 など) は JSON として読めず、上の「上のほか」に当たる。`APIError` (`status` は 0) を投げ、再試行もしない。本文のない応答を返す API には使えない
-- エラーの応答の本文が `{ error, message }` (どちらも文字列) でなければ、`error` を `HTTP_ERROR`、`message` を `HTTPエラー: {ステータス}` として扱う。`details` は本文の `details` をそのまま使う
+- エラーの応答の本文を、`error` と `message` がどちらも文字列のものだけエラーの応答として読む。そうでなければ、`error` を `HTTP_ERROR`、`message` を `HTTPエラー: {ステータス}` として扱う。`details` は本文の `details` をそのまま使う
 - `apiRequest` は `mapAPIErrorToMessage` をサービス固有のメッセージなしで呼ぶので、`APIError` の `message` にサービス固有のメッセージは入らない。サービス固有のメッセージに変えたいときは、呼び出し側が `mapAPIErrorToMessage` を使う
 
 ### エラーコードからメッセージへの対応
@@ -100,7 +106,7 @@ const items = await get<Item[]>('/api/items', { retry: { maxRetries: 1 } });
 | 1 | `serviceMessages` に応答の `error` のキーがある | その値 |
 | 2 | `error` が下の共通の対応にある | 共通のメッセージ |
 | 3 | 応答の `message` が空でない | その `message` |
-| 4 | 上のどれでもない | 予期しないエラーが発生しました |
+| 4 | 上のどれでもない | `COMMON_ERROR_MESSAGES.UNKNOWN_ERROR` |
 
 共通の対応は次のとおり。メッセージの文言は [エラーコード・エラーメッセージ・応答の型](./error-codes.md) にある。
 

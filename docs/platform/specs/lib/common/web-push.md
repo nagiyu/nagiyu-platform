@@ -10,10 +10,8 @@ sources:
   - libs/common/src/push-subscription/endpoint.ts
   - libs/common/src/push-subscription/subscription-id.ts
   - libs/browser/src/push.ts
-  - libs/react/src/hooks/usePushSubscription.ts
-  - libs/react/src/components/ServiceWorkerRegistration.tsx
   - libs/nextjs/src/push.ts
-sources_hash: 65537aa21e46e3ca6a1ca20becf1d181999d8b90c9e35b576b409950b70249f3
+sources_hash: 213089c0fe6439cbef0f249ef4c123c976618f90a775dabe5e3a132a58f796ef
 ---
 
 # Web Push
@@ -33,6 +31,8 @@ Web Push は、ブラウザでの購読 (画面、react、browser)、サーバ�
 | `@nagiyu/common` | 購読の endpoint の検証、購読 ID の採番、VAPID 設定、通知の送信 | このページ |
 
 ### 購読
+
+再購読の流れは購読と同じで、許可のダイアログを出さない点が違う ([Web Push (ブラウザ)](../browser/web-push.md))。
 
 ```mermaid
 sequenceDiagram
@@ -58,10 +58,6 @@ sequenceDiagram
     H-->>UI: PushSubscription
 ```
 
-### 再購読
-
-layout に置いた `ServiceWorkerRegistration` が、`resubscribe` を指定されたときだけ行う。通知を許可済みのユーザーについて、許可のダイアログを出さずに、購読の存在を保証してサーバーへ送り直す。流れは購読と同じで、公開鍵の取得と送信を `refreshPushSubscription` が行う。
-
 ### 送信
 
 ```mermaid
@@ -83,9 +79,9 @@ sequenceDiagram
 
 ### 層をまたぐ理由
 
-- 公開鍵の取得とサーバーへの送信は、`@nagiyu/browser` の購読の関数の中で行い、パッケージの入口からは公開しない。呼び出し側がこれらをつなぐ口を残すと、サービスごとに同じ処理が重複する。サービスごとに違う API のパス・送信する body の形・Service Worker のパスは、オプションで指定する
-- 初回の購読と再購読は、同じ作りの手続きを別の関数が受け持つ。`subscribePush` は通知の許可を要求する。`refreshPushSubscription` は通知が許可済みのときだけ動き、ダイアログは出さない。再購読は layout から毎回呼ばれ、未ログインのユーザーにも実行されるので、送信先が 401 を返したときは失敗とせず、静かに終える
-- 購読の検証 (`checkPushEndpoint`) と ID の採番 (`createSubscriptionId`) は、`@nagiyu/common` が受け持つ。購読を受け付ける API と、送信の前の確認が、同じ判定を使う
+- 購読の検証 (`checkPushEndpoint`) と ID の採番 (`createSubscriptionId`) は、`@nagiyu/common` が受け持つ。購読を受け付ける API (`@nagiyu/nextjs`) と、送信の前の確認が、同じ判定を使う
+
+購読の手続きの関数ごとの違い (初回の購読と再購読、未ログインの扱い) は [Web Push (ブラウザ)](../browser/web-push.md) にある。
 
 ## 使い方
 
@@ -98,7 +94,7 @@ sequenceDiagram
 | `sendWebPushNotification(subscription, payload, vapidConfig)` | `PushSubscription`、`NotificationPayload`、`VapidConfig` | 送れたら `true`。購読が無効 (404 / 410) か、endpoint が許可されないときは `false` |
 | `sendWebPushNotifications(targets, toSubscription, payload, vapidConfig)` | 任意の対象の配列、対象を `PushSubscription` に変える関数、ペイロード、VAPID 設定 | `BulkSendResult<T>` |
 | `getVapidConfig()` | なし | `VapidConfig` |
-| `DEFAULT_NOTIFICATION_ICON` | | `/icon-192x192.png` |
+| `DEFAULT_NOTIFICATION_ICON` | | `/icon-192x192.png`。`NotificationPayload` の `icon` に入れる既定値の定数。送信の関数は自動では使わない |
 | `normalizeVapidKey(rawKey, keyName)` | キーの文字列、`publicKey` または `privateKey` | 正規化した文字列 |
 
 `normalizeVapidKey` と型 (`PushSubscription`、`NotificationPayload`、`VapidConfig`、`VapidKeyName`) は、メインの `@nagiyu/common` からも import できる。
@@ -153,7 +149,7 @@ sequenceDiagram
 | 2 | `checkPushEndpoint` で endpoint を確かめる | 許可されなければ、`WARN` のログを出して `false` を返す (送らない) |
 | 3 | `web-push` で `JSON.stringify(payload)` を送る | 下の表 |
 
-2 のログには、拒否した理由と (ホストが許可されないときだけ) ホスト名を入れ、endpoint 全体は入れない。送信に成功すると、`INFO` のログを出して `true` を返す。
+2 のログ (拒否したとき) には、拒否した理由と (ホストが許可されないときだけ) ホスト名を入れ、endpoint 全体は入れない。送信に成功したときの `INFO` のログには、ステータスコードと endpoint 全体が入る。成功すると `true` を返す。
 
 3 の失敗は、次のように分ける。
 
@@ -202,6 +198,6 @@ endpoint の UTF-8 の SHA-256 を 16 進にした先頭 32 文字に、`sub_` �
 
 - **ID を endpoint から決める**。登録のたびに乱数で ID を振ると、同じ端末で登録し直すたびに行が増え、同じ通知が重複して届く。形式 (SHA-256 の先頭 32 文字に `sub_`) を変えてはならない。保存済みの購読の ID と合わなくなる
 - **ID を Web Crypto で計算する**。メインの入口から公開していて、Edge ランタイムで動きうる middleware からも読み込まれる。`node:crypto` に依存すると、そこで壊れる
-- **endpoint を既知のホストに限る**。`web-push` は endpoint のスキームを見ず、ホスト名とポートだけで常に https で送る。任意の URL を受けると、任意のホストへの送信 (SSRF) に使われる。送信の前にも確かめるのは、登録時の検証を通っていない保存済みの購読が、送信のたびに任意の宛先へ飛ぶのを防ぐため。`false` は呼び出し側で無効な購読として扱われるので、データを移行しなくても、不正な購読が片付く
+- **endpoint を既知のホストに限る**。`web-push` は endpoint のスキームを見ず、ホスト名とポートだけで常に https で送る。任意の URL を受けると、任意のホストへの送信 (SSRF) に使われる。送信の前にも確かめるのは、登録時の検証を通っていない保存済みの購読が、送信のたびに任意の宛先へ飛ぶのを防ぐため。`false` を呼び出し側が無効な購読として削除する場合に限り、データを移行しなくても、不正な購読が片付く
 - **無効な購読の扱いを呼び出し側が決める**。購読の持ち方がサービスごとに違うため、一斉送信の関数は削除もログ出力もしない。購読を独立したレコードで持つなら削除できるが、ほかの設定の一部として持つなら、削除すると設定ごと失われる
-- **送信をサブパス `@nagiyu/common/push` に分ける**。`package.json` の `exports` で、メインのほかに公開しているサブパスは `./push` だけで、`web-push` に依存する送信の関数 (`sendWebPushNotification`、`sendWebPushNotifications`) はここにだけ置く。メインの入口は、`web-push` を読み込まない `normalizeVapidKey` と型、購読の検証・ID の関数だけを出すので、メインを import しても `web-push` を引き込まない
+- **送信をサブパス `@nagiyu/common/push` に分ける**。`package.json` の `exports` で、メインのほかに公開しているサブパスは `./push` だけで、`dependencies` に持つ `web-push` に依存する送信の関数 (`sendWebPushNotification`、`sendWebPushNotifications`) はここにだけ置く。メインの入口は、`web-push` を読み込まない `normalizeVapidKey` と型、購読の検証・ID の関数だけを出すので、メインを import しても `web-push` を引き込まない

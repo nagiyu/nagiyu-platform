@@ -25,13 +25,15 @@ const settings = getItem<{ theme: string }>('settings');
 
 ## 振る舞い
 
-`localStorage` を使えるかは、`window.localStorage` の有無で判定する。SSR やアクセスが例外になる環境 (プライベートモードなど) では、使えないとみなす。
+`localStorage` を使えるかは、`window.localStorage` の有無で判定する。SSR や、アクセスが例外になる環境では、使えないとみなす。
 
 | 関数 | 使えるとき | 使えないとき |
 |---|---|---|
 | `getItem` | 保存された文字列を `JSON.parse` して返す。パースできなければ文字列のまま返す。キーが無ければ `null` | `null` を返す |
 | `setItem` | 文字列はそのまま、それ以外は `JSON.stringify` して保存する | `console.warn` を出して何もしない |
 | `removeItem` | キーを削除する | `console.warn` を出して何もしない |
+
+`getItem` は常に `JSON.parse` を試すので、`setItem('k', '123')` のように文字列で保存した値でも、数値 `123` で返る。
 
 `getItem` は、読み取り中に例外が起きても `console.error` を出して `null` を返す。投げない。
 

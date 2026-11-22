@@ -22,27 +22,7 @@ sources_hash: e778245cb4a75c66d37530045ecdac351a81db72be26d44f92fedf8a7cf4fe2c
 | `generateEventId()` | 新しいイベント ID を返す |
 | `buildErrorContext(error)` | 例外から context の項目を組み立てる |
 
-`isErrorSeverity` と `isErrorSource` は、サービスからは使われていない。
-
-### `ErrorEvent`
-
-| 項目 | 内容 |
-|---|---|
-| `eventId` | イベントの ID |
-| `serviceId` | 発生元のサービス ID |
-| `source` | 発生源 |
-| `severity` | 重大度 |
-| `title` | 一覧の見出し |
-| `message` | 詳細の本文 |
-| `context` | 生のペイロードを入れた JSON の文字列 |
-| `occurredAt` | 発生時刻 (Unix ミリ秒) |
-
-| 一覧 | 値 |
-|---|---|
-| `ERROR_SEVERITIES` | `info`、`warning`、`error`、`critical` |
-| `ERROR_SOURCES` | `cloudwatch-alarm`、`application`、`manual`、`batch-event` |
-
-型は、これらの配列から導く。保存データの検証と型を、同じ定義から行うため。
+`ErrorEvent` の項目と、重大度・発生源の値の意味は [ErrorEvent (エラーイベント)](../../term/error-event.md) にある。`ERROR_SEVERITIES` と `ERROR_SOURCES` は配列で、型はこれらから導く。保存データの検証と型を、同じ定義から行うため。
 
 ## 振る舞い
 

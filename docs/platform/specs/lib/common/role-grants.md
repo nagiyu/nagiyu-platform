@@ -28,7 +28,7 @@ const effective = getEffectiveRoles(user.roles, user.roleGrants ?? [], Date.now(
 | `roleId` | 付与するロールの ID (`ROLES` のキー) |
 | `source` | 出どころ。`manual` または `stripe` |
 | `sourceRef` | 出どころ側の参照 (任意)。手動ならメモ、Stripe なら顧客 ID など |
-| `expiresAt` | 有効期限 (任意、Unix ミリ秒)。この時刻になると無効 |
+| `expiresAt` | 有効期限 (任意、Unix ミリ秒)。この時刻になると無効。手動で付ける権利では必須 |
 | `revokedAt` | 取り消した時刻 (任意、Unix ミリ秒)。取り消した権利も経緯のために残す |
 | `grantedBy` | 手動で付けた運営者のユーザー ID (任意) |
 | `createdAt` / `updatedAt` | 作成・更新の時刻 (Unix ミリ秒) |
@@ -48,6 +48,7 @@ const effective = getEffectiveRoles(user.roles, user.roleGrants ?? [], Date.now(
 | 2 | `expiresAt` があり、`expiresAt <= now` | `expired` |
 | 3 | 上のどちらでもない | `active` |
 
+- 判定は呼び出し側が渡す `now` だけで決まり、現在時刻は読まない
 - 期限ちょうどの時刻 (`expiresAt === now`) は `expired`
 - `expiresAt` が無い権利は、取り消さない限り `active` のまま
 
@@ -61,5 +62,4 @@ const effective = getEffectiveRoles(user.roles, user.roleGrants ?? [], Date.now(
 
 ## 理由
 
-- 期限の判定は、呼び出し側が渡す `now` だけに依存する。ライブラリの中で現在時刻を読まない
 - 取り消しを期限より優先する。取り消し済みで期限も過ぎた権利は「取り消し」と表示したいため

@@ -7,7 +7,7 @@ sources_hash: 2904b44bc8106b33d7ee6e6c06299b3af54d8d8a320a42d7cf32fc7f2f7e9fa7
 
 # API リクエストのフックとクライアント
 
-API リクエストの状態を持つ `useAPIRequest` と、同じリクエストをクラスで呼ぶ `ApiClient`。どちらも [API クライアント](../common/api-client.md)の `apiRequest` を包む。`@nagiyu/react` から import する。サービスからは使われていない。
+API リクエストの状態を持つ `useAPIRequest` と、同じリクエストをクラスで呼ぶ `ApiClient`。どちらも [API クライアント](../common/api-client.md)の `apiRequest` を包む。`@nagiyu/react` から import する。
 
 ## 使い方
 
@@ -29,7 +29,7 @@ API リクエストの状態を持つ `useAPIRequest` と、同じリクエス�
 | `retry()` | 直近の `execute` と同じ引数で再実行する |
 | `reset()` | 状態を初期に戻す |
 
-再試行の画面は、`error` と `retry` を [エラー表示](../ui/error-alert.md) の `APIError` と `onRetry` に渡して作れる。
+再試行の画面は、`error` と `retry` を [エラー表示](../ui/error-alert.md) の props の `error` (`APIError` を受ける) と `onRetry` に渡して作れる。
 
 ### ApiClient
 
@@ -39,7 +39,7 @@ API リクエストの状態を持つ `useAPIRequest` と、同じリクエス�
 |---|---|
 | `request(url, options)` | `baseUrl + url` に `apiRequest` で要求する。`defaultOptions` に `options` を重ね、`headers` は両方を合成する |
 | `get(url, options)` | `GET` |
-| `post(url, body, options)` | `POST`。`body` を JSON 文字列にして送り、`Content-Type` の既定は `application/json` |
+| `post(url, body, options)` | `POST`。`body` を JSON 文字列にして送り、`Content-Type` を `application/json` にする。`defaultOptions.headers` の `Content-Type` はこれで上書きされ、呼び出しの `options.headers` の指定が最後に勝つ |
 | `put(url, body, options)` | `PUT`。`post` と同じ |
 | `delete(url, options)` | `DELETE` |
 

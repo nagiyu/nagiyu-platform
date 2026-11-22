@@ -13,7 +13,7 @@ LLM の呼び出し 1 回分のトークン使用量を、構造化ログとし�
 
 | 関数 | 引数 | 戻り値 |
 |---|---|---|
-| `logLLMUsage(input)` | `LLMUsageLogInput` | なし。使用量を `INFO` のログに出す |
+| `logLLMUsage(input)` | `LLMUsageLogInput` | なし。使用量を `INFO` のログに出す。`LOG_LEVEL` が `WARN` 以上のときは出ない ([ロガー](./logger.md#ログレベル)) |
 | `extractOpenAIResponsesUsage(usage)` | OpenAI Responses API の `usage` (`unknown`) | `LLMTokenUsage` |
 | `resolveOpenAIResponsesOutcome(status)` | OpenAI Responses API の `response.status` (`unknown`) | `LLMUsageOutcome` または `undefined` |
 
@@ -73,10 +73,10 @@ logLLMUsage({
 | `totalTokens` | `total_tokens` |
 
 - 数値でないもの、存在しないもの、`null` や `undefined` を含む想定外の型は、例外にせず `undefined` にする。計測の失敗で本処理を壊さないため
-- Responses API 専用。Embeddings API の `usage` は `prompt_tokens` と `total_tokens` の別の形式なので、渡してはならない。渡すと全項目が `undefined` になり、上の警告が出る。関数名に Provider と API を含めているのは、この誤用を命名で防ぐため
+- Responses API 専用。Embeddings API の `usage` は `prompt_tokens` と `total_tokens` の別の形式で、`input_tokens` などを持たない。渡しても `total_tokens` を読むので `totalTokens` だけが入り、ほかの項目は `undefined` になる (警告は出ない)。`totalTokens` だけが入ったログになる
 
 `resolveOpenAIResponsesOutcome` は、`status` が `completed`、`incomplete`、`failed` のときだけそのまま返す。それ以外 (`in_progress`、文字列でない値など) は `undefined`。`aborted` は返さない。
 
 ## 理由
 
-使用量の型を Provider 非依存にしている。`libs/common` が外部依存を持たないため、SDK の型を取り込まず、`unknown` を受けて構造的に読む。
+使用量の型を Provider 非依存にしている。メインの入口は外部依存を持たないため、SDK の型を取り込まず、`unknown` を受けて構造的に読む。
