@@ -8,13 +8,13 @@ sources:
   - services/livetalk/web/src/app/api/client-log/constants.ts
   - services/livetalk/web/src/lib/client-logger.ts
 sources_hash: 2bb08980868a0644b5debe40a05d842fe6069c1dcfb8179595c5f41b7c1b5eaa
-terms: [livetalk/term/permission, livetalk/term/api-error, platform/term/error-event]
+terms: [livetalk/term/permission, livetalk/term/api-error]
 related_cards: [livetalk/screen/home, admin/flow/error-notification]
 ---
 
 # クライアントログ API
 
-ブラウザで起きた失敗を受け取り、[ErrorEvent](../../platform/term/error-event.md) として Admin へ報告する。
+ブラウザで起きた失敗を受け取り、[ErrorEvent](../../../platform/specs/term/error-event.md) として Admin へ報告する。
 
 ## エンドポイント
 

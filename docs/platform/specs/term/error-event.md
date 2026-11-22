@@ -1,13 +1,8 @@
 ---
-id: platform/term/error-event
-title: ErrorEvent (エラーイベント)
-kind: term
-service: platform
 sources:
   - libs/common/src/error-event/types.ts
   - libs/aws/src/error-events/mapper.ts
 sources_hash: c88520758918fa5371d843412123f380e4d2db033b7c3284cb519a5c2e6d9af5
-related_cards: [admin/flow/error-notification]
 ---
 
 # ErrorEvent (エラーイベント)
@@ -26,9 +21,5 @@ related_cards: [admin/flow/error-notification]
 | context | 元のペイロードなどを入れた JSON 文字列 |
 | occurredAt | 発生時刻 (epoch ミリ秒) |
 
-- 保存先は共有の error-events テーブル。書いたあとは変更しない。180 日で自動削除する
-- キーは serviceId ごとのパーティションと発生時刻の並びで、全サービス横断の時系列用の索引を別に持つ
-
-## 関連するカード
-
-- [エラー通知の経路](../../admin/flow/error-notification.md)
+- 集めてから通知するまでの流れは[エラー通知の経路](../../../specs/admin/flow/error-notification.md)にある
+- 保存先は共有の[エラーイベントのテーブル](../data/error-events.md)。書いたあとは変更しない。180 日で自動削除する。キーの設計もそこにある

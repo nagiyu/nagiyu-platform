@@ -8,13 +8,13 @@ sources:
   - libs/aws/src/error-events/writer.ts
   - services/admin/web/src/lib/errors/occurred-at.ts
 sources_hash: aecf0003f3278dc98731c06c8d8852e6419b60623cb805f6acf509aefedd4088
-terms: [platform/term/error-event]
+terms: []
 related_cards: [admin/screen/errors, admin/screen/error-detail, admin/api/errors, admin/batch/stream-handler, admin/flow/error-notification]
 ---
 
 # エラー詳細のキー
 
-[ErrorEvent](../../platform/term/error-event.md) を 1 件引くための、`eventId`・発生時刻・`serviceId` の 3 つ組。
+[ErrorEvent](../../../platform/specs/term/error-event.md) を 1 件引くための、`eventId`・発生時刻・`serviceId` の 3 つ組。
 
 ## 説明
 

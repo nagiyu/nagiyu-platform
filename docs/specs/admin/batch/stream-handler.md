@@ -15,7 +15,7 @@ sources:
   - libs/common/src/push/client.ts
   - libs/common/src/push-subscription/endpoint.ts
 sources_hash: 016109d1fb9d83c417dda55e0c2596285f6a53d37a16757c318068348436d459
-terms: [platform/term/error-event, admin/term/push-subscription, admin/term/error-event-key]
+terms: [admin/term/push-subscription, admin/term/error-event-key]
 related_cards: [admin/flow/error-notification, admin/batch/alarm-ingest, admin/screen/error-detail]
 related_adr:
   - services/admin/architecture.md#ADR-005
@@ -24,7 +24,7 @@ related_adr:
 
 # stream-handler
 
-error-events テーブルに新しく書かれた [ErrorEvent](../../platform/term/error-event.md) ごとに、Web Push を [購読](../term/push-subscription.md)すべてに送る Lambda。通知をタップすると、そのエラーの詳細画面が開く。
+error-events テーブルに新しく書かれた [ErrorEvent](../../../platform/specs/term/error-event.md) ごとに、Web Push を [購読](../term/push-subscription.md)すべてに送る Lambda。通知をタップすると、そのエラーの詳細画面が開く。
 
 ## 起点
 

@@ -16,8 +16,8 @@ sources:
   - services/dev-sync/batch/src/lib/dynamo-store-adapter.ts
   - libs/aws/src/lambda/scheduled-handler.ts
 sources_hash: 7455126727f03f38ad192a74539fa69a5f041822b32f18c3584eff300fd0e4db
-related_cards: [admin/flow/error-notification, platform/term/error-event]
-terms: [platform/term/error-event]
+related_cards: [admin/flow/error-notification]
+terms: []
 related_adr:
   - development/dev-sync.md#同期戦略：mirror と gsiWindow
   - development/dev-sync.md#多層の安全設計
@@ -116,7 +116,7 @@ Lambda の実行ロールの権限 (マニフェストの内容から決まる)�
 ## 失敗したとき
 
 - 入力の検証、`-dev` の検査、`SOURCE_READER_ROLE_ARN` の欠落、AssumeRole で認証情報が得られない、DynamoDB の読み書きの失敗は、いずれも例外になる
-- 共通の骨格 ([scheduled-handler](../../admin/flow/error-notification.md)) が、`バッチ失敗` をログに出し、[ErrorEvent](../../platform/term/error-event.md) を報告してから、元の例外を再送出して Lambda を失敗にする
+- 共通の骨格 ([scheduled-handler](../../admin/flow/error-notification.md)) が、`バッチ失敗` をログに出し、[ErrorEvent](../../../platform/specs/term/error-event.md) を報告してから、元の例外を再送出して Lambda を失敗にする
     - 報告の `serviceId` は `dev-sync`、重大度は `error`、タイトルは `dev-sync ジョブ失敗`、メッセージは例外のメッセージ
     - `context` には、`sourceTable`・`destTable`・`strategy`・`delete` (入力から文字列として取れたもの) と例外の情報を入れる。入力が不正でも、取れた項目だけで報告する
     - 報告先のテーブル名 (`ERROR_EVENTS_TABLE_NAME`) と書き込み権限は、Lambda を作る共通部品が付ける。Admin に届くまでの経路は[エラー通知の経路](../../admin/flow/error-notification.md)

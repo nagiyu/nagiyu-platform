@@ -17,7 +17,7 @@ Docker ビルドで `public.ecr.aws` のベースイメージを pull する際�
 - **ログイン失敗はジョブを失敗させず、警告を出して匿名 pull で続行する**: 必要な IAM 権限 (Container Policy の `ecr-public:GetAuthorizationToken` / `sts:GetServiceBearerToken`) は dev / prod で反映タイミングが異なりうる。ログインの成否でビルド全体が止まるより、匿名 pull で進める方が安全なため
 - **待機リトライでは解消しない場合がある**: `Data limit exceeded` は転送量の上限超過であり、短時間の待機では回復しないことが多い。リトライだけに頼らず、認証でクォータの単位を変えている
 
-必要な IAM 権限は Container Policy に含まれ、GitHub Actions の全ロールに付与される ([IAM ポリシー](iam.md) を参照)。
+必要な IAM 権限は Container Policy に含まれ、GitHub Actions の全ロールに付与される ([デプロイの権限](../../platform/specs/resource/deploy-policies.md) を参照)。
 
 ---
 

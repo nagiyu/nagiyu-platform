@@ -19,7 +19,7 @@ sources:
   - services/admin/batch/src/stream-handler.ts
   - services/admin/web/src/app/api/notify/sns/route.ts
 sources_hash: 67732fed6fb20a8fc8046d037aab16aaadebed50a61d276b2f4472ff8e400bcf
-terms: [platform/term/error-event]
+terms: []
 related_cards: [livetalk/batch/acquire, livetalk/batch/consolidate-conversations, livetalk/batch/notify, livetalk/batch/learn-user-activity, admin/batch/alarm-ingest, admin/batch/stream-handler, admin/api/notify-sns, admin/api/errors, admin/screen/errors, admin/screen/error-detail, admin/flow/push-subscription]
 related_adr:
   - services/admin/architecture.md#ADR-003
@@ -31,7 +31,7 @@ related_adr:
 
 # エラー通知の経路
 
-バッチやサービスで失敗が起きてから、Admin の画面と Web Push に届くまでの流れ。[ErrorEvent](../../platform/term/error-event.md) を共有のテーブルに集め、そこから通知を出す。
+バッチやサービスで失敗が起きてから、Admin の画面と Web Push に届くまでの流れ。[ErrorEvent](../../../platform/specs/term/error-event.md) を共有のテーブルに集め、そこから通知を出す。
 
 ## 起点
 

@@ -66,7 +66,7 @@ https://reports.nagiyu.com/portal/pr-123/9876543210/chromium-mobile/
 
 ### アカウントごとのバケット
 
-dev アカウントの分離方針（[AWS アカウント構成](../infra/aws-accounts.md) を参照）に合わせ、レポート用バケットも prod/dev で別々に持つ。
+dev アカウントの分離方針（[AWS アカウントとアクセス](../platform/rules/aws-accounts.md) を参照）に合わせ、レポート用バケットも prod/dev で別々に持つ。
 
 | アカウント | S3 バケット | 公開 URL |
 |---|---|---|
@@ -83,7 +83,7 @@ E2E の再利用ワークフロー (アップロード先) と各 verify の報�
 ## アップロードフロー
 
 E2E の再利用ワークフローの末尾で、デバイスごとに以下を実行。AWS 認証は GitHub OIDC + AssumeRole
-（`pull_request` 用ロール）を使う。設計は [IAM 詳細](../infra/shared/iam.md) を参照。
+（`pull_request` 用ロール）を使う。設計は [GitHub Actions のロール](../platform/specs/resource/github-actions-oidc.md) を参照。
 
 ```yaml
 - name: Configure AWS credentials for report upload

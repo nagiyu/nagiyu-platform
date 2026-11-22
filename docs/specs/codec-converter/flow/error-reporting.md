@@ -16,7 +16,7 @@ sources:
   - libs/aws/src/error-events/with-error-reporting.ts
   - infra/codec-converter/lib/codec-converter-stack.ts
 sources_hash: 1395b80a1de10135f51f5652606c57fafece2547d334c389eee3fb3547ae8d21
-terms: [platform/term/error-event]
+terms: []
 related_cards: [admin/flow/error-notification, codec-converter/api/jobs, codec-converter/batch/convert, codec-converter/flow/conversion]
 ---
 
@@ -26,7 +26,7 @@ codec-converter の失敗が、Admin のエラー履歴に届くまでの流れ�
 
 ## 起点
 
-失敗を [ErrorEvent](../../platform/term/error-event.md) として報告する場所は 2 か所。どちらも `serviceId` は `codec-converter`、`source` は `application`。
+失敗を [ErrorEvent](../../../platform/specs/term/error-event.md) として報告する場所は 2 か所。どちらも `serviceId` は `codec-converter`、`source` は `application`。
 
 | 場所 | 契機 |
 |---|---|

@@ -80,6 +80,6 @@ Codec Converterは、動画ファイルのコーデック変換を**ブラウザ
 
 - [プラットフォーム全体ドキュメント](../../README.md)
 - [ブランチ戦略](../../branching.md)
-- [インフラドキュメント](../../infra/README.md)
+- [共通基盤のデプロイ先](../../platform/specs/deploy.md)
 - [開発ガイドライン](../../development/rules.md)
 - [テスト戦略 (全体方針)](../../development/testing.md)

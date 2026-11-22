@@ -43,8 +43,8 @@
 
 以下がデプロイ済みであることを確認してください:
 
-- [ ] **VPC**: `nagiyu-{env}-vpc` - [共有インフラ: VPC](../../infra/shared/vpc.md) 参照
-- [ ] **ACM 証明書** (CloudFront 用): [共有インフラ: ACM](../../infra/shared/acm.md) 参照
+- [ ] **VPC**: `nagiyu-{env}-vpc` - [共有 VPC](../../platform/specs/resource/vpc.md) 参照
+- [ ] **ACM 証明書** (CloudFront 用): [ドメインと証明書](../../platform/specs/resource/dns-certificate.md) 参照
 - [ ] **Route 53 ホストゾーン**: `nagiyu.com` のドメイン管理
 
 ### 2.2 必要なツール
@@ -473,4 +473,4 @@ npm run test:e2e -w @nagiyu/admin
 - [AWS Lambda - コンテナイメージを使用した関数の更新](https://docs.aws.amazon.com/lambda/latest/dg/gettingstarted-images.html)
 - [プラットフォームブランチ戦略](../../branching.md)
 - [プラットフォーム開発ガイドライン](../../development/rules.md)
-- [共有インフラドキュメント](../../infra/README.md)
+- [共通基盤のデプロイ先](../../platform/specs/deploy.md)

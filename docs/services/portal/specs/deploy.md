@@ -66,3 +66,7 @@ flowchart TD
 | `build` | イメージをビルドして ECR に push する |
 | `infrastructure-app` | dev は Lambda と CloudFront のスタックをデプロイする。prod は Cluster・ALB・Service・CloudFront のスタックをデプロイし、ECS サービスが安定するまで待つ |
 | `verify` | CloudFront のスタックの出力からディストリビューションのドメイン名を取り出し、ヘルスチェックを行う ([ヘルスチェック](../../../platform/specs/deploy.md#ヘルスチェック))。環境の独自ドメインではなく CloudFront のドメインを叩く |
+
+## 理由
+
+- dev と prod で実行基盤を分けている。prod は ECS の常時稼働のコンテナで動かし、コールドスタートを避ける。広告 (AdSense) の審査担当者を含めて、訪問者がいつでも速く応答するページを見られるようにするためである。dev はアクセスが少ないので、Lambda で動かし、常時稼働のコストを持たない。
