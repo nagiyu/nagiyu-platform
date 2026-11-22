@@ -154,7 +154,7 @@ export class CloudFrontStackBase extends cdk.Stack {
       cloudfrontConfig?.domainName || getCloudFrontDomainName(serviceName, environment);
 
     // Function URL のオリジン。OAC で署名して呼ぶ。
-    // Lambda は別リージョンの別スタックにあり URL は文字列で渡ってくるため、
+    // Lambda は別スタックにあり URL は文字列で渡ってくるため、
     // Lambda 側の許可は Lambda のスタックで足す。
     const { origin: functionUrlOrigin } = createFunctionUrlOrigin(this, 'FunctionUrl', {
       originAccessControlName: `nagiyu-${serviceName}-lambda-oac-${environment}`,

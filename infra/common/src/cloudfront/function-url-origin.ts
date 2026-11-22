@@ -6,9 +6,9 @@ import { Construct } from 'constructs';
 /**
  * Function URL のオリジンに OAC を付けるための HttpOrigin
  *
- * `FunctionUrlOrigin.withOriginAccessControl` は Function URL と同じリージョンで許可を足す前提で、
- * CloudFront (us-east-1) と Lambda (ap-northeast-1) が別スタック・別リージョンのときは使えない。
- * そのためドメイン文字列から HttpOrigin を作り、OAC の ID だけを差し込む。
+ * `FunctionUrlOrigin.withOriginAccessControl` は IFunctionUrl を受け取り、CloudFront のスタックの中で
+ * Lambda に許可を足す。Lambda が別スタックにあり URL が文字列で渡ってくるときは使えないため、
+ * ドメイン文字列から HttpOrigin を作り、OAC の ID だけを差し込む。
  */
 class FunctionUrlOacOrigin extends origins.HttpOrigin {
   private readonly oacId: string;
