@@ -3,7 +3,7 @@ sources:
   - infra/auth/bin/auth.ts
   - infra/auth/lib/cloudfront-stack.ts
   - .github/workflows/auth-deploy.yml
-sources_hash: 477e0442436b98286a9d433ac2fcc041b9757a254b0ab3b3a3efccfc52e156fe
+sources_hash: 7870484ebf711f3f6431f093e0f3cc88fd7ad24ca9c1267fd87dbfabeef77614
 ---
 
 # Auth のデプロイ先
@@ -57,6 +57,6 @@ flowchart TD
 |---|---|
 | `infrastructure` | CDK の Bootstrap の後、`NagiyuAuthDynamoDB{Env}`、`NagiyuAuthSecrets{Env}`、`NagiyuAuthStripeSecrets{Env}`、`NagiyuAuthECR{Env}` をデプロイする |
 | `build` | Web アプリをビルドし、イメージを ECR に push する |
-| `deploy` | Secrets Manager の値を取り出し、CDK で全スタックをデプロイする (`--all`)。そのあと Lambda の Function URL でヘルスチェックを行う ([ヘルスチェック](../../../platform/specs/deploy.md#ヘルスチェック)) |
+| `deploy` | Secrets Manager の値を取り出し、CDK で全スタックをデプロイする (`--all`)。そのあと、CloudFront のスタックの出力からディストリビューションのドメイン名を取り出し、そのドメインでヘルスチェックを行う ([ヘルスチェック](../../../platform/specs/deploy.md#ヘルスチェック)) |
 | `cloudfront-invalidation` | CloudFront のキャッシュを全パス (`/*`) 削除し、完了を待つ。ディストリビューションの ID が取れなければ、削除を飛ばす |
 | `summary` | 各ジョブの結果を要約に出す (`always`) |

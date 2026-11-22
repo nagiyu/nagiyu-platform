@@ -3,7 +3,7 @@ sources:
   - infra/quick-clip/bin/quick-clip.ts
   - infra/quick-clip/lib/cloudfront-stack.ts
   - .github/workflows/quick-clip-deploy.yml
-sources_hash: c8c92c7ecf98df08bc3144867e55c1dd9222c8936ef30337868dc1856a75fd0d
+sources_hash: a79aa8d338e1f01964cd4dde3bfa4925b94becadcc1c832b7846127f008c26b7
 ---
 
 # QuickClip のデプロイ先
@@ -57,7 +57,7 @@ flowchart TD
     C --> F
     D --> F
     E --> F
-    F --> G[verify<br/>Function URL のヘルスチェック]
+    F --> G[verify<br/>CloudFront のヘルスチェック]
 ```
 
 | ジョブ | 内容 |
@@ -65,7 +65,7 @@ flowchart TD
 | `infrastructure-ecr` | ECR と Secrets のスタックをデプロイする。Secrets は次のジョブ以降で値を取り出すため先に作る |
 | `build-web` `build-batch` `build-lambda-clip` `build-lambda-zip` | それぞれのイメージをビルドして対応する ECR リポジトリに push する (並行) |
 | `infrastructure-app` | Secrets Manager の値を取り出し、Storage・DynamoDB・Batch・Monitoring・Lambda・CloudFront を 1 回の CDK のデプロイで作る |
-| `verify` | Lambda のスタックの出力から Function URL を取り出してヘルスチェックを行う ([ヘルスチェック](../../../platform/specs/deploy.md#ヘルスチェック))。CloudFront 経由のヘルスチェックはしない |
+| `verify` | CloudFront のスタックの出力からディストリビューションのドメイン名を取り出し、そのドメインでヘルスチェックを行う ([ヘルスチェック](../../../platform/specs/deploy.md#ヘルスチェック)) |
 
 ## 理由
 

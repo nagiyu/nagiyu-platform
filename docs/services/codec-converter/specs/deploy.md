@@ -3,7 +3,7 @@ sources:
   - infra/codec-converter/bin/codec-converter.ts
   - infra/codec-converter/lib/codec-converter-stack.ts
   - .github/workflows/codec-converter-deploy.yml
-sources_hash: 8216f138198828a3cd5558c8c42f048d0f1004be4e96263519cb3880a046cb45
+sources_hash: d8bc3650fa19a8005c816d669e6814caed4316a2e3af8865ae63d130ae03d529
 ---
 
 # Codec Converter のデプロイ先
@@ -48,7 +48,7 @@ flowchart TD
     A --> C[build-batch<br/>ワーカーのイメージを push]
     B --> D[deploy<br/>アプリ本体のスタック]
     C --> D
-    D --> E[Function URL のヘルスチェック]
+    D --> E[CloudFront のヘルスチェック]
 ```
 
 | ジョブ | 内容 |
@@ -56,7 +56,7 @@ flowchart TD
 | `prepare-infrastructure` | CDK の bootstrap を実行し、ECR の 2 スタックをデプロイする |
 | `build-web` | Web のイメージをビルドして ECR に push する |
 | `build-batch` | ワーカーのイメージをビルドして ECR に push する (`build-web` と並行) |
-| `deploy` | アプリ本体のスタックをデプロイし、スタックの出力から Lambda の Function URL を取り出してヘルスチェックを行う ([ヘルスチェック](../../../platform/specs/deploy.md#ヘルスチェック))。CloudFront 経由のヘルスチェックはしない |
+| `deploy` | アプリ本体のスタックをデプロイし、スタックの出力から CloudFront のドメイン名 (`CloudFrontDomainName`) を取り出し、そのドメインでヘルスチェックを行う ([ヘルスチェック](../../../platform/specs/deploy.md#ヘルスチェック)) |
 
 ## 理由
 

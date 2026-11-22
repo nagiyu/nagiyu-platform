@@ -6,7 +6,7 @@ service: codec-converter
 sources:
   - services/codec-converter/core/src/resource-selector.ts
   - infra/codec-converter/lib/codec-converter-stack.ts
-sources_hash: b49f55bcf79b6d6179c97526f2336c570cc759ae4218e8aa4a7bb178a92f8628
+sources_hash: dde2a06c62cc1050cb07a53e35f5b89154363c0c9e15125705723fb15125d33d
 related_cards: [codec-converter/api/jobs, codec-converter/batch/convert, codec-converter/flow/conversion, codec-converter/term/output-codec]
 related_adr:
   - services/codec-converter/architecture.md#動的リソース配分

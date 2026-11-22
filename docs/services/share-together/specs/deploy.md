@@ -3,7 +3,7 @@ sources:
   - infra/share-together/bin/share-together.ts
   - infra/share-together/lib/cloudfront-stack.ts
   - .github/workflows/share-together-deploy.yml
-sources_hash: 23a0990b2cac900f6b6a9b89d710e1dd7feced22be16894c315e926c41f9ec37
+sources_hash: 182ffc4dac674d090fe0eaa139bcb241daeb2358a77fa9977eae0a7d3ca6ceac
 ---
 
 # share-together のデプロイ先
@@ -53,6 +53,6 @@ flowchart TD
 |---|---|
 | `infrastructure-ecr` | `NagiyuShareTogetherECR{Env}` と `NagiyuShareTogetherDynamoDB{Env}` をデプロイする |
 | `build` | Web アプリをビルドし、イメージを ECR に push する |
-| `infrastructure-app` | Secrets Manager の値を取り出し、全スタックをデプロイする (`--all`)。ワークフローは `--exclude` で ECR のスタックを除くつもりで渡しているが、CDK CLI は `--exclude` を受け付けず無視するため、ECR のスタックも含めた全スタックが対象になる。そのあと Lambda の Function URL でヘルスチェックを行う ([ヘルスチェック](../../../platform/specs/deploy.md#ヘルスチェック)) |
+| `infrastructure-app` | Secrets Manager の値を取り出し、全スタックをデプロイする (`--all`)。ワークフローは `--exclude` で ECR のスタックを除くつもりで渡しているが、CDK CLI は `--exclude` を受け付けず無視するため、ECR のスタックも含めた全スタックが対象になる。そのあと、CloudFront のスタックの出力からディストリビューションのドメイン名を取り出し、そのドメインでヘルスチェックを行う ([ヘルスチェック](../../../platform/specs/deploy.md#ヘルスチェック)) |
 
 ヘルスチェックは別のジョブにせず、`infrastructure-app` の中で行う。CloudFront のキャッシュ削除は行わない。
