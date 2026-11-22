@@ -330,7 +330,7 @@ CloudFront の Response Headers Policy で、全サービス共通のセキュ�
 
 ### 開発環境セットアップ
 
-ローカルから dev 環境の AWS リソースへアクセスする場合は、IAM Identity Center（SSO）の一時認証情報を使う（[AWS アカウントの規約](../../platform/rules/aws-accounts.md) を参照）。サービス固有の IAM ユーザーは用意していない。
+ローカルから dev 環境の AWS リソースへアクセスする場合は、IAM Identity Center（SSO）の一時認証情報を使う（[AWS アカウントとアクセス](../../platform/rules/aws-accounts.md) を参照）。サービス固有の IAM ユーザーは用意していない。
 
 #### AWS SDK の依存注入 (DI)
 

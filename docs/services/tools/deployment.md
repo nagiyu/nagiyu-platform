@@ -56,7 +56,7 @@
 
 GitHub Actions で自動デプロイを行うための AWS 認証は、共有インフラの GitHub OIDC ロール
 （dev / prod / pull_request 用の 3 ロール）を使う。長期アクセスキーは使わない。
-設計・登録手順は [CI の AWS 認証](../../platform/specs/resource/github-actions-oidc.md) を参照。
+設計・登録手順は [GitHub Actions のロール](../../platform/specs/resource/github-actions-oidc.md) を参照。
 
 ---
 
@@ -543,7 +543,7 @@ npm test
 
 GitHub Actions で自動デプロイを行うための AWS 認証は、共有インフラの GitHub OIDC ロール
 （dev / prod / pull_request 用の 3 ロール）を使う。長期アクセスキーは使わない。
-設計・登録手順は [CI の AWS 認証](../../platform/specs/resource/github-actions-oidc.md) を参照。
+設計・登録手順は [GitHub Actions のロール](../../platform/specs/resource/github-actions-oidc.md) を参照。
 
 #### GitHub Variables の設定
 

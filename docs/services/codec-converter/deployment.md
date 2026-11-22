@@ -42,8 +42,8 @@ infra/codec-converter/
 以下がデプロイ済みであることを確認してください:
 
 1. **共有インフラ**:
-   - VPC (`nagiyu-{env}-vpc`) - `docs/infra/shared/vpc.md` 参照
-   - ACM 証明書 - `docs/infra/shared/acm.md` 参照
+   - VPC (`nagiyu-{env}-vpc`) - `docs/platform/specs/resource/vpc.md` 参照
+   - ACM 証明書 - `docs/platform/specs/resource/dns-certificate.md` 参照
 
 2. **ツール**:
    - Node.js 18+
@@ -207,7 +207,7 @@ Error: No VPCs found matching filters
 ```bash
 # VPC をデプロイ
 cd infra/shared/vpc
-# デプロイ手順は docs/infra/shared/vpc.md を参照
+# デプロイ手順は docs/platform/specs/resource/vpc.md を参照
 ```
 
 ### 6.2 ACM 証明書が見つからない
@@ -223,7 +223,7 @@ Error: Cannot retrieve value from context provider
 ```bash
 # ACM 証明書をデプロイ
 cd infra/shared/acm
-# デプロイ手順は docs/infra/shared/acm.md を参照
+# デプロイ手順は docs/platform/specs/resource/dns-certificate.md を参照
 
 # Export 名を確認
 aws cloudformation list-exports --query "Exports[?Name=='nagiyu-shared-acm-certificate-arn']"

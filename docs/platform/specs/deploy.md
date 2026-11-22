@@ -4,6 +4,8 @@ sources:
   - infra/common/src/stacks/cloudfront-stack-base.ts
   - infra/common/src/cloudfront/alias-record.ts
   - infra/common/src/utils/ssm.ts
+  - infra/common/src/stacks/ecr-stack-base.ts
+  - infra/common/src/constants/defaults.ts
   - .github/actions/setup-environment/action.yml
   - .github/actions/health-check/action.yml
   - .github/actions/health-check/health-check.sh
@@ -17,7 +19,7 @@ sources:
   - infra/ui-storybook/bin/ui-storybook.ts
   - infra/ui-storybook/lib/storybook-stack.ts
   - .github/workflows/ui-storybook-deploy.yml
-sources_hash: b0adcfcb776b6c09ce78184829d248012b960aa95f0a80ec0c1f6d085d201394
+sources_hash: d9087e93be4bfb536d949b06a577bf5713d738a789958dfdf304069d129b09f9
 ---
 
 # shared と ui-storybook のデプロイ先
@@ -103,6 +105,18 @@ prod のレコードは、サービスの CloudFront を作り直してドメイ
 `.github/actions/health-check/action.yml` が、呼び出し側が渡した URL (`base-url`) にパスを足して GET し、200 が返るまで再試行する。既定のパスは `/api/health`、最大 10 回、間隔 10 秒で、尽きたらジョブを失敗させる。再試行と失敗の扱いは `.github/actions/health-check/health-check.sh` が決める。URL が空のときも失敗させる。
 
 叩く先はサービスごとに違う (Lambda の Function URL、ALB の DNS 名、CloudFront のドメイン)。サービスの文書は、どこを叩くか (またはヘルスチェックがないこと) だけを書く。
+
+### ECR リポジトリ
+
+サービスの ECR リポジトリは、`infra/common/src/stacks/ecr-stack-base.ts` の `EcrStackBase` が作る。サービスのスタック一覧は、ECR のスタックがあることだけを書く。
+
+| 項目 | 既定 |
+|---|---|
+| 名前 | `nagiyu-<サービス名>-ecr-<環境>` (呼び出し側が名前を渡せば、それを使う) |
+| プッシュ時のスキャン | する |
+| 残すイメージの数 | 新しいものから 10 個 |
+| タグの上書き | できる (`MUTABLE`) |
+| スタックを消したとき | prod は残す、dev は消す |
 
 ## スタック
 

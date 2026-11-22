@@ -314,10 +314,8 @@ architecture.md の認証フロー仕様に従って実装を修正
 全サービスで共有するVPCとサブネット構成を構築する
 
 ## 関連ドキュメント
-- docs/infra/README.md
-- docs/infra/architecture.md
-- docs/infra/setup.md
-- docs/infra/shared/vpc.md
+- docs/platform/specs/deploy.md
+- docs/platform/specs/resource/vpc.md
 
 ## 要件
 - VPC設計に従ったCloudFormationテンプレート作成
@@ -342,7 +340,7 @@ tasks/69-add-tools.md (Toolsアプリ追加)
 
 ## 関連ドキュメント
 - docs/services/tools/deployment.md
-- docs/infra/deploy.md
+- docs/platform/specs/deploy.md
 
 ## 要件
 deployment.md の手順に厳密に従ってデプロイ
