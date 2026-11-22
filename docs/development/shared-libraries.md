@@ -151,7 +151,7 @@ flowchart TB
 
 ### libs/ui/
 
-Next.js と Material-UI に依存する UI コンポーネント。パッケージ名は `@nagiyu/ui`。機能は [ui の仕様](../platform/specs/lib/ui/) を参照。
+Next.js と Material-UI に依存する UI コンポーネント。パッケージ名は `@nagiyu/ui`。機能は ui の仕様 (`docs/platform/specs/lib/ui/`) を参照。
 
 - 画面のエラー・ローディング表示は `@nagiyu/ui` のコンポーネントを使う。
 - 各サービスは、ルートの app ディレクトリ直下に `not-found.tsx` / `error.tsx` / `global-error.tsx` を置き、`@nagiyu/ui` の 404・エラー画面を描く。新しいサービスを足すときも置く。Next.js 既定の英語の画面にはサービスのヘッダーもナビゲーションも無く、利用者が戻る手段を失うためである。
@@ -159,7 +159,7 @@ Next.js と Material-UI に依存する UI コンポーネント。パッケー�
 
 ### libs/react/
 
-React に依存するユーティリティ。パッケージ名は `@nagiyu/react`。機能は [react の仕様](../platform/specs/lib/react/) を参照。
+React に依存するユーティリティ。パッケージ名は `@nagiyu/react`。機能は react の仕様 (`docs/platform/specs/lib/react/`) を参照。
 
 - Web Push の購読は、手続きを `@nagiyu/browser`、React からの入口を `@nagiyu/react` に置く。`@nagiyu/ui` は Push を持たない。
     - **分ける理由**: 呼び出し側が公開鍵の取得とサーバー送信を毎回つなぐと、サービスごとに同じ処理が重複する。また、ユーザー操作での購読と許可済みユーザーの再購読が別の層に分かれていると、「初回はここ、再購読はあそこ」という暗黙の役割分担が層をまたいで生まれ、片方の修正がもう片方に伝わらなくなる。
@@ -168,7 +168,7 @@ React に依存するユーティリティ。パッケージ名は `@nagiyu/reac
 
 ### libs/nextjs/
 
-Next.js に依存するユーティリティ。パッケージ名は `@nagiyu/nextjs`。`@nagiyu/common` のみに依存する。機能は [nextjs の仕様](../platform/specs/lib/nextjs/) を参照。
+Next.js に依存するユーティリティ。パッケージ名は `@nagiyu/nextjs`。`@nagiyu/common` のみに依存する。機能は nextjs の仕様 (`docs/platform/specs/lib/nextjs/`) を参照。
 
 - NextAuth の設定は、Auth サービスは `createAuthConfig()`、Consumer サービスは `createServiceAuthConfig()` で統一する。NextAuth の型定義 (`Session` / `User` / `JWT`) は `libs/nextjs/src/types/next-auth.d.ts` に集約し、各サービスに個別配置しない。
 - 全サービスの Health ルートは `createHealthRoute` で生成する。
@@ -181,13 +181,13 @@ Next.js に依存するユーティリティ。パッケージ名は `@nagiyu/ne
 
 ### libs/browser/
 
-ブラウザ API に依存するユーティリティ。パッケージ名は `@nagiyu/browser`。機能は [browser の仕様](../platform/specs/lib/browser/) を参照。
+ブラウザ API に依存するユーティリティ。パッケージ名は `@nagiyu/browser`。機能は browser の仕様 (`docs/platform/specs/lib/browser/`) を参照。
 
 - Web Push の手続きは、React を使わないものとしてここに集約する。公開鍵の取得とサーバー送信は購読の中で済ませ、個別には公開しない。呼び出し側がつなぐ口を残すと、サービスごとの重複と、層をまたぐ暗黙の分担が再発するためである。
 
 ### libs/common/
 
-完全にフレームワーク非依存の汎用ユーティリティ。パッケージ名は `@nagiyu/common`。メインエクスポートは外部依存なし (Node.js 標準ライブラリのみ可)。Web Push 送信は `web-push` に依存するため `@nagiyu/common/push` サブパスに分け、メインエクスポートから読み込まない。機能は [common の仕様](../platform/specs/lib/common/) を参照。
+完全にフレームワーク非依存の汎用ユーティリティ。パッケージ名は `@nagiyu/common`。メインエクスポートは外部依存なし (Node.js 標準ライブラリのみ可)。Web Push 送信は `web-push` に依存するため `@nagiyu/common/push` サブパスに分け、メインエクスポートから読み込まない。機能は common の仕様 (`docs/platform/specs/lib/common/`) を参照。
 
 - DB 上のユーザー情報の型は `@nagiyu/common` の `User` を使い、各サービスが独自の `User` 型を定義しない。セッション上のユーザーは別の型 `SessionUser` で、`User` とは区別する。
 - API ルートのレスポンス型は `@nagiyu/common` の共通型を使い、サービス側で同等の型を再定義しない。エラーレスポンスはフラット形式 `{ error, message, details? }` を標準とし、`{ error: { code, message } }` のようなネスト形式を新たに導入しない (API クライアント側の取り扱いを統一するため)。
@@ -198,7 +198,7 @@ Next.js に依存するユーティリティ。パッケージ名は `@nagiyu/ne
 
 ### libs/aws/
 
-AWS SDK の補助・拡張。DynamoDB の Repository パターンを実装するための共通機能を提供する。パッケージ名は `@nagiyu/aws`。AWS SDK を dependencies として持ち、エラーメッセージ変換などのために `@nagiyu/common` に依存する。機能は [aws の仕様](../platform/specs/lib/aws/) を参照。
+AWS SDK の補助・拡張。DynamoDB の Repository パターンを実装するための共通機能を提供する。パッケージ名は `@nagiyu/aws`。AWS SDK を dependencies として持ち、エラーメッセージ変換などのために `@nagiyu/common` に依存する。機能は aws の仕様 (`docs/platform/specs/lib/aws/`) を参照。
 
 - DynamoDB リポジトリは、`EntityMapper` で変換を担い、単一アイテムの CRUD を `EntityStore` に任せる (継承ではなく合成)。GSI を使う一覧などの独自のクエリだけを各リポジトリに書く。キー・属性名・時刻の形式・操作の振る舞いの標準と、その理由は [データアクセス層](./data-access-layer.md) を参照。
 - DynamoDB・S3・Batch・Lambda を含むすべての AWS クライアントの初期化には、`@nagiyu/aws` のファクトリ関数 (`getDynamoDBDocumentClient()`・`getBatchClient()`・`getLambdaClient()` 等) を使う。各サービスで AWS クライアントのシングルトンキャッシュを個別に実装しない (コードが重複し、保守コストが増えるため)。

@@ -188,4 +188,4 @@ update の変更の扱い (必須項目への `null`・作成後に変えられ�
 - [アーキテクチャ方針](./architecture.md) - Repository パターンの基本
 - [テスト戦略](./testing.md) - テスト方針とカバレッジ要件
 - [共通ライブラリ設計](./shared-libraries.md) - 共通ライブラリの責務と依存
-- [aws ライブラリの仕様](../platform/specs/lib/aws/) - EntityStore の操作・楽観ロック・`UpdatedAt` の管理・InMemory の振る舞い、ページネーション、キーの組み立て
+- aws ライブラリの仕様 (`docs/platform/specs/lib/aws/`) - EntityStore の操作・楽観ロック・`UpdatedAt` の管理・InMemory の振る舞い、ページネーション、キーの組み立て

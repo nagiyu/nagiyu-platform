@@ -23,7 +23,7 @@
 
 ### 対象（ラップして共通化する）
 
-`libs/ui/` 配下に共通コンポーネントとして実装する対象。機能は [ui の仕様](../platform/specs/lib/ui/) を参照。
+`libs/ui/` 配下に共通コンポーネントとして実装する対象。機能は ui の仕様 (`docs/platform/specs/lib/ui/`) を参照。
 
 | コンポーネント | 統合する MUI |
 | --- | --- |
@@ -42,7 +42,7 @@
 
 ### 既存ラッパー（個別仕様）
 
-上のアトミックなラッパー対象とは別に、個別仕様で提供される共通コンポーネントがある (`Header` / `Footer` / `ServiceLayout` / `AppThemeProvider` / `SessionHeader` / `ConfirmDialog` / `LegalSections` など)。各部品の使い方と振る舞いは [ui の仕様](../platform/specs/lib/ui/) を参照する。サービスに課す利用の規則は次のとおり。
+上のアトミックなラッパー対象とは別に、個別仕様で提供される共通コンポーネントがある (`Header` / `Footer` / `ServiceLayout` / `AppThemeProvider` / `SessionHeader` / `ConfirmDialog` / `LegalSections` など)。各部品の使い方と振る舞いは ui の仕様 (`docs/platform/specs/lib/ui/`) を参照する。サービスに課す利用の規則は次のとおり。
 
 - `ServiceLayout` を採用するサービスは、独自の `ThemeRegistry` を作らず `ServiceLayout` をルートレイアウトで直接利用する。`ServiceLayout` を採用しないサービスは `AppThemeProvider` を利用し、`AppRouterCacheProvider + ThemeProvider + CssBaseline` の定型を独自実装しない。
 - 重量級・ESM-only の依存 (`next-auth` など) を持つ共通コンポーネントは、barrel に混ぜず subpath export で提供する。barrel から re-export すると、無関係なコンポーネントを import しただけで `@nagiyu/ui` の全利用サービスがその依存を推移的に読み込み、各サービスの Jest が ESM を変換対象に含める設定を持たないと落ちるためである。依存は `@nagiyu/ui` の `peerDependency` とし、実際に使うサービスが供給する。
