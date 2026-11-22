@@ -58,6 +58,7 @@ const user = await store.update({ userId }, { name: '新しい名前', nickname:
 | `deleteIfExists` | 無条件に削除する | なくても成功する |
 
 - DynamoDB への呼び出しの失敗など、上の表にない例外は `DatabaseError` にする ([リポジトリのエラー](./repository-errors.md))
+- エラーに入れる対象の識別子は、キー属性の値を `#` でつないだもの
 - 存在判定は、mapper の `buildKeys` が返すキーの先頭の属性 (パーティションキー) で行う
 
 ### 時刻
@@ -78,7 +79,7 @@ const user = await store.update({ userId }, { name: '新しい名前', nickname:
 
 - `update` の変更が 1 件もないとき (すべて `undefined`) は、`UpdatedAt` だけを更新する
 - `update` と `updateIfAttributeAbsent` の更新対象は、mapper の `toUpdateAttributes` の結果から、値が `undefined` の項目と `UpdatedAt` を除いたもの。値が `REMOVE_ATTRIBUTE` の項目は削除する
-- 新名を書く (`SET` でも `REMOVE` でも) とき、mapper の `legacyAttributeNames` にある旧名を同時に削除し、二重に残さない。旧名が `UpdatedAt` やキー属性の名前と同じときは、削除の対象から外す
+- 新名を書く (`SET` でも `REMOVE` でも) とき、mapper の `legacyAttributeNames` にある旧名を同時に削除し、二重に残さない。`UpdatedAt` の旧名も、毎回削除する。旧名が `UpdatedAt` やキー属性の名前と同じとき、また旧名がすでに更新対象にあるときは、削除に置き換えない
 - 更新対象にキー属性が含まれていたら、書く前に `InvalidEntityDataError` にする
 - 更新後の Item を Entity に変換するので、読めない Item への `update` は、書き込みが済んだあとに `InvalidEntityDataError` になる
 

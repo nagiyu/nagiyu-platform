@@ -47,7 +47,7 @@ moduleNameMapper: {
 
 ### テーブルの操作
 
-- `createTable` は、`schema` の `TableName` を `tableName` で上書きする。作成後、`DescribeTable` で 250 ミリ秒ごとに最大 20 回確かめ、`ACTIVE` にならなければ「DynamoDB Local でのテーブル ACTIVE 化確認がタイムアウトしました」の `Error` を投げる
+- `createTable` は、`schema` の `TableName` を `tableName` で上書きする。作成後、`DescribeTable` で 250 ミリ秒ごとに最大 20 回確かめ、`ACTIVE` にならなければ`DynamoDB Local でのテーブル ACTIVE 化確認がタイムアウトしました` の `Error` を投げる
 - `deleteTable` は、`ResourceNotFoundException` だけを握る。ほかの失敗は投げる
 - `clearTable` は、`PK` と `SK` を持つテーブルを前提にする。`Scan` で `PK` と `SK` を取り、1 件ずつ `Delete` する。`LastEvaluatedKey` がなくなるまで繰り返す
 - テーブルのスキーマ (キー、属性、GSI など) は、呼び出し側が渡す。ここには持たない
@@ -60,7 +60,7 @@ moduleNameMapper: {
 |---|---|
 | `AttributeDefinitions` | `AttributeName` の順に並べる |
 | `GlobalSecondaryIndexes` | `IndexName` の順に並べる。各 GSI の `Projection.NonKeyAttributes` も名前の順に並べる |
-| 欠けた項目 | 空文字列、空の配列にする |
+| 欠けた項目 | 空文字列、空の配列にする。ただし `Projection.NonKeyAttributes` が無いときは、キーごと持たない |
 
 アサーションは含めない。純粋な変換だけを行い、比較は呼び出し側が行う。
 

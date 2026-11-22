@@ -37,7 +37,6 @@ const tableName = getTableName();
 - リージョンは、引数、環境変数 `AWS_REGION`、`us-east-1` の順で決める
 - クライアントは種類ごとに、リージョンをキーにして保持する。同じリージョンなら同じインスタンスを返す
 - `getAwsClients` は 4 種類それぞれの `get*` を呼ぶだけで、独自のキャッシュを持たない
-- キャッシュを消す関数 (`clear*`) は、サービスからは使われていない
 
 ### DynamoDB
 
@@ -46,7 +45,7 @@ const tableName = getTableName();
 | 返すクライアント | `DynamoDBClient` を Document クライアントで包んだもの |
 | 値が `undefined` の属性 | 送らずに落とす (`removeUndefinedValues`) |
 
-`getTableName` は、環境変数 `DYNAMODB_TABLE_NAME`、引数 `defaultValue` の順で決める。両方なければ「環境変数 DYNAMODB_TABLE_NAME が設定されていません」の `Error` を投げる。
+`getTableName` は、環境変数 `DYNAMODB_TABLE_NAME`、引数 `defaultValue` の順で決める。両方なければ`環境変数 DYNAMODB_TABLE_NAME が設定されていません` の `Error` を投げる。
 
 ### S3
 
@@ -54,6 +53,5 @@ const tableName = getTableName();
 
 ## 理由
 
-- クライアントはリージョンごとに使い回す。呼び出しのたびに作り直さないため
 - リージョンの既定を `us-east-1` にする。CloudFront の運用方針に合わせるため
 - Document クライアントで `undefined` を落とす。`undefined` を含む値は、そのままでは DynamoDB に送れず、マーシャリングでエラーになるため

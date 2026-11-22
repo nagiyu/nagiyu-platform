@@ -38,11 +38,11 @@ const repository = registry.user.createRepository();
 
 ### createRepositoryFactory
 
-`createRepositoryFactory(config, instanceKey?)` は、1 つのリポジトリ分の生成と破棄の対を返す。`config` は `createInMemoryRepository()` と `createDynamoDBRepository(...args)` を持つ。戻り値は `{ createRepository(...args), resetRepository() }`。`registerDynamoRepositories` は、リポジトリごとにこれを使う。サービスからは直接使われていない。
+`createRepositoryFactory(config, instanceKey?)` は、1 つのリポジトリ分の生成と破棄の対を返す。`config` は `createInMemoryRepository()` と `createDynamoDBRepository(...args)` を持つ。戻り値は `{ createRepository(...args), resetRepository() }`。`registerDynamoRepositories` は、リポジトリごとにこれを使う。
 
 ### requireDynamoParams
 
-`requireDynamoParams(docClient, tableName)` は、どちらも指定されていれば `{ docClient, tableName }` を返し、片方でも欠けていれば「DynamoDB 実装には docClient と tableName が必要です」の `Error` を投げる。サービスからは直接使われていない。
+`requireDynamoParams(docClient, tableName)` は、どちらも指定されていれば `{ docClient, tableName }` を返し、片方でも欠けていれば`DynamoDB 実装には docClient と tableName が必要です` の `Error` を投げる。
 
 ## 振る舞い
 

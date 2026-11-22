@@ -34,7 +34,7 @@ const result = await queryPage(docClient, input, { limit: 20, cursor });
 | 関数 | 内容 |
 |---|---|
 | `encodeCursor(lastEvaluatedKey)` | `LastEvaluatedKey` を JSON にして Base64 にする。`undefined` なら `undefined` |
-| `decodeCursor(cursor)` | `encodeCursor` の逆。空、または不正な Base64 や JSON なら `undefined` |
+| `decodeCursor(cursor)` | `encodeCursor` の逆。空、または不正な Base64 や JSON なら `undefined`。正しい JSON であれば、オブジェクトでない値 (`123` など) もそのまま返す |
 
 ### 型
 
@@ -44,7 +44,7 @@ const result = await queryPage(docClient, input, { limit: 20, cursor });
 | `PaginationOptions` | `limit`、`cursor`。どちらも省略可 |
 | `DynamoDBItem` | `PK`、`SK`、`Type`、`CreatedAt`、`UpdatedAt` と、省略可の `GSI1PK` から `GSI3SK` までを持つ Item。ほかの属性も持てる |
 
-`CreatedAt` と `UpdatedAt` は数値、`GSI3SK` は文字列か数値、そのほかの属性は文字列。
+`CreatedAt` と `UpdatedAt` は数値。`PK`、`SK`、`Type`、`GSI1PK` から `GSI3PK` まで、`GSI1SK`、`GSI2SK` は文字列。`GSI3SK` は文字列か数値。上に挙げた以外の属性は `unknown`。
 
 ## 振る舞い
 

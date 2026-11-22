@@ -57,7 +57,10 @@ Auth の `/refresh?callbackUrl=...` は `useSession().update()` で jwt callback
 
 ログイン済みだが権限が無いユーザーには、`@nagiyu/ui` の `AccessDeniedView` を表示する。権限が無い旨の 1 行表示や、無関係なページへのリダイレクトにはしない。
 
-権限の見方 (ミドルウェアで見る / ページ内で見る) による表示のしかたと、ミドルウェアが rewrite ではなくリダイレクトを使う理由は [認証ミドルウェア](../platform/specs/lib/nextjs/auth-middleware.md) を参照する。
+権限の見方によって、表示のしかたが 2 通りある。
+
+- ミドルウェアで権限を見るサービス: ミドルウェアが権限のないページアクセスを `/forbidden?from=<元のパス>` へリダイレクトする ([認証ミドルウェア](../platform/specs/lib/nextjs/auth-middleware.md) を参照)。`/forbidden` ページは公開パスにし、`from` から戻り先を組み立てて `AccessDeniedView` に渡す
+- ページ内で権限を見る場合: URL を変えず、そのページが `AccessDeniedView` を返す。戻り先は、ボタンを押した時点の現在の URL になる
 
 権限が付与されたあとの流れは次のとおり。
 
@@ -207,7 +210,7 @@ CDK でスタックを個別にデプロイする際、依存するスタック�
 
 ## 統一パターン
 
-- NextAuth の設定は `@nagiyu/nextjs` のファクトリで統一する。Auth サービスは `createAuthServerConfig({ providers })`、Consumer サービスは `createClientAuthConfig()` を使い、Cookie・セッション設定・コールバックの共通部分をサービス側で個別に定義しない ([NextAuth 設定](../platform/specs/lib/nextjs/auth-config.md) を参照)。
+- NextAuth の設定は `@nagiyu/nextjs` のファクトリで統一する。Auth サービスは `createAuthConfig`、Consumer サービスは `createServiceAuthConfig` を使い、Cookie・セッション設定・コールバックの共通部分をサービス側で個別に定義しない ([NextAuth 設定](../platform/specs/lib/nextjs/auth-config.md) を参照)。
 - ミドルウェアを使用する全 Consumer サービスは `createAuthMiddleware()` を使い、ミドルウェアのロジックを個別実装しない。
 - 全 Consumer サービスのセッション取得は `createSessionGetter()` を使い、セッションの変換やテストセッションの生成をサービス側に持たない ([セッション取得](../platform/specs/lib/nextjs/session.md) を参照)。
 

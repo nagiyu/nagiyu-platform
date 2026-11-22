@@ -200,14 +200,14 @@ Next.js に依存するユーティリティ。パッケージ名は `@nagiyu/ne
 
 AWS SDK の補助・拡張。DynamoDB の Repository パターンを実装するための共通機能を提供する。パッケージ名は `@nagiyu/aws`。AWS SDK を dependencies として持ち、エラーメッセージ変換などのために `@nagiyu/common` に依存する。機能は aws の仕様 (`docs/platform/specs/lib/aws/`) を参照。
 
-- DynamoDB リポジトリは、`EntityMapper` で変換を担い、単一アイテムの CRUD を `EntityStore` に任せる (継承ではなく合成)。GSI を使う一覧などの独自のクエリだけを各リポジトリに書く。キー・属性名・時刻の形式・操作の振る舞いの標準と、その理由は [データアクセス層](./data-access-layer.md) を参照。
+- DynamoDB リポジトリは、`EntityMapper` で変換を担い、単一アイテムの CRUD を `EntityStore` に任せる (継承ではなく合成)。GSI を使う一覧などの独自のクエリだけを各リポジトリに書く。キー・属性名・時刻の形式の標準と、その理由は [データアクセス層](./data-access-layer.md) を参照。操作の振る舞いは [EntityStore](../platform/specs/lib/aws/entity-store.md)、キーの組み立ては [EntityMapper](../platform/specs/lib/aws/entity-mapper.md) を参照。
 - DynamoDB・S3・Batch・Lambda を含むすべての AWS クライアントの初期化には、`@nagiyu/aws` のファクトリ関数 (`getDynamoDBDocumentClient()`・`getBatchClient()`・`getLambdaClient()` 等) を使う。各サービスで AWS クライアントのシングルトンキャッシュを個別に実装しない (コードが重複し、保守コストが増えるため)。
 - DynamoDB のカーソル変換 (`encodeCursor` / `decodeCursor`) と 1 ページ分の Query / Scan (`queryPage` / `scanPage`) は共通のものを使い、サービス側で個別に書かない。各所で書くと、`count` の入れ方などページの意味論が箇所ごとにずれるためである。
 - BatchWriteItem / BatchGetItem の分割と未処理分の再送は共通処理に任せ、サービス側で分割・再送のループを書かない。
-- 利用回数の上限を数える部分は `UsageCounter` を使い、サービス側で条件付き更新の式を個別に書かない。
+- 利用回数の上限を数える部分は `UsageCounter` を使い、サービス側で条件付き更新の式を個別に書かない。記録の障害時に通すか止めるかは共通にせず、サービスによって違う (通す方が良いか、止める方が良いか) ので、呼び出し側が決める。
 - `UpdateCommand` の `UpdateExpression` と名前・値の対応表は `buildUpdateExpression` で組み立て、サービス側で手書きしない。手書きは、使わない名前を表に残す、式に入れ忘れた値が残るといった不整合を起こしやすく、どちらも DynamoDB がエラーにするためである。
-- Lambda ハンドラーと Batch エントリポイントの `try/catch → reportErrorEvent → re-throw/exit` は `withErrorReporting` で包む。握りつぶした例外は、`createErrorReporter` で `serviceId` を固定したレポーターを使ってその場で報告する。
-- EventBridge から定期実行される Lambda は `createScheduledHandler` で包む。失敗時は 500 を返さず、例外を投げる。500 を返して正常終了すると Lambda としては成功扱いになり、インフラに用意した Errors アラーム・DLQ・非同期呼び出しの再試行が働かないためである。handler 側で catch して握りつぶさない。
+- Lambda ハンドラーと Batch エントリポイントの `try/catch → reportErrorEvent → re-throw/exit` は `withErrorReporting` で包む。握りつぶした例外は、`createErrorReporter` で `serviceId` を固定したレポーターを使ってその場で報告する。レポーターはサービスで 1 つにする (web はサービスの `lib/` で作って使い回す)。握った例外がない報告 (結果の失敗など) は、レポーターを使わず `reportErrorEvent` を直接使う。
+- EventBridge から定期実行される Lambda は `createScheduledHandler` で包む。失敗時は 500 を返さず、例外を投げる。500 を返して正常終了すると Lambda としては成功扱いになり、インフラに用意した Errors アラーム・DLQ・非同期呼び出しの再試行が働かないためである。handler 側で catch して握りつぶさない。例外で失敗すると、EventBridge の再試行で、途中まで済んだ処理がもう一度実行されうる。Push 通知のように副作用がある処理は、二重に送られることを前提に設計する。対象 1 件ごとの失敗を数えて処理を続ける部分的な失敗を、最終的に Lambda の失敗にするかどうかは、handler が決める。
 - 複数の必須環境変数の検証は `@nagiyu/common` の `requireEnv` を使う。
 - DynamoDB Local を使った契約テスト向けのヘルパーは `@nagiyu/aws/testing` から import する。この specifier は package.json の `exports` に意図的に載せていない。解決するのは各サービスの `jest.contract.config.ts` の `moduleNameMapper` だけで、`exports` に載せると本番コードから到達できる公式な口を開くことになるため、契約テスト以外から使う経路を持たせない。宣言されていないサブパスの import は実装漏れではない。
 

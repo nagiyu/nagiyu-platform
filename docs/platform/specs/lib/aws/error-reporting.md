@@ -89,7 +89,7 @@ withErrorReporting(
 
 ### reportErrorEvent
 
-- 環境変数 `ERROR_EVENTS_TABLE_NAME` がなければ、ログを出して `null` を返す
+- 環境変数 `ERROR_EVENTS_TABLE_NAME` がなければ、ログを出して `null` を返す。あれば、書き込み先のテーブル名にする。Writer は最初に生成されたときの `tableName` で固定され、あとから環境変数が変わっても作り直さない (シングルトン。[リポジトリの登録と生成](./repository-registry.md))
 - 環境変数 `USE_IN_MEMORY_DB` が `true` なら InMemory の Writer、そうでなければ DynamoDB の Writer に書く ([リポジトリの登録と生成](./repository-registry.md))
 - 書き込みに失敗しても例外を投げず、ログを出して `null` を返す。報告は補助的な手段で、本処理を巻き込まないため
 - `context` を JSON にできないとき (循環参照、`BigInt` など) は、ログを出し、`{"contextSerializeError": "{原因}"}` を保存して報告を続ける。`context` がなければ `{}`
@@ -97,15 +97,8 @@ withErrorReporting(
 
 ### createErrorReporter と withErrorReporting
 
-- 報告の `context` は、呼び出し側の `context` に、例外から作る 3 つの項目を重ねたもの。同じキーがあれば、例外から作る項目が勝つ
-
-    | キー | 内容 |
-    |---|---|
-    | `errorName` | `Error` なら `name`。そうでなければ値の型 |
-    | `errorMessage` | 例外のメッセージ |
-    | `errorStack` | `Error` のスタック。`Error` でなければキーごとない |
-
-- `message` は、`createErrorReporter` では `options.message`、なければ例外のメッセージ。`withErrorReporting` では、例外のメッセージ。`context.errorMessage` にも同じものが入る
+- 報告の `context` は、呼び出し側の `context` に、例外から作る 3 つの項目 (`errorName`、`errorMessage`、`errorStack`) を重ねたもの。項目の中身は [エラーイベントの型とヘルパー](../common/error-event.md) の `buildErrorContext` と同じで、同じキーがあれば例外から作る項目が勝つ
+- `message` は、`createErrorReporter` では `options.message`、なければ例外のメッセージ。`withErrorReporting` では、例外のメッセージ。`context.errorMessage` は常に例外のメッセージなので、`options.message` を指定すると、`message` とは別の値になる
 
 `withErrorReporting` の流れは次のとおり。
 
@@ -138,6 +131,4 @@ withErrorReporting(
 ## 理由
 
 - 書き込みに失敗しても例外を投げず、`null` を返す。エラーの報告が原因で、本処理が失敗しないようにするため
-- 例外の項目 (`errorName`、`errorMessage`、`errorStack`) の組み立てを 1 か所にし、呼び出し側の同名のキーより優先する。報告箇所ごとに手書きすると項目が欠け、Admin で調べるときに stack や message が見つからなくなるため
 - 保存形式 (キー、属性名) の変換を `ErrorEventMapper` だけが持ち、書く側と読む側の両方が使う。別々に持つと、項目を足したときに片方だけが直るため
-- TTL を発生時刻の起点にする。書き込みの時刻ではなく、発生した時刻から一定期間で消すため
