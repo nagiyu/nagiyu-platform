@@ -13,7 +13,7 @@ sources:
   - libs/aws/src/lambda/scheduled-handler.ts
   - services/stock-tracker/core/src/services/alert-evaluator.ts
   - services/stock-tracker/core/src/services/trading-hours-checker.ts
-sources_hash: 4f9fc4d298783d3f313c8bc1f82e0a405c18bb6cc41923285425cb9ddb86d1a7
+sources_hash: 5c5810c0922771624f9b8a06432a9193359c52523858c97bad99042772dfae75
 terms: [stock-tracker/term/trading-hours, stock-tracker/term/price-source, stock-tracker/term/push-subscription]
 related_cards: [admin/flow/error-notification, stock-tracker/flow/alert-notification, stock-tracker/batch/hourly, stock-tracker/api/alerts, stock-tracker/api/exchanges, stock-tracker/screen/alerts]
 related_adr:

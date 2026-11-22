@@ -287,7 +287,7 @@ export class CodecConverterStack extends cdk.Stack {
 
     // Function URL for Lambda
     const functionUrl = nextjsFunction.addFunctionUrl({
-      authType: lambda.FunctionUrlAuthType.NONE,
+      authType: lambda.FunctionUrlAuthType.AWS_IAM,
       cors: {
         allowedOrigins: ['*'],
         allowedMethods: [lambda.HttpMethod.ALL],

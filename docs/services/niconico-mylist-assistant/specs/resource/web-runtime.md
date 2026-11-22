@@ -4,7 +4,7 @@ sources:
   - infra/niconico-mylist-assistant/lib/policies/web-runtime-policy.ts
   - infra/niconico-mylist-assistant/bin/niconico-mylist-assistant.ts
   - infra/common/src/grants/cloudfront-invoke.ts
-sources_hash: 6e644b16a576c03a737ad0fcd874e6c500494a7683b7d093b535acffb42e1cf4
+sources_hash: 3b710a2b383c47a0a6aa42cd4eab0640d4bf23d1a0d0b8a9555c677866a15298
 ---
 
 # Web の実行環境
@@ -29,7 +29,7 @@ Next.js の Web を動かす Lambda 関数と、その実行ロール・ログ�
 |---|---|
 | メモリ | 1,024 MB |
 | タイムアウト | 30 秒 |
-| Function URL の認証 | なし |
+| Function URL の認証 | AWS_IAM。直接呼ぶと 403 になる |
 | CloudFront からの呼び出しの許可 | `cloudfront.amazonaws.com` に、`lambda:InvokeFunctionUrl` (AWS_IAM) と、Function URL 経由に限った `lambda:InvokeFunction` を許す。対象はこのアカウントの全ディストリビューション |
 | Function URL の CORS | すべてのオリジン・メソッド・ヘッダーを許可。プリフライトの結果を 86,400 秒保持する |
 

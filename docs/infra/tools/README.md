@@ -53,7 +53,7 @@ npx cdk deploy --all --context env=prod
 - ランタイム: FROM_IMAGE (ECR)
 - メモリ: 1024MB
 - タイムアウト: 30秒
-- Function URL: 有効 (認証なし)
+- Function URL: 有効 (認証は AWS_IAM。CloudFront 経由のみ)
 
 #### CloudFront Distribution
 

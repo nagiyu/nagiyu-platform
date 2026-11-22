@@ -177,7 +177,7 @@ codec-converter-storage-{env}/
 
 **Function URL**:
 
-- 認証: NONE（パブリックアクセス）
+- 認証: AWS_IAM（CloudFront の OAC 経由のみ。直接呼ぶと 403）
 - CORS: 有効
 
 ### CloudFront

@@ -12,7 +12,7 @@ sources:
   - infra/root/cloudfront-lambda-stack.ts
   - infra/codec-converter/lib/codec-converter-stack.ts
   - infra/livetalk/lib/cloudfront-stack.ts
-sources_hash: d0e7523f2d2296c26525ad54a747446eec3b740144c89158dd8d377c84eea4c5
+sources_hash: 1c84bf30dd976469f660b24b663625a69de3dd2c0d2ba4b706dd26f454bc98b7
 ---
 
 # CloudFront の共通部品
@@ -69,5 +69,5 @@ Lambda の Function URL をオリジンにする CloudFront ディストリビ�
 
 ## 理由
 
-- オリジンリクエストポリシーは `ALL_VIEWER_EXCEPT_HOST_HEADER` にする。`ALL_VIEWER` だと、ビューアーの Host ヘッダー (カスタムドメイン) がオリジンへ転送される。Lambda の Function URL は自身のドメイン以外の Host を受け付けないため、直接アクセスでは 200 でも、CloudFront 経由では 403 になる
+- オリジンリクエストポリシーは `ALL_VIEWER_EXCEPT_HOST_HEADER` にする。`ALL_VIEWER` だと、ビューアーの Host ヘッダー (カスタムドメイン) がオリジンへ転送される。Lambda の Function URL は自身のドメイン以外の Host を受け付けないため、CloudFront 経由では 403 になる
 - ヘッダーの値を共通定数から組み立て、サービスごとの差が出ないようにする

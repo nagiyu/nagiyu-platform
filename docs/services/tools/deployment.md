@@ -19,7 +19,7 @@
 
 - **ECR Repository**: Docker イメージ保存（`nagiyu/tools`）
 - **Lambda Function**: Next.js 実行環境（Node.js 26 コンテナ、1024MB、30秒タイムアウト）
-- **Lambda Function URL**: HTTP(S) エンドポイント（認証なし）
+- **Lambda Function URL**: HTTP(S) エンドポイント（認証は AWS_IAM。CloudFront 経由のみ）
 - **CloudFront Distribution**: CDN、カスタムドメイン
 - **ACM Certificate**: SSL/TLS証明書（共通基盤）
 

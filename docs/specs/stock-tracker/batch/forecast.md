@@ -13,7 +13,7 @@ sources:
   - services/stock-tracker/core/src/forecast/constants.ts
   - services/stock-tracker/core/src/forecast/time.ts
   - services/stock-tracker/core/src/forecast/preprocessing.ts
-sources_hash: ef8c1400e9c41daa50f0eb8b2680ffc11e5432922c5bd000429f7e923a68760f
+sources_hash: a9a946ce5c7134e206ebb35e41d0ad178d07d1a73e977190823cc65b7551921c
 terms: [stock-tracker/term/forecast, stock-tracker/term/axis, stock-tracker/term/question, stock-tracker/term/daily-summary]
 related_cards: [admin/flow/error-notification, stock-tracker/batch/summary, stock-tracker/api/forecasts, stock-tracker/api/summaries, stock-tracker/api/axis-performance, stock-tracker/screen/summaries, stock-tracker/screen/axis-performance]
 related_adr:
