@@ -4,7 +4,7 @@ sources:
   - infra/niconico-mylist-assistant/lib/policies/web-runtime-policy.ts
   - infra/niconico-mylist-assistant/bin/niconico-mylist-assistant.ts
   - infra/common/src/grants/cloudfront-invoke.ts
-sources_hash: a3edf564214e66758bb1dfb24d8d45f405083514bb251ace33fee08b30425ed3
+sources_hash: 6e644b16a576c03a737ad0fcd874e6c500494a7683b7d093b535acffb42e1cf4
 ---
 
 # Web の実行環境

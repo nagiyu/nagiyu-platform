@@ -6,7 +6,8 @@ sources:
   - infra/common/src/utils/image-tag.ts
   - infra/common/src/utils/naming.ts
   - infra/common/src/grants/error-events-writer.ts
-sources_hash: 9e807ce3ae6dd14973bfcc80e1850fb59420f1f66a1cd0522bb69a816cf96fc9
+  - infra/common/src/grants/cloudfront-invoke.ts
+sources_hash: f92b97bea17a73cb5baf9bdf236a6e785431ac729e668dee175baa3b02ebd03b
 ---
 
 # Lambda 関数の共通部品
@@ -70,6 +71,7 @@ ECR のイメージから Lambda 関数を作る共通部品。関数を作る `
 | Function URL | 既定で作る。認証なし |
 | Function URL の CORS | すべてのオリジン・メソッド・ヘッダーを許可 |
 | Function URL の呼び出し権限 | 誰でも `lambda:InvokeFunctionUrl` できる (認証なしのため) |
+| CloudFront からの呼び出し権限 | `cloudfront.amazonaws.com` に、`lambda:InvokeFunctionUrl` (AWS_IAM) と、Function URL 経由に限った `lambda:InvokeFunction` を許す。対象はこのアカウントの全ディストリビューション |
 
 - 出力は、関数の名前と ARN、実行ロールの ARN、Function URL
 - メモリ・タイムアウト・アーキテクチャは、`lambdaConfig` で変える。環境変数と予約済み同時実行数も `lambdaConfig` で渡す
@@ -82,4 +84,4 @@ ECR のイメージから Lambda 関数を作る共通部品。関数を作る `
 - アーキテクチャの既定は X86_64。Lambda Web Adapter の標準のイメージは x86_64 のバイナリを含むため、ARM64 の関数で使うと拡張の起動が `exec format error` で失敗し、関数が 502 を返す
 - `IMAGE_TAG` を必須にする。タグは 1 回のデプロイで全イメージ共通の値で、無指定を既定のタグに落とすと、渡し忘れたデプロイが古いイメージへ黙って戻る
 - `LambdaStackBase` はエラー履歴を既定で付けない。使わないサービス (tools や Portal など) の権限と環境変数が増えるため
-- Function URL は認証なしで、前段の CloudFront から呼ぶ。前段の設定は [CloudFront の共通部品](./cloudfront-distribution.md)にある
+- Function URL は認証なしで、前段の CloudFront から OAC の署名をして呼ぶ。CloudFront への許可の対象をディストリビューションの ARN で絞らないのは、ディストリビューションがこのスタックより後に別のスタックで作られ、ARN を参照すると循環するため。前段の設定は [CloudFront の共通部品](./cloudfront-distribution.md)にある
