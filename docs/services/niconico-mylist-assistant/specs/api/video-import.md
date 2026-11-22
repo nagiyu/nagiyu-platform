@@ -70,7 +70,7 @@ sources_hash: a15c1f4f966fff2eb9c674b2a92121f6bf99f2d773b3bd1731d8372a6546efad
 | `q` が 100 文字を超える (検索) | 400 | 「検索キーワードは 100 文字以内で入力してください」 |
 | 検索ページが 404 以外の失敗を返した、想定外の失敗 | 500 | 「サーバーエラーが発生しました」 |
 
-- ニコニコ動画 API の取得に失敗した動画は、応答では `failedDetails` に入れ、1 件ずつ [ErrorEvent](../../../../specs/platform/term/error-event.md) (「Niconico API エラー」) を Admin へ報告する。検索でも同じ報告が出る。一括インポートで保存に失敗した動画は「Web API: 動画一括登録の保存エラー」を報告する ([エラー通知の経路](../../../../specs/admin/flow/error-notification.md))
+- ニコニコ動画 API の取得に失敗した動画は、応答では `failedDetails` に入れ、1 件ずつ [ErrorEvent](../../../../platform/specs/term/error-event.md) (「Niconico API エラー」) を Admin へ報告する。検索でも同じ報告が出る。一括インポートで保存に失敗した動画は「Web API: 動画一括登録の保存エラー」を報告する ([エラー通知の経路](../../../../specs/admin/flow/error-notification.md))
 - 一括インポートが `failed` を返しても、状態は 200。全件が失敗しても同じ
 
 ## つながり

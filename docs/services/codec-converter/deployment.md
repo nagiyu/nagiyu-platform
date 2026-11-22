@@ -322,5 +322,5 @@ npm run cdk --workspace=@nagiyu/infra-codec-converter -- destroy \
 - [要件定義](./requirements.md)
 - [仕様カード](../../specs/README.md)
 - [テスト仕様](./testing.md)
-- [共有インフラ: VPC](../../infra/shared/vpc.md)
-- [共有インフラ: ACM](../../infra/shared/acm.md)
+- [共有 VPC](../../platform/specs/resource/vpc.md)
+- [ドメインと証明書](../../platform/specs/resource/dns-certificate.md)

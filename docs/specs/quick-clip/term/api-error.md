@@ -10,7 +10,7 @@ sources:
   - libs/common/src/constants/error-messages.ts
   - libs/aws/src/error-events/report.ts
 sources_hash: c2440767014b041fe6b10a2cae4fab7b972decd1fc5c8cd8152071f571d60e7c
-terms: [platform/term/error-event]
+terms: []
 related_cards: [quick-clip/api/jobs, quick-clip/api/highlights, quick-clip/api/download, quick-clip/api/transcript, quick-clip/api/usage, admin/flow/error-notification]
 ---
 
@@ -31,7 +31,7 @@ Quick Clip の API が失敗したときに返す形と、想定外の例外を 
 | 想定外の例外 | 500 | `INTERNAL_SERVER_ERROR` | API ごとに決めた文 (各カードにある) |
 
 - 想定外の例外は、ルートの入口で受けて 500 にする。例外の内容は本文に出さず、コンソールのログに残す
-- 状態が 500 以上になったときは、[ErrorEvent](../../platform/term/error-event.md) として Admin へ報告する
+- 状態が 500 以上になったときは、[ErrorEvent](../../../platform/specs/term/error-event.md) として Admin へ報告する
     - `serviceId` は `quick-clip`、`source` は `application`、`severity` は `error`。題名は API ごとに決める (「Web API: 見どころ更新エラー」など)
     - 本文はその例外のメッセージ。`context` には、メソッドとパス (クエリは載せない)、例外の名前、メッセージ、スタックが入る
     - ルートが自分で返す 400、404、409 は、想定内なので報告しない

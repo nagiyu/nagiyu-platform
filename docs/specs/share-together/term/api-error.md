@@ -12,7 +12,7 @@ sources:
   - libs/nextjs/src/error.ts
   - libs/nextjs/src/error-reporting.ts
 sources_hash: 7dfb3221f0dbba18d75c684c7087fdf0757008ca2b7916abb5687ebc0f40736c
-terms: [platform/term/error-event]
+terms: []
 related_cards: [admin/flow/error-notification, share-together/term/group-role]
 ---
 
@@ -36,7 +36,7 @@ Share Together の API が失敗したときに返す共通の形と、想定外
 
 - ログインの確認は API のルートが自分で行う。ページを守るミドルウェアは `/api` を通さないので、未ログインの API 呼び出しはサインインへの移動ではなく 401 になる
 - 権限 (ロール) では判定しない。判定は「ログインしているか」と、グループの立場・リストの所有者だけである ([グループの立場](./group-role.md))
-- 想定していない失敗 (例外) は、ルートの入口で 500 に変え、状態が 500 以上のものだけを [ErrorEvent](../../platform/term/error-event.md) として Admin へ報告する (`serviceId` は `share-together`、題名は「Web API: …エラー」の形)。報告の経路は[エラー通知の経路](../../admin/flow/error-notification.md)
+- 想定していない失敗 (例外) は、ルートの入口で 500 に変え、状態が 500 以上のものだけを [ErrorEvent](../../../platform/specs/term/error-event.md) として Admin へ報告する (`serviceId` は `share-together`、題名は「Web API: …エラー」の形)。報告の経路は[エラー通知の経路](../../admin/flow/error-notification.md)
 - ルートが自分で返した 400、403、404、409 は想定内なので報告しない。報告の書き込みに失敗しても応答は変わらない
 - 画面 (ブラウザ) の例外は報告しない。エラー画面は `console.error` に出すだけである
 

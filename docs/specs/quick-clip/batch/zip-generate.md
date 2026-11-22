@@ -10,7 +10,7 @@ sources:
   - libs/aws/src/error-events/with-error-reporting.ts
   - libs/aws/src/error-events/report.ts
 sources_hash: a53be08a6435ee6c703b753bcd7ef3adf49829115924ee8f4a39c42d37260338
-terms: [quick-clip/term/highlight, quick-clip/term/transcript, platform/term/error-event]
+terms: [quick-clip/term/highlight, quick-clip/term/transcript]
 related_cards: [quick-clip/api/download, quick-clip/screen/highlights, quick-clip/batch/extract, admin/flow/error-notification]
 related_adr:
   - services/quick-clip/architecture.md#ADR-002

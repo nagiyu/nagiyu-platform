@@ -50,7 +50,7 @@ flowchart TD
 
 - **ジョブの状態画面**: ステータスと結果 (成功・失敗の件数、エラーの文)。完了 (`SUCCEEDED`) になると、画面の下にも完了の通知を出す
 - **端末の通知**: 依頼を出したときのブラウザの購読 1 件だけ。ほかの端末や、あとから有効にした購読には届かない
-- **Admin のエラー履歴**: バッチの失敗は [ErrorEvent](../../../../specs/platform/term/error-event.md) として届く ([マイリスト登録バッチ](../batch/mylist-register.md)、[エラー通知の経路](../../../../specs/admin/flow/error-notification.md))
+- **Admin のエラー履歴**: バッチの失敗は [ErrorEvent](../../../../platform/specs/term/error-event.md) として届く ([マイリスト登録バッチ](../batch/mylist-register.md)、[エラー通知の経路](../../../../specs/admin/flow/error-notification.md))
 
 ## 失敗・取りこぼしのとき
 

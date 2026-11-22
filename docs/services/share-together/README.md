@@ -63,4 +63,4 @@
 
 ### インフラ
 
-- [インフラドキュメント](../../infra/README.md)
+- [共通基盤のデプロイ先](../../platform/specs/deploy.md)

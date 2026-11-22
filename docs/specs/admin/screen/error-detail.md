@@ -12,7 +12,7 @@ sources:
   - libs/ui/src/components/feedback/AccessDeniedView.tsx
   - libs/ui/src/components/feedback/NotFoundView.tsx
 sources_hash: d24f0b8dcf157459a0ad213aaebee037a6acbdc5220852ab596baa3e982cc2ae
-terms: [platform/term/error-event, admin/term/permission, admin/term/error-event-key]
+terms: [admin/term/permission, admin/term/error-event-key]
 related_cards: [admin/screen/errors, admin/api/errors, admin/batch/stream-handler, admin/flow/error-notification]
 related_adr:
   - services/admin/architecture.md#ADR-008
@@ -20,7 +20,7 @@ related_adr:
 
 # エラー詳細画面
 
-[エラーイベント](../../platform/term/error-event.md) 1 件の、メタ情報・本文・コンテキストを見る。
+[エラーイベント](../../../platform/specs/term/error-event.md) 1 件の、メタ情報・本文・コンテキストを見る。
 
 ## 入口
 

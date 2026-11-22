@@ -45,4 +45,4 @@ Stock Tracker サービスは、nagiyu プラットフォームにおける株�
 - [開発フロー](../../development/flow.md)
 - [ブランチ戦略](../../branching.md)
 - [開発ガイドライン](../../development/rules.md)
-- [インフラドキュメント](../../infra/README.md)
+- [共通基盤のデプロイ先](../../platform/specs/deploy.md)

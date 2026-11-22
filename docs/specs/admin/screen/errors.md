@@ -12,13 +12,13 @@ sources:
   - libs/ui/src/components/feedback/AccessDeniedView.tsx
   - libs/ui/src/components/feedback/ErrorView.tsx
 sources_hash: 53bbde5cc939b507d5a41a031e837ba2b0241d8599a809f217c00e8850bc259f
-terms: [platform/term/error-event, admin/term/permission, admin/term/error-event-key]
+terms: [admin/term/permission, admin/term/error-event-key]
 related_cards: [admin/screen/error-detail, admin/screen/dashboard, admin/api/errors, admin/flow/error-notification]
 ---
 
 # エラー履歴一覧画面
 
-プラットフォーム上で起きた[エラーイベント](../../platform/term/error-event.md)を、新しい順に一覧する。サービスと期間で絞り込み、行から詳細へ進む。
+プラットフォーム上で起きた[エラーイベント](../../../platform/specs/term/error-event.md)を、新しい順に一覧する。サービスと期間で絞り込み、行から詳細へ進む。
 
 ## 入口
 

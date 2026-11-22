@@ -74,7 +74,7 @@ flowchart TD
 | ジョブの記録の作成に失敗 | 500 | `DATABASE_ERROR` |
 | 投入の失敗などの想定外の失敗 | 500 | `BATCH_ERROR` |
 
-- 500 は [ErrorEvent](../../../../specs/platform/term/error-event.md) として Admin に報告する。題名は、動画の取得の失敗が「DynamoDB 動画取得失敗」、ジョブ ID がないときが「Batch ジョブ ID 未取得」、記録の作成の失敗が「DynamoDB バッチジョブレコード作成失敗」、それ以外が「Batch ジョブ投入エラー」 ([エラー通知の経路](../../../../specs/admin/flow/error-notification.md))
+- 500 は [ErrorEvent](../../../../platform/specs/term/error-event.md) として Admin に報告する。題名は、動画の取得の失敗が「DynamoDB 動画取得失敗」、ジョブ ID がないときが「Batch ジョブ ID 未取得」、記録の作成の失敗が「DynamoDB バッチジョブレコード作成失敗」、それ以外が「Batch ジョブ投入エラー」 ([エラー通知の経路](../../../../specs/admin/flow/error-notification.md))
 
 ## つながり
 

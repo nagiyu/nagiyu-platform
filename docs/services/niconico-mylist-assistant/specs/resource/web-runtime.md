@@ -3,10 +3,7 @@ sources:
   - infra/niconico-mylist-assistant/lib/lambda-stack.ts
   - infra/niconico-mylist-assistant/lib/policies/web-runtime-policy.ts
   - infra/niconico-mylist-assistant/bin/niconico-mylist-assistant.ts
-  - infra/common/src/functions/ecr-image-function.ts
-  - infra/common/src/constants/defaults.ts
-  - infra/common/src/grants/error-events-writer.ts
-sources_hash: 556ccb3ec0fd6c78397d834206b683bd2547f742202ab54a37ef4cc4192e4d0f
+sources_hash: a3edf564214e66758bb1dfb24d8d45f405083514bb251ace33fee08b30425ed3
 ---
 
 # Web の実行環境
@@ -31,14 +28,11 @@ Next.js の Web を動かす Lambda 関数と、その実行ロール・ログ�
 |---|---|
 | メモリ | 1,024 MB |
 | タイムアウト | 30 秒 |
-| アーキテクチャ | X86_64 |
-| X-Ray トレーシング | 有効 |
-| ログの保持期間 | 1 か月 |
-| イメージのタグ | デプロイ時の環境変数 `IMAGE_TAG` で渡す。なければデプロイが失敗する |
 | Function URL の認証 | なし |
 | Function URL の CORS | すべてのオリジン・メソッド・ヘッダーを許可。プリフライトの結果を 86,400 秒保持する |
 
-- タグは `Application` が `nagiyu`、`Service` が `niconico-mylist-assistant`、`Environment` が環境名
+- 表にない項目 (アーキテクチャ、X-Ray、ログの保持期間、イメージのタグ、タグ) は、[Lambda 関数の共通部品](../../../../platform/specs/resource/lambda-function.md)の既定値のまま
+- ロググループは新しく作らず、既存のものを引き継ぐ (`adoptExistingLogGroup`。[Lambda 関数の共通部品](../../../../platform/specs/resource/lambda-function.md)の「ロググループ」)
 
 ## 環境変数
 
@@ -56,7 +50,7 @@ Next.js の Web を動かす Lambda 関数と、その実行ロール・ログ�
 | `ENCRYPTION_SECRET_NAME` | セッションの暗号化キーのシークレット名 | [シークレット](./secrets.md)の暗号化キー |
 | `AWS_REGION_FOR_SDK` | AWS SDK のリージョン | スタックのリージョン |
 | `VAPID_PUBLIC_KEY`、`VAPID_PRIVATE_KEY` | Web Push の署名キー | [シークレット](./secrets.md)の VAPID キー。デプロイ時に取り出して渡す |
-| `ERROR_EVENTS_TABLE_NAME` | エラー履歴の書き込み先 | `nagiyu-error-events-{env}` |
+| `ERROR_EVENTS_TABLE_NAME` | エラー履歴の書き込み先 | [Lambda 関数の共通部品](../../../../platform/specs/resource/lambda-function.md)が設定する |
 
 ## 権限
 
@@ -65,7 +59,7 @@ Next.js の Web を動かす Lambda 関数と、その実行ロール・ログ�
 | 権限 | 対象 | 内容 |
 |---|---|---|
 | AWS 管理ポリシー `AWSLambdaBasicExecutionRole` | ロググループ | ログの書き込み |
-| エラー履歴の書き込み | `nagiyu-error-events-{env}` テーブル | `dynamodb:PutItem` |
+| エラー履歴の書き込み | [エラーイベントのテーブル](../../../../platform/specs/data/error-events.md) | `dynamodb:PutItem` (Lambda 関数の共通部品が付ける) |
 | マネージドポリシー `niconico-mylist-assistant-web-runtime-{env}` | 下の表 | 業務の権限 |
 
 | 対象 | 許可する操作 |
@@ -81,5 +75,4 @@ Next.js の Web を動かす Lambda 関数と、その実行ロール・ログ�
 - `NAGIYU_ENV` を別に持つのは、`NODE_ENV` が Next.js のビルド時に `production` へ置き換えられ、デプロイしたあとの dev と prod の判定に使えないため
 - ジョブ定義の ARN を、リビジョンなしと `:*` の両方で許可するのは、`SubmitJob` にリビジョンなしの ARN を渡すと IAM もその ARN で判定し、リビジョン付きの ARN を渡すと `name:N` の形で判定するため
 - ジョブキューとジョブ定義の ARN は、命名規則から組み立てて渡し、CloudFormation の出力の参照 (Export / Import) に頼らない。ジョブ定義を更新するとリビジョンが変わり、Export の値が変わると CloudFormation が更新を拒むため
-- ロググループは新しく作らず、CloudFormation の管理外にある同名のものを引き継ぎ、保持期間だけを設定する。同名のロググループを作ると名前が衝突してデプロイが失敗するため。この指定は既存の関数だけが使う
 - マネージドポリシーの説明文は変えない。変えるとポリシーが置き換えになり、固定の名前が衝突してデプロイが失敗するため

@@ -3,12 +3,10 @@ sources:
   - infra/niconico-mylist-assistant/lib/batch-stack.ts
   - infra/niconico-mylist-assistant/lib/policies/batch-runtime-policy.ts
   - infra/niconico-mylist-assistant/lib/s3-stack.ts
-  - infra/common/src/storage/service-bucket.ts
-  - infra/common/src/grants/error-events-writer.ts
   - services/niconico-mylist-assistant/batch/Dockerfile
   - services/niconico-mylist-assistant/batch/package.json
   - services/niconico-mylist-assistant/batch/src/lib/job-environment.ts
-sources_hash: 5284ccf0507f789959cd1ad541855a2b5f3ba5ea618fef014b3a8f2e939f95f4
+sources_hash: b7c1062ebe29a191ccf91c80ad19475c6f74c4e49ea457a6a3d359103dbe12b2
 ---
 
 # バッチの実行環境
@@ -46,7 +44,7 @@ sources_hash: 5284ccf0507f789959cd1ad541855a2b5f3ba5ea618fef014b3a8f2e939f95f4
 | コンテナのイメージ | バッチ用の ECR リポジトリの、デプロイ時の環境変数 `IMAGE_TAG` のタグ。なければデプロイが失敗する |
 | ログの保持期間 | 1 週間 (ログのストリームの接頭辞は `batch`)。スタックを消すと一緒に消える |
 | スクリーンショットの保持期間 | 7 日で自動で削除 |
-| バケットの設定 | S3 管理キーで暗号化、パブリックアクセスをすべて遮断、HTTPS 以外を拒否、バージョニングなし。スタックを消してもバケットは残す |
+| バケットの設定 | バージョニングなし。スタックを消してもバケットは残す。暗号化・パブリックアクセスの遮断・HTTPS の強制は[サービスの S3 バケット](../../../../platform/specs/resource/service-bucket.md)が固定する |
 
 - イメージは Playwright の公式イメージ (jammy) を土台にし、Node だけ公式のバイナリの 26.13.0 に差し替えて、ビルドの中で sha256 を検証している。起動のコマンドは `node services/niconico-mylist-assistant/batch/dist/index.js`
 - タグは `Application` が `nagiyu`、`Service` が `niconico-mylist-assistant`、`Environment` が環境名
@@ -74,7 +72,7 @@ sources_hash: 5284ccf0507f789959cd1ad541855a2b5f3ba5ea618fef014b3a8f2e939f95f4
 | ジョブロール (マネージドポリシー) | バッチのロググループ | `logs:CreateLogStream`、`logs:PutLogEvents` |
 | ジョブロール (マネージドポリシー) | 暗号化キーと VAPID キーのシークレット | `secretsmanager:GetSecretValue` |
 | ジョブロール (マネージドポリシー) | スクリーンショットのバケットの全オブジェクト | `s3:PutObject`、`s3:PutObjectAcl` |
-| ジョブロール | `nagiyu-error-events-{env}` テーブル | `dynamodb:PutItem` |
+| ジョブロール | [エラーイベントのテーブル](../../../../platform/specs/data/error-events.md) | `dynamodb:PutItem` (`grantErrorEventsWrite` が付ける) |
 
 - VAPID キーのシークレットの読み取りを許可しているが、バッチは VAPID キーを環境変数から読む
 

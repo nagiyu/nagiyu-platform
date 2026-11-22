@@ -13,7 +13,7 @@ sources:
   - libs/nextjs/src/pagination.ts
   - libs/aws/src/error-events/mapper.ts
 sources_hash: 02bde785407383a39231c6ba80cd3b2bb3a270af067ad52121f36c642a1a6b7c
-terms: [platform/term/error-event, admin/term/permission, admin/term/api-error, admin/term/error-event-key]
+terms: [admin/term/permission, admin/term/api-error, admin/term/error-event-key]
 related_cards: [admin/screen/errors, admin/screen/error-detail, admin/flow/error-notification, admin/batch/alarm-ingest]
 related_adr:
   - services/admin/architecture.md#ADR-003
@@ -22,7 +22,7 @@ related_adr:
 
 # エラー履歴 API
 
-error-events テーブルに保存された [ErrorEvent](../../platform/term/error-event.md) の一覧と、1 件の取得。読み取り専用で、書き込みと削除はない。
+error-events テーブルに保存された [ErrorEvent](../../../platform/specs/term/error-event.md) の一覧と、1 件の取得。読み取り専用で、書き込みと削除はない。
 
 ## エンドポイント
 
