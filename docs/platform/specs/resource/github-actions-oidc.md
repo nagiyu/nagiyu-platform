@@ -72,6 +72,31 @@ fork からの PR では、GitHub が `id-token: write` を付与しないので
 
 ## 手順
 
+### ロールがまだ無いときに、手元から shared をデプロイする
+
+新しいアカウントや、このスタックを作る前は、ワークフローが引き受けるロールがない。最初の 1 回は、人が手元から shared をデプロイする。ワークフロー (`shared-deploy.yml`) と同じ呼び方で、認証だけが SSO になる。
+
+1. [ローカルで AWS に入る](../../rules/aws-accounts.md)の手順で、対象のアカウントの `AdministratorAccess` のプロファイルに SSO でログインする。
+2. infra-common をビルドする。shared は、そのビルド成果物 (`dist/`) を参照する。
+
+    ```bash
+    npm run build --workspace=@nagiyu/infra-common
+    ```
+
+3. 環境変数 `DOMAIN_NAME` に、ゾーンの親のドメイン (`nagiyu.com`) を入れる。ワークフローはリポジトリのシークレット `DOMAIN_NAME` を同じ名前の環境変数で渡している。dev アカウントでは、コードが `dev.` を付けてゾーン名にする。
+4. アカウントを CDK のブートストラップの対象にし、全スタックをデプロイする。`env` は、prod アカウントには `prod`、dev アカウントには `dev` を渡す (dev アカウントに `prod` を渡すと合成が失敗する)。
+
+    ```bash
+    export DOMAIN_NAME=nagiyu.com
+    npm run bootstrap --workspace=@nagiyu/infra-shared -- aws://<アカウント ID>/us-east-1 --profile <プロファイル名>
+    npm run deploy --workspace=@nagiyu/infra-shared -- --all \
+        --context env=<prod または dev> --require-approval never --profile <プロファイル名>
+    ```
+
+5. 確かめる: `NagiyuSharedIamGitHubOidc` のスタックが `CREATE_COMPLETE` か `UPDATE_COMPLETE` であること。
+
+そのあとは、下の「Variables を登録する」に進む。
+
 ### Variables を登録する
 
 ロールをデプロイしたあとに、人が GitHub に登録する。

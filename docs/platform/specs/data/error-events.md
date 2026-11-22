@@ -69,7 +69,7 @@ sources_hash: 979dec932ff365fc5d328e371184dd7f647774a8e60c13c5d08a799c3e47233c
 
 | 主体 | 操作 | 内容 |
 |---|---|---|
-| 各サービス (Lambda、ECS タスク、Batch のジョブ) | 書き込み | エラーイベントを 1 件ずつ書く。`eventId` が同じ項目があれば上書きせず拒否する |
+| 各サービス (Lambda、ECS タスク、Batch のジョブ) | 書き込み | エラーイベントを 1 件ずつ書く。同じキー (`serviceId`・発生時刻・`eventId` から作る) の項目があれば上書きせず拒否する |
 | Admin の alarm-ingest | 書き込み | CloudWatch Alarm の通知を書く |
 | Admin の stream-handler | 読み取り | ストリームの INSERT を受け、Web Push を送る |
 | Admin の Web | 読み取り | 一覧と詳細 |

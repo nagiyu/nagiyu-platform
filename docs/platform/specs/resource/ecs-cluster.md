@@ -47,4 +47,3 @@ Portal の prod は、共有ではなく専用のクラスター `nagiyu-root-cl
 - ALB・ターゲットグループ・ECS サービス・CloudFront・DNS の連携は、サービスが自分のスタックで持つ。アイドルタイムアウトや TLS、ログの設定はサービスの性質で変わるため、共有しない
 - 共有リソースの参照は SSM を介し、スタックどうしの直接の依存を避ける
 - Container Insights は無効にする。出力される `ECS/ContainerInsights` はカスタムメトリクスとして課金される。得られるディメンションはクラスター名・サービス名・タスク定義のファミリーだけで、コンテナ単位の内訳は元から取れない。サービス単位の CPU とメモリは、無料の `AWS/ECS` 名前空間 (`CPUUtilization`、`MemoryUtilization`) で引き続き取れる
-- Portal の prod は、共有クラスターに載せず専用のクラスターを持つ。Portal のインフラは `infra/root` で自己完結し、共有クラスターを参照しない

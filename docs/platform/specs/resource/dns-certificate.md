@@ -30,7 +30,6 @@ sources_hash: be5023085ef6bcb6600360644b136b807e878287c2ec4405bb889aad300255ac
 
 | 項目 | 値 |
 |---|---|
-| prod ゾーンのレコードの TTL | 300 秒 (CNAME、NS) |
 | ゾーンのコメント | `Public hosted zone for <ゾーン名>` |
 | ACM の検証方式 | DNS 検証 |
 
@@ -47,12 +46,10 @@ prod の証明書を作り直すと ACM が新しい検証値を発行する。�
 
 ### SSM パラメータと出力
 
-他のスタックは、値を SSM から読む (スタックの出力は人が見る用)。
+他のスタックは、値を SSM から読む (スタックの出力は人が見る用)。ゾーンの SSM パラメータ (`/nagiyu/shared/route53/hosted-zone-id` と `hosted-zone-name`) は、[デプロイ先](../deploy.md)の「DNS レコードの作り方」にある。
 
 | SSM パラメータ | 書くスタック | 値 |
 |---|---|---|
-| `/nagiyu/shared/route53/hosted-zone-id` | `NagiyuSharedRoute53` | ゾーンの ID |
-| `/nagiyu/shared/route53/hosted-zone-name` | `NagiyuSharedRoute53` | ゾーンの名前 |
 | `/nagiyu/shared/acm/certificate-arn` | `NagiyuSharedAcm` | 証明書の ARN |
 | `/nagiyu/shared/acm/domain-name` | `NagiyuSharedAcm` | 証明書の主名 |
 
@@ -63,16 +60,11 @@ prod の証明書を作り直すと ACM が新しい検証値を発行する。�
 
 ## 手で写している値
 
-次の値は、リソースの実物から取った値をコードに直書きしている。実物が変わると、コードを直すまで食い違う。
+prod のレコードの値 (サービスの CloudFront のドメイン、ポータルの apex の向き先、dev ゾーンのネームサーバー、Google Search Console の確認用 CNAME) と、その直し方は[デプロイ先](../deploy.md)の「prod の CNAME と apex」にある。TTL もそこにある。ここには、証明書に関わる値だけを書く。
 
 | 値 | 場所 (`infra/shared/lib/route53-records-stack.ts`) | 変わるとき |
 |---|---|---|
-| サービスの CloudFront のドメイン (CNAME の向き先) | `CLOUDFRONT_CNAMES` | サービスの CloudFront を作り直したとき |
-| ポータルの CloudFront のドメイン (apex の ALIAS の向き先) | `APEX_CLOUDFRONT_DOMAIN` | ポータルの CloudFront を作り直したとき |
-| dev ゾーンのネームサーバー 4 つ | `DEV_ZONE_DELEGATION` | dev のゾーンを作り直したとき |
 | prod の証明書の検証 CNAME | `ACM_VALIDATION_CNAME` | prod の証明書を作り直したとき |
-
-Google Search Console の所有確認用 CNAME (`GOOGLE_SEARCH_CONSOLE_CNAME`) も同じファイルにある。
 
 ## リポジトリの外にあるもの
 
@@ -88,8 +80,7 @@ Google Search Console の所有確認用 CNAME (`GOOGLE_SEARCH_CONSOLE_CNAME`) �
 - dev を別ゾーンにして prod から NS で委任するのは、dev の DNS レコードと証明書の検証を dev アカウントの中で完結させるため。理由は[デプロイ先](../deploy.md)の「理由」にある。
 - 証明書をアカウントごとに別にするのも同じ理由で、dev の証明書は dev のゾーンだけで検証できる。
 - 証明書の検証 CNAME は消さない。ACM は有効期限の前に、この CNAME を引いて自動で更新する。消すと更新できず、期限が切れる。
-- prod の検証 CNAME を手で写すのは、既存の証明書の検証方式を変えると証明書が置き換わるおそれがあるため。コード側の `acm-stack.ts` は、ゾーンを渡さなければ従来どおりの検証にしてある。
-- レコードの TTL は、コードの定数 1 つで全レコードに揃えている。
+- prod の検証 CNAME を手で写すのは、検証方式を変えると、すでに発行された証明書が置き換わるおそれがあるため。そこで、`acm-stack.ts` は、ゾーンを渡されないとき (prod) は、CDK に検証 CNAME を作らせない `fromDns()` で検証する。
 
 ## 手順
 

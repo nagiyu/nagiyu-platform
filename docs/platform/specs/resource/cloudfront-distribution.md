@@ -4,7 +4,13 @@ sources:
   - infra/common/src/cloudfront/response-headers-policy.ts
   - infra/common/src/constants/security-headers.ts
   - infra/common/src/constants/defaults.ts
-sources_hash: b33428d6db72acbcb73599fa42676039bcfab537c55021640498f00100351de2
+  - infra/shared/lib/reports-hosting-stack.ts
+  - infra/ui-storybook/lib/storybook-stack.ts
+  - infra/root/cloudfront-stack.ts
+  - infra/root/cloudfront-lambda-stack.ts
+  - infra/codec-converter/lib/codec-converter-stack.ts
+  - infra/livetalk/lib/cloudfront-stack.ts
+sources_hash: 50366300f75a064d7c0f09d38c8450c7faf7d47c19d6bed4b468759ea41c9195
 ---
 
 # CloudFront の共通部品
@@ -49,13 +55,13 @@ Lambda の Function URL をオリジンにする CloudFront ディストリビ�
 | X-Robots-Tag | `noindex, nofollow` (noindex が有効なときだけ) |
 
 - どのヘッダーも、オリジンのヘッダーを上書きする
-- X-Frame-Options が `SAMEORIGIN` のサービスは、E2E レポート (shared) と Storybook (ui-storybook)
+- X-Frame-Options を `SAMEORIGIN` にするのは、E2E レポート (shared) と Storybook (ui-storybook)。どちらも自身のフレームを表示するため、`DENY` では表示できない
 - `createResponseHeadersPolicy` は、セキュリティヘッダーも noindex も無効で呼ぶと失敗する。中身のないポリシーになるため
-- `CloudFrontStackBase` を使わず、`createResponseHeadersPolicy` を直接呼ぶスタックもある (Portal の prod、LiveTalk、codec-converter、E2E レポート、Storybook)
+- `CloudFrontStackBase` を使わず、`createResponseHeadersPolicy` を直接呼ぶスタックもある (Portal の prod の `infra/root/cloudfront-stack.ts`、LiveTalk、codec-converter、E2E レポート、Storybook)
 
 ### noindex
 
-Portal を除く全サービスで、全環境が noindex を有効にする。検索エンジンに載せないため。Portal は、Lambda で動く dev が noindex を有効にし、ALB と ECS で動く prod は noindex にしない (検索エンジンに載せる)。
+検索エンジンに載せないため、Portal 以外のサービスは noindex を有効にする。Portal は、Lambda で動く dev (`infra/root/cloudfront-lambda-stack.ts`) が noindex を有効にし、ALB と ECS で動く prod (`infra/root/cloudfront-stack.ts`) は noindex にしない (検索エンジンに載せる)。
 
 ## 理由
 

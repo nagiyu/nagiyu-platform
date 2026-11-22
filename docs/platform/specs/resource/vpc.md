@@ -57,19 +57,11 @@ sources_hash: 860ff420c7c910de99874ced9773207d113c12b566bf54c9992544a4db9bcdaa
 - サブネットの ID はデプロイ時にしか決まらないので、分割した値からインデックスで取り出す
 - 戻り値は VPC と、サブネット ID の一覧
 
-| 利用するもの | 取り込むスタック |
-|---|---|
-| Portal の ALB と ECS サービス (prod) | `infra/root/alb-stack.ts`、`infra/root/ecs-service-stack.ts` |
-| LiveTalk の ALB と ECS サービス | `infra/livetalk/lib/alb-stack.ts`、`infra/livetalk/lib/ecs-service-stack.ts` |
-| niconico-mylist-assistant の AWS Batch | `infra/niconico-mylist-assistant/lib/batch-stack.ts` |
-| quick-clip の AWS Batch | `infra/quick-clip/lib/batch-stack.ts` |
-| codec-converter | `infra/codec-converter/lib/codec-converter-stack.ts` |
-
 ## 理由
 
 - パブリックサブネットだけで、NAT ゲートウェイを置かない。NAT は置くだけで固定の費用がかかる。ワークロードは、パブリック IP を付けてインターネットへ出る
 - dev も 2 つの AZ にサブネットを持つ。ALB は 2 つ以上の AZ のサブネットを要求するため、dev だけ 1 つにはできない。NAT がないので、AZ を増やしても固定の費用は増えない
 - 取り込みは環境で分岐せず、常に 2 サブネットとして扱う。環境ごとに AZ の数を変えると、何 AZ を使うかが取り込み側の書き方に散らばる。AZ を絞りたいときは、各リソースに渡すサブネットの側で選ぶ
-- dev にセカンダリ CIDR (`10.2.0.0/24`) を足して 1b のサブネットを作る。プライマリ CIDR を直接広げると VPC の再作成になるため、後から足せるセカンダリで空間を確保する。`10.0.0.0/15` の範囲 (`10.0.x.x` と `10.1.x.x`) は AWS の制約でセカンダリに追加できないため、範囲の外の `10.2.0.0/24` を使う
+- dev にセカンダリ CIDR (`10.2.0.0/24`) を足して 1b のサブネットを作る。プライマリ CIDR を直接広げると VPC の再作成になるため、後から足せるセカンダリで空間を確保する。AWS は、VPC の CIDR のどれかが `10.0.0.0/15` の範囲 (`10.0.0.0` から `10.1.255.255`) にあるとき、`10.0.0.0/16` の範囲 (`10.0.x.x`) の CIDR を追加できないと定めている ([IPv4 CIDR block association restrictions](https://docs.aws.amazon.com/vpc/latest/userguide/vpc-cidr-blocks.html))。dev のプライマリは `10.0.0.0/24` なので `10.0.x.x` は使えない。`10.1.x.x` は prod が使うので、環境ごとに範囲を分ける方針 (下記) から外れないよう、どちらの範囲でもない `10.2.0.0/24` を選ぶ
 - 環境ごとに CIDR を分ける (dev は `10.0.x.x` と `10.2.x.x`、prod は `10.1.x.x`)。アドレスを見れば、どちらの環境かがわかるため
 - Lambda は VPC に置かない。Function URL や CloudFront 経由で公開し、VPC 内のリソースを必要としないため
