@@ -8,7 +8,13 @@ import type { RealtimeConnection } from '../../../src/openai-voice/types.js';
 
 type Listener = (...args: never[]) => void;
 
-/** Realtime 接続のモック。open 後の送信内容を記録し、サーバーイベントを手動で流せる。 */
+/**
+ * Realtime 接続のモック。open 後の送信内容を記録し、サーバーイベントを手動で流せる。
+ *
+ * `onOpen` は登録時点で open 済みなら即呼ぶ。これは `RealtimeConnector` の契約
+ * (登録前に起きた open を後から渡す) をそのまま写したもので、実物がこの契約を守ることは
+ * realtime-connection のテストで確かめる。
+ */
 function makeConnection(onSent?: (conn: FakeConnection) => void) {
   const conn = {
     sent: [] as Array<Record<string, unknown>>,
@@ -48,7 +54,7 @@ const done = (status: string, status_details?: unknown) => ({
   response: { status, status_details },
 });
 
-/** open 後に既定で成功応答（PCM 4 バイト）を流す接続を作る。 */
+/** open 後に既定で成功応答 (PCM 4 バイト) を流す接続を作る。 */
 function successConnection(): FakeConnection {
   return makeConnection((c) => {
     c.emit(delta([1, 2]));
@@ -282,6 +288,57 @@ describe('OpenAIVoiceClient', () => {
         }
       });
 
+      it('サーバーの error は type・code・message を残し、日本語の要約を message に付ける', async () => {
+        const conn = failWith([
+          {
+            type: 'error',
+            error: { type: 'invalid_request_error', code: 'bad_param', message: 'server says no' },
+          },
+        ]);
+        const { client } = makeClient([conn]);
+
+        const error = (await client.synthesize('テスト').catch((e: Error) => e)) as Error & {
+          cause?: InstanceType<typeof OpenAI.APIError>;
+        };
+
+        expect(error.cause?.message).toBe(
+          `400 ${OPENAI_VOICE_ERROR_MESSAGES.SERVER_ERROR}: server says no`
+        );
+        expect(error.cause?.type).toBe('invalid_request_error');
+        expect(error.cause?.code).toBe('bad_param');
+        expect(error.cause?.status).toBe(400);
+      });
+
+      it('error にサーバーの message が無くても日本語の要約が message になる', async () => {
+        const conn = failWith([{ type: 'error', error: { type: 'invalid_request_error' } }]);
+        const { client } = makeClient([conn]);
+
+        const error = (await client.synthesize('テスト').catch((e: Error) => e)) as Error & {
+          cause?: Error;
+        };
+
+        expect(error.cause?.message).toBe(`400 ${OPENAI_VOICE_ERROR_MESSAGES.SERVER_ERROR}`);
+      });
+
+      it('status failed はサーバーの type・code・message を残し、日本語の要約を付ける', async () => {
+        const conn = failWith([
+          done('failed', {
+            error: { type: 'invalid_request_error', code: 'c1', message: 'detail' },
+          }),
+        ]);
+        const { client } = makeClient([conn]);
+
+        const error = (await client.synthesize('テスト').catch((e: Error) => e)) as Error & {
+          cause?: InstanceType<typeof OpenAI.APIError>;
+        };
+
+        expect(error.cause?.message).toBe(
+          `400 ${OPENAI_VOICE_ERROR_MESSAGES.RESPONSE_NOT_COMPLETED}: detail`
+        );
+        expect(error.cause?.type).toBe('invalid_request_error');
+        expect(error.cause?.code).toBe('c1');
+      });
+
       it('応答完了前に接続が閉じられたら失敗する', async () => {
         jest.useFakeTimers();
         try {
@@ -407,6 +464,7 @@ describe('OpenAIVoiceClient', () => {
         try {
           const silent = () => makeConnection();
           const conns = [silent(), silent(), silent(), silent()];
+          const closedConns = [...conns];
           const connector = jest.fn(async () => {
             const c = conns.shift() as FakeConnection;
             queueMicrotask(() => c.open());
@@ -420,6 +478,9 @@ describe('OpenAIVoiceClient', () => {
           expect(error.message).toBe(OPENAI_VOICE_ERROR_MESSAGES.SYNTHESIS_FAILED);
           expect(error.cause?.name).toBe('LLMTimeoutError');
           expect(connector).toHaveBeenCalledTimes(4);
+          // タイムアウトした接続も、リトライ前に必ず閉じる
+          expect(conns).toHaveLength(0);
+          expect(closedConns.map((c) => c.closed)).toEqual([1, 1, 1, 1]);
         } finally {
           jest.useRealTimers();
         }

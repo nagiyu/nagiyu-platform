@@ -14,13 +14,13 @@ export type VoiceConfig =
       speakerId: number;
     }
   | {
-      /** OpenAI の音声合成（Realtime API）を使用する */
+      /** OpenAI の音声合成 (Realtime API) を使用する */
       provider: 'openai';
-      /** Realtime API の voice 名（例: 'marin', 'cedar', 'coral', 'alloy'） */
+      /** Realtime API の voice 名 (例: 'marin', 'cedar', 'coral', 'alloy') */
       voice: string;
-      /** voice の話し方を自然言語で指示する（任意。読み上げ専用の指示の後ろに足して渡す） */
+      /** voice の話し方を自然言語で指示する (任意。読み上げ専用の指示の後ろに足して渡す) */
       instructions?: string;
-      /** 使用モデル。省略時はクライアント実装側の既定（gpt-realtime-2.1-mini） */
+      /** 使用モデル。省略時はクライアント実装側の既定 (gpt-realtime-2.1-mini) */
       model?: string;
     };
 

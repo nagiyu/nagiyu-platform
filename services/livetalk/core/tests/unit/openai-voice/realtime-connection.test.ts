@@ -74,4 +74,52 @@ describe('createDefaultRealtimeConnector', () => {
     expect(onEvent).toHaveBeenCalledWith({ type: 'session.created' });
     expect(onError).toHaveBeenCalledWith(expect.any(Error));
   });
+
+  describe('リスナー登録前に起きたイベント', () => {
+    it('登録前に open していても、後から登録した onOpen がすぐ呼ばれる', async () => {
+      const { ws, socketListeners } = makeWs();
+      mockCreate.mockResolvedValue(ws);
+      const connection = await createDefaultRealtimeConnector(client)('m');
+      socketListeners.open();
+      const onOpen = jest.fn();
+
+      connection.onOpen(onOpen);
+
+      expect(onOpen).toHaveBeenCalledTimes(1);
+    });
+
+    it('登録前に起きた error は、後から登録した onError に渡る', async () => {
+      const { ws, wsListeners } = makeWs();
+      mockCreate.mockResolvedValue(ws);
+      const connection = await createDefaultRealtimeConnector(client)('m');
+      const error = new Error('early');
+      wsListeners.error(error);
+      const onError = jest.fn();
+
+      connection.onError(onError);
+
+      expect(onError).toHaveBeenCalledWith(error);
+    });
+
+    it('登録前に close していても、後から登録した onClose がすぐ呼ばれる', async () => {
+      const { ws, socketListeners } = makeWs();
+      mockCreate.mockResolvedValue(ws);
+      const connection = await createDefaultRealtimeConnector(client)('m');
+      socketListeners.close();
+      const onClose = jest.fn();
+
+      connection.onClose(onClose);
+
+      expect(onClose).toHaveBeenCalledTimes(1);
+    });
+
+    it('SDK の error リスナーは接続を返す時点で登録済みである', async () => {
+      const { ws, wsListeners } = makeWs();
+      mockCreate.mockResolvedValue(ws);
+
+      await createDefaultRealtimeConnector(client)('m');
+
+      expect(wsListeners.error).toBeDefined();
+    });
+  });
 });

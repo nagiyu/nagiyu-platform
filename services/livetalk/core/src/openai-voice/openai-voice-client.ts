@@ -7,7 +7,7 @@ import { createDefaultRealtimeConnector } from './realtime-connection.js';
 import { pcm16ToWav } from './wav.js';
 
 /**
- * OpenAI 音声合成クライアント周りのエラーメッセージ（日本語、定数化）。
+ * OpenAI 音声合成クライアント周りのエラーメッセージ (日本語、定数化)。
  */
 export const OPENAI_VOICE_ERROR_MESSAGES = {
   EMPTY_TEXT: 'テキストが空です',
@@ -41,14 +41,14 @@ export const READ_ALOUD_INSTRUCTIONS = [
 ].join('\n');
 
 /**
- * OpenAI Realtime API（WebSocket）を {@link IVoiceClient} 形にラップする実装。
+ * OpenAI Realtime API (WebSocket) を {@link IVoiceClient} 形にラップする実装。
  *
  * - 1 回の合成ごとに接続し、読み上げ専用の応答を 1 件だけ生成させて PCM を集め、WAV にして返す。
  *   `gpt-realtime-*` は `/v1/audio/speech` では使えず、Realtime API 専用のため。
  * - `voice.provider === 'openai'` の場合のみ voice / instructions / model を解釈する。
  *   それ以外（voicevox 等）は既定値で合成する（VoicevoxClient と同じ寛容さ）。
  * - 接続は成功・失敗・タイムアウトのいずれでも必ず閉じる。
- * - `synthesize` は `withLLMRetry` で一過性エラー（接続失敗・タイムアウト・rate limit 等）を
+ * - `synthesize` は `withLLMRetry` で一過性エラー (接続失敗・タイムアウト・rate limit 等) を
  *   リトライする。全敗した場合は `SYNTHESIS_FAILED` エラーでラップして throw する。
  * - SDK 自動リトライは `maxRetries: 0` で無効化し、アプリ側で一元管理する。
  */
@@ -121,15 +121,16 @@ export class OpenAIVoiceClient implements IVoiceClient {
 }
 
 /**
- * Realtime のエラー情報を、リトライ判定（`isRetryableLLMError`）が解釈できる
+ * Realtime のエラー情報を、リトライ判定 (`isRetryableLLMError`) が解釈できる
  * `OpenAI.APIError` に変換する。
  *
- * server_error は 500、rate limit は 429（いずれもリトライ対象）、認証系は 401、
- * それ以外（不正な要求など）は 400（リトライしない）にする。
+ * server_error は 500、rate limit は 429 (いずれもリトライ対象)、認証系は 401、
+ * それ以外 (不正な要求など) は 400 (リトライしない) にする。
  */
 function toAPIError(
   info: { type?: string; code?: string | null; message?: string } | undefined,
-  fallbackStatus: number
+  fallbackStatus: number,
+  summary: string = OPENAI_VOICE_ERROR_MESSAGES.SERVER_ERROR
 ): InstanceType<typeof OpenAI.APIError> {
   const type = info?.type;
   const code = info?.code ?? undefined;
@@ -147,10 +148,11 @@ function toAPIError(
   } else if (type === 'invalid_request_error') {
     status = 400;
   }
-  const message = info?.message
-    ? `${OPENAI_VOICE_ERROR_MESSAGES.SERVER_ERROR}: ${info.message}`
-    : OPENAI_VOICE_ERROR_MESSAGES.SERVER_ERROR;
-  return new OpenAI.APIError(status, info ?? undefined, message, undefined);
+  // SDK は error 本体の message を引数の message より優先するため、日本語の要約を付けた
+  // message を error 本体に入れる。type / code などサーバー側の情報はそのまま残し、
+  // サーバー側の message は要約の後ろに続けて、障害調査で失わないようにする
+  const message = info?.message ? `${summary}: ${info.message}` : summary;
+  return new OpenAI.APIError(status, { ...info, message }, message, undefined);
 }
 
 /**
@@ -181,26 +183,21 @@ function collectPcm(
       if (event.type === 'response.output_audio.delta') {
         chunks.push(Buffer.from(event.delta, 'base64'));
       } else if (event.type === 'error') {
+        // 読み上げ 1 件だけの短い接続なので、どの error も合成の失敗とみなして即失敗にする
         fail(toAPIError(event.error, 400));
       } else if (event.type === 'response.done') {
         const { status, status_details: details } = event.response;
         if (status !== 'completed') {
           fail(
             status === 'failed'
-              ? toAPIError(
-                  {
-                    ...details?.error,
-                    message: OPENAI_VOICE_ERROR_MESSAGES.RESPONSE_NOT_COMPLETED,
-                  },
-                  500
-                )
-              : toAPIError({ message: OPENAI_VOICE_ERROR_MESSAGES.RESPONSE_NOT_COMPLETED }, 400)
+              ? toAPIError(details?.error, 500, OPENAI_VOICE_ERROR_MESSAGES.RESPONSE_NOT_COMPLETED)
+              : toAPIError(undefined, 400, OPENAI_VOICE_ERROR_MESSAGES.RESPONSE_NOT_COMPLETED)
           );
           return;
         }
         const pcm = Buffer.concat(chunks);
         if (pcm.byteLength === 0) {
-          fail(toAPIError({ message: OPENAI_VOICE_ERROR_MESSAGES.EMPTY_AUDIO }, 500));
+          fail(toAPIError(undefined, 500, OPENAI_VOICE_ERROR_MESSAGES.EMPTY_AUDIO));
           return;
         }
         settled = true;
@@ -218,7 +215,7 @@ function collectPcm(
       );
     });
 
-    // 他のリスナーを登録してから open を待つ（登録前にイベントを取りこぼさないため）
+    // 他のリスナーを登録してから open を待つ (登録前にイベントを取りこぼさないため)
     connection.onOpen(() => {
       const sessionUpdate: RealtimeClientEvent = {
         type: 'session.update',

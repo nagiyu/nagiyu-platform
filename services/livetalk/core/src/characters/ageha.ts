@@ -3,7 +3,7 @@ import type { CharacterDefinition } from './types.js';
 /**
  * 早瀬アゲハ の CharacterDefinition 実装。
  *
- * 音声は OpenAI Realtime API（marin）を使用。Live2D モデル未用意のため
+ * 音声は OpenAI Realtime API (marin) を使用。Live2D モデル未用意のため
  *
  * voice / instructions は内輪ノリ・抑揚重視のチューニング結果を反映している。
  * 「上品さ・平坦さ」を禁止項目として明示し、笑いや語尾の伸ばしは

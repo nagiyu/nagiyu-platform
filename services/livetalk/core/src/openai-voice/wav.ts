@@ -1,4 +1,4 @@
-/** WAV ヘッダのバイト数（PCM 形式の標準ヘッダ）。 */
+/** WAV ヘッダのバイト数 (PCM 形式の標準ヘッダ)。 */
 const WAV_HEADER_BYTES = 44;
 
 /**
@@ -7,7 +7,7 @@ const WAV_HEADER_BYTES = 44;
  * ブラウザは `decodeAudioData` で再生するため、生 PCM ではなくコンテナ付きで渡す必要がある。
  *
  * @param pcm - 16 bit little endian の PCM バイト列
- * @param sampleRate - サンプリングレート（Hz）
+ * @param sampleRate - サンプリングレート (Hz)
  * @param channels - チャンネル数
  */
 export function pcm16ToWav(pcm: Uint8Array, sampleRate: number, channels: number): ArrayBuffer {
