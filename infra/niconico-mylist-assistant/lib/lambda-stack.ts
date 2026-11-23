@@ -119,7 +119,7 @@ export class LambdaStack extends cdk.Stack {
 
     // Function URL の作成（Lambda Web Adapter 用）
     this.functionUrl = this.webFunction.addFunctionUrl({
-      authType: lambda.FunctionUrlAuthType.NONE,
+      authType: lambda.FunctionUrlAuthType.AWS_IAM,
       cors: {
         allowedOrigins: ['*'],
         allowedMethods: [lambda.HttpMethod.ALL],

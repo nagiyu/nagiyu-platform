@@ -280,4 +280,27 @@ describe('LambdaStack', () => {
       }
     );
   });
+
+  describe('Function URL', () => {
+    it('authType が AWS_IAM で、誰でも呼べる許可を持たず、CloudFront の 2 つの許可がある', () => {
+      const { stack } = createTestStack();
+      const template = Template.fromStack(stack);
+
+      template.hasResourceProperties('AWS::Lambda::Url', { AuthType: 'AWS_IAM' });
+      const principals = Object.values(template.findResources('AWS::Lambda::Permission')).map(
+        (r) => r.Properties.Principal
+      );
+      expect(principals).not.toContain('*');
+      template.hasResourceProperties('AWS::Lambda::Permission', {
+        Action: 'lambda:InvokeFunctionUrl',
+        Principal: 'cloudfront.amazonaws.com',
+        FunctionUrlAuthType: 'AWS_IAM',
+      });
+      template.hasResourceProperties('AWS::Lambda::Permission', {
+        Action: 'lambda:InvokeFunction',
+        Principal: 'cloudfront.amazonaws.com',
+        InvokedViaFunctionUrl: true,
+      });
+    });
+  });
 });

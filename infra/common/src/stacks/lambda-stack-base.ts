@@ -199,15 +199,8 @@ export class LambdaStackBase extends cdk.Stack {
       };
 
       this.functionUrl = this.lambdaFunction.addFunctionUrl({
-        authType: lambda.FunctionUrlAuthType.NONE,
+        authType: lambda.FunctionUrlAuthType.AWS_IAM,
         cors: functionUrlCorsConfig || defaultCorsConfig,
-      });
-
-      // Lambda Function URL への公開アクセスを許可
-      this.lambdaFunction.addPermission('AllowPublicAccess', {
-        principal: new iam.AnyPrincipal(),
-        action: 'lambda:InvokeFunctionUrl',
-        functionUrlAuthType: lambda.FunctionUrlAuthType.NONE,
       });
 
       // CloudFront (OAC) の署名付きアクセスを許可する。

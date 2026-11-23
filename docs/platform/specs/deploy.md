@@ -24,7 +24,7 @@ sources:
   - infra/ui-storybook/bin/ui-storybook.ts
   - infra/ui-storybook/lib/storybook-stack.ts
   - .github/workflows/ui-storybook-deploy.yml
-sources_hash: da3df677e2935cc279c383954e0565cb51c05458f0799d6e31984248232fdbd6
+sources_hash: b84bc0a8d18c85e77ad7fc9e3567153039d406bbb1ba440dd7610737aec135d4
 ---
 
 # shared と ui-storybook のデプロイ先
@@ -122,7 +122,7 @@ Lambda に足す許可の `sourceArn` は、呼び出し側で決まる。
 | `LambdaStackBase` (Function URL を有効にしたとき)、stock-tracker と niconico-mylist-assistant の Lambda のスタック | このアカウントの全ディストリビューション。配信は Lambda のスタックより後に別スタックで作られ、配信の ARN を参照すると循環するため |
 | codec-converter | 自分の配信の ARN。Lambda と配信が同じスタックにあるため絞れる |
 
-この許可は、Function URL の公開アクセスの許可 (`AllowPublicAccess`) に足すもので、公開アクセスの許可と Function URL の `authType` (NONE) は変えない。
+Function URL の `authType` は AWS_IAM で、誰でも呼べる許可は持たない。この許可を持つ CloudFront 以外が Function URL を直接呼ぶと 403 になる。
 
 #### 本文のハッシュ
 

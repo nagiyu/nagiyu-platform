@@ -108,7 +108,7 @@ describe('LambdaStackBase', () => {
       const template = Template.fromStack(stack);
       template.resourceCountIs('AWS::Lambda::Url', 1);
       template.hasResourceProperties('AWS::Lambda::Url', {
-        AuthType: 'NONE',
+        AuthType: 'AWS_IAM',
       });
     });
   });
@@ -383,7 +383,7 @@ describe('LambdaStackBase', () => {
   });
 
   describe('CloudFront からの呼び出し許可', () => {
-    it('CloudFront に 2 つの許可を足し、公開の許可と authType NONE は残す', () => {
+    it('CloudFront に 2 つの許可だけを足し、誰でも呼べる許可は持たない', () => {
       const stack = new LambdaStackBase(app, 'TestCloudFrontGrantStack', {
         serviceName: 'tools',
         environment: 'dev',
@@ -392,12 +392,12 @@ describe('LambdaStackBase', () => {
 
       const template = Template.fromStack(stack);
 
-      template.hasResourceProperties('AWS::Lambda::Url', { AuthType: 'NONE' });
-      template.hasResourceProperties('AWS::Lambda::Permission', {
-        Action: 'lambda:InvokeFunctionUrl',
-        Principal: '*',
-        FunctionUrlAuthType: 'NONE',
-      });
+      template.hasResourceProperties('AWS::Lambda::Url', { AuthType: 'AWS_IAM' });
+      const principals = Object.values(template.findResources('AWS::Lambda::Permission')).map(
+        (r) => r.Properties.Principal
+      );
+      expect(principals).not.toContain('*');
+      template.resourceCountIs('AWS::Lambda::Permission', 2);
       template.hasResourceProperties('AWS::Lambda::Permission', {
         Action: 'lambda:InvokeFunctionUrl',
         Principal: 'cloudfront.amazonaws.com',

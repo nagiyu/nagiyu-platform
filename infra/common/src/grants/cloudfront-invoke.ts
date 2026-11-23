@@ -19,7 +19,7 @@ export interface GrantCloudFrontInvokeOptions {
  * CloudFront (OAC) が Function URL を呼ぶための許可を Lambda に足す
  *
  * `lambda:InvokeFunctionUrl` に加え、Function URL 経由に限った `lambda:InvokeFunction` も要る。
- * 公開アクセスの許可 (authType NONE) とは別に足すので、既存の許可は変えない。
+ * Function URL の authType は AWS_IAM なので、この許可が無いと Function URL は 403 を返す。
  *
  * @param fn 対象の Lambda 関数
  * @param options 許可するソースの絞り込み

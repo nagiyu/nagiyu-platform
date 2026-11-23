@@ -103,7 +103,22 @@ test('Lambda Function URL Created', () => {
   const template = Template.fromStack(stack);
 
   template.hasResourceProperties('AWS::Lambda::Url', {
-    AuthType: 'NONE',
+    AuthType: 'AWS_IAM',
+  });
+
+  const principals = Object.values(template.findResources('AWS::Lambda::Permission')).map(
+    (r) => r.Properties.Principal
+  );
+  expect(principals).not.toContain('*');
+  template.hasResourceProperties('AWS::Lambda::Permission', {
+    Action: 'lambda:InvokeFunctionUrl',
+    Principal: 'cloudfront.amazonaws.com',
+    FunctionUrlAuthType: 'AWS_IAM',
+  });
+  template.hasResourceProperties('AWS::Lambda::Permission', {
+    Action: 'lambda:InvokeFunction',
+    Principal: 'cloudfront.amazonaws.com',
+    InvokedViaFunctionUrl: true,
   });
 });
 
