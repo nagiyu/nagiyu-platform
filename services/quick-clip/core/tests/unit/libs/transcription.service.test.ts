@@ -1,58 +1,25 @@
 import { EventEmitter } from 'node:events';
-import { TranscriptionService } from '../../../src/libs/transcription.service.js';
+import {
+  TranscriptionService,
+  buildSpeechRanges,
+  parseDurationSec,
+  parseSilences,
+} from '../../../src/libs/transcription.service.js';
 
 const mockCreate = jest.fn();
-
-jest.mock('openai', () => ({
-  __esModule: true,
-  default: jest.fn(() => ({
-    audio: {
-      transcriptions: {
-        create: mockCreate,
-      },
-    },
-  })),
-}));
+const mockUnlink = jest.fn().mockResolvedValue(undefined);
 
 jest.mock('node:fs', () => ({
   createReadStream: jest.fn(() => 'mock-stream'),
 }));
 
 jest.mock('node:fs/promises', () => ({
-  unlink: jest.fn().mockResolvedValue(undefined),
-  stat: jest.fn().mockResolvedValue({ size: 1024 * 1024 }),
+  unlink: (...args: unknown[]) => mockUnlink(...args),
 }));
 
 jest.mock('node:crypto', () => ({
   randomUUID: jest.fn(() => 'test-uuid'),
 }));
-
-type SpawnMockOptions = {
-  exitCode?: number;
-  stderrData?: string;
-  spawnError?: Error;
-};
-
-const createFfmpegMock = (options: SpawnMockOptions = {}) => {
-  const { exitCode = 0, stderrData = '', spawnError } = options;
-  const proc = new EventEmitter() as EventEmitter & {
-    stderr: EventEmitter;
-  };
-  proc.stderr = new EventEmitter();
-
-  setImmediate(() => {
-    if (spawnError) {
-      proc.emit('error', spawnError);
-      return;
-    }
-    if (stderrData) {
-      proc.stderr.emit('data', Buffer.from(stderrData));
-    }
-    proc.emit('close', exitCode);
-  });
-
-  return proc;
-};
 
 const mockSpawn = jest.fn();
 jest.mock('node:child_process', () => ({
@@ -60,638 +27,320 @@ jest.mock('node:child_process', () => ({
 }));
 
 const mockClient = {
-  audio: {
-    transcriptions: {
-      create: mockCreate,
-    },
-  },
+  audio: { transcriptions: { create: mockCreate } },
 } as never;
 
+type FfmpegResult = { exitCode?: number; stderr?: string; spawnError?: Error };
+
+const createFfmpegProcess = ({ exitCode = 0, stderr = '', spawnError }: FfmpegResult) => {
+  const proc = new EventEmitter() as EventEmitter & { stderr: EventEmitter };
+  proc.stderr = new EventEmitter();
+  setImmediate(() => {
+    if (spawnError) {
+      proc.emit('error', spawnError);
+      return;
+    }
+    if (stderr) {
+      proc.stderr.emit('data', Buffer.from(stderr));
+    }
+    proc.emit('close', exitCode);
+  });
+  return proc;
+};
+
+/** silencedetect を含む呼び出しにだけ検出結果を返し、それ以外は成功させる */
+const setupFfmpeg = (detectOutput: string, overrides: { extract?: FfmpegResult } = {}) => {
+  mockSpawn.mockImplementation((_cmd: string, args: string[]) => {
+    if (args.includes('-af')) {
+      return createFfmpegProcess({ stderr: detectOutput });
+    }
+    if (args.includes('libmp3lame')) {
+      return createFfmpegProcess(overrides.extract ?? {});
+    }
+    return createFfmpegProcess({});
+  });
+};
+
+// 0-2 秒が無音、2-5 秒が発話、5-6.5 秒が無音、6.5-8.6 秒が発話
+const DETECT_OUTPUT = [
+  '  Duration: 00:00:08.60, start: 0.069063, bitrate: 32 kb/s',
+  '[silencedetect @ 0x1] silence_start: 0',
+  '[silencedetect @ 0x1] silence_end: 2.00013 | silence_duration: 2.00013',
+  '[silencedetect @ 0x1] silence_start: 5',
+  '[silencedetect @ 0x1] silence_end: 6.5 | silence_duration: 1.5',
+].join('\n');
+
+/** 偽タイマーのまま、再試行の待ち時間を進めつつ完了を待つ */
+const advanceUntilSettled = async (promise: Promise<unknown>): Promise<void> => {
+  let settled = false;
+  void promise.then(
+    () => {
+      settled = true;
+    },
+    () => {
+      settled = true;
+    }
+  );
+  for (let i = 0; i < 100 && !settled; i += 1) {
+    await jest.advanceTimersByTimeAsync(2000);
+    await new Promise((resolve) => setImmediate(resolve));
+  }
+};
+
+describe('parseDurationSec', () => {
+  it('Duration 行から秒数を取り出す', () => {
+    expect(parseDurationSec('  Duration: 01:02:03.50, start: 0')).toBeCloseTo(3723.5);
+  });
+
+  it('Duration 行が無ければ null を返す', () => {
+    expect(parseDurationSec('no duration')).toBeNull();
+  });
+});
+
+describe('parseSilences', () => {
+  it('start と end の組を無音区間にする', () => {
+    expect(parseSilences(DETECT_OUTPUT)).toEqual([
+      { start: 0, end: 2.00013 },
+      { start: 5, end: 6.5 },
+    ]);
+  });
+
+  it('end が無い無音 (末尾まで続く無音) は end が undefined になる', () => {
+    expect(parseSilences('silence_start: 3.5')).toEqual([{ start: 3.5 }]);
+  });
+
+  it('負の start は 0 に丸める', () => {
+    expect(parseSilences('silence_start: -0.01\nsilence_end: 1 | silence_duration: 1')).toEqual([
+      { start: 0, end: 1 },
+    ]);
+  });
+
+  it('start に対応しない end は無視する', () => {
+    expect(parseSilences('silence_end: 1 | silence_duration: 1')).toEqual([]);
+  });
+
+  it('無音が無ければ空配列を返す', () => {
+    expect(parseSilences('')).toEqual([]);
+  });
+});
+
+describe('buildSpeechRanges', () => {
+  it('無音が無ければ全体を 1 区間にする', () => {
+    expect(buildSpeechRanges([], 10)).toEqual([{ start: 0, end: 10 }]);
+  });
+
+  it('先頭が無音なら発話の開始まで飛ばす (余白付き)', () => {
+    const ranges = buildSpeechRanges([{ start: 0, end: 2 }], 10);
+    expect(ranges).toHaveLength(1);
+    expect(ranges[0].start).toBeCloseTo(1.8);
+    expect(ranges[0].end).toBeCloseTo(10);
+  });
+
+  it('末尾が無音なら発話の終了で止める (余白付き)', () => {
+    const ranges = buildSpeechRanges([{ start: 6 }], 10);
+    expect(ranges).toHaveLength(1);
+    expect(ranges[0].start).toBe(0);
+    expect(ranges[0].end).toBeCloseTo(6.2);
+  });
+
+  it('無音で挟まれた発話ごとに区間を作る', () => {
+    const ranges = buildSpeechRanges(
+      [
+        { start: 0, end: 2 },
+        { start: 5, end: 6.5 },
+      ],
+      8.6
+    );
+    expect(ranges).toHaveLength(2);
+    expect(ranges[0].start).toBeCloseTo(1.8);
+    expect(ranges[0].end).toBeCloseTo(5.2);
+    expect(ranges[1].start).toBeCloseTo(6.3);
+    expect(ranges[1].end).toBeCloseTo(8.6);
+  });
+
+  it('全体が無音なら区間は無い', () => {
+    expect(buildSpeechRanges([{ start: 0 }], 10)).toEqual([]);
+  });
+
+  it('長い区間は最大長以下に等分する', () => {
+    const ranges = buildSpeechRanges([], 70);
+    expect(ranges).toHaveLength(3);
+    for (const r of ranges) {
+      expect(r.end - r.start).toBeLessThanOrEqual(30);
+    }
+    expect(ranges[0].start).toBe(0);
+    expect(ranges[2].end).toBeCloseTo(70);
+    expect(ranges[1].start).toBeCloseTo(ranges[0].end);
+  });
+
+  it('短すぎる区間は除外する', () => {
+    // 無音 5 秒の直後の発話が 0.05 秒で、余白を足しても 0.3 秒に満たない
+    const ranges = buildSpeechRanges(
+      [
+        { start: 0, end: 5 },
+        { start: 5.05, end: 20 },
+      ],
+      20
+    );
+    expect(ranges).toEqual([]);
+  });
+});
+
 describe('TranscriptionService', () => {
+  let service: TranscriptionService;
+
   beforeEach(() => {
     jest.clearAllMocks();
-    jest.useFakeTimers();
-    mockSpawn.mockImplementation(() => createFfmpegMock());
+    jest.spyOn(console, 'info').mockImplementation(() => undefined);
+    jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    setupFfmpeg(DETECT_OUTPUT);
+    mockCreate.mockReset();
+    mockCreate.mockResolvedValue({ text: 'こんにちは' });
+    mockUnlink.mockResolvedValue(undefined);
+    service = new TranscriptionService(mockClient);
   });
 
   afterEach(() => {
     jest.useRealTimers();
+    jest.restoreAllMocks();
   });
 
-  it('正常系: セグメント付きレスポンスを TranscriptSegment[] に変換する', async () => {
-    mockCreate.mockResolvedValue({
-      text: 'やばい！これは面白すぎるwww',
-      segments: [
-        {
-          start: 0.0,
-          end: 5.0,
-          text: 'やばい！これは面白すぎるwww',
-          no_speech_prob: 0.1,
-          avg_logprob: -0.5,
-          compression_ratio: 1.0,
-        },
-        {
-          start: 5.3,
-          end: 10.0,
-          text: 'マジで？どういうことだよ',
-          no_speech_prob: 0.2,
-          avg_logprob: -0.3,
-          compression_ratio: 1.2,
-        },
-      ],
-    });
-
-    const service = new TranscriptionService(mockClient);
-    const promise = service.transcribe('/tmp/test.mp4');
-    await jest.runAllTimersAsync();
-    const result = await promise;
-
-    expect(result).toEqual([
-      { start: 0.0, end: 5.0, text: 'やばい！これは面白すぎるwww' },
-      { start: 5.3, end: 10.0, text: 'マジで？どういうことだよ' },
-    ]);
-  });
-
-  it('segments が undefined の場合は空配列を返す', async () => {
-    mockCreate.mockResolvedValue({
-      text: '',
-    });
-
-    const service = new TranscriptionService(mockClient);
-    const promise = service.transcribe('/tmp/test.mp4');
-    await jest.runAllTimersAsync();
-    const result = await promise;
-
-    expect(result).toEqual([]);
-  });
-
-  it('segments が空配列の場合は空配列を返す', async () => {
-    mockCreate.mockResolvedValue({
-      text: '',
-      segments: [],
-    });
-
-    const service = new TranscriptionService(mockClient);
-    const promise = service.transcribe('/tmp/test.mp4');
-    await jest.runAllTimersAsync();
-    const result = await promise;
-
-    expect(result).toEqual([]);
-  });
-
-  it('API エラー時は3回リトライしてエラーをスローする', async () => {
-    mockCreate.mockRejectedValue(new Error('OpenAI API error'));
-
-    const service = new TranscriptionService(mockClient);
-    const promise = service.transcribe('/tmp/test.mp4');
-    const [, error] = await Promise.all([jest.runAllTimersAsync(), promise.catch((e) => e)]);
-
-    expect(error).toBeInstanceOf(Error);
-    expect((error as Error).message).toContain('OpenAI API error');
-    expect(mockCreate).toHaveBeenCalledTimes(4); // 1回 + 3回リトライ
-  });
-
-  it('タイムアウト時もリトライして最終的にエラーをスローする', async () => {
-    mockCreate.mockImplementation(() => new Promise(() => undefined));
-
-    const service = new TranscriptionService(mockClient);
-    const promise = service.transcribe('/tmp/test.mp4');
-    const [, error] = await Promise.all([jest.runAllTimersAsync(), promise.catch((e) => e)]);
-
-    expect(error).toBeInstanceOf(Error);
-    expect((error as Error).message).toContain('タイムアウト');
-    expect(mockCreate).toHaveBeenCalledTimes(4); // 1回 + 3回リトライ
-  });
-
-  it('リトライ: 1回目失敗後の2回目で成功する', async () => {
+  it('区間ごとに文字起こしし、区間の開始・終了を start・end にする', async () => {
     mockCreate
-      .mockRejectedValueOnce(new Error('一時的なエラー'))
-      .mockResolvedValue({ text: '', segments: [] });
+      .mockResolvedValueOnce({ text: ' 一つ目 ' })
+      .mockResolvedValueOnce({ text: '二つ目' });
 
-    const service = new TranscriptionService(mockClient);
-    const promise = service.transcribe('/tmp/test.mp4');
-    await jest.runAllTimersAsync();
-    const result = await promise;
+    const result = await service.transcribe('/tmp/video.mp4');
+
+    expect(result).toHaveLength(2);
+    expect(result[0].text).toBe('一つ目');
+    expect(result[0].start).toBeCloseTo(1.8);
+    expect(result[0].end).toBeCloseTo(5.2);
+    expect(result[1].text).toBe('二つ目');
+    expect(result[1].start).toBeCloseTo(6.3);
+    expect(result[1].end).toBeCloseTo(8.6);
+  });
+
+  it('gpt-transcribe を languages 指定で呼ぶ', async () => {
+    await service.transcribe('/tmp/video.mp4');
+
+    expect(mockCreate).toHaveBeenCalledWith({
+      model: 'gpt-transcribe',
+      file: 'mock-stream',
+      languages: ['ja'],
+    });
+  });
+
+  it('空のテキストは行にしない', async () => {
+    mockCreate.mockResolvedValueOnce({ text: '  ' }).mockResolvedValueOnce({ text: '残る' });
+
+    const result = await service.transcribe('/tmp/video.mp4');
+
+    expect(result.map((s) => s.text)).toEqual(['残る']);
+  });
+
+  it('発話区間が無ければ API を呼ばず空配列を返す', async () => {
+    setupFfmpeg('  Duration: 00:00:05.00\n[silencedetect @ 0x1] silence_start: 0');
+
+    const result = await service.transcribe('/tmp/video.mp4');
 
     expect(result).toEqual([]);
-    expect(mockCreate).toHaveBeenCalledTimes(2);
-  });
-
-  it('正しいパラメータで API が呼ばれる', async () => {
-    mockCreate.mockResolvedValue({ text: '', segments: [] });
-
-    const service = new TranscriptionService(mockClient);
-    const promise = service.transcribe('/tmp/video.mp4');
-    await jest.runAllTimersAsync();
-    await promise;
-
-    expect(mockCreate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        model: 'whisper-1',
-        response_format: 'verbose_json',
-        language: 'ja',
-      })
-    );
-  });
-
-  it('ffmpeg で音声抽出してから API を呼ぶ', async () => {
-    mockCreate.mockResolvedValue({ text: '', segments: [] });
-
-    const service = new TranscriptionService(mockClient);
-    const promise = service.transcribe('/tmp/video.mp4');
-    await jest.runAllTimersAsync();
-    await promise;
-
-    expect(mockSpawn).toHaveBeenCalledWith(
-      'ffmpeg',
-      expect.arrayContaining([
-        '-i',
-        '/tmp/video.mp4',
-        '-vn',
-        '-c:a',
-        'libmp3lame',
-        '-b:a',
-        '32k',
-        '-f',
-        'mp3',
-      ])
-    );
-    expect(mockCreate).toHaveBeenCalledTimes(1);
-  });
-
-  it('API 呼び出し後に一時ファイルを削除する', async () => {
-    mockCreate.mockResolvedValue({ text: '', segments: [] });
-    const { unlink } = jest.requireMock<{ unlink: jest.Mock }>('node:fs/promises');
-
-    const service = new TranscriptionService(mockClient);
-    const promise = service.transcribe('/tmp/video.mp4');
-    await jest.runAllTimersAsync();
-    await promise;
-
-    expect(unlink).toHaveBeenCalledWith('/tmp/quick-clip-audio-test-uuid.mp3');
-  });
-
-  it('API エラー時でも一時ファイルを削除する', async () => {
-    mockCreate.mockRejectedValue(new Error('API error'));
-    const { unlink } = jest.requireMock<{ unlink: jest.Mock }>('node:fs/promises');
-
-    const service = new TranscriptionService(mockClient);
-    const promise = service.transcribe('/tmp/video.mp4');
-    await Promise.all([jest.runAllTimersAsync(), promise.catch(() => undefined)]);
-
-    expect(unlink).toHaveBeenCalledWith('/tmp/quick-clip-audio-test-uuid.mp3');
-  });
-
-  it('ffmpeg が失敗した場合は例外をスローする', async () => {
-    mockSpawn.mockImplementation(() => createFfmpegMock({ exitCode: 1, stderrData: 'error' }));
-
-    const service = new TranscriptionService(mockClient);
-    const promise = service.transcribe('/tmp/video.mp4');
-    const [, error] = await Promise.all([jest.runAllTimersAsync(), promise.catch((e) => e)]);
-
-    expect(error).toBeInstanceOf(Error);
-    expect((error as Error).message).toContain('音声の抽出に失敗しました');
     expect(mockCreate).not.toHaveBeenCalled();
   });
 
-  it('ffmpeg spawn エラー時は例外をスローする', async () => {
-    mockSpawn.mockImplementation(() => createFfmpegMock({ spawnError: new Error('spawn failed') }));
+  it('onProgress を区間単位で呼ぶ', async () => {
+    const onProgress = jest.fn().mockResolvedValue(undefined);
 
-    const service = new TranscriptionService(mockClient);
+    await service.transcribe('/tmp/video.mp4', onProgress);
+
+    expect(onProgress).toHaveBeenCalledTimes(2);
+    expect(onProgress).toHaveBeenLastCalledWith(2, 2);
+  });
+
+  it('同時リクエスト数は上限を超えない', async () => {
+    // 1 秒の発話と 1 秒の無音を 8 回繰り返した出力
+    const lines = ['  Duration: 00:00:16.00'];
+    for (let i = 0; i < 8; i += 1) {
+      lines.push(`silence_start: ${i * 2 + 1}`);
+      lines.push(`silence_end: ${i * 2 + 2} | silence_duration: 1`);
+    }
+    setupFfmpeg(lines.join('\n'));
+
+    let running = 0;
+    let maxRunning = 0;
+    mockCreate.mockImplementation(async () => {
+      running += 1;
+      maxRunning = Math.max(maxRunning, running);
+      await new Promise((resolve) => setImmediate(resolve));
+      running -= 1;
+      return { text: 'あ' };
+    });
+
+    const result = await service.transcribe('/tmp/video.mp4');
+
+    expect(result).toHaveLength(8);
+    expect(maxRunning).toBeLessThanOrEqual(5);
+    expect(maxRunning).toBeGreaterThan(1);
+  });
+
+  it('API が一度失敗しても再試行して成功する', async () => {
+    jest.useFakeTimers({ doNotFake: ['setImmediate'] });
+    mockCreate.mockRejectedValueOnce(new Error('一時的なエラー'));
+
     const promise = service.transcribe('/tmp/video.mp4');
-    const [, error] = await Promise.all([jest.runAllTimersAsync(), promise.catch((e) => e)]);
+    await advanceUntilSettled(promise);
+    const result = await promise;
 
-    expect(error).toBeInstanceOf(Error);
-    expect((error as Error).message).toContain('音声の抽出に失敗しました');
+    expect(result).toHaveLength(2);
+    expect(mockCreate).toHaveBeenCalledTimes(3);
+  });
+
+  it('API が失敗し続けたらエラーをスローし、一時ファイルを削除する', async () => {
+    jest.useFakeTimers({ doNotFake: ['setImmediate'] });
+    mockCreate.mockRejectedValue(new Error('API エラー'));
+
+    const promise = service.transcribe('/tmp/video.mp4');
+    const assertion = expect(promise).rejects.toThrow('API エラー');
+    await advanceUntilSettled(promise);
+    await assertion;
+
+    const unlinked = mockUnlink.mock.calls.map((c) => c[0] as string);
+    expect(unlinked).toContain('/tmp/quick-clip-audio-test-uuid.mp3');
+    expect(unlinked).toContain('/tmp/quick-clip-audio-test-uuid-range.mp3');
+  });
+
+  it('正常終了時も一時ファイルを削除する', async () => {
+    await service.transcribe('/tmp/video.mp4');
+
+    expect(mockUnlink).toHaveBeenCalledWith('/tmp/quick-clip-audio-test-uuid.mp3');
+    expect(mockUnlink).toHaveBeenCalledWith('/tmp/quick-clip-audio-test-uuid-range.mp3');
+  });
+
+  it('一時ファイルの削除に失敗しても例外にしない', async () => {
+    mockUnlink.mockRejectedValue(new Error('削除失敗'));
+
+    await expect(service.transcribe('/tmp/video.mp4')).resolves.toHaveLength(2);
+  });
+
+  it('音声抽出の ffmpeg が失敗したら例外をスローする', async () => {
+    setupFfmpeg(DETECT_OUTPUT, { extract: { exitCode: 1, stderr: 'boom' } });
+
+    await expect(service.transcribe('/tmp/video.mp4')).rejects.toThrow('音声の抽出に失敗しました');
     expect(mockCreate).not.toHaveBeenCalled();
   });
 
-  it('24MB 超のファイルはチャンク分割して送信する', async () => {
-    // CHUNK_DURATION_SEC = Math.floor(10 * 1024 * 1024 / 4000) = 2621
-    // 25MB → estimatedDurationSec = 6553.6 → numChunks = 3
-    const { stat } = jest.requireMock<{ stat: jest.Mock }>('node:fs/promises');
-    stat.mockResolvedValue({ size: 25 * 1024 * 1024 });
+  it('ffmpeg の起動に失敗したら例外をスローする', async () => {
+    mockSpawn.mockImplementation(() => createFfmpegProcess({ spawnError: new Error('ENOENT') }));
 
-    mockCreate
-      .mockResolvedValueOnce({
-        text: '',
-        segments: [
-          {
-            start: 0.0,
-            end: 5.0,
-            text: 'chunk1',
-            no_speech_prob: 0.1,
-            avg_logprob: -0.5,
-            compression_ratio: 1.0,
-          },
-        ],
-      })
-      .mockResolvedValueOnce({
-        text: '',
-        segments: [
-          {
-            start: 1.0,
-            end: 3.0,
-            text: 'chunk2',
-            no_speech_prob: 0.1,
-            avg_logprob: -0.5,
-            compression_ratio: 1.0,
-          },
-        ],
-      })
-      .mockResolvedValueOnce({
-        text: '',
-        segments: [
-          {
-            start: 0.5,
-            end: 2.0,
-            text: 'chunk3',
-            no_speech_prob: 0.1,
-            avg_logprob: -0.5,
-            compression_ratio: 1.0,
-          },
-        ],
-      });
-
-    const service = new TranscriptionService(mockClient);
-    const promise = service.transcribe('/tmp/video.mp4');
-    await jest.runAllTimersAsync();
-    const result = await promise;
-
-    expect(mockCreate).toHaveBeenCalledTimes(3);
-    expect(result).toHaveLength(3);
-    expect(result[0].start).toBe(0.0);
-    expect(result[0].end).toBe(5.0);
-    expect(result[0].text).toBe('chunk1');
+    await expect(service.transcribe('/tmp/video.mp4')).rejects.toThrow('ENOENT');
   });
 
-  it('2 チャンク目のタイムスタンプにオフセットが加算される', async () => {
-    // CHUNK_DURATION_SEC = Math.floor(10 * 1024 * 1024 / 4000) = 2621
-    const expectedChunkDurationSec = 2621;
-    const { stat } = jest.requireMock<{ stat: jest.Mock }>('node:fs/promises');
-    stat.mockResolvedValue({ size: 25 * 1024 * 1024 });
+  it('音声の長さが取れなければ例外をスローする', async () => {
+    setupFfmpeg('silence_start: 1');
 
-    mockCreate
-      .mockResolvedValueOnce({
-        text: '',
-        segments: [
-          {
-            start: 0.0,
-            end: 5.0,
-            text: 'chunk1',
-            no_speech_prob: 0.1,
-            avg_logprob: -0.5,
-            compression_ratio: 1.0,
-          },
-        ],
-      })
-      .mockResolvedValueOnce({
-        text: '',
-        segments: [
-          {
-            start: 1.0,
-            end: 3.0,
-            text: 'chunk2',
-            no_speech_prob: 0.1,
-            avg_logprob: -0.5,
-            compression_ratio: 1.0,
-          },
-        ],
-      })
-      .mockResolvedValueOnce({
-        text: '',
-        segments: [],
-      });
-
-    const service = new TranscriptionService(mockClient);
-    const promise = service.transcribe('/tmp/video.mp4');
-    await jest.runAllTimersAsync();
-    const result = await promise;
-
-    expect(result[1].start).toBeCloseTo(1.0 + expectedChunkDurationSec);
-    expect(result[1].end).toBeCloseTo(3.0 + expectedChunkDurationSec);
-    expect(result[1].text).toBe('chunk2');
-  });
-
-  it('チャンク API エラー時にチャンクファイルを削除する', async () => {
-    const { stat, unlink } = jest.requireMock<{ stat: jest.Mock; unlink: jest.Mock }>(
-      'node:fs/promises'
+    await expect(service.transcribe('/tmp/video.mp4')).rejects.toThrow(
+      '音声の長さを取得できませんでした'
     );
-    stat.mockResolvedValue({ size: 25 * 1024 * 1024 });
-    mockCreate.mockRejectedValue(new Error('API error'));
-
-    const service = new TranscriptionService(mockClient);
-    const promise = service.transcribe('/tmp/video.mp4');
-    await Promise.all([jest.runAllTimersAsync(), promise.catch(() => undefined)]);
-
-    expect(unlink).toHaveBeenCalledWith(expect.stringContaining('-chunk-0.mp3'));
-    expect(unlink).toHaveBeenCalledWith('/tmp/quick-clip-audio-test-uuid.mp3');
-  });
-
-  it('no_speech_prob > 0.6 のセグメントが除外される', async () => {
-    const { stat } = jest.requireMock<{ stat: jest.Mock }>('node:fs/promises');
-    stat.mockResolvedValue({ size: 1024 * 1024 });
-    mockCreate.mockResolvedValue({
-      text: '',
-      segments: [
-        {
-          start: 0.0,
-          end: 5.0,
-          text: '正常セグメント',
-          no_speech_prob: 0.1,
-          avg_logprob: -0.5,
-          compression_ratio: 1.0,
-        },
-        {
-          start: 5.0,
-          end: 10.0,
-          text: 'ハルシネーション',
-          no_speech_prob: 0.7,
-          avg_logprob: -0.5,
-          compression_ratio: 1.0,
-        },
-      ],
-    });
-
-    const service = new TranscriptionService(mockClient);
-    const promise = service.transcribe('/tmp/video.mp4');
-    await jest.runAllTimersAsync();
-    const result = await promise;
-
-    expect(result).toHaveLength(1);
-    expect(result[0].text).toBe('正常セグメント');
-  });
-
-  it('avg_logprob < -1.0 のセグメントが除外される', async () => {
-    const { stat } = jest.requireMock<{ stat: jest.Mock }>('node:fs/promises');
-    stat.mockResolvedValue({ size: 1024 * 1024 });
-    mockCreate.mockResolvedValue({
-      text: '',
-      segments: [
-        {
-          start: 0.0,
-          end: 5.0,
-          text: '正常セグメント',
-          no_speech_prob: 0.1,
-          avg_logprob: -0.5,
-          compression_ratio: 1.0,
-        },
-        {
-          start: 5.0,
-          end: 10.0,
-          text: '不確かなセグメント',
-          no_speech_prob: 0.1,
-          avg_logprob: -1.5,
-          compression_ratio: 1.0,
-        },
-      ],
-    });
-
-    const service = new TranscriptionService(mockClient);
-    const promise = service.transcribe('/tmp/video.mp4');
-    await jest.runAllTimersAsync();
-    const result = await promise;
-
-    expect(result).toHaveLength(1);
-    expect(result[0].text).toBe('正常セグメント');
-  });
-
-  it('compression_ratio > 2.4 のセグメントが除外される', async () => {
-    const { stat } = jest.requireMock<{ stat: jest.Mock }>('node:fs/promises');
-    stat.mockResolvedValue({ size: 1024 * 1024 });
-    mockCreate.mockResolvedValue({
-      text: '',
-      segments: [
-        {
-          start: 0.0,
-          end: 5.0,
-          text: '正常セグメント',
-          no_speech_prob: 0.1,
-          avg_logprob: -0.5,
-          compression_ratio: 1.0,
-        },
-        {
-          start: 5.0,
-          end: 10.0,
-          text: '繰り返しセグメント',
-          no_speech_prob: 0.1,
-          avg_logprob: -0.5,
-          compression_ratio: 2.5,
-        },
-      ],
-    });
-
-    const service = new TranscriptionService(mockClient);
-    const promise = service.transcribe('/tmp/video.mp4');
-    await jest.runAllTimersAsync();
-    const result = await promise;
-
-    expect(result).toHaveLength(1);
-    expect(result[0].text).toBe('正常セグメント');
-  });
-
-  it('境界値のセグメントは保持される（閾値と同値は許容）', async () => {
-    const { stat } = jest.requireMock<{ stat: jest.Mock }>('node:fs/promises');
-    stat.mockResolvedValue({ size: 1024 * 1024 });
-    mockCreate.mockResolvedValue({
-      text: '',
-      segments: [
-        {
-          start: 0.0,
-          end: 5.0,
-          text: 'セグメント1',
-          no_speech_prob: 0.0,
-          avg_logprob: -0.1,
-          compression_ratio: 1.0,
-        },
-        {
-          start: 5.0,
-          end: 10.0,
-          text: 'セグメント2',
-          no_speech_prob: 0.6,
-          avg_logprob: -1.0,
-          compression_ratio: 2.4,
-        },
-      ],
-    });
-
-    const service = new TranscriptionService(mockClient);
-    const promise = service.transcribe('/tmp/video.mp4');
-    await jest.runAllTimersAsync();
-    const result = await promise;
-
-    expect(result).toHaveLength(2);
-    expect(result[0].text).toBe('セグメント1');
-    expect(result[1].text).toBe('セグメント2');
-  });
-
-  it('チャンク分割時もフィルタリングが機能する', async () => {
-    // CHUNK_DURATION_SEC = Math.floor(10 * 1024 * 1024 / 4000) = 2621
-    // 25MB → 3チャンク
-    const { stat } = jest.requireMock<{ stat: jest.Mock }>('node:fs/promises');
-    stat.mockResolvedValue({ size: 25 * 1024 * 1024 });
-
-    mockCreate
-      .mockResolvedValueOnce({
-        text: '',
-        segments: [
-          {
-            start: 0.0,
-            end: 5.0,
-            text: '正常チャンク1',
-            no_speech_prob: 0.1,
-            avg_logprob: -0.5,
-            compression_ratio: 1.0,
-          },
-          {
-            start: 5.0,
-            end: 10.0,
-            text: 'ハルシネーション',
-            no_speech_prob: 0.9,
-            avg_logprob: -0.5,
-            compression_ratio: 1.0,
-          },
-        ],
-      })
-      .mockResolvedValueOnce({
-        text: '',
-        segments: [
-          {
-            start: 0.0,
-            end: 3.0,
-            text: '正常チャンク2',
-            no_speech_prob: 0.1,
-            avg_logprob: -0.5,
-            compression_ratio: 1.0,
-          },
-        ],
-      })
-      .mockResolvedValueOnce({
-        text: '',
-        segments: [],
-      });
-
-    const service = new TranscriptionService(mockClient);
-    const promise = service.transcribe('/tmp/video.mp4');
-    await jest.runAllTimersAsync();
-    const result = await promise;
-
-    expect(result).toHaveLength(2);
-    expect(result[0].text).toBe('正常チャンク1');
-    expect(result[1].text).toBe('正常チャンク2');
-  });
-
-  it('並列化: 複数チャンクが Promise.all で並列処理されタイムスタンプ順に結合される', async () => {
-    // CHUNK_DURATION_SEC = Math.floor(10 * 1024 * 1024 / 4000) = 2621
-    const expectedChunkDurationSec = 2621;
-    const { stat } = jest.requireMock<{ stat: jest.Mock }>('node:fs/promises');
-    // 3チャンク相当のサイズ: 3 * CHUNK_DURATION_SEC * MP3_BYTES_PER_SEC
-    stat.mockResolvedValue({ size: 3 * expectedChunkDurationSec * 4000 });
-
-    mockCreate
-      .mockResolvedValueOnce({
-        text: '',
-        segments: [
-          {
-            start: 0.0,
-            end: 5.0,
-            text: 'chunk1',
-            no_speech_prob: 0.1,
-            avg_logprob: -0.5,
-            compression_ratio: 1.0,
-          },
-        ],
-      })
-      .mockResolvedValueOnce({
-        text: '',
-        segments: [
-          {
-            start: 1.0,
-            end: 3.0,
-            text: 'chunk2',
-            no_speech_prob: 0.1,
-            avg_logprob: -0.5,
-            compression_ratio: 1.0,
-          },
-        ],
-      })
-      .mockResolvedValueOnce({
-        text: '',
-        segments: [
-          {
-            start: 2.0,
-            end: 4.0,
-            text: 'chunk3',
-            no_speech_prob: 0.1,
-            avg_logprob: -0.5,
-            compression_ratio: 1.0,
-          },
-        ],
-      });
-
-    const service = new TranscriptionService(mockClient);
-    const promise = service.transcribe('/tmp/video.mp4');
-    await jest.runAllTimersAsync();
-    const result = await promise;
-
-    expect(mockCreate).toHaveBeenCalledTimes(3);
-    expect(result).toHaveLength(3);
-    expect(result[0].text).toBe('chunk1');
-    expect(result[1].text).toBe('chunk2');
-    expect(result[1].start).toBeCloseTo(1.0 + expectedChunkDurationSec);
-    expect(result[2].text).toBe('chunk3');
-    expect(result[2].start).toBeCloseTo(2.0 + 2 * expectedChunkDurationSec);
-  });
-
-  it('チャンク処理: リトライ後に成功する', async () => {
-    const { stat } = jest.requireMock<{ stat: jest.Mock }>('node:fs/promises');
-    stat.mockResolvedValue({ size: 25 * 1024 * 1024 });
-
-    // chunk0の最初の試行は失敗、リトライで成功。chunk1,chunk2は初回成功
-    mockCreate
-      .mockRejectedValueOnce(new Error('一時的なエラー'))
-      .mockResolvedValue({ text: '', segments: [] });
-
-    const service = new TranscriptionService(mockClient);
-    const promise = service.transcribe('/tmp/video.mp4');
-    await jest.runAllTimersAsync();
-    const result = await promise;
-
-    expect(result).toEqual([]);
-    expect(mockCreate).toHaveBeenCalledTimes(4); // chunk0の再試行1回 + chunk0,1,2の成功
-  });
-
-  it('onProgress コールバックはチャンク分割時のみ各チャンク完了後に呼ばれる', async () => {
-    const { stat } = jest.requireMock<{ stat: jest.Mock }>('node:fs/promises');
-    stat.mockResolvedValue({ size: 25 * 1024 * 1024 });
-
-    mockCreate.mockResolvedValue({ text: '', segments: [] });
-
-    const onProgress = jest.fn().mockResolvedValue(undefined);
-    const service = new TranscriptionService(mockClient);
-    const promise = service.transcribe('/tmp/video.mp4', onProgress);
-    await jest.runAllTimersAsync();
-    await promise;
-
-    expect(onProgress).toHaveBeenCalled();
-    // numChunks 回呼ばれ、最後の呼び出しは (numChunks, numChunks)
-    const calls = onProgress.mock.calls as Array<[number, number]>;
-    const lastCall = calls[calls.length - 1];
-    expect(lastCall[0]).toBe(lastCall[1]); // completed === total
-  });
-
-  it('onProgress コールバックは単一ファイル処理時には呼ばれない', async () => {
-    const { stat } = jest.requireMock<{ stat: jest.Mock }>('node:fs/promises');
-    stat.mockResolvedValue({ size: 1024 * 1024 }); // 1MB (< 24MB)
-
-    mockCreate.mockResolvedValue({ text: '', segments: [] });
-
-    const onProgress = jest.fn().mockResolvedValue(undefined);
-    const service = new TranscriptionService(mockClient);
-    const promise = service.transcribe('/tmp/video.mp4', onProgress);
-    await jest.runAllTimersAsync();
-    await promise;
-
-    expect(onProgress).not.toHaveBeenCalled();
   });
 });

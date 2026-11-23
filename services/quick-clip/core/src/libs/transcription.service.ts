@@ -1,5 +1,5 @@
 import { createReadStream } from 'node:fs';
-import { stat, unlink } from 'node:fs/promises';
+import { unlink } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import type OpenAI from 'openai';
@@ -11,31 +11,115 @@ export type TranscriptSegment = {
   text: string;
 };
 
-const ERROR_MESSAGES = {
-  AUDIO_EXTRACT_FAILED: '音声の抽出に失敗しました',
-  TIMEOUT: 'Whisper APIの呼び出しがタイムアウトしました',
-} as const;
-
-const MAX_FILE_SIZE_BYTES = 24 * 1024 * 1024; // チャンク判定閾値（変更しない）
-const CHUNK_TARGET_SIZE_BYTES = 10 * 1024 * 1024; // チャンクサイズ計算用
-const MP3_BYTES_PER_SEC = 32000 / 8;
-const CHUNK_DURATION_SEC = Math.floor(CHUNK_TARGET_SIZE_BYTES / MP3_BYTES_PER_SEC);
-
-const MAX_RETRIES = 3;
-const REQUEST_TIMEOUT_MS = 600_000;
-
-const NO_SPEECH_PROB_THRESHOLD = 0.6; // Whisper 公式の無音声判定値
-const AVG_LOGPROB_THRESHOLD = -1.0; // モデルの不確かさ閾値
-const COMPRESSION_RATIO_THRESHOLD = 2.4; // 繰り返しテキスト検出値
-
-type RawSegment = {
+/** 動画先頭からの秒で表した発話の区間 */
+export type SpeechRange = {
   start: number;
   end: number;
-  text: string;
-  no_speech_prob: number;
-  avg_logprob: number;
-  compression_ratio: number;
 };
+
+/** silencedetect が検出した無音の区間。末尾まで続く無音は end が undefined になる */
+type SilenceRange = {
+  start: number;
+  end?: number;
+};
+
+const ERROR_MESSAGES = {
+  AUDIO_EXTRACT_FAILED: '音声の抽出に失敗しました',
+  SILENCE_DETECT_FAILED: '無音区間の検出に失敗しました',
+  AUDIO_DURATION_NOT_FOUND: '音声の長さを取得できませんでした',
+  TIMEOUT: '文字起こし API の呼び出しがタイムアウトしました',
+} as const;
+
+const TRANSCRIBE_MODEL = 'gpt-transcribe';
+const TRANSCRIBE_LANGUAGES = ['ja'];
+
+// 無音とみなす音量。動画の BGM や環境音を拾いすぎず、発話の間の息継ぎは無音として切れる値
+const SILENCE_NOISE_DB = -35;
+// 無音とみなす最短の長さ。これより短い間は文中の息継ぎとして 1 つの発話にまとめる
+const SILENCE_MIN_DURATION_SEC = 0.5;
+// 区間の端に足す余白。語頭・語尾が切れて認識されなくなることを防ぐ。
+// 無音の最短長の半分以下にして、隣り合う区間が重ならないようにする
+const SPEECH_PADDING_SEC = 0.2;
+// 1 区間の最大長。後続の処理は 1 行を感情スコアの単位にするため、
+// 従来のセグメントと同程度の長さに揃える。32kbps の MP3 で約 120KB であり、API のサイズ上限に収まる
+const MAX_RANGE_DURATION_SEC = 30;
+// これより短い音は物音などで発話にならないため送らない
+const MIN_RANGE_DURATION_SEC = 0.3;
+
+// 長い動画では区間が数百になるため、API への同時リクエスト数を抑える
+const MAX_CONCURRENCY = 5;
+const MAX_RETRIES = 3;
+// 1 区間は最大 30 秒の音声であり、長い音声全体を 1 回で送っていた頃より短くてよい
+const REQUEST_TIMEOUT_MS = 60_000;
+
+/**
+ * ffmpeg の出力から音声全体の長さ (秒) を取り出す。
+ * Batch のコンテナには ffmpeg のみ入れているため、ffprobe には頼らない。
+ */
+export function parseDurationSec(ffmpegOutput: string): number | null {
+  const match = /Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)/.exec(ffmpegOutput);
+  if (!match) {
+    return null;
+  }
+  return Number(match[1]) * 3600 + Number(match[2]) * 60 + Number(match[3]);
+}
+
+/** silencedetect の出力から無音の区間を取り出す */
+export function parseSilences(ffmpegOutput: string): SilenceRange[] {
+  const silences: SilenceRange[] = [];
+  const pattern = /silence_start:\s*(-?[\d.]+)|silence_end:\s*(-?[\d.]+)/g;
+  for (const match of ffmpegOutput.matchAll(pattern)) {
+    if (match[1] !== undefined) {
+      silences.push({ start: Math.max(0, Number(match[1])) });
+    } else if (match[2] !== undefined) {
+      const last = silences[silences.length - 1];
+      if (last && last.end === undefined) {
+        last.end = Number(match[2]);
+      }
+    }
+  }
+  return silences;
+}
+
+/**
+ * 無音の区間を除いた発話の区間を作る。
+ * 長すぎる区間は均等に分割し、短すぎる区間は捨てる。
+ */
+export function buildSpeechRanges(silences: SilenceRange[], durationSec: number): SpeechRange[] {
+  const speeches: SpeechRange[] = [];
+  let cursor = 0;
+  for (const silence of silences) {
+    if (silence.start > cursor) {
+      speeches.push({ start: cursor, end: silence.start });
+    }
+    if (silence.end === undefined) {
+      cursor = durationSec;
+      break;
+    }
+    cursor = Math.max(cursor, silence.end);
+  }
+  if (cursor < durationSec) {
+    speeches.push({ start: cursor, end: durationSec });
+  }
+
+  const ranges: SpeechRange[] = [];
+  for (const speech of speeches) {
+    // 余白を足す前の長さで判定する。余白込みだと物音のような短い音まで送ってしまう
+    if (speech.end - speech.start < MIN_RANGE_DURATION_SEC) {
+      continue;
+    }
+    const start = Math.max(0, speech.start - SPEECH_PADDING_SEC);
+    const end = Math.min(durationSec, speech.end + SPEECH_PADDING_SEC);
+    const length = end - start;
+    // 端数だけの短い区間ができないよう、等分して 1 区間を最大長以下にする
+    const pieces = Math.max(1, Math.ceil(length / MAX_RANGE_DURATION_SEC));
+    const pieceLength = length / pieces;
+    for (let i = 0; i < pieces; i += 1) {
+      ranges.push({ start: start + pieceLength * i, end: start + pieceLength * (i + 1) });
+    }
+  }
+  return ranges;
+}
 
 export class TranscriptionService {
   private readonly client: OpenAI;
@@ -44,7 +128,8 @@ export class TranscriptionService {
     this.client = client;
   }
 
-  private runFfmpeg(args: string[]): Promise<void> {
+  /** ffmpeg を実行し、stderr を返す */
+  private runFfmpeg(args: string[], errorMessage: string): Promise<string> {
     return new Promise((resolve, reject) => {
       const ffmpeg = spawn('ffmpeg', args);
 
@@ -54,89 +139,116 @@ export class TranscriptionService {
       });
 
       ffmpeg.on('error', (error) => {
-        reject(new Error(`${ERROR_MESSAGES.AUDIO_EXTRACT_FAILED}: ${error.message}`));
+        reject(new Error(`${errorMessage}: ${error.message}`));
       });
 
       ffmpeg.on('close', (code) => {
         if (code === 0) {
-          resolve();
+          resolve(stderr);
           return;
         }
-        reject(
-          new Error(`${ERROR_MESSAGES.AUDIO_EXTRACT_FAILED}: exit code ${code}, stderr: ${stderr}`)
-        );
+        reject(new Error(`${errorMessage}: exit code ${code}, stderr: ${stderr}`));
       });
     });
   }
 
-  private extractAudio(videoFilePath: string, audioOutputPath: string): Promise<void> {
-    return this.runFfmpeg([
-      '-hide_banner',
-      '-i',
-      videoFilePath,
-      '-vn',
-      '-ac',
-      '1',
-      '-ar',
-      '16000',
-      '-c:a',
-      'libmp3lame',
-      '-b:a',
-      '32k',
-      '-f',
-      'mp3',
-      '-y',
-      audioOutputPath,
-    ]);
+  private async extractAudio(videoFilePath: string, audioOutputPath: string): Promise<void> {
+    await this.runFfmpeg(
+      [
+        '-hide_banner',
+        '-i',
+        videoFilePath,
+        '-vn',
+        '-ac',
+        '1',
+        '-ar',
+        '16000',
+        '-c:a',
+        'libmp3lame',
+        '-b:a',
+        '32k',
+        '-f',
+        'mp3',
+        '-y',
+        audioOutputPath,
+      ],
+      ERROR_MESSAGES.AUDIO_EXTRACT_FAILED
+    );
   }
 
-  private extractAudioChunk(
-    audioFilePath: string,
-    chunkOutputPath: string,
-    startSec: number,
-    durationSec: number
-  ): Promise<void> {
-    return this.runFfmpeg([
-      '-hide_banner',
-      '-ss',
-      String(startSec),
-      '-i',
-      audioFilePath,
-      '-t',
-      String(durationSec),
-      '-c:a',
-      'copy',
-      '-y',
-      chunkOutputPath,
-    ]);
-  }
-
-  private async transcribeFile(audioFilePath: string): Promise<TranscriptSegment[]> {
-    const response = await this.client.audio.transcriptions.create({
-      model: 'whisper-1',
-      file: createReadStream(audioFilePath),
-      response_format: 'verbose_json',
-      language: 'ja',
-    });
-
-    const segments = (response as { segments?: RawSegment[] }).segments;
-
-    if (!segments) {
-      return [];
+  private async detectSpeechRanges(audioFilePath: string): Promise<SpeechRange[]> {
+    const output = await this.runFfmpeg(
+      [
+        '-hide_banner',
+        '-nostats',
+        '-i',
+        audioFilePath,
+        '-vn',
+        '-af',
+        `silencedetect=noise=${SILENCE_NOISE_DB}dB:d=${SILENCE_MIN_DURATION_SEC}`,
+        '-f',
+        'null',
+        '-',
+      ],
+      ERROR_MESSAGES.SILENCE_DETECT_FAILED
+    );
+    const durationSec = parseDurationSec(output);
+    if (durationSec === null) {
+      throw new Error(`${ERROR_MESSAGES.AUDIO_DURATION_NOT_FOUND}: stderr: ${output}`);
     }
+    return buildSpeechRanges(parseSilences(output), durationSec);
+  }
 
-    return segments
-      .filter(
-        (s) =>
-          s.no_speech_prob <= NO_SPEECH_PROB_THRESHOLD &&
-          s.avg_logprob >= AVG_LOGPROB_THRESHOLD &&
-          s.compression_ratio <= COMPRESSION_RATIO_THRESHOLD
-      )
-      .map((s) => ({
-        start: s.start,
-        end: s.end,
-        text: s.text,
-      }));
+  private async extractAudioRange(
+    audioFilePath: string,
+    outputPath: string,
+    range: SpeechRange
+  ): Promise<void> {
+    await this.runFfmpeg(
+      [
+        '-hide_banner',
+        '-ss',
+        String(range.start),
+        '-i',
+        audioFilePath,
+        '-t',
+        String(range.end - range.start),
+        '-c:a',
+        'copy',
+        '-y',
+        outputPath,
+      ],
+      ERROR_MESSAGES.AUDIO_EXTRACT_FAILED
+    );
+  }
+
+  private async transcribeFile(audioFilePath: string): Promise<string> {
+    const response = await this.client.audio.transcriptions.create({
+      model: TRANSCRIBE_MODEL,
+      file: createReadStream(audioFilePath),
+      languages: TRANSCRIBE_LANGUAGES,
+    });
+    return response.text.trim();
+  }
+
+  private async transcribeRange(
+    audioFilePath: string,
+    range: SpeechRange
+  ): Promise<TranscriptSegment | null> {
+    const rangePath = `/tmp/quick-clip-audio-${randomUUID()}-range.mp3`;
+    try {
+      await this.extractAudioRange(audioFilePath, rangePath, range);
+      const text = await withRetry(
+        async () =>
+          withTimeout(this.transcribeFile(rangePath), REQUEST_TIMEOUT_MS, ERROR_MESSAGES.TIMEOUT),
+        { maxRetries: MAX_RETRIES }
+      );
+      return text === '' ? null : { start: range.start, end: range.end, text };
+    } finally {
+      await unlink(rangePath).catch((err: unknown) => {
+        console.warn('[TranscriptionService] 区間ファイルの削除に失敗しました:', err);
+      });
+    }
   }
 
   public async transcribe(
@@ -146,74 +258,38 @@ export class TranscriptionService {
     const audioFilePath = `/tmp/quick-clip-audio-${randomUUID()}.mp3`;
 
     console.info(`[TranscriptionService] 音声抽出開始: videoFile=${videoFilePath}`);
-    await this.extractAudio(videoFilePath, audioFilePath);
-
     try {
-      const { size } = await stat(audioFilePath);
-      console.info(
-        `[TranscriptionService] 音声抽出完了: audioFile=${audioFilePath} size=${size}bytes`
-      );
+      await this.extractAudio(videoFilePath, audioFilePath);
+      const ranges = await this.detectSpeechRanges(audioFilePath);
+      const total = ranges.length;
+      console.info(`[TranscriptionService] 発話区間を検出: ranges=${total}`);
 
-      if (size <= MAX_FILE_SIZE_BYTES) {
-        console.info(`[TranscriptionService] 単一ファイルで文字起こし: size=${size}bytes`);
-        return await withRetry(
-          async () =>
-            withTimeout(
-              this.transcribeFile(audioFilePath),
-              REQUEST_TIMEOUT_MS,
-              ERROR_MESSAGES.TIMEOUT
-            ),
-          { maxRetries: MAX_RETRIES }
-        );
-      }
+      const results: (TranscriptSegment | null)[] = new Array(total).fill(null);
+      let nextIndex = 0;
+      let completed = 0;
+      let failed = false;
 
-      // ファイルサイズからおおよその長さを推定し、チャンク数を算出する
-      const estimatedDurationSec = size / MP3_BYTES_PER_SEC;
-      const numChunks = Math.ceil(estimatedDurationSec / CHUNK_DURATION_SEC);
-      console.info(
-        `[TranscriptionService] チャンク分割して文字起こし: size=${size}bytes numChunks=${numChunks}`
-      );
-      let completedChunks = 0;
-      const chunkSegments = await Promise.all(
-        Array.from({ length: numChunks }, async (_, i) => {
-          const startSec = i * CHUNK_DURATION_SEC;
-          const chunkPath = `/tmp/quick-clip-audio-${randomUUID()}-chunk-${i}.mp3`;
-          await this.extractAudioChunk(audioFilePath, chunkPath, startSec, CHUNK_DURATION_SEC);
-          const { size: chunkSize } = await stat(chunkPath);
-          console.info(
-            `[TranscriptionService] チャンク${i + 1}/${numChunks} 文字起こし開始: size=${chunkSize}bytes`
-          );
+      // 1 つでも失敗したら、残りの区間は API に送らずに止める
+      const worker = async (): Promise<void> => {
+        while (!failed && nextIndex < total) {
+          const index = nextIndex;
+          nextIndex += 1;
           try {
-            const segments = await withRetry(
-              async () =>
-                withTimeout(
-                  this.transcribeFile(chunkPath),
-                  REQUEST_TIMEOUT_MS,
-                  ERROR_MESSAGES.TIMEOUT
-                ),
-              { maxRetries: MAX_RETRIES }
-            );
-            console.info(
-              `[TranscriptionService] チャンク${i + 1}/${numChunks} 文字起こし完了: segments=${segments.length}`
-            );
-            completedChunks += 1;
+            results[index] = await this.transcribeRange(audioFilePath, ranges[index]);
+            completed += 1;
             if (onProgress) {
-              await onProgress(completedChunks, numChunks);
+              await onProgress(completed, total);
             }
-            return segments.map((s) => ({
-              start: s.start + startSec,
-              end: s.end + startSec,
-              text: s.text,
-            }));
-          } finally {
-            await unlink(chunkPath).catch((err: unknown) => {
-              console.warn('[TranscriptionService] チャンクファイルの削除に失敗しました:', err);
-            });
+          } catch (error) {
+            failed = true;
+            throw error;
           }
-        })
-      );
+        }
+      };
 
-      return chunkSegments.flat();
+      await Promise.all(Array.from({ length: Math.min(MAX_CONCURRENCY, total) }, () => worker()));
+
+      return results.filter((r): r is TranscriptSegment => r !== null);
     } finally {
       await unlink(audioFilePath).catch((err: unknown) => {
         console.warn('[TranscriptionService] 一時音声ファイルの削除に失敗しました:', err);
