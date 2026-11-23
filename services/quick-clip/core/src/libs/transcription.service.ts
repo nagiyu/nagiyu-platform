@@ -2,6 +2,7 @@ import { createReadStream } from 'node:fs';
 import { unlink } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
+import { dirname, join } from 'node:path';
 import type OpenAI from 'openai';
 import { withRetry, withTimeout } from '@nagiyu/common';
 
@@ -40,8 +41,8 @@ const SILENCE_MIN_DURATION_SEC = 0.5;
 // 区間の端に足す余白。語頭・語尾が切れて認識されなくなることを防ぐ。
 // 無音の最短長の半分以下にして、隣り合う区間が重ならないようにする
 const SPEECH_PADDING_SEC = 0.2;
-// 1 区間の最大長。後続の処理は 1 行を感情スコアの単位にするため、
-// 従来のセグメントと同程度の長さに揃える。32kbps の MP3 で約 120KB であり、API のサイズ上限に収まる
+// 1 区間の最大長。後続の処理は 1 行を感情スコアの単位にするため、長すぎると 1 行が粗くなる。
+// 32kbps の MP3 で約 120KB であり、API のサイズ上限に収まる
 const MAX_RANGE_DURATION_SEC = 30;
 // これより短い音は物音などで発話にならないため送らない
 const MIN_RANGE_DURATION_SEC = 0.3;
@@ -49,7 +50,7 @@ const MIN_RANGE_DURATION_SEC = 0.3;
 // 長い動画では区間が数百になるため、API への同時リクエスト数を抑える
 const MAX_CONCURRENCY = 5;
 const MAX_RETRIES = 3;
-// 1 区間は最大 30 秒の音声であり、長い音声全体を 1 回で送っていた頃より短くてよい
+// 1 区間は最大 MAX_RANGE_DURATION_SEC 秒の音声のため、1 回の要求は短時間で終わる
 const REQUEST_TIMEOUT_MS = 60_000;
 
 /**
@@ -208,11 +209,11 @@ export class TranscriptionService {
       [
         '-hide_banner',
         '-ss',
-        String(range.start),
+        range.start.toFixed(3),
         '-i',
         audioFilePath,
         '-t',
-        String(range.end - range.start),
+        (range.end - range.start).toFixed(3),
         '-c:a',
         'copy',
         '-y',
@@ -222,12 +223,15 @@ export class TranscriptionService {
     );
   }
 
-  private async transcribeFile(audioFilePath: string): Promise<string> {
-    const response = await this.client.audio.transcriptions.create({
-      model: TRANSCRIBE_MODEL,
-      file: createReadStream(audioFilePath),
-      languages: TRANSCRIBE_LANGUAGES,
-    });
+  private async transcribeFile(audioFilePath: string, signal: AbortSignal): Promise<string> {
+    const response = await this.client.audio.transcriptions.create(
+      {
+        model: TRANSCRIBE_MODEL,
+        file: createReadStream(audioFilePath),
+        languages: TRANSCRIBE_LANGUAGES,
+      },
+      { signal }
+    );
     return response.text.trim();
   }
 
@@ -235,12 +239,24 @@ export class TranscriptionService {
     audioFilePath: string,
     range: SpeechRange
   ): Promise<TranscriptSegment | null> {
-    const rangePath = `/tmp/quick-clip-audio-${randomUUID()}-range.mp3`;
+    const rangePath = join(dirname(audioFilePath), `quick-clip-audio-${randomUUID()}-range.mp3`);
     try {
       await this.extractAudioRange(audioFilePath, rangePath, range);
       const text = await withRetry(
-        async () =>
-          withTimeout(this.transcribeFile(rangePath), REQUEST_TIMEOUT_MS, ERROR_MESSAGES.TIMEOUT),
+        async () => {
+          // withTimeout は待つのをやめるだけなので、HTTP 要求自体も止めてソケットと帯域を解放する
+          const controller = new AbortController();
+          try {
+            return await withTimeout(
+              this.transcribeFile(rangePath, controller.signal),
+              REQUEST_TIMEOUT_MS,
+              ERROR_MESSAGES.TIMEOUT
+            );
+          } catch (error) {
+            controller.abort();
+            throw error;
+          }
+        },
         { maxRetries: MAX_RETRIES }
       );
       return text === '' ? null : { start: range.start, end: range.end, text };
@@ -255,7 +271,8 @@ export class TranscriptionService {
     videoFilePath: string,
     onProgress?: (completed: number, total: number) => Promise<void>
   ): Promise<TranscriptSegment[]> {
-    const audioFilePath = `/tmp/quick-clip-audio-${randomUUID()}.mp3`;
+    // 動画と同じジョブ単位のディレクトリに置き、ジョブ終了時にまとめて片付けられるようにする
+    const audioFilePath = join(dirname(videoFilePath), `quick-clip-audio-${randomUUID()}.mp3`);
 
     console.info(`[TranscriptionService] 音声抽出開始: videoFile=${videoFilePath}`);
     try {
@@ -268,26 +285,38 @@ export class TranscriptionService {
       let nextIndex = 0;
       let completed = 0;
       let failed = false;
+      let firstError: unknown;
 
-      // 1 つでも失敗したら、残りの区間は API に送らずに止める
+      // 失敗後は進捗を通知せず新しい区間にも着手しない。
+      // 実行中の worker は終わるまで待ち、親の音声ファイルを使い終えてから削除する
       const worker = async (): Promise<void> => {
         while (!failed && nextIndex < total) {
           const index = nextIndex;
           nextIndex += 1;
           try {
-            results[index] = await this.transcribeRange(audioFilePath, ranges[index]);
+            const segment = await this.transcribeRange(audioFilePath, ranges[index]);
+            if (failed) {
+              return;
+            }
+            results[index] = segment;
             completed += 1;
             if (onProgress) {
               await onProgress(completed, total);
             }
           } catch (error) {
-            failed = true;
-            throw error;
+            if (!failed) {
+              failed = true;
+              firstError = error;
+            }
+            return;
           }
         }
       };
 
       await Promise.all(Array.from({ length: Math.min(MAX_CONCURRENCY, total) }, () => worker()));
+      if (failed) {
+        throw firstError;
+      }
 
       return results.filter((r): r is TranscriptSegment => r !== null);
     } finally {

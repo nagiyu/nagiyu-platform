@@ -174,7 +174,7 @@ describe('buildSpeechRanges', () => {
   });
 
   it('短すぎる区間は除外する', () => {
-    // 無音 5 秒の直後の発話が 0.05 秒で、余白を足しても 0.3 秒に満たない
+    // 無音 5 秒の直後の発話が 0.05 秒。余白を足せば 0.3 秒を超えるが、判定は余白を足す前の長さで行う
     const ranges = buildSpeechRanges(
       [
         { start: 0, end: 5 },
@@ -225,11 +225,118 @@ describe('TranscriptionService', () => {
   it('gpt-transcribe を languages 指定で呼ぶ', async () => {
     await service.transcribe('/tmp/video.mp4');
 
-    expect(mockCreate).toHaveBeenCalledWith({
-      model: 'gpt-transcribe',
-      file: 'mock-stream',
-      languages: ['ja'],
+    expect(mockCreate).toHaveBeenCalledWith(
+      {
+        model: 'gpt-transcribe',
+        file: 'mock-stream',
+        languages: ['ja'],
+      },
+      { signal: expect.any(AbortSignal) }
+    );
+  });
+
+  it('タイムアウトしたら HTTP 要求も中断する', async () => {
+    jest.useFakeTimers({ doNotFake: ['setImmediate'] });
+    const signals: AbortSignal[] = [];
+    mockCreate.mockImplementation((_body: unknown, options: { signal: AbortSignal }) => {
+      signals.push(options.signal);
+      return new Promise(() => undefined);
     });
+
+    const promise = service.transcribe('/tmp/video.mp4');
+    const assertion = expect(promise).rejects.toThrow('タイムアウト');
+    // ffmpeg の疑似プロセスが setImmediate で進むため、API 呼び出しに届くまで回す
+    for (let i = 0; i < 20 && signals.length === 0; i += 1) {
+      await new Promise((resolve) => setImmediate(resolve));
+    }
+    expect(signals.length).toBeGreaterThan(0);
+    expect(signals[0].aborted).toBe(false);
+
+    await jest.advanceTimersByTimeAsync(60_000);
+    expect(signals[0].aborted).toBe(true);
+
+    await advanceUntilSettled(promise);
+    await assertion;
+  });
+
+  it('区間の切り出しで -ss と -t を指数表記にせず小数 3 桁で渡す', async () => {
+    await service.transcribe('/tmp/video.mp4');
+
+    const rangeCalls = mockSpawn.mock.calls
+      .map((c) => c[1] as string[])
+      .filter((args) => args.includes('-ss'));
+    expect(rangeCalls).toHaveLength(2);
+    const first = rangeCalls.find((args) => args[args.indexOf('-ss') + 1] === '1.800');
+    expect(first).toBeDefined();
+    expect(first?.[(first?.indexOf('-t') ?? 0) + 1]).toBe('3.400');
+  });
+
+  it('末尾の無音にも EOF で silence_end が出るとき、末尾の極短い区間は捨てる', async () => {
+    // 末尾の無音が 11 秒で終わり、Duration は 11.09 秒。10.0-11 は無音、11-11.09 は 0.09 秒の端数
+    setupFfmpeg(
+      [
+        '  Duration: 00:00:11.09, start: 0.069063, bitrate: 32 kb/s',
+        'silence_start: 5',
+        'silence_end: 11 | silence_duration: 6',
+      ].join('\n')
+    );
+
+    const result = await service.transcribe('/tmp/video.mp4');
+
+    expect(result).toHaveLength(1);
+    expect(mockCreate).toHaveBeenCalledTimes(1);
+  });
+
+  it('失敗後は進捗通知も新規着手もせず、全 worker の終了を待ってから reject し、その後に一時ファイルを削除する', async () => {
+    jest.useFakeTimers({ doNotFake: ['setImmediate'] });
+    const events: string[] = [];
+    let releaseSlow: (value: { text: string }) => void = () => undefined;
+    let call = 0;
+    mockCreate.mockImplementation(() => {
+      call += 1;
+      if (call === 2) {
+        return new Promise((resolve) => {
+          releaseSlow = resolve;
+        });
+      }
+      return Promise.reject(new Error('API エラー'));
+    });
+    mockUnlink.mockImplementation(async (path: string) => {
+      events.push(`unlink:${path}`);
+    });
+    const onProgress = jest.fn(async () => {
+      events.push('progress');
+    });
+
+    const promise = service.transcribe('/tmp/video.mp4', onProgress);
+    let settled = false;
+    const assertion = expect(promise).rejects.toThrow('API エラー');
+    void promise.then(
+      () => undefined,
+      () => {
+        settled = true;
+        events.push('rejected');
+      }
+    );
+
+    // 失敗した区間のリトライが尽きるまで進めても、遅い worker が終わるまで reject しない
+    for (let i = 0; i < 30; i += 1) {
+      await jest.advanceTimersByTimeAsync(2000);
+      await new Promise((resolve) => setImmediate(resolve));
+    }
+    expect(settled).toBe(false);
+    expect(events).not.toContain('unlink:/tmp/quick-clip-audio-test-uuid.mp3');
+
+    releaseSlow({ text: '遅れて完了' });
+    await advanceUntilSettled(promise);
+    await assertion;
+
+    expect(onProgress).not.toHaveBeenCalled();
+    const rejectedAt = events.indexOf('rejected');
+    const audioUnlinkAt = events.indexOf('unlink:/tmp/quick-clip-audio-test-uuid.mp3');
+    expect(audioUnlinkAt).toBeGreaterThanOrEqual(0);
+    expect(audioUnlinkAt).toBeLessThan(rejectedAt);
+    expect(mockCreate).toHaveBeenCalledTimes(1 + 4);
   });
 
   it('空のテキストは行にしない', async () => {
