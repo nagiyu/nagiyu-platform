@@ -369,10 +369,31 @@ jobs:
           echo "function-url=$FUNCTION_URL" >> "$GITHUB_OUTPUT"
           echo "Lambda Function URL: $FUNCTION_URL"
 
-      - name: Invoke Lambda health check
+      - name: Get CloudFront URL
+        id: get-cloudfront-url
+        env:
+          ENVIRONMENT: ${{ needs.build.outputs.environment }}
+        run: |
+          CF_DOMAIN=$(aws cloudformation describe-stacks \
+            --stack-name "NagiyuAdminCloudFront$(echo $ENVIRONMENT | sed 's/\(.\)/\U\1/')" \
+            --query "Stacks[0].Outputs[?OutputKey=='DistributionDomainName'].OutputValue" \
+            --output text \
+            --region "${{ env.AWS_REGION }}")
+
+          # ドメインが空のまま https:// だけが渡ると URL の欠落をヘルスチェックが検出できないため、空のときは空のまま渡す
+          if [ -n "$CF_DOMAIN" ]; then
+            BASE_URL="https://${CF_DOMAIN}"
+          else
+            BASE_URL=""
+          fi
+
+          echo "base-url=$BASE_URL" >> "$GITHUB_OUTPUT"
+          echo "CloudFront URL: $BASE_URL"
+
+      - name: Invoke health check
         uses: ./.github/actions/health-check
         with:
-          base-url: ${{ steps.get-lambda-url.outputs.function-url }}
+          base-url: ${{ steps.get-cloudfront-url.outputs.base-url }}
 
   cloudfront-invalidation:
     name: CloudFront Invalidation

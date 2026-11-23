@@ -3,7 +3,7 @@ sources:
   - infra/admin/bin/admin.ts
   - infra/admin/lib/cloudfront-stack.ts
   - .github/workflows/admin-deploy.yml
-sources_hash: 2725ab8e57733dfc5c277e411429b24f0fc8e244a486efcf62b2ba94366f724c
+sources_hash: 2e0035732c2a4c4bc570660b8fdbe56db43213f1f965462cd3e72bee381200f6
 ---
 
 # Admin のデプロイ先
@@ -61,6 +61,6 @@ flowchart TD
 | `infrastructure` | CDK の Bootstrap の後、`NagiyuAdminECR{Env}`、`NagiyuAdminBatchECR{Env}`、`NagiyuAdminInfra{Env}` の順にデプロイする |
 | `build` | Web アプリをビルドし、イメージを ECR に push する |
 | `build-batch` | バッチのイメージを ECR に push する (`infrastructure` の後、`build` と並行) |
-| `deploy` | Secrets Manager の値を取り出し、CDK で全スタックをデプロイする (`--all`)。そのあと Lambda の Function URL でヘルスチェックを行う ([ヘルスチェック](../../../platform/specs/deploy.md#ヘルスチェック)) |
+| `deploy` | Secrets Manager の値を取り出し、CDK で全スタックをデプロイする (`--all`)。そのあと、CloudFront のスタックの出力からディストリビューションのドメイン名を取り出し、そのドメインでヘルスチェックを行う ([ヘルスチェック](../../../platform/specs/deploy.md#ヘルスチェック)) |
 | `cloudfront-invalidation` | CloudFront のキャッシュを全パス (`/*`) 削除し、完了を待つ。ディストリビューションの ID が取れなければ、削除を飛ばす |
 | `summary` | 各ジョブの結果を要約に出す (`always`) |

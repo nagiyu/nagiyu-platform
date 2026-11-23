@@ -8,6 +8,7 @@ import { Environment } from '../types/environment';
 import { getLambdaFunctionName } from '../utils/naming';
 import { DEFAULT_LAMBDA_CONFIG, mergeConfig } from '../constants/defaults';
 import { createEcrImageFunction } from '../functions/ecr-image-function';
+import { grantCloudFrontInvoke } from '../grants/cloudfront-invoke';
 
 /**
  * LambdaStackBase のプロパティ
@@ -198,16 +199,13 @@ export class LambdaStackBase extends cdk.Stack {
       };
 
       this.functionUrl = this.lambdaFunction.addFunctionUrl({
-        authType: lambda.FunctionUrlAuthType.NONE,
+        authType: lambda.FunctionUrlAuthType.AWS_IAM,
         cors: functionUrlCorsConfig || defaultCorsConfig,
       });
 
-      // Lambda Function URL への公開アクセスを許可
-      this.lambdaFunction.addPermission('AllowPublicAccess', {
-        principal: new iam.AnyPrincipal(),
-        action: 'lambda:InvokeFunctionUrl',
-        functionUrlAuthType: lambda.FunctionUrlAuthType.NONE,
-      });
+      // CloudFront (OAC) の署名付きアクセスを許可する。
+      // 配信はこのスタックより後に作られるため、配信の ARN ではなくアカウント内の全配信で許可する。
+      grantCloudFrontInvoke(this.lambdaFunction);
     }
 
     // CloudFormation Outputs

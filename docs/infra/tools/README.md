@@ -53,11 +53,11 @@ npx cdk deploy --all --context env=prod
 - ランタイム: FROM_IMAGE (ECR)
 - メモリ: 1024MB
 - タイムアウト: 30秒
-- Function URL: 有効 (認証なし)
+- Function URL: 有効 (認証は AWS_IAM。CloudFront 経由のみ)
 
 #### CloudFront Distribution
 
-- オリジン: Lambda Function URL
+- オリジン: Lambda Function URL (OAC で署名して呼ぶ。POST / PUT の本文は Lambda@Edge が SHA256 を付ける)
 - カスタムドメイン: `{env}-tools.nagiyu.com` (prod: `tools.nagiyu.com`)
 - セキュリティヘッダー: HSTS, X-Content-Type-Options, X-Frame-Options など
 - キャッシュポリシー: 無効 (動的コンテンツのため)

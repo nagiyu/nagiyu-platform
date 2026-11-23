@@ -2,6 +2,11 @@
 sources:
   - infra/common/src/utils/naming.ts
   - infra/common/src/stacks/cloudfront-stack-base.ts
+  - infra/common/src/stacks/lambda-stack-base.ts
+  - infra/common/src/cloudfront/function-url-origin.ts
+  - infra/common/src/cloudfront/body-hash-edge-function.ts
+  - infra/common/src/cloudfront/edge-handlers/body-hash/handler.ts
+  - infra/common/src/grants/cloudfront-invoke.ts
   - infra/common/src/cloudfront/alias-record.ts
   - infra/common/src/utils/ssm.ts
   - infra/common/src/stacks/ecr-stack-base.ts
@@ -19,7 +24,7 @@ sources:
   - infra/ui-storybook/bin/ui-storybook.ts
   - infra/ui-storybook/lib/storybook-stack.ts
   - .github/workflows/ui-storybook-deploy.yml
-sources_hash: d9087e93be4bfb536d949b06a577bf5713d738a789958dfdf304069d129b09f9
+sources_hash: b84bc0a8d18c85e77ad7fc9e3567153039d406bbb1ba440dd7610737aec135d4
 ---
 
 # shared と ui-storybook のデプロイ先
@@ -100,11 +105,53 @@ prod のレコードは、サービスの CloudFront を作り直してドメイ
 
 ワークフローのジョブは、同じ規則で選んだ GitHub Environment (dev / prod。ui-storybook と dev-sync は常に dev) の変数 `AWS_ROLE_ARN` のロールで AWS に入る。dev と prod は別の AWS アカウントで、ロールがどちらのアカウントに入るかを決める。CDK のアプリは、環境を context の `env` で受け取る。livetalk (`infra/livetalk/bin/livetalk.ts`) とポータル (`infra/bin/nagiyu-platform.ts`) だけは、環境変数 `ENVIRONMENT` で受け取る。
 
+### Function URL の配信 (OAC)
+
+CloudFront は、Lambda の Function URL を OAC (Origin Access Control) つきのオリジンで呼ぶ。基底スタック (`CloudFrontStackBase`) に乗るサービスと、codec-converter が当たる。
+
+| 部品 | 定義 | 内容 |
+|---|---|---|
+| OAC | `createFunctionUrlOrigin` (`infra/common/src/cloudfront/function-url-origin.ts`) | オリジンの種別は `lambda`、署名は常に行う (SigV4)。名前は `nagiyu-<サービス名>-lambda-oac-<環境>`。オリジンは 1 つで、配信の全 behavior が共有する |
+| 本文のハッシュを付ける Lambda@Edge | `createBodyHashEdgeLambdas` (`infra/common/src/cloudfront/body-hash-edge-function.ts`)、ハンドラーは `infra/common/src/cloudfront/edge-handlers/body-hash/handler.ts` | origin-request で動き、本文を受け取る。Node.js 22、x86_64、メモリ 128MB、タイムアウト 5 秒。CloudFront と同じ `us-east-1` のスタックに作る |
+| CloudFront から Function URL を呼ぶ許可 | `grantCloudFrontInvoke` (`infra/common/src/grants/cloudfront-invoke.ts`) | `cloudfront.amazonaws.com` に、`lambda:InvokeFunctionUrl` (AWS_IAM) と、Function URL 経由に限った `lambda:InvokeFunction` を許す |
+
+Lambda に足す許可の `sourceArn` は、呼び出し側で決まる。
+
+| 呼び出し側 | `sourceArn` |
+|---|---|
+| `LambdaStackBase` (Function URL を有効にしたとき)、stock-tracker と niconico-mylist-assistant の Lambda のスタック | このアカウントの全ディストリビューション。配信は Lambda のスタックより後に別スタックで作られ、配信の ARN を参照すると循環するため |
+| codec-converter | 自分の配信の ARN。Lambda と配信が同じスタックにあるため絞れる |
+
+Function URL の `authType` は AWS_IAM で、誰でも呼べる許可は持たない。この許可を持つ CloudFront 以外が Function URL を直接呼ぶと 403 になる。
+
+#### 本文のハッシュ
+
+OAC で署名した Function URL は、POST / PUT の本文の SHA256 が `x-amz-content-sha256` に無いと要求を受けない。ブラウザの送信 (フォーム、Server Actions、認証のコールバック) はこのヘッダーを付けないため、CloudFront の署名より前に Lambda@Edge が計算して入れる。
+
+| 条件 | 扱い |
+|---|---|
+| メソッドが GET などで、本文が無い | `x-amz-content-sha256` を付けない。ビューアーが付けていたら消す (署名に使われて不一致になるため) |
+| 本文がある、またはメソッドが POST / PUT / PATCH | 本文の SHA256 (hex) を `x-amz-content-sha256` に入れる (本文が空でも入れる) |
+| 本文が切り詰められている (`inputTruncated`) | オリジンへ送らず、その場で 413 (`text/plain`) を返す |
+
+Lambda@Edge が受け取れる本文は 1MB までで、それを超えると切り詰められる。切り詰められた本文から正しいハッシュは作れず、署名が通らないまま不明瞭に失敗するため、413 で止める。したがって、Lambda@Edge を付けた behavior を通して送れる本文は 1MB までである。
+
+Lambda@Edge を付ける behavior は次のとおり。
+
+| 配信 | 付ける behavior | 付けない behavior |
+|---|---|---|
+| 基底スタック | 既定の behavior (全パス) | なし (behavior は既定の 1 つだけ) |
+| codec-converter | 既定の behavior と `/api/*` | `/_next/static/*` と `/favicon.ico` (GET / HEAD だけで本文が無い) |
+
+関数は Lambda@Edge の制約で環境変数と ARM64 を使えず、ハンドラーは他のモジュールを読み込まない。実行ロールは Lambda と Lambda@Edge の両方に信頼させる。
+
+Lambda@Edge の複製は、配信から外したあとも数時間残る。その間は関数を消せないため、配信のスタックの削除や作り直しはすぐには終わらない。
+
 ### ヘルスチェック
 
 `.github/actions/health-check/action.yml` が、呼び出し側が渡した URL (`base-url`) にパスを足して GET し、200 が返るまで再試行する。既定のパスは `/api/health`、最大 10 回、間隔 10 秒で、尽きたらジョブを失敗させる。再試行と失敗の扱いは `.github/actions/health-check/health-check.sh` が決める。URL が空のときも失敗させる。
 
-叩く先はサービスごとに違う (Lambda の Function URL、ALB の DNS 名、CloudFront のドメイン)。サービスの文書は、どこを叩くか (またはヘルスチェックがないこと) だけを書く。
+叩く先はサービスごとに違う (ALB の DNS 名、CloudFront のドメイン)。Lambda の Function URL を CloudFront で配信するサービスは、Function URL ではなく CloudFront のドメインを叩く。署名つきの経路 (上の「Function URL の配信 (OAC)」) を含めて確かめるためである。サービスの文書は、どこを叩くか (またはヘルスチェックがないこと) だけを書く。
 
 ### ECR リポジトリ
 

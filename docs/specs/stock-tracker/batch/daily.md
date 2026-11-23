@@ -10,7 +10,7 @@ sources:
   - services/stock-tracker/batch/src/daily.ts
   - libs/aws/src/lambda/scheduled-handler.ts
   - services/stock-tracker/core/src/repositories/dynamodb-alert.repository.ts
-sources_hash: fc5be1a02a28c70e7de5f11ce1f79727df5a2c4ba7255389afcae11326ccd9a4
+sources_hash: aba93ccf42a5ffb5ec4384bd70e5f124d4a5ded7c0fc3418a739194a876fcd3b
 terms: [stock-tracker/term/push-subscription]
 related_cards: [admin/flow/error-notification, stock-tracker/flow/alert-notification, stock-tracker/api/push, stock-tracker/api/alerts]
 related_adr:

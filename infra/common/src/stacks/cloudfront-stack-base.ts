@@ -1,6 +1,5 @@
 import * as cdk from 'aws-cdk-lib';
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
-import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
 import * as acm from 'aws-cdk-lib/aws-certificatemanager';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
@@ -11,6 +10,8 @@ import { getCloudFrontDomainName, getRootDomainName } from '../utils/naming';
 import { DEFAULT_CLOUDFRONT_CONFIG, mergeConfig } from '../constants/defaults';
 import { createResponseHeadersPolicy } from '../cloudfront/response-headers-policy';
 import { createCloudFrontAliasRecord } from '../cloudfront/alias-record';
+import { createFunctionUrlOrigin } from '../cloudfront/function-url-origin';
+import { createBodyHashEdgeLambdas } from '../cloudfront/body-hash-edge-function';
 
 /**
  * CloudFrontStackBase のエラーメッセージ定数
@@ -80,7 +81,7 @@ export interface CloudFrontStackBaseProps extends cdk.StackProps {
  *
  * ## 主な機能
  * - CloudFront ディストリビューションの作成
- * - Lambda Function URL オリジン設定
+ * - Lambda Function URL オリジン設定 (OAC による署名と、本文ハッシュを付ける Lambda@Edge)
  * - セキュリティヘッダーポリシーの作成
  * - ACM 証明書の参照
  * - カスタムドメイン設定
@@ -152,10 +153,16 @@ export class CloudFrontStackBase extends cdk.Stack {
     const domainName =
       cloudfrontConfig?.domainName || getCloudFrontDomainName(serviceName, environment);
 
-    // Lambda 関数 URL から https:// を除去してドメイン名を取得
-    // CDK Token の場合は Fn::Select を使用
-    const functionUrlDomain = cdk.Fn.select(1, cdk.Fn.split('//', functionUrl));
-    const cleanFunctionUrlDomain = cdk.Fn.select(0, cdk.Fn.split('/', functionUrlDomain));
+    // Function URL のオリジン。OAC で署名して呼ぶ。
+    // Lambda は別スタックにあり URL は文字列で渡ってくるため、
+    // Lambda 側の許可は Lambda のスタックで足す。
+    const { origin: functionUrlOrigin } = createFunctionUrlOrigin(this, 'FunctionUrl', {
+      originAccessControlName: `nagiyu-${serviceName}-lambda-oac-${environment}`,
+      functionUrl,
+    });
+
+    // OAC の署名は本文の SHA256 が要るため、POST / PUT の本文のハッシュを origin-request で付ける
+    const edgeLambdas = createBodyHashEdgeLambdas(this, 'BodyHashEdgeFunction');
 
     // ACM 証明書の参照
     const certArn =
@@ -201,11 +208,7 @@ export class CloudFrontStackBase extends cdk.Stack {
     this.distribution = new cloudfront.Distribution(this, logicalId, {
       comment: `${serviceName} Service Distribution (${environment})`,
       defaultBehavior: {
-        origin: new origins.HttpOrigin(cleanFunctionUrlDomain, {
-          protocolPolicy: cloudfront.OriginProtocolPolicy.HTTPS_ONLY,
-          httpsPort: 443,
-          originSslProtocols: [cloudfront.OriginSslPolicy.TLS_V1_2],
-        }),
+        origin: functionUrlOrigin,
         viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
         allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
         cachedMethods: cloudfront.CachedMethods.CACHE_GET_HEAD_OPTIONS,
@@ -214,6 +217,7 @@ export class CloudFrontStackBase extends cdk.Stack {
           originRequestPolicy || cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
         responseHeadersPolicy: this.responseHeadersPolicy,
         compress: true,
+        edgeLambdas,
         ...(createFunctionAssociations
           ? { functionAssociations: createFunctionAssociations(this) }
           : {}),

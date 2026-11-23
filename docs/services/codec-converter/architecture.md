@@ -177,17 +177,18 @@ codec-converter-storage-{env}/
 
 **Function URL**:
 
-- 認証: NONE（パブリックアクセス）
+- 認証: AWS_IAM（CloudFront の OAC 経由のみ。直接呼ぶと 403）
 - CORS: 有効
 
 ### CloudFront
 
 **設定**:
 
-- オリジン: Lambda Function URL
+- オリジン: Lambda Function URL (OAC で署名して呼ぶ。1 つのオリジンを全ビヘイビアで共有する)
 - ビヘイビア:
   - デフォルト: Lambda（キャッシュ無効、すべてのHTTPメソッド許可）
   - `/api/*`: Lambda（キャッシュ無効）
+  - デフォルトと `/api/*` には、origin-request の Lambda@Edge が付き、本文の SHA256 を `x-amz-content-sha256` に入れる。1MB を超えて切り詰められた本文は 413 を返す
   - `/_next/static/*`: Lambda（キャッシュ有効、1年）
   - `/favicon.ico`: Lambda（キャッシュ有効、1日）
 - カスタムドメイン: `codec-converter.{domain}`（ACM証明書使用）
