@@ -22,9 +22,9 @@ describe('早瀬アゲハ CharacterDefinition', () => {
       expect(ageha.voiceConfig.provider).toBe('openai');
     });
 
-    it('voice が "nova" である', () => {
+    it('voice が "marin" である', () => {
       if (ageha.voiceConfig.provider === 'openai') {
-        expect(ageha.voiceConfig.voice).toBe('nova');
+        expect(ageha.voiceConfig.voice).toBe('marin');
       } else {
         fail('provider が openai でない');
       }
@@ -95,8 +95,8 @@ describe('早瀬アゲハ CharacterDefinition', () => {
       expect(ageha.license.displayText).toContain('AI 生成音声');
     });
 
-    it('displayText に OpenAI TTS の記述が含まれる', () => {
-      expect(ageha.license.displayText).toContain('OpenAI TTS');
+    it('displayText に OpenAI の音声生成モデルの記述が含まれる', () => {
+      expect(ageha.license.displayText).toContain('OpenAI の音声生成モデル');
     });
 
     it('creditName が "早瀬アゲハ" である', () => {
