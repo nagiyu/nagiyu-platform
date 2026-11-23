@@ -1,0 +1,72 @@
+name: Verify - Node のメジャー版の一致
+
+# Node のメジャー版は、.node-version と各 Dockerfile のベースイメージのタグに別々に書かれている。
+# 片方だけ上げても気づけないため、食い違いをマージ前に止める。
+# 依存を足さずランナーの Node で動かすため、setup-node は使わない。
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - master
+      - 'integration/**'
+    paths:
+      - '.node-version'
+      - '**/Dockerfile'
+      - '.devcontainer/**'
+      - '.github/workflows/scripts/check-node-version.mjs'
+      - '.github/workflows/scripts/tests/check-node-version.test.mjs'
+      - '.github/workflows/node-version-verify.yml'
+
+env:
+  SERVICE_DISPLAY_NAME: Node version
+
+# 同じ PR の古いコミットに対する検証は不要なため、新しい run が来たら打ち切る。
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 検査スクリプトのテスト
+        run: node --test .github/workflows/scripts/tests/check-node-version.test.mjs
+
+      - name: Node のメジャー版の一致を検査
+        run: node .github/workflows/scripts/check-node-version.mjs
+
+  report:
+    name: Report Results to PR
+    runs-on: ubuntu-latest
+    if: always()
+    needs: [check]
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Create PR Comment
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const results = { 'Node のメジャー版の一致': '${{ needs.check.result }}' };
+            const statusEmoji = { 'success': '✅', 'failure': '❌', 'cancelled': '⚠️', 'skipped': '⏭️' };
+            const allSuccess = Object.values(results).every(r => r === 'success');
+            const header = allSuccess
+              ? '## ✅ [${{ env.SERVICE_DISPLAY_NAME }}] Verification Passed'
+              : '## ❌ [${{ env.SERVICE_DISPLAY_NAME }}] Verification Failed';
+            let body = `${header}\n\n`;
+            body += '| Job | Status |\n';
+            body += '|-----|--------|\n';
+            for (const [job, result] of Object.entries(results)) {
+              const emoji = statusEmoji[result] || '❓';
+              body += `| ${job} | ${emoji} ${result} |\n`;
+            }
+            if (!allSuccess) {
+              body += '\n> Node を上げるときは、`.node-version` と全 Dockerfile のメジャーをそろえてください。CI 共通イメージは VERSION を上げて作り直します。\n';
+            }
+            body += `\n[View workflow run](${context.payload.repository.html_url}/actions/runs/${context.runId})`;
+            github.rest.issues.createComment({ issue_number: context.issue.number, owner: context.repo.owner, repo: context.repo.repo, body: body });

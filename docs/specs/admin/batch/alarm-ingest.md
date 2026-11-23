@@ -12,7 +12,7 @@ sources:
   - services/admin/batch/src/alarm-ingest.ts
   - libs/aws/src/error-events/mapper.ts
 sources_hash: 4d58c1c5e39128d3562e3abe5f1e29c43e625bdffff95fb4197d1848655e50a9
-terms: [platform/term/error-event]
+terms: []
 related_cards: [admin/flow/error-notification, admin/batch/stream-handler, admin/term/error-event-key]
 related_adr:
   - services/admin/architecture.md#ADR-003
@@ -22,7 +22,7 @@ related_adr:
 
 # alarm-ingest
 
-SNS で届いた CloudWatch Alarm と AWS Batch ジョブ失敗の通知を、[ErrorEvent](../../platform/term/error-event.md) に変えて error-events テーブルに書く Lambda。書いたあとの通知は[stream-handler](./stream-handler.md)が受け持つ。
+SNS で届いた CloudWatch Alarm と AWS Batch ジョブ失敗の通知を、[ErrorEvent](../../../platform/specs/term/error-event.md) に変えて error-events テーブルに書く Lambda。書いたあとの通知は[stream-handler](./stream-handler.md)が受け持つ。
 
 ## 起点
 

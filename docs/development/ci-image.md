@@ -31,6 +31,10 @@ python3 を使う検査 (docs のリンク検査) は、ランナーのまま動
 2 本の PR に分ける。
 
 1. Dockerfile の版 (Playwright の版や Node のメジャー) と VERSION を上げる PR を先に入れ、イメージを作る
-2. `package.json` の `@playwright/test` (Node なら `.node-version`) と、ワークフローのイメージのタグ (`ci:<種類>-v<VERSION>` を指すすべての箇所) を替える PR を出す。deploy の workflow のタグも替わるため、この PR は dev へのデプロイを伴う
+2. `package.json` の `@playwright/test` と、ワークフローのイメージのタグ (`ci:<種類>-v<VERSION>` を指すすべての箇所) を替える PR を出す。deploy の workflow のタグも替わるため、この PR は dev へのデプロイを伴う
 
 1 本にまとめると、イメージができる前にジョブが走り、存在しないタグを取りに行って落ちる。
+
+Node のメジャーは、`.node-version`、CI 共通イメージ、各サービスと devcontainer の Dockerfile のベースイメージのタグに別々に書かれている。片方だけ上げても実行時まで気づけないため、PR の検査 (Node のメジャー版の一致) が、これらが `.node-version` のメジャーとそろっているかを確かめ、ずれていれば落ちる。Node を持たないイメージに公式バイナリで Node を入れ直す Dockerfile は、`ARG NODE_VERSION` の版が検査の対象になる。
+
+この検査があるため、Node を上げるときは 1 本目の PR で `.node-version` と全 Dockerfile のメジャーを一緒に上げる。CI 共通イメージの Dockerfile だけを先に上げると、1 本目が検査で落ちる。サービスの Dockerfile が替わるため、1 本目も dev へのデプロイを伴う。2 本目はイメージのタグを替える。

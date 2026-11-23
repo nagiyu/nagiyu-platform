@@ -177,17 +177,18 @@ codec-converter-storage-{env}/
 
 **Function URL**:
 
-- 認証: NONE（パブリックアクセス）
+- 認証: AWS_IAM（CloudFront の OAC 経由のみ。直接呼ぶと 403）
 - CORS: 有効
 
 ### CloudFront
 
 **設定**:
 
-- オリジン: Lambda Function URL
+- オリジン: Lambda Function URL (OAC で署名して呼ぶ。1 つのオリジンを全ビヘイビアで共有する)
 - ビヘイビア:
   - デフォルト: Lambda（キャッシュ無効、すべてのHTTPメソッド許可）
   - `/api/*`: Lambda（キャッシュ無効）
+  - デフォルトと `/api/*` には、origin-request の Lambda@Edge が付き、本文の SHA256 を `x-amz-content-sha256` に入れる。1MB を超えて切り詰められた本文は 413 を返す
   - `/_next/static/*`: Lambda（キャッシュ有効、1年）
   - `/favicon.ico`: Lambda（キャッシュ有効、1日）
 - カスタムドメイン: `codec-converter.{domain}`（ACM証明書使用）
@@ -330,7 +331,7 @@ CloudFront の Response Headers Policy で、全サービス共通のセキュ�
 
 ### 開発環境セットアップ
 
-ローカルから dev 環境の AWS リソースへアクセスする場合は、IAM Identity Center（SSO）の一時認証情報を使う（[AWS アカウント構成とアクセス管理](../../infra/aws-accounts.md)・[インフラのセットアップ](../../infra/setup.md) を参照）。サービス固有の IAM ユーザーは用意していない。
+ローカルから dev 環境の AWS リソースへアクセスする場合は、IAM Identity Center（SSO）の一時認証情報を使う（[AWS アカウントとアクセス](../../platform/rules/aws-accounts.md) を参照）。サービス固有の IAM ユーザーは用意していない。
 
 #### AWS SDK の依存注入 (DI)
 

@@ -21,7 +21,7 @@ sources:
   - libs/aws/src/error-events/with-error-reporting.ts
   - libs/aws/src/error-events/report.ts
 sources_hash: cea5291cbfd69985f753d9cea59c02627801f23cc5bf1fb77959872c8fd4221c
-terms: [quick-clip/term/job, quick-clip/term/highlight, quick-clip/term/job-definition-size, quick-clip/term/ai-analysis, quick-clip/term/transcript, platform/term/error-event]
+terms: [quick-clip/term/job, quick-clip/term/highlight, quick-clip/term/job-definition-size, quick-clip/term/ai-analysis, quick-clip/term/transcript]
 related_cards: [quick-clip/api/jobs, quick-clip/flow/extraction, quick-clip/flow/usage-metering, quick-clip/screen/job-status, quick-clip/batch/clip-regenerate, admin/flow/error-notification, admin/batch/alarm-ingest]
 related_adr:
   - services/quick-clip/architecture.md#ADR-001

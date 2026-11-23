@@ -67,9 +67,10 @@ export const POST = withApiErrorReporting(
       severity: body.severity,
       title: body.title,
       message: body.message,
+      // 送られてきた context.userId で利用者を偽れないよう、セッションの ID を最後に置く
       context: {
-        userId: session.user.id,
         ...(body.context ?? {}),
+        userId: session.user.id,
       },
       occurredAt: body.occurredAt,
     });

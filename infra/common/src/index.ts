@@ -64,6 +64,8 @@ export {
 
 // IAM grant helpers
 export { grantErrorEventsWrite } from './grants/error-events-writer';
+export { grantCloudFrontInvoke } from './grants/cloudfront-invoke';
+export type { GrantCloudFrontInvokeOptions } from './grants/cloudfront-invoke';
 
 // Lambda function factory
 export { createEcrImageFunction } from './functions/ecr-image-function';
@@ -79,6 +81,9 @@ export {
   RESPONSE_HEADERS_POLICY_ERROR_MESSAGES,
 } from './cloudfront/response-headers-policy';
 export type { ResponseHeadersPolicyProps } from './cloudfront/response-headers-policy';
+export { createFunctionUrlOrigin } from './cloudfront/function-url-origin';
+export type { FunctionUrlOriginProps } from './cloudfront/function-url-origin';
+export { createBodyHashEdgeLambdas } from './cloudfront/body-hash-edge-function';
 export { createCloudFrontAliasRecord } from './cloudfront/alias-record';
 export type { CloudFrontAliasRecordProps } from './cloudfront/alias-record';
 

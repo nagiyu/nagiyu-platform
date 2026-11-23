@@ -110,7 +110,7 @@ flowchart TD
 - 終了コードが 1 のとき、AWS Batch はジョブを失敗にする。試行は 1 回なので、再実行はしない
 - ジョブ定義のタイムアウトを超えると Batch がジョブを止める。ワーカーは時間を見ておらず、ステータスを更新できないので、記録は `RUNNING` のまま残る。画面は 30 分で取得を打ち切る。Batch の失敗を拾う EventBridge のルールや CloudWatch Alarm は、niconico-mylist-assistant のインフラには定義されていない ([エラー通知の経路](../../../../specs/admin/flow/error-notification.md)の `batch-event` の対象にならない)
 - ジョブの記録の更新が失敗しても、バッチは警告やエラーのログを出して続ける (最終ステータスの更新が失敗すると、記録は `RUNNING` のまま残る)
-- 報告は [ErrorEvent](../../../../specs/platform/term/error-event.md) で、`serviceId` は `niconico-mylist-assistant`。報告の書き込みに失敗しても、例外は伝えない
+- 報告は [ErrorEvent](../../../../platform/specs/term/error-event.md) で、`serviceId` は `niconico-mylist-assistant`。報告の書き込みに失敗しても、例外は伝えない
 
 ## つながり
 
@@ -130,7 +130,7 @@ flowchart TD
 ## 理由
 
 - 実行基盤は AWS Batch (Fargate) にする。100 件を 1 件ずつ登録し、動画の間に最低 2 秒待つと、待ちだけで最低 200 秒かかる。再試行やネットワークの遅延を含めると、Lambda の 15 分の上限では足りない。Batch は時間の上限が長く、Playwright をコンテナで動かせる
-- 動画の間に待ちを置くのは、ニコニコ動画のサーバーに負荷をかけないため。登録の前に既存のマイリストを全部消すのは、マイリストの上限 (100 件) を超えないため
+- 動画の間に待ちを置くのは、ニコニコ動画のサーバーに負荷をかけないため ([ニコニコへの負荷](../../requirements/non-functional/server-load.md))。登録の前に既存のマイリストを全部消すのは、マイリストの上限 (100 件) を超えないため ([マイリストへの登録](../../requirements/functional/mylist-register.md))
 - ニコニコ動画は SPA で、画面の構造が予告なく変わりうる。操作は固定のセレクタで行い、新規作成の確定のクリックだけに、通常のクリックが効かないときのスクリプトでのクリックを置く。画面の構造が変わっても原因を追えるよう、全削除・作成・登録の各段階で、失敗した画面のスクリーンショットを残す
 - 実アカウントでの統合テストは、手元でだけ流し、CI では流さない
     - 実アカウントの `user_session` が要る。CI に置くと、失効のたびに入れ替えが要る

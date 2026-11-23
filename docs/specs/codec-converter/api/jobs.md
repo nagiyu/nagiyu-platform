@@ -20,7 +20,7 @@ sources:
   - libs/nextjs/src/request-body.ts
   - libs/common/src/constants/error-messages.ts
 sources_hash: d7df5ad3e06b76eebdbb525c2cb5f5b39573eae031a1982fcaa86cb16bdfe521
-terms: [codec-converter/term/job, codec-converter/term/output-codec, codec-converter/term/job-definition-size, platform/term/error-event]
+terms: [codec-converter/term/job, codec-converter/term/output-codec, codec-converter/term/job-definition-size]
 related_cards: [codec-converter/screen/upload, codec-converter/screen/job-detail, codec-converter/batch/convert, codec-converter/flow/conversion, codec-converter/flow/error-reporting]
 related_adr:
   - services/codec-converter/architecture.md#S3 Presigned URL
@@ -83,7 +83,7 @@ flowchart TD
 
 | 手順 | 内容 |
 |---|---|
-| ③ 入力ファイルの確認 | `HeadObject` で調べる。失敗の理由 (権限や通信を含む) は区別せず、どれも `FILE_NOT_FOUND` にする。あわせて [ErrorEvent](../../platform/term/error-event.md) を報告する |
+| ③ 入力ファイルの確認 | `HeadObject` で調べる。失敗の理由 (権限や通信を含む) は区別せず、どれも `FILE_NOT_FOUND` にする。あわせて [ErrorEvent](../../../platform/specs/term/error-event.md) を報告する |
 | ④ ジョブ定義 | ファイルサイズとコーデックから[サイズ](../term/job-definition-size.md)を選び、`{BATCH_JOB_DEFINITION_PREFIX}-{サイズ}` にする。選べなければ `medium` にし、報告する |
 | ⑤ 投入 | ジョブ名 `codec-converter-{jobId}`、キューは `BATCH_JOB_QUEUE`。環境変数 `JOB_ID` と `OUTPUT_CODEC` だけを渡す |
 | 再投入 | 失敗のメッセージに `job definition` か `JobDefinition` を含むときだけ、`{プレフィックス}-medium` で 1 回再投入し、報告する。それ以外の失敗は 500。再投入も失敗すれば 500 |

@@ -133,7 +133,7 @@ Issue / コメントは **「セッションの継ぎ目」をつなぐ媒体**�
     - **親（メイン）Issue**: 全資材が develop に載り、確認 (下記) を終えた時点でクローズする。
     - **サブ Issue**: integration 等のトピックブランチへ取り込まれ、確認を終えた時点でクローズしてよい (進捗を可視化するため)。
     - 確認は次のとおり。
-        - **反映確認**: マージ後に、デプロイが成功し、資材が dev に載って各サービスが応答すること。全件必須。
+        - **反映確認**: マージ後に、デプロイが成功し、資材が dev に載って各サービスが応答すること。全件必須。デプロイ先 (ホスト名・スタック・ワークフロー) は `docs/services/<service>/specs/deploy.md` と `docs/platform/specs/deploy.md` にある。
         - **動作確認**: 変更した機能とその呼び出し元が動くことを確かめる。環境に依存しないもの (見た目、クライアント側の挙動など) は手元で確かめる。dev で確かめるのは、dev の環境に依存するもの (実際の認証、AWS のリソース、インフラ、外部との連携など) だけ。
         - 人に頼むのは、dev でしか確かめられず、Claude が触れないもの (ログインが要る画面操作など) だけ。頼むときは、手元で確かめられない理由を添える。
     - dev に資材が出ない変更 (docs 更新など) は、確認を畳んでクローズしてよい。
@@ -319,7 +319,7 @@ Claude Code on the web で本リポジトリを扱う際の環境固有の事情
 
 - **環境構築の 2 系統**：claude.ai/code の Setup Script（約 7 日キャッシュ、UI 設定）と `.claude/settings.json` の SessionStart hook（毎セッション）は別物。本リポジトリは前者のみ使い、後者は使わない方針
 - **Playwright**：素の `npx playwright install` はベースイメージ同梱の global（1.56.1）を呼んでしまうため使わない。プロジェクトローカル CLI（`node_modules/.bin/playwright`）か `npx playwright@<project-version>` を使う
-- **AWS CLI**: 毎回 `--profile nagiyu-dev` / `--profile nagiyu-prod` を付ける (`AWS_PROFILE` では切り替わらない)。付けないと AccessDenied になるが、権限不足ではなく呼び方の誤り。読み取りを諦めて人に頼む前に [`docs/infra/shared/iam.md`](docs/infra/shared/iam.md) を確かめる
+- **AWS CLI**: 毎回 `--profile nagiyu-dev` / `--profile nagiyu-prod` を付ける (`AWS_PROFILE` では切り替わらない)。付けないと AccessDenied になるが、権限不足ではなく呼び方の誤り。読み取りを諦めて人に頼む前に [`docs/platform/specs/resource/claude-access.md`](docs/platform/specs/resource/claude-access.md) を確かめる
 - **WebKit の E2E は on-demand**：Full CI 相当の確認が必要なセッションでのみ `playwright install --with-deps webkit` を実行する
 - **shared libs のビルド**：`next dev` や E2E を回す前に `@nagiyu/common → browser → ui → nextjs` の順で `dist/` をビルドする（`npm ci` だけでは作られない）
 

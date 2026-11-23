@@ -35,5 +35,5 @@ niconico-mylist-assistant の API が失敗したときに返す本文の形と�
 | C (ニコニコセッション) | `error` が `SESSION_STATUS_ERROR`、`SESSION_SAVE_ERROR`、`SESSION_DELETE_ERROR` (操作ごと) |
 | C (ジョブの状態) | `error` が `INTERNAL_ERROR`、`message` が「内部エラーが発生しました」 |
 
-- 状態が 500 以上になったときは、[ErrorEvent](../../../../specs/platform/term/error-event.md) として Admin へ報告する (重大度は `error`)。本文を決めてルートが自分で返す 400 や 404 は報告しない。経路は[エラー通知の経路](../../../../specs/admin/flow/error-notification.md)にある
+- 状態が 500 以上になったときは、[ErrorEvent](../../../../platform/specs/term/error-event.md) として Admin へ報告する (重大度は `error`)。本文を決めてルートが自分で返す 400 や 404 は報告しない。経路は[エラー通知の経路](../../../../specs/admin/flow/error-notification.md)にある
 - ルートが例外を握って続ける箇所 (一括インポートの保存の失敗、マイリスト登録の DynamoDB の失敗など) は、例外が上に届かないので、その場で報告する

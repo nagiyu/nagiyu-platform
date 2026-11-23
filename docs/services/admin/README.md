@@ -64,6 +64,6 @@ Admin サービスは、nagiyu プラットフォームの管理機能を提供�
 
 - [プラットフォーム全体ドキュメント](../../README.md)
 - [ブランチ戦略](../../branching.md)
-- [インフラドキュメント](../../infra/README.md)
+- [共通基盤のデプロイ先](../../platform/specs/deploy.md)
 - [開発ガイドライン](../../development/rules.md)
 - [Auth サービス](../auth/README.md) - SSO 連携元サービス

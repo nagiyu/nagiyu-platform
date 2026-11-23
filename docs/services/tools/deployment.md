@@ -19,7 +19,7 @@
 
 - **ECR Repository**: Docker イメージ保存（`nagiyu/tools`）
 - **Lambda Function**: Next.js 実行環境（Node.js 26 コンテナ、1024MB、30秒タイムアウト）
-- **Lambda Function URL**: HTTP(S) エンドポイント（認証なし）
+- **Lambda Function URL**: HTTP(S) エンドポイント（認証は AWS_IAM。CloudFront 経由のみ）
 - **CloudFront Distribution**: CDN、カスタムドメイン
 - **ACM Certificate**: SSL/TLS証明書（共通基盤）
 
@@ -44,7 +44,7 @@
 
 以下がデプロイ済みであることを確認してください:
 
-- [ ] **ACM 証明書** (CloudFront 用): [共通インフラ: ACM](../../infra/shared/acm.md) 参照
+- [ ] **ACM 証明書** (CloudFront 用): [ドメインと証明書](../../platform/specs/resource/dns-certificate.md) 参照
 
 ### 2.2 必要なツール
 
@@ -56,7 +56,7 @@
 
 GitHub Actions で自動デプロイを行うための AWS 認証は、共有インフラの GitHub OIDC ロール
 （dev / prod / pull_request 用の 3 ロール）を使う。長期アクセスキーは使わない。
-設計・登録手順は [共通インフラ: IAM 詳細](../../infra/shared/iam.md) を参照。
+設計・登録手順は [GitHub Actions のロール](../../platform/specs/resource/github-actions-oidc.md) を参照。
 
 ---
 
@@ -133,8 +133,8 @@ aws lambda get-function \
     --function-name nagiyu-tools-app-dev \
     --region us-east-1
 
-# ヘルスチェック
-curl https://<FUNCTION_URL>/api/health
+# ヘルスチェック (CloudFront のドメインを叩く)
+curl https://<CLOUDFRONT_DOMAIN>/api/health
 ```
 
 ---
@@ -537,13 +537,13 @@ npm test
 - [AWS Lambda - コンテナイメージを使用した関数の更新](https://docs.aws.amazon.com/lambda/latest/dg/gettingstarted-images.html)
 - [プラットフォームブランチ戦略](../../branching.md)
 - [プラットフォーム開発ガイドライン](../../development/rules.md)
-- [共有インフラドキュメント](../../infra/README.md)
+- [共通基盤のデプロイ先](../../platform/specs/deploy.md)
 
 #### 前提条件
 
 GitHub Actions で自動デプロイを行うための AWS 認証は、共有インフラの GitHub OIDC ロール
 （dev / prod / pull_request 用の 3 ロール）を使う。長期アクセスキーは使わない。
-設計・登録手順は [共通インフラ: IAM 詳細](../../infra/shared/iam.md) を参照。
+設計・登録手順は [GitHub Actions のロール](../../platform/specs/resource/github-actions-oidc.md) を参照。
 
 #### GitHub Variables の設定
 
@@ -576,7 +576,7 @@ GitHub リポジトリの Settings → Secrets and variables → Actions → Var
 2. **ビルド**: ECR リポジトリ URI を取得し、Docker イメージをビルドして ECR にプッシュ
 3. **Lambda デプロイ**: Lambda 関数の CDK スタックを新しいイメージでデプロイ
 4. **更新**: Lambda 関数コードを明示的に更新（CDK だけでは更新されない場合の保険）
-5. **検証**: Function URL を取得してヘルスチェック実行
+5. **検証**: CloudFront のスタックの出力からドメイン名を取得してヘルスチェック実行
 6. **CloudFront デプロイ**: CloudFront ディストリビューションの CDK スタックをデプロイ
     - ACM 証明書 ARN を共有インフラスタックのエクスポートから自動取得
     - ドメイン名を共有インフラスタックのエクスポートから自動取得し、環境に応じたサブドメインを構成 (prod: `tools.example.com`, dev: `tools.dev.example.com`)
@@ -606,7 +606,7 @@ aws lambda get-function-url-config \
 #### ヘルスチェック
 
 ```bash
-curl https://<FUNCTION_URL>/api/health
+curl https://<CLOUDFRONT_DOMAIN>/api/health
 ```
 
 #### PWA 確認

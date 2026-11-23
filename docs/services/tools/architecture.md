@@ -231,7 +231,7 @@ interface JsonValidationResult {
 |---------|------|------|
 | ECR Repository | Docker イメージ保存 | `nagiyu/tools`, ライフサイクルポリシー: 最新10イメージ保持 |
 | Lambda Function | Next.js 実行環境 | Node.js 26 コンテナ、1024MB、30秒タイムアウト |
-| Lambda Function URL | HTTP(S) エンドポイント | 認証なし、CORS許可 |
+| Lambda Function URL | HTTP(S) エンドポイント | 認証は AWS_IAM (CloudFront 経由のみ)、CORS許可 |
 | CloudFront Distribution | CDN、カスタムドメイン | オリジン: Lambda Function URL、HTTPS強制 |
 | ACM Certificate | SSL/TLS証明書 | 共通基盤（`*.nagiyu.com`）、us-east-1 |
 

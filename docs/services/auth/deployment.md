@@ -47,8 +47,8 @@
 
 以下がデプロイ済みであることを確認してください:
 
-- [ ] **VPC**: `nagiyu-{env}-vpc` - [共有インフラ: VPC](../../infra/shared/vpc.md) 参照
-- [ ] **ACM 証明書** (CloudFront 用): [共有インフラ: ACM](../../infra/shared/acm.md) 参照
+- [ ] **VPC**: `nagiyu-{env}-vpc` - [共有 VPC](../../platform/specs/resource/vpc.md) 参照
+- [ ] **ACM 証明書** (CloudFront 用): [ドメインと証明書](../../platform/specs/resource/dns-certificate.md) 参照
 - [ ] **外部 DNS サービス**: カスタムドメイン設定 (auth.nagiyu.com, auth.dev.nagiyu.com)
 
 ### 2.2 必要なツール
@@ -714,4 +714,4 @@ aws ecr batch-delete-image \
 - [NextAuth.js Documentation](https://next-auth.js.org/)
 - [プラットフォームブランチ戦略](../../branching.md)
 - [プラットフォーム開発ガイドライン](../../development/rules.md)
-- [共有インフラドキュメント](../../infra/README.md)
+- [共通基盤のデプロイ先](../../platform/specs/deploy.md)
