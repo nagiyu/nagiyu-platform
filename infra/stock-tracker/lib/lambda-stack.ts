@@ -6,7 +6,7 @@ import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import { Construct } from 'constructs';
 import { WebRuntimePolicy } from './policies/web-runtime-policy';
 import { BatchRuntimePolicy } from './policies/batch-runtime-policy';
-import { createEcrImageFunction, getServiceUrl } from '@nagiyu/infra-common';
+import { createEcrImageFunction, getServiceUrl, grantCloudFrontInvoke } from '@nagiyu/infra-common';
 
 export interface LambdaStackProps extends cdk.StackProps {
   environment: string;
@@ -130,7 +130,7 @@ export class LambdaStack extends cdk.Stack {
 
     // Function URL の作成（Lambda Web Adapter 用）
     this.functionUrl = this.webFunction.addFunctionUrl({
-      authType: lambda.FunctionUrlAuthType.NONE,
+      authType: lambda.FunctionUrlAuthType.AWS_IAM,
       cors: {
         allowedOrigins: ['*'],
         allowedMethods: [lambda.HttpMethod.ALL],
@@ -138,6 +138,10 @@ export class LambdaStack extends cdk.Stack {
         maxAge: cdk.Duration.seconds(86400),
       },
     });
+
+    // CloudFront (OAC) の署名付きアクセスを許可する。配信は別スタックで後から作られるため、
+    // アカウント内の全配信で許可する。
+    grantCloudFrontInvoke(this.webFunction);
 
     // Batch Lambda 用の実行ロール
     const batchExecutionRole = new iam.Role(this, 'BatchExecutionRole', {

@@ -3,7 +3,7 @@ sources:
   - infra/stock-tracker/bin/stock-tracker.ts
   - infra/stock-tracker/lib/cloudfront-stack.ts
   - .github/workflows/stock-tracker-deploy.yml
-sources_hash: cf18427dd265c974c0ec7777f241eb189d3f43144874d883699bd9bb67047d0c
+sources_hash: 029223680c46003532966565d6ee2f9e474709dfa2720d31ae49d9f9a012d2f3
 ---
 
 # Stock Tracker のデプロイ先
@@ -63,6 +63,6 @@ flowchart TD
 | `build-web` | Web アプリをビルドし、イメージを ECR に push する |
 | `build-batch` | バッチのイメージを ECR に push する (`infrastructure-ecr` の後、`build-web` と並行) |
 | `infrastructure-app` | Secrets Manager の値を取り出し、全スタックをデプロイする (`--all`)。ワークフローは `--exclude` で 2 つの ECR のスタックを除くつもりで渡しているが、CDK CLI は `--exclude` を受け付けず無視するため、ECR のスタックも含めた全スタックが対象になる |
-| `verify` | Lambda の Function URL でヘルスチェックを行う ([ヘルスチェック](../../../platform/specs/deploy.md#ヘルスチェック)) |
+| `verify` | CloudFront のスタックの出力からディストリビューションのドメイン名を取り出し、そのドメインでヘルスチェックを行う ([ヘルスチェック](../../../platform/specs/deploy.md#ヘルスチェック)) |
 
 CloudFront のキャッシュ削除は行わない。

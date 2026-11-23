@@ -108,7 +108,7 @@ describe('LambdaStackBase', () => {
       const template = Template.fromStack(stack);
       template.resourceCountIs('AWS::Lambda::Url', 1);
       template.hasResourceProperties('AWS::Lambda::Url', {
-        AuthType: 'NONE',
+        AuthType: 'AWS_IAM',
       });
     });
   });
@@ -379,6 +379,35 @@ describe('LambdaStackBase', () => {
     it('引き継ぎ指定の有無で、関数・ロール・Function URL の論理 ID が変わらない', () => {
       expect(collectIds(true)).toEqual(collectIds(false));
       expect(collectIds(true, 'WebFunction')).toEqual(collectIds(false, 'WebFunction'));
+    });
+  });
+
+  describe('CloudFront からの呼び出し許可', () => {
+    it('CloudFront に 2 つの許可だけを足し、誰でも呼べる許可は持たない', () => {
+      const stack = new LambdaStackBase(app, 'TestCloudFrontGrantStack', {
+        serviceName: 'tools',
+        environment: 'dev',
+        ecrRepositoryName: 'nagiyu-tools-ecr-dev',
+      });
+
+      const template = Template.fromStack(stack);
+
+      template.hasResourceProperties('AWS::Lambda::Url', { AuthType: 'AWS_IAM' });
+      const principals = Object.values(template.findResources('AWS::Lambda::Permission')).map(
+        (r) => r.Properties.Principal
+      );
+      expect(principals).not.toContain('*');
+      template.resourceCountIs('AWS::Lambda::Permission', 2);
+      template.hasResourceProperties('AWS::Lambda::Permission', {
+        Action: 'lambda:InvokeFunctionUrl',
+        Principal: 'cloudfront.amazonaws.com',
+        FunctionUrlAuthType: 'AWS_IAM',
+      });
+      template.hasResourceProperties('AWS::Lambda::Permission', {
+        Action: 'lambda:InvokeFunction',
+        Principal: 'cloudfront.amazonaws.com',
+        InvokedViaFunctionUrl: true,
+      });
     });
   });
 });

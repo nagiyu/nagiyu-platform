@@ -3,7 +3,7 @@ sources:
   - infra/tools/bin/tools.ts
   - infra/tools/lib/cloudfront-stack.ts
   - .github/workflows/tools-deploy.yml
-sources_hash: b6a4fcadec8ca5962a343811a76266aee1e1a12e4f59c3feb7dd3f621777de66
+sources_hash: 0297a33f9e721227e068b76e4f8f7b306e5a1c687b234dff321cbb3aedf56a90
 ---
 
 # Tools のデプロイ先
@@ -54,6 +54,6 @@ flowchart TD
 | `infrastructure-ecr` | `NagiyuToolsEcr{Env}` をデプロイする |
 | `build` | Web アプリをビルドし、イメージを ECR に push する |
 | `infrastructure-app` | `NagiyuToolsLambda{Env}` と `NagiyuToolsCloudFront{Env}` をデプロイする |
-| `verify` | Lambda の Function URL でヘルスチェックを行う ([ヘルスチェック](../../../platform/specs/deploy.md#ヘルスチェック)) |
+| `verify` | CloudFront のスタックの出力からディストリビューションのドメイン名を取り出し、そのドメインでヘルスチェックを行う ([ヘルスチェック](../../../platform/specs/deploy.md#ヘルスチェック)) |
 
 CloudFront のキャッシュ削除は行わない。

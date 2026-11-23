@@ -1,6 +1,8 @@
 ---
 sources:
   - infra/common/src/stacks/cloudfront-stack-base.ts
+  - infra/common/src/cloudfront/function-url-origin.ts
+  - infra/common/src/cloudfront/body-hash-edge-function.ts
   - infra/common/src/cloudfront/response-headers-policy.ts
   - infra/common/src/constants/security-headers.ts
   - infra/common/src/constants/defaults.ts
@@ -10,7 +12,7 @@ sources:
   - infra/root/cloudfront-lambda-stack.ts
   - infra/codec-converter/lib/codec-converter-stack.ts
   - infra/livetalk/lib/cloudfront-stack.ts
-sources_hash: 50366300f75a064d7c0f09d38c8450c7faf7d47c19d6bed4b468759ea41c9195
+sources_hash: 1c84bf30dd976469f660b24b663625a69de3dd2c0d2ba4b706dd26f454bc98b7
 ---
 
 # CloudFront の共通部品
@@ -21,7 +23,8 @@ Lambda の Function URL をオリジンにする CloudFront ディストリビ�
 
 | 項目 | 値 |
 |---|---|
-| オリジン | Function URL のドメイン。HTTPS のみ (443)、オリジンへの TLS は 1.2 |
+| オリジン | Function URL のドメイン。HTTPS のみ (443)、オリジンへの TLS は 1.2。OAC (`nagiyu-{サービス名}-lambda-oac-{env}`) で常に SigV4 の署名をして呼ぶ |
+| origin-request の Lambda@Edge | default behavior に付け、本文の SHA256 を `x-amz-content-sha256` に入れる。1MB を超える本文は 413 |
 | ビューアーのプロトコル | HTTP は HTTPS へリダイレクト |
 | 許可するメソッド | すべて |
 | キャッシュするメソッド | GET、HEAD、OPTIONS |
@@ -38,6 +41,7 @@ Lambda の Function URL をオリジンにする CloudFront ディストリビ�
 
 - HTTP のバージョン、価格クラス、ビューアーの最小 TLS (1.3 を選ぶと `TLS_V1_3_2025`)、セキュリティヘッダー、noindex は、`cloudfrontConfig` で変える
 - 追加で、default behavior に CloudFront Function を関連づけられる
+- OAC と Lambda@Edge の詳しい扱いは[デプロイの仕様の「Function URL の配信 (OAC)」](../deploy.md#function-url-の配信-oac)にある
 - ホスト名、dev の ALIAS レコード、prod の CNAME は[デプロイ先](../deploy.md)にある
 - タグは `Application` が `nagiyu`、`Service` がサービス名、`Environment` が環境名。出力は、ディストリビューションの ID とドメイン、カスタムドメイン名
 
@@ -65,5 +69,5 @@ Lambda の Function URL をオリジンにする CloudFront ディストリビ�
 
 ## 理由
 
-- オリジンリクエストポリシーは `ALL_VIEWER_EXCEPT_HOST_HEADER` にする。`ALL_VIEWER` だと、ビューアーの Host ヘッダー (カスタムドメイン) がオリジンへ転送される。Lambda の Function URL は自身のドメイン以外の Host を受け付けないため、直接アクセスでは 200 でも、CloudFront 経由では 403 になる
+- オリジンリクエストポリシーは `ALL_VIEWER_EXCEPT_HOST_HEADER` にする。`ALL_VIEWER` だと、ビューアーの Host ヘッダー (カスタムドメイン) がオリジンへ転送される。Lambda の Function URL は自身のドメイン以外の Host を受け付けないため、CloudFront 経由では 403 になる
 - ヘッダーの値を共通定数から組み立て、サービスごとの差が出ないようにする
