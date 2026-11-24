@@ -2,9 +2,7 @@
 sources:
   - services/niconico-mylist-assistant/web/src/app/api/push/subscribe/route.ts
   - services/niconico-mylist-assistant/web/src/app/api/push/vapid-public-key/route.ts
-  - libs/nextjs/src/push.ts
-  - libs/common/src/push-subscription/endpoint.ts
-sources_hash: 9aa120bd2282b818d6109f09e6af7a5755889345feae6c7130f38b7401a5059a
+sources_hash: 4602ea7ccf0468b12de46a7106e7ffa7a7a2acd5356262122605b2d373ac0e17
 ---
 
 # Push 通知 API
@@ -20,25 +18,16 @@ sources_hash: 9aa120bd2282b818d6109f09e6af7a5755889345feae6c7130f38b7401a5059a
 
 ## 入力と出力
 
-- 公開鍵の取得は `{ publicKey }` を返す。ブラウザが購読を作るときに使う。値は環境変数 `VAPID_PUBLIC_KEY`
-- 購読 (`POST /api/push/subscribe`) の入力は `{ subscription }`。`subscription` は `endpoint` (既知の Push サービスの https URL。許すホストは `fcm.googleapis.com`・`updates.push.services.mozilla.com`・`web.push.apple.com`・`*.notify.windows.com` で、ポートの指定は不可)、`keys.p256dh`、`keys.auth`。検証を通ると 201 で `{ success: true, subscriptionId }` を返す。`subscriptionId` は `endpoint` から決まる ID
-- 購読の情報は保存しない。受け取って検証し、ID を返すだけ
-- 権限 (ロール) は問わない。ログインしていれば呼べる
+- 二つのルートは、共通ライブラリの[Web Push のルート](../../../../platform/specs/lib/nextjs/push-routes.md)のとおりに動く。入力・出力・購読の検証 (`endpoint` の条件を含む) もそこにある
+- 公開鍵の取得は、ブラウザが購読を作るときに使う VAPID 公開鍵を返す。値は環境変数 `VAPID_PUBLIC_KEY`
+- 購読の情報は保存しない。受け取って検証し、ID を返すだけ (保存のフック `onSubscribe` を渡さない)
+- 権限 (ロール) は問わない。ログインしていれば呼べる (`requiredPermission` を渡さないので、403 は返らない)
 
 ## エラー
 
-形 C ([API のエラー応答](../term/api-error.md))。
+形 C ([API のエラー応答](../term/api-error.md))。条件と応答は[Web Push のルート](../../../../platform/specs/lib/nextjs/push-routes.md)の表のとおり。
 
-| 条件 | 状態 | `error` |
-|---|---|---|
-| 未ログイン (購読) | 401 | `UNAUTHORIZED` |
-| 本文が JSON でない | 400 | `INVALID_REQUEST` |
-| `subscription` がない、または形が不正 | 400 | `INVALID_REQUEST` |
-| 公開鍵が未設定 (公開鍵の取得) | 500 | `INTERNAL_ERROR` |
-| VAPID 鍵が未設定 (購読) | 500 | `INTERNAL_ERROR` |
-| 上記以外の失敗 | 500 | `INTERNAL_ERROR` |
-
-- 500 を返す直前に、Admin へ報告する
+- 500 を返す直前に、Admin へ報告する ([エラー通知の経路](../../../../specs/admin/flow/error-notification.md))
 
 ## つながり
 

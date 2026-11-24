@@ -3,11 +3,9 @@ sources:
   - services/niconico-mylist-assistant/web/src/app/page.tsx
   - services/niconico-mylist-assistant/web/src/app/layout.tsx
   - services/niconico-mylist-assistant/web/src/middleware.ts
-  - libs/nextjs/src/middleware.ts
   - services/niconico-mylist-assistant/web/src/components/HomePageClient.tsx
   - services/niconico-mylist-assistant/web/src/components/NotificationPermissionButton.tsx
-  - libs/react/src/hooks/usePushSubscription.ts
-sources_hash: 876afd81a87204c4981f237e35aa1443548e13d0148fb6db0e0da948209c5b01
+sources_hash: a318103c8811a5813fd7f812cfee370e3b2e8b1e26143beb573d0b6e6f1cfcb2
 ---
 
 # ホーム画面
@@ -18,7 +16,7 @@ sources_hash: 876afd81a87204c4981f237e35aa1443548e13d0148fb6db0e0da948209c5b01
 
 - パスは `/`。ヘッダーの「ホーム」か、サービス名から来る
 - ヘッダーのメニューは「ホーム」「インポート」「動画一覧」「マイリスト登録」の 4 つで、全画面に付く。「動画一覧」は[動画管理画面](./videos.md)に行く。狭い画面ではメニューがドロワーにまとまる
-- ホーム以外の画面は、ログインしていないと Auth サービスのログイン画面へ移される。戻り先には、開こうとした画面の URL を渡す
+- ホーム以外の画面は、ログインしていないと Auth サービスのログイン画面へ移される。ホーム (`/`) だけを認証不要にし、移し方と戻り先は[認証ミドルウェア](../../../../platform/specs/lib/nextjs/auth-middleware.md)のとおり
 
 ## 表示の条件
 
@@ -33,11 +31,11 @@ sources_hash: 876afd81a87204c4981f237e35aa1443548e13d0148fb6db0e0da948209c5b01
 |---|---|
 | 見出しと説明 | サービス名と「ニコニコ動画のマイリスト登録を自動化する補助ツールです。」 |
 | 各画面へのボタン | 「マイリスト登録」([マイリスト登録画面](./mylist-register.md))、「動画インポート」([動画一括インポート画面](./import.md))、「動画管理」([動画管理画面](./videos.md)) |
-| 通知設定ボタン | ブラウザが Web Push に対応しているときだけ出る |
+| 通知設定ボタン | ログイン済みで、ブラウザが Web Push に対応しているときだけ出る ([Push 購読の React 部品](../../../../platform/specs/lib/react/push-subscription.md)の `supported`) |
 
 ## 状態
 
-- 通知設定のダイアログ (「バッチ完了通知」) は、購読済みかどうかで中身が変わる
+- 通知設定のダイアログ (「バッチ完了通知」) は、購読済みかどうか (`usePushSubscription` の `subscribed`) で中身が変わる
 
 | 購読 | 説明 | ボタン |
 |---|---|---|
@@ -50,7 +48,7 @@ sources_hash: 876afd81a87204c4981f237e35aa1443548e13d0148fb6db0e0da948209c5b01
 |---|---|
 | 各画面へのボタン | その画面に移る |
 | 通知設定 | ダイアログを開く |
-| 通知を有効にする | ブラウザの通知の許可を求め、許可されれば Web Push を購読して[Push API](../api/push.md)へ送る。結果はブラウザの警告で知らせる (成功は「通知が有効になりました!」、失敗は「通知の有効化に失敗しました」に理由を添えたもの)。どちらもダイアログを閉じる |
+| 通知を有効にする | `usePushSubscription` の `subscribe` を呼ぶ。ブラウザの通知の許可を求め、許可されれば Web Push を購読して[Push API](../api/push.md)へ送る ([Web Push](../../../../platform/specs/lib/common/web-push.md)の購読)。結果はブラウザの警告で知らせる (成功は「通知が有効になりました!」、失敗は「通知の有効化に失敗しました」に理由を添えたもの)。どちらもダイアログを閉じる |
 
 - 購読の宛先は、マイリスト登録を依頼するとき画面が添える ([マイリスト登録の経路](../flow/mylist-registration.md))。ここで有効にした購読が、完了の通知の宛先になる
 

@@ -12,12 +12,7 @@ sources:
   - services/niconico-mylist-assistant/batch/playwright.config.ts
   - services/niconico-mylist-assistant/batch/.env.local.example
   - services/niconico-mylist-assistant/batch/tests/integration/mylist-registration.spec.ts
-  - libs/aws/src/error-events/with-error-reporting.ts
-  - libs/aws/src/error-events/report.ts
-  - libs/common/src/retry/retry.ts
-  - libs/common/src/push/client.ts
-  - libs/common/src/push-subscription/endpoint.ts
-sources_hash: dadd68abf03c2522269824f15af69bb3326b8edae35bd64664dfb21a481df293
+sources_hash: 4b98488bc13b7ca66e652ec46f2ecba02d0e2d5e98b51320969cbeed43b02638
 ---
 
 # マイリスト登録バッチ (mylist-register)
@@ -88,11 +83,11 @@ flowchart TD
 | 成功が 0 件 | マイリスト登録に失敗しました (M 件) |
 | 一部失敗 | X 件登録完了、M 件失敗 (成功率 P%)。P は四捨五入した整数 |
 
-- 宛先が無効 (404 や 410、または endpoint が既知の Push サービスの https URL でない (送らずに無効とする)) だと、警告を出すだけ。送信のほかの失敗も、ジョブの成否には影響しない
+- 宛先が無効 (購読の失効、または `endpoint` が許可されない。判定は [Web Push](../../../../platform/specs/lib/common/web-push.md)のとおり) だと、警告を出すだけ。送信のほかの失敗も、ジョブの成否には影響しない
 
 ## 上限
 
-- 動画ごとの再試行: 失敗してから最大 3 回。間隔は 2 秒で固定 (増やさない)。1 件につき最大 4 回試す。すべて失敗した動画は失敗に数え、次の動画に進む
+- 動画ごとの再試行: [`withRetry`](../../../../platform/specs/lib/common/retry.md) に、再試行 3 回、最初の待機 2 秒、倍率 1 (間隔を増やさない) を渡す。1 件につき最大 4 回試す。すべて失敗した動画は失敗に数え、次の動画に進む
 - ジョブのタイムアウトと AWS Batch の試行回数は[バッチの実行環境](../resource/batch-runtime.md)のジョブ定義で決まる。試行は 1 回だけで、Batch は再試行しない
 - 1 回の依頼で登録する動画は、API が選ぶ最大 100 件
 
@@ -107,10 +102,10 @@ flowchart TD
 | 全動画の登録に失敗 | `FAILED` | critical 「バッチジョブ全失敗」 | 送る (失敗の本文) | 1 |
 | 一部の動画の登録に失敗 | `SUCCEEDED` (`failedCount` が 1 以上) | なし | 送る (成功率の本文) | 0 |
 
-- 終了コードが 1 のとき、AWS Batch はジョブを失敗にする。試行は 1 回なので、再実行はしない
+- 全体の失敗の報告は `withErrorReporting` で、`exitOnError` を真にして渡す ([エラーの報告](../../../../platform/specs/lib/aws/error-reporting.md))。終了コードが 1 のとき、AWS Batch はジョブを失敗にする。試行は 1 回なので、再実行はしない
 - ジョブ定義のタイムアウトを超えると Batch がジョブを止める。ワーカーは時間を見ておらず、ステータスを更新できないので、記録は `RUNNING` のまま残る。画面は 30 分で取得を打ち切る。Batch の失敗を拾う EventBridge のルールや CloudWatch Alarm は、niconico-mylist-assistant のインフラには定義されていない ([エラー通知の経路](../../../../specs/admin/flow/error-notification.md)の `batch-event` の対象にならない)
 - ジョブの記録の更新が失敗しても、バッチは警告やエラーのログを出して続ける (最終ステータスの更新が失敗すると、記録は `RUNNING` のまま残る)
-- 報告は [ErrorEvent](../../../../platform/specs/term/error-event.md) で、`serviceId` は `niconico-mylist-assistant`。報告の書き込みに失敗しても、例外は伝えない
+- 報告は [ErrorEvent](../../../../platform/specs/term/error-event.md) で、`serviceId` は `niconico-mylist-assistant`。書き込みに失敗したときの扱いは[エラーの報告](../../../../platform/specs/lib/aws/error-reporting.md)のとおり
 
 ## つながり
 
