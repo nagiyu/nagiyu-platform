@@ -29,7 +29,7 @@ jobs:
 
     # 検査と同じ実行環境でビルドするため、共通イメージの上で動かす
     container:
-      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v2
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v3
 
     # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
     defaults:
@@ -72,7 +72,7 @@ jobs:
 
     # ビルドと同じイメージの上で動かし、ランナーの環境に左右されないようにする
     container:
-      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v2
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v3
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

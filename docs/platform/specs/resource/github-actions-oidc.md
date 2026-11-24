@@ -5,7 +5,7 @@ sources:
   - infra/shared/bin/shared.ts
   - .github/workflows/shared-deploy.yml
   - .github/workflows/admin-verify.yml
-sources_hash: fac6f399af310ec01c0075780881a2938ed1719b8e182b6bbf017056dc0d00f2
+sources_hash: ab20972d2cc0fe63a6779ef553a9d083330f241f9ff5595058949fb01ae6ab41
 ---
 
 # GitHub Actions のロール

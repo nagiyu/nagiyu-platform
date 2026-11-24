@@ -55,7 +55,7 @@ jobs:
 
     # 検査と同じ実行環境でビルドとデプロイを行うため、共通イメージの上で動かす。docker のデーモンはランナーのものを使う
     container:
-      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v2
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v3
 
     # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
     defaults:
@@ -136,7 +136,7 @@ jobs:
 
     # 検査と同じ実行環境でビルドとデプロイを行うため、共通イメージの上で動かす。docker のデーモンはランナーのものを使う
     container:
-      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v2
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v3
 
     # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
     defaults:
@@ -215,7 +215,7 @@ jobs:
 
     # 検査と同じ実行環境でビルドとデプロイを行うため、共通イメージの上で動かす。docker のデーモンはランナーのものを使う
     container:
-      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v2
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v3
 
     # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
     defaults:
@@ -283,7 +283,7 @@ jobs:
 
     # 検査と同じ実行環境でビルドとデプロイを行うため、共通イメージの上で動かす。docker のデーモンはランナーのものを使う
     container:
-      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v2
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v3
 
     # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
     defaults:
@@ -393,7 +393,7 @@ jobs:
 
     # 検査と同じ実行環境でビルドとデプロイを行うため、共通イメージの上で動かす。docker のデーモンはランナーのものを使う
     container:
-      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v2
+      image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v3
 
     # コンテナのジョブでは run の既定のシェルが sh になり、bash の構文が通らない
     defaults:

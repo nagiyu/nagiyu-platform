@@ -6,7 +6,7 @@ sources:
   - services/niconico-mylist-assistant/batch/Dockerfile
   - services/niconico-mylist-assistant/batch/package.json
   - services/niconico-mylist-assistant/batch/src/lib/job-environment.ts
-sources_hash: b7c1062ebe29a191ccf91c80ad19475c6f74c4e49ea457a6a3d359103dbe12b2
+sources_hash: bc6eda30e5b27e0183a39558e2c58e3f24b875df20bfa7462719b1963f2498f4
 ---
 
 # バッチの実行環境
@@ -82,7 +82,7 @@ sources_hash: b7c1062ebe29a191ccf91c80ad19475c6f74c4e49ea457a6a3d359103dbe12b2
 - ジョブの資源は 1 vCPU・2,048 MB にする。ヘッドレスの Chromium を動かし、最大 100 件の登録を完走するために要る量である。下げるときは、ブラウザが起動して登録を完走することを確かめる
 - 計算環境の最大が 4 vCPU なのは、ジョブ 1 つが 1 vCPU を使うので、同時に動くジョブを最大 4 つにするため
 - Playwright の版は、npm のパッケージ (`playwright` と `@playwright/test`) と、Docker イメージのタグで同じにする。ずれると、イメージの中にその版のブラウザの実行ファイルがなく、コンテナが起動に失敗する
-- Node を差し替えるのは、Playwright の公式イメージに同梱の Node は 24 系で、26 に対応したイメージがないため
+- Node を差し替えるのは、Node のパッチの版を sha256 付きで固定し、Node の版の検査が読める `ARG NODE_VERSION` で版を持つため。公式イメージの `FROM` からは、検査が版を読めない
 - スクリーンショットは、失敗の原因を追うための一時的なデバッグ用なので、7 日で消す
 - マネージドポリシーの説明文は変えない。変えるとポリシーが置き換えになり、固定の名前が衝突してデプロイが失敗するため
 

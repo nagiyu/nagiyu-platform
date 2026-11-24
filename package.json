@@ -46,7 +46,7 @@
     "@eslint/compat": "^2.0.4",
     "@eslint/js": "^10",
     "@jest/types": "^30.3.0",
-    "@playwright/test": "1.60.0",
+    "@playwright/test": "1.65.1",
     "@storybook/addon-a11y": "^10.6.5",
     "@storybook/addon-themes": "^10.6.5",
     "@storybook/react-vite": "^10.6.5",

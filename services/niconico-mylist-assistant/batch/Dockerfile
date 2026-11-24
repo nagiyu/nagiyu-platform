@@ -1,8 +1,8 @@
 # ベースイメージ: Playwright公式イメージ（ブラウザ含む）
-FROM mcr.microsoft.com/playwright:v1.60.0-jammy AS base
+FROM mcr.microsoft.com/playwright:v1.65.1-jammy AS base
 
-# このイメージ同梱の Node は 24 系で、Node 26 に対応した Playwright のイメージが無い。
-# Node だけ公式バイナリの 26 に差し替える。
+# Node のパッチの版を sha256 付きで固定し、Node の版の検査が読める ARG NODE_VERSION で版を持つために、
+# イメージ同梱の Node を公式バイナリに差し替える。公式イメージの FROM からは、検査が版を読めない。
 # sha256 は https://nodejs.org/dist/v26.13.0/SHASUMS256.txt (署名付き) の値。
 # xz が入っていないため .tar.gz を使う。
 # CI は BuildKit を使わずビルドするため TARGETARCH が空になる。アーキテクチャは dpkg で判定する。

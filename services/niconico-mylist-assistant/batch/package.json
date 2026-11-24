@@ -20,9 +20,9 @@
     "@nagiyu/aws": "*",
     "@nagiyu/common": "*",
     "@nagiyu/niconico-mylist-assistant-core": "*",
-    "playwright": "1.60.0"
+    "playwright": "1.65.1"
   },
   "devDependencies": {
-    "@playwright/test": "1.60.0"
+    "@playwright/test": "1.65.1"
   }
 }
