@@ -20,7 +20,7 @@ sources:
   - infra/quick-clip/lib/monitoring-stack.ts
   - libs/aws/src/error-events/with-error-reporting.ts
   - libs/aws/src/error-events/report.ts
-sources_hash: cea5291cbfd69985f753d9cea59c02627801f23cc5bf1fb77959872c8fd4221c
+sources_hash: 67d7961599ce1ec1ef931b2212e85f260e0f7efd1b0dbc28618e0bc594ecbb60
 terms: [quick-clip/term/job, quick-clip/term/highlight, quick-clip/term/job-definition-size, quick-clip/term/ai-analysis, quick-clip/term/transcript]
 related_cards: [quick-clip/api/jobs, quick-clip/flow/extraction, quick-clip/flow/usage-metering, quick-clip/screen/job-status, quick-clip/batch/clip-regenerate, admin/flow/error-notification, admin/batch/alarm-ingest]
 related_adr:
@@ -75,7 +75,7 @@ flowchart TD
 | ③ 長さ | ジョブを読む (なければ例外)。FFmpeg の出力から動画の長さを読む。読めなければ 10 秒とする。ジョブに `maxDurationSec` があり、長さがそれを超えていれば、文字起こしの前に止める (下の「失敗したとき」)。続ける場合は、解析の内訳 (`analysisProgress`) の初期値を書く |
 | ④ 映像 | 10 分ごとのチャンクに分け、4 並列で FFmpeg の場面転換 (`scene` が 0.2 を超えるフレーム) を取る。1 点が (秒、場面転換の強さ)。暗転と白転 (`blackdetect`、画素のしきい値 0.10、継続時間の下限なし) の区間にある点は捨てる |
 | ④ 音量 | 10 分ごとのチャンクに分け、4 並列で FFmpeg の `astats` から、フレームごとの RMS を取る。振幅 (`10^(RMS/20)`) を強さとする。秒が取れないものは捨てる |
-| ④ 文字起こし | [AI 解析](../term/ai-analysis.md)のときだけ。音声を 16 kHz の mono、32 kbps の MP3 にして `whisper-1` (日本語) で行にする ([文字起こし](../term/transcript.md))。24 MiB を超えるときは、2,621 秒ごとに分けて並列で送り、行の時刻に区切りの位置を足す。1 回の呼び出しは、タイムアウト 600 秒、再試行 3 回 (間隔は 1 秒から倍ずつ) |
+| ④ 文字起こし | [AI 解析](../term/ai-analysis.md)のときだけ。音声を 16 kHz の mono、32 kbps の MP3 にし、FFmpeg の無音検出 (-35 dB 以下が 0.5 秒以上) で発話の区間に分ける。0.3 秒未満の区間は捨て、前後に 0.2 秒の余白を足し、30 秒を超える区間は等分する。区間ごとに `gpt-transcribe` (日本語) で行にし、区間の開始と終了を行の時刻にする ([文字起こし](../term/transcript.md))。同時に送るのは 5 区間まで。1 回の呼び出しは、タイムアウト 60 秒、再試行 3 回 (間隔は 1 秒から倍ずつ)。1 区間でも失敗したら、残りの区間は送らず、走っている区間の終わりを待って文字起こしを失敗にする |
 | ⑤ 感情分析 | 文字起こしが 1 行以上あるときだけ。50 行ごとに分け、3 並列で `gpt-5.6-luna` に渡す。1 回の呼び出しは、タイムアウト 600 秒、再試行 3 回 (タイムアウトは再試行しない)。感情フィルターが `any` なら 4 つの感情の最大値、それ以外はその感情の値を強さとし、一番高い感情を `dominantEmotion` にする |
 | ⑥ 集約 | 次の手順で見どころを決める。`order` は開始時刻の昇順で 1 から振る |
 | ⑦ 切り出し | 見どころをすべて並列で、`ffmpeg -ss {開始} -t {長さ} -i {入力} -c copy` (再エンコードなし) で切り出し、`outputs/{JOB_ID}/clips/{highlightId}.mp4` に保存する。1 件でも失敗すれば例外 |
@@ -90,7 +90,7 @@ flowchart TD
 4. 採った件数が 20 件になるか、候補が尽きるまで繰り返す。開始時刻の昇順に並べる
 
 - 文字起こしと感情分析が失敗してもジョブは失敗にしない ([AI 解析](../term/ai-analysis.md))。映像と音量の分析が失敗したときは、ジョブが失敗する
-- 解析の進み具合は、完了のたびに DynamoDB のジョブへ書く。文字起こしと感情分析は、チャンクが 2 つ以上のときだけ、完了数と全体数を添える
+- 解析の進み具合は、完了のたびに DynamoDB のジョブへ書く。文字起こしは区間が、感情分析はチャンクが 2 つ以上のときだけ、完了数と全体数を添える
 
 ## 上限
 
