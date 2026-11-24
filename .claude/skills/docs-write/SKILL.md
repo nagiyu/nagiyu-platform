@@ -64,7 +64,7 @@ description: docs/ 配下の文書を作成・更新する。docs を書く・�
 |---|---|---|---|
 | 規約 | `platform/rules/<name>.md` | 規則 (1 つずつ、理由を添える) | 強制している設定ファイル。なければ空 |
 | ライブラリ | `platform/specs/lib/<package>/<name>.md` | 使い方 / 振る舞い (入力・出力・失敗したとき) | その機能のソース。サブパスから import させるなら `package.json` も |
-| CI | `platform/specs/ci/<name>.md` | 起点 / 処理 / 失敗したとき | ワークフローと、それが呼ぶスクリプト |
+| CI | `platform/specs/ci/<name>.md` | 起点 / 処理 / 失敗したとき | 一緒に変わるワークフローの群と、それが呼ぶスクリプト・composite action |
 
 - 概要は見出しを立てず、タイトル (H1) の直後に段落で書く。仕様のほかの種別と同じ形にそろえる
 - どの種別も、最後に任意の「理由」「手順」の節を置ける

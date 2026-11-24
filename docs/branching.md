@@ -101,25 +101,7 @@ on:
 
 ## CI
 
-PR の検証は、スピードと品質を両立させるため 2 段階で行う。
-
-| 段階 | 対象 | 内容 |
-|---|---|---|
-| Fast CI | `integration/**` への PR | ビルド、リント・フォーマット、ユニットテスト、E2E (chromium-mobile のみ) |
-| Full CI | `develop` への PR | Fast CI の内容 + カバレッジ 80% 以上の検査 + E2E (chromium-desktop, chromium-mobile, webkit-mobile) |
-
-```mermaid
-graph LR
-    A[作業ブランチ] -->|PR / Fast CI| B[integration/**]
-    B -->|PR / Full CI| C[develop]
-    C -->|release/vX.Y.Z 経由| D[master]
-
-    style B fill:#e1f5ff
-    style C fill:#fff4e1
-    style D fill:#ffe1e1
-```
-
-カバレッジが 80% 未満の場合、Full CI (develop への PR) で自動的に失敗する。
+PR の検証は、向き先で 2 段階に分ける。`integration/**` への PR は Fast CI、`develop` への PR は Full CI である。検査の内容と出し分けは `docs/platform/specs/ci/service-verify.md` にある。
 
 ---
 
