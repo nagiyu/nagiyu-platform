@@ -210,7 +210,7 @@ libs/{library-name}/
 
 ## CI戦略
 
-CI の構成と各ワークフローの振る舞いは `docs/platform/specs/ci/` 配下の CI の仕様にある。検証の流れは `docs/platform/specs/ci/service-verify.md`、E2E は `docs/platform/specs/ci/e2e.md` を参照する。ワークフローを書くときの規則は [ワークフローを書くときの規約](../platform/rules/workflows.md) にある。ブランチ戦略と CI の全体像は [ブランチ戦略](../branching.md) を参照する。
+CI の構成と各ワークフローの振る舞いは `docs/platform/specs/ci/` 配下の CI の仕様にある。検証の流れは [サービスの PR 検証](../platform/specs/ci/service-verify.md)、E2E は [E2E](../platform/specs/ci/e2e.md) を参照する。ワークフローを書くときの規則は [ワークフローを書くときの規約](../platform/rules/workflows.md) にある。ブランチ戦略と CI の全体像は [ブランチ戦略](../branching.md) を参照する。
 
 **カバレッジチェックの動作**:
 

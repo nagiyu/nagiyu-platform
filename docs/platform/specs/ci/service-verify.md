@@ -13,7 +13,7 @@ sources_hash: 5d9596ba41e29c313d273006d9f1f2d99d583f3c2c47d2a2e979f3b94fd1d756
 
 サービスの PR を検証するワークフロー群 (`.github/workflows/*-verify.yml` のうちサービスの 11 本) の共通の流れ。検査の本体は `reusable-service-verify.yml` が持ち、各サービスの verify は、それを呼ぶ `verify` ジョブのほか、infra の検証・ビルド確認・Docker のビルド確認・E2E・結果の報告を並べる。
 
-インフラの検証は [infra の検証](./infra-verify.md)、E2E は [E2E](./e2e.md)、イメージの部品は `docker-image.md` に書く。
+インフラの検証は [infra の検証](./infra-verify.md)、E2E は [E2E](./e2e.md)、イメージの部品は [イメージのビルドと ECR への push](./docker-image.md) に書く。
 
 ## 起点
 
@@ -131,19 +131,15 @@ flowchart LR
 | 2 | 対象の `package.json` の `version` を、ビルド引数 `APP_VERSION` に渡す (これを使うイメージだけ) |
 | 3 | `build-docker-image` でビルドする。タグは `<サービス>-...-verify-...` 形式のローカルのタグ |
 
-イメージの部品 (`build-docker-image` のログインとリトライ) は `docker-image.md` にある。
+イメージの部品 (`build-docker-image` のログインとリトライ) は [イメージのビルドと ECR への push](./docker-image.md) にある。
 
 ### E2E
 
-E2E を持つサービス (dev-sync 以外の 10 本) は、`reusable-e2e.yml` を `full: ${{ github.base_ref == 'develop' }}` で呼ぶ。挙動は [E2E](./e2e.md) にある。web のビルドのジョブを `needs` に持つサービスと持たないサービスがある。
+E2E を持つサービスは、`reusable-e2e.yml` を `full: ${{ github.base_ref == 'develop' }}` で呼ぶ。挙動は [E2E](./e2e.md) にある。web のビルドのジョブを `needs` に持つサービスと持たないサービスがある。
 
 ### infra の検証
 
 `reusable-infra-verify.yml` を、サービスの infra ディレクトリを `dirs` にして呼ぶ。挙動は [infra の検証](./infra-verify.md) にある。ポータルだけは、ルートの infra ワークスペースだけを対象にするため `dirs: infra` を渡す。
-
-### portal の内部リンク検査
-
-ポータルだけが、`internal-links` ジョブを持つ。`npm ci` のあと、`check:internal-links` を流す。共通ライブラリをビルドせずに流すので、検査の入口は未ビルドの `@nagiyu/*` を import できない。
 
 ### PR への結果報告
 
@@ -175,10 +171,10 @@ Fast と Full という名前の仕組みが 1 か所にあるのではなく、
 | 契約テスト、ビルド確認、Docker のビルド確認、infra の検証 | 同じ | 同じ | 出し分けなし |
 | PR コメントの見出し | `Fast Verification` | `Full Verification` | `report.js`。`fast-full` を渡すサービスの verify だけ |
 | ライブラリのカバレッジ | 流す | 流す | 区別なし ([ライブラリの検証](./lib-verify.md)) |
-| リポジトリ全体の lint と書式 | 流れない | 流れる | `all-verify.md` (`develop` と `master` 向けだけ) |
-| 未実装の文書の禁止 | 許す | 禁止 | `docs.md` (`develop` と `master` 向けで禁止) |
+| リポジトリ全体の lint と書式 | 流れない | 流れる | [全体の lint と format の検査](./all-verify.md) (`develop` と `master` 向けだけ) |
+| 未実装の文書の禁止 | 許す | 禁止 | [docs の検査と公開](./docs.md) (`develop` と `master` 向けで禁止) |
 
-`master` 向けの PR (リリース) では、サービス・ライブラリ・infra の verify は走らない。走るのは `all-verify.md`、`docs.md`、`node-version-verify.md` の検証だけである。
+`master` 向けの PR (リリース) では、サービス・ライブラリ・infra の verify は走らない。走るのは [全体の lint と format の検査](./all-verify.md)、[docs の検査と公開](./docs.md)、[Node のメジャー版の一致の検査](./node-version-verify.md) だけである。
 
 ## 失敗したとき
 
@@ -189,7 +185,7 @@ Fast と Full という名前の仕組みが 1 か所にあるのではなく、
 | `Check` の lint が落ちる | 書式の検査とテストは続けて流れる。1 回の run で全部の結果が見える |
 | `Check` のビルドが落ちる | テストは流れない。原因ではない失敗を増やさないため |
 | `Contract Test` が落ちる | DynamoDB Local が 30 秒のうちに応答しなかった場合も、テストの失敗として現れる |
-| Docker のビルド確認が `toomanyrequests` を出す | public ECR のレート制限。`build-docker-image` が待ってリトライする (`docker-image.md`) |
+| Docker のビルド確認が `toomanyrequests` を出す | public ECR のレート制限。`build-docker-image` が待ってリトライする ([イメージのビルドと ECR への push](./docker-image.md)) |
 | Docker のビルド確認が通ったのに、デプロイ後にバッチや Lambda が起動で落ちる | Docker のビルド確認はイメージを作るだけで、イメージの中でモジュールを読み込まない。実行時の import の失敗は検出できない |
 
 ## 理由

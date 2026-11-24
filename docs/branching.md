@@ -101,7 +101,7 @@ on:
 
 ## CI
 
-PR の検証は、向き先で 2 段階に分ける。`integration/**` への PR は Fast CI、`develop` への PR は Full CI である。検査の内容と出し分けは `docs/platform/specs/ci/service-verify.md` にある。
+PR の検証は、向き先で 2 段階に分ける。`integration/**` への PR は Fast CI、`develop` への PR は Full CI である。検査の内容と出し分けは [サービスの PR 検証](./platform/specs/ci/service-verify.md) にある。
 
 ---
 

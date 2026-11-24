@@ -18,7 +18,7 @@ sources: []
 
 `integration/**` 向けは Fast、`develop` 向けは Full とし、`{target}-verify.yml` を分けない。ファイルを 2 本に分けると、片方だけが直されて検査の中身がずれるためである。出し分けは、再利用ワークフローへ `full: ${{ github.base_ref == 'develop' }}` を渡して行う。
 
-出し分けの中身は `docs/platform/specs/ci/service-verify.md`、`docs/platform/specs/ci/e2e.md`、`docs/platform/specs/ci/lib-verify.md` にある。
+出し分けの中身は [サービスの PR 検証](../specs/ci/service-verify.md)、[E2E](../specs/ci/e2e.md)、[ライブラリの PR 検証](../specs/ci/lib-verify.md) にある。
 
 ### 検査は再利用ワークフローを呼び、手で並べない
 
@@ -26,7 +26,7 @@ lint・format・ユニットテスト・カバレッジ・契約テストは `re
 
 手で書くと、書き方がばらつき、検査し忘れたり別のワークスペースを検査したりする。ワークスペースを手で並べると、並べ忘れたパッケージが検査から漏れる。
 
-振る舞いは `docs/platform/specs/ci/service-verify.md`、`docs/platform/specs/ci/infra-verify.md`、`docs/platform/specs/ci/e2e.md`、`docs/platform/specs/ci/lib-verify.md` にある。
+振る舞いは [サービスの PR 検証](../specs/ci/service-verify.md)、[infra の検証](../specs/ci/infra-verify.md)、[E2E](../specs/ci/e2e.md)、[ライブラリの PR 検証](../specs/ci/lib-verify.md) にある。
 
 ### PR コメントの報告は `report-verify-results` を使い、スクリプトをコピーしない
 
@@ -147,4 +147,4 @@ web や batch のビルドは core のビルドの後、Docker ビルドは web 
 4. Next.js のビルド・Docker・E2E・サービス固有の検査は、`{target}-verify.yml` にジョブとして残す。再利用ワークフローの対象外である。
 5. 検証の paths と、デプロイが要るなら `{target}-deploy.yml` の paths を決める (上の「トリガーと paths」)。
 
-各ワークフローの振る舞いは `docs/platform/specs/ci/service-verify.md`、`docs/platform/specs/ci/infra-verify.md`、`docs/platform/specs/ci/e2e.md`、`docs/platform/specs/ci/lib-verify.md`、`docs/platform/specs/ci/docker-image.md`、`docs/platform/specs/ci/ci-image-build.md`、`docs/platform/specs/ci/node-version-verify.md`、`docs/platform/specs/ci/all-verify.md`、`docs/platform/specs/ci/docs.md`、`docs/platform/specs/ci/scheduled-issues.md` にある。
+各ワークフローの振る舞いは [サービスの PR 検証](../specs/ci/service-verify.md)、[infra の検証](../specs/ci/infra-verify.md)、[E2E](../specs/ci/e2e.md)、[ライブラリの PR 検証](../specs/ci/lib-verify.md)、[イメージのビルドと ECR への push](../specs/ci/docker-image.md)、[CI 共通イメージのビルドと公開](../specs/ci/ci-image-build.md)、[Node のメジャー版の一致の検査](../specs/ci/node-version-verify.md)、[全体の lint と format の検査](../specs/ci/all-verify.md)、[docs の検査と公開](../specs/ci/docs.md)、[定期の Issue 起票](../specs/ci/scheduled-issues.md) にある。
