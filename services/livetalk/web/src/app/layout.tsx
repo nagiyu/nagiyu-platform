@@ -43,10 +43,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
   return (
     <html lang="ja">
-      {/* Cubism Core は pixi-live2d-display が window.Live2DCubismCore を参照するため
-          他のスクリプトより先にロードする必要がある */}
-      <Script src="/assets/cubism-core/live2dcubismcore.min.js" strategy="beforeInteractive" />
       <body>
+        {/* Cubism Core は pixi-live2d-display が window.Live2DCubismCore を参照するため
+            他のスクリプトより先にロードする必要がある。
+            html 直下に置くと React が不正な入れ子として扱うため body の中に置く
+            (beforeInteractive は body の中でも先に読み込まれる) */}
+        <Script src="/assets/cubism-core/live2dcubismcore.min.js" strategy="beforeInteractive" />
         {/* 許可済みユーザーの購読は、ブラウザ側で失われることがあるため訪問のたびに作り直して送る */}
         <ServiceWorkerRegistration resubscribe />
         {/*

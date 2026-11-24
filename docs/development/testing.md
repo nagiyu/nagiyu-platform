@@ -149,20 +149,13 @@ libs/{library-name}/
 #### ロール／権限の差し替え（リクエストヘッダ + フィクスチャ）
 
 - テストは Playwright フィクスチャの `role` オプション（`test.use({ role: [...] })`）でロールを宣言する。フィクスチャは全 HTTP リクエスト（ページ遷移・`request` の双方）に `x-test-user-roles`（`,` 区切り）ヘッダを付与する。
-- `@nagiyu/nextjs` の `createSessionGetter` と `createClientSessionGetHandler` は、**`SKIP_AUTH_CHECK=true` のテスト専用経路でのみ**このヘッダを読み、テストセッションのロールを上書きする（ヘッダ名は `TEST_USER_ROLES_HEADER`）。ヘッダ未設定時は従来どおり `TEST_USER_ROLES` 環境変数にフォールバックするため、フィクスチャを使わない既存テストは影響を受けない。
-- **本番安全性**: `SKIP_AUTH_CHECK` は本番／公開環境では有効化されない前提であり、その経路の外ではヘッダを一切読まない（`headers()` すら呼ばない）。権限昇格の新規経路は生じない。
+- `@nagiyu/nextjs` のセッション取得は、`SKIP_AUTH_CHECK=true` のテスト専用経路でのみこのヘッダを読み、テストセッションのロールを上書きする。ヘッダ名・ロールの解決順・分割の規則・有効期限は [セッション取得](../platform/specs/lib/nextjs/session.md) を参照する。ヘッダ未設定時は従来どおり `TEST_USER_ROLES` 環境変数にフォールバックするため、フィクスチャを使わない既存テストは影響を受けない。
 - 権限ゲート（`withAuth` の `requiredPermission` や middleware の権限判定）を**実際に評価**させたうえで結果を固定できるため、権限拒否（403）を条件分岐なしの独立テストとして書ける。
 
 #### ロール差し替えが効く範囲
 
-ヘッダを解釈するのは `@nagiyu/nextjs` の次の 2 つで、いずれも `SKIP_AUTH_CHECK=true` のときだけ働く。ロールの解決順は共通で、ヘッダ → `TEST_USER_ROLES` → サービスの既定ロールとなる。
+ヘッダを解釈するのは、サーバー側 (API ルート・Server Component) のセッション取得と、クライアント側 (`useSession()` が呼ぶ `/api/auth/session`) の 2 経路で、解決の規則は共通である ([セッション取得](../platform/specs/lib/nextjs/session.md) を参照)。
 
-| 経路 | 解釈する関数 |
-|---|---|
-| API ルート・Server Component（権限ゲートを含む） | `createSessionGetter` |
-| Client Component の `useSession()`（`/api/auth/session`） | `createClientSessionGetHandler` |
-
-- ロール文字列は `,` で分割し、trim と空要素の除去を行う。結果が空なら未設定扱いとなり、`TEST_USER_ROLES=""` も既定ロールに戻る（`parseTestUserRoles`）。
 - クライアント向けの経路は、`[...nextauth]/route.ts` の GET を `createClientSessionGetHandler` で包んで有効にする。サーバー側と同じユーザー・ロール・有効期限（30 日）を返すため、画面上の出し分けがクライアントのセッションに依存していても、`role` の宣言だけで検証したい状態になる。
 - 新しいサービスでこの経路を使うときは、`createSessionGetter` と `createClientSessionGetHandler` に同じ `defaultRoles` を渡すこと。これを怠ると、サーバー側とクライアント側でロールの既定値が食い違う。
 

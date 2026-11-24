@@ -140,7 +140,7 @@ Issue番号、タスクタイプ
 
 共通ライブラリ（@nagiyu/common等）の開発:
 
-- **ドキュメント参照**: `docs/libs/`, `docs/development/shared-libraries.md`
+- **ドキュメント参照**: `docs/platform/specs/lib/`, `docs/development/shared-libraries.md`
 - **配置先**: `tasks/issue-{番号}-{短縮名}.md`
 - **考慮事項**: 依存の一方向性（`ui → browser → common`）、パスエイリアス禁止
 

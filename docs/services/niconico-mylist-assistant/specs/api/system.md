@@ -4,9 +4,7 @@ sources:
   - services/niconico-mylist-assistant/web/src/app/api/auth/[...nextauth]/route.ts
   - services/niconico-mylist-assistant/web/src/app/api/test/videos/route.ts
   - services/niconico-mylist-assistant/web/src/app/api/test/session/route.ts
-  - libs/nextjs/src/health.ts
-  - libs/nextjs/src/session.ts
-sources_hash: 7ef52556611da824f37741e5c515bf4fb0b08619ba005a524470610311c26354
+sources_hash: 592fd71c539918449ffaac2abe78f25583d0cf18fd926ae9b9440d51006d0e7d
 ---
 
 # システム系の API
@@ -26,8 +24,8 @@ sources_hash: 7ef52556611da824f37741e5c515bf4fb0b08619ba005a524470610311c26354
 
 ## 入力と出力
 
-- 死活確認は `{ status: 'ok', service: 'niconico-mylist-assistant', version, timestamp }` を返す。`version` は環境変数 `APP_VERSION`、なければ `1.0.0`
-- 認証は next-auth の GET だけを公開する。サインアウトの POST は受け付けない (サインアウトは Auth サービスへ移す)。環境変数 `SKIP_AUTH_CHECK` が `true` のテスト用の設定では、`/api/auth/session` が認証せずにテスト用のセッション (利用者 ID、メール、名前は `TEST_USER_*` の環境変数。ロールは空) を返す
+- 死活確認の応答の形は[ヘルスチェックのルート](../../../../platform/specs/lib/nextjs/health-route.md)のとおり。`service` は `niconico-mylist-assistant`、`version` は環境変数 `APP_VERSION`、なければ `1.0.0`
+- 認証は next-auth の GET だけを公開する。サインアウトの POST は受け付けない (サインアウトは Auth サービスへ移す)。環境変数 `SKIP_AUTH_CHECK` が `true` のテスト用の設定では、`/api/auth/session` が認証せずにテスト用のセッションを返す ([セッション取得とテストセッション](../../../../platform/specs/lib/nextjs/session.md))。ロールの既定は空 (`defaultRoles` を渡さない)
 - テスト用の API は、環境変数 `USE_IN_MEMORY_DB` が `true` のときだけ動く。インメモリ DB を直接操作する
     - `POST /api/test/videos`: 本文は `{ count, startId?, favoriteCount?, skipUserSetting? }`。動画を `count` 件作る。動画 ID は `sm{startId + i}` (`startId` の既定は 50000000)、タイトルは「E2E動画 {番号}」、長さは `3:00`、サムネイルは `https://example.com/{動画 ID}.jpg`。先頭から `favoriteCount` 件 (既定 0) をお気に入りにする。`skipUserSetting` が `true` なら、ユーザー設定は作らない。成功は `{ success: true, count }`
     - `DELETE /api/test/videos`: 一覧に出るすべての動画 (全利用者の分) の動画基本情報と、自分の設定を消す。成功は `{ success: true, count }`

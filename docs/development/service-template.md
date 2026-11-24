@@ -427,16 +427,7 @@ services/{service}/batch/
 
 全サービスの web パッケージで `src/app/api/health/route.ts` を実装（Lambda監視用）。
 
-### 実装例
-
-```typescript
-export async function GET() {
-    return Response.json({
-        status: 'ok',
-        version: process.env.APP_VERSION || 'unknown',
-    });
-}
-```
+`createHealthRoute` で生成する。サービス名とバージョンの渡し方、レスポンスの形は [Health ルート](../platform/specs/lib/nextjs/health-route.md) を参照する。
 
 ## 依存関係の管理
 

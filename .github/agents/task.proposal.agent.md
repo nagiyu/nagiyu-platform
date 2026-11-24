@@ -33,7 +33,7 @@ description: Issueの内容から実装の指針となるMarkdownドキュメン
     - タスクタイプに応じた既存ドキュメント:
         - サービス: `docs/services/{サービス名}/`
         - インフラ: `docs/infra/`
-        - ライブラリ: `docs/libs/`
+        - ライブラリ: `docs/platform/specs/lib/`
 
 ### Phase 2: タスクドキュメントの生成
 

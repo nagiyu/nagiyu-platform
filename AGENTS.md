@@ -97,5 +97,6 @@ feature/**  →  integration/**  →  develop  →  master
 - アーキテクチャ: `docs/development/architecture.md`
 - テスト戦略: `docs/development/testing.md`
 - ブランチ戦略: `docs/branching.md`
-- 共通ライブラリ: `docs/development/shared-libraries.md`
+- 共通ライブラリの設計: `docs/development/shared-libraries.md`
+- 共通ライブラリの仕様: `docs/platform/specs/lib/`
 - エージェント指示: `.github/agents/`
