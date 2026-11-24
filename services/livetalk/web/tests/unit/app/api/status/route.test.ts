@@ -293,4 +293,90 @@ describe('GET /api/status', () => {
     // 不正 ID は既定 characterId（hiyori）にフォールバック
     expect(mockGet).toHaveBeenCalledWith(expect.objectContaining({ characterId: 'hiyori' }));
   });
+
+  describe('通知の記録をキャラクターで絞る', () => {
+    // 日本時間の 12:00 (起床後・就寝前)。1 日の境界は日本時間の 0 時
+    const NOW = new Date('2026-06-10T03:00:00.000Z');
+    const makeEvent = (notifId: string, characterId: string, createdAt: number) => ({
+      userId: 'u1',
+      notifId,
+      characterId,
+      kind: 'normal' as const,
+      title: 'タイトル',
+      body: '本文',
+      createdAt,
+      updatedAt: createdAt,
+      expiresAt: 9_999_999_999_000,
+    });
+
+    beforeEach(() => {
+      // Date だけを固定し、非同期処理の待ちには影響させない
+      jest.useFakeTimers({
+        now: NOW,
+        doNotFake: [
+          'nextTick',
+          'setImmediate',
+          'clearImmediate',
+          'setTimeout',
+          'clearTimeout',
+          'setInterval',
+          'clearInterval',
+          'queueMicrotask',
+          'performance',
+          'requestAnimationFrame',
+          'cancelAnimationFrame',
+          'requestIdleCallback',
+          'cancelIdleCallback',
+        ],
+      });
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    const setupWithEvents = (events: ReturnType<typeof makeEvent>[]) => {
+      const listByUser = jest.fn(async () => events);
+      mockGetSession.mockResolvedValueOnce(adminSession);
+      mockGetLifecycleRepo.mockReturnValue(makeLifecycleRepo());
+      mockGetNotifEventRepo.mockReturnValue({
+        listByUser,
+      } as unknown as NotificationEventRepository);
+      mockGetStudyTopicRepo.mockReturnValue(makeStudyTopicRepo());
+      mockGetMessageRepo.mockReturnValue(makeMessageRepo());
+      return listByUser;
+    };
+
+    it('通知の記録をバッチと同じ直近 60 件で読む', async () => {
+      const listByUser = setupWithEvents([]);
+
+      await GET(buildGetRequest());
+
+      expect(listByUser).toHaveBeenCalledWith('u1', 60);
+    });
+
+    it('他キャラの本日の平常通知では daily_cap にならず、一覧にも出ない', async () => {
+      const otherAt = NOW.getTime() - 60 * 60 * 1000;
+      setupWithEvents([makeEvent('other-1', 'ageha', otherAt)]);
+
+      const res = await GET(buildGetRequest('hiyori'));
+      const json = await res.json();
+
+      expect(json.notifyDecision).toMatchObject({ notify: true, kind: 'normal' });
+      expect(json.recentNotifications).toEqual([]);
+    });
+
+    it('表示キャラの本日の平常通知は daily_cap になり、他キャラ分は一覧に混ざらない', async () => {
+      const at = NOW.getTime() - 60 * 60 * 1000;
+      setupWithEvents([makeEvent('other-1', 'ageha', at + 1000), makeEvent('own-1', 'hiyori', at)]);
+
+      const res = await GET(buildGetRequest('hiyori'));
+      const json = await res.json();
+
+      expect(json.notifyDecision).toMatchObject({ notify: false, reason: 'daily_cap' });
+      expect(json.recentNotifications.map((e: { notifId: string }) => e.notifId)).toEqual([
+        'own-1',
+      ]);
+    });
+  });
 });
