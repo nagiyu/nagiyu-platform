@@ -3,7 +3,7 @@
 # Playwright の版は、ルートの package.json の @playwright/test と揃える。ずれると、テストがブラウザを見つけられない。
 
 # ステージごとに再宣言しないと、ステージの中では値が見えない
-ARG PLAYWRIGHT_VERSION=1.60.0
+ARG PLAYWRIGHT_VERSION=1.65.1
 
 FROM node:26-slim AS base
 
