@@ -17,7 +17,7 @@ export function getVoiceClient(): IVoiceClient {
 }
 
 function createVoiceClient(): IVoiceClient {
-  // OpenAI TTS は API キーが存在する場合のみ遅延ファクトリとして登録する。
+  // OpenAI の音声合成は API キーが存在する場合のみ遅延ファクトリとして登録する。
   // ファクトリは初回利用時に実行されるため、VOICEVOX のみのリクエストでは
   // OPENAI_API_KEY 不在でも OpenAIVoiceClient が生成されず、エラーにならない。
   const openaiClientFactory: (() => IVoiceClient) | undefined = process.env.OPENAI_API_KEY
