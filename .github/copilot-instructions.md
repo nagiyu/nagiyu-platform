@@ -133,3 +133,4 @@ feature/**  →  integration/**  →  develop  →  master
 - **ブランチ戦略**: [docs/branching.md](../docs/branching.md)
 - **アーキテクチャ**: [docs/development/architecture.md](../docs/development/architecture.md)
 - **共通ライブラリ**: [docs/development/shared-libraries.md](../docs/development/shared-libraries.md)
+- **共通ライブラリの仕様**: [docs/platform/specs/lib/](../docs/platform/specs/lib/)

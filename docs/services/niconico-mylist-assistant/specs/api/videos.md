@@ -4,8 +4,7 @@ sources:
   - services/niconico-mylist-assistant/web/src/app/api/videos/[id]/route.ts
   - services/niconico-mylist-assistant/web/src/app/api/videos/[id]/settings/route.ts
   - services/niconico-mylist-assistant/core/src/db/videos.ts
-  - libs/nextjs/src/pagination.ts
-sources_hash: 2cd373010f2b82152334c76426bfbd6bad1fac340b0e21782db7d07f16f59226
+sources_hash: 562920e53f93013f8d32eff7e89f6dcac646d8409baa9492267bd7d5659aa05b
 ---
 
 # 動画 API
@@ -27,7 +26,7 @@ sources_hash: 2cd373010f2b82152334c76426bfbd6bad1fac340b0e21782db7d07f16f59226
 
 | 項目 | 条件 |
 |---|---|
-| `limit` | 1〜100。省略は 50 (画面は 20 を渡す) |
+| `limit` | 範囲と省略時の値は[ページネーション](../../../../platform/specs/lib/nextjs/pagination.md)の `limit` のとおり (画面は 20 を渡す) |
 | `offset` | 0 以上の整数。省略は 0 |
 | `isFavorite` | `true` か `false`。`true` はお気に入りのもの、`false` はそれ以外 (設定がない動画を含む) |
 | `isSkip` | `true` か `false`。`true` はスキップのものだけ、`false` はスキップでないもの (設定がない動画を含む) |
@@ -62,7 +61,7 @@ sources_hash: 2cd373010f2b82152334c76426bfbd6bad1fac340b0e21782db7d07f16f59226
 | 条件 | 状態 | `code` |
 |---|---|---|
 | 未ログイン | 401 | `UNAUTHORIZED` |
-| `limit` が 1〜100 の外 (数でない場合も) | 400 | `INVALID_REQUEST` (`details` に「limit は 1 から 100 の間で指定してください」) |
+| `limit` が範囲の外 (数でない場合も) | 400 | `INVALID_REQUEST` (`details` に[ページネーション](../../../../platform/specs/lib/nextjs/pagination.md)の検証のメッセージ) |
 | `offset` が数でない、または負 | 400 | `INVALID_REQUEST` (`details` に「offset は 0 以上である必要があります」) |
 | `isFavorite`、`isSkip` が `true` と `false` 以外 | 400 | `INVALID_REQUEST` (`details` にその旨) |
 | 想定外の失敗 | 500 | `DATABASE_ERROR` |

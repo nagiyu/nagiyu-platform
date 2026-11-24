@@ -3,8 +3,7 @@ sources:
   - services/niconico-mylist-assistant/web/src/app/api/batch/status/[jobId]/route.ts
   - services/niconico-mylist-assistant/core/src/db/batch-jobs.ts
   - services/niconico-mylist-assistant/core/src/mappers/batch-job.mapper.ts
-  - libs/nextjs/src/auth.ts
-sources_hash: f38095eddc19d8af07c586384a1af2358e05d364d7ee7f2aedb49ffe39e45fe7
+sources_hash: 8a314f5743928099366136cd15e3cb307b7bfbdb0bf2b84e846628c7de245e2f
 ---
 
 # ジョブ API
@@ -30,9 +29,9 @@ sources_hash: f38095eddc19d8af07c586384a1af2358e05d364d7ee7f2aedb49ffe39e45fe7
 
 | 条件 | 状態 | 応答 |
 |---|---|---|
-| 未ログイン | 401 | `error` が `UNAUTHORIZED`、`message` が「ログインが必要です」 |
+| 未ログイン | 401 | `withAuth` の未認証の応答 ([認証付きルートハンドラ](../../../../platform/specs/lib/nextjs/with-auth.md)) |
 | ジョブがない (ほかの利用者のジョブを含む) | 404 | `code` が `NOT_FOUND`、`message` が「バッチジョブが見つかりません」 |
-| 想定外の失敗 | 500 | `error` が `INTERNAL_ERROR`、`message` が「内部エラーが発生しました」 |
+| 想定外の失敗 | 500 | `handleApiError` の 500 の応答 ([エラーレスポンス](../../../../platform/specs/lib/nextjs/error-response.md)) |
 
 ## つながり
 

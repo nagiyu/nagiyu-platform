@@ -8,7 +8,7 @@ sources:
   - services/livetalk/web/src/lib/characters/registry.ts
   - services/livetalk/web/src/lib/characters/client-profiles.ts
   - services/livetalk/web/src/lib/characters/CharacterContext.tsx
-sources_hash: e0f1b8c1c43265a5ff6dd0fa3ceb4faa90fef80f48add2333a8b835f53271fe7
+sources_hash: 0fd9dc5a60857226bd1d8d4cf8107fa08d9b2224ea454e29684f1843a57ab77f
 related_cards: [livetalk/screen/home, livetalk/api/chat, livetalk/flow/conversation]
 related_adr:
   - services/livetalk/architecture.md#2.15
@@ -24,7 +24,7 @@ related_adr:
 | ID | 名前 | 描き方 | 音声 |
 |---|---|---|---|
 | `hiyori` (既定) | 桃瀬ひより | Live2D | VOICEVOX (冥鳴ひまり) |
-| `ageha` | 早瀬アゲハ | 一枚絵 (パーツの重ね合わせ) | OpenAI TTS (nova) |
+| `ageha` | 早瀬アゲハ | 一枚絵 (パーツの重ね合わせ) | OpenAI Realtime API (`gpt-realtime-2.1-mini`、marin) |
 
 - 選んだキャラクターは、ブラウザのローカルストレージ (`livetalk:selectedCharacterId`) に残る。初回は `hiyori`
 - ホーム画面は URL の `?character={ID}` でも切り替えられる。通知からの起動で使う

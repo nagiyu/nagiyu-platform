@@ -35,13 +35,7 @@ Consumer サービスは、NextAuth の JWT 検証機能を利用して、Auth �
 
 ### 有効なロールの算出
 
-JWT に載るロールは、ユーザーに直接付いたロールそのものではなく、Auth が算出した「有効なロール」である。
-
-- 有効なロール = 手動ロール ∪ 期限内で取り消されていない課金の権利のロール
-    - 手動ロール: 管理者が管理画面から付けるロール
-    - 課金の権利: 課金 (Stripe の契約、または支援への手動の付与) で付くロール。出どころと有効期限を持つ
-- 算出するのは Auth の jwt callback だけで、ログインとロールの再取得のときに走る。期限切れの判定もこのときにだけ行う
-- Consumer は課金の権利を知らない。有料かどうかも、JWT のロールから導かれる権限で判定する。課金のための専用の判定は持たない
+JWT に載るロールは、ユーザーに直接付いたロールそのものではなく、Auth が算出した「有効なロール」である。算出の式と期限の扱いは [ロールの付与](../platform/specs/lib/common/role-grants.md) を参照する。算出するのは Auth の jwt callback だけで、ログインとロールの再取得のときに走る。Consumer は課金の権利を知らず、有料かどうかも JWT のロールから導かれる権限で判定する。
 
 課金の権利を手動ロールと分けて持つ理由などは、[Auth サービスのアーキテクチャ](../services/auth/architecture.md) の ADR を参照。
 
@@ -57,7 +51,7 @@ JWT に載るロールは、ユーザーに直接付いたロールそのもの�
 Auth の `/refresh?callbackUrl=...` は `useSession().update()` で jwt callback を `trigger: 'update'` 起動し、ロールを即時再取得してから検証済み `callbackUrl` へ遷移する。
 
 - **実装上の注意（next-auth v5）**: `update()` は **引数を渡さないと GET になり `trigger:'update'` が発火しない**。さらに **SessionProvider の初期読み込み中（`status === 'loading'`）に呼ぶと内部で即 return** される。したがって「**読み込み完了後に、引数つきで** `update({ ... })` を呼ぶ」必要がある（いずれかを満たさないと強制リフレッシュが効かず、TTL 経過まで反映されない）。
-- `callbackUrl` は `@nagiyu/common` の `isAllowedNagiyuRedirectUrl`（同一オリジン / `*.nagiyu.com` のみ許可）で検証し、オープンリダイレクトを防ぐ。
+- `callbackUrl` は [リダイレクト先 URL の検証](../platform/specs/lib/common/redirect-url.md) で検証し、オープンリダイレクトを防ぐ。
 
 ### 初回 403 の導線（権限付与の反映フロー）
 
@@ -65,10 +59,8 @@ Auth の `/refresh?callbackUrl=...` は `useSession().update()` で jwt callback
 
 権限の見方によって、表示のしかたが 2 通りある。
 
-- ミドルウェアで権限を見るサービス: `createAuthMiddleware` の `requiredPermission` を満たさないと、`/forbidden?from=<元のパス>` へリダイレクトする。リダイレクト先は `forbiddenPath` で変えられる。`/forbidden` ページは公開パスにし、`from` から戻り先を組み立てて `AccessDeniedView` に渡す
+- ミドルウェアで権限を見るサービス: ミドルウェアが権限のないページアクセスを `/forbidden?from=<元のパス>` へリダイレクトする ([認証ミドルウェア](../platform/specs/lib/nextjs/auth-middleware.md) を参照)。`/forbidden` ページは公開パスにし、`from` から戻り先を組み立てて `AccessDeniedView` に渡す
 - ページ内で権限を見る場合: URL を変えず、そのページが `AccessDeniedView` を返す。戻り先は、ボタンを押した時点の現在の URL になる
-
-ミドルウェアで rewrite (URL を変えずに `/forbidden` の中身を返す) を使わないのは、ECS 配下で外部プロキシになるため。next-auth は middleware に渡す `request.url` のオリジンを `AUTH_URL` (公開 URL) に書き換える。一方、Next.js はサーバー自身を内部ホスト名で認識しているので、公開 URL 宛ての rewrite を自身と一致しない宛先とみなし、HTTP で取りに行く。リダイレクト先のオリジンも同じ理由で、`request.url` ではなく `APP_URL` を優先する。
 
 権限が付与されたあとの流れは次のとおり。
 
@@ -108,8 +100,7 @@ Auth の `/refresh?callbackUrl=...` は `useSession().update()` で jwt callback
 
 **実装方針:**
 
-- `@nagiyu/nextjs` の `createAuthMiddleware()` を使用する。オプションとして `getSignInBaseUrl`（サインインページの URL 生成）、`getCallbackUrl`（コールバック URL 生成）、`onAuthConfigError`（設定エラー時のハンドラー）を渡す。
-- `SKIP_AUTH_CHECK` 環境変数を設定することで、開発・テスト時に認証チェックをバイパスできる。
+- ミドルウェアは `createAuthMiddleware()` で統一する ([認証ミドルウェア](../platform/specs/lib/nextjs/auth-middleware.md) を参照)。
 
 **適用サービス例:**
 
@@ -217,49 +208,11 @@ CDK でスタックを個別にデプロイする際、依存するスタック�
 
 ---
 
-## セッション型の設計方針
+## 統一パターン
 
-`@nagiyu/common` には、似て非なる 2 種類のユーザー型がある。混同しないよう用途で分ける。
-
-### User (DB 上のユーザー)
-
-DynamoDB に永続化されたユーザーエンティティ。`userId` / `googleId` / `createdAt` / `updatedAt` / `lastLoginAt` 等を持つ。Auth サービスのリポジトリ層やバッチ処理など、DB を直接読み書きする箇所で使う。API ルートや画面が受け取るセッションの型には使わない。
-
-### Session / SessionUser (セッション)
-
-JWT から復元される、リクエスト時点の認証済みユーザーを表す。`SessionUser` は `id` / `email` / `name` / `image?` / `roles` だけを持ち、DB にしかない値 (`googleId` や作成日時) は含まない。`@nagiyu/nextjs` の `types/next-auth.d.ts` は next-auth の `Session['user']` をこの `SessionUser` で拡張しているため、サーバー側の `getSession()` が返す値とクライアントの `useSession()` が返す値は同じ形になる。
-
-DB の値が必要なサーバー側の処理は、セッションの `user.id` をキーに DynamoDB を参照する。サービスごとに独自のセッション型を定義したり、存在しない値を埋めて変換したりしない。
-
----
-
-## NextAuth 設定の統一パターン
-
-### Auth サービスと Consumer サービスの役割分担
-
-- **Auth サービス**: `@nagiyu/nextjs` の `createAuthServerConfig({ providers })` を使用。OAuth プロバイダー定義と DynamoDB ユーザー永続化処理をサービス側で注入する。
-- **Consumer サービス**: `@nagiyu/nextjs` の `createClientAuthConfig()` を使用。JWT 検証のみを行い、OAuth プロバイダー設定は不要。
-
-Cookie オプション（`domain`, `secure`, `sameSite`, `httpOnly` 等）・セッション設定・コールバックの共通部分はファクトリ関数内に集約されており、サービス側で個別に定義しない。
-
----
-
-## ミドルウェアの統一パターン
-
-ミドルウェアを使用する全 Consumer サービスは `@nagiyu/nextjs` の `createAuthMiddleware()` を使用する。認証不要なパス（公開パス）の設定はミドルウェアのオプションで行う。サービス側でミドルウェアのロジックを個別実装しない。
-
----
-
-## セッション取得の統一パターン
-
-全 Consumer サービスのセッション取得は `@nagiyu/nextjs` の `createSessionGetter()` を使用する。戻り値は全サービスで `@nagiyu/common` の `Session | null` に揃う。
-
-- `auth`: サービスの auth 関数を `auth as () => Promise<Session | null>` として渡す
-- `defaultRoles`: `SKIP_AUTH_CHECK` が有効なときのテストセッションで、ロールが未指定の場合に使う既定ロールを渡す (**省略可**)
-
-テストセッションはライブラリが組み立てる。ロールはヘッダ `x-test-user-roles`、`TEST_USER_ROLES`、`defaultRoles` の順に解決する。サービス側にセッションの変換やテストセッションの生成は持たない。
-
-セッション取得ロジックをサービス側で個別実装しない。
+- NextAuth の設定は `@nagiyu/nextjs` のファクトリで統一する。Auth サービスは `createAuthConfig`、Consumer サービスは `createServiceAuthConfig` を使い、Cookie・セッション設定・コールバックの共通部分をサービス側で個別に定義しない ([NextAuth 設定](../platform/specs/lib/nextjs/auth-config.md) を参照)。
+- ミドルウェアを使用する全 Consumer サービスは `createAuthMiddleware()` を使い、ミドルウェアのロジックを個別実装しない。
+- 全 Consumer サービスのセッション取得は `createSessionGetter()` を使い、セッションの変換やテストセッションの生成をサービス側に持たない ([セッション取得](../platform/specs/lib/nextjs/session.md) を参照)。
 
 ---
 
@@ -268,13 +221,6 @@ Cookie オプション（`domain`, `secure`, `sameSite`, `httpOnly` 等）・セ
 - **AUTH_SECRET**: JWT 検証用の秘密鍵（全サービス共通、Secrets Manager で管理）
 - **NEXT_PUBLIC_AUTH_URL**: Auth サービスの URL（クライアントからアクセス可能）
 - **APP_URL**: 自サービスの URL（サーバーサイドのみ、callbackUrl 構築に使用）
-
-### Cookie 設定
-
-- 環境別にサフィックスを付与（dev: .dev、prod: なし）
-- ドメインは .nagiyu.com（ローカル開発時は未設定）
-- secure フラグは本番環境のみ有効
-- httpOnly を有効にしてセキュリティを確保
 
 ### デプロイワークフロー
 
@@ -288,7 +234,7 @@ Cookie オプション（`domain`, `secure`, `sameSite`, `httpOnly` 等）・セ
 - AUTH_SECRET は全サービスで統一（Auth サービスで生成、他サービスは共有）
 - JWT の有効期限は適切に設定（現状: 30日）
 - CORS 設定は必要最小限に制限
-- リダイレクト先 URL は `@nagiyu/common` の `isAllowedNagiyuRedirectUrl`（同一オリジン / `*.nagiyu.com` のみ許可・ホスト名の完全一致で判定）で検証し、オープンリダイレクトを防ぐ（前方一致は `https://auth.nagiyu.com.evil.com` 等を許してしまうため不可）
+- リダイレクト先 URL は [リダイレクト先 URL の検証](../platform/specs/lib/common/redirect-url.md) で検証し、オープンリダイレクトを防ぐ
 
 ---
 
@@ -297,6 +243,7 @@ Cookie オプション（`domain`, `secure`, `sameSite`, `httpOnly` 等）・セ
 ### 関連ドキュメント
 
 - Auth サービス: `docs/services/auth/`
+- ライブラリの仕様: `docs/platform/specs/lib/`
 - アーキテクチャ全体: `docs/development/architecture.md`
 - モノレポ構成: `docs/development/monorepo-structure.md`
 

@@ -145,554 +145,71 @@ flowchart TB
 - **検出できない**: CI のコンテナのビルド検証はイメージを作るだけで、イメージの中でモジュールを読み込まない。この失敗はデプロイして初めて分かる。
 - **確かめ方**: 外部依存を足す・上げるときは、lock でそのパッケージが `libs/*/node_modules/` の下ではなく `node_modules/` の直下にあることを確かめる。ライブラリの下に入った場合は、lock を作り直してルートへ巻き上げる。その外部依存がさらに依存するパッケージがルートの別の版とぶつかる場合は、外部依存の下 (`node_modules/<パッケージ>/node_modules/`) に入るので問題ない。
 
-## libs/ui/
+## 各パッケージの責務
 
-### 責務
+各パッケージの機能 (関数・コンポーネント・フックの使い方と振る舞い) は ライブラリの仕様 (`docs/platform/specs/lib/`) を参照する。ここには責務と、サービスに課す利用の規則だけを置く。
 
-Next.jsとMaterial-UIに依存するUIコンポーネント。
+### libs/ui/
 
-### 含まれるもの
+Next.js と Material-UI に依存する UI コンポーネント。パッケージ名は `@nagiyu/ui`。機能は ui の仕様 (`docs/platform/specs/lib/ui/`) を参照。
 
-- Header, Footer コンポーネント
-- AppLayout（MUI テーマプロバイダー・`AppRouterCacheProvider` ラッパー）
-- ServiceLayout（`AppLayout + Header + main + Footer` の標準レイアウト）
-- AppThemeProvider（`AppRouterCacheProvider + ThemeProvider + CssBaseline` の軽量プロバイダー。`ServiceLayout` を採用しないサービス向け）
-- theme.ts（カラーパレット、タイポグラフィ）
-- グローバルCSS
-- ErrorAlert（MUI Alert ラッパー。アクセシビリティ対応済みのエラー表示）
-- LoadingState（MUI CircularProgress ラッパー。ローディング表示）
-- NotFoundView / ErrorView / GlobalErrorView（404 ページ・エラーページ・ルートレイアウト例外ページの表示。後述の「404・エラー画面」を参照）
-- ConfirmDialog（汎用確認ダイアログ。削除系操作の確認に利用。Props: `open / title / description / confirmLabel / cancelLabel / loading / onConfirm / onCancel`）
+- 画面のエラー・ローディング表示は `@nagiyu/ui` のコンポーネントを使う。
+- 各サービスは、ルートの app ディレクトリ直下に `not-found.tsx` / `error.tsx` / `global-error.tsx` を置き、`@nagiyu/ui` の 404・エラー画面を描く。新しいサービスを足すときも置く。Next.js 既定の英語の画面にはサービスのヘッダーもナビゲーションも無く、利用者が戻る手段を失うためである。
+- 例外のログ出力は、部品ではなく各サービスの `error.tsx` / `global-error.tsx` で行う。サーバーへ例外を報告する仕組みを持つサービスは、そこにも送る。エラーバウンダリが捕捉した例外は window のエラーイベントにならず、window を監視する報告の仕組みでは拾えないためである。
 
-### パッケージ名
+### libs/react/
 
-`@nagiyu/ui`
+React に依存するユーティリティ。パッケージ名は `@nagiyu/react`。機能は react の仕様 (`docs/platform/specs/lib/react/`) を参照。
 
-### 利用方法
+- Web Push の購読は、手続きを `@nagiyu/browser`、React からの入口を `@nagiyu/react` に置く。`@nagiyu/ui` は Push を持たない。
+    - **分ける理由**: 呼び出し側が公開鍵の取得とサーバー送信を毎回つなぐと、サービスごとに同じ処理が重複する。また、ユーザー操作での購読と許可済みユーザーの再購読が別の層に分かれていると、「初回はここ、再購読はあそこ」という暗黙の役割分担が層をまたいで生まれ、片方の修正がもう片方に伝わらなくなる。
+- 購読は hook (`usePushSubscription`) 経由で行い、呼び出し側で鍵取得や送信をつながない。
+- layout には `@nagiyu/react` の `ServiceWorkerRegistration` を置く。許可済みユーザーの再購読はここが担い、各画面の購読 UI は初回の許可に専念する。
 
-各サービスの package.json で参照。
+### libs/nextjs/
 
-### エラー・ローディング表示
+Next.js に依存するユーティリティ。パッケージ名は `@nagiyu/nextjs`。`@nagiyu/common` のみに依存する。機能は nextjs の仕様 (`docs/platform/specs/lib/nextjs/`) を参照。
 
-サービスの web パッケージでエラーやローディング状態を表示する場合は `@nagiyu/ui` のコンポーネントを利用する。
+- NextAuth の設定は、Auth サービスは `createAuthConfig()`、Consumer サービスは `createServiceAuthConfig()` で統一する。NextAuth の型定義 (`Session` / `User` / `JWT`) は `libs/nextjs/src/types/next-auth.d.ts` に集約し、各サービスに個別配置しない。
+- 全サービスの Health ルートは `createHealthRoute` で生成する。
+- Consumer サービスのミドルウェアは `createAuthMiddleware()` で、セッション取得は `createSessionGetter()` で統一する。セッションの戻り値は全サービスで `@nagiyu/common` の `Session | null` とし、サービス固有のセッション型への変換は行わない。
+- API ルートのエラー報告は `createApiErrorReporting` で作ったラッパーで行う。どの層で報告するかの規約は [コーディング規約](./rules.md) の「3.3 エラーハンドリング」に従う。
+    - AWS SDK の例外は、リポジトリ等でサービスのエラーに包んでから投げる。`handleApiError` は例外の名前に `NotFound` / `Invalid` / `AlreadyExists` を含むと 404 / 400 を返すので、素のまま投げると障害が利用者の誤りとして扱われて報告されない。
+    - `withAuth` と合成するときはラッパーを外側に置く (`withApiErrorReporting(title, withAuth(...))`)。内側で 500 に変換すると、ラッパーに届かず報告されないため。
+- Push 通知のルートはファクトリ (`createVapidPublicKeyRoute` / `createPushSubscribeRoute`) で実装する。購読を受け取る API は、サービス側で独自の検証を書かず、必ず `validatePushSubscription` を通す。検証が緩いと、送信時まで不正な購読に気付けないためである。購読をサービス固有の保存先へ書き込む場合も、ファクトリを書き写さず、保存のフック (`onSubscribe`) で保存だけを行う。
+- `next.config.ts` の `transpilePackages` は、`configs/next.config.base.ts` の `createNextConfig` がサービスの package.json の `@nagiyu/` 依存から導く。サービス側で手書きしない。
 
-- **`ErrorAlert`**: MUI `Alert` をラップしたエラー表示コンポーネント。アクセシビリティ対応済み。`'use client'` コンポーネント。
-- **`LoadingState`**: MUI `CircularProgress` をラップしたローディング表示コンポーネント。`'use client'` コンポーネント。
+### libs/browser/
 
-各コンポーネントのインポート元は `@nagiyu/ui`（ルートインデックス）。
+ブラウザ API に依存するユーティリティ。パッケージ名は `@nagiyu/browser`。機能は browser の仕様 (`docs/platform/specs/lib/browser/`) を参照。
 
-### 404・エラー画面
+- Web Push の手続きは、React を使わないものとしてここに集約する。公開鍵の取得とサーバー送信は購読の中で済ませ、個別には公開しない。呼び出し側がつなぐ口を残すと、サービスごとの重複と、層をまたぐ暗黙の分担が再発するためである。
 
-存在しない URL を開いたときや、画面の表示中に例外が起きたときに、Next.js 既定の英語の画面を出さない。既定の画面にはサービスのヘッダーもナビゲーションも無く、利用者が戻る手段を失うためである。
+### libs/common/
 
-- 各サービスは、ルートの app ディレクトリ直下に `not-found.tsx` / `error.tsx` / `global-error.tsx` を置き、`NotFoundView` / `ErrorView` / `GlobalErrorView` を描く。新しいサービスを足すときも置く
-    - ルート直下に置くと、ルートレイアウト (ヘッダー・フッター・テーマ) の内側に描かれ、全ルートの未一致 URL と、レイアウト配下の例外を受けられる
-    - `global-error.tsx` は、ルートレイアウト自身の例外を受ける。`error.tsx` はルートレイアウトの内側にしか効かないため、これが無いとレイアウトの例外で Next.js 既定の英語の画面が出る
-- `ErrorView` / `GlobalErrorView` には、Next.js が `error.tsx` / `global-error.tsx` に渡す再試行の関数 (`retry`) を渡す
-- 例外の内容 (message / digest) は画面に出さない。本番では Next.js が詳細を伏せるうえ、利用者に見せる情報ではないためである
-- 例外のログ出力は、部品ではなく各サービスの `error.tsx` / `global-error.tsx` で行う。サーバーへ例外を報告する仕組みを持つサービスは、そこにも送る。エラーバウンダリが捕捉した例外は window のエラーイベントにならず、window を監視する報告の仕組みでは拾えないためである
-- `NotFoundView` / `ErrorView` は main ランドマークを持たない。各サービスのレイアウトが main を持ち、その内側に描かれるため、持たせると二重になる
-- `GlobalErrorView` はルートレイアウトを置き換えるため、`html` / `body` / テーマ / `main` を自前で持つ。ルートレイアウトの CSS 読み込みも引き継がれないため、`global-error.tsx` で `@nagiyu/ui/tokens.css` / `@nagiyu/ui/base.css` など、そのサービスの見た目に必要な CSS を読み込み直す
+完全にフレームワーク非依存の汎用ユーティリティ。パッケージ名は `@nagiyu/common`。メインエクスポートは外部依存なし (Node.js 標準ライブラリのみ可)。Web Push 送信は `web-push` に依存するため `@nagiyu/common/push` サブパスに分け、メインエクスポートから読み込まない。機能は common の仕様 (`docs/platform/specs/lib/common/`) を参照。
 
-## libs/react/
+- DB 上のユーザー情報の型は `@nagiyu/common` の `User` を使い、各サービスが独自の `User` 型を定義しない。セッション上のユーザーは別の型 `SessionUser` で、`User` とは区別する。
+- API ルートのレスポンス型は `@nagiyu/common` の共通型を使い、サービス側で同等の型を再定義しない。エラーレスポンスはフラット形式 `{ error, message, details? }` を標準とし、`{ error: { code, message } }` のようなネスト形式を新たに導入しない (API クライアント側の取り扱いを統一するため)。
+- Web Push の送信は `@nagiyu/common/push` を使う。VAPID 設定は `getVapidConfig()` で取得し、サービス側で環境変数から直接読み込まない。サービス側で `sendWebPushNotification()` の薄いラッパーを作らず、複数の購読への一斉送信は送信ループを書かずに `sendWebPushNotifications` を使う。通知アイコンは `DEFAULT_NOTIFICATION_ICON` を使い、URL をハードコードしない。
+- 無効な購読の扱いは呼び出し側が決める (購読の持ち方がサービスごとに違うため)。無効な購読はエラーとして数えない (端末側の都合で日常的に発生し、エラー数で動く仕組みが本来の目的以外で発火するため)。削除の失敗で後続を止めない (呼び出し元まで失敗させると、再試行で同じ通知が重複して届くため)。
+- 購読を保存する ID は `createSubscriptionId(endpoint)` で endpoint から決まる値にする。登録のたびに乱数で ID を振ると、同じ端末で登録し直すたびに行が増え、同じ通知が重複して届くためである。既に保存されている購読の ID と互換を保つため、ID の形式は変えない。
+- 日本時間の日・月の期間キーと、その記録の TTL の計算は `@nagiyu/common` のものを使い、サービス側で JST のずれの計算を個別に書かない。
 
-### 責務
+### libs/aws/
 
-React依存のユーティリティ。
+AWS SDK の補助・拡張。DynamoDB の Repository パターンを実装するための共通機能を提供する。パッケージ名は `@nagiyu/aws`。AWS SDK を dependencies として持ち、エラーメッセージ変換などのために `@nagiyu/common` に依存する。機能は aws の仕様 (`docs/platform/specs/lib/aws/`) を参照。
 
-### 含まれるもの
-
-- React hooks（`useAPIRequest` 等）
-- React コンポーネント
-- React固有の抽象化
-- Web Push の React からの入口 (hook の `usePushSubscription`、layout 用の `ServiceWorkerRegistration`)
-
-### パッケージ名
-
-`@nagiyu/react`
-
-### 設計のポイント
-
-- React に依存
-- フレームワーク固有機能の提供
-- テスト容易性（モック化しやすい設計）
-
-### Web Push の置き場所と React からの入口
-
-Web Push の購読まわりは、手続きを `@nagiyu/browser`、React からの入口を `@nagiyu/react` に置く。`@nagiyu/ui` は Push を持たない。
-
-- **置き場所の分け方**: `libs/browser` は React を使わない手続きすべて (対応判定・Service Worker の登録・購読・解除・再購読・サーバーへの送信)、`libs/react` はそれを React から呼ぶ入口 (hook と layout 用コンポーネント) だけを持つ。
-- **分ける理由**: 呼び出し側が公開鍵の取得とサーバー送信を毎回つなぐと、サービスごとに同じ処理が重複する。また、ユーザー操作での購読と、許可済みユーザーの再購読が別の層に分かれていると、「初回はここ、再購読はあそこ」という暗黙の役割分担が層をまたいで生まれ、片方の修正がもう片方に伝わらなくなる。
-
-サービスの側は次のように使う。
-
-- **購読は hook 経由で行う**: `usePushSubscription` の `subscribe()` が、公開鍵の取得からサーバー送信までを済ませる。呼び出し側で鍵取得や送信をつながない。エンドポイントや body の形が既定と違うサービスは、hook のオプションで指定する。購読した `PushSubscription` を後続の API 呼び出しに使う場合も、`subscribe()` の戻り値を使う。
-- **layout には `@nagiyu/react` の `ServiceWorkerRegistration` を置く**: Service Worker の登録に加え、`resubscribe` を指定すると、許可済みユーザーの購読を作り直してサーバーへ送り直す。許可済みユーザーの再購読はここが担い、各画面の購読 UI は初回の許可に専念する。Push を持たない Service Worker のサービスは、`resubscribe` を付けずに登録だけを行う。
-- **再購読で送信が 401 のときは、未ログインとして黙って終える**: layout は全ページで動き、未ログインのユーザーにも実行されるため、失敗として扱うとログイン前のたびにエラーが出る。
-
-hook の `supported` / `permission` / `subscribed` は、ハイドレーション不一致を避けるためマウント後に確定する。確定前の値で表示を切り替えないよう、`ready` を見る。
-
-## libs/nextjs/
-
-### 責務
-
-Next.js に依存するユーティリティ。
-
-### 含まれるもの
-
-- APIルート認証ヘルパー（`withAuth`）
-- リポジトリ初期化ヘルパー
-- ページネーション
-- APIエラーレスポンス生成（`handleApiError`・`createErrorResponse`）
-- API ルートのエラー報告ラッパー (`createApiErrorReporting`)
-- リクエストボディの読み取り（`readJsonObjectBody`）
-- NextAuth 設定ファクトリ（`createAuthConfig`・`createServiceAuthConfig`）
-- Health ルートファクトリ（`createHealthRoute`）
-- NextAuth 型定義（`types/next-auth.d.ts`）
-- 認証ミドルウェアファクトリ（`createAuthMiddleware`）
-- セッション取得ファクトリ（`createSessionGetter`）
-- Push ルートファクトリ（`createVapidPublicKeyRoute`・`createPushSubscribeRoute`・`validatePushSubscription`）
-
-### パッケージ名
-
-`@nagiyu/nextjs`
-
-### 設計のポイント
-
-- Next.js API Route 専用
-- `@nagiyu/common` のみに依存
-- テスト容易性（モック化しやすい設計）
-
-### API ルートのエラー報告
-
-`createApiErrorReporting` は、ルートハンドラを包んで、500 以上になる例外だけを Admin へ報告するラッパー (`withApiErrorReporting`) を作る。報告をどの層で行うかの規約は [コーディング規約](./rules.md) の「3.3 エラーハンドリング」に従う。
-
-- **報告関数は注入する**: `@nagiyu/nextjs` は `@nagiyu/aws` に依存しないため、`reportErrorEvent` は各サービスが渡す。
-- **組み立ては 1 回だけ**: サービスの `lib/` で `serviceId` と報告関数を渡して作り、各ルートで使い回す。
-- **レスポンスの形を保つ**: 既定は `handleApiError`。サービス固有のエラー形式があるときは `toErrorResponse` で差し替える。報告するかどうかは、変換後の status で決まる。
-- **AWS SDK の例外は包んでから投げる**: `handleApiError` は例外の名前に `NotFound` / `Invalid` / `AlreadyExists` を含むと 404 / 400 を返すので、報告されない。SDK の `ResourceNotFoundException` (テーブルが無いなどの設定ミス) や `InvalidSignatureException` (認証情報の異常) を素のまま投げると、障害が利用者の誤りとして扱われて埋もれる。リポジトリ等でサービスのエラーに包んでから投げる。
-- **ハンドラ自身が返したレスポンスは報告しない**: 4xx / 5xx を返り値で返した場合は想定内として扱う。
-- **`withAuth` と合成するときはラッパーを外側に置く**: `withApiErrorReporting(title, withAuth(...))`。`withAuth` は認証エラー (401 / 403) だけを返し、例外は握らず投げ直す。内側で 500 に変換すると、ラッパーに届かず報告されないため。
-- **Push 系ファクトリは `onError` で報告を渡す**: `createVapidPublicKeyRoute` と `createPushSubscribeRoute` は内部で例外を握って 500 を返すので、ラッパーでは包めない。500 を返すときに呼ばれる `onError` に報告を渡す。`onError` の失敗はレスポンスに影響しない。
-
-```typescript
-// lib/api-error-reporting.ts
-import { reportErrorEvent } from '@nagiyu/aws';
-import { createApiErrorReporting } from '@nagiyu/nextjs';
-
-export const withApiErrorReporting = createApiErrorReporting({
-  serviceId: 'my-service',
-  report: reportErrorEvent,
-});
-
-// app/api/items/[id]/route.ts
-export const GET = withApiErrorReporting(
-  'GET /api/items/[id]',
-  async (request: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-    // 例外は握らずに throw する
-  }
-);
-```
-
-### NextAuth 設定の共通化
-
-プラットフォーム内の NextAuth 設定（Cookie オプション・セッション設定・コールバック）は、`@nagiyu/nextjs` が提供するファクトリ関数を利用して統一する。
-
-- **Auth サービス（OAuth プロバイダーあり）**: `createAuthConfig()` を利用（providers は呼び出し側で指定）
-- **Consumer サービス（OAuth プロバイダーなし）**: `createServiceAuthConfig()` を利用（`pages.signIn` を自動設定）
-
-`createServiceAuthConfig({ includeSubAsUserIdFallback?: boolean })` は NextAuth の `session`・`cookies`・`callbacks`・`pages` を含む設定オブジェクトを返す。`NEXT_PUBLIC_AUTH_URL/signin` をサインインページとして自動設定するため、各サービスで個別指定は不要。`sub` クレームを userId のフォールバックとして使う場合は `includeSubAsUserIdFallback: true` を指定する。
-
-### NextAuth 型定義の集約
-
-プラットフォーム全体で共通の NextAuth 型定義（`Session`, `User`, `JWT`）は `libs/nextjs/src/types/next-auth.d.ts` に集約する。`Session['user']` は `@nagiyu/common` の `SessionUser` を参照し、型を二重に定義しない。各サービスに `types/next-auth.d.ts` を個別配置しない。
-
-### Health ルートの共通化
-
-全サービスの Health ルートは `createHealthRoute({ service, version })` で生成する。サービス名とバージョンをオプションとして渡すことで、統一されたレスポンス形式を保証する。
-
-### 認証ミドルウェアの共通化
-
-Consumer サービスのミドルウェアは `createAuthMiddleware()` を利用して統一する。オプションとして `getSignInBaseUrl`（サインインページの URL 生成）、`getCallbackUrl`（コールバック URL 生成）、`onAuthConfigError`（設定エラー時のハンドラー）を受け取る。`SKIP_AUTH_CHECK` 環境変数を設定すると、開発・テスト時に認証チェックをバイパスできる。
-
-### セッション取得の共通化
-
-Consumer サービスのセッション取得は `createSessionGetter({ auth, defaultRoles })` で統一する。戻り値は全サービスで `@nagiyu/common` の `Session | null` であり、サービス固有のセッション型への変換は行わない。`defaultRoles` は `SKIP_AUTH_CHECK` 有効時のテストセッションでロールが未指定の場合に使う既定ロールで、省略できる。
-
-`SKIP_AUTH_CHECK` 時のテストセッションはライブラリが `resolveTestUser` (ロールはヘッダ `x-test-user-roles` → `TEST_USER_ROLES` → `defaultRoles` の順) と `createTestSessionExpires` (有効期限 30 日) で組み立てる。クライアントの `/api/auth/session` は `createClientSessionGetHandler` で同じ規則に揃える。
-
-### Web Push ルートの共通化
-
-Push 通知機能を持つサービスの API ルートは `@nagiyu/nextjs` が提供するファクトリ関数を利用して実装する。
-
-- **`createVapidPublicKeyRoute()`**: VAPID 公開鍵を返す `GET /api/push/vapid-public-key` ルートハンドラーを生成する。`VAPID_PUBLIC_KEY` 環境変数が未設定の場合は 500 エラーを返す。
-- **`createPushSubscribeRoute()`**: Push サブスクリプション登録用のルートハンドラーを生成する。
-- **`validatePushSubscription(subscription)`**: Push サブスクリプション情報のバリデーション。endpoint が有効な URL 形式で keys.p256dh と keys.auth が非空文字列の場合に `true` を返す type guard。
-
-購読を受け取る API は、サービス側で独自の検証を書かず、必ず `validatePushSubscription` を通す。検証が緩いと、送信時まで不正な購読に気付けないためである。不正な購読は 400 で弾く。
-
-購読をサービス固有の保存先へ書き込む場合も、`createPushSubscribeRoute` を書き写さず、保存のフック (`onSubscribe`) で保存だけを行う。認証・検証・ID の採番はファクトリに任せ、サービスごとの差を生まないようにする。
-
-既存の API の形 (body で購読を包まない等) がファクトリと合わず、クライアントへの影響を避けたい場合に限り、ファクトリを使わずに検証だけ `validatePushSubscription` に揃えてよい。
-
-### next.config.ts の transpilePackages
-
-`configs/next.config.base.ts` の `createNextConfig` が、サービスの package.json の dependencies / devDependencies のうち `@nagiyu/` で始まるものから `transpilePackages` を導く。サービス側で手書きしない。共通 lib を使うには package.json に依存を足せばよい。
-
-## libs/browser/
-
-### 責務
-
-ブラウザAPIに依存するユーティリティ。
-
-### 含まれるもの
-
-- Clipboard APIラッパー
-- localStorage/sessionStorageラッパー
-- Web Push の手続き (対応判定・Service Worker の登録・購読・解除・再購読)
-- その他ブラウザ固有APIの抽象化
-
-### パッケージ名
-
-`@nagiyu/browser`
-
-### 設計のポイント
-
-- エラーハンドリングの統一
-- SSR対応（ブラウザ環境チェック）
-- テスト容易性（モック化しやすい設計）
-
-### Web Push の手続き
-
-Web Push の手続きを、React を使わないものとしてここに集約する。React からの入口と置き場所の分け方は、`libs/react` の節を参照。
-
-- **公開鍵の取得とサーバー送信は購読の中で済ませ、個別には公開しない**: 呼び出し側がつなぐ口を残すと、サービスごとの重複と、層をまたぐ暗黙の分担が再発する。サービスごとに違うのは、API のパス・body の形・Service Worker のパスだけなので、オプションで指定する。
-- **対応判定の条件は購読フローと揃える**: 対応判定は、購読フローが実際に呼ぶ API (通知の許可要求・Service Worker の登録・PushManager) がすべて揃っているかで判断する。判定が購読フローより緩いと、「対応」と表示したのに購読で失敗する画面になるためである。
-- **送信する body の形はオプションで選ぶ**: 購読を `{ subscription }` で包むか、そのまま送るかはサーバー側 API の形に合わせて指定する。形の違いを理由に送信処理をコピーしない。
-- **既存の購読の確認に `navigator.serviceWorker.ready` を使わない**: Service Worker が未登録だと永久に解決しないため、登録の有無を先に確かめる。PushManager が無いブラウザでは、その時点で「購読なし」とする。
-
-## libs/common/
-
-### 責務
-
-完全フレームワーク非依存の汎用ユーティリティ。
-
-### 含まれるもの
-
-- 共通型定義
-- Pushサブスクリプション共通型
-- 汎用ユーティリティ関数
-- データ変換ロジック
-- 共通エラーメッセージ定数（`COMMON_ERROR_MESSAGES`）
-- バックエンド向けリトライ処理（`withRetry<T>`・`RetryOptions`・`DEFAULT_RETRY_OPTIONS`）
-- Web Push 用 VAPID キー正規化（`normalizeVapidKey`）
-- Web Push VAPID 設定取得（`getVapidConfig`）
-- Web Push 送信クライアント（`sendWebPushNotification`・一斉送信の `sendWebPushNotifications`）
-- Push サブスクリプション ID の生成 (`createSubscriptionId`)
-- 日本時間の期間キーと TTL の計算 (`toJstDayKey` / `toJstMonthKey` / `toDayTtlSeconds` / `toMonthTtlSeconds`)
-
-### パッケージ名
-
-`@nagiyu/common`
-
-### 設計のポイント
-
-- 純粋関数として実装
-- メインエクスポートは外部依存なし (Node.js 標準ライブラリのみ可)。Web Push 送信は `web-push` に依存するため `@nagiyu/common/push` サブパスに分け、メインエクスポートから読み込まない
-- 高いテストカバレッジを維持
-
-### User 型定義
-
-プラットフォーム全体で使用する DB 上のユーザー情報の型は `@nagiyu/common` の `User` インターフェースを利用する。各サービスが独自の `User` 型を定義してはならない。セッション上のユーザーは別の型 `SessionUser` で、`User` とは区別する。
-
-- **主要フィールド**: `userId`・`googleId`・`email`・`name`・`roles`・`createdAt`・`updatedAt`
-- **`picture?: string`**: OAuth プロバイダーから取得したプロフィール画像 URL（省略可能）。UI で表示する際は XSS 対策を遵守すること（`dangerouslySetInnerHTML` 禁止）
-
-### Web Push VAPID 設定
-
-バッチサービスから Web Push を送信する際の VAPID 設定は `@nagiyu/common/push` の `getVapidConfig()` で取得する。
-
-- **戻り値**: `publicKey`・`privateKey`・`subject` を含む `VapidConfig` オブジェクト
-- **環境変数**: `VAPID_PUBLIC_KEY`・`VAPID_PRIVATE_KEY` を参照する
-- **サーバーサイド専用**: VAPID 秘密鍵をクライアントサイドに露出しないよう、バッチ・バックエンドでのみ使用すること
-- **サービス側での個別実装禁止**: 各サービスで VAPID 設定を環境変数から直接読み込む実装を作らず、この関数を利用すること
-
-### Web Push 送信クライアント
-
-バッチサービスから Web Push 通知を送信する場合は `@nagiyu/common/push` の `sendWebPushNotification` を利用する。
-
-- **引数**: `subscription`（`PushSubscription`）、`payload`（`NotificationPayload`）、`vapidConfig`（`VapidConfig`）
-- **戻り値**: 成功時 `true`、購読が無効（404/410）なら `false`。それ以外の送信失敗は例外をスローする
-- **VAPID 未設定時**: 例外をスロー
-- **VAPID 設定の取得**: `VapidConfig` は `getVapidConfig()` で取得して渡すこと
-- **インポートパス**: `@nagiyu/common/push`（ルートインデックスではなくサブパスから参照すること。不要なモジュールの読み込みを避けるため）
-- **薄いラッパー禁止**: サービス側で `sendWebPushNotification()` をラップした関数を作らず、呼び出し元から直接呼び出すこと
-- **複数の購読への一斉送信**: 送信ループをサービス側で書かず、`sendWebPushNotifications` を利用する。逐次で送り、結果を `sent`（成功）・`invalid`（購読が無効）・`failed`（例外）に振り分けて返す。1 件の例外で残りの送信を止めない
-- **無効な購読の扱いは呼び出し側が決める**: 購読の持ち方がサービスごとに違うため、一斉送信の関数は削除もログ出力もしない。購読を独立したレコードで持つサービスは `invalid` を削除する。stock-tracker のように購読がアラートのフィールドになっている場合は削除せず、ユーザーが次に画面を開いたときの購読更新で復旧させる (消すとユーザーの条件設定ごと失われるため)
-- **無効な購読をエラーとして数えない**: 無効な購読は端末側の都合で日常的に発生する。バッチのエラー数に含めると、エラー数で動く仕組み (例: stock-tracker の minute のコンテナ破棄) が本来の目的以外で発火するため、別に数える
-- **削除の失敗で後続を止めない**: 無効な購読の削除に失敗しても、警告ログを残して処理を続ける。呼び出し元まで失敗させると、再試行で同じ通知が重複して届く
-- **通知アイコン**: 通知ペイロードの `icon` は `@nagiyu/common/push` の `DEFAULT_NOTIFICATION_ICON` を利用する。サービス側で同一の URL をハードコードしない（サービス共通のアイコンを差し替える際の影響範囲を最小化するため）
-
-### Push サブスクリプション ID の生成
-
-購読を保存する ID は、`createSubscriptionId(endpoint)` で endpoint から決まる値にする。登録のたびに乱数で ID を振ると、同じ端末で登録し直すたびに行が増え、同じ通知が重複して届くためである。
-
-- **置き場所が `@nagiyu/common` である理由**: サービスの core パッケージ (Next.js に依存しない) からも使えるようにするため。`@nagiyu/nextjs` は同じ関数を再 export しているだけで、実装は 1 つである。
-- **Web Crypto で実装する理由**: ルートインデックスから公開しているため、Edge ランタイムで動きうる middleware からも読み込まれうる。Node.js 専用の API に依存すると、そこで壊れる。
-- **形式を変えてはならない**: 既に保存されている購読の ID と互換を保つため、ID の形式 (SHA-256 の先頭 32 文字に `sub_` を付ける) は変えない。
-
-### 日本時間の期間キー
-
-利用回数を日・月で区切って数えるときの、日本時間の暦日・暦月のキー (`YYYYMMDD` / `YYYYMM`) と、その記録の TTL の計算を `@nagiyu/common` に提供する。Quick Clip の月ごとの回数と LiveTalk の勉強の 1 日の回数が同じ計算を使う。サービス側で JST のずれの計算を個別に書かない。
-
-- **区切りは日本時間**: 利用者に説明しやすい。UTC で区切ると、日本の朝 9 時に回数が戻る。
-- **TTL は期間が終わったあとも余裕を持って残す**: 日は終わりの 1 日後、月は翌月末に 7 日を足した時刻。戻す処理は記録が残っている期間に対してだけ行うため、期間が変わった直後まで確実に残す。DynamoDB の TTL による削除は遅れることがあるので、期間はキーで区切り、削除を前提にした判定はしない。
-
-### API レスポンス型の共通化
-
-API ルートのレスポンス型は `@nagiyu/common` から提供される共通型を利用する。サービス側で同等の型を再定義しない。
-
-- **`ApiSuccessResponse<T>`**: 成功レスポンス `{ data: T }`
-- **`APIErrorResponse`（別名 `ErrorResponse`）**: エラーレスポンス `{ error: string; message: string; details?: string[] }`
-- **`ApiResponse<T>`**: 成功・失敗のユニオン型 `ApiSuccessResponse<T> | APIErrorResponse`
-
-**エラーレスポンスはフラット形式 `{ error, message, details? }` を標準とする**。`{ error: { code, message } }` のようなネスト形式を新たに導入しない（API クライアント側の取り扱いを統一するため）。
-
-## libs/aws/
-
-### 責務
-
-AWS SDK 補助・拡張ライブラリ。DynamoDB Repository パターン実装のための共通機能を提供。
-
-### 設計思想
-
-- **標準化**: Repository パターンの一貫した実装を保証
-- **型安全性**: バリデーションによる実行時エラーの早期発見
-- **エラーの意味付け**: 技術的エラーをビジネス文脈に変換
-
-### 含まれるもの
-
-- **エラークラス**: 階層的なエラー設計（`RepositoryError`基底、`EntityNotFoundError`等）
-- **Mapper と EntityStore**: Entity と Item の変換の型 (`EntityMapper`) と、単一アイテムの CRUD の骨格 (`EntityStore` の DynamoDB 版・InMemory 版)
-- **バリデーション関数**: 型安全なマッピング（文字列、数値、列挙型、タイムスタンプ等）
-- **ヘルパー関数**: 条件付き操作、UpdateExpression生成
-- **型定義**: Single Table Design対応（`DynamoDBItem`、`PaginatedResult`等）
-- **DynamoDB クライアントファクトリ**: `getDynamoDBDocumentClient()`、`getTableName()`、`clearDynamoDBClientCache()`
-- **Batch クライアントファクトリ**: `getBatchClient()`、`clearBatchClientCache()`
-- **リポジトリファクトリー共通化ヘルパー**: InMemory/DynamoDB の切り替えを含む初期化処理を共通化
-- **上限付きの回数カウンター**: 判定と加算を 1 回の条件付き更新で行う (`UsageCounter` の DynamoDB 版・InMemory 版)。複数の加算を順に試し、断られたら前を戻す (`tryIncrementInOrder`)
-
-### リポジトリの標準の書き方
-
-DynamoDB リポジトリは、`EntityMapper` で変換を担い、単一アイテムの CRUD を `EntityStore` に任せる (継承ではなく合成)。GSI を使う一覧などの独自のクエリだけを各リポジトリに書く。キー・属性名・時刻の形式・操作の振る舞いの標準と、その理由は [データアクセス層](./data-access-layer.md) を参照。
-
-### DynamoDB クライアントファクトリ
-
-サービス間で共通の DynamoDB クライアント初期化パターンを `@nagiyu/aws` のファクトリ関数として提供する。
-
-- `getDynamoDBDocumentClient(region?)`: リージョン別シングルトンを返す。未指定時は `AWS_REGION` 環境変数、さらに未設定の場合は `us-east-1` をデフォルトとする。
-- `getTableName(defaultValue?)`: `DYNAMODB_TABLE_NAME` 環境変数を検証して返す。
-- `clearDynamoDBClientCache()`: テスト用のキャッシュリセット。
-
-**デフォルトリージョン**: CloudFront との整合を取るため `us-east-1` に統一する。
-
-### Batch クライアントファクトリ
-
-AWS Batch の操作に使用するクライアントを `@nagiyu/aws` のファクトリ関数として提供する。
-
-- `getBatchClient(region?)`: リージョン別シングルトンを返す。未指定時は `AWS_REGION` 環境変数、さらに未設定の場合は `us-east-1` をデフォルトとする。
-- `clearBatchClientCache()`: テスト用のキャッシュリセット。
-
-### Lambda クライアントファクトリ
-
-Lambda 関数呼び出しに使用するクライアントを `@nagiyu/aws` のファクトリ関数として提供する。
-
-- `getLambdaClient(region?)`: リージョン別シングルトンを返す。未指定時は `AWS_REGION` 環境変数、さらに未設定の場合は `us-east-1` をデフォルトとする。
-- `clearLambdaClientCache()`: テスト用のキャッシュリセット。
-- `getAwsClients()` の戻り値に `lambdaClient` も含まれる。
-
-### DynamoDB cursor ヘルパー
-
-DynamoDB のページネーションで使用する `LastEvaluatedKey` ↔ base64 cursor 変換を `@nagiyu/aws` のヘルパー関数として提供する。サービス側で個別に Buffer.from/JSON.parse を記述しない。
-
-- `encodeCursor(lastEvaluatedKey)`: `LastEvaluatedKey` を base64 文字列に変換する。`undefined` の場合は `undefined` を返す。
-- `decodeCursor(cursor)`: base64 文字列を `LastEvaluatedKey` に戻す。不正な値（不正な base64・不正な JSON）は例外を投げず `undefined` を返す（無効カーソルとして扱う）。
-
-1 ページ分の Query / Scan も `@nagiyu/aws` の関数として提供する (`queryPage` / `scanPage`)。cursor の復元、件数と開始位置の指定、次の cursor の生成までを引き受ける。サービス側でこの定型を個別に書かない。各所で書くと、`count` の入れ方などページの意味論が箇所ごとにずれるためである。
-
-- 件数の既定値はリポジトリごとに違うため、関数側では持たず呼び出し側が渡す。
-- エンティティへの変換は呼び出し側に残す。変換に失敗したアイテムの扱い (飛ばして警告するなど) が呼び出し側ごとに違うためである。
-
-### DynamoDB ConditionalCheckFailedException マッパー
-
-DynamoDB の `ConditionalCheckFailedException` を Entity 例外にマッピングする共通ヘルパーを `@nagiyu/aws` に提供する。
-
-```typescript
-mapConditionalCheckFailed(error, { onExists?, onMissing? });
-```
-
-- `onExists`: conditional put（`attribute_not_exists` 条件）が失敗した場合、すなわちアイテムが既に存在する場合に呼ぶコールバック。
-- `onMissing`: conditional update/delete（`attribute_exists` 条件）が失敗した場合、すなわちアイテムが存在しない場合に呼ぶコールバック。
-- `ConditionalCheckFailedException` 以外のエラーは無視し、呼び出し元で再スローする。
-
-```typescript
-// 使用例（conditional put → EntityAlreadyExistsError）
-} catch (error) {
-  mapConditionalCheckFailed(error, {
-    onExists: () => { throw new EntityAlreadyExistsError('Ticker', tickerId); },
-  });
-  throw error;
-}
-```
-
-### DynamoDB 一括書き込み・一括読み込み
-
-BatchWriteItem (25 件まで) と BatchGetItem (100 件まで) は、上限件数ごとの分割と、未処理分 (`UnprocessedItems` / `UnprocessedKeys`) の再送を `@nagiyu/aws` の共通処理に任せる。サービス側で分割・再送のループを書かない。
-
-- **未処理分を黙って捨てない**: 一括読み込みで未処理キーを捨てると、存在するデータが「無い」と表示される。一括削除で未処理を残したまま成功扱いにすると、削除漏れに気づけない。
-- **再送は回数の上限と待機付き**: 上限なし・待機なしの即時再送は、スロットリング中のテーブルに負荷をかけ続ける。既定は最大 4 回、50ms から倍々に待つ。
-- **上限を超えたら例外にする**: 取りこぼしを残したまま返すより、失敗として呼び出し元に知らせ、再実行に委ねる。この例外は `DatabaseError` の派生にしない。呼び出し元ごとに包み方 (`toDatabaseError` か、独自の接頭辞付きメッセージか) が違うため、ここで `DatabaseError` にすると文言が二重になる。
-
-### 上限付きの回数カウンター
-
-利用回数の上限を数える部分を `@nagiyu/aws` の `UsageCounter` として提供する。Quick Clip の利用回数、LiveTalk の勉強の 1 日の回数とチャットのレート制限が使う。サービス側で条件付き更新の式を個別に書かない。
-
-- **判定と加算を 1 回の操作で行う**: 読んでから書くと、同時に呼ばれたとき上限を超える。「属性が無いか、上限未満」を条件にした加算 1 回で、判定と加算を原子的にする。
-- **上限 0 以下は常に断る**: 属性が無ければ通す条件が、上限 0 でも 1 回目を通してしまうため。
-- **TTL はアイテムの初回作成時だけ設定する**: 期間内に延びないようにし、期間の終わりに自然に満了させる。1 アイテムに複数の属性を置けるので、同じ期間の記録をまとめられる (LiveTalk はキャラクター別と利用者合計を同じアイテムに置く)。
-- **戻しは 0 未満にならず、アイテムを新しく作らない**: 処理の失敗で回数を返すとき、期間が変わって記録が消えていても誤って作らない。
-- **記録の障害時の倒し方は共通にしない**: 障害時に通すか止めるかはサービスによって違う (Quick Clip は通す、LiveTalk の勉強は止める) ため、呼び出し側が決める。
-- 期間のキーと TTL の計算は [日本時間の期間キー](#日本時間の期間キー) を使う。
-
-複数の上限を 1 回の申し込みで数えるとき (月の回数と接続元の日次、キャラクター別と利用者合計、1 分と 1 時間) は、`tryIncrementInOrder` で順に数える。
-
-- **断られたら、通った加算を逆順に戻す**: 断った申し込みが、ほかの上限を消費しないようにする。どこで断ったかを返し、呼び出し側が断る理由や再試行までの時間を決める。
-- **後の加算の入力は、前が通ってから作れる**: 前の上限で断る申し込みに、後の入力を作る処理 (Quick Clip の接続元の塩の取得など) を走らせない。
-- **戻しの失敗は握り、呼び出し側に渡す**: 戻せなくても 1 回分多く数えたままになるだけで、止める側にずれる。元の結果 (断り・例外) を優先し、報告は呼び出し側が行う (どのサービスもエラーイベントに warning で上げる)。
-- **障害の例外は、通った分を戻してから投げ直す**: 障害時に通すか止めるかは、上と同じく呼び出し側が決める。
-
-### DynamoDB 部分更新の式の組み立て
-
-`UpdateCommand` の `UpdateExpression` と名前・値の対応表は、`@nagiyu/aws` の `buildUpdateExpression` で組み立てる。サービス側で「項目があれば式・名前・値の 3 つに足す」処理を手書きしない。手書きは、使わない名前を表に残す、式に入れ忘れた値が残るといった不整合を起こしやすく、どちらも DynamoDB がエラーにする。
-
-- **値が `undefined` の項目は飛ばす**: 共通クライアントは `undefined` の値を表から落とすので、式に置き場所だけが残るとエラーになる。
-- **消す合図はサービスごとに違い、揃えていない**: stock-tracker は `null`、share-together は「キーがあって値が `undefined`」が消す合図になっている。共通関数は特定の値を消す合図と決めず、目印 `REMOVE_ATTRIBUTE` だけを受け付ける。各サービスは呼び出し側で自分の合図を目印に変換する。
-- **更新日時の属性名と形式は呼び出し側が渡す**: `UpdatedAt` (ミリ秒) / `updatedAt` (ISO 文字列) / `updatedAt` (秒) がサービスごとに混在しており、既存データと読み取り側がそれを前提にしている。
-- **更新日時は更新項目に数えない**: 更新項目が空のときの扱い (エラーにする / 更新日時だけ更新する) もサービスごとに違う。共通関数は `null` を返して呼び出し側に判断を委ね、更新日時だけ更新するサービスは `updateTimestampWhenEmpty` を指定する。
-
-### crypto ユーティリティ（AES-256-GCM + Secrets Manager）
-
-AWS Secrets Manager からキーを取得して AES-256-GCM 暗号化・復号化を行うユーティリティを `@nagiyu/aws` の `crypto` モジュールとして提供する。Secrets Manager 連携を伴うため `libs/common` ではなく `libs/aws` に配置する。
-
-- `encrypt(plaintext, config)`: AES-256-GCM で文字列を暗号化し `EncryptedData`（`ciphertext`・`iv`・`authTag`）を返す。
-- `decrypt(encryptedData, config)`: 暗号化データを復号化して平文を返す。
-- `getEncryptionKey(config)`: Secrets Manager から 32 バイトのキーを取得する（キャッシュ付き）。
-- `clearCache()`: テスト用のキャッシュリセット。
-
-### テスト専用コードの分離（`@nagiyu/aws/testing`）
-
-DynamoDB Local を使った契約テスト（各サービスの `tests/contract/`）向けのヘルパー（クライアント生成・テーブル作成/削除/クリア・CDK synth 結果との突き合わせ用の正規化）は `src/testing/` に置き、契約テストからは `@nagiyu/aws/testing` という specifier で import する。
-
-**この specifier は package.json の `exports` に意図的に載せていない。** 解決するのは各サービスの `jest.contract.config.ts` の `moduleNameMapper` だけで、素の Node からは解決できない（`ERR_PACKAGE_PATH_NOT_EXPORTED` になる）。`exports` に載せると本番コードから到達できる公式な口を開くことになるため、契約テスト以外から使う経路を持たせない判断をした。`@nagiyu/common/push` のような「公開したいサブパス export」とは目的が逆である点に注意。
-
-宣言されていないサブパスを import しているのは実装漏れではなく上記の意図によるもの。
-
-`CryptoConfig` は `{ secretName: string; region?: string }` 形式。`region` 未指定時は `ap-northeast-1` を使用する。
-
-### Lambda / Batch エントリポイントの共通化（`withErrorReporting`）
-
-Lambda ハンドラーおよび Batch エントリポイントの `try/catch → reportErrorEvent → re-throw/exit` パターンを `withErrorReporting` でラップして定型処理を一元化する。
-
-```ts
-import { withErrorReporting } from '@nagiyu/aws';
-
-export const main = async () => {
-  await runBatch();
-};
-
-withErrorReporting(
-  {
-    serviceId: 'my-service',
-    severity: 'critical',
-    title: '処理失敗',
-    exitOnError: true,
-    runIfNotTest: true,
-  },
-  main
-);
-```
-
-**オプション一覧**
-
-| オプション     | 型                         | デフォルト | 説明                                                                                 |
-| -------------- | -------------------------- | ---------- | ------------------------------------------------------------------------------------ |
-| `serviceId`    | `string`                   | 必須       | エラーイベントのサービスID                                                           |
-| `title`        | `string`                   | 必須       | エラーイベントのタイトル                                                             |
-| `severity`     | `ErrorSeverity`            | `'error'`  | エラーの重要度                                                                       |
-| `context`      | `Record<string, unknown>`  | なし       | 追加コンテキスト（エラーの stack/message/name は自動付与）                           |
-| `exitOnError`  | `boolean`                  | `false`    | `true` のとき catch 後に `process.exit(1)` を呼ぶ（Batch 向け）                      |
-| `runIfNotTest` | `boolean`                  | `false`    | `true` のとき `NODE_ENV !== 'test'` の場合のみ fn を実行する（エントリポイント向け） |
-| `onSuccess`    | `() => Promise<void>`      | なし       | fn 成功時に呼ばれるコールバック                                                      |
-| `onError`      | `(error) => Promise<void>` | なし       | catch 内の追加副作用（ジョブステータス FAILED 更新等）を渡す                         |
-
-エラーの `stack` / `message` / `name` は `context` に自動マージされるため、呼び出し側で指定する必要はない。
-
-### 握りつぶした例外の報告 (`createErrorReporter`)
-
-例外を握りつぶして処理を続ける箇所や、Push 系ファクトリの `onError` は、例外が入口のラッパーに届かないため、その場で報告する。このとき `createErrorReporter` で `serviceId` を固定したレポーターを使う。
-
-- **context の例外の項目は手書きしない**: レポーターが errorName・errorMessage・errorStack を必ず入れる。報告箇所ごとに組み立てると項目が欠け、Admin で調べるときに stack や message が見つからなくなるため。呼び出し側は、その箇所に固有の情報だけを context に渡す。
-- **レポーターはサービスで 1 つにする**: web はサービスの `lib/` で作って使い回す。
-- **例外を伴わない報告は対象外**: 結果の失敗など、握った例外がない報告は `reportErrorEvent` を直接使う。
-
-### 定期実行 Lambda の骨格 (`createScheduledHandler`)
-
-EventBridge から定期実行される Lambda は、`createScheduledHandler` で包む。開始ログ・失敗ログ・エラー報告は骨格が受け持ち、handler は本処理と、統計付きの完了ログだけを書く。
-
-**失敗時は 500 を返さず、例外を投げる。** 500 を返して正常終了すると、Lambda としては成功扱いになる。そのため、インフラに用意した Errors アラーム・DLQ・非同期呼び出しの再試行が働かない。骨格はエラーを報告したあと元の例外を投げ直すので、handler 側で catch して握りつぶさないこと。
-
-- **再試行による二重実行**: 例外で失敗すると、EventBridge の再試行で、途中まで済んだ処理がもう一度実行されうる。Push 通知のように副作用がある処理では、二重に送られることを前提に設計する。
-- **全体の失敗と部分的な失敗**: 対象 1 件ごとの失敗を数えて処理を続ける部分的な失敗は、handler の中で扱う。それを最終的に Lambda の失敗にするかどうかは、handler が決める。
-- **部分的な失敗の報告**: 部分的な失敗を例外にするときは `ScheduledHandlerError` を投げ、報告のタイトルと context (失敗した対象の ID など) を持たせる。handler の中で個別に報告してから普通の例外を投げると、骨格がもう一度「致命的エラー」として報告してしまうため。
-
-エラー報告 (`reportErrorEvent`) は補助的な手段なので、どんな入力でも例外を投げない。報告に失敗しても、元の例外の投げ直しは妨げられない。
-
-### 必須環境変数の一括チェック（`requireEnv`）
-
-複数の必須環境変数を一括で検証し、不足があれば一括エラーを投げるユーティリティを `@nagiyu/common` の validation モジュールとして提供する。
-
-```ts
-import { requireEnv } from '@nagiyu/common';
-
-const env = requireEnv(['JOB_ID', 'DYNAMODB_TABLE_NAME', 'S3_BUCKET', 'AWS_REGION']);
-// → { JOB_ID: '...', DYNAMODB_TABLE_NAME: '...', ... }
-```
-
-- 空文字列も「未設定」とみなす（`?.trim() ?? ''` 挙動を踏襲）
-- 不足キーを一括収集して `必要な環境変数が設定されていません: KEY1, KEY2` でスロー
-- 戻り値はトリム済みの `Record<string, string>`
-
-### AWS クライアント初期化の統一方針
-
-DynamoDB・S3・Batch・Lambda を含むすべての AWS クライアントの初期化には、`@nagiyu/aws` が提供するファクトリ関数（`getDynamoDBDocumentClient()`・`getBatchClient()`・`getLambdaClient()` 等）を使用する。
-
-- **独自実装禁止**: 各サービスで AWS クライアントのシングルトンキャッシュを個別に実装しない。リージョン別キャッシュは `@nagiyu/aws` が内部で管理しており、独自実装と同等のパフォーマンスを提供する。
-- **背景**: 各サービスが独自のキャッシュ実装を持つとコードが重複し、保守コストが増大するため。
-
-### パッケージ名
-
-`@nagiyu/aws`
-
-### 依存関係設計
-
-- AWS SDK は dependencies として持つ
-- エラーメッセージ変換などの共通ユーティリティを使うため `@nagiyu/common` に依存する
-
-### 設計のポイント
-
-- **日本語エラーメッセージ**: ユーザーフレンドリーなエラー表現
-- **継承による拡張**: 基底クラス継承でサービス固有の実装を追加
-- **CRUD自動化**: タイムスタンプ管理等の定型処理を抽象化
+- DynamoDB リポジトリは、`EntityMapper` で変換を担い、単一アイテムの CRUD を `EntityStore` に任せる (継承ではなく合成)。GSI を使う一覧などの独自のクエリだけを各リポジトリに書く。キー・属性名・時刻の形式の標準と、その理由は [データアクセス層](./data-access-layer.md) を参照。操作の振る舞いは [EntityStore](../platform/specs/lib/aws/entity-store.md)、キーの組み立ては [EntityMapper](../platform/specs/lib/aws/entity-mapper.md) を参照。
+- DynamoDB・S3・Batch・Lambda を含むすべての AWS クライアントの初期化には、`@nagiyu/aws` のファクトリ関数 (`getDynamoDBDocumentClient()`・`getBatchClient()`・`getLambdaClient()` 等) を使う。各サービスで AWS クライアントのシングルトンキャッシュを個別に実装しない (コードが重複し、保守コストが増えるため)。
+- DynamoDB のカーソル変換 (`encodeCursor` / `decodeCursor`) と 1 ページ分の Query / Scan (`queryPage` / `scanPage`) は共通のものを使い、サービス側で個別に書かない。各所で書くと、`count` の入れ方などページの意味論が箇所ごとにずれるためである。
+- BatchWriteItem / BatchGetItem の分割と未処理分の再送は共通処理に任せ、サービス側で分割・再送のループを書かない。
+- 利用回数の上限を数える部分は `UsageCounter` を使い、サービス側で条件付き更新の式を個別に書かない。記録の障害時に通すか止めるかは共通にせず、サービスによって違う (通す方が良いか、止める方が良いか) ので、呼び出し側が決める。
+- `UpdateCommand` の `UpdateExpression` と名前・値の対応表は `buildUpdateExpression` で組み立て、サービス側で手書きしない。手書きは、使わない名前を表に残す、式に入れ忘れた値が残るといった不整合を起こしやすく、どちらも DynamoDB がエラーにするためである。
+- Lambda ハンドラーと Batch エントリポイントの `try/catch → reportErrorEvent → re-throw/exit` は `withErrorReporting` で包む。握りつぶした例外は、`createErrorReporter` で `serviceId` を固定したレポーターを使ってその場で報告する。レポーターはサービスで 1 つにする (web はサービスの `lib/` で作って使い回す)。握った例外がない報告 (結果の失敗など) は、レポーターを使わず `reportErrorEvent` を直接使う。
+- EventBridge から定期実行される Lambda は `createScheduledHandler` で包む。失敗時は 500 を返さず、例外を投げる。500 を返して正常終了すると Lambda としては成功扱いになり、インフラに用意した Errors アラーム・DLQ・非同期呼び出しの再試行が働かないためである。handler 側で catch して握りつぶさない。例外で失敗すると、EventBridge の再試行で、途中まで済んだ処理がもう一度実行されうる。Push 通知のように副作用がある処理は、二重に送られることを前提に設計する。対象 1 件ごとの失敗を数えて処理を続ける部分的な失敗を、最終的に Lambda の失敗にするかどうかは、handler が決める。
+- 複数の必須環境変数の検証は `@nagiyu/common` の `requireEnv` を使う。
+- DynamoDB Local を使った契約テスト向けのヘルパーは `@nagiyu/aws/testing` から import する。この specifier は package.json の `exports` に意図的に載せていない。解決するのは各サービスの `jest.contract.config.ts` の `moduleNameMapper` だけで、`exports` に載せると本番コードから到達できる公式な口を開くことになるため、契約テスト以外から使う経路を持たせない。宣言されていないサブパスの import は実装漏れではない。
 
 ## バージョン管理
 
@@ -743,122 +260,6 @@ GitHub Actions などの CI/CD 環境でも、同じ順序でビルドを実行�
 ```
 
 詳細は [testing.md](./testing.md) の「GitHub Actions ワークフロー設計パターン」を参照してください。
-
-## 利用ガイド
-
-### 共通ライブラリの使用 (Next.jsサービス)
-
-Next.jsサービス（`services/{service}/web`）の package.json で必要なライブラリを指定。
-
-```json
-{
-  "dependencies": {
-    "@nagiyu/ui": "workspace:*",
-    "@nagiyu/browser": "workspace:*",
-    "@nagiyu/common": "workspace:*"
-  }
-}
-```
-
-### 固有パッケージでの使用
-
-#### services/{service}/core の例
-
-ビジネスロジックパッケージでは `@nagiyu/common` のみ使用。
-
-```json
-{
-  "name": "tools-core",
-  "dependencies": {
-    "@nagiyu/common": "workspace:*"
-  }
-}
-```
-
-```typescript
-// ビジネスロジックの実装
-import { someUtil } from '@nagiyu/common';
-
-export function processData(input: string): string {
-  return someUtil(input);
-}
-```
-
-#### services/{service}/web の例
-
-Web UIパッケージでは、core パッケージと共通ライブラリを使用。
-
-```json
-{
-  "name": "tools-web",
-  "dependencies": {
-    "tools-core": "workspace:*",
-    "@nagiyu/ui": "workspace:*",
-    "@nagiyu/browser": "workspace:*",
-    "@nagiyu/common": "workspace:*"
-  }
-}
-```
-
-```typescript
-// UIコンポーネントの実装
-import { Header, Footer } from '@nagiyu/ui';
-import { clipboard } from '@nagiyu/browser';
-import { processData } from 'tools-core';
-
-export default function ToolsPage() {
-    const handleClick = async () => {
-        const result = processData('input');
-        await clipboard.writeText(result);
-    };
-
-    return (
-        <>
-            <Header />
-            <button onClick={handleClick}>処理して貼り付け</button>
-            <Footer />
-        </>
-    );
-}
-```
-
-#### services/{service}/batch の例
-
-バッチ処理パッケージでは、core パッケージと `@nagiyu/common` のみ使用。
-
-```json
-{
-  "name": "tools-batch",
-  "dependencies": {
-    "tools-core": "workspace:*",
-    "@nagiyu/common": "workspace:*"
-  }
-}
-```
-
-```typescript
-// バッチ処理の実装
-import { processData } from 'tools-core';
-import { someUtil } from '@nagiyu/common';
-
-export async function dailyBatch() {
-  const data = await fetchData();
-  const processed = processData(data);
-  await saveResult(processed);
-}
-```
-
-### インポート方法
-
-```typescript
-// 共通ライブラリのインポート
-import { Header, Footer } from '@nagiyu/ui';
-import { clipboard } from '@nagiyu/browser';
-import { someUtil } from '@nagiyu/common';
-
-// 固有パッケージのインポート (coreからの機能)
-import { processData } from 'tools-core';
-```
 
 ## ライブラリ内部の実装ルール
 
