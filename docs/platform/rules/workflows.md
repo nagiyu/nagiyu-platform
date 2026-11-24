@@ -14,11 +14,17 @@ sources: []
 
 例外として、auth のアプリは `auth-verify-app.yml` と名付けている。
 
-### Fast と Full は 1 本の verify の中で `github.base_ref` で出し分ける
+### Fast と Full は 1 本の verify の中で、向き先のブランチで出し分ける
 
-`integration/**` 向けは Fast、`develop` 向けは Full とし、`{target}-verify.yml` を分けない。ファイルを 2 本に分けると、片方だけが直されて検査の中身がずれるためである。出し分けは、再利用ワークフローへ `full: ${{ github.base_ref == 'develop' }}` を渡して行う。
+`integration/**` 向けは Fast、`develop` 向けは Full とし、`{target}-verify.yml` を分けない。ファイルを 2 本に分けると、片方だけが直されて検査の中身がずれるためである。出し分けは向き先のブランチ (`github.base_ref`) を見て行い、見る場所は 3 つある。
 
-出し分けの中身は [サービスの PR 検証](../specs/ci/service-verify.md)、[E2E](../specs/ci/e2e.md)、[ライブラリの PR 検証](../specs/ci/lib-verify.md) にある。
+- E2E のデバイス数。呼び出し側が `reusable-e2e.yml` へ `full: ${{ github.base_ref == 'develop' }}` を渡す。`full` を受け取る再利用ワークフローは、これだけである。
+- カバレッジの検査。`reusable-service-verify.yml` が自分で `github.base_ref` を見る。呼び出し側は何も渡さない。
+- PR コメントの見出し。`report-verify-results` の `report.js` が、PR の base ref を見る。
+
+ライブラリの検証 (`reusable-lib-verify.yml`) には出し分けがない。
+
+出し分けの中身は [サービスの PR 検証](../specs/ci/service-verify.md)、[E2E](../specs/ci/e2e.md) にある。
 
 ### 検査は再利用ワークフローを呼び、手で並べない
 
@@ -34,9 +40,9 @@ lint・format・ユニットテスト・カバレッジ・契約テストは `re
 
 - `if: always()` を付ける。落ちたジョブがあっても報告するため。
 - `needs` に全ジョブを並べる。結果を渡すためではなく、全ジョブの終了を待つため。
-- `permissions` に `actions: read` を付ける。action が同じ run のジョブ一覧を API で読むため。
+- `permissions` に `actions: read` を付ける。action が同じ試行のジョブ一覧を API で読むため。
 
-PR コメントで報告する verify に適用する。`infra-common-verify.yml` と `ui-storybook-verify.yml` は報告しない。
+PR コメントで報告する verify に適用する。報告するのは、サービスの verify、`infra-shared-verify.yml`、`all-verify.yml`、ライブラリの verify (`reusable-lib-verify.yml` の中の `report`) である。ほかの verify (`docs-structure-verify.yml`、`docs-verify.yml`、`node-version-verify.yml`、`infra-common-verify.yml`、`ui-storybook-verify.yml`) は報告しない。
 
 ## トリガーと paths
 
@@ -44,13 +50,22 @@ PR コメントで報告する verify に適用する。`infra-common-verify.yml
 
 ```yaml
 on:
-    pull_request:
-        branches:
-            - integration/**
-            - develop
+  pull_request:
+    branches:
+      - integration/**
+      - develop
 ```
 
 デプロイの前に PR で検査を済ませ、マージ後のデプロイ失敗を減らすため。
+
+向き先が違うものがある。
+
+| ワークフロー | 向き先 |
+|---|---|
+| `all-verify.yml` | `develop` と `master` (`integration/**` は対象外) |
+| `docs-structure-verify.yml`、`docs-verify.yml`、`node-version-verify.yml` | `integration/**`、`develop`、`master` |
+| `ci-image-build.yml` | PR は `integration/**` と `develop`。`develop` への push と手動実行でも動く (イメージの公開のため) |
+
 
 ### 検証の paths は、取りこぼさない側に倒す
 
@@ -60,7 +75,7 @@ paths から漏れた変更では、検証が走らないだけで CI は赤く�
 |---|---|
 | `services/<service>/**` | 対象そのもの |
 | `libs/**` | 依存ライブラリを個別に列挙しない。依存を足したときに paths の追従を忘れると、その依存先の変更で検証が走らなくなるため。無関係なライブラリの変更で検証が走るコストは許容する。ライブラリどうしの検証も同じ |
-| `infra/<service>/**` | infra がある場合 |
+| `infra/<service>/**` | infra がある場合。ポータルは infra の置き場がサービス名と違うため、代わりに `infra/bin/**`、`infra/root/**` などを持つ |
 | `infra/common/**` | 共通のインフラ部品。変更が全サービスの infra に効く |
 | `infra/tsconfig.json` | `infra/<service>` が継承している場合 |
 | `configs/**` | 共有の tsconfig・eslint・playwright 設定。変更が全サービスに効く |
@@ -70,15 +85,32 @@ paths から漏れた変更では、検証が走らないだけで CI は赤く�
 | `.github/workflows/<target>-verify.yml` | ワークフロー自体 |
 | 呼んでいる再利用ワークフロー (`reusable-*.yml`) | 直したときに、呼び出し側の検証が走らないと検証から漏れる |
 
-ライブラリの検証は `services/` と `infra/` の行を持たず、`libs/**` 以下の自分のパッケージを指す。
+ライブラリの検証は `services/` と `infra/` の行を持たず、`libs/**` 全体を指す。どのライブラリの検証も、`libs/**` のどこの変更でも動く。
 
 ### デプロイは push をトリガーにし、`develop`・`integration/**`・`master` を対象にする
 
 マージ後に自動でデプロイするため。`workflow_dispatch` も許可し、環境を手で選べるようにする。環境は `master` なら prod、それ以外なら dev に振り分ける (振り分けの実装は `.github/actions/setup-environment` の action が持つ)。
 
-サービスのデプロイの paths は、検証の paths と同じ考え方で決める。サービス固有の paths に加えて、`libs/**`・`infra/common/**`・`configs/**`・`package.json`・`package-lock.json`・自分のワークフローを入れる。`libs/**` と `infra/common/**` を含めないと、共通部品の修正がそのサービスの次の変更まで dev・prod に反映されない。
+サービスのデプロイの paths は、検証の paths と同じ考え方で決める。サービス固有の paths に加えて、`libs/**`・`infra/common/**`・`configs/**`・`package.json`・`package-lock.json`・自分のワークフロー・`.github/actions/health-check/**`・`.github/actions/push-ecr-image/**` を入れる。`libs/**` と `infra/common/**` を含めないと、共通部品の修正がそのサービスの次の変更まで dev・prod に反映されない。
 
-`dev-sync-deploy.yml`・`docs-pages-deploy.yml`・`shared-deploy.yml`・`ui-storybook-deploy.yml` は、対象が違うため `configs/**` を持たない。
+検証と違い、`.github/actions/**` 全体は持たない。持つのは、デプロイが使う `health-check` と `push-ecr-image` だけである。`build-docker-image`、`setup-environment`、`setup-node`、`build-web-app` など、ほかの action の変更では、デプロイは動かない。
+
+`configs/**` を持たないデプロイがある。
+
+| ワークフロー | 持たないもの |
+|---|---|
+| `dev-sync-deploy.yml` | `configs/**`、`.github/actions/health-check/**` |
+| `shared-deploy.yml` | `libs/**`、`configs/**`、`package.json`、`package-lock.json`、`.github/actions` 配下すべて |
+| `docs-pages-deploy.yml` | `libs/**`、`configs/**`、`package.json`、`package-lock.json`、`.github/actions` 配下すべて (`docs/**` と `docs-site/**` を持つ) |
+| `ui-storybook-deploy.yml` | `configs/**`、`.github/actions` 配下すべて (`libs/**` は持つ) |
+
+ブランチと環境にも例外がある。
+
+| ワークフロー | 例外 |
+|---|---|
+| `dev-sync-deploy.yml`、`docs-pages-deploy.yml` | `master` を対象にしない |
+| `ui-storybook-deploy.yml` | `master` への push でも動くが、デプロイ先は常に dev。手動実行も dev だけ |
+| `docs-pages-deploy.yml`、`ui-storybook-deploy.yml` | `setup-environment` を使わない |
 
 ## concurrency
 
@@ -122,18 +154,11 @@ concurrency:
 
 パスより明示的で、ディレクトリを動かしたときにも壊れない。
 
-### ビルド成果物を使うジョブには、ビルドのジョブへの `needs` を張る
-
-web や batch のビルドは core のビルドの後、Docker ビルドは web や batch のビルドの後に流す。前提が壊れているときに、後続を無駄に流さないため。
-
-`needs` で縛るのは成果物の依存だけにする。
-
-- lint・format・テストは `needs` で縛らず、再利用ワークフローの中の手順として流す。lint が落ちても後続を流し、1 回の run で全部の結果を見せるため。
-- 依存のないビルド系ジョブどうしは並列にする。
-
 ### ビルドは依存順に流す
 
-共有ライブラリは `npm run build:libs`、それ以外は `npm run build --workspace=@nagiyu/hoge` のように個別に流す。`npm run build --workspaces` は使わない。ワークスペースが並列にビルドされ、依存が考慮されずにビルドエラーになるため。順序は `@nagiyu/ui` → `@nagiyu/browser` → `@nagiyu/common` の依存に従う。詳細は [共通ライブラリ設計](../../development/shared-libraries.md) にある。
+共有ライブラリは `npm run build:libs`、それ以外は `npm run build --workspace=@nagiyu/hoge` のように個別に流す。`npm run build --workspaces` は使わない。ワークスペースが `package.json` の定義順に逐次ビルドされ、依存が考慮されずにビルドエラーになるため。
+
+`build:libs` は、ルートの `package.json` に並べた順にライブラリをビルドする。複数の `--workspace` を渡した `npm run` は指定順に 1 つずつ実行するので、並びがそのままビルド順になる。並びは `@nagiyu/common`、`@nagiyu/aws`、`@nagiyu/browser`、`@nagiyu/nextjs`、`@nagiyu/react`、`@nagiyu/ui` で、依存される側が先に来る (`@nagiyu/aws`・`@nagiyu/nextjs`・`@nagiyu/ui` は `@nagiyu/common` に、`@nagiyu/react` は `@nagiyu/browser` と `@nagiyu/common` に依存する)。ライブラリを足す、または依存を変えたときは、この並びを直す。
 
 ### PR のターゲットブランチは文脈に合わせて参照する
 
@@ -144,7 +169,7 @@ web や batch のビルドは core のビルドの後、Docker ビルドは web 
 1. `{target}-verify.yml` を作り、`dirs` を渡して `reusable-service-verify.yml` を呼ぶ。パッケージを既存のディレクトリ配下に足すだけなら、ワークフローは変えない。
 2. 検査をかけたいものは、そのパッケージに npm scripts (`lint`、`format:check`、`test`、`test:coverage`、`test:contract`) を用意する。用意しなければ、その検査はかからない。**漏れても CI は赤くならない**ため、新しいパッケージには `lint`・`format:check`・`test`・`test:coverage` を揃えるのを基本とする。
 3. infra があるなら、`reusable-infra-verify.yml` を呼ぶジョブも足す。
-4. Next.js のビルド・Docker・E2E・サービス固有の検査は、`{target}-verify.yml` にジョブとして残す。再利用ワークフローの対象外である。
+4. Next.js のビルド・Docker のビルド確認・サービス固有の検査は、`{target}-verify.yml` にジョブとして残す。E2E は `reusable-e2e.yml` を呼ぶジョブを足す。
 5. 検証の paths と、デプロイが要るなら `{target}-deploy.yml` の paths を決める (上の「トリガーと paths」)。
 
 各ワークフローの振る舞いは [サービスの PR 検証](../specs/ci/service-verify.md)、[infra の検証](../specs/ci/infra-verify.md)、[E2E](../specs/ci/e2e.md)、[ライブラリの PR 検証](../specs/ci/lib-verify.md)、[イメージのビルドと ECR への push](../specs/ci/docker-image.md)、[CI 共通イメージのビルドと公開](../specs/ci/ci-image-build.md)、[Node のメジャー版の一致の検査](../specs/ci/node-version-verify.md)、[全体の lint と format の検査](../specs/ci/all-verify.md)、[docs の検査と公開](../specs/ci/docs.md)、[定期の Issue 起票](../specs/ci/scheduled-issues.md) にある。

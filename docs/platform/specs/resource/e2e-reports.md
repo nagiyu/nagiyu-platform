@@ -12,7 +12,7 @@ sources_hash: 2f8700e4549914f8c4d36ed61b78034b5cf05bea7b6b6b7614d91ba6f3039cc9
 
 ## リソース
 
-スタック名は `NagiyuE2eReportsHosting` (両アカウント)。ホスト名とスタックの一覧は[デプロイ先](../deploy.md)にある。
+スタック名は `NagiyuE2eReportsHosting` (両アカウント)。ホスト名とスタックの一覧は[shared と ui-storybook のデプロイ先](../deploy.md)にある。
 
 | 名前 | 種類 | 用途 |
 |---|---|---|
@@ -41,7 +41,7 @@ sources_hash: 2f8700e4549914f8c4d36ed61b78034b5cf05bea7b6b6b7614d91ba6f3039cc9
 |---|---|
 | オリジン | S3 バケット (OAC) |
 | ホスト名 | `reports.` + ゾーン名。dev のゾーン名は `dev.<ドメイン>` |
-| 証明書 | SSM の `ACM_CERTIFICATE_ARN` が指す、アカウントごとの ACM 証明書 |
+| 証明書 | SSM の `/nagiyu/shared/acm/certificate-arn` が指す、アカウントごとの ACM 証明書 ([ドメインと証明書](./dns-certificate.md)) |
 | ビューアーのプロトコル | HTTPS へリダイレクト |
 | 許可するメソッド | GET、HEAD、OPTIONS |
 | キャッシュ | `CACHING_OPTIMIZED`。圧縮あり |
@@ -62,8 +62,8 @@ dev では、ACM 証明書のスタックと Route53 のスタックのデプロ
 ## 理由
 
 - **公開してよい**: E2E はダミーデータだけを扱い、リポジトリも public なので、レポートに機微な情報は含まれない。認証を付けず、PR コメントのリンクから誰でも開けるようにする。
-- **3 日で消す**: 過去のレポートを残し続ける用途は想定せず、必要になったら CI を再実行して作り直す運用にする。保持が必要なら、GitHub Actions の Artifact (30 日) から取れる。
-- **バケットを prod と dev で分ける**: アカウントごとに別のバケットと別のホスト名を持つ。
+- **3 日で消す**: 過去のレポートを残し続ける用途は想定せず、必要になったら CI を再実行して作り直す運用にする。保持が必要なときの取り方は[E2E](../ci/e2e.md)にある。
+- **バケットとホスト名を prod と dev のアカウントそれぞれに持つ**: dev のアカウントは prod に依存させない方針で、共有の基盤を各アカウントの中で完結させる ([AWS アカウントとアクセス](../../rules/aws-accounts.md))。PR の検証は dev のアカウントの PR ロールで動くため、レポートの書き込み先も dev のアカウントに要る。
 - **`index.html` を補う**: CloudFront の `defaultRootObject` はルート (`/`) にしか効かない。`/foo/bar/` のようにサブディレクトリで終わる URI は、S3 にそのままキーが渡されて AccessDenied になる。Playwright の HTML レポートは各ディレクトリに `index.html` を持つので、末尾が `/` のとき補う。
 - **`SAMEORIGIN`**: Playwright のレポートはトレースのスナップショットを同じオリジンの iframe で描く。`DENY` にすると表示できない。
 - **ヘッダーポリシー名を固定する**: dev と prod はアカウントが別で、ポリシー名はアカウント内で一意であればよい。

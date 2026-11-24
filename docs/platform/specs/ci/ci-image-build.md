@@ -17,9 +17,9 @@ GitHub Actions のジョブを動かす共通イメージ (`base`、`chromium`�
 |---|---|---|
 | `pull_request` | 向き先が `develop` または `integration/**`。変更が `.github/ci-image/**` か `.github/workflows/ci-image-build.yml` にある | 版の確認、ビルド、スモークテスト。公開しない |
 | `push` | `develop` への push。変更が同じパスにある | 版の確認、まだ無い種類のビルド、スモークテスト、push |
-| `workflow_dispatch` | 手動 | `push` と同じ |
+| `workflow_dispatch` | 手動。ref を問わず公開する | `push` と同じ |
 
-同時実行は、PR では PR 番号、それ以外では ref を単位にする。PR の古いコミットの run は打ち切る。push を伴う run は、途中で打ち切るとタグが中途半端に残るため、打ち切らず順に待たせる。
+同時実行は、PR では PR 番号、それ以外では ref を単位にする。PR の古いコミットの run は打ち切る。push を伴う run は、途中で打ち切るとタグが中途半端に残るため、実行中のものを打ち切らない。待機できる run はグループに 1 つで、さらに新しい run が来ると、待機中の run は取り消される。
 
 ## 処理
 
@@ -62,7 +62,7 @@ push と手動実行で、まだ無い種類が 1 つ以上あるときだけ動
 | docker | ランナーの docker のソケット (`/var/run/docker.sock`) を渡して `docker version` が通る。コマンドがあるだけでなく、デーモンと話せる (API の版が合う) ことを確かめる |
 | ブラウザ (`chromium`、`webkit` のみ) | 一時のディレクトリに `playwright@<PLAYWRIGHT_VERSION>` を入れ、その種類のブラウザを起動して `about:blank` を開く |
 
-## イメージ
+### イメージ
 
 ステージ名がそのまま種類の名前になる。
 
@@ -75,7 +75,7 @@ push と手動実行で、まだ無い種類が 1 つ以上あるときだけ動
 - タグは `<種類>-v<VERSION>` (例: `base-v2`)。`VERSION` は `.github/ci-image/VERSION` の整数。
 - 同じタグは上書きしない。Dockerfile を変えたら `VERSION` を上げる。
 - ブラウザは `/ms-playwright` に置き (`PLAYWRIGHT_BROWSERS_PATH`)、実行時のユーザーやホームが変わっても同じ場所から見つかるようにする。
-- Playwright の版は Dockerfile の `ARG PLAYWRIGHT_VERSION` で決める。ルートの `package.json` の `@playwright/test` と同じにする。
+- Playwright の版は Dockerfile の `ARG PLAYWRIGHT_VERSION` で決める。ルートの `package.json` の `@playwright/test` と同じにする。イメージのブラウザは Playwright の版ごとに置き場所が決まり、ずれるとテストがブラウザを見つけられない。E2E のジョブは、ずれを先に確かめる ([E2E](./e2e.md) の「Playwright の版の確認」)。
 
 ## 失敗したとき
 
@@ -90,7 +90,7 @@ push と手動実行で、まだ無い種類が 1 つ以上あるときだけ動
 
 - ブラウザと OS の依存パッケージを実行のたびに apt で取ると、ランナーの置き場所によって取得が極端に遅くなり、ジョブが数十分止まる。前もってイメージに入れ、ジョブが外部からの取得に左右されないようにする。
 - 検査・E2E・deploy で OS と Node をそろえる。検査で通ったものが、環境の差で deploy で落ちることを避けるため。
-- ベースは Debian (`node:26-slim`) にする。本番の web は `node:26-alpine` だが、Playwright のブラウザは alpine では動かない。
+- ベースは Debian (`node:26-slim`) にする。本番の web は `node:26-alpine` だが、Playwright のブラウザは alpine では動かない。本番の batch の一部も `node:26-slim` で、同じ Debian 系である。
 - ブラウザの種類ごとにイメージを分ける。E2E のジョブは 1 つにつきブラウザを 1 つしか使わないため、もう一方を抱えるとイメージが大きくなり、取得も遅くなる。
 - docker はコマンドだけを入れ、デーモンはジョブのコンテナに渡されるランナーのものを使う。コマンドは Debian のパッケージではなく Docker の配布元から取る。デーモンは古い API の版を順に受け付けなくなり、リリース時点で版が止まる Debian のパッケージでは、ランナーのデーモンと話せなくなるため。
 - Node はメジャーだけを指定する (`node:26-slim`)。イメージは作った時点のパッチを抱える。パッチを追うときは `VERSION` を上げて作り直す。
@@ -104,11 +104,12 @@ push と手動実行で、まだ無い種類が 1 つ以上あるときだけ動
 
 1. 1 本目で、イメージを作る。
     - `.github/ci-image/Dockerfile` の版 (Playwright なら `ARG PLAYWRIGHT_VERSION`、Node ならベースイメージのメジャー) と `.github/ci-image/VERSION` を上げる。
-    - Node のときは、`.node-version` と全 Dockerfile のメジャーも一緒に上げる。[Node のメジャー版の検査](./node-version-verify.md)が、これらの食い違いで落ちるため。サービスの Dockerfile が替わるので、この PR は dev へのデプロイも伴う。
+    - Node のときは、`.node-version` と全 Dockerfile のメジャーも一緒に上げる。[Node のメジャー版の一致の検査](./node-version-verify.md)が、これらの食い違いで落ちるため。サービスの Dockerfile が替わるので、この PR は dev へのデプロイも伴う。
     - Node のときは、`smoke-test.sh` の `^v26\.` (Node のメジャーの直書き) も直す。直さないと、上げた版のイメージがスモークテストで落ちる。
 2. 2 本目で、イメージを使う側を替える。
     - Playwright のときは、ルートの `package.json` の `@playwright/test` を、Dockerfile の `PLAYWRIGHT_VERSION` と同じ版にする。
     - ワークフローの `container:` のイメージのタグ (`ci:<種類>-v<VERSION>`) を、新しい `VERSION` に替える。deploy のワークフローのタグも替わるため、この PR は dev へのデプロイを伴う。
     - タグは、`ci:base-v2` のように直書きされたものと、式で組み立てたもの (`reusable-e2e.yml` の `ci:${{ ... }}-v<N>`) がある。種類を含めた文字列 (`base-v2`、`chromium-v2` など) で探すと、式の中のものは当たらない。`nagiyu-platform/ci:` で探し、式の末尾の `-v<N>` も確かめる。
+    - docs に直書きされたタグ (`docs/platform/specs/ci/*.md` の `ci:base-v2` など) も替える。
 
-1 本にまとめると、イメージができる前にジョブが走り、存在しないタグを取りに行って落ちる。イメージは、1 本目の変更が `develop` に入った push か手動実行で公開される。
+1 本目を `develop` まで入れ、`develop` への push でイメージを公開してから、2 本目に着手する。手動実行は `develop` で行う。公開は `develop` への push か手動実行だけで、`integration/**` で手動実行すると、`develop` に入っていない中身で上書きできないタグができる。そのタグは、`integration/**` から `develop` への PR では既存のタグとして検査が落ちる。1 本にまとめると、イメージができる前にジョブが走り、存在しないタグを取りに行って落ちる。

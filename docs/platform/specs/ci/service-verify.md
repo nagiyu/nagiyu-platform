@@ -11,7 +11,7 @@ sources_hash: 5d9596ba41e29c313d273006d9f1f2d99d583f3c2c47d2a2e979f3b94fd1d756
 
 # サービスの PR 検証
 
-サービスの PR を検証するワークフロー群 (`.github/workflows/*-verify.yml` のうちサービスの 11 本) の共通の流れ。検査の本体は `reusable-service-verify.yml` が持ち、各サービスの verify は、それを呼ぶ `verify` ジョブのほか、infra の検証・ビルド確認・Docker のビルド確認・E2E・結果の報告を並べる。
+サービスの PR を検証するワークフロー群 (`.github/workflows/` のサービスごとの verify) の共通の流れ。検査の本体は `reusable-service-verify.yml` が持ち、各サービスの verify は、それを呼ぶ `verify` ジョブのほか、infra の検証・ビルド確認・Docker のビルド確認・E2E・結果の報告を、サービスの構成に応じて並べる。
 
 インフラの検証は [infra の検証](./infra-verify.md)、E2E は [E2E](./e2e.md)、イメージの部品は [イメージのビルドと ECR への push](./docker-image.md) に書く。
 
@@ -26,20 +26,7 @@ sources_hash: 5d9596ba41e29c313d273006d9f1f2d99d583f3c2c47d2a2e979f3b94fd1d756
 
 ## 処理
 
-```mermaid
-flowchart LR
-    PR[PR] --> V[verify: 検査]
-    PR --> I[infra-verify]
-    PR --> B[ビルド確認]
-    B --> D[Docker のビルド確認]
-    B --> E[E2E]
-    V --> R[report]
-    I --> R
-    D --> R
-    E --> R
-```
-
-各サービスの verify は、上の部品を並べる。どれを持つかはサービスの構成で変わり、呼び出し側が入力で変えられるのは次のとおり。
+各サービスの verify は、次の部品から必要なものを選んで並べる。部品どうしの順序 (どのジョブの後に流すか) は呼び出し側が決める。呼び出し側が入力で変えられるのは次のとおり。
 
 | 入力 | どこへ | 内容 |
 |---|---|---|
@@ -89,12 +76,14 @@ flowchart LR
 
 | 順 | 手順 | 流す条件 |
 |---|---|---|
-| 1 | 依存のインストール (`npm ci`) | 常に |
-| 2 | lint | `lint` を持つ |
-| 3 | 書式の検査 | `format:check` を持つ。lint が落ちても流す |
-| 4 | ビルド (`npm run build:libs`、続けて `prebuild` の各ワークスペースの `build`) | `test` か `test:coverage` を持つ。ここまでが落ちても流す |
+| 1 | 依存のインストール (`npm ci`) | 条件なし (最初の手順) |
+| 2 | lint | 前の手順が通り、`lint` を持つ |
+| 3 | 書式の検査 | `format:check` を持つ。前の手順が落ちても流す |
+| 4 | ビルド (`npm run build:libs`、続けて `prebuild` の各ワークスペースの `build`) | `test` か `test:coverage` を持つ。前の手順が落ちても流す |
 | 5 | カバレッジつきのテスト | `develop` 向けで、`test:coverage` を持つ。ビルドが落ちたら流さない |
 | 6 | テスト | `test` を持ち、5 を流す対象ではない。ビルドが落ちたら流さない |
+
+手順 1 が落ちると、2 以降は流れない。3 と 4 は、前の手順が落ちても流す (キャンセルされたときは流さない)。
 
 `develop` 向けで `test:coverage` を持つワークスペースは、`test` の代わりに `test:coverage` を流す。`integration/**` 向けでは `test` だけを流すので、`test` を持たず `test:coverage` だけを持つワークスペースは、`integration/**` 向けではテストが流れない。
 
@@ -135,11 +124,11 @@ flowchart LR
 
 ### E2E
 
-E2E を持つサービスは、`reusable-e2e.yml` を `full: ${{ github.base_ref == 'develop' }}` で呼ぶ。挙動は [E2E](./e2e.md) にある。web のビルドのジョブを `needs` に持つサービスと持たないサービスがある。
+E2E を持つサービスは、`reusable-e2e.yml` を呼び、`full` に `github.base_ref == 'develop'` を渡す。挙動は [E2E](./e2e.md) にある。
 
 ### infra の検証
 
-`reusable-infra-verify.yml` を、サービスの infra ディレクトリを `dirs` にして呼ぶ。挙動は [infra の検証](./infra-verify.md) にある。ポータルだけは、ルートの infra ワークスペースだけを対象にするため `dirs: infra` を渡す。
+`reusable-infra-verify.yml` を、対象の infra ディレクトリを `dirs` にして呼ぶ。挙動は [infra の検証](./infra-verify.md) にある。
 
 ### PR への結果報告
 
@@ -155,11 +144,9 @@ E2E を持つサービスは、`reusable-e2e.yml` を `full: ${{ github.base_ref
 
 見出しは `## <✅ か ❌> [<サービス名>] Verification <Passed か Failed>`。`fast-full` を `'true'` で渡すと、`Verification` の前に Fast か Full が入る。base が `develop` なら Full、それ以外は Fast である。
 
-`e2e-report-key` を渡すと、表に Report 列が付く。ジョブ名の括弧に `chromium-mobile`、`chromium-desktop`、`webkit-mobile` のいずれかがあり、状態が `success` か `failure` のジョブだけが、`<base>/<e2e-report-key>/pr-<PR 番号>/<run ID>/<デバイス>/` へのリンクを持つ。それ以外は `-`。`<base>` は `reports-base-url` で、空なら `https://reports.nagiyu.com`。末尾に、レポートが 3 日で消えることと再実行で作り直せることを書く。
+`e2e-report-key` を渡すと、表に Report 列が付く。ジョブ名の括弧に `chromium-mobile`、`chromium-desktop`、`webkit-mobile` のいずれかがあり、状態が `success` か `failure` のジョブだけが、`<base>/<e2e-report-key>/pr-<PR 番号>/<run ID>/<デバイス>/` へのリンクを持つ。それ以外は `-`。`<base>` は `reports-base-url` で、既定値と呼び出し側が渡す値は [E2E](./e2e.md) にある。末尾に、レポートが 3 日で消えることと再実行で作り直せることを書く。E2E を持たない verify は、`e2e-report-key` を渡さない。
 
-E2E を持つ 10 本は、`reports-base-url` に変数 `E2E_REPORTS_BASE_URL` を渡す (値が無ければ prod の URL)。dev-sync は E2E を持たないので、`e2e-report-key` を渡さない。
-
-## Fast と Full の出し分け
+### Fast と Full の出し分け
 
 Fast と Full という名前の仕組みが 1 か所にあるのではなく、各ワークフローが `github.base_ref` を見て、それぞれ出し分ける。
 
@@ -169,8 +156,8 @@ Fast と Full という名前の仕組みが 1 か所にあるのではなく、
 | E2E のイメージ | `chromium` | WebKit のデバイスだけ `webkit` | `reusable-e2e.yml` |
 | ユニットテスト | `test` | `test:coverage` (持つワークスペース) | `reusable-service-verify.yml` の `check` |
 | 契約テスト、ビルド確認、Docker のビルド確認、infra の検証 | 同じ | 同じ | 出し分けなし |
-| PR コメントの見出し | `Fast Verification` | `Full Verification` | `report.js`。`fast-full` を渡すサービスの verify だけ |
-| ライブラリのカバレッジ | 流す | 流す | 区別なし ([ライブラリの検証](./lib-verify.md)) |
+| PR コメントの見出し | `Fast Verification` | `Full Verification` | `report.js`。`fast-full` を渡したときだけ |
+| ライブラリのカバレッジ | 流す | 流す | 区別なし ([ライブラリの PR 検証](./lib-verify.md)) |
 | リポジトリ全体の lint と書式 | 流れない | 流れる | [全体の lint と format の検査](./all-verify.md) (`develop` と `master` 向けだけ) |
 | 未実装の文書の禁止 | 許す | 禁止 | [docs の検査と公開](./docs.md) (`develop` と `master` 向けで禁止) |
 
@@ -191,10 +178,9 @@ Fast と Full という名前の仕組みが 1 か所にあるのではなく、
 ## 理由
 
 - **PR で静的チェックを終える**: lint、書式、型、ビルド、ユニットテスト、synth は、マージの前に PR で終わらせる。マージ時のリスクを下げるためである。
-- **ビルドは deploy と同じ action で行う**: verify のビルドと deploy のビルドが別の手順だと、verify が通ったのに deploy で落ちる。同じ composite action (`build-web-app`、`build-docker-image`) を使い、`APP_VERSION` も同じ取り方で渡す。
-- **検査は npm scripts の有無で決める**: ワークフローごとに検査の対象を手で並べていたとき、並べ忘れたパッケージがあり、どこでもユニットテストが走らないパッケージが出た。ワークスペースを `dirs` から導き、スクリプトを持つ検査をかければ、パッケージを足してもワークフローを書き換えずに済む。スクリプトを用意しない検査は流れず、CI も赤くならないので、新しいパッケージには `lint`、`format:check`、`test`、`test:coverage` を揃える。
-- **書式の検査をビルドより前に流す**: ビルド後の `dist/` を prettier が拾って落ちるため。
+- **ビルドは deploy と同じ action で行う**: 理由は [イメージのビルドと ECR への push](./docker-image.md) にある。
+- **検査は npm scripts の有無で決める**: ワークフローごとに検査の対象を手で並べると、並べ忘れたパッケージが出て、そのパッケージにはユニットテストが走らない。ワークスペースを `dirs` から導き、スクリプトを持つ検査をかければ、パッケージを足してもワークフローを書き換えずに済む。スクリプトを用意しない検査は流れず、CI も赤くならないので、新しいパッケージには `lint`、`format:check`、`test`、`test:coverage` を揃える。
+- **書式の検査をビルドより前に流す**: `format:check` の `prettier --check .` は、ワークスペースのディレクトリで動き、そのディレクトリの `.gitignore` と `.prettierignore` だけを読む。ルートの `.prettierignore` は読まれない。`dist/` を除外していないワークスペースでは、ビルド後の `dist/` を拾って落ちるため、ビルドの前に流す。[ライブラリの PR 検証](./lib-verify.md)はビルドの後に書式を検査するが、ライブラリは自分の `.gitignore` で `dist/` を除外している。
 - **lint が落ちても後続を流す**: 1 回の run で全部の結果を見せるため。ジョブを分けて止めない。
 - **ビルドが落ちたらテストを流さない**: 原因ではない失敗が増えるため。
-- **カバレッジは `develop` 向けだけで流す**: `integration/**` 向けは Fast にとどめる。
 - **報告はジョブの一覧から集計する**: `needs` を手で並べると、ジョブの追加と削除のたびに集計が実態とずれる。`skipped` を成功として扱うのは、`if` で意図して飛ばしたジョブを失敗と見なさないため。

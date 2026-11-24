@@ -868,27 +868,7 @@ it('should calculate total', () => {
 
 ### 5.2 ビルド順序
 
-#### MUST: 依存関係に従ってビルド順序を守る
-
-```yaml
-# ✅ OK
-- name: Build shared libraries
-  run: npm run build:libs
-
-# ❌ NG: 並列実行のため依存関係が保証されない
-- run: npm run build --workspaces
-```
-
-#### MUST: 依存関係順にビルド (libs は `npm run build:libs` を使う)
-
-#### MUST: libs 以外は npm run build --workspace @nagiyu/hoge のように個別ビルド
-
-#### MUST NOT: npm run build --workspaces を使用しない (並列実行のため)
-
-**理由**: 依存関係が考慮されず、ビルドエラーが発生する可能性がある
-**違反時の影響**: ビルドエラー、CI失敗
-
-#### MUST: CI/CD でも同じ順序でビルド
+ビルド順序の規則と理由は [ワークフローを書くときの規約](../platform/rules/workflows.md) の「ビルドは依存順に流す」にある。
 
 ---
 

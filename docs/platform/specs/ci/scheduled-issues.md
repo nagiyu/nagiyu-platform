@@ -14,14 +14,11 @@ sources:
   - .github/workflows/scripts/check-npm-audit.sh
   - .github/workflows/scripts/check-duplicates.sh
   - .github/workflows/scripts/check-version-inconsistency.sh
-  - .github/workflows/templates/weekly-blog-article-body.md
-  - .github/workflows/templates/weekly-exploratory-test-body.md
   - .github/workflows/templates/weekly-npm-body.md
-  - .github/workflows/templates/weekly-refactoring-body.md
   - .github/workflows/templates/stock-tracker-inspection-body.md
   - .github/workflows/templates/stock-tracker-inspection-mkt-section.md
   - .github/workflows/templates/stock-tracker-inspection-no-mkt-section.md
-sources_hash: ff36f0780a5e299d8f8767c0ecf7dc0178e0afc961216ebd4fb07456cc2d16a9
+sources_hash: 21c5886486ca003705f57f2cf370bf7ff7d9c4788ca8827cef64f1f69617a8f5
 ---
 
 # 定期の Issue 起票
@@ -53,7 +50,7 @@ flowchart TD
 2. 本文を作る (ワークフローごとに違う。下の表)。
 3. `create-issue` が、本文のファイルから `gh issue create` で起票し、Summary にタイトルと Issue の番号を書く。Assignee とマイルストーンは付けない (人が付ける)。
 
-日付と月は、cron の時刻が UTC では前日や前月にあたることがあるため、JST で決める。
+日付と月は JST で決める。週次の 4 本は、cron の時刻 (UTC の金曜 18:17) が UTC では前日にあたる。月次の点検は、起動が UTC の月初 0:00 (JST でも同じ日の 9:00) で、月を JST で数える。
 
 ### ワークフローごとの違い
 
@@ -117,12 +114,13 @@ flowchart TD
 |---|---|
 | 同じラベルの open な Issue がある | 起票を飛ばす。失敗ではない。Summary に既存の Issue を書く |
 | 本文の生成、起票の失敗 | その run が失敗する。再実行は手動で行う |
-| npm の検査の一部が失敗 | 失敗にしない。本文に `取得失敗` と書いて起票する |
+| `npm outdated` または `npm audit` の実行の失敗 | 失敗にしない。本文に `取得失敗` と書いて起票する |
+| `prepare-npm-issue.py` の失敗 (検査の出力のデコードや JSON の解析ができない) | その run が失敗する |
 
 ## 理由
 
 - 重複確認は、同じ作業の Issue が open のまま積み上がらないようにする。open な Issue が残っているうちは、新しく起票しない。
 - `weekly-npm-check.yml` だけ重複確認を別のジョブに分けるのは、`npm ci` などの重い処理の前に判定し、既存の Issue があれば後続のジョブごと飛ばすため。
-- 日付と月を JST で決めるのは、実行時刻 (UTC) が JST の日付と食い違うため。
-- npm の検査が失敗したとき 0 件として報告しないのは、本文が「問題なし」に見えてしまうため。
+- 日付を JST で決めるのは、週次の実行時刻 (UTC の金曜 18:17) が、UTC では JST の日付の前日にあたるため。月次の点検は UTC と JST で同じ月になるが、月も JST で数える。
+- `npm outdated` や `npm audit` が失敗したとき 0 件として報告しないのは、本文が「問題なし」に見えてしまうため。
 - Assignee とマイルストーンを付けないのは、人が付けるため。

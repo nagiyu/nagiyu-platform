@@ -10,7 +10,7 @@ sources_hash: 767618722b3fd422d1dc8a3f68251ad0980bfc75d7fa51344601c6fe1370e5e5
 
 # イメージのビルドと ECR への push
 
-ワークフローが Docker イメージをビルドし、ECR に push するための部品。public ECR への認証とリトライを持つ `build-docker-image`、private ECR へ push する `push-ecr-image`、Web アプリをビルドする `build-web-app`、依存を入れる `setup-node` の 4 つの composite action と、ビルドを再試行するスクリプト `.github/scripts/docker-build-with-retry.sh` からなる。
+ワークフローが Docker イメージをビルドし、ECR に push するための部品。public ECR への認証とリトライを持つ `build-docker-image`、private ECR へ push する `push-ecr-image` の 2 つの composite action と、ビルドを再試行するスクリプト `.github/scripts/docker-build-with-retry.sh` が中心である。イメージのビルドの前提になる、Web アプリをビルドする `build-web-app` と、依存を入れる `setup-node` の 2 つの composite action も、ここで扱う。
 
 ## 起点
 
@@ -18,14 +18,16 @@ sources_hash: 767618722b3fd422d1dc8a3f68251ad0980bfc75d7fa51344601c6fe1370e5e5
 
 | 部品 | 呼ぶワークフロー | push |
 |---|---|---|
-| `build-docker-image` | サービスの verify の Docker ビルド確認、`push-ecr-image` | しない |
+| `build-docker-image` | サービスの verify の Docker のビルド確認 | しない |
 | `push-ecr-image` | サービスの deploy のイメージのビルドと push | する |
 | `build-web-app` | verify のビルド確認、E2E、deploy のビルド | しない |
 | `setup-node` | verify、deploy、全体の lint・format、定期の npm 検査 | しない |
 
+`build-docker-image` は、`push-ecr-image` からも呼ばれる。
+
 - verify は、`build-docker-image` でビルドが通ることだけを確かめる。ECR には何も置かない。
 - deploy は、`push-ecr-image` でビルドし、そのまま push する。`push-ecr-image` は中で `build-docker-image` を呼ぶため、verify と deploy は同じ action でビルドする。
-- ECR リポジトリの作り方と環境の切り替えは[デプロイ先](../deploy.md)にある。サービスごとのデプロイの流れは各サービスの `docs/services/<service>/specs/deploy.md` にある。
+- ECR リポジトリの作り方と環境の切り替えは[shared と ui-storybook のデプロイ先](../deploy.md)にある。サービスごとのデプロイの流れは各サービスの `docs/services/<service>/specs/deploy.md` にある。
 - ビルドとデプロイに必要な IAM の権限は[デプロイの権限](../resource/deploy-policies.md)にある。
 
 ## 処理
@@ -37,9 +39,11 @@ flowchart TD
     A["public ECR にログイン (us-east-1)"] -->|失敗| W["警告を出す"]
     A -->|成功| B
     W --> B["docker-build-with-retry.sh でビルド"]
+    B -->|成功| D["完了"]
     B -->|toomanyrequests かつ 5 回未満| C["60 秒待つ"]
     C --> B
-    B -->|成功| D["完了"]
+    B -->|toomanyrequests 以外の失敗| F["失敗"]
+    B -->|toomanyrequests で、リトライを使い切った| F
 ```
 
 | 入力 | 必須 | 内容 |
@@ -135,4 +139,4 @@ flowchart TD
 - public ECR の匿名 pull のクォータは送信元 IP 単位である。共有ランナーでは他者に枠を消費され、`Data limit exceeded` で失敗する。この失敗は転送量の上限超過で、待っても戻らないことが多い。認証するとクォータの単位が認証済みアカウントになるため、ビルドの前にログインする。
 - ログインに失敗しても警告にとどめる。必要な IAM 権限の反映は dev と prod で時期が異なりうるため、ログインの成否でビルド全体を止めない。
 - リトライは認証を補う保険である。認証後もアカウント単位のクォータはあり、一時的な集中で `toomanyrequests` が出うる。手動で流し直す手間をなくすため、最長 5 分の遅延を許す。対象を `toomanyrequests` だけにするのは、設定ミスや権限エラーなどを待たずに知らせるためである。
-- 同時に走るビルドの数は絞らない。認証後のレート制限は同時実行数が原因ではないため、絞っても抑止にならず、待ち時間だけが増える。また、既存の数を確かめてから自分の分を置く方式は原子的でなく、同時に取りに行くと上限を超えて通るため、上限を守れない。
+- 同時に走るビルドの数は絞らない。認証後は、同時実行数がレート制限の原因ではない。絞るなら、既存の数を確かめてから自分の分を置く方式では上限を守れない (同時に取りに行くと、上限を超えて通る) ため、`concurrency` や条件付き書き込みのような原子的な仕組みが要る。足すかどうかは、レート制限が再発してから決める。

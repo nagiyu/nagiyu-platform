@@ -1,10 +1,7 @@
 ---
 sources:
   - .github/workflows/all-verify.yml
-  - .github/actions/setup-node/action.yml
-  - .github/actions/report-verify-results/action.yml
-  - .github/actions/report-verify-results/report.js
-sources_hash: 5a8f9887b4c9ef35d0b5387467d8b8ba8554e6e9f006a47100e88b2d5d8163a2
+sources_hash: 005d8b2a93191ae495ed1128105acfdfd52462e1624578fe3b658d106d68dc02
 ---
 
 # 全体の lint と format の検査
@@ -37,14 +34,9 @@ flowchart LR
 - 2 つのジョブは並列に動く。
 - 共通イメージとタグは[CI 共通イメージのビルドと公開](./ci-image-build.md)にある。
 
-### 報告 (`report-verify-results`)
+### 報告
 
-`report` ジョブは、`report-verify-results` に `display-name: All Workspaces` だけを渡す。
-
-- 同じ run の完了したジョブを API で集め、ジョブごとに結果を表にして PR にコメントする。`needs` に並べたジョブではなく、完了したすべてのジョブが対象になる。報告ジョブ自身は結果が未確定のため除く。
-- `success`、`skipped`、`neutral` のジョブだけなら見出しを「Verification Passed」にし、それ以外 (`cancelled` と `timed_out` を含む) が 1 つでもあれば「Verification Failed」にする。
-- `fast-full` を渡さないため、見出しは Fast と Full で出し分けない。`e2e-report-key` も渡さないため、レポートへのリンクの列もない。
-- PR を伴わない起動では、コメントを飛ばす。
+`report` ジョブは、`report-verify-results` に `display-name: All Workspaces` だけを渡す。コメントの作り方は[サービスの PR 検証](./service-verify.md)の「PR への結果報告」と同じで、同じ試行の完了したジョブがすべて対象になる。`fast-full` と `e2e-report-key` を渡さないため、見出しは Fast と Full で出し分けず、レポートへのリンクの列もない。
 
 ## 失敗したとき
 

@@ -7,7 +7,7 @@ sources_hash: 91d68d5e4863daa01563f764718eff8cca4943c37d02657a64aac5819e1ee7df
 
 # E2E
 
-サービスの Playwright E2E テストを流し、結果をレポートとして残す再利用ワークフロー `reusable-e2e.yml`。デバイスごとのジョブで、web をビルドしてテストを流し、レポートを Artifact と S3 に保存する。呼び出し元は、E2E を持つサービスの verify (dev-sync 以外の 10 本) である。
+サービスの Playwright E2E テストを流し、結果をレポートとして残す再利用ワークフロー `reusable-e2e.yml`。デバイスごとのジョブで、web をビルドしてテストを流し、レポートを Artifact と S3 に保存する。呼び出し元は、E2E を持つサービスの verify である。
 
 ## 起点
 
@@ -24,7 +24,7 @@ sources_hash: 91d68d5e4863daa01563f764718eff8cca4943c37d02657a64aac5819e1ee7df
 | `full` | 必須 | `true` なら 3 デバイス、`false` なら `chromium-mobile` のみ |
 | `env` | 任意 | ビルドとテストに渡す追加の環境変数。1 行 1 つの `KEY=VALUE` |
 
-各サービスの verify は `full` に `github.base_ref == 'develop'` を渡す。つまり `develop` 向けの PR が Full、`integration/**` 向けが Fast である。
+呼び出し側が `full` を渡す。値の決め方は[サービスの PR 検証](./service-verify.md)の「Fast と Full の出し分け」にある。
 
 ## 処理
 
@@ -44,9 +44,9 @@ sources_hash: 91d68d5e4863daa01563f764718eff8cca4943c37d02657a64aac5819e1ee7df
 | 順 | 手順 | 流す条件 |
 |---|---|---|
 | 1 | `env` を `GITHUB_ENV` に書く | `env` が空ではない |
-| 2 | `build-web-app` で web をビルドする (`npm ci`、`build:libs`、`shared-workspaces`、対象の順)。Node はイメージのものを使う | 常に |
-| 3 | Playwright の版がイメージと揃っているか確かめる | 常に |
-| 4 | `npm run test:e2e --workspace=<workspace>` を、環境変数 `CI=true` と `PROJECT=<デバイス>` で流す | 常に |
+| 2 | `build-web-app` で web をビルドする (`npm ci`、`build:libs`、`shared-workspaces`、対象の順)。Node はイメージのものを使う | 前の手順が通れば |
+| 3 | Playwright の版がイメージと揃っているか確かめる | 前の手順が通れば |
+| 4 | `npm run test:e2e --workspace=<workspace>` を、環境変数 `CI=true` と `PROJECT=<デバイス>` で流す | 前の手順が通れば |
 | 5 | Playwright のレポートを Artifact に保存する | 常に (`if: always()`) |
 | 6 | テスト結果 (`test-results`) を Artifact に保存する | 常に (`if: always()`) |
 | 7 | PR 用のロールを引き受ける | 常に (`if: always()`) |
@@ -77,7 +77,7 @@ PR 用のロール (`vars.AWS_PR_ROLE_ARN`、リージョン `us-east-1`) を引
 
 公開 URL のベースは、PR コメントを作る側 (`report-verify-results`) が変数 `E2E_REPORTS_BASE_URL` で決める。無ければ `https://reports.nagiyu.com` (prod の URL) になる。
 
-アップロードに使う PR ロールは dev のアカウントに入るため、2 つの変数はリポジトリの変数として dev のバケットとホスト名を指す。変数が無いときの既定値 (prod の名前) では、バケットに書き込めない。値は、GitHub の Settings → Secrets and variables → Actions → Variables で見る。バケットそのもの (3 日で消える、公開) は[E2E レポートの置き場所](../resource/e2e-reports.md)にある。
+アップロードに使う PR ロールは dev のアカウントに入るため、2 つの変数 (`E2E_REPORTS_BUCKET`、`E2E_REPORTS_BASE_URL`) は、dev のバケットとホスト名を指している必要がある。既定値 (prod の名前) では、バケットに書き込めない。値は、GitHub の Settings → Secrets and variables → Actions → Variables で見る。バケットそのもの (3 日で消える、公開) は[E2E レポートの置き場所](../resource/e2e-reports.md)にある。
 
 ## 失敗したとき
 
@@ -85,11 +85,11 @@ PR 用のロール (`vars.AWS_PR_ROLE_ARN`、リージョン `us-east-1`) を引
 |---|---|
 | `<場所> がイメージにありません。イメージの Playwright と package.json の @playwright/test の版がずれています` | イメージの Playwright と、リポジトリの `@playwright/test` の版が違う。`.github/ci-image` の Dockerfile の `PLAYWRIGHT_VERSION` と `VERSION` を上げてイメージを作り直し、その後このワークフローのイメージのタグを替える |
 | `Playwright が要求するブラウザの置き場所を読み取れませんでした` | `playwright install --dry-run` の出力に `Install location:` の行が無い |
-| テストが落ちる | 下の「手順」でレポートを見る |
+| テストが落ちる | 「手順」の「失敗したテストを調べる」でレポートを見る |
 
 ## 理由
 
-- **イメージの上で動かす**: ブラウザと OS の依存を実行のたびに apt で取ると、ランナーの置き場所によって数十分止まる。前もって入れたイメージを使う。WebKit は、使うデバイスのジョブだけに入れる。
+- **イメージの上で動かす**: ブラウザと OS の依存を前もって入れたイメージを使う ([CI 共通イメージのビルドと公開](./ci-image-build.md)に理由がある)。WebKit は、使うデバイスのジョブだけに入れる。
 - **版を先に確かめる**: ずれたまま流すと、テストがブラウザを見つけられず、原因が分かりにくい落ち方をする。
 - **デバイスごとのジョブに分ける**: 1 つの失敗で他のデバイスの結果とレポートが失われないようにする。
 - **E2E のジョブをサービスごとに書かない**: デバイス × サービスの数だけジョブをコピーすると、修正が一部のワークフローにしか入らなくなる。サービスごとの違い (先にビルドする core、web のディレクトリ、レポートの置き場所、追加の環境変数) は入力で渡す。

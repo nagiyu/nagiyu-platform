@@ -2,8 +2,7 @@
 sources:
   - .github/workflows/node-version-verify.yml
   - .github/workflows/scripts/check-node-version.mjs
-  - .github/workflows/scripts/tests/check-node-version.test.mjs
-sources_hash: 8b9b5d5072022bc4f44eb31536ac6f57a46f23852afd27c67bb2bcfd7d1e0b4f
+sources_hash: 7118554f9f14b38ee7d5d63e1b8aa2c34c0ff1e27e1e85e0af82965d09bd3f60
 ---
 
 # Node のメジャー版の一致の検査
@@ -37,12 +36,13 @@ flowchart TD
 
 | 行 | 扱い |
 |---|---|
-| `FROM node:<タグ>`、`FROM public.ecr.aws/lambda/nodejs:<タグ>`、`FROM mcr.microsoft.com/devcontainers/javascript-node:<タグ>` | タグの先頭の数字を Node のメジャーとして、基準と比べる |
+| `FROM node:<タグ>`、`FROM public.ecr.aws/lambda/nodejs:<タグ>`、`FROM mcr.microsoft.com/devcontainers/javascript-node:<タグ>` で、タグが数字 (または `v` と数字) で始まる | タグの先頭の数字を Node のメジャーとして、基準と比べる |
+| 同じ 3 つのイメージで、タグが数字で始まらない (`node:lts` など) | 版を読めないとして失敗する。同じ Dockerfile に `ARG NODE_VERSION=<版>` があっても、検査から外れない |
 | `ARG NODE_VERSION=<版>` | 版の先頭の数字を、基準と比べる |
 | 上のどれでもない外部イメージの `FROM` | その Dockerfile に `ARG NODE_VERSION=<数字で始まる版>` があれば検査から外す。なければ、版を読めないとして失敗する |
 | 前のステージを指す `FROM` | 前のステージの `FROM` で検査済みのため飛ばす |
 
-`ARG NODE_VERSION` は、Node を持たないイメージに公式のバイナリで Node を入れ直す Dockerfile が、入れる版を書くために使う。この行があれば、その版が検査の対象になる。
+`ARG NODE_VERSION` は、Node を持たないイメージに公式のバイナリで Node を入れ直す Dockerfile が、入れる版を書くために使う。この行があれば、その版が検査の対象になり、上の 3 つ以外の外部イメージの `FROM` は検査から外れる。
 
 ## 失敗したとき
 

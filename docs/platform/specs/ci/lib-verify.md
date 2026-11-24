@@ -12,14 +12,14 @@ sources_hash: 9d5c01479f600e1c82e212f6813893cb7e6b02d406df32a46e447b2ee95ccef6
 
 # ライブラリの PR 検証
 
-共通ライブラリ (`libs/`) の PR を検証するワークフロー。検査の本体は再利用ワークフロー `reusable-lib-verify.yml` が持ち、ライブラリごとの 6 本 (`common-verify.yml`、`aws-verify.yml`、`browser-verify.yml`、`nextjs-verify.yml`、`react-verify.yml`、`ui-verify.yml`) が、トリガーとワークスペースを渡して呼ぶ。
+共通ライブラリ (`libs/`) の PR を検証するワークフロー。検査の本体は再利用ワークフロー `reusable-lib-verify.yml` が持ち、ライブラリごとの 6 本 (`common-verify.yml`、`aws-verify.yml`、`browser-verify.yml`、`nextjs-verify.yml`、`react-verify.yml`、`ui-verify.yml`) が、自分のトリガー (向き先のブランチと paths) を持ち、`workspace` と `display-name` を渡して呼ぶ。
 
 ## 起点
 
 | 項目 | 内容 |
 |---|---|
 | イベント | `develop` または `integration/**` を向く PR |
-| 絞り込み | どの 6 本も、変更したファイルのパスが `libs/**` を含む範囲で動く。どのライブラリを変えても 6 本すべてが動く |
+| 絞り込み | 変更したファイルが、`libs/**`、`configs/**`、`.github/actions/**`、`.node-version`、`package.json`、`package-lock.json`、自分のワークフロー、`reusable-lib-verify.yml` のいずれかに当たると動く。`libs/**` は自分のパッケージではなく `libs/` 全体を指すので、どのライブラリを変えても 6 本すべてが動く |
 | 同じ PR の古い run | 新しい run が来たら打ち切る |
 
 `master` 向けの PR では動かない。
@@ -73,5 +73,5 @@ flowchart LR
 
 ## 理由
 
-- **ライブラリごとにファイルを分ける**: PR のチェックとコメントをライブラリごとに分けて見せるため。ファイルは、トリガーとワークスペースを渡すだけの薄いものにとどめ、検査は 1 つの再利用ワークフローに持つ。
+- **ライブラリごとにファイルを分ける**: PR のチェックとコメントをライブラリごとに分けて見せるため。ファイルは、トリガーと入力を渡すだけの薄いものにとどめ、検査は 1 つの再利用ワークフローに持つ。
 - **検査をジョブに分ける**: 落ちた検査を PR のチェックの一覧から見分けられる。
