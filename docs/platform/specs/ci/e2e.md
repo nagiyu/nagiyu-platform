@@ -77,7 +77,7 @@ PR 用のロール (`vars.AWS_PR_ROLE_ARN`、リージョン `us-east-1`) を引
 
 公開 URL のベースは、PR コメントを作る側 (`report-verify-results`) が変数 `E2E_REPORTS_BASE_URL` で決める。無ければ `https://reports.nagiyu.com` (prod の URL) になる。
 
-`E2E_REPORTS_BUCKET` と `E2E_REPORTS_BASE_URL` の値は、GitHub の Settings → Secrets and variables → Actions → Variables で見る。バケットそのもの (3 日で消える、公開) は[E2E レポートの置き場所](../resource/e2e-reports.md)にある。
+アップロードに使う PR ロールは dev のアカウントに入るため、2 つの変数はリポジトリの変数として dev のバケットとホスト名を指す。変数が無いときの既定値 (prod の名前) では、バケットに書き込めない。値は、GitHub の Settings → Secrets and variables → Actions → Variables で見る。バケットそのもの (3 日で消える、公開) は[E2E レポートの置き場所](../resource/e2e-reports.md)にある。
 
 ## 失敗したとき
 
