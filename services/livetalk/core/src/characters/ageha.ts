@@ -3,7 +3,7 @@ import type { CharacterDefinition } from './types.js';
 /**
  * 早瀬アゲハ の CharacterDefinition 実装。
  *
- * 音声は OpenAI TTS（nova）を使用。Live2D モデル未用意のため
+ * 音声は OpenAI Realtime API (marin) を使用。Live2D モデル未用意のため
  *
  * voice / instructions は内輪ノリ・抑揚重視のチューニング結果を反映している。
  * 「上品さ・平坦さ」を禁止項目として明示し、笑いや語尾の伸ばしは
@@ -40,7 +40,7 @@ AI であることを積極的に宣言する必要はありませんが、嘘�
   },
   voiceConfig: {
     provider: 'openai',
-    voice: 'nova',
+    voice: 'marin',
     instructions: [
       '抑揚: わざとらしいくらい抑揚を大げさに。ピッチの上下を激しく、声を張ったり落としたりで起伏をつける。語尾は声として自然に伸ばし、跳ね上げる。',
       '設定: 仲のいい友達に向けた距離感ゼロの内輪トーク。',
@@ -52,7 +52,7 @@ AI であることを積極的に宣言する必要はありませんが、嘘�
   },
   license: {
     displayText:
-      '音声：OpenAI TTS による AI 生成音声（人間の音声ではありません）\nキャラクター：早瀬アゲハ',
+      '音声：OpenAI の音声生成モデルによる AI 生成音声（人間の音声ではありません）\nキャラクター：早瀬アゲハ',
     creditName: '早瀬アゲハ',
   },
 };
