@@ -17,6 +17,7 @@ on:
       - 'infra/tsconfig.json'
       - 'configs/**'
       - '.github/actions/**'
+      - '.github/scripts/**'
       - '.node-version'
       - 'package.json'
       - 'package-lock.json'

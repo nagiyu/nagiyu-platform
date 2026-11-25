@@ -14,9 +14,15 @@ on:
       - 'configs/**'
       - 'package.json'
       - 'package-lock.json'
+      - '.node-version'
       - '.github/workflows/codec-converter-deploy.yml'
+      - '.github/actions/build-docker-image/**'
+      - '.github/actions/build-web-app/**'
       - '.github/actions/health-check/**'
       - '.github/actions/push-ecr-image/**'
+      - '.github/actions/setup-environment/**'
+      - '.github/actions/setup-node/**'
+      - '.github/scripts/docker-build-with-retry.sh'
   workflow_dispatch:
     inputs:
       environment:
