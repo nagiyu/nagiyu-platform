@@ -15,7 +15,7 @@ import { getOrigin } from '../../lib/navigation';
  * prop として受け取る。client component 内で process.env.NEXT_PUBLIC_AUTH_URL を
  * 参照するとビルド時にクライアントバンドルへ空文字がインライン化され、
  * AccessDeniedView の「アクセスを更新」「再ログイン」導線が相対 URL になって
- * 失敗するため（page.tsx のサインアウトと同根の問題）。
+ * 失敗するため。
  */
 function ForbiddenContent({
   authUrl,

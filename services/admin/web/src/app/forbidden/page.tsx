@@ -6,9 +6,8 @@ import { ForbiddenView } from './ForbiddenContent';
  * NEXT_PUBLIC_AUTH_URL は Docker ビルド時には未設定のため、サーバーバンドル内では
  * `process.env.NEXT_PUBLIC_AUTH_URL` がランタイム読み取りの式として保持される。
  * しかし静的プリレンダ（○ Static）のままだと、この式がビルド時に空文字で評価され、
- * authUrl="" が静的 HTML に固定されてしまい、ECS タスク定義のランタイム env を拾えない。
- * 動的レンダリングを強制することで、リクエスト時にランタイム env を読み込ませる
- * （ルートレイアウトと同じく動的レンダリングに揃える）。
+ * authUrl="" が静的 HTML に固定されてしまい、Lambda のランタイム env を拾えない。
+ * 動的レンダリングを強制することで、リクエスト時にランタイム env を読み込ませる。
  */
 export const dynamic = 'force-dynamic';
 
@@ -21,7 +20,7 @@ export const dynamic = 'force-dynamic';
  *
  * NEXT_PUBLIC_AUTH_URL はサーバーのランタイム env から解決し、client の ForbiddenView へ
  * prop として渡す。client component 内で参照するとビルド時インライン化で空文字になり、
- * AccessDeniedView の導線が相対 URL になって失敗するため（ルートレイアウトと同方式）。
+ * AccessDeniedView の導線が相対 URL になって失敗するため。
  */
 export default function ForbiddenPage() {
   return <ForbiddenView authUrl={process.env.NEXT_PUBLIC_AUTH_URL ?? ''} />;
