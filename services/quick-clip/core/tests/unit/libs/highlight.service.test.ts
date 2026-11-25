@@ -129,6 +129,20 @@ describe('HighlightService', () => {
     expect(repository.update).toHaveBeenCalledWith('job-1', 'h1', { status: 'accepted' });
   });
 
+  it('保存済みの終了が動画の長さを超えていても、終了を動かさない更新は通る', async () => {
+    const repository = createRepositoryMock();
+    const service = new HighlightService(repository);
+    repository.getById.mockResolvedValue({ ...baseHighlight, startSec: 10, endSec: 120 });
+    repository.update.mockResolvedValue({ ...baseHighlight, startSec: 15, endSec: 120 });
+
+    await service.updateHighlight('job-1', 'h1', { startSec: 15, endSec: 120 }, 100);
+    expect(repository.update).toHaveBeenCalledWith('job-1', 'h1', { startSec: 15, endSec: 120 });
+
+    await expect(service.updateHighlight('job-1', 'h1', { endSec: 110 }, 100)).rejects.toThrow(
+      '終了時刻は動画の長さ以下にしてください'
+    );
+  });
+
   it('見どころを更新して返す', async () => {
     const repository = createRepositoryMock();
     const service = new HighlightService(repository);

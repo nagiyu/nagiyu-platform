@@ -9,7 +9,7 @@ sources:
   - services/quick-clip/web/src/lib/server/aws.ts
   - services/quick-clip/web/src/lib/api-error-reporting.ts
   - services/quick-clip/core/src/libs/highlight.service.ts
-sources_hash: c1e83c13545262ea18d1db97646583d3ef865e1557114dea064838cf1ff07b3f
+sources_hash: fc2d0ab396d03033b3c86f41922b0163bb27f4c738ed72952eb61696e24ed576
 terms: [quick-clip/term/highlight, quick-clip/term/api-error]
 related_cards: [quick-clip/screen/highlights, quick-clip/batch/zip-generate, quick-clip/api/highlights]
 related_adr:

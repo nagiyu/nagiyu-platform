@@ -10,7 +10,7 @@ sources:
   - services/quick-clip/core/src/libs/highlight-extractor.service.ts
   - services/quick-clip/web/src/lib/server/highlight-recovery.ts
   - services/quick-clip/web/src/lib/highlight-edit-lock.ts
-sources_hash: dc0a970365e3a03a432421986c0ed28911516612fd538cb449892ef372ffa35e
+sources_hash: 38a2066c24dabd9e81882175b2d3604f53dbb5dacd49fef45d325ce52990bc1a
 related_cards: [quick-clip/api/highlights, quick-clip/batch/extract, quick-clip/batch/clip-regenerate, quick-clip/screen/highlights, quick-clip/term/job]
 related_adr:
   - services/quick-clip/architecture.md#ADR-002
@@ -28,7 +28,7 @@ related_adr:
 |---|---|
 | `highlightId` | UUID v4。キーは `PK` が `JOB#{jobId}`、`SK` が `HIGHLIGHT#{highlightId}` |
 | `order` | 1 から始まる番号。開始時刻の昇順で付く。画面では `#1` のように出す |
-| `startSec`、`endSec` | 区間の開始と終了 (秒)。小数を持つことがある。更新では 0 以上の有限の数で、開始が終了より小さく、終了がジョブの `durationSec` 以下でなければならない (ない場合は上限なし) |
+| `startSec`、`endSec` | 区間の開始と終了 (秒)。小数を持つことがある。更新では 0 以上の有限の数で、開始が終了より小さくなければならない。終了を動かすときは、ジョブの `durationSec` 以下でなければならない (ない場合は上限なし。保存済みの終了が超えていても、終了を動かさない更新は通る) |
 | `source` | 抽出の根拠。`motion` (映像の変化)、`volume` (音量)、`emotion` (感情)、`both` (別々の根拠の区間が重なって 1 件になったもの) |
 | `dominantEmotion` | 感情が根拠のときの、一番高い感情。`laugh`、`excite`、`touch`、`tension` |
 | `status` | 採否。`unconfirmed` (未確認)、`accepted` (使える)、`rejected` (使えない)。抽出の直後は `unconfirmed` |

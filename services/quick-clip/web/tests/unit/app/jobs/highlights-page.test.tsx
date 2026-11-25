@@ -811,6 +811,53 @@ describe('HighlightsPage', () => {
     expect(global.fetch).toHaveBeenCalledTimes(4);
   });
 
+  it('動画の長さを超える開始の入力は入力前の値に戻し、PATCHを呼ばない', async () => {
+    global.fetch = withJobRoute(
+      withAuxiliaryRoutes(
+        jest
+          .fn()
+          .mockResolvedValueOnce({
+            ok: true,
+            json: async () => ({
+              highlights: [
+                {
+                  highlightId: 'h-1',
+                  jobId: 'job-1',
+                  order: 1,
+                  startSec: 10,
+                  endSec: 20,
+                  source: 'motion',
+                  status: 'accepted',
+                  clipStatus: 'GENERATED',
+                  clipUrl: 'https://example.com/h-1.mp4',
+                },
+              ],
+            }),
+          })
+          .mockResolvedValue({ ok: false }) as jest.Mock
+      ),
+      { status: 'COMPLETED', expiresAt: 0, durationSec: 60 }
+    );
+
+    render(<HighlightsPage params={Promise.resolve({ jobId: 'job-1' })} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('#1')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText('#1'));
+
+    const inputs = await screen.findAllByRole('textbox', { name: /^(開始|終了)$/ });
+    const startInput = inputs[0] as HTMLInputElement;
+    fireEvent.change(startInput, { target: { value: '1:01' } });
+    fireEvent.blur(startInput);
+
+    await waitFor(() => {
+      expect(startInput.value).toBe('0:10');
+    });
+    // recover + highlights + expiresAt + transcript の 4 回（PATCHなし）
+    expect(global.fetch).toHaveBeenCalledTimes(4);
+  });
+
   it('動画の長さちょうどの終了は受け付けて PATCH を送る', async () => {
     global.fetch = withJobRoute(
       withAuxiliaryRoutes(
