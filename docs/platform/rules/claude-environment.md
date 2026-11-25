@@ -10,13 +10,13 @@ Claude Code on the web でこのリポジトリを扱うときの、環境固有
 
 ### セッション開始時の準備は Setup Script に置き、SessionStart hook は使わない
 
-Setup Script は claude.ai/code の環境設定にあり (リポジトリの外)、`claude code` の起動前に 1 度走って、ファイルシステムが約 7 日キャッシュされる。重い処理を 1 度払って何度も使う形である。SessionStart hook (`.claude/settings.json`) は毎セッション走り、キャッシュがない。
+Setup Script は claude.ai/code の環境設定にあり (リポジトリの外)、`claude code` の起動前に 1 度走って、ファイルシステムがキャッシュされる。キャッシュは約 7 日とされる (旧文書の記述。この環境では確かめられず、再測定していない)。重い処理を 1 度払って何度も使う形である。SessionStart hook (`.claude/settings.json`) は毎セッション走り、キャッシュがない。
 
 このリポジトリはモノレポで、複数のサービスが共存する。毎回の前処理を一律に回すと、ほかのサービスの作業では無駄になる。`package-lock.json` と libs のソースは頻繁に変わり、毎回判定すると重く、古い結果を信じると壊れる。そのため `.claude/settings.json` に SessionStart hook は置かない。
 
 ### Setup Script には、コードに連動しないものだけを置く
 
-7 日キャッシュは、コードに連動するものを置くと古いまま動き続ける。次を分ける。
+キャッシュは、コードに連動するものを置くと古いまま動き続ける。次を分ける。
 
 | 置く場所 | 対象 | 理由 |
 |---|---|---|
@@ -28,13 +28,13 @@ Setup Script は claude.ai/code の環境設定にあり (リポジトリの外)
 
 AWS CLI、Node、`apt-get` と `sudo` (root で実行できる)、Java などはベースイメージに入っている。版はイメージで変わるため、ここには書かない。確かめるときは `which aws node` と `node -v` を実行する。
 
-Node はプロジェクトの `engines` より古いことがあり、その場合は警告が出るだけで動く。
+Node はルートの `package.json` の `engines` より古いことがある。2026-11-25 にこの環境で確かめたところ、`node -v` は `engines` の下限より古い版で、警告が出るだけで動いた。
 
 ## Playwright
 
 ### ブラウザの導入は、素の `npx playwright install` ではなく、プロジェクトの版を指して行う
 
-素の `npx playwright install` は PATH の都合で、ベースイメージが同梱する global の Playwright を呼ぶ。global は自分の版のブラウザを「導入済み」と返して終わるが、プロジェクトの `@playwright/test` が要求する版とは違うため、揃ったように見えて揃っていない状態になる。
+素の `npx playwright install` は PATH の都合で、ベースイメージが同梱する global の Playwright (2026-11-25 時点で `/opt/node22/bin/playwright`) を呼ぶ。global は自分の版のブラウザを「導入済み」と返して終わるが、プロジェクトの `@playwright/test` が要求する版とは違うため、揃ったように見えて揃っていない状態になる。
 
 呼ぶのは次のどちらかにする。
 
@@ -45,7 +45,7 @@ Node はプロジェクトの `engines` より古いことがあり、その場�
 
 ### `PLAYWRIGHT_BROWSERS_PATH` は変更しない
 
-ベースイメージ前提で設定されているため、そのまま尊重する。`playwright install` の出力先はこのディレクトリになる。
+ベースイメージが `/opt/pw-browsers` に設定しており、そこにはブラウザが入っている。変えると、入っているブラウザを使えなくなる。`playwright install` の出力先もこのディレクトリになる。
 
 ### WebKit は Full CI 相当の確認が必要なセッションでだけ入れる
 
@@ -67,11 +67,17 @@ Node はプロジェクトの `engines` より古いことがあり、その場�
 
 ### 契約テストは、CI と同じイメージの DynamoDB Local を手元で起動して流す
 
-イメージとポートは [サービスの PR 検証](../specs/ci/service-verify.md) と [テスト用の DynamoDB Local](../specs/lib/aws/testing.md) にある。CI と同じイメージを使うと、手元と CI で DynamoDB Local の版が揃う。
+イメージとポートは [サービスの PR 検証](../specs/ci/service-verify.md) にあり、接続先と認証情報の既定値は [テスト用の DynamoDB Local](../specs/lib/aws/testing.md) にある。CI と同じイメージ名 (`amazon/dynamodb-local`) を使い、手元だけ別のイメージで流して結果が食い違うことを避ける。CI 側はタグを固定していないため、版までは揃わない。
+
+起動は次のとおり。
+
+```bash
+docker run -d -p 8000:8000 amazon/dynamodb-local
+```
 
 ### Docker が使えないと判断する前に、`dockerd` を手で起動する
 
-ベースイメージに `docker` と `dockerd` は入っているが、daemon は自動で起動しない。素の状態で `docker run` すると daemon への接続に失敗し、Docker が使えないと誤認しやすい。root で動くため、daemon を手で起動すればそのまま使える。セッションごとに必要である。
+ベースイメージに `docker` と `dockerd` は入っているが、daemon は自動で起動しない (2026-11-25 に、セッション開始直後の状態で `pgrep dockerd` が空であることを確かめた)。素の状態で `docker run` すると daemon への接続に失敗し、Docker が使えないと誤認しやすい。root で動くため、daemon を手で起動すればそのまま使える。セッションごとに必要である。
 
 ```bash
 dockerd > /tmp/dockerd.log 2>&1 &
