@@ -1,0 +1,73 @@
+name: Verify - workflow の paths の漏れ
+
+# workflow の paths は共有できず、各 workflow が手で持っている。
+# composite action や tsconfig の継承元のような共有のファイルを入れ忘れると、
+# そのファイルを変えても workflow が走らず、CI は赤くならないので気づけない。
+# workflow の中身から paths に要るファイルを導き、漏れをマージ前に止める。
+# 依存を足さずランナーの Node で動かすため、setup-node は使わない。
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - master
+      - 'integration/**'
+    paths:
+      - '.github/workflows/**'
+      - '.github/actions/**'
+      - '.github/scripts/**'
+      - '**/tsconfig*.json'
+      - 'configs/**'
+
+env:
+  SERVICE_DISPLAY_NAME: Workflow paths
+
+# 同じ PR の古いコミットに対する検証は不要なため、新しい run が来たら打ち切る。
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 検査スクリプトのテスト
+        run: node --test .github/workflows/scripts/tests/check-workflow-paths.test.mjs
+
+      - name: workflow の paths の漏れを検査
+        run: node .github/workflows/scripts/check-workflow-paths.mjs
+
+  report:
+    name: Report Results to PR
+    runs-on: ubuntu-latest
+    if: always()
+    needs: [check]
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Create PR Comment
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const results = { 'workflow の paths の漏れ': '${{ needs.check.result }}' };
+            const statusEmoji = { 'success': '✅', 'failure': '❌', 'cancelled': '⚠️', 'skipped': '⏭️' };
+            const allSuccess = Object.values(results).every(r => r === 'success');
+            const header = allSuccess
+              ? '## ✅ [${{ env.SERVICE_DISPLAY_NAME }}] Verification Passed'
+              : '## ❌ [${{ env.SERVICE_DISPLAY_NAME }}] Verification Failed';
+            let body = `${header}\n\n`;
+            body += '| Job | Status |\n';
+            body += '|-----|--------|\n';
+            for (const [job, result] of Object.entries(results)) {
+              const emoji = statusEmoji[result] || '❓';
+              body += `| ${job} | ${emoji} ${result} |\n`;
+            }
+            if (!allSuccess) {
+              body += '\n> 検査のログに、各 workflow の paths に足すべきパスが出ています。足してください。\n';
+            }
+            body += `\n[View workflow run](${context.payload.repository.html_url}/actions/runs/${context.runId})`;
+            github.rest.issues.createComment({ issue_number: context.issue.number, owner: context.repo.owner, repo: context.repo.repo, body: body });

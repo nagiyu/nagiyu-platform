@@ -3,7 +3,7 @@ sources:
   - infra/admin/bin/admin.ts
   - infra/admin/lib/cloudfront-stack.ts
   - .github/workflows/admin-deploy.yml
-sources_hash: c9e4f0d7f39c39c852626f211d1db7163cda730f30eb34b4a07dda687ea47be0
+sources_hash: 9e5d9fc4e21fffdafc8b0183f2baa094b796ed644985e4529358a867b1c475eb
 ---
 
 # Admin のデプロイ先
@@ -41,7 +41,7 @@ DNS レコードは、dev は CloudFront の基底スタックが、prod は sha
 
 | 項目 | 内容 |
 |---|---|
-| トリガー | develop・`integration/**`・master への push (`services/admin/**`、`libs/**`、`configs/**`、`infra/admin/**`、`infra/common/**`、`package.json`、`package-lock.json`、このワークフローとヘルスチェック・ECR push のアクションが変わったとき)。手動実行 (dev か prod を選ぶ) |
+| トリガー | develop・`integration/**`・master への push (`services/admin/**`、`libs/**`、`configs/**`、`infra/admin/**`、`infra/common/**`、`infra/tsconfig.json`、`package.json`、`package-lock.json`、`.node-version`、このワークフローと、使う composite action・それが呼ぶスクリプトが変わったとき)。手動実行 (dev か prod を選ぶ) |
 | デプロイ先の環境 | [dev と prod の切り替え](../../../platform/specs/deploy.md#dev-と-prod-の切り替え) の規則 |
 | 並行実行 | 環境ごとに直列化する。実行中の run は止めず、待機中は最新だけ残す |
 | イメージのタグ | コミットの SHA |

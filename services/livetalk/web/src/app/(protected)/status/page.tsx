@@ -101,14 +101,18 @@ export default async function StatusPage({ searchParams }: StatusPageProps) {
   const userId = session.user.id;
   const now = new Date();
 
-  const [lifecycle, notificationEvents, allMessages, studyPending, recentSafetyEvents] =
+  const [lifecycle, allUserEvents, allMessages, studyPending, recentSafetyEvents] =
     await Promise.all([
       createLifecycleRepository().get({ userId, characterId }),
-      createNotificationEventRepository().listByUser(userId, 10),
+      // バッチと同じ件数で読む。件数が違うと、1 日の上限や無視回数の数え方がバッチとずれる
+      createNotificationEventRepository().listByUser(userId, 60),
       createMessageRepository().listSince(userId, characterId, 0),
       createStudyTopicRepository().listByStatus(userId, characterId, 'pending'),
       createSafetyEventRepository().listRecent(SAFETY_REVIEW_DEFAULT_LIMIT),
     ]);
+
+  // 通知の記録は利用者単位で返るため、判定と表示は表示キャラのものだけに絞る (バッチと同じ)
+  const notificationEvents = allUserEvents.filter((e) => e.characterId === characterId);
 
   const bedtime = lifecycle?.bedtime ?? LIFECYCLE_DEFAULT_BEDTIME;
   const wakeUpTime = lifecycle?.wakeUpTime ?? LIFECYCLE_DEFAULT_WAKE_UP_TIME;

@@ -3,7 +3,7 @@ sources:
   - infra/livetalk/bin/livetalk.ts
   - infra/livetalk/lib/cloudfront-stack.ts
   - .github/workflows/livetalk-deploy.yml
-sources_hash: a10a8c1b710397daa53e26df1242f9c36862bd755419703749f04dd5eef8b22f
+sources_hash: 7c0eee07735c0ad8be33cb049036175e99c242135ef26b324015e4e51756ab97
 ---
 
 # LiveTalk のデプロイ先
@@ -43,7 +43,7 @@ DNS レコードは、環境によらず `NagiyuLiveTalkCloudFront{Env}` が自�
 
 | 項目 | 内容 |
 |---|---|
-| トリガー | develop・`integration/**`・master への push (サービス・infra・libs・configs などのパスが変わったとき)。手動実行 (dev / prod を選ぶ) |
+| トリガー | develop・`integration/**`・master への push (サービス・infra・libs・configs・共有 action などのパスが変わったとき)。手動実行 (dev / prod を選ぶ) |
 | デプロイ先の環境 | [dev と prod の切り替え](../../../platform/specs/deploy.md#dev-と-prod-の切り替え) の規則 |
 | 並行実行 | 環境ごとに直列化する。実行中の run は止めず、待機中は最新だけ残す |
 | イメージのタグ | コミットの SHA |

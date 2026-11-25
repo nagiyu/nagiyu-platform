@@ -8,12 +8,15 @@ on:
       - master
     paths:
       - 'libs/**'
+      - 'configs/**'
       - 'infra/ui-storybook/**'
       - 'infra/common/**'
+      - 'infra/tsconfig.json'
       - 'package.json'
       - 'package-lock.json'
       - '.node-version'
       - '.github/workflows/ui-storybook-deploy.yml'
+      - '.github/actions/setup-node/**'
   workflow_dispatch:
     inputs:
       environment:

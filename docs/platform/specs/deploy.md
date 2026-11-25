@@ -24,7 +24,7 @@ sources:
   - infra/ui-storybook/bin/ui-storybook.ts
   - infra/ui-storybook/lib/storybook-stack.ts
   - .github/workflows/ui-storybook-deploy.yml
-sources_hash: dc92859ddb33c1444e4b44d7878d18c089c62b3c7dcd6db6617bbacba4b13ef5
+sources_hash: 9dbec505aed9bd28ee9aa438362230da0b5af69b33e677453cb0467b8e715500
 ---
 
 # shared と ui-storybook のデプロイ先
@@ -206,7 +206,7 @@ Lambda@Edge の複製は、配信から外したあとも数時間残る。そ�
 
 | 項目 | 内容 |
 |---|---|
-| トリガー | develop・`integration/**`・master への push (`infra/shared/**`、`infra/common/**`、このワークフローが変わったとき)。手動実行 (dev か prod を選ぶ) |
+| トリガー | develop・`integration/**`・master への push (`infra/shared/**`、`infra/common/**`、`configs/**`、`package.json`、`package-lock.json`、`.node-version`、このワークフローと、使う composite action が変わったとき)。手動実行 (dev か prod を選ぶ) |
 | デプロイ先の環境 | 「dev と prod の切り替え」の規則 |
 | 並行実行 | 環境ごとに直列化する。実行中の run は止めず、待機中は最新だけ残す |
 
@@ -228,7 +228,7 @@ flowchart TD
 
 | 項目 | 内容 |
 |---|---|
-| トリガー | develop・`integration/**`・master への push (`libs/**`、`infra/ui-storybook/**`、`infra/common/**`、`package.json`、`package-lock.json`、`.node-version`、このワークフローが変わったとき)。手動実行 (選べる環境は dev だけ) |
+| トリガー | develop・`integration/**`・master への push (`libs/**`、`configs/**`、`infra/ui-storybook/**`、`infra/common/**`、`infra/tsconfig.json`、`package.json`、`package-lock.json`、`.node-version`、このワークフローと、使う composite action が変わったとき)。手動実行 (選べる環境は dev だけ) |
 | デプロイ先の環境 | 常に dev。master への push でも dev にデプロイする |
 | 並行実行 | dev で直列化する。実行中の run は止めず、待機中は最新だけ残す |
 
