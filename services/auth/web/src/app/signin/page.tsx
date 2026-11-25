@@ -3,12 +3,13 @@ import { redirect } from 'next/navigation';
 import { auth, signIn } from '@/lib/auth/auth';
 import { SIGNED_IN_FALLBACK_PATH, resolveSignedInDestination } from '@/lib/callback-url';
 import { resolveBaseUrl } from '@/lib/signout';
-import { Box, Container, Paper, Typography } from '@mui/material';
+import { resolveSigninErrorMessage } from '@/lib/signin-error-message';
+import { Alert, Box, Container, Paper, Typography } from '@mui/material';
 import { Button } from '@nagiyu/ui';
 import GoogleIcon from '@mui/icons-material/Google';
 
 interface SignInPageProps {
-  searchParams: Promise<{ callbackUrl?: string | string[] }>;
+  searchParams: Promise<{ callbackUrl?: string | string[]; error?: string | string[] }>;
 }
 
 /** 同じキーを重ねて配列になった値は、どれを採るかが決まらないため、無いものとして扱う */
@@ -19,11 +20,14 @@ function singleValue(value: string | string[] | undefined): string | undefined {
 export default async function SignInPage({ searchParams }: SignInPageProps) {
   const params = await searchParams;
   const rawCallbackUrl = singleValue(params.callbackUrl);
+  const errorMessage = resolveSigninErrorMessage(singleValue(params.error));
 
   // getSession() は SKIP_AUTH_CHECK のとき常にテストユーザーを返すため、使うと E2E と撮影で
   // サインイン画面が必ず移ってしまう。実の Cookie が無いときは null になる auth() を直接使う
   const session = await auth();
-  if (session?.user) {
+  // ログインしたまま起きる失敗 (サインアウトの CSRF 照合失敗など) はこの画面へ戻される。
+  // error が付いているときにリダイレクトすると失敗が利用者に伝わらないため、画面を出す
+  if (session?.user && !errorMessage) {
     // 画面からの redirect() は next-auth の redirect コールバックを通らないため、ここで検証する
     const baseUrl = resolveBaseUrl(await headers());
     redirect(resolveSignedInDestination(rawCallbackUrl, baseUrl));
@@ -55,6 +59,11 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
           <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
             nagiyu プラットフォームにサインイン
           </Typography>
+          {errorMessage && (
+            <Alert severity="error" sx={{ mb: 3, textAlign: 'left' }}>
+              {errorMessage}
+            </Alert>
+          )}
           <form
             action={async () => {
               'use server';

@@ -61,6 +61,11 @@ const signin: Scenario = {
     await page.goto('/signin');
     await ready(page, 'Google でサインイン');
     await ctx.shot('default');
+
+    const errorPage = await ctx.freshPage();
+    await errorPage.goto('/signin?error=OAuthCallbackError');
+    await ready(errorPage, 'Google での認証が完了しませんでした');
+    await ctx.shot('error');
   },
 };
 

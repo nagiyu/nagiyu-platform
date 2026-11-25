@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import SignInPage from '../../../../src/app/signin/page';
+import { SIGNIN_ERROR_MESSAGES } from '../../../../src/lib/signin-error-message';
 import { auth } from '../../../../src/lib/auth/auth';
 
 const mockRedirect = jest.fn((url: string) => {
@@ -17,7 +18,9 @@ jest.mock('../../../../src/lib/auth/auth', () => ({
   signIn: jest.fn(),
 }));
 
-function renderPage(searchParams: { callbackUrl?: string | string[] } = {}) {
+function renderPage(
+  searchParams: { callbackUrl?: string | string[]; error?: string | string[] } = {}
+) {
   return SignInPage({ searchParams: Promise.resolve(searchParams) });
 }
 
@@ -88,6 +91,48 @@ describe('SignInPage', () => {
       ).rejects.toThrow('NEXT_REDIRECT');
 
       expect(mockRedirect).toHaveBeenCalledWith('/dashboard');
+    });
+  });
+
+  describe('ログイン済みで error 付き', () => {
+    it('移さず、Alert 付きのサインイン画面を出す', async () => {
+      (auth as jest.Mock).mockResolvedValue({ user: { id: 'u1' } });
+
+      render(await renderPage({ error: 'MissingCSRF' }));
+
+      expect(screen.getByRole('alert')).toHaveTextContent(SIGNIN_ERROR_MESSAGES.MissingCSRF);
+      expect(mockRedirect).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('未ログインの error 表示', () => {
+    beforeEach(() => {
+      (auth as jest.Mock).mockResolvedValue(null);
+    });
+
+    it('error に対応する文を Alert で出す', async () => {
+      render(await renderPage({ error: 'OAuthCallbackError' }));
+
+      expect(screen.getByRole('alert')).toHaveTextContent(SIGNIN_ERROR_MESSAGES.OAuthCallbackError);
+      expect(screen.getByRole('button', { name: 'Google でサインイン' })).toBeInTheDocument();
+    });
+
+    it('未知の error は既定の文を出す', async () => {
+      render(await renderPage({ error: '__proto__' }));
+
+      expect(screen.getByRole('alert')).toHaveTextContent(SIGNIN_ERROR_MESSAGES.Default);
+    });
+
+    it('error が無ければ Alert を出さない', async () => {
+      render(await renderPage());
+
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    });
+
+    it('同じキーを重ねた error は無いものとして扱う', async () => {
+      render(await renderPage({ error: ['MissingCSRF', 'Configuration'] }));
+
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     });
   });
 
