@@ -35,7 +35,7 @@
   "devDependencies": {
     "@axe-core/playwright": "^4.11.0",
     "@jest/types": "^30.3.0",
-    "@playwright/test": "1.60.0",
+    "@playwright/test": "1.65.1",
     "eslint-config-next": "^16.2.3"
   }
 }
