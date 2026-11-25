@@ -13,7 +13,7 @@ sources:
   - services/auth/web/src/lib/auth/auth.ts
   - services/auth/web/src/app/signin/page.tsx
   - services/auth/web/src/app/auth/error/page.tsx
-sources_hash: ff9fb290cc2b98e3bee9ffead7e24e2d6cb1870d43a3c725fd3a4081a6cd0a7e
+sources_hash: 8777e0dcb0e14196c8aaf9a39bc18ec677de47191b0c6e2b84e36b9833539119
 terms: [auth/term/callback-url, auth/term/session-roles, platform/term/role]
 related_cards: [auth/screen/signin, auth/screen/auth-error, auth/screen/signout, auth/screen/refresh, auth/api/system, admin/flow/error-notification]
 related_adr:
@@ -31,7 +31,7 @@ related_adr:
 - ログインが要る画面を未ログインで開く。各サービスのミドルウェア (`createAuthMiddleware`) が、Auth のサインイン画面 (`NEXT_PUBLIC_AUTH_URL` の `/signin`) へ、`callbackUrl=<開いた画面>` を付けてリダイレクトする
     - 戻り先の既定は、環境変数 `APP_URL` があれば `{APP_URL}{パス}{検索語}`、なければパスだけ。Auth 自身は常にパスと検索語 (相対パス)
 - ログインが任意のサービスは、画面の中の導線から `buildSignInUrl` で同じサインイン画面へ送る
-- ログイン済みの利用者がサインイン画面を開いたときは、ボタンを出さず、検証した戻り先 (無い・許可されない値は `/dashboard`) へ移す。この検証は ④ と同じ規則で、画面の中で行う
+- ログイン済みの利用者がサインイン画面を開いたときは、`error` が付いていなければボタンを出さず、検証した戻り先 (無い・許可されない値は `/dashboard`) へ移す。この検証は ④ と同じ規則で、画面の中で行う
 
 ## 経路
 
@@ -79,6 +79,7 @@ sequenceDiagram
 | ユーザーの保存に失敗 | サインインを拒否する。Admin のエラー履歴へ報告する |
 | ログイン時のユーザー情報の取得に失敗 | 例外が認証ライブラリに握られてログインに失敗する。Admin のエラー履歴へ報告する |
 | 戻り先が許可されない | Auth のトップへ戻す (失敗にはしない) |
+| Google が失敗を返した (同意画面のキャンセルも)・サインアウトの送信で CSRF 照合に失敗した | [サインイン画面](../screen/signin.md)へ `?error=<種類>` を付けて戻し、エラーの帯を出す |
 
 - 報告は[エラー通知の経路](../../admin/flow/error-notification.md)の「アプリの報告」にあたり、`serviceId` は `auth`
 
