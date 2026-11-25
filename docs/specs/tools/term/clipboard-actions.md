@@ -12,7 +12,7 @@ sources:
   - services/tools/src/app/hash-generator/HashGeneratorClient.tsx
   - services/tools/src/app/timestamp-converter/TimestampConverterClient.tsx
   - services/tools/src/app/vapid-generator/page.tsx
-sources_hash: 98166e16ab9e8b1c81ccef2da622f193c6a19e401008a7494911c038a9467cef
+sources_hash: 9712e882b160959125da6d4168998e7d2fc2892ccd888f38461f34b5bbb61e47
 terms: [tools/term/snackbar]
 related_cards: [tools/screen/transit-converter, tools/screen/json-formatter, tools/screen/base64, tools/screen/url-encoder, tools/screen/hash-generator, tools/screen/timestamp-converter, tools/screen/vapid-generator]
 ---

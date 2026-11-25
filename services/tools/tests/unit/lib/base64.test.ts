@@ -11,6 +11,16 @@ describe('base64', () => {
     });
   });
 
+  describe('空白だけの入力', () => {
+    it('エンコードでは空白をそのまま変換する', () => {
+      expect(encodeBase64(' \n')).toBe('IAo=');
+    });
+
+    it('デコードでは前後の空白を除くので空文字になる', () => {
+      expect(decodeBase64('  \n')).toBe('');
+    });
+  });
+
   describe('decodeBase64', () => {
     it('Base64文字列を元のテキストに戻せる', () => {
       expect(decodeBase64('bmFnaXl1')).toBe('nagiyu');

@@ -7,7 +7,7 @@ sources:
   - services/tools/src/app/base64/Base64Client.tsx
   - services/tools/src/lib/base64.ts
   - libs/browser/src/clipboard.ts
-sources_hash: af421ce8022af841a5a9542a2c767e36c3f0c22a17913d205e1301a04a01a86d
+sources_hash: 9477f2caddf7ecd9fb859f8c6ae089dbef96bbb9bcbb0e8c9d6f60e1dbe35072
 terms: [tools/term/snackbar, tools/term/clipboard-actions, tools/term/migration-dialog]
 related_cards: [tools/screen/home, tools/screen/url-encoder]
 related_adr:
@@ -49,7 +49,7 @@ related_adr:
 
 ## 状態
 
-- 初めは変換のボタン、「コピー」、「クリア」が押せない。変換のボタンは入力が空白だけのとき、「コピー」は出力が空のとき、「クリア」は入力も出力も空のときに押せない
+- 初めは変換のボタン、「コピー」、「クリア」が押せない。変換のボタンは入力が空のとき、「コピー」は出力が空のとき、「クリア」は入力も出力も空のときに押せない
 - モードを切り替えると、出力とエラーを消す。入力は残る
 - 変換に失敗すると、[通知バー](../term/snackbar.md) (失敗) と、入力欄の赤枠と下の文に出す。出力は前の結果のまま残る。エラーは、次に成功するか、モードの切り替えか、「クリア」か、「クリップボードから読み取り」で消える
 
@@ -61,7 +61,7 @@ related_adr:
 ## 変換のしかた
 
 - エンコード: 入力を UTF-8 のバイト列にして、標準の Base64 (`A-Z a-z 0-9 + /`、末尾は `=` でそろえる) にする。入力の前後の空白もそのまま変換する
-- デコード: 入力の前後の空白を除いて確かめる。次をすべて満たすとき、バイト列を UTF-8 の文字列にして出す
+- デコード: 入力の前後の空白を除いて確かめる。空白だけの入力は空になり、空の文字列を出す。次をすべて満たすとき、バイト列を UTF-8 の文字列にして出す
     - 長さが 4 の倍数
     - 文字が `A-Z a-z 0-9 + /` で、末尾だけ `=` が 1〜2 個
 - 途中の空白や改行、URL セーフ形式 (`-` と `_`) は、正しくない入力として扱う。UTF-8 として読めないバイトは、エラーにならず置換文字 (U+FFFD) になる

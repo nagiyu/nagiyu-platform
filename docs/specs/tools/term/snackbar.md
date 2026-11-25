@@ -11,7 +11,7 @@ sources:
   - services/tools/src/app/hash-generator/HashGeneratorClient.tsx
   - services/tools/src/app/timestamp-converter/TimestampConverterClient.tsx
   - services/tools/src/app/vapid-generator/page.tsx
-sources_hash: 8d0ba4f0039c7fefa92937170d8fc2d4952940bff5ca3b43f07cc3ab45995378
+sources_hash: 77e4cc8e852651e75f413f1b9004f2ae0f3f820be1b71a05788a6b18dae4fa2d
 related_cards: [tools/screen/transit-converter, tools/screen/json-formatter, tools/screen/base64, tools/screen/url-encoder, tools/screen/hash-generator, tools/screen/timestamp-converter, tools/screen/vapid-generator]
 ---
 

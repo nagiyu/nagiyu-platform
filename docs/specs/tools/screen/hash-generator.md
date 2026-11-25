@@ -7,7 +7,7 @@ sources:
   - services/tools/src/app/hash-generator/HashGeneratorClient.tsx
   - services/tools/src/lib/hash.ts
   - libs/browser/src/clipboard.ts
-sources_hash: ac5f20f21a6dec491079bae73cee0896a0e3cba7dbef6d3980f688b739c8c7f7
+sources_hash: e52c79eb7de43e409157931cd8e3e7a7e3927052ee2c859fc1cff33b843589f9
 terms: [tools/term/snackbar, tools/term/clipboard-actions, tools/term/migration-dialog]
 related_cards: [tools/screen/home]
 related_adr:
@@ -41,7 +41,7 @@ related_adr:
 
 ## 状態
 
-- 初めは「ハッシュ生成」「コピー」「クリア」が押せない。「ハッシュ生成」は入力が空白だけのとき、「コピー」は出力が空のとき、「クリア」は入力も出力も空のときに押せない
+- 初めは「ハッシュ生成」「コピー」「クリア」が押せない。「ハッシュ生成」は入力が空のとき、「コピー」は出力が空のとき、「クリア」は入力も出力も空のときに押せない
 - アルゴリズムを切り替えても、出力は変わらない。切り替えたあとに「ハッシュ生成」を押すと、新しい値で置き換わる
 - 失敗すると、「ハッシュ生成に失敗しました。」を[通知バー](../term/snackbar.md) (失敗) と、入力欄の赤枠と下の文に出す。出力は前の結果のまま残る。ブラウザが暗号の機能 (`crypto.subtle`) を持たないとき (HTTPS でない接続など) に起きる
 

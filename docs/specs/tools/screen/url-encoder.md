@@ -7,7 +7,7 @@ sources:
   - services/tools/src/app/url-encoder/UrlEncoderClient.tsx
   - services/tools/src/lib/url-encoder.ts
   - libs/browser/src/clipboard.ts
-sources_hash: 6d83780d10b99f8aa5f211fc3c291a7642187812adca1ecaaac08e1147d0aac4
+sources_hash: ad4de47fa80546cd555bad7cc937baa04a5c0fde28d3c971484c25eefdada49e
 terms: [tools/term/snackbar, tools/term/clipboard-actions, tools/term/migration-dialog]
 related_cards: [tools/screen/home, tools/screen/base64]
 related_adr:
@@ -49,7 +49,7 @@ related_adr:
 
 ## 状態
 
-- 初めは変換のボタン、「コピー」、「クリア」が押せない。変換のボタンは入力が空白だけのとき、「コピー」は出力が空のとき、「クリア」は入力も出力も空のときに押せない
+- 初めは変換のボタン、「コピー」、「クリア」が押せない。変換のボタンは入力が空のとき、「コピー」は出力が空のとき、「クリア」は入力も出力も空のときに押せない
 - モードを切り替えると、出力とエラーを消す。入力は残る
 - 変換に失敗すると、[通知バー](../term/snackbar.md) (失敗) と、入力欄の赤枠と下の文に出す。出力は前の結果のまま残る。エラーは、次に成功するか、モードの切り替えか、「クリア」か、「クリップボードから読み取り」で消える
 
@@ -61,7 +61,7 @@ related_adr:
 ## 変換のしかた
 
 - エンコード: JavaScript の `encodeURIComponent` で変換する。英数字と `- _ . ! ~ * ' ( )` 以外は、`:` `/` `?` `#` `&` `=` や空白 (`%20`) も含めて `%XX` にする。入力の前後の空白もそのまま変換する
-- デコード: 入力の前後の空白を除いてから、`decodeURIComponent` で戻す。`+` は空白にならず、`+` のまま残る
+- デコード: 入力の前後の空白を除いてから、`decodeURIComponent` で戻す。空白だけの入力は空になり、空の文字列を出す。`+` は空白にならず、`+` のまま残る
 
 ## 操作
 

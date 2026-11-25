@@ -13,6 +13,16 @@ describe('url-encoder', () => {
     });
   });
 
+  describe('空白だけの入力', () => {
+    it('エンコードでは空白をそのまま変換する', () => {
+      expect(encodeUrl(' \n')).toBe('%20%0A');
+    });
+
+    it('デコードでは前後の空白を除くので空文字になる', () => {
+      expect(decodeUrl('  \n')).toBe('');
+    });
+  });
+
   describe('decodeUrl', () => {
     it('URLエンコード文字列を元の文字列に戻せる', () => {
       expect(decodeUrl('nagiyu%20platform')).toBe('nagiyu platform');

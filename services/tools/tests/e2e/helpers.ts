@@ -68,7 +68,7 @@ export async function suppressMigrationDialog(page: Page): Promise<void> {
  *
  * hydration 前の入力欄は SSR 出力そのままの素の HTML 要素なので、`fill()` は DOM の
  * value だけを書き換えて `onChange` を発火しない。その結果、入力値に応じて enabled に
- * なるボタン（例: `disabled={!inputText.trim()}`）が disabled のままになり、
+ * なるボタン（例: `disabled={!inputText}`）が disabled のままになり、
  * 「値は入っているのにボタンが押せない」という分かりにくい失敗になる。
  * webkit-mobile は chromium より hydration が遅く、この症状が顕在化しやすい（実測）。
  *
@@ -85,7 +85,7 @@ export async function waitForHydration(page: Page): Promise<void> {
  *
  * ## なぜ専用ヘルパが必要か（実測に基づく）
  *
- * 変換ボタンは `disabled={!inputText.trim()}` で、React の state が入力を認識して初めて
+ * 変換ボタンは `disabled={!inputText}` で、React の state が入力を認識して初めて
  * enabled になる。ところが hydration が完了する前の textarea は SSR 出力そのままの
  * 素の HTML 要素なので、`fill()` は **DOM の value だけを書き換えて onChange を発火せず**、
  * React の state は空のままボタンは disabled で固定される。
