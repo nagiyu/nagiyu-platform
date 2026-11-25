@@ -201,7 +201,7 @@ OpenAI の文字起こし API（gpt-4o-mini-transcribe）と感情分析（gpt-5
 
 `gpt-5-2025-08-07` / `gpt-5-mini-2025-08-07` の 2026-12-11 停止に伴い、感情分析のモデルを `gpt-5-mini` → `gpt-5.6-luna` へ移行した。
 
-また、本 ADR 本文の文字起こしモデル表記（`gpt-4o-mini-transcribe`）は実装（`whisper-1`）と一致していない。今回のモデル移行を機に乖離を確認したが、決定時点の記録を書き換えない方針のため本文は修正せず、この乖離を記録として明示するに留める。実装の変更は行わない。その後、文字起こしは `whisper-1`、感情分析は `gpt-5.6-luna` が今のモデルになっている。今の挙動は[AI 解析](../../specs/quick-clip/term/ai-analysis.md)と[抽出バッチ](../../specs/quick-clip/batch/extract.md)を参照する。
+また、本 ADR 本文の文字起こしモデル表記（`gpt-4o-mini-transcribe`）は実装（`whisper-1`）と一致していない。今回のモデル移行を機に乖離を確認したが、決定時点の記録を書き換えない方針のため本文は修正せず、この乖離を記録として明示するに留める。実装の変更は行わない。その後、文字起こしは `gpt-transcribe`、感情分析は `gpt-5.6-luna` が今のモデルになっている。今の挙動は[AI 解析](../../specs/quick-clip/term/ai-analysis.md)と[抽出バッチ](../../specs/quick-clip/batch/extract.md)を参照する。
 
 ---
 
