@@ -42,7 +42,7 @@ lint・format・ユニットテスト・カバレッジ・契約テストは `re
 - `needs` に全ジョブを並べる。結果を渡すためではなく、全ジョブの終了を待つため。
 - `permissions` に `actions: read` を付ける。action が同じ試行のジョブ一覧を API で読むため。
 
-PR コメントで報告する verify に適用する。報告するのは、サービスの verify、`infra-shared-verify.yml`、`all-verify.yml`、ライブラリの verify (`reusable-lib-verify.yml` の中の `report`) である。ほかの verify (`docs-structure-verify.yml`、`docs-verify.yml`、`node-version-verify.yml`、`infra-common-verify.yml`、`ui-storybook-verify.yml`) は報告しない。
+PR コメントで報告する verify に適用する。報告するのは、サービスの verify、`infra-shared-verify.yml`、`all-verify.yml`、ライブラリの verify (`reusable-lib-verify.yml` の中の `report`) である。ほかの verify (`docs-structure-verify.yml`、`docs-verify.yml`、`node-version-verify.yml`、`workflow-paths-verify.yml`、`infra-common-verify.yml`、`ui-storybook-verify.yml`) は報告しない。
 
 ## トリガーと paths
 
@@ -63,7 +63,7 @@ on:
 | ワークフロー | 向き先 |
 |---|---|
 | `all-verify.yml` | `develop` と `master` (`integration/**` は対象外) |
-| `docs-structure-verify.yml`、`docs-verify.yml`、`node-version-verify.yml` | `integration/**`、`develop`、`master` |
+| `docs-structure-verify.yml`、`docs-verify.yml`、`node-version-verify.yml`、`workflow-paths-verify.yml` | `integration/**`、`develop`、`master` |
 | `ci-image-build.yml` | PR は `integration/**` と `develop`。`develop` への push と手動実行でも動く (イメージの公開のため) |
 
 
@@ -109,7 +109,18 @@ paths から漏れた変更では、検証が走らないだけで CI は赤く�
 
 理由は、検証との違いにある。検証は、デプロイの手順を動かさず、成果物も出さない。そのため、これらの共有のものの変更がデプロイを壊していても、検証では気づけない。デプロイの paths に含めなければ、次に別の変更でデプロイされたときに初めて壊れが表に出る。
 
-使わないものは持たない。
+### paths の漏れは検査が落とす
+
+`check-workflow-paths.mjs` (`workflow-paths-verify.yml`) が、`paths` を持つ workflow から次を導き、`paths` のどのパターンにも当たらないものを落とす。
+
+- 使う composite action (action の中で使う別の action も辿る)、呼ぶ reusable workflow
+- `.github/scripts/` と `.github/workflows/scripts/` のスクリプトの参照
+- `node-version-file: .node-version` の参照
+- `paths` に `infra/<x>/**`・`services/<x>/**` がある場合、その配下の tsconfig の `extends` の継承元
+
+意図して外すものは、スクリプトの `EXCLUSIONS` に理由つきで持つ。`.github/actions/<使うもの>/**` を並べるときは、action の中で使う別の action も並べる。導き方と失敗の扱いは [workflow の paths の漏れの検査](../specs/ci/workflow-paths-verify.md) にある。
+
+デプロイの paths から外してよいのは、そのワークフローが使わないものだけである。
 
 | ワークフロー | 持たないもの |
 |---|---|
@@ -186,4 +197,4 @@ concurrency:
 4. Next.js のビルド・Docker のビルド確認・サービス固有の検査は、`{target}-verify.yml` にジョブとして残す。E2E は `reusable-e2e.yml` を呼ぶジョブを足す。
 5. 検証の paths と、デプロイが要るなら `{target}-deploy.yml` の paths を決める (上の「トリガーと paths」)。
 
-各ワークフローの振る舞いは [サービスの PR 検証](../specs/ci/service-verify.md)、[infra の検証](../specs/ci/infra-verify.md)、[E2E](../specs/ci/e2e.md)、[ライブラリの PR 検証](../specs/ci/lib-verify.md)、[イメージのビルドと ECR への push](../specs/ci/docker-image.md)、[CI 共通イメージのビルドと公開](../specs/ci/ci-image-build.md)、[Node のメジャー版の一致の検査](../specs/ci/node-version-verify.md)、[全体の lint と format の検査](../specs/ci/all-verify.md)、[docs の検査と公開](../specs/ci/docs.md)、[定期の Issue 起票](../specs/ci/scheduled-issues.md) にある。
+各ワークフローの振る舞いは [サービスの PR 検証](../specs/ci/service-verify.md)、[infra の検証](../specs/ci/infra-verify.md)、[E2E](../specs/ci/e2e.md)、[ライブラリの PR 検証](../specs/ci/lib-verify.md)、[イメージのビルドと ECR への push](../specs/ci/docker-image.md)、[CI 共通イメージのビルドと公開](../specs/ci/ci-image-build.md)、[Node のメジャー版の一致の検査](../specs/ci/node-version-verify.md)、[workflow の paths の漏れの検査](../specs/ci/workflow-paths-verify.md)、[全体の lint と format の検査](../specs/ci/all-verify.md)、[docs の検査と公開](../specs/ci/docs.md)、[定期の Issue 起票](../specs/ci/scheduled-issues.md) にある。
