@@ -11,7 +11,7 @@ sources:
   - infra/codec-converter/lib/codec-converter-stack.ts
   - libs/aws/src/error-events/with-error-reporting.ts
   - libs/aws/src/error-events/report.ts
-sources_hash: 32e1c997c52c97fb07e18742c1b88091a05373742d6e7f725fcec268728da587
+sources_hash: 602ca10c214b47ba72205b72afc9c921871fc06cc9e361382e6ba86a6d1ae453
 terms: [codec-converter/term/job, codec-converter/term/output-codec, codec-converter/term/job-definition-size]
 related_cards: [codec-converter/api/jobs, codec-converter/flow/conversion, codec-converter/flow/error-reporting, admin/flow/error-notification]
 related_adr:
@@ -63,7 +63,7 @@ flowchart TD
 
 ## 失敗したとき
 
-処理 (②〜⑥) のどこかで例外になると、次を行う。
+処理 (②〜⑦) のどこかで例外になると、次を行う。
 
 | 順 | 内容 | 報告 |
 |---|---|---|
@@ -77,9 +77,9 @@ flowchart TD
 | 失敗した段 | `errorMessage` |
 |---|---|
 | ③ 入力のダウンロード | 動画ファイルの取得に失敗しました。しばらくしてからもう一度お試しください |
-| ④ FFmpeg の変換 | 動画の変換に失敗しました。ファイルが壊れているか、対応していない形式の可能性があります |
+| ④ FFmpeg の変換 (終了コードが 0 以外) | 動画の変換に失敗しました。ファイルが壊れているか、対応していない形式の可能性があります |
 | ⑤ 出力のアップロード | 変換後のファイルの保存に失敗しました。しばらくしてからもう一度お試しください |
-| 上以外 (② と ⑥ のステータス更新、⑦ の削除) | 変換中にエラーが発生しました。しばらくしてからもう一度お試しください |
+| 上以外 (② と ⑥ のステータス更新、⑦ の削除、④ で FFmpeg を起動できなかったとき) | 変換中にエラーが発生しました。しばらくしてからもう一度お試しください |
 
 - FFmpeg の標準エラー出力は、末尾 4,000 文字だけを保持する。長い変換で溜まり続けないようにするためで、失敗の理由は末尾に出るので末尾を残す
 

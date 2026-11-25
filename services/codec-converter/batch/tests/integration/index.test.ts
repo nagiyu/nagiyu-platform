@@ -10,6 +10,7 @@ import {
   getECSMetadata,
   USER_ERROR_MESSAGES,
   FFMPEG_STDERR_MAX_LENGTH,
+  FFmpegSpawnError,
 } from '../../src/index.js';
 import { S3Client, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import { DynamoDBDocumentClient, UpdateCommand } from '@aws-sdk/lib-dynamodb';
@@ -793,6 +794,64 @@ describe('processJob', () => {
       await expect(run()).rejects.toThrow('S3へのアップロードに失敗しました');
 
       expect(getSavedErrorMessage()).toBe(USER_ERROR_MESSAGES.UPLOAD_FAILED);
+    });
+
+    it('FFmpeg を起動できないときはそれ以外の文言を保存する', async () => {
+      s3Mock.on(GetObjectCommand).resolves({
+        Body: Readable.from(['test content']) as SdkStream<Readable>,
+      });
+      spawnMock.mockReturnValue({
+        stdout: { on: jest.fn() },
+        stderr: { on: jest.fn() },
+        on: jest.fn((event, callback) => {
+          if (event === 'error') callback(new Error('spawn ffmpeg ENOENT'));
+        }),
+      } as unknown as ChildProcess);
+
+      await expect(run()).rejects.toBeInstanceOf(FFmpegSpawnError);
+
+      expect(getSavedErrorMessage()).toBe(USER_ERROR_MESSAGES.UNKNOWN);
+    });
+
+    const mockSuccessfulConversion = () => {
+      s3Mock.on(GetObjectCommand).resolves({
+        Body: Readable.from(['test content']) as SdkStream<Readable>,
+      });
+      s3Mock.on(PutObjectCommand).resolves({});
+      createReadStreamMock.mockReturnValue(Readable.from(['x']) as unknown as ReadStream);
+      spawnMock.mockReturnValue({
+        stdout: { on: jest.fn() },
+        stderr: { on: jest.fn() },
+        on: jest.fn((event, callback) => {
+          if (event === 'close') callback(0);
+        }),
+      } as unknown as ChildProcess);
+    };
+
+    it('アップロード後の COMPLETED 更新の失敗時はそれ以外の文言を保存する', async () => {
+      mockSuccessfulConversion();
+      let callCount = 0;
+      dynamodbMock.on(UpdateCommand).callsFake(() => {
+        callCount += 1;
+        // 1: PROCESSING, 2: COMPLETED (失敗), 3: FAILED
+        if (callCount === 2) throw new Error('DynamoDB update failed');
+        return { Attributes: buildJobItem() };
+      });
+
+      await expect(run()).rejects.toThrow('DynamoDBの更新に失敗しました');
+
+      expect(getSavedErrorMessage()).toBe(USER_ERROR_MESSAGES.UNKNOWN);
+    });
+
+    it('COMPLETED 後の一時ファイル削除の失敗時はそれ以外の文言を保存する', async () => {
+      mockSuccessfulConversion();
+      (fs.unlink as jest.MockedFunction<typeof fs.unlink>).mockRejectedValue(
+        new Error('Permission denied')
+      );
+
+      await expect(run()).rejects.toThrow('一時ファイルのクリーンアップに失敗しました');
+
+      expect(getSavedErrorMessage()).toBe(USER_ERROR_MESSAGES.UNKNOWN);
     });
 
     it('最初のステータス更新の失敗時はそれ以外の文言を保存する', async () => {

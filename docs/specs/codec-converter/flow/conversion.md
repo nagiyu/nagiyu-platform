@@ -12,7 +12,7 @@ sources:
   - services/codec-converter/batch/src/index.ts
   - services/codec-converter/core/src/constants.ts
   - infra/codec-converter/lib/codec-converter-stack.ts
-sources_hash: fa5c695f6cd5886297f736351bc398c870f6402d791058939e06b4dfdf3c3fda
+sources_hash: 336805960a80389c1ebbf4bba4dd6c4a86f6b2a919a18ce2ffc7b9aaa3e8ec7d
 terms: [codec-converter/term/job, codec-converter/term/output-codec, codec-converter/term/job-definition-size]
 related_cards: [codec-converter/screen/upload, codec-converter/screen/job-detail, codec-converter/api/jobs, codec-converter/batch/convert, codec-converter/flow/error-reporting]
 related_adr:

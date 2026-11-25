@@ -45,6 +45,17 @@ export const USER_ERROR_MESSAGES = {
 /** FFmpeg の stderr として保持する末尾の最大文字数。失敗理由は末尾に出るため末尾を残す */
 export const FFMPEG_STDERR_MAX_LENGTH = 4000;
 
+/**
+ * FFmpeg を起動できなかったときの例外。
+ * 動画の問題ではなく実行環境の問題なので、変換失敗とは別の利用者向け文言にするために区別する
+ */
+export class FFmpegSpawnError extends Error {
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
+    this.name = 'FFmpegSpawnError';
+  }
+}
+
 // 環境変数の型定義
 interface EnvironmentVariables {
   S3_BUCKET: string;
@@ -259,7 +270,11 @@ export async function convertWithFFmpeg(
     });
 
     ffmpeg.on('error', (error) => {
-      reject(new Error(`${ERROR_MESSAGES.FFMPEG_EXECUTION_FAILED}: ${error.message}`));
+      reject(
+        new FFmpegSpawnError(`${ERROR_MESSAGES.FFMPEG_EXECUTION_FAILED}: ${error.message}`, {
+          cause: error,
+        })
+      );
     });
   });
 }
@@ -346,7 +361,7 @@ export async function processJob(
         env.JOB_ID,
         'FAILED',
         undefined,
-        userErrorMessage
+        error instanceof FFmpegSpawnError ? USER_ERROR_MESSAGES.UNKNOWN : userErrorMessage
       );
     } catch (updateError) {
       console.error('Failed to update job status to FAILED:', updateError);
