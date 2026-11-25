@@ -21,6 +21,7 @@ on:
       - '.github/actions/build-web-app/**'
       - '.github/actions/health-check/**'
       - '.github/actions/push-ecr-image/**'
+      - '.github/actions/setup-cdk/**'
       - '.github/actions/setup-environment/**'
       - '.github/actions/setup-node/**'
       - '.github/scripts/docker-build-with-retry.sh'
@@ -73,25 +74,14 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js and install dependencies
-        uses: ./.github/actions/setup-node
-        with:
-          # Node はイメージに入っているものを使う
-          skip-setup-node: 'true'
-
       - name: Setup deployment environment
         id: setup-environment
         uses: ./.github/actions/setup-environment
 
-      - name: Build common infrastructure package
-        run: npm run build --workspace=@nagiyu/infra-common
-
-      - name: Build CDK TypeScript
-        run: npm run build --workspace=@nagiyu/infra-livetalk
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - name: Setup CDK
+        uses: ./.github/actions/setup-cdk
         with:
+          infra-workspace: '@nagiyu/infra-livetalk'
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
@@ -288,21 +278,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js and install dependencies
-        uses: ./.github/actions/setup-node
+      - name: Setup CDK
+        uses: ./.github/actions/setup-cdk
         with:
-          # Node はイメージに入っているものを使う
-          skip-setup-node: 'true'
-
-      - name: Build common infrastructure package
-        run: npm run build --workspace=@nagiyu/infra-common
-
-      - name: Build CDK TypeScript
-        run: npm run build --workspace=@nagiyu/infra-livetalk
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
+          infra-workspace: '@nagiyu/infra-livetalk'
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
@@ -404,21 +383,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js and install dependencies
-        uses: ./.github/actions/setup-node
+      - name: Setup CDK
+        uses: ./.github/actions/setup-cdk
         with:
-          # Node はイメージに入っているものを使う
-          skip-setup-node: 'true'
-
-      - name: Build common infrastructure package
-        run: npm run build --workspace=@nagiyu/infra-common
-
-      - name: Build CDK TypeScript
-        run: npm run build --workspace=@nagiyu/infra-livetalk
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
+          infra-workspace: '@nagiyu/infra-livetalk'
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
@@ -476,21 +444,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js and install dependencies
-        uses: ./.github/actions/setup-node
+      - name: Setup CDK
+        uses: ./.github/actions/setup-cdk
         with:
-          # Node はイメージに入っているものを使う
-          skip-setup-node: 'true'
-
-      - name: Build common infrastructure package
-        run: npm run build --workspace=@nagiyu/infra-common
-
-      - name: Build CDK TypeScript
-        run: npm run build --workspace=@nagiyu/infra-livetalk
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
+          infra-workspace: '@nagiyu/infra-livetalk'
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 

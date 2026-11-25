@@ -3,7 +3,7 @@ sources:
   - infra/niconico-mylist-assistant/bin/niconico-mylist-assistant.ts
   - infra/niconico-mylist-assistant/lib/cloudfront-stack.ts
   - .github/workflows/niconico-mylist-assistant-deploy.yml
-sources_hash: 95099558f28f8090dda0a672269dd59bacee35d9e5cc7bc9b8791b1097deed86
+sources_hash: 73249f27a7845745b42051aad3ad03a3fa25424061df0dc2a118f7292c10d0f0
 ---
 
 # niconico-mylist-assistant のデプロイ先

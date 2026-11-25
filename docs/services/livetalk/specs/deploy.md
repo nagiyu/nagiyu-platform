@@ -3,7 +3,7 @@ sources:
   - infra/livetalk/bin/livetalk.ts
   - infra/livetalk/lib/cloudfront-stack.ts
   - .github/workflows/livetalk-deploy.yml
-sources_hash: 7c0eee07735c0ad8be33cb049036175e99c242135ef26b324015e4e51756ab97
+sources_hash: 6252ec2f609661003cba127b75c0f64bc4d75c1da50cfe1f51b6c90a7965e55e
 ---
 
 # LiveTalk のデプロイ先

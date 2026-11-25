@@ -1,0 +1,43 @@
+name: Setup CDK
+description: CDK を動かすジョブの前段として、依存のインストール、infra-common とサービスの infra のビルド、AWS の認証をまとめて行う
+
+inputs:
+  infra-workspace:
+    description: ビルドするサービスの infra の workspace 名 (例 @nagiyu/infra-admin)。空ならサービスの infra のビルドを飛ばす
+    required: false
+    default: ''
+  role-to-assume:
+    description: AWS の認証で引き受ける IAM ロールの ARN。composite action の中からは vars を読めないため、呼び出し側が渡す
+    required: true
+  aws-region:
+    description: AWS の認証に使うリージョン
+    required: false
+    default: us-east-1
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Node.js and install dependencies
+      uses: ./.github/actions/setup-node
+      with:
+        # Node はイメージに入っているものを使う
+        skip-setup-node: 'true'
+
+    # サービスの infra は infra-common のビルド成果物 (dist) を参照するため、先にビルドする
+    - name: Build common infrastructure package
+      shell: bash
+      run: npm run build --workspace=@nagiyu/infra-common
+
+    - name: Build service infrastructure package
+      if: inputs.infra-workspace != ''
+      shell: bash
+      env:
+        # 入力をシェル文字列へ直接埋め込むとインジェクションになるため、env 経由で渡す
+        SETUP_CDK_INFRA_WORKSPACE: ${{ inputs.infra-workspace }}
+      run: npm run build --workspace="$SETUP_CDK_INFRA_WORKSPACE"
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ inputs.role-to-assume }}
+        aws-region: ${{ inputs.aws-region }}
