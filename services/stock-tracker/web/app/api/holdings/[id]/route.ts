@@ -11,7 +11,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import { EntityNotFoundError } from '@nagiyu/aws';
 import { withAuth, readJsonObjectBody } from '@nagiyu/nextjs';
-import { createHoldingRepository, createTickerRepository } from '@nagiyu/stock-tracker-core';
+import {
+  validateHolding,
+  createHoldingRepository,
+  createTickerRepository,
+} from '@nagiyu/stock-tracker-core';
 import { getSession } from '../../../../lib/auth';
 import { withApiErrorReporting } from '../../../../lib/api-error-reporting';
 import type { HoldingEntity, UpdateHoldingInput } from '@nagiyu/stock-tracker-core';
@@ -198,12 +202,37 @@ export const PUT = withApiErrorReporting(
       // リポジトリの初期化
       const holdingRepo = createHoldingRepository();
 
+      // 送られなかった項目の既存値も含めて検証するため、先に既存を取得する
+      const existingHolding = await holdingRepo.getById(currentUserId, tickerId);
+      if (!existingHolding) {
+        return NextResponse.json(
+          {
+            error: 'NOT_FOUND',
+            message: ERROR_MESSAGES.HOLDING_NOT_FOUND,
+          },
+          { status: 404 }
+        );
+      }
+
+      // 登録と同じ入力条件を更新後の値に掛ける
+      const validationResult = validateHolding({ ...existingHolding, ...updates });
+      if (!validationResult.valid) {
+        return NextResponse.json(
+          {
+            error: 'INVALID_REQUEST',
+            message: ERROR_MESSAGES.VALIDATION_ERROR,
+            details: validationResult.errors,
+          },
+          { status: 400 }
+        );
+      }
+
       // 保有株式を更新
       let updatedHolding: HoldingEntity;
       try {
         updatedHolding = await holdingRepo.update(currentUserId, tickerId, updates);
       } catch (error) {
-        // 保有株式が見つからない場合
+        // 取得から更新までの間に削除された場合
         if (error instanceof EntityNotFoundError) {
           return NextResponse.json(
             {
