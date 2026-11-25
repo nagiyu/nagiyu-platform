@@ -156,24 +156,15 @@ concurrency:
 
 ### ビルドは依存順に流す
 
-共有ライブラリは `npm run build:libs`、それ以外は `npm run build --workspace=@nagiyu/hoge` のように個別に流す。`npm run build --workspaces` は使わない。ワークスペースが `package.json` の定義順に逐次ビルドされ、依存が考慮されずにビルドエラーになるため。
+共有ライブラリは `npm run build:libs`、それ以外は `npm run build --workspace=@nagiyu/hoge` のように個別に流し、`npm run build --workspaces` は使わない。ビルド順の決まり方と理由は [モノレポの構成の規約](./monorepo.md) にある。
 
-`build:libs` は、ルートの `package.json` に並べた順にライブラリをビルドする。複数の `--workspace` を渡した `npm run` は指定順に 1 つずつ実行するので、並びがそのままビルド順になる。並びは `@nagiyu/common`、`@nagiyu/aws`、`@nagiyu/browser`、`@nagiyu/nextjs`、`@nagiyu/react`、`@nagiyu/ui` で、依存される側が先に来る (`@nagiyu/aws`・`@nagiyu/nextjs`・`@nagiyu/ui` は `@nagiyu/common` に、`@nagiyu/react` は `@nagiyu/browser` と `@nagiyu/common` に依存する)。ライブラリを足す、または依存を変えたときは、この並びを直す。
+### 秘密情報を CDK の Context で渡すデプロイは、Context を使うスタックと、それに依存するスタックを 1 回のコマンドにまとめる
 
-### 秘密情報を CDK の Context で渡すデプロイは、アプリケーションのスタックを 1 回のコマンドにまとめる
+`--context nextAuthSecret="$SECRET_VALUE"` のように Context を渡すスタックは、`cdk deploy` を 1 回だけ実行し、そのコマンドの中に、Context を使うスタックに依存するスタックも含めて渡す。Secrets Manager から値を取り出す前に要る ECR や Secrets のスタック (サービスによっては DynamoDB や S3 も) は、`--context env` だけを渡す別のコマンドで、事前にデプロイしておく。まとめ方は、`--all` で全スタックを対象にして事前にデプロイしたものを `--exclude` で外す形と、スタック名を並べる形があり、サービスごとに違う。
 
-`--context nextAuthSecret="$SECRET_VALUE"` のように Context を渡すスタックは、`cdk deploy` を 1 回だけ実行し、そのコマンドに依存するスタックも含めて渡す。ECR・DynamoDB・Secrets などのインフラスタックは、事前に別のコマンドでデプロイしておく。
+CDK は、デプロイ対象のスタックと、それが依存するスタックをまとめてデプロイする。Context を使うスタック A に依存するスタック B を、Context を渡さずにデプロイすると、依存先の A も Context なしで評価される。すると `AUTH_SECRET` などが既定値 (大半は `PLACEHOLDER`。auth と livetalk は `PLACEHOLDER_...` の形) で評価され、Lambda の環境変数がその値に上書きされる。そのため、Context を使うスタックの依存先は、Context つきのコマンドにまとめて渡す。
 
-CDK は、デプロイ対象が依存するスタックを再評価する。そのとき Context が渡されていないと、`AUTH_SECRET` などが既定値 (`PLACEHOLDER_...`) で評価され、Lambda の環境変数がその値に上書きされる。個別のスタックを Context つきでデプロイしたあとに、依存先を Context なしでデプロイすると起きる。
-
-まとめ方は 2 通りある。
-
-| まとめ方 | 使っているワークフロー |
-|---|---|
-| `--all` で全スタックを対象にし、事前にデプロイ済みのインフラスタックを `--exclude` で外す | `admin-deploy.yml` (`--exclude` なし)、`auth-deploy.yml` (`--exclude` なし)、`share-together-deploy.yml`、`stock-tracker-deploy.yml`、`niconico-mylist-assistant-deploy.yml` |
-| スタック名を並べる | `quick-clip-deploy.yml` (Context を使う 6 スタックを 1 コマンドに並べる) |
-
-livetalk は、Web の秘密情報を ECS の `secrets:` で Secrets Manager から注入するため Context を使わない。Context を渡すのは、ほかのスタックに依存されない Batch のスタックだけで、これは名前を指定して単独でデプロイする。
+livetalk は、Web の秘密情報を ECS の `secrets:` で Secrets Manager から注入するため、Context を使わない。Context を渡すのは、ほかのスタックに依存されない Batch のスタックだけで、これは名前を指定して単独でデプロイする。
 
 ### PR のターゲットブランチは文脈に合わせて参照する
 

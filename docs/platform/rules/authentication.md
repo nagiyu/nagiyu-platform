@@ -4,7 +4,7 @@ sources: []
 
 # 認証の規約
 
-Auth サービスにログインを集約し、各サービス (Consumer) がそのセッションを使うときの規則と、その理由。ロールの伝播とリフレッシュは Auth サービスの仕様にある。強制している設定ファイルはなく、レビューで守らせるため、出典は持たない。
+Auth サービスにログインを集約し、各サービス (Consumer) がそのセッションを使うときの規則と、その理由。ロールの伝播とリフレッシュは `docs/services/auth/architecture.md` の「ロールの伝播とリフレッシュ」にある。強制している設定ファイルはなく、レビューで守らせるため、出典は持たない。
 
 ## 構成
 
@@ -26,15 +26,15 @@ Consumer は DynamoDB を参照せず、共有 Cookie の JWT に入っている
 
 ### `AUTH_SECRET` は全サービスで同じ値にする
 
-共有 Cookie の JWT を、発行する Auth と検証する Consumer が同じ鍵で扱うため。値は Auth サービスの Secrets Manager のシークレット (`nagiyu-auth-nextauth-secret-{環境}`) を、各サービスのデプロイが読んで渡す。デプロイでの渡し方は [ワークフローを書くときの規約](workflows.md) にある。
+共有 Cookie の JWT を、発行する Auth と検証する Consumer が同じ鍵で扱うため。値は Auth サービスの Secrets Manager のシークレット (`nagiyu-auth-nextauth-secret-{環境}`) である。Lambda のサービスは、デプロイのワークフローが読んで CDK の Context で渡す ([ワークフローを書くときの規約](workflows.md))。ECS の livetalk は、タスク定義の `secrets:` でコンテナが Secrets Manager から直接受け取る。
 
 ## NextAuth のルートハンドラー
 
 ### Consumer の `[...nextauth]/route.ts` は GET だけを公開し、POST を出さない
 
-`/api/auth/session` を返すため GET は公開する。クライアントの `useSession()` が `/api/auth/session` を fetch してセッションを得るので、GET がないとヘッダーのアカウントメニューなどが動かない。GET は `createClientSessionGetHandler` で包む。`SKIP_AUTH_CHECK=true` のとき、サーバー側のセッション取得とロールの見え方をそろえたテスト用セッションを返すため。
+`/api/auth/session` を返すため GET は公開する。クライアントの `useSession()` が `/api/auth/session` を fetch してセッションを得るので、GET がないとヘッダーのアカウントメニューなどが動かない。GET は `createClientSessionGetHandler` で包む。`SKIP_AUTH_CHECK=true` のとき、サーバー側のセッション取得とロールの見え方をそろえたテスト用セッションを返すため。例外として、share-together は包まず `export const { GET } = handlers` で公開している。
 
-POST (サインアウトなど) を出さないのは、Consumer でサインアウトを受けると、内部ホスト名 (`ip-10-x-x-x.ec2.internal` など) へリダイレクトされ、`ERR_NAME_NOT_RESOLVED` で失敗するため。ALB 配下の ECS で NextAuth が自分のベース URL を持たないと、内部アドレスへフォールバックする。
+POST (サインアウトなど) を出さないのは、サインアウトを Cookie の発行元である Auth に集約しているため (全 Consumer の `route.ts` が同じ方針をコメントしている)。Consumer が受けると、内部ホスト名 (`ip-10-x-x-x.ec2.internal` など) へリダイレクトされ、`ERR_NAME_NOT_RESOLVED` で失敗する。この内部ホスト名は、ALB 配下の ECS で NextAuth が自分のベース URL を持たないときに出るもので、Lambda の Consumer で同じ失敗が起きることは確かめていない。
 
 Auth サービスのルートハンドラーは GET と POST の両方を公開する。
 
@@ -67,6 +67,8 @@ Consumer はサインアウトの処理を持たず、Auth のサインアウト
 ### ログイン済みで権限がないユーザーには、`AccessDeniedView` を表示する
 
 権限がない旨の 1 行表示や、無関係なページへのリダイレクトにはしない。`AccessDeniedView` の「アクセスを更新」から Auth の `/refresh` を経て元のページへ戻れるので、管理者が権限を付与したあとに、サインアウトせずに反映できる。部品の振る舞いは [エラー画面](../specs/lib/ui/feedback-views.md) にある。
+
+例外として、stock-tracker は、ページの中の権限不足を `AccessDeniedView` ではなく `ErrorAlert` (権限エラー) で出す (exchanges、tickers、axis-performance)。
 
 表示のしかたは、権限の見方で 2 通りある。
 

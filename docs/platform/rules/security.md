@@ -20,7 +20,7 @@ API の入力、フォームの値、環境変数、外部サービスの応答�
 
 ### `dangerouslySetInnerHTML` には、サニタイズかエスケープを通した文字列だけを渡す
 
-利用者や外部から来た文字列を、そのまま渡さない。HTML として描くときは DOMPurify (Portal は `isomorphic-dompurify`) でサニタイズする。JSON-LD のように HTML ではなく、`<script>` の中身として出すものは、`<` を `<` に置き換えるなどしてエスケープする。Portal は、Markdown から作った HTML をサニタイズしてから渡し、JSON-LD の文字列を、`<` をエスケープする関数 (`jsonLdScript`) を通してから渡している。
+利用者や外部から来た文字列を、そのまま渡さない。HTML として描くときは DOMPurify (Portal は `isomorphic-dompurify`) でサニタイズする。JSON-LD のように HTML ではなく、`<script>` の中身として出すものは、`<` を `\u003c` に置き換えるなどしてエスケープする。`</script>` で `<script>` が閉じるのを防ぐためである。Portal は、Markdown から作った HTML をサニタイズしてから渡し、JSON-LD の文字列を、`<` を `\u003c` へ置き換える関数 (`jsonLdScript`) を通してから渡している。
 
 ```tsx
 // OK: エスケープした文字列
@@ -31,7 +31,7 @@ API の入力、フォームの値、環境変数、外部サービスの応答�
 <div dangerouslySetInnerHTML={{ __html: userInput }} />
 ```
 
-通していない文字列が混ざると、スクリプトを差し込まれて XSS になる。この規則は、ESLint などでは強制していない。
+通していない文字列が混ざると、スクリプトを差し込まれて XSS になる。
 
 ## 秘密情報
 
@@ -47,4 +47,3 @@ const apiKey = process.env.NEXT_PUBLIC_API_KEY;
 const apiKey = process.env.SECRET_API_KEY;
 ```
 
-今の `NEXT_PUBLIC_*` は、認証サービスの URL (`NEXT_PUBLIC_AUTH_URL`) と、広告タグの URL (`NEXT_PUBLIC_VAST_TAG_URL`) のように、公開されても困らない値だけである。

@@ -32,7 +32,7 @@ DynamoDB を使うサービスで、データアクセス層とテーブルを�
 
 PK / SK は `ENTITY#id` の形にする (例: `USER#123`)。GSI のキー属性は `GSI1PK` / `GSI1SK` のように番号つきで名付ける。テーブルのキー属性は `PK` / `SK` にする。InMemory 側でこの形を再現するのが [InMemorySingleTableStore](../specs/lib/aws/in-memory-single-table-store.md) である。
 
-例外がある。
+例外がある。サービスのテーブルではなく、全サービスが書き Admin が読む共有のエラーイベントのテーブル (`infra/shared` が持つ) は、サービスごとの 1 つのテーブルの外にある ([エラーイベントのテーブル](../specs/data/error-events.md))。そのほか、キーの形の例外は次のとおり。
 
 | サービス | テーブル | 理由 |
 |---|---|---|
@@ -87,7 +87,7 @@ Entity と Item の変換はすべて Mapper が担う。単一アイテムの C
 - キーの組み立てと変換が分散すると、保存形式を変えたときに直し漏れが出る。
 - CRUD の骨格 (キーの組み立て → 書き込み → 条件失敗の変換 → Entity への変換) を各 Repository に書き写すと、条件付き書き込み・エラー変換・`UpdatedAt` の管理が Repository ごとにずれる。
 
-web・batch・Lambda から DynamoDB を直接呼ぶ場合も、Repository を経由する。
+web・batch・Lambda から DynamoDB を直接呼ぶ場合も、Repository を経由する。例外として、dev-sync の batch の `dynamo-store-adapter.ts` は、Repository を経由せず `ScanCommand` などを直接使う。別アカウントのテーブルを丸ごと写す処理で、エンティティを持たず、キーの接頭辞で全件を走査するため。
 
 ### 存在判定の条件式は書かず、EntityStore に任せる
 
@@ -145,7 +145,7 @@ Repository ごとに独立したストア (`Map` など) を持つと、Single T
     - 任意の属性は、無ければ未設定 (または既定値)、あって不正なら `InvalidEntityDataError` とする共通の読み取りで読む。欠落と破損を区別するため。不正な値を欠落として黙って扱うと、壊れたデータに気づけない。
 3. **Repository Interface**: ビジネスキーでの CRUD と、意味のある名前のクエリ。
 4. **DynamoDB 実装と InMemory 実装**: 単一アイテムの CRUD は EntityStore に任せ、独自のクエリだけを書く。
-5. **テスト**: Mapper の変換 (旧形式の読み取りを含む)、Repository、E2E の各層。
+5. **テスト**: Mapper の変換 (旧形式の読み取りを含む) と Repository のユニットテスト。契約テストを持つ core では、DynamoDB Local に対する契約テストにも足す ([テストの規約](./testing.md))。web の E2E は、InMemory で動くユースケースを通す。
 
 ## 保存形式を変えるとき
 

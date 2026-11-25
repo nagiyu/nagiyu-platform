@@ -14,23 +14,33 @@ sources_hash: 86d2b72623d0f5775456deaad0b6bdd9401f742efabb1bb16b0f4ad3cf3e3f42
 
 バリデーションはビジネスロジックなので、フレームワークに依存させない。`core` は ESLint で UI と Next.js の import を止めているため、置けば自然に守られる。
 
-`services/{service}/core/src/validation/` に関数を置き、汎用の判定の補助は `helpers.ts` に集める。
+置き方は、サービスごとにそろっていない。stock-tracker の core は `src/validation/` に関数を置き、汎用の判定の補助を `helpers.ts`、値域を `presets.ts` に集める。codec-converter の core は `src/validation.ts` 1 ファイルに置く。
 
-例外として、share-together、niconico-mylist-assistant、quick-clip の web は、検証の関数を自分の `lib/` に置いている。
+例外として、次は core ではなく web の `lib/` に置いている。
+
+- auth の `lib/manual-roles.ts`
+- quick-clip の `lib/upload-validation.ts`
+- niconico-mylist-assistant の `lib/mylist-register-validation.ts`
+- share-together の `lib/api/validation.ts`。この service は route の中でも検証し、グループの規則 (人数の上限や重複の招待など) は core の `libs/group.ts` に置いている
 
 ### 戻り値は `ValidationResult` にする
 
 サービスごとに戻り値の形が違うと、呼び出し側が検証の結果の扱い方を覚え直すことになる。型は共通ライブラリのものを使う。`errors` は、`valid` が `false` のときだけ持たせる。
 
-例外として、codec-converter の core と niconico-mylist-assistant の web は、独自の結果の型を定義している (codec-converter は `isValid` と `errorMessage`)。
+例外として、次は別の戻り値にしている。
+
+- codec-converter の core と niconico-mylist-assistant の web は、独自の結果の型を定義している (codec-converter は `isValid` と `errorMessage`)
+- quick-clip の web の `validateUploadFile` は、不正な理由のメッセージ、または問題がなければ `null` を返す (`string | null`)
+- auth の web の `validateManualRoles` は、独自の型 (`ManualRolesValidation`) を返す
+- share-together の core のグループの規則 (`validateAcceptLimit` など) は、違反を例外で投げる
 
 ### 検証は純粋関数にする
 
 同じ入力に同じ結果を返し、外部の状態を変えない関数にすると、テストが容易で、結果が予測できる。
 
-### サービス固有の値域は preset にして、判定は `isValidNumber` に委ねる
+### 数値の値域の判定は `isValidNumber` に委ね、値域の数字は preset にまとめる
 
-価格や数量の値域の数字は、サービスの `validation/presets.ts` に `as const` で置き、判定は `@nagiyu/common` の `isValidNumber(value, min, max)` に任せる。値域の重複した定義を防ぎ、`NaN` と `Infinity` の扱いを、サービスをまたいで揃えられる。
+数値の判定は `@nagiyu/common` の `isValidNumber(value, min, max)` に任せ、値域の数字は `as const` の preset にまとめる (stock-tracker の core は `validation/presets.ts`)。値域の重複した定義を防ぎ、`NaN` と `Infinity` の扱いを、サービスをまたいで揃えられる。現状この組み合わせを使うのは stock-tracker の core だけである。
 
 ## 実装の流れ
 
@@ -65,11 +75,11 @@ export function validateUser(data: unknown): ValidationResult {
 
 ## API ルートでの使い方
 
-### リクエストボディは `request.json()` を直接呼ばず、`readJsonObjectBody` で読む
+### 本番の経路では、リクエストボディを `request.json()` を直接呼ばず、`readJsonObjectBody` で読む
 
 壊れた JSON、本文が `null`、配列、プリミティブは、利用者の入力の誤りである。`request.json()` を直接呼ぶと、これらが例外やプロパティ参照の失敗になり、ルートの汎用の catch に落ちて 500 になる。500 はエラーを通報する経路なので、利用者の入力ミスが障害の通知に混ざり、本物の障害が埋もれる。
 
-読めなければ 400 を返す。読めた値の各項目は `unknown` のままなので、検証で型を確かめる。振る舞いは [リクエストボディの読み取り](../specs/lib/nextjs/request-body.md) にある。
+読めなければ 400 を返す。例外として、`USE_IN_MEMORY_DB=true` でだけ有効な `/api/test/*` のテスト用エンドポイントは、テストコードだけが呼ぶため `request.json()` を直接呼んでいる。読めた値の各項目は `unknown` のままなので、検証で型を確かめる。振る舞いは [リクエストボディの読み取り](../specs/lib/nextjs/request-body.md) にある。
 
 ### 検証に失敗したら 400 を返し、メッセージは `errors` から作る
 

@@ -4,7 +4,7 @@ sources: []
 
 # テストの規約
 
-テストの層ごとの責務、置き場所、ユニットテストとカバレッジ、契約テストの規則と、その理由。強制している設定はパッケージごとの `jest.config.ts` のカバレッジ閾値だけで、残りはレビューで守らせる。E2E の規則は [E2E の規約](./e2e.md)、バリデーションのテストは [バリデーションの規約](./validation.md) にある。
+テストの層ごとの責務、置き場所、ユニットテストとカバレッジ、契約テストの規則と、その理由。強制している設定はパッケージごとの Jest の設定 (`jest.config.ts`。infra には `jest.config.js` もある) のカバレッジ閾値だけで、残りはレビューで守らせる。E2E の規則は [E2E の規約](./e2e.md)、バリデーションのテストは [バリデーションの規約](./validation.md) にある。
 
 ## 層ごとの責務
 
@@ -34,12 +34,12 @@ sources: []
 |---|---|
 | `tests/unit/` | ユニットテスト。`src/` と同じ構造で置く |
 | `tests/e2e/` | E2E テスト (サービスの web のみ) |
-| `tests/contract/` | 契約テスト (データアクセス層を持つ core) |
+| `tests/contract/` | 契約テスト (データアクセス層を持つ core。持つ core は下の「契約テスト」を参照) |
 | `tests/integration/` | サービスが必要なときだけ置く。Jest の対象から外して別のスクリプト (`test:integration`) で流すものがある |
 | `tests/helpers/` | テスト間で共有する補助。サービスが必要なときだけ置く |
 | `tests/setup.ts` | ブラウザ API のモックなど、全テストに共通のセットアップが要るときだけ置く |
 
-例外として、tools の一部は `src/**/__tests__` に、infra の codec-converter は `test/` にテストを置いている。
+例外として、tools の一部は `src/**/__tests__` に、infra の codec-converter は `test/` にテストを置いている。また `services/share-together/core` と `services/stock-tracker/core` は、リポジトリ単位の Jest テストを `tests/e2e/` に置いている (Playwright の E2E ではない)。
 
 ### ライブラリは E2E テストを持たない
 
@@ -57,7 +57,7 @@ sources: []
 
 ## カバレッジ
 
-### カバレッジの閾値は、パッケージごとの `jest.config.ts` の `coverageThreshold` で決める
+### カバレッジの閾値は、パッケージごとの Jest の設定の `coverageThreshold` で決める
 
 共通の土台はなく、各パッケージが自分の設定に書く。既定は `global` で branches、functions、lines、statements とも 80% で、下回ると `test:coverage` が非ゼロで終わる。
 
@@ -66,16 +66,19 @@ sources: []
 - `libs/ui` は lines と statements を 90% にしている
 - `services/stock-tracker/web` は、対象を、テストで担保すると決めたファイルに絞って `global` を 100% とし、ディレクトリごとに 80% の閾値を足している
 - `services/niconico-mylist-assistant/batch` は閾値も `test:coverage` も持たない。中心の処理が実ブラウザを操作し、Jest では再現できないため、`tests/integration` の Playwright で確かめる
+- infra のうち、`admin`、`auth`、`niconico-mylist-assistant`、`quick-clip`、`share-together`、`tools` は Jest の設定も `test:coverage` も持たない。`quick-clip` の `test` は何も流さない (`echo`) スクリプトで、ほかの 5 つは `test` 自体を持たない
 
 ### 新しいパッケージには `test:coverage` と閾値を揃える
 
-CI のカバレッジの検査は `test:coverage` を持つパッケージにだけかかる。スクリプトがなければ流れず、CI も赤くならない。しかも検査が流れるのは `develop` 向けの PR だけである。振る舞いは [サービスの PR 検証](../specs/ci/service-verify.md) にある。
+CI のカバレッジの検査は `test:coverage` を持つパッケージにだけかかる。スクリプトがなければ流れず、CI も赤くならない。services と infra では、検査が流れるのは `develop` 向けの PR だけである (`integration/**` 向けは `test` だけ)。libs は向き先によらず毎回流れる。理由と振る舞いは [サービスの PR 検証](../specs/ci/service-verify.md) と [ライブラリの PR 検証](../specs/ci/lib-verify.md) にある。
 
 ## 契約テスト
 
 ### データアクセス層の等価性は、DynamoDB Local に対する契約テストで担保する
 
 E2E は決定性と速度のために InMemory のリポジトリで動く。InMemory は DynamoDB の近似であり、GSI の射影、ソート順、条件式などで乖離しうる。乖離はコードの構造では防げないため、実装に依存しない振る舞いの仕様を InMemory と DynamoDB Local の両方で流し、片方でしか通らない差分を検知する。本番に載る DynamoDB の実装自体も DynamoDB Local に対して検証する。DynamoDB Local はトランザクションの競合例外など一部の挙動を再現しないので、そこはモックで補う。
+
+契約テストを持つのは `admin`、`auth`、`livetalk`、`share-together`、`stock-tracker` の core である。データアクセス層を持つ `codec-converter`、`niconico-mylist-assistant`、`quick-clip` の core は `test:contract` を持たず、InMemory と DynamoDB の等価性はこの規則では担保されていない。新しくデータアクセス層を足す core は、契約テストを置く。
 
 InMemory を使う設計は [データアクセス層の規約](./data-access.md) にある。
 
@@ -93,7 +96,7 @@ InMemory を使う設計は [データアクセス層の規約](./data-access.md
 
 ### フィクスチャは、境界の値そのものを狙う
 
-乖離は境界にしか現れないことが多く、件数を多めに積むだけでは足りない。既定ページサイズが 50 件のメソッドに 130 件のフィクスチャを用意しても、「ちょうど 50 件で終わる」境界が抜けていた。
+乖離は境界にしか現れないことが多く、件数を多めに積むだけでは足りない。既定ページサイズが 50 件のメソッドに 130 件のフィクスチャを積んでも、「ちょうど 50 件で終わる」境界は通らない。境界ちょうどの件数のフィクスチャを別に用意する。
 
 境界の値は、そのメソッドの既定ページサイズから決める。既定値は共通のストアとリポジトリの実装の二段にあり、一致しているとは限らないので、実装を読んで確かめる。
 
@@ -103,4 +106,4 @@ InMemory を使う設計は [データアクセス層の規約](./data-access.md
 
 実 DynamoDB が正である。逆向きに揃えると、乖離を仕様として追認する。どちらを直すかが設計判断になるときは、独断で決めず人に聞く。
 
-等価性を揃えると、呼び出し元の不具合が初めて現れることがある。近似実装が実 DynamoDB より多く返していたため、本番で起きている打ち切りが E2E では再現していなかった、という形である。等価性の修正と呼び出し元の修正は、切り分けて扱う。
+等価性を揃えると、呼び出し元の不具合が初めて現れることがある。近似実装が実 DynamoDB より多く返す間は、本番で起きる打ち切りが E2E では再現しないためである。等価性の修正と呼び出し元の修正は、切り分けて扱う。
