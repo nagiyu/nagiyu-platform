@@ -103,6 +103,24 @@ describe('SignInPage', () => {
       expect(screen.getByRole('alert')).toHaveTextContent(SIGNIN_ERROR_MESSAGES.MissingCSRF);
       expect(mockRedirect).not.toHaveBeenCalled();
     });
+
+    it('同じキーを重ねた error は無いものとして扱い、移す', async () => {
+      (auth as jest.Mock).mockResolvedValue({ user: { id: 'u1' } });
+
+      await expect(renderPage({ error: ['MissingCSRF', 'OAuthCallbackError'] })).rejects.toThrow(
+        'NEXT_REDIRECT'
+      );
+
+      expect(mockRedirect).toHaveBeenCalledWith('/dashboard');
+    });
+
+    it('空の error は無いものとして扱い、移す', async () => {
+      (auth as jest.Mock).mockResolvedValue({ user: { id: 'u1' } });
+
+      await expect(renderPage({ error: '' })).rejects.toThrow('NEXT_REDIRECT');
+
+      expect(mockRedirect).toHaveBeenCalledWith('/dashboard');
+    });
   });
 
   describe('未ログインの error 表示', () => {
