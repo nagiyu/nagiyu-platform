@@ -148,7 +148,7 @@ describe('SignInPage', () => {
     });
 
     it('同じキーを重ねた error は無いものとして扱う', async () => {
-      render(await renderPage({ error: ['MissingCSRF', 'Configuration'] }));
+      render(await renderPage({ error: ['MissingCSRF', 'OAuthCallbackError'] }));
 
       expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     });

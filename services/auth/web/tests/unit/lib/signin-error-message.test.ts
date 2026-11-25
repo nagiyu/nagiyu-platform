@@ -10,7 +10,7 @@ import {
 } from '../../../src/lib/signin-error-message';
 
 describe('resolveSigninErrorMessage', () => {
-  it.each(['OAuthCallbackError', 'MissingCSRF', 'Configuration'] as const)(
+  it.each(['OAuthCallbackError', 'MissingCSRF'] as const)(
     '既知のコード %s は対応する文を返す',
     (code) => {
       expect(resolveSigninErrorMessage(code)).toBe(SIGNIN_ERROR_MESSAGES[code]);

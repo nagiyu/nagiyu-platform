@@ -9,7 +9,6 @@
 export const SIGNIN_ERROR_MESSAGES = {
   OAuthCallbackError: 'Google での認証が完了しませんでした。もう一度お試しください。',
   MissingCSRF: '操作の確認に失敗しました。画面を開き直してから、もう一度お試しください。',
-  Configuration: 'サーバー設定に問題があります。管理者にお問い合わせください。',
   Default: 'サインインに失敗しました。もう一度お試しください。',
 } as const;
 

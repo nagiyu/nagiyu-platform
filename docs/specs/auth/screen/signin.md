@@ -9,7 +9,7 @@ sources:
   - services/auth/web/src/lib/auth/auth.ts
   - services/auth/web/src/lib/callback-url.ts
   - services/auth/web/src/lib/signin-error-message.ts
-sources_hash: 13426dead11077fcec8ce5cc4e5674b5dd37b4fe12370b61afe996bb283c0d5f
+sources_hash: 4b1878cc805f4a8ce02bdb3d18a3a4f5eace1c81f6b5d96a82a008d712cc1bfb
 terms: [auth/term/callback-url]
 related_cards: [auth/flow/sign-in, auth/screen/auth-error, auth/screen/dashboard]
 related_adr:
@@ -56,8 +56,7 @@ Google アカウントでサインインするためのボタンを 1 つ置い�
 |---|---|---|
 | `OAuthCallbackError` | Google での認証が完了しませんでした。もう一度お試しください。 | Google が失敗を返した (同意画面でキャンセルしたときも) |
 | `MissingCSRF` | 操作の確認に失敗しました。画面を開き直してから、もう一度お試しください。 | サインアウトなど、認証ライブラリへ直接送った操作で CSRF トークンの照合に失敗した (この画面のボタンからのサインインは照合しない) |
-| `Configuration` | サーバー設定に問題があります。管理者にお問い合わせください。 | 認証ライブラリへ直接送ったサインインで、利用者に見せない種類の失敗が起きた (中身を伏せてこの名前にする)。この画面のボタンからのサインインで起きた失敗は、ここへ戻さず例外になる |
-| それ以外の値 | サインインに失敗しました。もう一度お試しください。 | |
+| それ以外の値 | サインインに失敗しました。もう一度お試しください。 | 今の構成では起きない種類や、URL に直接書かれた値 |
 | なし・空 | 帯を出さない | |
 
 - 表の値の完全一致だけを拾い、`__proto__` のようなオブジェクト自身の名前を渡されても「それ以外の値」の文にする
