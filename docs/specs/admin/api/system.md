@@ -11,9 +11,9 @@ sources:
   - libs/nextjs/src/health.ts
   - libs/nextjs/src/session.ts
   - libs/nextjs/src/middleware.ts
-sources_hash: 455fd1f2a7a54356520a85b4f50eb5f3bdb213c91103fec2d3b864bc98810c9c
+sources_hash: 8d41ebfd778371e802defc2f2ba6eb94be019c21f6af374b3ce0cf896d82646b
 terms: [admin/term/permission]
-related_cards: [admin/screen/dashboard]
+related_cards: [admin/screen/dashboard, admin/screen/forbidden]
 ---
 
 # システム系の API
@@ -38,7 +38,7 @@ related_cards: [admin/screen/dashboard]
 ## エラー
 
 - どちらも、ここで返すエラーを決めていない
-- `/api` 以外の画面は、未ログインだと Auth サービスのサインイン画面 (`/signin`) へリダイレクトされる。`/api` はこのリダイレクトの対象外で、各 API が自分で 401 を返す。`SKIP_AUTH_CHECK` が `true` のときは、画面もリダイレクトしない
+- `/api` 以外の画面は、未ログインだと Auth サービスのサインイン画面 (`/signin`) へリダイレクトされる。ログインしていても `users:read` がなければ、元のパスと検索文字列を `from` に付けて [権限なし画面](../screen/forbidden.md) (`/forbidden`) へリダイレクトされる。`/forbidden` 自身は権限を見ない。`/api` はどちらのリダイレクトの対象外で、各 API が自分で 401・403 を返す。`SKIP_AUTH_CHECK` が `true` のときは、画面もリダイレクトしない
 - サインイン画面の場所は、環境変数 `NEXT_PUBLIC_AUTH_URL`、なければ `NEXTAUTH_URL`。どちらもなければ、設定の誤りとして 500 を返す
 
 ## つながり

@@ -51,7 +51,7 @@ Phase 1 は最小限の実装（MVP）とし、早期にデプロイ・動作検
 |---|---|---|---|
 | UC-001 | SSO によるログイン | Auth サービスで認証済みの管理者が、再ログインなしで Admin を使える。JWT がない、または無効なら Auth サービスのサインインへ誘導する | [システム系の API](../../specs/admin/api/system.md)、[ダッシュボード画面](../../specs/admin/screen/dashboard.md) |
 | UC-002 | ユーザー情報の表示 | ダッシュボードで、ログイン中のユーザーの名前、メールアドレス、保有ロール一覧、JWT の有効期限、SSO 連携の動作確認メッセージを見られる。名前と JWT の有効期限は、現状は表示していない (#4690) | [ダッシュボード画面](../../specs/admin/screen/dashboard.md) |
-| UC-003 | ロールベースアクセス制御 (RBAC) | ロールに応じて使える機能を制限し、`admin` は全機能を使える。必要なロールがなければ 403 を返す。ダッシュボードは `admin` または `user-manager` だけが開ける。現状はログインしていれば開ける (#4692) | [権限とロール](../../specs/admin/term/permission.md) |
+| UC-003 | ロールベースアクセス制御 (RBAC) | ロールに応じて使える機能を制限し、`admin` は全機能を使える。必要なロールがなければ 403 を返す。ダッシュボードは `admin` または `user-manager` だけが開ける | [権限とロール](../../specs/admin/term/permission.md) |
 | UC-004 | SNS 通知の受信とプッシュ通知の送信 (自己監視専用) | 新しいエラー通知の仕組み自身 (alarm-ingest・stream-handler・DLQ・error-events テーブル) が障害でも、管理者に Push が届くよう、本流とは独立した経路を持つ。履歴には残さず、Push だけ送る | [SNS 受信 API](../../specs/admin/api/notify-sns.md) |
 | UC-005 | 管理者端末のプッシュ通知の購読 | `admin` ロールの管理者が、ダッシュボードから通知を有効にできる。権限のない利用者は登録できない | [Push 購読の経路](../../specs/admin/flow/push-subscription.md)、[Push 購読 API](../../specs/admin/api/notify.md) |
 | UC-006 | プッシュ通知の受信 | CloudWatch Alarm の発火など、エラーが記録されたとき、ブラウザ (またはホーム画面に追加した Admin PWA) にプッシュ通知が届く | [エラー通知の経路](../../specs/admin/flow/error-notification.md)、[stream-handler](../../specs/admin/batch/stream-handler.md) |
@@ -186,7 +186,7 @@ Phase 1 は最小限の実装（MVP）とし、早期にデプロイ・動作検
 - ログイン中のユーザーの名前、メールアドレス、保有ロールの一覧を表示する。名前は現状は表示していない (#4690)
 - JWT の有効期限と、SSO 連携が動作している旨のメッセージを表示する。有効期限は現状は表示していない (#4690)
 - `admin` ロールの利用者には、プッシュ通知を有効にする操作と無効にする操作を出す。現状は有効にする操作だけで、無効にする操作はない (#4691)
-- `admin` または `user-manager` ロールを持つ利用者だけが開ける。現状はログインしていれば開ける (#4692)
+- `admin` または `user-manager` ロールを持つ利用者だけが開ける
 - JWT の有効期限が切れたときは、Auth サービスへ自動でリダイレクトする
 - ヘッダーとフッターは `@nagiyu/ui` の共通コンポーネントを使う。ヘッダーのアカウントメニューからログアウトできる
 

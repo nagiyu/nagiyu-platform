@@ -12,9 +12,9 @@ sources:
   - services/admin/web/src/middleware.ts
   - libs/browser/src/push.ts
   - libs/common/src/auth/roles.ts
-sources_hash: d4cdb9a3eeb9878a49da3b503db383d96a4d8d04bc3108a018a82f47f1861aaf
+sources_hash: 844b06910cfc20a2d53e178c7e5689526df698c4b995af6386ef995abb0aa09d
 terms: [admin/term/permission, admin/term/push-subscription, platform/term/role]
-related_cards: [admin/screen/errors, admin/api/notify, admin/api/system, admin/flow/push-subscription]
+related_cards: [admin/screen/errors, admin/screen/forbidden, admin/api/notify, admin/api/system, admin/flow/push-subscription]
 ---
 
 # ダッシュボード画面
@@ -26,10 +26,11 @@ related_cards: [admin/screen/errors, admin/api/notify, admin/api/system, admin/f
 - パスは `/dashboard`。`/` を開くと、ここへリダイレクトする
 - ヘッダーの「Admin」(ホームに戻るリンク) から来る
 - 未ログインのときは、Auth サービスのサインイン画面 (`/signin`) へリダイレクトされ、ログイン後に戻る ([システム系の API](../api/system.md))
+- ログインしていても `users:read` がなければ、[権限なし画面](./forbidden.md) (`/forbidden`) へリダイレクトされる
 
 ## 表示の条件
 
-- ログインしていれば、権限がなくても開ける
+- `users:read` を持つ利用者 (`admin` と `user-manager`) だけが開ける
 - カードは権限で出し分ける ([権限とロール](../term/permission.md))
     - 「通知設定」は `notifications:write` を持つときだけ
     - 「エラー履歴」は `errors:read` を持つときだけ

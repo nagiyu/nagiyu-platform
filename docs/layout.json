@@ -113,6 +113,7 @@
     "specs/admin/screen/dashboard.md",
     "specs/admin/screen/error-detail.md",
     "specs/admin/screen/errors.md",
+    "specs/admin/screen/forbidden.md",
     "specs/admin/term/api-error.md",
     "specs/admin/term/error-event-key.md",
     "specs/admin/term/permission.md",
