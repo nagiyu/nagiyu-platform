@@ -6,7 +6,7 @@ sources:
   - services/niconico-mylist-assistant/web/src/lib/niconico-session/index.ts
   - services/niconico-mylist-assistant/core/src/job-input/job-input.ts
   - services/niconico-mylist-assistant/core/src/db/videos.ts
-sources_hash: 0a79aef66a0b5cc6375800c6af44b87b8ede6497d999a3980f285d1b22d7b780
+sources_hash: 161b694eabf24a89d23fa7c5e29124210c2b4435a2dc0b70667afac5a5d5b175
 ---
 
 # マイリスト登録 API

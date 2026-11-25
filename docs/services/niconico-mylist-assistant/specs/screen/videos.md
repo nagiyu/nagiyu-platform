@@ -6,7 +6,7 @@ sources:
   - services/niconico-mylist-assistant/web/src/components/VideoListFilters.tsx
   - services/niconico-mylist-assistant/web/src/components/VideoListPagination.tsx
   - services/niconico-mylist-assistant/web/src/components/VideoDetailModal.tsx
-sources_hash: 71af2db88da9c32a95483310cbdc1b852733b1dc412e646ad71ccceb1851fabc
+sources_hash: 80fd9a8ba7cd7ce3254c15f8fb80743b982785658a956bf49a0a334bca4caa4b
 ---
 
 # 動画管理画面
@@ -23,7 +23,7 @@ sources_hash: 71af2db88da9c32a95483310cbdc1b852733b1dc412e646ad71ccceb1851fabc
 
 | 部分 | 内容 |
 |---|---|
-| 絞り込み | 「お気に入り」(すべて、お気に入りのみ、お気に入り以外)、「スキップ」(すべて、通常動画のみ、スキップ動画のみ)、タイトルの検索欄と「検索」 |
+| 絞り込み | 「お気に入り」(すべて、お気に入りのみ、お気に入り以外)、「スキップ」(すべて、通常動画のみ、スキップ動画のみ)、タイトルと動画 ID の検索欄と「検索」 |
 | 一覧 | 動画のカードを、新しい順に 1 ページ 20 件。画面が広いほど列が増える (狭い画面は 1 列、広い画面は 4 列まで) |
 | ページ送り | 総件数が 20 件を超えるときだけ。「N 件中 a - b 件を表示」と、ページ番号 (先頭・末尾へのボタン付き) |
 | 動画の詳細 | カードを押すと開くダイアログ |
@@ -48,7 +48,7 @@ sources_hash: 71af2db88da9c32a95483310cbdc1b852733b1dc412e646ad71ccceb1851fabc
 | 操作 | 結果 |
 |---|---|
 | 絞り込みを変える | 1 ページ目に戻して取得し直す。絞り込みとページは URL のクエリ (`favorite`、`skip`、`search`、`offset`) に入り、ブラウザの戻る・進むで復元する |
-| 検索 | 入力したタイトルで絞り込む。検索ボタンかエンターキーで実行する (入力しただけでは動かない)。大文字と小文字は区別せず、部分一致 |
+| 検索 | 入力したキーワードが、タイトルか動画 ID のどちらかに含まれるものに絞り込む。検索ボタンかエンターキーで実行する (入力しただけでは動かない)。大文字と小文字は区別せず、部分一致 |
 | ページを変える | そのページを取得し、画面の先頭へ戻る |
 | ハート・スキップの印を押す | 画面の表示を先に切り替えて、[動画 API](../api/videos.md) (`PUT /api/videos/{id}/settings`) に送る。成功したら一覧を取得し直す。失敗したら表示を戻し、「お気に入りの更新に失敗しました」か「スキップの更新に失敗しました」を出す。同じ動画の更新が終わるまで、その動画のボタンは押せない |
 | カードを押す | 動画の詳細を開く |
