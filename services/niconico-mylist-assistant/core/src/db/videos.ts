@@ -240,7 +240,8 @@ export async function listVideosWithSettings(
   }
   if (hasSearchKeyword) {
     filteredVideos = filteredVideos.filter((video) =>
-      video.title.toLowerCase().includes(searchKeyword!)
+      video.title.toLowerCase().includes(searchKeyword!) ||
+      video.videoId.toLowerCase().includes(searchKeyword!)
     );
   }
 
