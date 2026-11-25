@@ -29,6 +29,22 @@ const ERROR_MESSAGES = {
   CLEANUP_FAILED: '一時ファイルのクリーンアップに失敗しました',
 } as const;
 
+/**
+ * ジョブの errorMessage に保存する利用者向けの文言。
+ * 終了コード・stderr・S3 のエラー文などの技術的な内容は、画面と API 応答に出さないため含めない。
+ * 詳細はログと Admin へのエラー報告に残す。
+ */
+export const USER_ERROR_MESSAGES = {
+  DOWNLOAD_FAILED: '動画ファイルの取得に失敗しました。しばらくしてからもう一度お試しください',
+  CONVERT_FAILED:
+    '動画の変換に失敗しました。ファイルが壊れているか、対応していない形式の可能性があります',
+  UPLOAD_FAILED: '変換後のファイルの保存に失敗しました。しばらくしてからもう一度お試しください',
+  UNKNOWN: '変換中にエラーが発生しました。しばらくしてからもう一度お試しください',
+} as const;
+
+/** FFmpeg の stderr として保持する末尾の最大文字数。失敗理由は末尾に出るため末尾を残す */
+export const FFMPEG_STDERR_MAX_LENGTH = 4000;
+
 // 環境変数の型定義
 interface EnvironmentVariables {
   S3_BUCKET: string;
@@ -219,7 +235,8 @@ export async function convertWithFFmpeg(
 
     ffmpeg.stderr.on('data', (data) => {
       const chunk = data.toString();
-      stderr += chunk;
+      // 長時間の変換で際限なく溜まらないよう、追記のたびに末尾だけ残す
+      stderr = (stderr + chunk).slice(-FFMPEG_STDERR_MAX_LENGTH);
       // FFmpeg の進捗情報は stderr に出力されるため、ここから time= を解析する
       if (chunk.includes('time=')) {
         const timeMatch = chunk.match(/time=(\S+)/);
@@ -282,20 +299,27 @@ export async function processJob(
   const inputPath = `/tmp/input-${env.JOB_ID}.mp4`;
   const outputPath = `/tmp/output-${env.JOB_ID}.${CODEC_PARAMS[env.OUTPUT_CODEC].container}`;
 
+  // 失敗した段に応じて、利用者向けの文言を選ぶために現在の段を持つ
+  let userErrorMessage: string = USER_ERROR_MESSAGES.UNKNOWN;
+
   try {
     // ステータスをPROCESSINGに更新
     await updateJobStatus(dynamodbClient, env.DYNAMODB_TABLE_NAME, env.JOB_ID, 'PROCESSING');
 
     // S3から入力ファイルをダウンロード
+    userErrorMessage = USER_ERROR_MESSAGES.DOWNLOAD_FAILED;
     await downloadFromS3(s3Client, env.S3_BUCKET, inputKey, inputPath);
 
     // FFmpegで変換
+    userErrorMessage = USER_ERROR_MESSAGES.CONVERT_FAILED;
     await convertWithFFmpeg(inputPath, outputPath, env.OUTPUT_CODEC);
 
     // S3に出力ファイルをアップロード
+    userErrorMessage = USER_ERROR_MESSAGES.UPLOAD_FAILED;
     await uploadToS3(s3Client, env.S3_BUCKET, outputKey, outputPath);
 
     // ステータスをCOMPLETEDに更新
+    userErrorMessage = USER_ERROR_MESSAGES.UNKNOWN;
     await updateJobStatus(
       dynamodbClient,
       env.DYNAMODB_TABLE_NAME,
@@ -322,7 +346,7 @@ export async function processJob(
         env.JOB_ID,
         'FAILED',
         undefined,
-        errorMessage
+        userErrorMessage
       );
     } catch (updateError) {
       console.error('Failed to update job status to FAILED:', updateError);

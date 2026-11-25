@@ -8,6 +8,8 @@ import {
   processJob,
   main,
   getECSMetadata,
+  USER_ERROR_MESSAGES,
+  FFMPEG_STDERR_MAX_LENGTH,
 } from '../../src/index.js';
 import { S3Client, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import { DynamoDBDocumentClient, UpdateCommand } from '@aws-sdk/lib-dynamodb';
@@ -692,6 +694,149 @@ describe('processJob', () => {
     expect(JSON.parse(reported[0].context)).toEqual(
       expect.objectContaining({ jobId: 'test-job-ffmpeg', outputCodec: 'h264' })
     );
+  });
+
+  describe('FAILED に保存する errorMessage', () => {
+    const env = {
+      S3_BUCKET: 'test-bucket',
+      DYNAMODB_TABLE_NAME: 'test-table',
+      AWS_REGION: 'ap-northeast-1',
+      JOB_ID: 'test-job-message',
+      OUTPUT_CODEC: 'h264' as CodecType,
+    };
+
+    /** FAILED への更新で保存された ErrorMessage を取り出す */
+    const getSavedErrorMessage = (): unknown => {
+      const failedCalls = dynamodbMock
+        .calls()
+        .map((call) => parseUpdateExpression(call.args[0].input as never).set)
+        .filter((set) => set.Status === 'FAILED');
+      expect(failedCalls).toHaveLength(1);
+      return failedCalls[0].ErrorMessage;
+    };
+
+    const mockFFmpegFailure = (stderrOutput: string) => {
+      const mockFFmpeg = {
+        stdout: { on: jest.fn() },
+        stderr: {
+          on: jest.fn((event, callback) => {
+            if (event === 'data') callback(Buffer.from(stderrOutput));
+          }),
+        },
+        on: jest.fn((event, callback) => {
+          if (event === 'close') callback(1);
+        }),
+      } as unknown as ChildProcess;
+      spawnMock.mockReturnValue(mockFFmpeg);
+    };
+
+    const run = () =>
+      processJob(env, new S3Client({ region: 'us-east-1' }), createMockDynamoDBClient());
+
+    beforeEach(() => {
+      dynamodbMock.on(UpdateCommand).resolves({ Attributes: buildJobItem() });
+      jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    });
+
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    it('ダウンロード失敗時は取得失敗の文言だけを保存する', async () => {
+      s3Mock.on(GetObjectCommand).rejects(new Error('AccessDenied: secret-bucket'));
+
+      await expect(run()).rejects.toThrow('S3からのダウンロードに失敗しました');
+
+      expect(getSavedErrorMessage()).toBe(USER_ERROR_MESSAGES.DOWNLOAD_FAILED);
+    });
+
+    it('FFmpeg 失敗時は変換失敗の文言だけを保存し、詳細はログと報告に残す', async () => {
+      s3Mock.on(GetObjectCommand).resolves({
+        Body: Readable.from(['test content']) as SdkStream<Readable>,
+      });
+      mockFFmpegFailure('Invalid data found when processing input');
+
+      await expect(run()).rejects.toThrow(
+        'FFmpegの実行に失敗しました: exit code 1, stderr: Invalid data found when processing input'
+      );
+
+      const saved = getSavedErrorMessage();
+      expect(saved).toBe(USER_ERROR_MESSAGES.CONVERT_FAILED);
+      expect(saved).not.toContain('exit code');
+      expect(saved).not.toContain('stderr');
+      expect(saved).not.toContain('Invalid data');
+
+      const reported = getReportedEvents();
+      expect(reported[0].message).toContain('exit code 1');
+      expect(reported[0].message).toContain('Invalid data found when processing input');
+      expect(console.error).toHaveBeenCalledWith(
+        `Job ${env.JOB_ID} failed:`,
+        expect.stringContaining('Invalid data found when processing input')
+      );
+    });
+
+    it('アップロード失敗時は保存失敗の文言だけを保存する', async () => {
+      s3Mock.on(GetObjectCommand).resolves({
+        Body: Readable.from(['test content']) as SdkStream<Readable>,
+      });
+      s3Mock.on(PutObjectCommand).rejects(new Error('S3 put error'));
+      createReadStreamMock.mockReturnValue(Readable.from(['x']) as unknown as ReadStream);
+      const mockFFmpeg = {
+        stdout: { on: jest.fn() },
+        stderr: { on: jest.fn() },
+        on: jest.fn((event, callback) => {
+          if (event === 'close') callback(0);
+        }),
+      } as unknown as ChildProcess;
+      spawnMock.mockReturnValue(mockFFmpeg);
+
+      await expect(run()).rejects.toThrow('S3へのアップロードに失敗しました');
+
+      expect(getSavedErrorMessage()).toBe(USER_ERROR_MESSAGES.UPLOAD_FAILED);
+    });
+
+    it('最初のステータス更新の失敗時はそれ以外の文言を保存する', async () => {
+      let callCount = 0;
+      dynamodbMock.on(UpdateCommand).callsFake(() => {
+        callCount += 1;
+        if (callCount === 1) throw new Error('DynamoDB update failed');
+        return { Attributes: buildJobItem() };
+      });
+
+      await expect(run()).rejects.toThrow('DynamoDBの更新に失敗しました');
+
+      expect(getSavedErrorMessage()).toBe(USER_ERROR_MESSAGES.UNKNOWN);
+    });
+  });
+
+  it('FFmpeg の stderr は末尾の上限文字数だけを例外に含める', async () => {
+    const head = 'HEAD-' + 'a'.repeat(FFMPEG_STDERR_MAX_LENGTH);
+    const tail = 'b'.repeat(FFMPEG_STDERR_MAX_LENGTH - 10) + 'TAIL-REASON';
+    const mockFFmpeg = {
+      stdout: { on: jest.fn() },
+      stderr: {
+        on: jest.fn((event, callback) => {
+          if (event === 'data') {
+            callback(Buffer.from(head));
+            callback(Buffer.from(tail));
+          }
+        }),
+      },
+      on: jest.fn((event, callback) => {
+        if (event === 'close') callback(1);
+      }),
+    } as unknown as ChildProcess;
+    spawnMock.mockReturnValue(mockFFmpeg);
+
+    const error = await convertWithFFmpeg('/tmp/input.mp4', '/tmp/output.mp4', 'h264').catch(
+      (e: Error) => e
+    );
+
+    const message = (error as Error).message;
+    const stderrPart = message.slice(message.indexOf('stderr: ') + 'stderr: '.length);
+    expect(stderrPart).toHaveLength(FFMPEG_STDERR_MAX_LENGTH);
+    expect(stderrPart.endsWith('TAIL-REASON')).toBe(true);
+    expect(message).not.toContain('HEAD-');
   });
 
   it('ジョブステータス更新失敗時に ErrorEvent が error で報告される', async () => {
