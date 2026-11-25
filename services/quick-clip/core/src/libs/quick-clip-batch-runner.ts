@@ -244,10 +244,15 @@ const buildHighlights = async (
   const analyzer = new FfmpegVideoAnalyzer();
   const motionService = new MotionHighlightService(analyzer);
   const volumeService = new VolumeHighlightService(analyzer);
-  const duration = await analyzer.getDurationSec(localPath);
+  const { durationSec: duration, measured } = await analyzer.measureDuration(localPath);
   // 申告された長さで判定した web 側をすり抜けた動画を、費用のかかる文字起こしより前に止める
   if (maxDurationSec !== undefined && duration > maxDurationSec) {
     throw new DurationLimitExceededError();
+  }
+
+  if (measured) {
+    // 見どころの時刻の上限に使うため、申告値ではなく実際の長さで記録する
+    await updateDurationSec(jobId, duration, tableName, awsRegion);
   }
 
   const initialProgress: AnalysisProgress = {
@@ -389,6 +394,18 @@ const updateAnalysisProgress = async (
   const jobRepo = createJobRepository(docClient, tableName);
   const service = new JobService(jobRepo);
   await service.updateAnalysisProgress(jobId, progress);
+};
+
+const updateDurationSec = async (
+  jobId: string,
+  durationSec: number,
+  tableName: string,
+  awsRegion: string
+): Promise<void> => {
+  const docClient = getDynamoDBDocumentClient(awsRegion);
+  const jobRepo = createJobRepository(docClient, tableName);
+  const service = new JobService(jobRepo);
+  await service.updateDurationSec(jobId, durationSec);
 };
 
 const updateErrorMessage = async (

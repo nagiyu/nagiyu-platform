@@ -26,10 +26,16 @@ export class HighlightService {
     return this.highlightRepository.getById(jobId, highlightId);
   }
 
+  /**
+   * 見どころを更新する。
+   *
+   * @param videoDurationSec - 動画の長さ(秒)。時刻の更新で終了がこれを超えることを拒否する。分からないときは渡さず、上限を見ない
+   */
   public async updateHighlight(
     jobId: string,
     highlightId: string,
-    updates: UpdateHighlightInput
+    updates: UpdateHighlightInput,
+    videoDurationSec?: number
   ): Promise<Highlight> {
     if (jobId.trim().length === 0) {
       throw new Error(DOMAIN_ERROR_MESSAGES.JOB_ID_REQUIRED);
@@ -62,6 +68,10 @@ export class HighlightService {
     const nextEnd = updates.endSec ?? current.endSec;
     if (nextStart >= nextEnd) {
       throw new Error(DOMAIN_ERROR_MESSAGES.RANGE_INVALID);
+    }
+    // 時刻を変えない更新 (status のみ等) は、動画の長さを見ない
+    if ((hasStart || hasEnd) && videoDurationSec !== undefined && nextEnd > videoDurationSec) {
+      throw new Error(DOMAIN_ERROR_MESSAGES.END_EXCEEDS_DURATION);
     }
 
     return this.highlightRepository.update(jobId, highlightId, updates);

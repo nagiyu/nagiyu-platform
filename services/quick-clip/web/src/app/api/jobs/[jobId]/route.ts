@@ -49,12 +49,15 @@ export async function GET(_request: Request, { params }: RouteParams): Promise<N
       );
     }
 
+    const durationField = job.durationSec !== undefined ? { durationSec: job.durationSec } : {};
+
     if (!job.batchJobId) {
       return NextResponse.json({
         jobId: job.jobId,
         status: 'PENDING' as JobStatus,
         originalFileName: job.originalFileName,
         fileSize: job.fileSize,
+        ...durationField,
         createdAt: job.createdAt,
         expiresAt: job.expiresAt,
       });
@@ -75,6 +78,7 @@ export async function GET(_request: Request, { params }: RouteParams): Promise<N
       status,
       originalFileName: job.originalFileName,
       fileSize: job.fileSize,
+      ...durationField,
       createdAt: job.createdAt,
       expiresAt: job.expiresAt,
       ...(status === 'PROCESSING' && job.batchStage ? { batchStage: job.batchStage } : {}),
