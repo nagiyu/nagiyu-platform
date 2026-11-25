@@ -237,14 +237,14 @@ describe('早瀬アゲハ クライアントプロファイル', () => {
     expect(profile.model.name).toBe('早瀬アゲハ');
   });
 
-  it('voice.engine が "OpenAI TTS" である', () => {
+  it('voice.engine が "OpenAI" である', () => {
     const profile = getCharacterClientProfile('ageha');
-    expect(profile.voice.engine).toBe('OpenAI TTS');
+    expect(profile.voice.engine).toBe('OpenAI');
   });
 
-  it('voice.name が "nova" である', () => {
+  it('voice.name が "marin" である', () => {
     const profile = getCharacterClientProfile('ageha');
-    expect(profile.voice.name).toBe('nova');
+    expect(profile.voice.name).toBe('marin');
   });
 });
 

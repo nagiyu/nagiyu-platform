@@ -49,7 +49,7 @@ describe('CompositeVoiceClient', () => {
         defaultProvider: 'voicevox',
       });
 
-      const voice: VoiceConfig = { provider: 'openai', voice: 'nova' };
+      const voice: VoiceConfig = { provider: 'openai', voice: 'marin' };
       const result = await composite.synthesize('テスト', voice);
 
       expect(result).toBe(openAiBuf);
