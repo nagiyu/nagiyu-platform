@@ -7,6 +7,7 @@ import {
   createMessageRepository,
   createNotificationEventRepository,
   createStudyTopicRepository,
+  NOTIFY_EVENT_READ_LIMIT,
 } from '@nagiyu/livetalk-core';
 
 jest.mock('@nagiyu/livetalk-core', () => ({
@@ -59,13 +60,13 @@ function setup(options: {
 describe('loadStatusSnapshot', () => {
   beforeEach(() => jest.clearAllMocks());
 
-  it('会話を通知バッチと同じ直近 7 日から読み、通知の記録を 60 件で読む', async () => {
+  it('会話を通知バッチと同じ直近 7 日から読み、通知の記録をバッチと同じ件数で読む', async () => {
     const { listByUser, listSince } = setup({});
 
     await loadStatusSnapshot('u1', 'hiyori', NOW);
 
     expect(listSince).toHaveBeenCalledWith('u1', 'hiyori', NOW.getTime() - 7 * DAY);
-    expect(listByUser).toHaveBeenCalledWith('u1', 60);
+    expect(listByUser).toHaveBeenCalledWith('u1', NOTIFY_EVENT_READ_LIMIT);
   });
 
   it('7 日より前の会話は判定に入らない', async () => {

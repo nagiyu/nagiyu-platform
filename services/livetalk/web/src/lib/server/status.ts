@@ -1,6 +1,7 @@
 import {
   LIFECYCLE_DEFAULT_BEDTIME,
   LIFECYCLE_DEFAULT_WAKE_UP_TIME,
+  NOTIFY_EVENT_READ_LIMIT,
   computeNextEarliestAt,
   createLifecycleRepository,
   createMessageRepository,
@@ -13,9 +14,6 @@ import {
   type NotificationEventEntity,
   type NotifyDecision,
 } from '@nagiyu/livetalk-core';
-
-/** 通知の記録を読む件数。バッチと違うと、1 日の上限や無視回数の数え方がずれる。 */
-const NOTIFICATION_EVENT_READ_LIMIT = 60;
 
 /** 一覧に出す通知の記録の件数。 */
 const RECENT_NOTIFICATION_COUNT = 5;
@@ -48,7 +46,7 @@ export async function loadStatusSnapshot(
 ): Promise<StatusSnapshot> {
   const [lifecycle, allUserEvents, recentMessages, studyPending] = await Promise.all([
     createLifecycleRepository().get({ userId, characterId }),
-    createNotificationEventRepository().listByUser(userId, NOTIFICATION_EVENT_READ_LIMIT),
+    createNotificationEventRepository().listByUser(userId, NOTIFY_EVENT_READ_LIMIT),
     createMessageRepository().listSince(userId, characterId, resolveNotifyMessageSinceMs(now)),
     createStudyTopicRepository().listByStatus(userId, characterId, 'pending'),
   ]);

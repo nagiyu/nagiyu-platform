@@ -77,8 +77,9 @@ jest.mock('@nagiyu/livetalk-core', () => ({
   NOTIFICATION_EVENT_TTL_SECONDS: 2592000,
   NOTIFY_CRITICAL_CARE_THRESHOLD: 3,
   // 判定に使う会話の読み始めは純粋関数なので実物を使う
-  resolveNotifyMessageSinceMs: jest.requireActual('../../../../core/src/notification/decision.js')
-    .resolveNotifyMessageSinceMs,
+  resolveNotifyMessageSinceMs:
+    jest.requireActual('@nagiyu/livetalk-core').resolveNotifyMessageSinceMs,
+  NOTIFY_EVENT_READ_LIMIT: jest.requireActual('@nagiyu/livetalk-core').NOTIFY_EVENT_READ_LIMIT,
   NOTIFY_SESSION_GAP_MINUTES: 60,
 }));
 

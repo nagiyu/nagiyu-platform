@@ -8,6 +8,7 @@ import {
   createNotificationEventRepository,
   createStudyTopicRepository,
   createMessageRepository,
+  NOTIFY_EVENT_READ_LIMIT,
 } from '@nagiyu/livetalk-core';
 import type {
   LifecycleRepository,
@@ -347,12 +348,12 @@ describe('GET /api/status', () => {
       return listByUser;
     };
 
-    it('通知の記録をバッチと同じ直近 60 件で読む', async () => {
+    it('通知の記録をバッチと同じ件数で読む', async () => {
       const listByUser = setupWithEvents([]);
 
       await GET(buildGetRequest());
 
-      expect(listByUser).toHaveBeenCalledWith('u1', 60);
+      expect(listByUser).toHaveBeenCalledWith('u1', NOTIFY_EVENT_READ_LIMIT);
     });
 
     it('他キャラの本日の平常通知では daily_cap にならず、一覧にも出ない', async () => {

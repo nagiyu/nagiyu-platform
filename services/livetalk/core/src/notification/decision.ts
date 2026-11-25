@@ -173,7 +173,7 @@ export function countTodayNotifications(
 }
 
 /**
- * 平常通知の間隔判定に使う値を算出する（純粋関数）。
+ * 平常通知の間隔判定に使う値を算出する (純粋関数)。
  * shouldNotifyNow と computeNextEarliestAt が同じ計算を共有し、判定と解除予測がずれないようにする。
  */
 function computeIntervalState(
@@ -185,7 +185,7 @@ function computeIntervalState(
   const sessionStarts = extractSessionStartTimes(userMessages, sessionGapMs);
   const intervals = computeSessionIntervals(sessionStarts, NOTIFY_RECENT_SESSION_SAMPLE_N);
 
-  // 強度係数を算出して interval・cap 両方に反映（活発ユーザーほど短間隔・高 cap）
+  // 強度係数を算出して interval・cap 両方に反映 (活発ユーザーほど短間隔・高 cap)
   const intensityFactor = computeIntensityFactor(sessionStarts, now);
   const baseIntervalMs = computeBaseIntervalMs(intervals, intensityFactor);
 
@@ -206,7 +206,7 @@ function computeIntervalState(
 }
 
 /**
- * インターバル条件が解除される最早時刻（ms）を返す。
+ * インターバル条件が解除される最早時刻 (ms) を返す。
  * 活動時間帯ゲート・睡眠帯は考慮しないため、あくまで「インターバル解除の目安」。
  */
 export function computeNextEarliestAt(
@@ -223,7 +223,7 @@ export function computeNextEarliestAt(
 }
 
 /**
- * 通知の判定に使う会話を読み始める時刻（ms）を返す。
+ * 通知の判定に使う会話を読み始める時刻 (ms) を返す。
  * 判定側が直近 NOTIFY_INTENSITY_WINDOW_DAYS 日だけを前提にしているため、
  * 読む側が期間を変えるとセッション間隔や最終会話時刻がバッチとずれる。
  */
