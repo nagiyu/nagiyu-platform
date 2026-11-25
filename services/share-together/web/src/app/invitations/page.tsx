@@ -25,6 +25,8 @@ import {
 export default function InvitationsPage() {
   const [invitations, setInvitations] = useState<InvitationSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  // 取得に失敗したときに「招待はありません。」と出さないよう、成功したかを持つ。
+  const [isInvitationsLoaded, setIsInvitationsLoaded] = useState(false);
   const [rejectTarget, setRejectTarget] = useState<{ groupId: string; groupName: string } | null>(
     null
   );
@@ -45,6 +47,7 @@ export default function InvitationsPage() {
 
         const data = (await response.json()) as InvitationsResponse;
         setInvitations(data.data.invitations);
+        setIsInvitationsLoaded(true);
       } catch (error: unknown) {
         console.error('招待一覧の取得に失敗しました', { error });
         setSnackbarMessage('招待一覧の取得に失敗しました。');
@@ -143,7 +146,7 @@ export default function InvitationsPage() {
         </Typography>
         {isLoading ? (
           <Typography color="text.secondary">読み込み中...</Typography>
-        ) : invitations.length === 0 ? (
+        ) : !isInvitationsLoaded ? null : invitations.length === 0 ? (
           <Typography color="text.secondary">招待はありません。</Typography>
         ) : (
           <Stack spacing={2}>

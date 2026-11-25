@@ -14,7 +14,7 @@ sources:
   - services/share-together/web/src/app/api/invitations/route.ts
   - services/share-together/web/src/app/api/invitations/[groupId]/route.ts
   - services/share-together/core/src/libs/group.ts
-sources_hash: 995df639732430fd8f23e026847bed3e6ea92b12ca1d2bed5ac05c985ce5c436
+sources_hash: 58df79065849f27b7a6e884a791dd15904d84a3cb3e9c194388070b0c81c29dd
 terms: [share-together/term/invitation, share-together/term/group-role]
 related_cards: [share-together/screen/groups, share-together/screen/invitations, share-together/api/group-members, share-together/api/invitations, share-together/screen/lists]
 related_adr:
@@ -70,7 +70,7 @@ sequenceDiagram
 
 | 失敗 | 結果 |
 |---|---|
-| 人数が上限 (送信時: 承認済みと期限内の招待中で 5 名以上) | 招待できない (409 `MEMBER_LIMIT_EXCEEDED`)。画面は、承認済みが 5 名になると入力と送信を押せなくする |
+| 人数が上限 (送信時: 承認済みと期限内の招待中で 5 名以上) | 招待できない (409 `MEMBER_LIMIT_EXCEEDED`)。画面は、承認済みと期限内の招待中の合計が 5 名になると入力と送信を押せなくする |
 | 同じ相手に期限内の招待がある、すでにメンバー | 409 (`ALREADY_INVITED`、`ALREADY_MEMBER`) |
 | 承認のとき、承認済みがすでに 5 名 | 409 `MEMBER_LIMIT_EXCEEDED`。招待は残り、あとで再び承認できる |
 | 承認・拒否のとき、期限が切れていた | 409 `INVITATION_EXPIRED`。画面は一覧から外す |

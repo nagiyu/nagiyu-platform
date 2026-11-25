@@ -11,7 +11,7 @@ sources:
   - services/share-together/web/src/components/CreateItemDialog.tsx
   - services/share-together/web/src/lib/listsQuery.ts
   - services/share-together/web/src/lib/constants/errors.ts
-sources_hash: 64c9844577ee4c2507e1bfcef6f9f26cb75eaba9bc977725dcdc10dc9bbfcaa9
+sources_hash: 70ea1671892545c221f65bde200409862ec4dff3e045be30f0bad08f1fd39499
 terms: [share-together/term/group-role, share-together/term/invitation, share-together/term/shared-list]
 related_cards: [share-together/api/groups, share-together/api/group-members, share-together/api/group-lists, share-together/screen/lists, share-together/flow/group-invitation, share-together/screen/home]
 related_adr:
@@ -69,9 +69,9 @@ related_adr:
 | 送信に成功 | 「招待を送信しました。」を出し、入力欄を空にする。入力を変えると消える |
 | メールアドレスの形式が不正 | 「メールアドレスの形式が正しくありません」。API は呼ばない |
 | API が失敗 | API が返した文言。読めなければ「招待の送信に失敗しました。」 |
-| メンバーが 5 名に達している (オーナーのみ) | 「グループメンバーは最大5名です」を出し、入力と送信が押せなくなる |
+| 承認済みと招待中の合計が 5 名に達している (オーナーのみ) | 「グループメンバーは最大5名です」を出し、入力と送信が押せなくなる |
 
-メンバーの人数は、詳細に出ている承認済みのメンバーの数である。招待中の人は数えない (API は招待中の人も数える。[メンバー API](../api/group-members.md))。
+上限の判定は、詳細に出ている承認済みのメンバーの数と、期限内の招待中の人数 ([メンバー API](../api/group-members.md) の `pendingInvitationCount`) の合計で行う。API と同じ数え方である。招待を送れたら、招待中の人数を 1 増やす。カードのメンバー数は承認済みの数のままである。
 
 ## 操作
 

@@ -22,14 +22,22 @@ describe('GroupsPage', () => {
       if (url === '/api/groups/group-1/members') {
         return Promise.resolve({
           ok: true,
-          json: async () => ({ data: { members: [{ userId: 'user-1' }, { userId: 'user-2' }] } }),
+          json: async () => ({
+            data: {
+              members: [{ userId: 'user-1' }, { userId: 'user-2' }],
+              pendingInvitationCount: 0,
+            },
+          }),
         } as Response);
       }
       if (url === '/api/groups/group-2/members') {
         return Promise.resolve({
           ok: true,
           json: async () => ({
-            data: { members: [{ userId: 'user-2', name: 'ルームメイトユーザー' }] },
+            data: {
+              members: [{ userId: 'user-2', name: 'ルームメイトユーザー' }],
+              pendingInvitationCount: 0,
+            },
           }),
         } as Response);
       }
@@ -100,6 +108,35 @@ describe('GroupsPage', () => {
       expect(screen.getAllByRole('heading', { level: 2, name: 'ルームメイト' })).toHaveLength(2);
     });
     expect(screen.getAllByRole('heading', { level: 2, name: '家族' })).toHaveLength(1);
+  });
+
+  it('メンバー一覧 API の招待中の人数を招待フォームの上限判定に使う', async () => {
+    const original = global.fetch as jest.Mock;
+    global.fetch = jest.fn((input: string | URL | Request) => {
+      if (input.toString() === '/api/groups/group-1/members') {
+        // 読み込み中の表示を挟ませ、取得結果で詳細が作り直されるようにする
+        return new Promise<Response>((resolve) => setTimeout(resolve, 20)).then(
+          () =>
+            ({
+              ok: true,
+              json: async () => ({
+                data: {
+                  members: [
+                    { userId: 'user-1', name: 'a' },
+                    { userId: 'user-2', name: 'b' },
+                  ],
+                  pendingInvitationCount: 3,
+                },
+              }),
+            }) as Response
+        );
+      }
+      return original(input);
+    }) as jest.Mock;
+
+    render(<GroupsPage />);
+
+    expect(await screen.findByText('グループメンバーは最大5名です')).toBeInTheDocument();
   });
 
   describe('グループが 0 件のとき', () => {

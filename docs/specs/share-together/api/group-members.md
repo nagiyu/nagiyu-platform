@@ -8,7 +8,7 @@ sources:
   - services/share-together/web/src/app/api/groups/[groupId]/members/[userId]/route.ts
   - services/share-together/core/src/libs/group.ts
   - services/share-together/web/src/lib/constants/errors.ts
-sources_hash: 8f4d0d96397efa15e6416a4d008b697b3ba1acc525faf3c2d1d3681bbab076c4
+sources_hash: 9978f400abffaf47c9604576a1e69ecf6eb23af606730b85bf635a2201470713
 terms: [share-together/term/group-role, share-together/term/invitation, share-together/term/api-error]
 related_cards: [share-together/screen/groups, share-together/flow/group-invitation, share-together/api/invitations, share-together/api/groups]
 related_adr:
@@ -29,7 +29,7 @@ related_adr:
 
 ## 入力と出力
 
-- 一覧は `{ data: { members: [...] } }`。承認済みのメンバーだけを返し、各メンバーは `userId`、`name`、`email`、`image` (なければ null)、`role`、`joinedAt` (応答の日時、なければ作成の日時)。利用者の登録が見つからないメンバーは除く。並びは決めていない
+- 一覧は `{ data: { members: [...], pendingInvitationCount } }`。`pendingInvitationCount` は期限内の招待中の人数 (招待の上限の判定と同じ数え方で、期限切れは数えない)。画面が招待の上限を API と同じ数え方で判定するために返す。承認済みのメンバーだけを返し、各メンバーは `userId`、`name`、`email`、`image` (なければ null)、`role`、`joinedAt` (応答の日時、なければ作成の日時)。利用者の登録が見つからないメンバーは除く。並びは決めていない
 - 招待の入力は、`userId` と `email` のどちらか一方だけ (前後の空白は除く。両方、またはどちらもなしは 400)
     - メールアドレスは完全一致で探す。大文字と小文字は区別しない ([招待](../term/invitation.md))
     - 201 で `{ groupId, inviteeUserId, inviteeName, status: 'PENDING', createdAt }` を返す

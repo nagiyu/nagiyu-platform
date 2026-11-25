@@ -215,6 +215,34 @@ describe('InvitationsPage', () => {
     });
   });
 
+  describe('一覧の取得', () => {
+    const EMPTY_MESSAGE = '招待はありません。';
+
+    it('0 件で取得できたときは「招待はありません。」を出す', async () => {
+      mockFetch.mockImplementationOnce(() =>
+        Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { invitations: [] } }),
+        } as Response)
+      );
+      render(<InvitationsPage />);
+
+      expect(await screen.findByText(EMPTY_MESSAGE)).toBeInTheDocument();
+    });
+
+    it('取得に失敗したときは通知だけを出し、「招待はありません。」は出さない', async () => {
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+      mockFetch.mockImplementationOnce(() =>
+        Promise.resolve({ ok: false, status: 500 } as Response)
+      );
+      render(<InvitationsPage />);
+
+      expect(await screen.findByText('招待一覧の取得に失敗しました。')).toBeInTheDocument();
+      expect(screen.queryByText(EMPTY_MESSAGE)).not.toBeInTheDocument();
+      consoleErrorSpy.mockRestore();
+    });
+  });
+
   describe('処理中の制御', () => {
     /** PUT の応答を任意のタイミングで返せるようにする */
     function holdNextPut() {
