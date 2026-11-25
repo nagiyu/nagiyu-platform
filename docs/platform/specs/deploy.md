@@ -24,7 +24,7 @@ sources:
   - infra/ui-storybook/bin/ui-storybook.ts
   - infra/ui-storybook/lib/storybook-stack.ts
   - .github/workflows/ui-storybook-deploy.yml
-sources_hash: b84bc0a8d18c85e77ad7fc9e3567153039d406bbb1ba440dd7610737aec135d4
+sources_hash: dc92859ddb33c1444e4b44d7878d18c089c62b3c7dcd6db6617bbacba4b13ef5
 ---
 
 # shared と ui-storybook のデプロイ先
