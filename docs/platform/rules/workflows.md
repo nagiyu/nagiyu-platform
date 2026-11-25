@@ -80,6 +80,7 @@ paths から漏れた変更では、検証が走らないだけで CI は赤く�
 | `infra/tsconfig.json` | `infra/<service>` が継承している場合 |
 | `configs/**` | 共有の tsconfig・eslint・playwright 設定。変更が全サービスに効く |
 | `.github/actions/**` | 共有 composite action。変更が全ワークフローに効く |
+| `.github/scripts/**` | composite action が呼ぶスクリプト |
 | `.node-version` | Node のバージョンを決めるファイル |
 | `package.json`、`package-lock.json` | 依存の変更 |
 | `.github/workflows/<target>-verify.yml` | ワークフロー自体 |
@@ -91,18 +92,31 @@ paths から漏れた変更では、検証が走らないだけで CI は赤く�
 
 マージ後に自動でデプロイするため。`workflow_dispatch` も許可し、環境を手で選べるようにする。環境は `master` なら prod、それ以外なら dev に振り分ける (振り分けの実装は `.github/actions/setup-environment` の action が持つ)。
 
-サービスのデプロイの paths は、検証の paths と同じ考え方で決める。サービス固有の paths に加えて、`libs/**`・`infra/common/**`・`configs/**`・`package.json`・`package-lock.json`・自分のワークフロー・`.github/actions/health-check/**`・`.github/actions/push-ecr-image/**` を入れる。`libs/**` と `infra/common/**` を含めないと、共通部品の修正がそのサービスの次の変更まで dev・prod に反映されない。
+デプロイの paths は、そのワークフローが依存する共有のものを含める。サービス固有の paths に加えて、次を入れる。
 
-検証と違い、`.github/actions/**` 全体は持たない。持つのは、デプロイが使う `health-check` と `push-ecr-image` だけである。`build-docker-image`、`setup-environment`、`setup-node`、`build-web-app` など、ほかの action の変更では、デプロイは動かない。
+| paths | 理由 |
+|---|---|
+| `libs/**`、`infra/common/**` | 含めないと、共通部品の修正がそのサービスの次の変更まで dev・prod に反映されない |
+| `configs/**` | 共有の tsconfig・eslint 設定。ビルドと型検査が読む |
+| `.node-version` | `setup-node` がこのファイルで Node のバージョンを決める |
+| `infra/tsconfig.json` | `infra/<service>` が継承している場合。継承元が変わるとビルドの結果が変わる |
+| `package.json`、`package-lock.json` | 依存の変更 |
+| 自分のワークフロー | ワークフロー自体 |
+| 使う composite action (`.github/actions/<名前>/**`) | 使うものだけを個別に並べる。action の中で使う別の action も並べる |
+| `.github/scripts/docker-build-with-retry.sh` | `build-docker-image` が呼ぶスクリプト。Docker イメージをビルドするデプロイに入れる |
 
-`configs/**` を持たないデプロイがある。
+検証と違い、`.github/actions/**` 全体は持たない。関係のない action を直しただけで、すべてのサービスがデプロイされるのを避けるためである。使うものを並べるので、サービスのデプロイは `build-docker-image`、`build-web-app`、`health-check`、`push-ecr-image`、`setup-environment`、`setup-node` を持つ。
+
+理由は、検証との違いにある。検証は、デプロイの手順を動かさず、成果物も出さない。そのため、これらの共有のものの変更がデプロイを壊していても、検証では気づけない。デプロイの paths に含めなければ、次に別の変更でデプロイされたときに初めて壊れが表に出る。
+
+使わないものは持たない。
 
 | ワークフロー | 持たないもの |
 |---|---|
-| `dev-sync-deploy.yml` | `configs/**`、`.github/actions/health-check/**` |
-| `shared-deploy.yml` | `libs/**`、`configs/**`、`package.json`、`package-lock.json`、`.github/actions` 配下すべて |
+| `dev-sync-deploy.yml` | `build-web-app`、`health-check` (Web アプリを持たない) |
+| `shared-deploy.yml` | `libs/**` (infra だけをデプロイする)。composite action は `setup-environment`、`setup-node` だけ持つ |
 | `docs-pages-deploy.yml` | `libs/**`、`configs/**`、`package.json`、`package-lock.json`、`.github/actions` 配下すべて (`docs/**` と `docs-site/**` を持つ) |
-| `ui-storybook-deploy.yml` | `configs/**`、`.github/actions` 配下すべて (`libs/**` は持つ) |
+| `ui-storybook-deploy.yml` | `setup-node` 以外の composite action (`setup-environment` を使わない) |
 
 ブランチと環境にも例外がある。
 
