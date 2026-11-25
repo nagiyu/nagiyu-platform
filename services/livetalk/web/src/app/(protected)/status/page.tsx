@@ -11,28 +11,12 @@ import { AccessDeniedView, Chip } from '@nagiyu/ui';
 import { formatJstDateTime, hasPermission } from '@nagiyu/common';
 import {
   DEFAULT_CHARACTER_ID,
-  LIFECYCLE_DEFAULT_BEDTIME,
-  LIFECYCLE_DEFAULT_WAKE_UP_TIME,
-  NOTIFY_BACKOFF_BASE,
-  NOTIFY_RECENT_SESSION_SAMPLE_N,
-  NOTIFY_SESSION_GAP_MINUTES,
   SAFETY_REVIEW_DEFAULT_LIMIT,
-  resolveLifecycleState,
-  shouldNotifyNow,
-  extractSessionStartTimes,
-  computeSessionIntervals,
-  computeBaseIntervalMs,
-  computeIntensityFactor,
-  type MessageEntity,
-  type NotificationEventEntity,
   type SafetyEventSummary,
-  createLifecycleRepository,
-  createNotificationEventRepository,
   createSafetyEventRepository,
-  createStudyTopicRepository,
-  createMessageRepository,
 } from '@nagiyu/livetalk-core';
 import { getSession } from '@/lib/server/session';
+import { loadStatusSnapshot } from '@/lib/server/status';
 import {
   hasCharacter,
   getRegisteredCharacterIds,
@@ -40,30 +24,6 @@ import {
 } from '@/lib/characters/registry';
 import StatusCharacterSwitcher from '@/components/StatusCharacterSwitcher';
 import StatusTestPush from '@/components/StatusTestPush';
-
-function computeNextEarliestAt(
-  userMessages: Pick<MessageEntity, 'createdAt'>[],
-  notificationEvents: NotificationEventEntity[],
-  now: Date
-): number {
-  const sessionGapMs = NOTIFY_SESSION_GAP_MINUTES * 60 * 1000;
-  const sessionStarts = extractSessionStartTimes(userMessages, sessionGapMs);
-  const intervals = computeSessionIntervals(sessionStarts, NOTIFY_RECENT_SESSION_SAMPLE_N);
-  // 強度係数を反映（decision.ts と同じロジックでミラーする）
-  const intensityFactor = computeIntensityFactor(sessionStarts, now);
-  const baseIntervalMs = computeBaseIntervalMs(intervals, intensityFactor);
-
-  const lastNormalAt = notificationEvents.find((e) => e.kind === 'normal')?.createdAt ?? 0;
-  const lastInteractionAt =
-    userMessages.length > 0 ? Math.max(...userMessages.map((m) => m.createdAt)) : 0;
-  const referenceTime = Math.max(lastInteractionAt, lastNormalAt);
-
-  const missedCount = notificationEvents.filter(
-    (e) => e.kind === 'normal' && e.createdAt > lastInteractionAt
-  ).length;
-
-  return referenceTime + baseIntervalMs * Math.pow(NOTIFY_BACKOFF_BASE, missedCount);
-}
 
 const REASON_LABELS: Record<string, string> = {
   not_due: 'インターバル未経過',
@@ -101,46 +61,13 @@ export default async function StatusPage({ searchParams }: StatusPageProps) {
   const userId = session.user.id;
   const now = new Date();
 
-  const [lifecycle, allUserEvents, allMessages, studyPending, recentSafetyEvents] =
-    await Promise.all([
-      createLifecycleRepository().get({ userId, characterId }),
-      // バッチと同じ件数で読む。件数が違うと、1 日の上限や無視回数の数え方がバッチとずれる
-      createNotificationEventRepository().listByUser(userId, 60),
-      createMessageRepository().listSince(userId, characterId, 0),
-      createStudyTopicRepository().listByStatus(userId, characterId, 'pending'),
-      createSafetyEventRepository().listRecent(SAFETY_REVIEW_DEFAULT_LIMIT),
-    ]);
-
-  // 通知の記録は利用者単位で返るため、判定と表示は表示キャラのものだけに絞る (バッチと同じ)
-  const notificationEvents = allUserEvents.filter((e) => e.characterId === characterId);
-
-  const bedtime = lifecycle?.bedtime ?? LIFECYCLE_DEFAULT_BEDTIME;
-  const wakeUpTime = lifecycle?.wakeUpTime ?? LIFECYCLE_DEFAULT_WAKE_UP_TIME;
-  const state = resolveLifecycleState(now, bedtime, wakeUpTime);
-  const userMessages = allMessages.filter((m) => m.role === 'user');
-
-  const lifecycleForDecision = lifecycle ?? {
-    userId,
-    characterId,
-    bedtime: LIFECYCLE_DEFAULT_BEDTIME,
-    wakeUpTime: LIFECYCLE_DEFAULT_WAKE_UP_TIME,
-    createdAt: 0,
-    updatedAt: 0,
-  };
-
-  const notifyDecision = shouldNotifyNow({
-    userMessages,
-    lifecycle: lifecycleForDecision,
-    notificationEvents,
-    now,
-  });
-
-  let nextEarliestAt: number | undefined;
-  if (!notifyDecision.notify && notifyDecision.reason === 'not_due') {
-    nextEarliestAt = computeNextEarliestAt(userMessages, notificationEvents, now);
-  }
-
-  const recentNotifications = notificationEvents.slice(0, 5);
+  const [snapshot, recentSafetyEvents] = await Promise.all([
+    loadStatusSnapshot(userId, characterId, now),
+    createSafetyEventRepository().listRecent(SAFETY_REVIEW_DEFAULT_LIMIT),
+  ]);
+  const { lifecycle, notifyDecision, nextEarliestAt, recentNotifications } = snapshot;
+  const { state, bedtime, wakeUpTime } = lifecycle;
+  const studyPendingCount = snapshot.studyTopicPendingCount;
 
   // テスト通知送信用: 登録キャラクターの表示名マップを構築する
   const registeredCharacterIds = getRegisteredCharacterIds();
@@ -170,7 +97,7 @@ export default async function StatusPage({ searchParams }: StatusPageProps) {
       <Typography variant="body2" sx={{ mb: 0.5 }}>
         就寝: {bedtime} / 起床: {wakeUpTime}
       </Typography>
-      {lifecycle?.userActivityProfile ? (
+      {lifecycle.userActivityProfile ? (
         <Box sx={{ mb: 1 }}>
           <Typography variant="body2">
             活動プロファイル: 朝 {lifecycle.userActivityProfile.morningPeak} / 夕{' '}
@@ -261,7 +188,7 @@ export default async function StatusPage({ searchParams }: StatusPageProps) {
       <Typography variant="subtitle2" sx={{ mb: 0.5, fontWeight: 'bold' }}>
         コンテンツ
       </Typography>
-      <Typography variant="body2">STUDY_TOPIC (pending): {studyPending.length} 件</Typography>
+      <Typography variant="body2">STUDY_TOPIC (pending): {studyPendingCount} 件</Typography>
 
       <Divider sx={{ my: 1.5 }} />
 

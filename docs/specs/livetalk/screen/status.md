@@ -6,11 +6,12 @@ service: livetalk
 sources:
   - services/livetalk/web/src/app/(protected)/status/page.tsx
   - services/livetalk/web/src/app/(protected)/layout.tsx
+  - services/livetalk/web/src/lib/server/status.ts
   - services/livetalk/web/src/components/StatusCharacterSwitcher.tsx
   - services/livetalk/web/src/components/StatusTestPush.tsx
   - services/livetalk/core/src/notification/decision.ts
   - services/livetalk/core/src/constants.ts
-sources_hash: e4a4b99625fa8713e85e9b41992e085c178e9765946a029326352d7f3fc657b1
+sources_hash: 80f75b45a99afcba03196baea3d7fc25ebc2724d5ecbb6bb7d2af0c689370bc4
 terms: [livetalk/term/permission, livetalk/term/lifecycle, livetalk/term/notification-event, livetalk/term/user-activity-profile, livetalk/term/safety, livetalk/term/character]
 related_cards: [livetalk/api/status, livetalk/api/push-notification, livetalk/batch/notify, livetalk/screen/home]
 related_adr:
@@ -43,6 +44,7 @@ related_adr:
 | テスト通知送信 | キャラクターごとのボタン。判定を介さず、その場で送る |
 | セーフティ横断レビュー | 直近 50 件の検出を、全利用者を横断して新しい順に並べる。日時、トリガー (キーワード検出か Moderation)、キャラクター、検出したパターン、利用者の ID。入力の文と応答の文は出さない |
 
+- 通知判定に使う会話は、通知バッチと同じ直近 7 日の分だけを読む。7 日より前の発話は、セッションの間隔にも最後の発話の時刻にも入らない
 - 通知判定と直近通知履歴は、表示キャラクターの通知の記録だけを使う。通知の記録は利用者の直近 60 件 (通知バッチと同じ件数) を読み、そこから表示キャラクターのものに絞る。他のキャラクターの通知は、1 日の上限・無視の回数・基準時刻にも履歴にも効かない
 - 通知判定は、通知バッチの平常通知の判定と同じ関数を使う ([通知バッチ](../batch/notify.md))
 - 日時は、サーバーが画面を描いた時刻を基準にする。画面を開き直すまで更新されない

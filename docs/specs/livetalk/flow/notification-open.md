@@ -12,7 +12,7 @@ sources:
   - services/livetalk/web/src/app/api/push/first-word/route.ts
   - services/livetalk/web/src/app/api/push/pending/route.ts
   - services/livetalk/web/src/app/api/push/consumed/route.ts
-sources_hash: 80ad58cf5a410101d32d1df022e7b0afa6c780ba05916a3cc3447dc320a515e4
+sources_hash: 8d16dd6d419be3a0c9053151ee664aa68b72da70370646274ab2130334cdb7a0
 terms: [livetalk/term/notification-event, livetalk/term/character]
 related_cards: [livetalk/batch/notify, livetalk/api/push, livetalk/api/push-notification, livetalk/screen/home, livetalk/screen/status]
 related_adr:

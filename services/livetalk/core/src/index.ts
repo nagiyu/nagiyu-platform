@@ -320,6 +320,8 @@ export { buildNotifSK, buildNotifSKPrefix } from './mappers/keys.js';
 // Notification logic（Phase 5d / #3346）
 export {
   shouldNotifyNow,
+  computeNextEarliestAt,
+  resolveNotifyMessageSinceMs,
   extractSessionStartTimes,
   computeSessionIntervals,
   computeBaseIntervalMs,

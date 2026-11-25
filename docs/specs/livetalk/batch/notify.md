@@ -13,7 +13,7 @@ sources:
   - services/livetalk/core/src/study/active-window.ts
   - services/livetalk/core/src/study/freshness-check.ts
   - services/livetalk/core/src/constants.ts
-sources_hash: 86b47202148c02652671727f3712d0c3ee1797740381c1a455babadb811add5d
+sources_hash: d02ec48a804aff3de922012ea3ece7328eae4aa57156460deccc0a1eca374a8c
 terms: [livetalk/term/care, livetalk/term/topic, livetalk/term/web-fact, livetalk/term/lifecycle, livetalk/term/user-activity-profile, livetalk/term/study-pause, livetalk/term/freshness-check-request]
 related_cards: [admin/flow/error-notification, livetalk/batch/acquire, livetalk/batch/learn-user-activity, livetalk/flow/notification-open, livetalk/api/push-notification]
 related_adr:
@@ -91,6 +91,7 @@ flowchart TD
 | 活動時間帯 | [活動時間プロファイル](../term/user-activity-profile.md)があるとき、ピークの前後 90 分以外では通知しない |
 | 間隔 | 基準時刻 (最後の利用者の発話と最後の平常通知の遅い方) からの経過が、実効の間隔に届いていなければ通知しない |
 
+- 判定に使う会話は、直近 7 日の分だけを読む。7 日より前の発話は、セッションの間隔にも最後の発話の時刻にも入らない。[ステータス画面](../screen/status.md)と[ステータス API](../api/status.md)も同じ期間で読む
 - 実効の間隔は、直近の会話セッション (60 分以上空いたら別セッション) の間隔の中央値を、会話の活発さの係数で割って、4 時間〜14 日に収めた値。サンプルがなければ 24 時間
 - 反応のない平常通知を重ねるたびに、実効の間隔を 1.5 倍にする (最後の発話以降に送った件数だけ)
 - 活発さの係数は、直近 7 日の 1 日あたりセッション数を 1.5 で割った値で、1〜3 の範囲。1 日の上限は、この係数を丸めた値で 1〜3 件

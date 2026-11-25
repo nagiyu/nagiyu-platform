@@ -32,7 +32,7 @@ import {
   defaultUlidFactory,
   NOTIFICATION_EVENT_TTL_SECONDS,
   NOTIFY_CRITICAL_CARE_THRESHOLD,
-  NOTIFY_INTENSITY_WINDOW_DAYS,
+  resolveNotifyMessageSinceMs,
   NOTIFY_SESSION_GAP_MINUTES,
 } from '@nagiyu/livetalk-core';
 
@@ -374,8 +374,7 @@ async function evaluateCharacter(params: {
     'ひより';
 
   // 直近 NOTIFY_INTENSITY_WINDOW_DAYS 日のメッセージを時刻範囲で取得（強度サンプリング用）
-  const intensityWindowMs = NOTIFY_INTENSITY_WINDOW_DAYS * 24 * 60 * 60 * 1000;
-  const sinceMs = now.getTime() - intensityWindowMs;
+  const sinceMs = resolveNotifyMessageSinceMs(now);
   const recentMessages = await messageRepo.listSince(userId, characterId, sinceMs);
   const userMessages = recentMessages.filter((m) => m.role === 'user');
 
@@ -576,8 +575,7 @@ async function computeUserDailyNormalCap(params: {
   const { userId, allCharacterIds, messageRepo, now } = params;
 
   const sessionGapMs = NOTIFY_SESSION_GAP_MINUTES * 60 * 1000;
-  const intensityWindowMs = NOTIFY_INTENSITY_WINDOW_DAYS * 24 * 60 * 60 * 1000;
-  const sinceMs = now.getTime() - intensityWindowMs;
+  const sinceMs = resolveNotifyMessageSinceMs(now);
 
   let maxFactor = 1;
 
