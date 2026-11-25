@@ -9,7 +9,7 @@ sources:
   - services/quick-clip/core/src/libs/transcription.service.ts
   - services/quick-clip/core/src/libs/emotion-highlight.service.ts
   - services/quick-clip/core/src/libs/usage.service.ts
-sources_hash: 3c65556d0a77a0f452c828bf85fc89c459274a1b3cce9621fbdd2af6c0183a8a
+sources_hash: fb0bad75bdbc16ebc469369e06b6dbfd2bc50599898f51e55d4997d10dd28131
 terms: [quick-clip/term/transcript]
 related_cards: [quick-clip/batch/extract, quick-clip/api/jobs, quick-clip/flow/usage-metering, quick-clip/screen/upload, quick-clip/term/usage-tier]
 related_adr:
@@ -25,7 +25,7 @@ OpenAI を使う 2 つの処理、[文字起こし](./transcript.md)と感情分
 
 | 処理 | 内容 |
 |---|---|
-| 文字起こし | 音声を `whisper-1` (日本語) でテキストにする |
+| 文字起こし | 音声を発話の区間に分け、`gpt-transcribe` (日本語) でテキストにする |
 | 感情分析 | 文字起こしの各行に、`laugh`、`excite`、`touch`、`tension` の 4 つの感情を 0.0〜1.0 で付ける。モデルは `gpt-5.6-luna` |
 
 - 利用者は、アップロードの前に AI 解析をするかを選ぶ。選ばなかったときは、AI 解析ありの残りがあればあり、なければなしで受ける ([ジョブ API](../api/jobs.md))

@@ -8,7 +8,7 @@ sources:
   - services/quick-clip/web/src/app/api/jobs/[jobId]/transcript/route.ts
   - services/quick-clip/web/src/app/jobs/[jobId]/highlights/page.tsx
   - services/quick-clip/lambda/zip/src/handler.ts
-sources_hash: 308a24c4bc66762e5a634774aad4eeb303f1e6dca367dfa510c86535b3ab9b59
+sources_hash: 51456368bcf19c9aaa846f635fc8653bacb2deea9aff0d18510cf8fa64e388f1
 related_cards: [quick-clip/batch/extract, quick-clip/batch/zip-generate, quick-clip/api/transcript, quick-clip/screen/highlights, quick-clip/term/ai-analysis]
 related_adr:
   - services/quick-clip/architecture.md#ADR-015
@@ -25,7 +25,8 @@ related_adr:
 - 見どころの区間に重なる行は、`start` が見どころの終了より前で、`end` が見どころの開始より後の行。境界で接するだけの行は重ならない
     - 見どころ確認画面は、選んだ見どころの重なる行を改行で並べて出す。重なる行がなければ出さない。時刻を調整すると、重なる行も変わる
     - [ZIP の生成](../batch/zip-generate.md)は、重なる行を改行でつないだテキストを `clip-NN.txt` にして入れる。空なら入れない
-- 文字起こしのとき、信頼できない行を捨てる。無音声の確率が 0.6 を超えるもの、平均の対数尤度が -1.0 を下回るもの、圧縮率が 2.4 を超える (繰り返しの) ものである
+- 1 行は、音声を無音で区切った 1 区間にあたる ([抽出バッチ](../batch/extract.md)の④)。`start` と `end` は区間の端で、話し始めと話し終わりの時刻とは限らない。無音が少ない動画では、1 行が最長 30 秒になる
+- 無音の区間は送らない。テキストが空の区間は行にしない。文字起こしの結果の信頼度による行の除外はしない (モデルが信頼度を返さないため)
 - ファイルは、生成したクリップと同じく作成の 24 時間後に消える
 
 ## 関連するカード
