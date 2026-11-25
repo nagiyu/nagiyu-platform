@@ -19,6 +19,7 @@ on:
       - '.github/workflows/quick-clip-deploy.yml'
       - '.github/actions/build-docker-image/**'
       - '.github/actions/build-web-app/**'
+      - '.github/actions/get-stack-output/**'
       - '.github/actions/health-check/**'
       - '.github/actions/push-ecr-image/**'
       - '.github/actions/setup-environment/**'
@@ -482,46 +483,18 @@ jobs:
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Get Lambda Function URL
-        id: get-lambda-url
-        env:
-          STACK_SUFFIX: ${{ needs.infrastructure-ecr.outputs.stack-suffix }}
-        run: |
-          STACK_NAME="NagiyuQuickClipLambda${STACK_SUFFIX}"
-          FUNCTION_URL=$(aws cloudformation describe-stacks \
-            --stack-name "$STACK_NAME" \
-            --query "Stacks[0].Outputs[?OutputKey=='FunctionUrl'].OutputValue" \
-            --output text \
-            --region "${{ env.AWS_REGION }}")
-
-          echo "function-url=$FUNCTION_URL" >> "$GITHUB_OUTPUT"
-          echo "Function URL: $FUNCTION_URL"
-
-      - name: Get CloudFront URL
+      - name: Get CloudFront domain
         id: get-cloudfront-url
-        env:
-          STACK_SUFFIX: ${{ needs.infrastructure-ecr.outputs.stack-suffix }}
-        run: |
-          CF_DOMAIN=$(aws cloudformation describe-stacks \
-            --stack-name "NagiyuQuickClipCloudFront${STACK_SUFFIX}" \
-            --query "Stacks[0].Outputs[?OutputKey=='DistributionDomainName'].OutputValue" \
-            --output text \
-            --region "${{ env.AWS_REGION }}")
-
-          # ドメインが空のまま https:// だけが渡ると URL の欠落をヘルスチェックが検出できないため、空のときは空のまま渡す
-          if [ -n "$CF_DOMAIN" ]; then
-            BASE_URL="https://${CF_DOMAIN}"
-          else
-            BASE_URL=""
-          fi
-
-          echo "base-url=$BASE_URL" >> "$GITHUB_OUTPUT"
-          echo "CloudFront URL: $BASE_URL"
+        uses: ./.github/actions/get-stack-output
+        with:
+          stack-name: NagiyuQuickClipCloudFront${{ needs.infrastructure-ecr.outputs.stack-suffix }}
+          region: ${{ env.AWS_REGION }}
+          output-key: DistributionDomainName
 
       - name: Verify deployment
         uses: ./.github/actions/health-check
         with:
-          base-url: ${{ steps.get-cloudfront-url.outputs.base-url }}
+          base-url: https://${{ steps.get-cloudfront-url.outputs.value }}
 
       - name: Display deployment information
         env:

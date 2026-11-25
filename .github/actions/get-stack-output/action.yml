@@ -1,0 +1,35 @@
+name: Get Stack Output
+description: CloudFormation スタックの出力値を取得する。スタックやキーが無く値が取れないときは失敗させる
+
+inputs:
+  stack-name:
+    description: 出力を取得する CloudFormation スタック名
+    required: true
+  output-key:
+    description: 取得する出力の OutputKey
+    required: true
+  region:
+    description: スタックのあるリージョン
+    required: false
+    default: us-east-1
+
+outputs:
+  value:
+    description: 取得した出力値
+    value: ${{ steps.get.outputs.value }}
+
+runs:
+  using: composite
+  steps:
+    - name: Get stack output
+      id: get
+      shell: bash
+      env:
+        # 入力をシェル文字列へ直接埋め込むとインジェクションになるため、env 経由で渡す
+        GET_STACK_OUTPUT_STACK_NAME: ${{ inputs.stack-name }}
+        GET_STACK_OUTPUT_KEY: ${{ inputs.output-key }}
+        GET_STACK_OUTPUT_REGION: ${{ inputs.region }}
+        # コンテナのジョブでは、run に式で埋め込んだ action_path がランナー側のパスのまま残り、スクリプトが見つからない。
+        # env に渡すとコンテナの中のパスに置き換わるため、env 経由で受け取る
+        GET_STACK_OUTPUT_ACTION_PATH: ${{ github.action_path }}
+      run: '"$GET_STACK_OUTPUT_ACTION_PATH/get-stack-output.sh"'

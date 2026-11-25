@@ -3,7 +3,7 @@ sources:
   - infra/tools/bin/tools.ts
   - infra/tools/lib/cloudfront-stack.ts
   - .github/workflows/tools-deploy.yml
-sources_hash: ad97201cfe1595e417f4c119ef26fe0326f3700fe7d230be96c888418d02745d
+sources_hash: 3a65c69d374b87b5b327928b8f438c39e0bc7a52d3caeeba915cb256a5249928
 ---
 
 # Tools のデプロイ先

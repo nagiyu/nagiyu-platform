@@ -3,7 +3,7 @@ sources:
   - infra/admin/bin/admin.ts
   - infra/admin/lib/cloudfront-stack.ts
   - .github/workflows/admin-deploy.yml
-sources_hash: 9e5d9fc4e21fffdafc8b0183f2baa094b796ed644985e4529358a867b1c475eb
+sources_hash: c21f04d40a225698cc96577075cf27a616d26f3b06b49abeca554999a957bdc4
 ---
 
 # Admin のデプロイ先

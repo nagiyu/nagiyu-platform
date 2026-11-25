@@ -18,6 +18,7 @@ on:
       - '.github/workflows/auth-deploy.yml'
       - '.github/actions/build-docker-image/**'
       - '.github/actions/build-web-app/**'
+      - '.github/actions/get-stack-output/**'
       - '.github/actions/health-check/**'
       - '.github/actions/push-ecr-image/**'
       - '.github/actions/setup-environment/**'
@@ -215,7 +216,6 @@ jobs:
     environment: ${{ needs.build.outputs.environment }}
 
     outputs:
-      lambda-function-url: ${{ steps.get-lambda-url.outputs.function-url }}
       cloudfront-domain: ${{ steps.get-cloudfront.outputs.cloudfront-domain }}
 
     # 検査と同じ実行環境でビルドとデプロイを行うため、共通イメージの上で動かす。docker のデーモンはランナーのものを使う
@@ -281,45 +281,24 @@ jobs:
             --all \
             --require-approval never
 
-      - name: Get Lambda Function URL
-        id: get-lambda-url
-        env:
-          ENVIRONMENT: ${{ needs.build.outputs.environment }}
-        run: |
-          FUNCTION_URL=$(aws cloudformation describe-stacks \
-            --stack-name "NagiyuAuthLambda$(echo $ENVIRONMENT | sed 's/\(.\)/\U\1/')" \
-            --query "Stacks[0].Outputs[?OutputKey=='FunctionUrl'].OutputValue" \
-            --output text \
-            --region "${{ env.AWS_REGION }}" 2>/dev/null || echo "")
+      - name: Setup CloudFront stack name
+        id: cloudfront-stack
+        uses: ./.github/actions/setup-environment
+        with:
+          stack-name-prefix: NagiyuAuthCloudFront
 
-          echo "function-url=$FUNCTION_URL" >> "$GITHUB_OUTPUT"
-          echo "Lambda Function URL: $FUNCTION_URL"
-
-      - name: Get CloudFront URL
+      - name: Get CloudFront domain
         id: get-cloudfront-url
-        env:
-          ENVIRONMENT: ${{ needs.build.outputs.environment }}
-        run: |
-          CF_DOMAIN=$(aws cloudformation describe-stacks \
-            --stack-name "NagiyuAuthCloudFront$(echo $ENVIRONMENT | sed 's/\(.\)/\U\1/')" \
-            --query "Stacks[0].Outputs[?OutputKey=='DistributionDomainName'].OutputValue" \
-            --output text \
-            --region "${{ env.AWS_REGION }}")
-
-          # ドメインが空のまま https:// だけが渡ると URL の欠落をヘルスチェックが検出できないため、空のときは空のまま渡す
-          if [ -n "$CF_DOMAIN" ]; then
-            BASE_URL="https://${CF_DOMAIN}"
-          else
-            BASE_URL=""
-          fi
-
-          echo "base-url=$BASE_URL" >> "$GITHUB_OUTPUT"
-          echo "CloudFront URL: $BASE_URL"
+        uses: ./.github/actions/get-stack-output
+        with:
+          stack-name: ${{ steps.cloudfront-stack.outputs.stack-name }}
+          region: ${{ env.AWS_REGION }}
+          output-key: DistributionDomainName
 
       - name: Invoke health check
         uses: ./.github/actions/health-check
         with:
-          base-url: ${{ steps.get-cloudfront-url.outputs.base-url }}
+          base-url: https://${{ steps.get-cloudfront-url.outputs.value }}
 
   cloudfront-invalidation:
     name: CloudFront Invalidation
@@ -429,13 +408,6 @@ jobs:
           echo "| Lambda Deploy | ${{ needs.deploy.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| CloudFront Invalidation | ${{ needs.cloudfront-invalidation.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-
-          # Lambda Function URL
-          if [ -n "${{ needs.deploy.outputs.lambda-function-url }}" ]; then
-            echo "### Lambda Function URL" >> $GITHUB_STEP_SUMMARY
-            echo "${{ needs.deploy.outputs.lambda-function-url }}" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-          fi
 
           # CloudFront Domain
           CF_DOMAIN=$(aws cloudformation describe-stacks \

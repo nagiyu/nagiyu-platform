@@ -12,6 +12,8 @@ sources:
   - infra/common/src/stacks/ecr-stack-base.ts
   - infra/common/src/constants/defaults.ts
   - .github/actions/setup-environment/action.yml
+  - .github/actions/get-stack-output/action.yml
+  - .github/actions/get-stack-output/get-stack-output.sh
   - .github/actions/health-check/action.yml
   - .github/actions/health-check/health-check.sh
   - infra/shared/bin/shared.ts
@@ -24,7 +26,7 @@ sources:
   - infra/ui-storybook/bin/ui-storybook.ts
   - infra/ui-storybook/lib/storybook-stack.ts
   - .github/workflows/ui-storybook-deploy.yml
-sources_hash: 9dbec505aed9bd28ee9aa438362230da0b5af69b33e677453cb0467b8e715500
+sources_hash: c1f8cf6abbf572315d4a50001296d8d29cca0c81e58f347f8cffd9dfcd7aa5c2
 ---
 
 # shared と ui-storybook のデプロイ先
@@ -152,6 +154,8 @@ Lambda@Edge の複製は、配信から外したあとも数時間残る。そ�
 `.github/actions/health-check/action.yml` が、呼び出し側が渡した URL (`base-url`) にパスを足して GET し、200 が返るまで再試行する。既定のパスは `/api/health`、最大 10 回、間隔 10 秒で、尽きたらジョブを失敗させる。再試行と失敗の扱いは `.github/actions/health-check/health-check.sh` が決める。URL が空のときも失敗させる。
 
 叩く先はサービスごとに違う (ALB の DNS 名、CloudFront のドメイン)。Lambda の Function URL を CloudFront で配信するサービスは、Function URL ではなく CloudFront のドメインを叩く。署名つきの経路 (上の「Function URL の配信 (OAC)」) を含めて確かめるためである。サービスの文書は、どこを叩くか (またはヘルスチェックがないこと) だけを書く。
+
+CloudFront のドメインは、`.github/actions/get-stack-output/action.yml` が CloudFormation のスタックの出力から取る (スタック名、`OutputKey`、リージョン (既定 `us-east-1`) を渡す)。呼び出し側は、取れた値 (`value`) の前に `https://` を付けて `base-url` に渡す。`aws cloudformation describe-stacks` の失敗はそのまま失敗にする。スタックにそのキーの出力がなく値が空、または `None` (`--output text` がキーの無いときに返す) のときは、スタック名とキーを示して失敗させる (`.github/actions/get-stack-output/get-stack-output.sh`)。空の値を後ろに渡すと、ヘルスチェックの手前で欠落に気づけないためである。
 
 ### ECR リポジトリ
 

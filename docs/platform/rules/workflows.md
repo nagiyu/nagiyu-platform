@@ -105,7 +105,7 @@ paths から漏れた変更では、検証が走らないだけで CI は赤く�
 | 使う composite action (`.github/actions/<名前>/**`) | 使うものだけを個別に並べる。action の中で使う別の action も並べる |
 | `.github/scripts/docker-build-with-retry.sh` | `build-docker-image` が呼ぶスクリプト。Docker イメージをビルドするデプロイに入れる |
 
-検証と違い、`.github/actions/**` 全体は持たない。関係のない action を直しただけで、すべてのサービスがデプロイされるのを避けるためである。使うものを並べるので、サービスのデプロイは `build-docker-image`、`build-web-app`、`health-check`、`push-ecr-image`、`setup-environment`、`setup-node` を持つ。
+検証と違い、`.github/actions/**` 全体は持たない。関係のない action を直しただけで、すべてのサービスがデプロイされるのを避けるためである。使うものを並べるので、サービスのデプロイは `build-docker-image`、`build-web-app`、`get-stack-output`、`health-check`、`push-ecr-image`、`setup-environment`、`setup-node` を持つ。
 
 理由は、検証との違いにある。検証は、デプロイの手順を動かさず、成果物も出さない。そのため、これらの共有のものの変更がデプロイを壊していても、検証では気づけない。デプロイの paths に含めなければ、次に別の変更でデプロイされたときに初めて壊れが表に出る。
 
@@ -124,7 +124,8 @@ paths から漏れた変更では、検証が走らないだけで CI は赤く�
 
 | ワークフロー | 持たないもの |
 |---|---|
-| `dev-sync-deploy.yml` | `build-web-app`、`health-check` (Web アプリを持たない) |
+| `dev-sync-deploy.yml` | `build-web-app`、`get-stack-output`、`health-check` (Web アプリを持たない) |
+| `livetalk-deploy.yml` | `get-stack-output` (ヘルスチェックの宛先の ALB の DNS 名を SSM から取る) |
 | `shared-deploy.yml` | `libs/**` (infra だけをデプロイする)。composite action は `setup-environment`、`setup-node` だけ持つ |
 | `docs-pages-deploy.yml` | `libs/**`、`configs/**`、`package.json`、`package-lock.json`、`.github/actions` 配下すべて (`docs/**` と `docs-site/**` を持つ) |
 | `ui-storybook-deploy.yml` | `setup-node` 以外の composite action (`setup-environment` を使わない) |
