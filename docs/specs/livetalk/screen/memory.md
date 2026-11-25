@@ -10,7 +10,7 @@ sources:
   - services/livetalk/web/src/components/MemoryDeleteDialog.tsx
   - services/livetalk/web/src/lib/memory/messages.ts
   - services/livetalk/web/src/lib/memory/api-client.ts
-sources_hash: b031c3c6d719679c164e82e25c49be14ccc446c06d4dc70c1ca543c7ae24370f
+sources_hash: a7a521b37f5c91503708f92688794c42d3e6ae4e81f41be27a006cc5b216f98c
 terms: [livetalk/term/self-fact, livetalk/term/topic, livetalk/term/character, livetalk/term/permission]
 related_cards: [livetalk/screen/home, livetalk/api/memory]
 related_adr:
