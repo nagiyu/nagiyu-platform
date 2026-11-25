@@ -13,7 +13,7 @@ TypeScript の型・クラスの書き方と、ブラウザ API の使い方の�
 
 ### `strict` を有効にする
 
-`configs/tsconfig.base.json` が `strict: true` を持ち、サービスの Web (`configs/tsconfig.web.json` 経由) とライブラリはこれを継承する。インフラ (`infra/`) は `infra/tsconfig.json` が自分で `strict` を有効にしている。型の誤りを実行前に見つけ、実行時エラーや予期しない動作を減らすためである。各パッケージの tsconfig で `strict` を外さない。
+`configs/tsconfig.base.json` が `strict: true` を持ち、libs・core・batch・`lambda/*`・`docs-site` はこれを継承し、web は `configs/tsconfig.web.json` 経由で継承する。infra は、`infra/common` が `tsconfig.base.json` を継承し、ほかは `infra/tsconfig.json` (または `infra/auth`・`infra/codec-converter`・`infra/shared` の自前の tsconfig) が自分で `strict` を有効にしている。型の誤りを実行前に見つけ、実行時エラーや予期しない動作を減らすためである。各パッケージの tsconfig で `strict` を外さない。
 
 ### 型とデフォルト値は、セットで定義する
 
@@ -60,6 +60,4 @@ useEffect(() => {
 }, []);
 ```
 
-### ブラウザ API は、`@nagiyu/browser` に実装があればそれを使う
-
-`localStorage` と Clipboard などは、`navigator.clipboard` や `window.localStorage` を直接触らず、`@nagiyu/browser` の関数を使う。SSR の対応、例外の処理、テストでのモックの差し替えが、サービスごとにばらばらにならないためである。使い方は [localStorage](../specs/lib/browser/local-storage.md)、[Clipboard](../specs/lib/browser/clipboard.md) にある。
+`localStorage` と Clipboard の呼び出しを `@nagiyu/browser` のラッパーに任せる規則は [共通ライブラリの規約](./shared-libraries.md) にある。

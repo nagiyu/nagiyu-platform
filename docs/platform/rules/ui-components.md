@@ -13,7 +13,7 @@ sources_hash: 8a9a480804407c75b0339cee637a447bd7050d7bf42d05862e228662a6f1a298
 
 ### ラップ済みの MUI コンポーネントは、サービスから直接 import せず `@nagiyu/ui` から import する
 
-対象は `Button`、`TextField`、`Checkbox`、`Chip`、`Link`、`Select`、`MenuItem`、`FormControl`、`InputLabel` である。`@mui/material` からの import と、`@mui/material/Button` のような個別パスからの import のどちらも `no-restricted-imports` がエラーにする。設定は `configs/eslint.config.no-restricted-mui.mjs` にあり、`configs/eslint.config.web.mjs` が取り込む。サービスの `eslint.config.mjs` は `eslint.config.web.mjs` を spread して使う。
+対象は `Button`、`TextField`、`Checkbox`、`Chip`、`Link`、`Select`、`MenuItem`、`FormControl`、`InputLabel` である。`@mui/material` からの import と、`@mui/material/Button` のような個別パスからの import のどちらも `no-restricted-imports` がエラーにする。設定は `configs/eslint.config.no-restricted-mui.mjs` にあり、`configs/eslint.config.web.mjs` が取り込む。サービスの `eslint.config.mjs` は `eslint.config.web.mjs` を spread して使う。例外として、codec-converter と quick-clip の web は、同じ構成 (`eslint.config.base.mjs` と `eslint.config.no-restricted-mui.mjs` の組み合わせ) を自分で組んでいる。
 
 共通化をレビューだけに頼ると、サービスごとに同じ部品の見た目と挙動がずれていく。機械的に止めれば、ずれの入り口が無くなる。プラグインを足さず標準ルールで済むため、保守するものも増えない。`sx` の中身までは縛らない。縛るコストに見合わないため、レビューで見る。
 
@@ -21,11 +21,11 @@ sources_hash: 8a9a480804407c75b0339cee637a447bd7050d7bf42d05862e228662a6f1a298
 
 ### レイアウトの部品、テーマの基盤、MUI の型は、MUI を直接使ってよい
 
-`Box`、`Container`、`Grid`、`Stack`、`Typography` と、`CssBaseline`、`ThemeProvider`、`AppRouterCacheProvider`、`SxProps`、`Theme` などは制限の対象に入れていない。レイアウトの部品は、MUI でも他のライブラリでもほぼ同じ API になり、ラップしても薄すぎて統制の価値がない。基盤の部品は、フレームワークに依存して当然の領域である。
+`Box`、`Container`、`Grid`、`Stack`、`Typography` と、`SxProps`、`Theme` などは制限の対象に入れていない。レイアウトの部品は、MUI でも他のライブラリでもほぼ同じ API になり、ラップしても薄すぎて統制の価値がない。`CssBaseline`、`ThemeProvider`、`AppRouterCacheProvider` も制限していないが、これらの定型はサービスで書かず、次の規則のとおり共通の部品に任せる。今、サービスが直接 import している箇所はない。
 
 ### `ServiceLayout` か `AppThemeProvider` を使い、`AppRouterCacheProvider` と `ThemeProvider` と `CssBaseline` の定型を自前で書かない
 
-`ServiceLayout` を採用するサービスは、ルートレイアウトで `ServiceLayout` をそのまま使う。採用しないサービスは `AppThemeProvider` を使う。定型を各サービスが持つと、テーマの当て方が食い違う。
+`ServiceLayout` を採用するサービスは、ルートレイアウトで `ServiceLayout` をそのまま使う。採用しないサービスは `AppThemeProvider` を使う。定型を各サービスが持つと、テーマの当て方が食い違う。例外として、stock-tracker の web は `ThemeRegistry` (`components/ThemeRegistry.tsx`) を経由して `ServiceLayout` を使う。
 
 ### ナビゲーション、アカウント周り、利用規約は共通の部品に任せる
 
@@ -52,7 +52,7 @@ Radio グループの `FormControl` (fieldset と legend の意味づけに使�
 
 ### 共通の部品が足りないときは、理由付きの disable で MUI を使って進め、`libs/ui` の改修を別に起こす
 
-サービスの実装を共通部品の改修待ちで止めない。共通の部品が育ったら、サービスの側を切り替えて disable を外す。共通部品を足す条件は、2 つ以上のサービスで使う見込みがあることで、見込みは Issue か PR のコメントに根拠 (実例か計画) を書いて示す。
+サービスの実装を共通部品の改修待ちで止めない。共通の部品が育ったら、サービスの側を切り替えて disable を外す。共通部品を足す条件は [共通ライブラリの規約](./shared-libraries.md) の切り出す基準と同じで、2 つ以上のサービスで使う見込みがあることである。見込みは Issue か PR のコメントに、根拠 (実例か計画) を書いて示す。
 
 ## `libs/ui` の作り方
 
@@ -89,9 +89,9 @@ type Props = { variant: string; size: string };
 
 名前を MUI、shadcn、Mantine など主要なライブラリに揃えておくと、将来ライブラリを差し替えるときの摩擦が小さい。
 
-### スタイルの口は `className` だけにし、`sx` と `style` は受け付けない
+### スタイルの口は `className` にし、`sx` は受け付けない
 
-`sx` を許すと MUI への依存が Props に漏れる。`className` なら、将来 CSS-in-JS から CSS へ移しても、そのまま使える。
+`sx` を許すと MUI への依存が Props に漏れる。`className` なら、将来 CSS-in-JS から CSS へ移しても、そのまま使える。`Link`・`Chip`・`Button` は HTML 属性を素通しにするため、`style` は通るが、スタイルの口としては使わない。
 
 ### 単純な部品は Props で設定し、複合部品はコンポジションで作る
 
@@ -121,7 +121,7 @@ base のリセットと二重に当たり、フォーム部品の見た目など
 
 ### `html` と `body` に `overflow-x: hidden` を置かない
 
-はみ出した部分が横スクロールできずに切り落とされ、読めなくなる。ページの `scrollWidth` を見る E2E でもはみ出しを検知できなくなる。はみ出しは、はみ出す要素の側で直す。
+はみ出した部分が横スクロールできずに切り落とされ、読めなくなる。ページの `scrollWidth` を見る E2E でもはみ出しを検知できなくなる。はみ出しは、はみ出す要素の側で直す。例外として、admin の web と tools の `globals.css` は今 `html` と `body` に置いている。
 
 ### 空白のない長い文字列には `overflow-wrap: anywhere` を付ける
 
@@ -142,14 +142,14 @@ base のリセットと二重に当たり、フォーム部品の見た目など
 
 ### Stories は `src/` の部品の隣に置き、テストは `tests/` に置く
 
-Stories (`*.stories.tsx`) はテストではなくカタログと目視のための資材なので、`src/` の部品の隣に置く。テストは `libs/ui/tests/unit/components/<部品>/` に置く。`src/` からテストを分離する規則は、[テストの規約](./testing.md) にある。
+Stories (`*.stories.tsx`) はテストではなくカタログと目視のための資材なので、`src/` の部品の隣に置く。テストは `libs/ui/tests/unit/components/` の下に、部品ごと (`Button/` など) か、`layout/`・`error/`・`feedback/` などの分類ごとのディレクトリで置く。`src/` からテストを分離する規則は、[テストの規約](./testing.md) にある。
 
 ### カバレッジの閾値は、既定より厳しく置く
 
-共通の部品は性質上カバレッジを上げやすく、品質の要求も高いため、`libs/ui/jest.config.ts` で既定の 80 % より厳しい値を置く。今の値はそのファイルにある。
+共通の部品は性質上カバレッジを上げやすく、品質の要求も高いため、`libs/ui/jest.config.ts` で lines と statements を既定の 80% より厳しい 90% にしている。branches と functions は既定と同じ 80% である。
 
 ## 改修の流れ
 
 ### 変更は `libs/ui` と使うサービスを同じ PR で更新する
 
-Props の削除、必須化、型の変更のような破壊的な変更は、使っている全サービスを同じ PR で直す。モノレポなので、使う側を同じ PR で直せる。直せない移行が要るときだけ、非推奨の期間を 1 リリース挟む。
+Props の削除、必須化、型の変更のような破壊的な変更は、使っている全サービスを同じ PR で直す。モノレポなので、使う側を同じ PR で直せる。

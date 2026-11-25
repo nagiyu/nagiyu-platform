@@ -57,7 +57,7 @@ Node はルートの `package.json` の `engines` より古いことがある。
 
 `libs/*` の `package.json` の `main` は `dist/` を指すが、`npm ci` はビルドを走らせない。`dist/` がないままサービスを起動すると、`@nagiyu/ui` などのモジュール解決に失敗し、`/` が 500 を返す。`next dev` も `next build` も、これに依存する。
 
-ルートの `npm run build:libs` が、依存順 (`common`、`aws`、`browser`、`nextjs`、`react`、`ui`) にビルドする。順は `--workspace` の並びで決まるため、ライブラリを足す、または依存を変えるときは、並びを依存順に直す。手順は build-shared-libs スキル (`.claude/skills/build-shared-libs/SKILL.md`) にある。
+ルートの `npm run build:libs` が、依存順にビルドする。順の決まり方は [モノレポの構成の規約](./monorepo.md) にある。手順は build-shared-libs スキル (`.claude/skills/build-shared-libs/SKILL.md`) にある。
 
 ### E2E の前には、対象サービスの core もビルドする
 

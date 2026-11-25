@@ -1,7 +1,8 @@
 ---
 sources:
   - libs/common/package.json
-sources_hash: 7d09b2718ca2b2c7a852a46ac4086fcf24a1c231fa931ff21bb040cc0b98bb63
+  - libs/aws/package.json
+sources_hash: fa49c0bae6134e85c754d279065129fb6e952578bd050a66206ffcc7aae4ae6a
 ---
 
 # 共通ライブラリの規約
@@ -57,7 +58,7 @@ CI のコンテナのビルド検証は、イメージの中でモジュール�
 
 ### ブラウザ API は `@nagiyu/browser` のラッパーを使う
 
-Clipboard と localStorage は、`@nagiyu/browser` のラッパーを使う ([クリップボード](../specs/lib/browser/clipboard.md)、[localStorage](../specs/lib/browser/local-storage.md))。エラー処理を統一し、SSR で実行されても壊れず、テストでモックしやすくなるためである。
+Clipboard と localStorage は、`navigator.clipboard` や `window.localStorage` を直接触らず、`@nagiyu/browser` のラッパーを使う ([クリップボード](../specs/lib/browser/clipboard.md)、[localStorage](../specs/lib/browser/local-storage.md))。エラー処理を統一し、SSR で実行されても壊れず、テストでモックしやすくなるためである。
 
 ### Web Push は共通の部品を使い、サービスで書き直さない
 
@@ -71,9 +72,8 @@ Clipboard と localStorage は、`@nagiyu/browser` のラッパーを使う ([�
 
 ### `@nagiyu/nextjs` のファクトリを使い、サービスで書き直さない
 
-- NextAuth の設定は、auth サービスは `createAuthConfig()`、それ以外のサービスは `createServiceAuthConfig()` で作る。NextAuth の型 (`Session`・`User`・`JWT`) の拡張は `libs/nextjs/src/types/next-auth.d.ts` に集約し、サービスに置かない。
+- NextAuth の設定、ミドルウェア、セッションの取得は、`@nagiyu/nextjs` の関数で作る ([認証の規約](./authentication.md))。NextAuth の型 (`Session`・`User`・`JWT`) の拡張は `libs/nextjs/src/types/next-auth.d.ts` に集約し、サービスに置かない。セッションの戻り値は、サービス固有の型へ変換せず、`@nagiyu/common` の `Session | null` のままにする。
 - Health ルートは `createHealthRoute` で作る。
-- ミドルウェアは `createAuthMiddleware()`、セッションの取得は `createSessionGetter()` で作る。セッションの戻り値は、サービス固有の型へ変換せず、`@nagiyu/common` の `Session | null` のままにする。
 
 振る舞いは [NextAuth の設定](../specs/lib/nextjs/auth-config.md)、[Health ルート](../specs/lib/nextjs/health-route.md)、[認証ミドルウェア](../specs/lib/nextjs/auth-middleware.md)、[セッション](../specs/lib/nextjs/session.md) にある。
 
@@ -88,13 +88,12 @@ Clipboard と localStorage は、`@nagiyu/browser` のラッパーを使う ([�
 ### AWS の操作は `@nagiyu/aws` の共通部品を使い、サービスで書き直さない
 
 - すべての AWS クライアント (DynamoDB・S3・Batch・Lambda など) は、`@nagiyu/aws` のファクトリ関数 (`getDynamoDBDocumentClient()`・`getBatchClient()`・`getLambdaClient()` など) で初期化する。シングルトンのキャッシュを各サービスで実装すると、コードが重複し、保守の手間が増える。
-- DynamoDB のリポジトリは、`EntityMapper` で変換を担い、単一アイテムの CRUD を `EntityStore` に任せる (継承ではなく合成)。GSI を使う一覧のような独自のクエリだけを、各リポジトリに書く。
 - カーソルの変換 (`encodeCursor`・`decodeCursor`) と 1 ページ分の Query / Scan (`queryPage`・`scanPage`) は共通のものを使う。各所で書くと、`count` の入れ方などページの意味がずれる。
 - BatchWriteItem / BatchGetItem の分割と未処理分の再送は共通の処理に任せ、サービスで分割・再送のループを書かない。
 - `UpdateCommand` の `UpdateExpression` と名前・値の対応表は `buildUpdateExpression` で組み立て、手書きしない。使わない名前を表に残す、式に入れ忘れた値が残るといった不整合が起き、どちらも DynamoDB がエラーにする。
 - 利用回数の上限を数える処理は `UsageCounter` を使い、条件付き更新の式を書かない。記録に失敗したときに通すか止めるかはサービスで違うため、呼び出し側が決める。
-- Lambda ハンドラーと Batch のエントリポイントの `try/catch → reportErrorEvent → 再 throw / exit` は、`withErrorReporting` で包む。握りつぶした例外は、`createErrorReporter` で `serviceId` を固定したレポーターで報告する。レポーターはサービスで 1 つにする。握った例外がない報告は、`reportErrorEvent` を直接使う。
+- Lambda ハンドラーと Batch のエントリポイントの報告 (`withErrorReporting`)、握りつぶした例外の報告 (`createErrorReporter`) は、共通の部品を使う ([エラー処理の規約](./error-handling.md))。
 - EventBridge から定期実行される Lambda は `createScheduledHandler` で包む。失敗は 500 を返さず、例外を投げる。500 を返して正常終了すると Lambda としては成功になり、Errors アラーム・DLQ・非同期呼び出しの再試行が働かない。例外で失敗すると、再試行で途中まで済んだ処理がもう一度実行されうる。Push 通知のように副作用がある処理は、二重に実行されることを前提に設計する。対象 1 件ごとの失敗を数えて処理を続けるとき、最終的に Lambda の失敗にするかどうかは handler が決める。
 - DynamoDB Local を使う契約テストのヘルパーは `@nagiyu/aws/testing` から import する。この specifier は `exports` に載せていない。載せると本番のコードから届く口になるため、解決するのは各サービスの `jest.contract.config.ts` の `moduleNameMapper` だけにしている。`exports` にないサブパスの import は、実装漏れではない。
 
-振る舞いは `docs/platform/specs/lib/aws/` の仕様にある。リポジトリの設計は [データアクセスの規約](./data-access.md) にある。
+振る舞いは `docs/platform/specs/lib/aws/` の仕様にある。リポジトリの組み立て (`EntityMapper` と `EntityStore` の合成を含む) は [データアクセスの規約](./data-access.md) にある。

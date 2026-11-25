@@ -23,13 +23,13 @@ npm workspaces によるモノレポの、ディレクトリ・パッケージ�
 | `infra`、`infra/*` | CDK |
 | `docs-site` | docs の公開サイト |
 
-`workspaces` には、今は実在しない場所のパターン (`web-*`、`batch-*`、`api`) も並んでいる。サービスに web や batch を複数持たせる必要が出たら、そのパターンに合う名前で足す。
+`workspaces` には、実在しない場所のパターン (`web-*`、`batch-*`、`api`) も並んでいるが、使っているサービスはない。
 
 ## ディレクトリ名
 
 ### ディレクトリ名は小文字のケバブケースにする
 
-例: `codec-converter`、`share-together`。サービスの下の役割は、`core`・`web`・`batch` のいずれかの名前にする。
+例: `codec-converter`、`share-together`。ディレクトリ名からパッケージ名を導くため、npm のパッケージ名に使える小文字にそろえる。サービスの下の役割は、`core`・`web`・`batch` の名前にする。quick-clip だけは、Lambda ごとのパッケージを `lambda/<name>` に置く。
 
 ## パッケージ名
 
@@ -41,7 +41,9 @@ npm workspaces によるモノレポの、ディレクトリ・パッケージ�
 | `services/<service>/core`、`web`、`batch` | `@nagiyu/<service>-core`、`@nagiyu/<service>-web`、`@nagiyu/<service>-batch` |
 | `services/quick-clip/lambda/<name>` | `@nagiyu/quick-clip-lambda-<name>` |
 | `services/tools` | `@nagiyu/tools` |
+| `infra` | `@nagiyu/infra` |
 | `infra/<name>` | `@nagiyu/infra-<name>` |
+| `docs-site` | `@nagiyu/docs-site` |
 
 例外として、admin の web は `@nagiyu/admin` である。
 
@@ -51,11 +53,11 @@ npm workspaces によるモノレポの、ディレクトリ・パッケージ�
 
 ### 共有 libs は `npm run build:libs` で依存順にビルドする
 
-libs のビルドは、ルートの `package.json` の `build:libs` が `--workspace` を依存順に並べて 1 つずつ実行する。npm は複数の `--workspace` を指定順に実行するため、並びがそのままビルド順になる。
+libs のビルドは、ルートの `package.json` の `build:libs` が `--workspace` を依存順に並べて 1 つずつ実行する。npm は複数の `--workspace` を指定順に実行するため、並びがそのままビルド順になる。並びは `@nagiyu/common`、`@nagiyu/aws`、`@nagiyu/browser`、`@nagiyu/nextjs`、`@nagiyu/react`、`@nagiyu/ui` で、依存される側が先に来る。
 
-`npm run build --workspaces` は使わない。依存順ではなくワークスペースの定義順に実行され、依存先のビルド成果物がない状態でビルドが始まって失敗するためである。
+`npm run build --workspaces` は使わない。依存順ではなくワークスペースの定義順に実行され、依存先のビルド成果物がない状態でビルドが始まって失敗するためである。libs 以外は、`npm run build --workspace=@nagiyu/hoge` のように個別に流す。
 
-依存の方向は [共通ライブラリの規約](./shared-libraries.md) にある。
+依存の方向は [アーキテクチャの規約](./architecture.md) にある。
 
 ## 足すときの決まり
 

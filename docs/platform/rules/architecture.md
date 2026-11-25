@@ -22,7 +22,7 @@ web と batch は同じ core を使う。core を分けておくと、画面と�
 
 web だけのサービス (portal) や batch だけのサービス (dev-sync) は、core を作らない。core を作るのは、web と batch が共有するもの、または UI から切り離してテストしたいロジックがあるときである。
 
-quick-clip の `lambda/*` は batch と同じ位置づけで、core に依存して Lambda のハンドラーを持つ。
+quick-clip の `lambda/*` は batch と同じ位置づけで、Lambda のハンドラーを持つ。core への依存は、必要な Lambda だけが持つ。
 
 ### web の UI (`components/`、`app/`) とビジネスロジック (`lib/`) を分ける
 
@@ -55,18 +55,17 @@ flowchart TB
     core --> common
     ui --> common
     react --> browser
+    react --> common
     nextjs --> common
     aws --> common
     browser --> common
 ```
 
-矢印は「依存してよい」向きを表す。web は図の libs のすべてに依存してよい (common への依存は図では省く)。
+矢印は「依存してよい」向きを表す。web は図の libs のすべてに依存してよい (common への依存は図では省く)。libs どうしは、この矢印の向きだけで依存し、逆向きや循環をつくらない。ビルド順は [モノレポの構成の規約](./monorepo.md) にある。
 
 ### 依存は下位 (汎用) のパッケージへ一方向に向け、循環させない
 
 libs はサービスのパッケージに依存しない。サービスは、ほかのサービスのパッケージに依存しない。共通にしたいものは libs へ切り出す。サービスどうしが依存すると、一方の変更がもう一方を巻き込み、サービスを単独で変更・デプロイできなくなる。
-
-libs どうしの依存の方向は [共通ライブラリの規約](./shared-libraries.md) にある。
 
 ### core と batch は UI 系のライブラリに依存しない
 
@@ -74,7 +73,7 @@ core と batch (`lambda/*` を含む) が依存してよい libs は、`@nagiyu/
 
 この制限は `configs/eslint.config.core.mjs` が lint で強制する。止めるのは `@nagiyu/ui`、`@nagiyu/browser`、`react`、`next`、`next/*` の import である。
 
-- **止めないもの**: `@nagiyu/react`、`@nagiyu/nextjs`、`next-auth` は止めない。この 3 つに依存しない規則はレビューで守らせる。
+- **止めないもの**: `@nagiyu/react`、`@nagiyu/nextjs`、`next-auth`、`react-dom`、`@mui/*` は止めない。これらに依存しない規則はレビューで守らせる。
 - **継承**: core・batch・`quick-clip/lambda/*` は、それぞれの `eslint.config.mjs` でこの設定を参照するだけにする。禁止の設定をパッケージごとに書くと、書き忘れたパッケージで制限が効かなくなるためである。
 
 ## core のサーバー / クライアント境界
