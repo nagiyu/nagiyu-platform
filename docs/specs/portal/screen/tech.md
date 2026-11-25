@@ -10,7 +10,7 @@ sources:
   - services/portal/web/src/lib/pageMetadata.ts
   - services/portal/web/src/lib/redirects.ts
   - services/portal/web/next.config.ts
-sources_hash: 89f876874d2026a272f9de55344789292b0947b968b6466a35645a52db91fb0a
+sources_hash: 450c0336d5044866c818e744dc0bc5e358ad2c49799389201ea5dc0dadd4c700
 terms: [portal/term/article, portal/term/tag, portal/term/category]
 related_cards: [portal/screen/home, portal/screen/tech-article, portal/flow/article-publishing]
 related_adr:

@@ -10,7 +10,7 @@ sources:
   - services/portal/web/src/app/tech/page.tsx
   - services/portal/web/src/app/tech/[slug]/page.tsx
   - services/portal/web/src/app/sitemap.ts
-sources_hash: c69d0adfd184465a1bc1436eba0b235fd3ce30ac22d3e80fe0749bf24ab33220
+sources_hash: b746233c9e5d9456f756456c99a3f0bbe809d4dbd6b4d3ca898880c50a923a91
 terms: [portal/term/article, portal/term/featured, portal/term/category]
 related_cards: [portal/screen/home, portal/screen/tech, portal/screen/tech-article, portal/api/sitemap]
 related_adr:

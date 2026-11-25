@@ -8,7 +8,7 @@ sources:
   - services/portal/web/src/app/tech/page.tsx
   - services/portal/web/src/app/tech/[slug]/page.tsx
   - services/portal/web/src/lib/redirects.ts
-sources_hash: 4df32798070beff61fc535c7e718a42ff23a40f638df2c5695a2b39aefd3b2c1
+sources_hash: 8626f8b8115e92120b7a6b4e0aa8606578d6f31f7fc28a16bda2eb4f2d59e9df
 terms: [portal/term/article]
 related_cards: [portal/screen/home, portal/screen/tech, portal/screen/tech-article]
 ---
