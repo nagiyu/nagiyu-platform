@@ -25,7 +25,7 @@ Admin の画面と API は、ログインした利用者のロールが持つ 3 
 | `errors:read` | エラー履歴の一覧と詳細の閲覧。ダッシュボードの「エラー履歴」カードの表示 | `admin` |
 
 - ロールが持つ権限は、コード (`ROLES`) に書かれている。ロールごとの権限を足し合わせて判定する。知らないロール ID は、権限を持たないものとして扱う
-- `user-manager` は `users:read` だけを持ち、`notifications:write` と `errors:read` は持たない。`admin` と `user-manager` 以外のロールは、どの権限も持たない
+- この 3 つのうち、`user-manager` が持つのは `users:read` だけ。`admin` と `user-manager` 以外のロールは、どれも持たない
 - `users:read` は、すべての画面の手前でミドルウェアが確かめる。なければ[権限なし画面](../screen/forbidden.md)へリダイレクトする
 - API は、未ログインなら 401 (`UNAUTHORIZED`)、権限がなければ 403 (`FORBIDDEN`) を返す。本文の形は [API のエラー応答](./api-error.md)
 - 画面は、`errors:read` などの権限がなければ「アクセス権限がありません」を出す。権限のないカードはダッシュボードに出さない

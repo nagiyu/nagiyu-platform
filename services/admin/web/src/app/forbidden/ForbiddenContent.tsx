@@ -11,7 +11,7 @@ import { getOrigin } from '../../lib/navigation';
  * `useSearchParams` は Suspense 境界でラップする必要があるため、親の
  * ForbiddenView から分離している。
  *
- * authUrl はサーバーコンポーネント（page.tsx）でランタイム env から解決して
+ * authUrl はサーバーコンポーネント (page.tsx) でランタイム env から解決して
  * prop として受け取る。client component 内で process.env.NEXT_PUBLIC_AUTH_URL を
  * 参照するとビルド時にクライアントバンドルへ空文字がインライン化され、
  * AccessDeniedView の「アクセスを更新」「再ログイン」導線が相対 URL になって
@@ -31,10 +31,10 @@ function ForbiddenContent({
     const from = searchParams.get('from');
     const origin = resolveOrigin();
     if (from) {
-      // `from` は pathname（例: "/notes"）のため、origin と結合して絶対 URL にする
+      // `from` はパスと検索文字列 (例: "/errors?page=2") のため、origin と結合して絶対 URL にする
       setCallbackUrl(`${origin}${from}`);
     } else {
-      // `from` 未指定時はサービスのトップ（origin）を戻り先とする
+      // `from` 未指定時はサービスのトップ (origin) を戻り先とする
       setCallbackUrl(origin);
     }
   }, [searchParams, resolveOrigin]);
@@ -46,7 +46,7 @@ function ForbiddenContent({
  * /forbidden ページのクライアント本体。
  *
  * `useSearchParams` を使うため Suspense 境界でラップしている。
- * authUrl はサーバーコンポーネント（page.tsx）から prop で受け取る。
+ * authUrl はサーバーコンポーネント (page.tsx) から prop で受け取る。
  */
 export function ForbiddenView({ authUrl }: { authUrl: string }) {
   return (

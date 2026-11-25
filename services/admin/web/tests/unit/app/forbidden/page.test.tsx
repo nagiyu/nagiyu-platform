@@ -9,8 +9,8 @@ import ForbiddenPage from '@/app/forbidden/page';
  * callbackUrl の解決を検証する。
  *
  * - `useSearchParams` は next/navigation からモック化
- * - `getOrigin` は @/lib/navigation からモック化（window.location.origin の代替）
- * - `AccessDeniedView` は @nagiyu/ui からモック化（UI ロジックは libs/ui 側でテスト済み）
+ * - `getOrigin` は @/lib/navigation からモック化 (window.location.origin の代替)
+ * - `AccessDeniedView` は @nagiyu/ui からモック化し、受け取った props だけを検証する
  */
 
 // next/navigation の useSearchParams をモック化
@@ -73,11 +73,11 @@ describe('ForbiddenPage', () => {
         expect(screen.getByTestId('access-denied-view')).toBeInTheDocument();
       });
 
-      expect(screen.getByTestId('auth-url')).toHaveTextContent('');
+      expect(screen.getByTestId('auth-url')).toBeEmptyDOMElement();
     });
   });
 
-  describe('callbackUrl の解決（from クエリパラメータ）', () => {
+  describe('callbackUrl の解決 (from クエリパラメータ)', () => {
     it('from がない場合は origin をそのまま callbackUrl にする', async () => {
       mockSearchParamsGet.mockReturnValue(null);
       render(<ForbiddenPage />);
@@ -127,17 +127,6 @@ describe('ForbiddenPage', () => {
 
       await waitFor(() => {
         expect(screen.getByTestId('callback-url')).toHaveTextContent('https://admin.nagiyu.com/');
-      });
-    });
-  });
-
-  describe('Suspense 境界', () => {
-    it('AccessDeniedView がレンダリングされる', async () => {
-      mockSearchParamsGet.mockReturnValue(null);
-      render(<ForbiddenPage />);
-
-      await waitFor(() => {
-        expect(screen.getByTestId('access-denied-view')).toBeInTheDocument();
       });
     });
   });

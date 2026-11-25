@@ -234,8 +234,8 @@ const errorDetail: Scenario = {
 const forbidden: Scenario = {
   screen: 'forbidden',
   async run(ctx) {
-    // 通常表示 (権限がないページから飛ばされた)
-    const page = await ctx.freshPage();
+    // 通常表示 (権限がない利用者がダッシュボードから飛ばされた)
+    const page = await ctx.freshPage({ roles: [] });
     await page.goto('/forbidden?from=%2Fdashboard');
     await ready(page, 'アクセス権限がありません');
     await ctx.shot('default');

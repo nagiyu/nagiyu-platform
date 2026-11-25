@@ -64,6 +64,12 @@ describe('admin middleware', () => {
     expect(response.headers.get('x-middleware-next')).toBe('1');
   });
 
+  it('/forbidden は未ログインでも通過する', () => {
+    const response = handler(buildRequest('/forbidden', null));
+
+    expect(response.headers.get('x-middleware-next')).toBe('1');
+  });
+
   it('未ログインはサインインへリダイレクトする', () => {
     const response = handler(buildRequest('/dashboard', null));
 

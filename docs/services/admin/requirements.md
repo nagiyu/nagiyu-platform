@@ -51,7 +51,7 @@ Phase 1 は最小限の実装（MVP）とし、早期にデプロイ・動作検
 |---|---|---|---|
 | UC-001 | SSO によるログイン | Auth サービスで認証済みの管理者が、再ログインなしで Admin を使える。JWT がない、または無効なら Auth サービスのサインインへ誘導する | [システム系の API](../../specs/admin/api/system.md)、[ダッシュボード画面](../../specs/admin/screen/dashboard.md) |
 | UC-002 | ユーザー情報の表示 | ダッシュボードで、ログイン中のユーザーの名前、メールアドレス、保有ロール一覧、JWT の有効期限、SSO 連携の動作確認メッセージを見られる。名前と JWT の有効期限は、現状は表示していない (#4690) | [ダッシュボード画面](../../specs/admin/screen/dashboard.md) |
-| UC-003 | ロールベースアクセス制御 (RBAC) | ロールに応じて使える機能を制限し、`admin` は全機能を使える。必要なロールがなければ 403 を返す。ダッシュボードは `admin` または `user-manager` だけが開ける | [権限とロール](../../specs/admin/term/permission.md) |
+| UC-003 | ロールベースアクセス制御 (RBAC) | ロールに応じて使える機能を制限し、`admin` は全機能を使える。必要なロールがなければ、API は 403 を返し、画面は権限なし画面へ移す。ダッシュボードは `admin` または `user-manager` だけが開ける | [権限とロール](../../specs/admin/term/permission.md)、[権限なし画面](../../specs/admin/screen/forbidden.md) |
 | UC-004 | SNS 通知の受信とプッシュ通知の送信 (自己監視専用) | 新しいエラー通知の仕組み自身 (alarm-ingest・stream-handler・DLQ・error-events テーブル) が障害でも、管理者に Push が届くよう、本流とは独立した経路を持つ。履歴には残さず、Push だけ送る | [SNS 受信 API](../../specs/admin/api/notify-sns.md) |
 | UC-005 | 管理者端末のプッシュ通知の購読 | `admin` ロールの管理者が、ダッシュボードから通知を有効にできる。権限のない利用者は登録できない | [Push 購読の経路](../../specs/admin/flow/push-subscription.md)、[Push 購読 API](../../specs/admin/api/notify.md) |
 | UC-006 | プッシュ通知の受信 | CloudWatch Alarm の発火など、エラーが記録されたとき、ブラウザ (またはホーム画面に追加した Admin PWA) にプッシュ通知が届く | [エラー通知の経路](../../specs/admin/flow/error-notification.md)、[stream-handler](../../specs/admin/batch/stream-handler.md) |
@@ -108,7 +108,7 @@ Phase 1 は最小限の実装（MVP）とし、早期にデプロイ・動作検
 - **JWT 検証**: Auth サービスと共有する秘密鍵（または公開鍵）で署名を検証
 - **有効期限チェック**: `exp` クレームを確認し、期限切れトークンを拒否
 - **発行者検証**: `iss` クレームが `auth.nagiyu.com` であることを確認
-- **RBAC**: 権限に応じたアクセス制御、権限不足時は 403 Forbidden ([権限とロール](../../specs/admin/term/permission.md))
+- **RBAC**: 権限に応じたアクセス制御。権限不足時、API は 403 Forbidden を返し、画面は権限なし画面へ移すか「アクセス権限がありません」を出す ([権限とロール](../../specs/admin/term/permission.md))
 
 #### クッキーセキュリティ
 - **読み取り専用**: Admin サービスは JWT クッキーを発行せず、検証のみ実施

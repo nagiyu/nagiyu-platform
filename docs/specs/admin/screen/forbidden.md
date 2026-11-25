@@ -8,7 +8,7 @@ sources:
   - services/admin/web/src/app/forbidden/ForbiddenContent.tsx
   - services/admin/web/src/middleware.ts
   - libs/ui/src/components/feedback/AccessDeniedView.tsx
-sources_hash: f4ffe0e744c97650ec391f9c4cedd2cc9b96e6e747aeaacd60bcd55c3bbcf70e
+sources_hash: 9b04286e4dbdd591fdcd4dba1bda8e8d1a8462c053b6f24e063de1e2a89de6ce
 terms: [admin/term/permission]
 related_cards: [admin/screen/dashboard, admin/api/system]
 ---
@@ -20,7 +20,7 @@ related_cards: [admin/screen/dashboard, admin/api/system]
 ## 入口
 
 - パスは `/forbidden`。ミドルウェアが、権限のない利用者のページへのアクセスを、元のパスと検索文字列を `from` に付けて移す ([権限とロール](../term/permission.md))
-- 権限の判定の対象外で、権限がなくても開ける。未ログインのときは、ほかの画面と同じく Auth サービスのサインイン画面へリダイレクトされる
+- ログインと権限の判定の対象外で、ログインしていなくても開ける
 
 ## 表示するもの
 
