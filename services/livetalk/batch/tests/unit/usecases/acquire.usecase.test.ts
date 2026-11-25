@@ -32,8 +32,8 @@ jest.mock('@nagiyu/livetalk-core', () => ({
         },
         voiceConfig: {
           provider: 'openai-tts' as const,
-          model: 'gpt-4o-mini-tts',
-          voice: 'nova',
+          model: 'gpt-realtime-2.1-mini',
+          voice: 'marin',
           instructions: '',
         },
         license: { displayText: '', creditName: '' },

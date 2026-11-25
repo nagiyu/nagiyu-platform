@@ -25,12 +25,12 @@ export const DEFAULT_CLIENT_CHARACTER_ID = 'hiyori';
 
 /**
  * 早瀬アゲハ のライセンス・クレジット文字列。
- * 音声は OpenAI TTS を使用するため、AI 生成音声であることの明示が OpenAI 利用規約上必須。
+ * 音声は OpenAI の音声生成モデル (Realtime API) を使用するため、AI 生成音声であることの明示が OpenAI 利用規約上必須。
  * イラストは OpenAI gpt-image による AI 生成。規約上の必須表記ではないが、AI 生成物を
  * 人間作と誤認させない（OpenAI 利用ポリシー）ため、音声開示と足並みを揃えて明示する。
  */
 export const AGEHA_LICENSE_TEXT =
-  'イラスト：OpenAI gpt-image による AI 生成 / 音声：OpenAI TTS による AI 生成音声（人間の音声ではありません）';
+  'イラスト：OpenAI gpt-image による AI 生成 / 音声：OpenAI の音声生成モデルによる AI 生成音声（人間の音声ではありません）';
 
 /**
  * クライアントプロファイルのエラーメッセージ定数。
@@ -82,7 +82,7 @@ const PROFILES: Record<string, CharacterClientProfile> = {
     description:
       'テンション高めで背中を押してくれる相棒ギャル。落ち込んでも隣でアゲてくれる、ノリのいい女の子。',
     model: { engine: '一枚絵', name: '早瀬アゲハ' },
-    voice: { engine: 'OpenAI TTS', name: 'nova' },
+    voice: { engine: 'OpenAI', name: 'marin' },
   },
 };
 
