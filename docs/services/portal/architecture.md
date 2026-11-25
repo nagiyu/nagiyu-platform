@@ -107,3 +107,48 @@ Portal をサービス紹介・ドキュメント機能から切り離し、「A
 - 運営者が各サービスを実際に設計・運用している事実は、宣伝としてではなく記事の一次情報性を裏づける E-E-A-T シグナルとして残す
 - カテゴリ別ハブ・タグ別ページは内部リンクを増やす一方、記事数が少ない段階では実質的な内容のない薄いページ（低品質ページ）になりやすいため、集約ページは持たず記事本体に集中する
 - トレードオフ: 自サービスへの送客導線は失われるが、AdSense 承認・技術メディアとしての評価という主目的を優先する。サービス案内は各サブドメイン側の責務とする
+
+## 内部リンクチェック（Portal）
+
+Portal では Markdown コンテンツや JSX ページコンポーネント内の内部リンク切れを静的解析で検出するスクリプトを常設している。
+
+### 実行方法
+
+```bash
+# Portal ディレクトリで実行
+npm run check:internal-links --workspace @nagiyu/portal-web
+# または services/portal/web 配下で直接実行
+cd services/portal/web
+npm run check:internal-links
+```
+
+### スクリプトの動作
+
+`services/portal/web/scripts/check-internal-links.mjs` は入口だけを担い、検査ロジックは `src/lib/linkChecker.ts` の `checkAllInternalLinks` に一本化している。入口は対象ディレクトリを渡して、結果を出力し終了コードを返す。
+
+`linkChecker.ts` は次を実施する:
+
+1. `src/content/` 配下の全 Markdown / MDX ファイルを走査
+2. `src/app/` 配下の全 TSX ファイルを走査
+3. 各ファイルから静的な内部リンクを抽出（Markdown 形式・JSX `href` 属性）
+4. 以下のルールで実在確認:
+   - `/tech/{slug}` → `src/content/tech/{slug}.md`
+   - 静的ページ（`/`, `/about`, `/privacy`, `/terms`, `/tech`）、または `src/app/.../page.tsx` があるパス
+   - `public/` 配下の静的ファイル（画像等）
+5. リンク切れがあれば終了コード 1 で一覧を出力、なければ 0 で終了
+
+入口は CI が共通ライブラリをビルドせず `npm ci` だけで動かすため、TypeScript をビルドせず Node の型除去で `linkChecker.ts` を直接読み込む。この条件では、ビルドしていない共通ライブラリ (`@nagiyu/*`) と、拡張子を省いた相対 import が解決できない。そのため `linkChecker.ts` はこれらを import しない形を保つ。
+
+### ビジネスロジックとテスト
+
+チェックロジックのテストは `tests/unit/lib/linkChecker.test.ts` にある。入口は薄く、ロジックを持たない。
+
+### CI 組み込み
+
+`portal-verify.yml` の `internal-links` ジョブが、`npm ci` のあとに実行する。integration ブランチへの PR 時にも走る。
+
+### 注意事項
+
+- **外部リンク（https://）は対象外**（メンテコスト回避）
+- **動的テンプレートリテラル**（`href={\`/tech/${slug}\`}` 等）は解析対象外（実行時生成のため）
+- 新しいルーティングパターンを追加した場合は `src/lib/linkChecker.ts` の `validateHref` 関数を更新すること
