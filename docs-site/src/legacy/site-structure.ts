@@ -88,7 +88,6 @@ export const SITE_STRUCTURE: readonly StructureNode[] = [
     collapsed: true,
     items: [
       { type: 'files', dir: 'development', exclude: ['development/dev-sync.md'] },
-      { type: 'page', path: 'branching.md' },
       // 仕様カードという語を見出しに出すのは、カードの書き方の文書だけ
       { type: 'page', path: 'specs/README.md', title: '仕様カードの書き方' },
       { type: 'directory', path: 'agents', title: 'エージェント' },

@@ -12,7 +12,7 @@
 
 - コードスニペット・エラーメッセージ内の英語はそのまま保持する
 - TypeScript / Next.js / React などの技術用語は英語のまま使用してよい
-- 記号の表記は [表記規約](docs/development/writing-style.md) に従う (記号は半角、スペースは記号の役割で決める、`「」` `『』` は全角のまま)
+- 記号の表記は [表記規約](docs/platform/rules/writing-style.md) に従う (記号は半角、スペースは記号の役割で決める、`「」` `『』` は全角のまま)
 
 ---
 
@@ -53,7 +53,7 @@
 - **役割・セッションの遷移をサイレントに行わない**: 「計画 → 実装」「Phase → Phase」の境界では地続きで進めず、合意した進め方に沿って進む。
 - **手段の都合で、合意した前提を動かさない**: CI・テスト・ツールの制約などは、合意した方針を実現するための手段である。手段の側で障害や不都合が出ても、それを理由に人と合意した方針・構成・順序を変えたり、変えるよう提案したりしない。障害は事実として報告し、合意を見直すかどうかは人が判断する。
 - **自分で置いた前提を、合意や制約として扱わない**: 人と合意していないこと (PR の向き先、CI をいつ通すか等) を、守るべき前提にしない。それを守るために合意した前提を曲げそうになったら、障壁は自分の思い込みの側にある。合意の範囲で進める道があれば黙ってそれを選び、合意を崩す案を選択肢として並べない (並べることも「変えるよう提案する」に含む)。
-- 起票時はタイトルに種別プレフィックスを付け、親 Issue に**サービスラベルを付ける**（サブ Issue には付けない）。マイルストーン・Assignee は **Claude が付与しない**（人力で付ける）（→ [Issue の分類](docs/development/issue-classification.md)）。
+- 起票時はタイトルに種別プレフィックスを付け、親 Issue に**サービスラベルを付ける**（サブ Issue には付けない）。マイルストーン・Assignee は **Claude が付与しない**（人力で付ける）（→ [Issue の分類](docs/platform/rules/issues-and-prs.md)）。
 - **integration の判断は Issue 本文に書かない**（ブランチが存在することで伝わる）。
 - **起票するか否かの判断**: develop に入る資材は、リリース時に「どこで・どの資材が入ったか」を追えるよう **基本的に Issue を立てる**。ただし **既存 Issue の管轄内**（その Issue の対応中・dev 反映後に見つかったバグ等、混入源が同じもの）は、リリースまで元 Issue が対応スコープを持つため **新規起票しない**。起票は強制しない（規模ではなく「独立した資材か／既存 Issue の管轄内か」で判断する）。
 
@@ -84,14 +84,14 @@ Issue / コメントは **「セッションの継ぎ目」をつなぐ媒体**�
 
 再帰で新しいマスターセッションを立てる際、**Claude 自身がリモートから子セッションを起動してよい**（`create_session`）。従来は起動文言だけ書いて人がコピペしていた工程を自動化するもの。
 
-- **孫セッションも許可する。運用上の深さ制限は設けない** (仕組み側の上限は [`docs/development/claude-sessions.md`](docs/development/claude-sessions.md))。
+- **孫セッションも許可する。運用上の深さ制限は設けない** (仕組み側の上限は [`docs/platform/rules/claude-sessions.md`](docs/platform/rules/claude-sessions.md))。
 - ただし**勝手には立てない**。そのセッションで人に方針を伝え、**合意してから分岐する**（→「ゲートも再帰する」）。
-- 人のクリックで起動する Spawn Task（`spawn_task`）も選択肢としてはあるが、**ブランチを指定できないため非推奨**（→ [`docs/development/claude-sessions.md`](docs/development/claude-sessions.md)）。
+- 人のクリックで起動する Spawn Task（`spawn_task`）も選択肢としてはあるが、**ブランチを指定できないため非推奨**（→ [`docs/platform/rules/claude-sessions.md`](docs/platform/rules/claude-sessions.md)）。
 - 本項は**人が介入しうるセッション**の話。**サブエージェント（`implementer` / `reviewer`）の spawn は制限しない**（従来どおり）。
 
 #### 起動プロンプトの鉄則
 
-親から子へ判断を渡すチャネルは、実質的に**起動プロンプト**である。起動後も追い指示を送ることや子の会話を読むことは技術的にはできる。しかし子は親から届いたものを人の指示として扱わず、push や PR 作成のような外部に影響する操作は、子の中で人が許可するまで行わない (→ [`docs/development/claude-sessions.md`](docs/development/claude-sessions.md))。したがって起動プロンプトの内容が子セッションの成否を決める。
+親から子へ判断を渡すチャネルは、実質的に**起動プロンプト**である。起動後も追い指示を送ることや子の会話を読むことは技術的にはできる。しかし子は親から届いたものを人の指示として扱わず、push や PR 作成のような外部に影響する操作は、子の中で人が許可するまで行わない (→ [`docs/platform/rules/claude-sessions.md`](docs/platform/rules/claude-sessions.md))。したがって起動プロンプトの内容が子セッションの成否を決める。
 
 決め打ちのテンプレートは設けない。鉄則は 1 つだけ。
 
@@ -128,7 +128,7 @@ Issue / コメントは **「セッションの継ぎ目」をつなぐ媒体**�
 - PR は **必ず Draft で作成**し、`.github/pull_request_template.md` を埋める。
 - 各実装単位の Draft PR は、原則 `integration/**` (integration を切った対応) または `develop` (dev に資材が出ない軽量変更) をターゲットにする (→「integration の考え方」)。
     - 前の PR の上に積む PR は、前の PR のブランチをターゲットにする (差分を自分の分だけにするため)。前の PR が取り込まれてブランチが消えると、ターゲットは自動で切り替わる。そのとき CI が走らなければ、ターゲットのブランチを取り込んで push し、発火させる。
-- PR タイトルは「何を変えるか」を文で書き、種別プレフィックスは付けない（→ [Issue の分類](docs/development/issue-classification.md)）。
+- PR タイトルは「何を変えるか」を文で書き、種別プレフィックスは付けない（→ [Issue の分類](docs/platform/rules/issues-and-prs.md)）。
 - PR には `Closes #` 等の closing keyword を書かず、関連 Issue は `#番号` で参照するだけにする。Issue のクローズ時期はロールで分け、その時点で開いていれば Claude が手動でクローズする。
     - **親（メイン）Issue**: 全資材が develop に載り、確認 (下記) を終えた時点でクローズする。
     - **サブ Issue**: integration 等のトピックブランチへ取り込まれ、確認を終えた時点でクローズしてよい (進捗を可視化するため)。
@@ -190,14 +190,14 @@ integration は **develop の「いつでもリリース可能」を守る**た�
 ## ブランチ戦略の概要
 
 ```
-claude/**, feature/**  →  integration/**  →  develop  →  master
-                       (Fast CI)        (Full CI)    (本番)
+作業ブランチ (名前は自由)  →  integration/**  →  develop  →  master
+                                (Fast CI)        (Full CI)    (本番)
 ```
 
 - `integration/**` と `develop` は dev 環境へ自動デプロイされる
 - `master` は本番デプロイ
 - 軽量・非デプロイ変更（docs 等）は integration を切らず `develop` へ直接 Draft PR でよい（→「integration の考え方」）
-- 詳細は [`docs/branching.md`](docs/branching.md) を参照
+- 詳細は [`docs/platform/rules/branching.md`](docs/platform/rules/branching.md) を参照
 
 ---
 
@@ -252,7 +252,7 @@ claude/**, feature/**  →  integration/**  →  develop  →  master
 
 ## コーディング規約（要点）
 
-詳細は [`docs/development/rules.md`](docs/development/rules.md) を参照。
+詳細は [`docs/platform/rules/coding.md`](docs/platform/rules/coding.md) を参照。
 
 ### MUST
 
@@ -260,14 +260,14 @@ claude/**, feature/**  →  integration/**  →  develop  →  master
 - テストカバレッジ 80% 以上（Jest `coverageThreshold` で自動失敗）
 - エラーメッセージは日本語 + 定数化（`ERROR_MESSAGES` オブジェクト）
 - UI 層（`components/`, `app/`）とビジネスロジック（`lib/`）を分離
-- ライブラリ依存の一方向性を保つ（`ui → browser → common`、循環依存禁止）
+- ライブラリ依存の一方向性を保つ（`ui → common`、`react → browser → common`、`nextjs → common`、`aws → common`、循環依存禁止）
 - コメントには WHY を書き、WHAT の言い換えは書かない。経緯は今後の開発に効く制約としてのみ、現在形で書く
-- コメントと文書の表記は [表記規約](docs/development/writing-style.md) に従う
+- コメントと文書の表記は [表記規約](docs/platform/rules/writing-style.md) に従う
 
 ### MUST NOT
 
 - ライブラリ内でパスエイリアス（`@/`）を使用しない
-- `dangerouslySetInnerHTML` を直接使用しない（DOMPurify 経由のみ）
+- `dangerouslySetInnerHTML` に、サニタイズ (DOMPurify) かエスケープを通していない文字列を渡さない
 - コメントで、リポジトリ内のファイル・ドキュメントへの参照に説明を委ねない (外部仕様の URL は可)
 - コメントと docs に Issue / PR 番号・Phase 名を書かない
 
@@ -279,7 +279,7 @@ claude/**, feature/**  →  integration/**  →  develop  →  master
 
 ## テスト要件（要点）
 
-詳細は [`docs/development/testing.md`](docs/development/testing.md) を参照。
+詳細は [`docs/platform/rules/testing.md`](docs/platform/rules/testing.md) を参照。
 
 - テストファイルは `tests/` 配下に配置（`src/` と分離）
 - 副作用がある処理のみモック化、純粋関数はそのまま実行
@@ -313,17 +313,17 @@ docs/         # 永続ドキュメント
 
 ## 実行環境
 
-Claude Code on the web で本リポジトリを扱う際の環境固有の事情と運用方針は [`docs/development/claude-environment.md`](docs/development/claude-environment.md) にまとめてある。Playwright / AWS CLI / shared libs ビルド等の相談を受けたら、まずそのドキュメントを参照する。
+Claude Code on the web で本リポジトリを扱う際の環境固有の事情と運用方針は [`docs/platform/rules/claude-environment.md`](docs/platform/rules/claude-environment.md) にまとめてある。Playwright / AWS CLI / shared libs ビルド等の相談を受けたら、まずそのドキュメントを参照する。
 
 要点：
 
 - **環境構築の 2 系統**：claude.ai/code の Setup Script（約 7 日キャッシュ、UI 設定）と `.claude/settings.json` の SessionStart hook（毎セッション）は別物。本リポジトリは前者のみ使い、後者は使わない方針
-- **Playwright**：素の `npx playwright install` はベースイメージ同梱の global（1.56.1）を呼んでしまうため使わない。プロジェクトローカル CLI（`node_modules/.bin/playwright`）か `npx playwright@<project-version>` を使う
+- **Playwright**：素の `npx playwright install` はベースイメージ同梱の global を呼んでしまうため使わない。プロジェクトローカル CLI（`node_modules/.bin/playwright`）か `npx playwright@<project-version>` を使う
 - **AWS CLI**: 毎回 `--profile nagiyu-dev` / `--profile nagiyu-prod` を付ける (`AWS_PROFILE` では切り替わらない)。付けないと AccessDenied になるが、権限不足ではなく呼び方の誤り。読み取りを諦めて人に頼む前に [`docs/platform/specs/resource/claude-access.md`](docs/platform/specs/resource/claude-access.md) を確かめる
 - **WebKit の E2E は on-demand**：Full CI 相当の確認が必要なセッションでのみ `playwright install --with-deps webkit` を実行する
-- **shared libs のビルド**：`next dev` や E2E を回す前に `@nagiyu/common → browser → ui → nextjs` の順で `dist/` をビルドする（`npm ci` だけでは作られない）
+- **shared libs のビルド**：`next dev` や E2E を回す前に `npm run build:libs` で `dist/` をビルドする（ルート `package.json` が依存順に並べている。`npm ci` だけでは作られない）
 
-セッションを分けて進める際の制約（親子間で何が届き何が届かないか・起動コスト・遅延）は [`docs/development/claude-sessions.md`](docs/development/claude-sessions.md) にまとめてある。
+セッションを分けて進める際の制約（親子間で何が届き何が届かないか・起動コスト・遅延）は [`docs/platform/rules/claude-sessions.md`](docs/platform/rules/claude-sessions.md) にまとめてある。
 
 ---
 
@@ -355,16 +355,15 @@ PR 作成時は `.github/pull_request_template.md` の構造に従い、以下�
 
 ## 参考ドキュメント
 
-- ブランチ戦略: [`docs/branching.md`](docs/branching.md)
-- コーディング規約: [`docs/development/rules.md`](docs/development/rules.md)
-- 表記規約: [`docs/development/writing-style.md`](docs/development/writing-style.md)
-- アーキテクチャ: [`docs/development/architecture.md`](docs/development/architecture.md)
-- テスト戦略: [`docs/development/testing.md`](docs/development/testing.md)
-- 開発フロー: [`docs/development/flow.md`](docs/development/flow.md)
+- ブランチ戦略: [`docs/platform/rules/branching.md`](docs/platform/rules/branching.md)
+- コーディング規約: [`docs/platform/rules/coding.md`](docs/platform/rules/coding.md)
+- 表記規約: [`docs/platform/rules/writing-style.md`](docs/platform/rules/writing-style.md)
+- アーキテクチャ: [`docs/platform/rules/architecture.md`](docs/platform/rules/architecture.md)
+- テスト戦略: [`docs/platform/rules/testing.md`](docs/platform/rules/testing.md)
 - docs の書き方: [`docs/platform/rules/docs.md`](docs/platform/rules/docs.md)
-- Issue の分類: [`docs/development/issue-classification.md`](docs/development/issue-classification.md)
+- Issue の分類: [`docs/platform/rules/issues-and-prs.md`](docs/platform/rules/issues-and-prs.md)
 - 共通ライブラリの仕様: [`docs/platform/specs/lib/`](docs/platform/specs/lib/)
-- 実行環境（Claude on Web）: [`docs/development/claude-environment.md`](docs/development/claude-environment.md)
-- セッション運用の実測と制約: [`docs/development/claude-sessions.md`](docs/development/claude-sessions.md)
-- エージェント資産の住み分け: [`docs/development/agent-assets.md`](docs/development/agent-assets.md)
+- 実行環境（Claude on Web）: [`docs/platform/rules/claude-environment.md`](docs/platform/rules/claude-environment.md)
+- セッション運用の実測と制約: [`docs/platform/rules/claude-sessions.md`](docs/platform/rules/claude-sessions.md)
+- エージェント資産の住み分け: [`docs/platform/rules/agent-assets.md`](docs/platform/rules/agent-assets.md)
 - PR テンプレート: [`.github/pull_request_template.md`](.github/pull_request_template.md)

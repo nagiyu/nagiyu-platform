@@ -147,6 +147,5 @@ erDiagram
 - [requirements.md](./requirements.md): 要件定義
 - [architecture.md](./architecture.md): アーキテクチャ設計決定記録（ADR）
 - [roadmap.md](./roadmap.md): Phase 6+ 将来拡張ロードマップ
-- プラットフォーム認証: [../../development/authentication.md](../../development/authentication.md)
-- プラットフォーム PWA: [../../development/pwa.md](../../development/pwa.md)
-- ブランチ戦略: [../../branching.md](../../branching.md)
+- プラットフォーム認証: [../../platform/rules/authentication.md](../../platform/rules/authentication.md)
+- ブランチ戦略: [../../platform/rules/branching.md](../../platform/rules/branching.md)

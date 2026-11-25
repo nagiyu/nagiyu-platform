@@ -35,7 +35,7 @@ Admin サービスのテストは、以下の目的で実施します：
 
 ### 2.2 テスト優先順位
 
-プラットフォーム共通のCI戦略については、[ブランチ戦略 - CI/CD戦略](../../branching.md#cicd-戦略) を参照してください。
+プラットフォーム共通のCI戦略については、[ブランチ戦略 - CI/CD戦略](../../platform/rules/branching.md#デプロイと-ci) を参照してください。
 
 **概要**:
 - **Fast CI**: `integration/**` へのPR時に chromium-mobile のみでテスト
@@ -568,9 +568,9 @@ npx playwright show-trace test-results/{trace-file}
 
 ### プラットフォームドキュメント
 
-- [テスト戦略 (全体方針)](../../development/testing.md)
-- [コーディング規約](../../development/rules.md)
-- [共通設定ファイル](../../development/configs.md)
+- [テスト戦略 (全体方針)](../../platform/rules/testing.md)
+- [コーディング規約](../../platform/rules/coding.md)
+- [共通設定ファイル](../../platform/rules/configs.md)
 
 ### サービス固有ドキュメント
 

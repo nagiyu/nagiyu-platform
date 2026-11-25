@@ -157,9 +157,9 @@ nagiyu-platform は複数のアプリケーションとインフラをホスト�
 3. **実装ワークフロー**:
     ```
     Phase 0: 準備
-    0a. プラットフォーム共通のコーディング規約を読み込む (docs/development/rules.md)
+    0a. プラットフォーム共通のコーディング規約を読み込む (docs/platform/rules/coding.md)
     0b. エディタ設定を確認 (.vscode/settings.json)
-    0c. 関連する開発ガイドラインを確認 (docs/development/ 配下)
+    0c. 関連する開発ガイドラインを確認 (docs/platform/rules/ 配下)
 
     Phase 1: ドキュメント確認と設計
     1a. 関連ドキュメントセクションを読む
@@ -182,11 +182,11 @@ nagiyu-platform は複数のアプリケーションとインフラをホスト�
 ドキュメントから以下を読み取り、適切に実装:
 
 1. **コーディング規約とエディタ設定**:
-    - **MUST**: `docs/development/rules.md` のコーディング規約を遵守
+    - **MUST**: `docs/platform/rules/coding.md` のコーディング規約を遵守
     - **MUST**: `.vscode/settings.json` のエディタ設定に従う
         - Markdown ファイルのインデントは4スペース
         - 保存時に自動フォーマットが適用される
-    - **参照**: プラットフォーム共通の開発ガイドライン (`docs/development/` 配下)
+    - **参照**: プラットフォーム共通の開発ガイドライン (`docs/platform/rules/` 配下)
         - アーキテクチャ方針 (`architecture.md`)
         - 共通設定ファイル (`configs.md`)
         - テスト戦略 (`testing.md`)

@@ -56,7 +56,7 @@ description: docs/ 配下の文書を作成・更新する。docs を書く・�
 - **docs/ の外へリンクを張らない**。docs/ の外のファイルはコード表記のパスで書く。`sources` はデータなので対象外
 - **Issue / PR 番号・Phase 名を書かない**
 - README・目次・ドキュメント一覧を手で書かない (公開サイトが配置から作る)
-- 表記は [表記規約](../../../docs/development/writing-style.md) に従う。Markdown のインデントは 4 スペース
+- 表記は [表記規約](../../../docs/platform/rules/writing-style.md) に従う。Markdown のインデントは 4 スペース
 
 ## 雛形にない種別の型
 

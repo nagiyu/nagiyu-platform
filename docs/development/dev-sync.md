@@ -111,6 +111,5 @@ dev アカウントは prod アカウントから完全に独立させる方針�
 
 ## 関連ドキュメント
 
-- [ブランチ戦略](../branching.md)
-- [開発フロー](./flow.md)
-- [データベース設計パターン](./database-patterns.md)
+- [ブランチ戦略](../platform/rules/branching.md)
+- [データアクセスの規約](../platform/rules/data-access.md)

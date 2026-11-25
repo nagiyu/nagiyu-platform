@@ -53,6 +53,6 @@
 ## 関連ドキュメント
 
 - [プラットフォーム全体ドキュメント](../../README.md)
-- [ブランチ戦略](../../branching.md)
+- [ブランチ戦略](../../platform/rules/branching.md)
 - [共通基盤のデプロイ先](../../platform/specs/deploy.md)
-- [開発ガイドライン](../../development/rules.md)
+- [開発ガイドライン](../../platform/rules/coding.md)

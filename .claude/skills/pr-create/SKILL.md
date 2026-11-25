@@ -22,7 +22,7 @@ description: Draft PR を作成する。実装単位の作業ブランチから 
 | dev 環境に資材が出る／多段で積み上げる／完成前に develop を汚したくない | `integration/{issue-number}-{slug}` | 切る（分岐元 develop） |
 | 非デプロイの軽量変更（docs / CLAUDE.md / `.claude/skills` / 小さなワークフロー改修） | `develop` 直接 | 切らない |
 
-迷ったら [`docs/branching.md`](../../../docs/branching.md) と CLAUDE.md「integration の考え方」を参照。
+迷ったら [`docs/platform/rules/branching.md`](../../../docs/platform/rules/branching.md) と CLAUDE.md「integration の考え方」を参照。
 
 ## 関連 Issue とクローズ
 
@@ -49,4 +49,4 @@ description: Draft PR を作成する。実装単位の作業ブランチから 
 ## 関連
 
 - [`.github/pull_request_template.md`](../../../.github/pull_request_template.md)
-- [`docs/branching.md`](../../../docs/branching.md)
+- [`docs/platform/rules/branching.md`](../../../docs/platform/rules/branching.md)

@@ -96,7 +96,7 @@ description: 本番リリース（develop → master）を手伝う。マイル�
 
 ## 注意点
 
-- **master と develop の資材をずらしたままにしない**。master に入れた変更は develop にも入れる（→ [`docs/branching.md`](../../../docs/branching.md) の「リリース」）。
+- **master と develop の資材をずらしたままにしない**。master に入れた変更は develop にも入れる（→ [`docs/platform/rules/branching.md`](../../../docs/platform/rules/branching.md) の「master と develop の資材をずらしたままにしない」）。
     - 本番の GSI 段階反映のように一時的に外す場合は、外したら戻すまでを 1 組として扱い、戻すリリースまで見届ける。
     - develop 向け PR をマージした後で release ブランチに追加コミットした場合は、develop にも反映されているかを確認する。
 - 本番の不具合修正も「hotfix」という別手順は設けず、リリースとして扱う（起点は上の「2. リリースブランチの作成」）。
@@ -112,6 +112,6 @@ description: 本番リリース（develop → master）を手伝う。マイル�
 
 ## 関連
 
-- [`docs/branching.md`](../../../docs/branching.md)
+- [`docs/platform/rules/branching.md`](../../../docs/platform/rules/branching.md)
 - [`.claude/skills/pr-create/SKILL.md`](../pr-create/SKILL.md)
 - [`.github/pull_request_template.md`](../../../.github/pull_request_template.md)

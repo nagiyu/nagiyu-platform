@@ -244,7 +244,7 @@ aws secretsmanager put-secret-value \
 
 Auth サービスでは、以下の GitHub Actions ワークフローを使用します:
 
-各ワークフローのパスフィルター (`paths`) は [コーディング規約](../../development/rules.md) の共通ルールに従うため、ここには記載しません。
+各ワークフローのパスフィルター (`paths`) は [ワークフローを書くときの規約](../../platform/rules/workflows.md) の共通ルールに従うため、ここには記載しません。
 
 #### 1. 検証ワークフロー (`.github/workflows/auth-verify-app.yml`)
 
@@ -278,7 +278,7 @@ on:
 
 ### 4.2 ブランチ戦略とデプロイフロー
 
-プラットフォーム共通のブランチ戦略とCI/CD戦略については、[ブランチ戦略](../../branching.md) を参照してください。
+プラットフォーム共通のブランチ戦略とCI/CD戦略については、[ブランチ戦略](../../platform/rules/branching.md) を参照してください。
 
 **概要**:
 - `feature/**` → `integration/**` → `develop` → `master` の順にマージ
@@ -712,6 +712,6 @@ aws ecr batch-delete-image \
 - [GitHub Actions - OIDC を使用した AWS との連携](https://docs.github.com/ja/actions/deployment/security-hardening-your-deployments/configuring-openid-connect-in-amazon-web-services)
 - [AWS Lambda - コンテナイメージを使用した関数の更新](https://docs.aws.amazon.com/lambda/latest/dg/gettingstarted-images.html)
 - [NextAuth.js Documentation](https://next-auth.js.org/)
-- [プラットフォームブランチ戦略](../../branching.md)
-- [プラットフォーム開発ガイドライン](../../development/rules.md)
+- [プラットフォームブランチ戦略](../../platform/rules/branching.md)
+- [プラットフォーム開発ガイドライン](../../platform/rules/coding.md)
 - [共通基盤のデプロイ先](../../platform/specs/deploy.md)

@@ -27,16 +27,16 @@ model: opus
 
 - TypeScript strict mode
 - ライブラリ内でパスエイリアス（`@/`）を使用しない
-- ライブラリ依存の一方向性（`ui → browser → common`、循環依存禁止）
+- ライブラリ依存の一方向性（`ui → common`、`react → browser → common`、`nextjs → common`、`aws → common`、循環依存禁止）
 - エラーメッセージは日本語 + 定数化（`ERROR_MESSAGES` オブジェクト）
 - UI 層（`components/`, `app/`）とビジネスロジック（`lib/`）の分離
-- `dangerouslySetInnerHTML` を直接使用しない（DOMPurify 経由のみ）
+- `dangerouslySetInnerHTML` に、サニタイズ (DOMPurify) かエスケープを通していない文字列を渡さない
 - テストカバレッジ 80% 以上 / テストは `tests/` 配下（`src/` と分離）
 - すべての出力（コメント等）は日本語
 - コメントには WHY を書き、WHAT の言い換えは書かない。経緯は今後の開発に効く制約としてのみ、現在形で書く
 - コメントで、リポジトリ内のファイル・ドキュメントへの参照に説明を委ねない (外部仕様の URL は可)。Issue / PR 番号・Phase 名も書かない
 - JSDoc は原則書く。名前・型・実装から自明なものは省いてよい
-- コメントと文書の表記は [表記規約](../../docs/development/writing-style.md) に従う (記号は半角、スペースは記号の役割で決める)
+- コメントと文書の表記は [表記規約](../../docs/platform/rules/writing-style.md) に従う (記号は半角、スペースは記号の役割で決める)
 
 ## 報告フォーマット
 

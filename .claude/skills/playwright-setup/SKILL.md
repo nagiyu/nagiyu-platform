@@ -56,4 +56,4 @@ node_modules/.bin/playwright --version  # プロジェクト要求版
 
 ## 関連
 
-- [`docs/development/claude-environment.md`](../../../docs/development/claude-environment.md) — env 固有事情の詳細
+- [`docs/platform/rules/claude-environment.md`](../../../docs/platform/rules/claude-environment.md) — env 固有事情の詳細

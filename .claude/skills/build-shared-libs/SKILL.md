@@ -27,7 +27,7 @@ aws      ← common
 browser  ← common
 nextjs   ← common
 react    ← browser, common
-ui       ← browser, common （+ build に scripts/copy-assets.mjs の追加ステップあり）
+ui       ← common （+ build に scripts/copy-assets.mjs の追加ステップあり）
 ```
 
 `build:libs`（ルート `package.json`）は、この依存を満たす順に `--workspace` を並べている。npm は複数の `--workspace` を指定順に 1 つずつ実行するため、並べた順がそのままビルド順になる。lib を追加・依存を変えたときは、ルートの `build:libs` の並びを直す。
@@ -42,4 +42,4 @@ npm run build --workspace @nagiyu/common
 
 ## 関連
 
-- [`docs/development/claude-environment.md`](../../../docs/development/claude-environment.md) — env 固有事情
+- [`docs/platform/rules/claude-environment.md`](../../../docs/platform/rules/claude-environment.md) — env 固有事情

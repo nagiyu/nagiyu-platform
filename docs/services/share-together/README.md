@@ -54,12 +54,12 @@
 
 ### プラットフォーム共通
 
-- [コーディング規約](../../development/rules.md)
-- [アーキテクチャガイドライン](../../development/architecture.md)
-- [認証ガイド](../../development/authentication.md)
-- [データアクセス層](../../development/data-access-layer.md)
-- [テスト戦略](../../development/testing.md)
-- [ブランチ戦略](../../branching.md)
+- [コーディング規約](../../platform/rules/coding.md)
+- [アーキテクチャガイドライン](../../platform/rules/architecture.md)
+- [認証ガイド](../../platform/rules/authentication.md)
+- [データアクセス層](../../platform/rules/data-access.md)
+- [テスト戦略](../../platform/rules/testing.md)
+- [ブランチ戦略](../../platform/rules/branching.md)
 
 ### インフラ
 
