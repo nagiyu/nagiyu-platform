@@ -562,7 +562,7 @@ care は「ユーザーがその話題をどれだけ気にしているか」の
 - **カウンターの障害時は、その組の勉強を止める**。止めた利用者はバッチの失敗として報告する。
 - **最後に話してから 3 日たったキャラクターは勉強の対象から外す**。「話した」はユーザーの発話だけで、通知のタップは含めない。最後の発話の時刻は、平常通知の周期と同じく発話の履歴から求める。外れる条件と再開の仕方は[勉強の停止](../../specs/livetalk/term/study-pause.md)を参照。
 - **Web 検索の回数をリサーチごとにログへ出し、バッチの完了ログに合計を載せる**。外部の検索 API への切り替えはしない (今の OpenAI の Web 検索のまま)。
-- 数える仕組みのうち、条件付きの加算と戻し (DynamoDB) は `@nagiyu/aws`、日本時間の日・月のキーと TTL の計算は `@nagiyu/common` の共通部品とし、Quick Clip の利用回数と共有する ([shared-libraries.md](../../development/shared-libraries.md))。
+- 数える仕組みのうち、条件付きの加算と戻し (DynamoDB) は `@nagiyu/aws`、日本時間の日・月のキーと TTL の計算は `@nagiyu/common` の共通部品とし、Quick Clip の利用回数と共有する ([shared-libraries.md](../../platform/rules/shared-libraries.md))。
 
 **根拠・トレードオフ**
 
@@ -850,5 +850,5 @@ DynamoDB Single Table（`nagiyu-livetalk-dynamodb-{env}`）。
 - [external-design.md](./external-design.md): 画面設計・概念データモデル
 - [roadmap.md](./roadmap.md): Phase 6+ 将来拡張ロードマップ
 - [README.md](./README.md): サービス概要・ドキュメント一覧
-- プラットフォーム認証: [../../development/authentication.md](../../development/authentication.md)
-- 共通ライブラリ: [../../development/shared-libraries.md](../../development/shared-libraries.md)
+- プラットフォーム認証: [../../platform/rules/authentication.md](../../platform/rules/authentication.md)
+- 共通ライブラリ: [../../platform/rules/shared-libraries.md](../../platform/rules/shared-libraries.md)

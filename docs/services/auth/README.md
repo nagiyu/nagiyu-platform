@@ -94,8 +94,8 @@ Phase 1 では、Google OAuth 認証、ユーザー管理、ロール・権限�
 ## 関連ドキュメント
 
 - [プラットフォーム全体ドキュメント](../../README.md)
-- [ブランチ戦略](../../branching.md)
+- [ブランチ戦略](../../platform/rules/branching.md)
 - [共通基盤のデプロイ先](../../platform/specs/deploy.md)
-- [開発ガイドライン](../../development/rules.md)
-- [テスト戦略 (全体方針)](../../development/testing.md)
+- [開発ガイドライン](../../platform/rules/coding.md)
+- [テスト戦略 (全体方針)](../../platform/rules/testing.md)
 - [Admin サービス](../admin/README.md)

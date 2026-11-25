@@ -121,7 +121,7 @@ Issue番号、タスクタイプ
 
 ブランチ戦略、CI/CDなど全体の改善:
 
-- **ドキュメント参照**: `docs/development/`, `docs/`
+- **ドキュメント参照**: `docs/platform/rules/`, `docs/`
 - **配置先**: `tasks/issue-{番号}-{短縮名}.md`
 - **考慮事項**: 全サービスへの影響、段階的なロールアウト
 
@@ -140,9 +140,9 @@ Issue番号、タスクタイプ
 
 共通ライブラリ（@nagiyu/common等）の開発:
 
-- **ドキュメント参照**: `docs/platform/specs/lib/`, `docs/development/shared-libraries.md`
+- **ドキュメント参照**: `docs/platform/specs/lib/`, `docs/platform/rules/shared-libraries.md`
 - **配置先**: `tasks/issue-{番号}-{短縮名}.md`
-- **考慮事項**: 依存の一方向性（`ui → browser → common`）、パスエイリアス禁止
+- **考慮事項**: 依存の一方向性（`ui → common`、`react → browser → common`、`nextjs → common`、`aws → common`）、パスエイリアス禁止
 
 **例**:
 ```markdown
@@ -175,7 +175,7 @@ Issue番号、タスクタイプ
 
 - **TypeScript strict mode**: 型安全性を最優先
 - **テストカバレッジ 80%以上**: ビジネスロジックを重点的にテスト
-- **ライブラリ依存の一方向性**: `ui → browser → common`（循環禁止）
+- **ライブラリ依存の一方向性**: `ui → common`、`react → browser → common`、`nextjs → common`、`aws → common`（循環禁止）
 - **UI層とビジネスロジックの分離**: `components/`, `app/` vs `lib/`
 - **エラーメッセージ日本語化**: `ERROR_MESSAGES`オブジェクトで定数化
 

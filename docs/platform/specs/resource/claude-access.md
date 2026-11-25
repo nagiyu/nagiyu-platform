@@ -95,7 +95,7 @@ DynamoDB の読み取りが KMS で暗号化されたテーブルに通るよう
 キーは環境変数 (`AWS_ACCESS_KEY_ID`、`AWS_SECRET_ACCESS_KEY`) に入っており、これは `nagiyu-claude-key` のキーである。このユーザーは `AssumeRole` しかできないので、**プロファイルを付けない呼び出しは、権限不足ではなく呼び方の誤りで AccessDenied になる**。
 
 - AWS CLI には、必ず `--profile nagiyu-prod` か `--profile nagiyu-dev` を付ける。どちらのアカウントかを毎回明示させ、意図せず prod を操作するのを防ぐための作りで、既定のプロファイル (`[default]`) は作らない。
-- 環境変数のキーが優先されるので、`AWS_PROFILE` を設定しても切り替わらない ([実行環境](../../../development/claude-environment.md)も同じ)。
+- 環境変数のキーが優先されるので、`AWS_PROFILE` を設定しても切り替わらない ([実行環境](../../../platform/rules/claude-environment.md)も同じ)。
 - エラーの主体で見分ける。
     - `user/nagiyu-claude-key` が出ていれば、プロファイルの付け忘れ。
     - `assumed-role/nagiyu-claude/...` が出ていれば、ロールの権限の問題。メッセージが `explicit deny` なら上の Deny、`no identity-based policy allows` なら、そもそも許していない操作。

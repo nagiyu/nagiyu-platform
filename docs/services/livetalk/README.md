@@ -71,9 +71,7 @@ UI に常時表示が必要なクレジット（フッター本体）：
 
 ## 関連ドキュメント
 
-- [開発フロー](../../development/flow.md)
-- [ブランチ戦略](../../branching.md)
-- [開発ガイドライン](../../development/rules.md)
-- [認証](../../development/authentication.md)
-- [PWA](../../development/pwa.md)
-- [共通ライブラリ](../../development/shared-libraries.md)
+- [ブランチ戦略](../../platform/rules/branching.md)
+- [開発ガイドライン](../../platform/rules/coding.md)
+- [認証](../../platform/rules/authentication.md)
+- [共通ライブラリ](../../platform/rules/shared-libraries.md)

@@ -98,7 +98,7 @@ nagiyu-platformは複数のアプリケーションとインフラをホスト�
 ```
 docs/
 ├── README.md                        # プラットフォーム全体の目次
-├── branching.md                     # ブランチ戦略
+├── platform/rules/                  # 規約 (ブランチ戦略など)
 ├── agents/                          # エージェント関連ドキュメント
 │   └── task.implement.README.md
 ├── services/                        # アプリケーション別ドキュメント
