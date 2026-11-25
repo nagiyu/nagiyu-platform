@@ -210,151 +210,7 @@ libs/{library-name}/
 
 ## CI戦略
 
-本セクションでは、テスト実行のためのCI/CD実装パターンを説明します。  
-ブランチ戦略とCI/CDの全体像については、[ブランチ戦略](../branching.md) を参照してください。
-
-### 2段階CI
-
-#### ci-fast（高速フィードバック）
-
-- **トリガー**: integration/** ブランチへのPR
-- **対象**: chromium-mobile のみ
-- **目的**: 開発中の素早いフィードバック
-
-#### ci-full（完全テスト）
-
-- **トリガー**: develop ブランチへのPR
-- **対象**: 全3種デバイス
-- **カバレッジチェック**: 80%未満で失敗
-
-### CI最適化
-
-- 並列実行数の調整
-- 失敗時のスクリーンショット・動画記録
-- リトライ設定（不安定なテストへの対処）
-
-### GitHub Actions ワークフロー設計パターン
-
-#### 推奨パターン: ターゲット別PR検証ワークフロー
-
-サービスやライブラリごとに専用のPR検証ワークフローを作成することを推奨します。
-
-**ファイル名**: `.github/workflows/{target}-verify.yml`  
-（例: `hoge-verify.yml`）
-
-#### 2段階CI戦略の適用
-
-E2Eテストを持つサービスでは、1つのワークフローファイルで Fast/Full の両方を制御します:
-
-**{target}-verify.yml**:
-- トリガー: `integration/**` および `develop` ブランチへのPR
-- E2Eテスト: 共通の E2E 再利用ワークフローを 1 ジョブで呼ぶ。デバイスは再利用ワークフローの中の matrix で並列実行する
-    - `develop` へのPR では 3 デバイス、それ以外は chromium-mobile のみ (呼び出し側が `full: ${{ github.base_ref == 'develop' }}` を渡す)
-    - サービスごとの違い (先にビルドする core、web のディレクトリ、レポートの置き場所、追加の環境変数) は入力で渡す
-    - サービスごとに E2E のジョブを書かない。デバイス × サービスの数だけジョブをコピーすると、修正が一部のワークフローにしか入らなくなる
-    - E2E のジョブは、ブラウザと依存を入れた CI 共通イメージの上で動かす ([CI 共通イメージ](ci-image.md))
-- カバレッジチェック: `develop` へのPR のみ実行（`if: github.base_ref == 'develop'`）
-- 目的: 1ファイルで Fast（chromium-mobile のみ）と Full（全デバイス + カバレッジ）を制御
-
-**ライブラリの場合**:
-- E2Eテストがないため、単一の `{target}-verify.yml` のみ
-- 中身は共通のライブラリ検証の再利用ワークフローで、`{target}-verify.yml` はトリガーとワークスペースを渡すだけの薄いファイルにする
-- ライブラリごとにファイルを分けるのは、PR のチェックとコメントをライブラリごとに分けて見せるため
-- トリガー: `develop` および `integration/**` ブランチへのPR
-
-**トリガー設定のベストプラクティス**:
-
-```yaml
-on:
-    pull_request:
-        branches:
-            - develop           # メインブランチ
-            - integration/**    # 統合ブランチ
-        paths:
-            - 'libs/**'                   # ターゲットと依存ライブラリ
-            - 'configs/**'                # 共有設定
-            - '.github/actions/**'        # 共有 composite action
-            - 'package.json'              # ルートパッケージ定義
-            - 'package-lock.json'         # 依存関係ロック
-            - '.github/workflows/hoge-verify.yml'  # ワークフロー自体
-            - '.github/workflows/reusable-service-verify.yml' # 呼んでいる再利用ワークフロー
-            - '.github/workflows/reusable-infra-verify.yml'
-            - '.github/workflows/reusable-e2e.yml'
-```
-
-**設計原則**:
-
-1. **ブランチフィルター**: `develop` と `integration/**` を標準とする
-    - `develop`: プロダクションに向けた統合ブランチ
-    - `integration/**`: フィーチャー統合用の作業ブランチ
-
-2. **パスフィルター**: 関連ファイルのみでトリガー
-    - **ターゲット**: 変更対象のディレクトリ（例: `services/hoge/**`）
-    - **依存対象**: 依存ライブラリは個別に列挙せず `libs/**` とする。共通インフラ部品・共有設定も含める (理由と対象は [コーディング規約](./rules.md) の「Verify ワークフローは PR をトリガーとし、パスフィルターを設定」を参照)
-    - **ルートパッケージ**: `package.json`, `package-lock.json`
-    - **Node のバージョン**: 足さなくてよい。workflow の Node は CI 共通イメージで決まり ([CI 共通イメージ](./ci-image.md))、Node を上げるときはイメージのタグを替える workflow 自体の変更として検査が走るため。`.node-version` を読むのは、ローカルの開発と、イメージを使わない workflow (`weekly-npm-check.yml`) だけ
-    - **ワークフロー自体**: ワークフロー定義ファイルと、そこから呼ぶ再利用ワークフロー。再利用ワークフローを直したときに、呼び出し側の verify が走らないと検証から漏れる
-
-3. **ワークスペース指定**: パッケージ名を使用
-    ```yaml
-    - name: Run tests
-        run: npm run test --workspace=@nagiyu/hoge
-    ```
-    - パス指定（`services/hoge`）ではなくパッケージ名（`@nagiyu/hoge`）を使用
-    - より明示的で、リファクタリング時にも対応しやすい
-
-4. **ビルド順序の考慮**: 依存関係に従って順序を守る
-    ```yaml
-    - name: Build shared libraries
-        run: npm run build:libs
-
-    - name: Build application
-        run: npm run build --workspace @nagiyu/hoge
-    ```
-    - **重要**: `npm run build` (全ワークスペース並列ビルド) を使用すると依存関係が考慮されず、ビルドエラーが発生する可能性があります
-    - ライブラリ間の依存関係: `@nagiyu/ui` → `@nagiyu/browser` → `@nagiyu/common`
-    - 詳細は [shared-libraries.md](./shared-libraries.md) の「ビルド順序」を参照
-
-**検査の対象と、検査の決まり方**:
-
-lint・format・ユニットテスト・カバレッジ・契約テストは、サービスごとに書かず、再利用ワークフロー (`reusable-service-verify.yml`) にまとめる。`{target}-verify.yml` は、対象のディレクトリ (`dirs`。例: `services/quick-clip infra/quick-clip`) を渡して呼ぶだけにする。
-
-- **対象**: ルート `package.json` の `workspaces` を展開し、`dirs` 配下にあるワークスペースを検査する。ワークスペースを手で並べない
-- **どの検査をかけるか**: 各ワークスペースの npm scripts の有無で決まる。スクリプトを持たない検査はかからず、どの検査も持たないワークスペースは対象から外れる
-
-    | 検査 | npm script |
-    |---|---|
-    | lint | `lint` |
-    | format | `format:check` |
-    | ユニットテスト | `test` |
-    | カバレッジ | `test:coverage` |
-    | 契約テスト | `test:contract` |
-
-- **なぜスクリプトの有無で決めるか**: 検査の対象をワークフローごとに手で並べていたため、並べ忘れたパッケージがユニットテストやカバレッジの検査から漏れていた (どこでも unit テストが走っていないパッケージがあった)。パッケージを足しても、ワークフローを書き換えずに検査がかかるようにする
-- **カバレッジを外したいワークスペース**: 再利用ワークフローの `coverage-exclude` に名前を渡すと、`test:coverage` を持っていても `test` だけを流す。通常はスクリプト自体を置かないことで足りる
-
-**新しいサービスやパッケージを足すとき**:
-
-1. `{target}-verify.yml` を作り、`dirs` を渡して再利用ワークフローを呼ぶ。パッケージを同じディレクトリ配下に足すだけなら、ワークフローは変えない
-2. 検査をかけたいものは、そのパッケージに npm scripts を用意する。用意しなければ、その検査はかからない。**漏れても CI は赤くならない**ため、新しいパッケージには `lint` / `format:check` / `test` / `test:coverage` を揃えるのを基本とする
-3. ユニットテストの前に、web や batch が参照する `core` と、infra が参照する `@nagiyu/infra-common` はビルドされる。この前提から外れる構成 (別名の共有パッケージなど) では、ワークフロー側の変更が要る
-4. infra があるなら、`{target}-verify.yml` に infra 用の再利用ワークフロー (`reusable-infra-verify.yml`) を呼ぶジョブも足す (下の「infra のビルドと synth」を参照)
-5. Next.js のビルド・Docker・E2E・サービス固有の検査 (portal の内部リンクチェックなど) は、`{target}-verify.yml` 側にジョブとして残す。再利用ワークフローの対象外である
-
-**infra のビルドと synth**:
-
-infra のビルド (tsc) と `cdk synth` は、lint などとは別の再利用ワークフロー (`reusable-infra-verify.yml`) で流す。呼び出し側は、`reusable-service-verify.yml` と並べて `dirs` を渡して呼ぶ。
-
-- **対象**: `infra` 配下 (`infra` 自体を含む) で、`build` を持つワークスペース。`synth` を持つものだけ synth をかける。`dirs` がワークスペースそのものを指すときは、その配下のワークスペースを拾わない (`dirs: infra` でルートの infra だけを検査し、`infra/*` は拾わない)
-- **synth の引数**: `synth-args` に 1 行 1 回で渡す。省略時は `--context env=dev` の 1 回。行の先頭の `KEY=VALUE` は環境変数として渡し、残りを `cdk synth` の引数にする (例: livetalk の `ENVIRONMENT=prod`)
-- **synth の前に別のビルドが要るとき**: `pre-synth-scripts` に `<ワークスペース名> <npm script 名>` を 1 行ずつ渡す。指定すると、共有ライブラリのビルド後に流す (ui-storybook は、synth が読む `libs/ui/storybook-static` を作るために使う)
-
-**検査の流し方**:
-
-- **ワークスペースごとに 1 ジョブ (matrix)** で、lint → format → テストの順に流す。1 つが落ちても他のワークスペースの結果が見えるようにする
-- **format はビルドより前に流す**。ビルドでできる `dist/` を prettier が拾って落ちるため
-- **lint が落ちても format とテストは流す**。1 回の run で全部の結果を見えるようにし、直す往復を減らす
-- **カバレッジは `develop` 向けの PR だけで検査する**。`develop` 向けは `test:coverage`、`integration/**` 向けは `test` を流す (Fast / Full の出し分けと同じ考え方)
+CI の構成と各ワークフローの振る舞いは `docs/platform/specs/ci/` 配下の CI の仕様にある。検証の流れは [サービスの PR 検証](../platform/specs/ci/service-verify.md)、E2E は [E2E](../platform/specs/ci/e2e.md) を参照する。ワークフローを書くときの規則は [ワークフローを書くときの規約](../platform/rules/workflows.md) にある。ブランチ戦略と CI の全体像は [ブランチ戦略](../branching.md) を参照する。
 
 **カバレッジチェックの動作**:
 
@@ -379,29 +235,6 @@ coverageThreshold: {
 - 技術的制約: ブラウザプロセス起動を伴う処理を Jest の単体テスト環境で再現しづらく、モック化が困難です
 - これはバッチパッケージ全体の一般ルールではなく、当該パッケージ固有の構造的例外です（例: `services/stock-tracker/batch` など他のバッチパッケージは通常どおり 80% 閾値を設定します）
 - 将来方針: Playwright 依存コードと純粋ロジックを分離し、テスタビリティを改善するタスクを別途検討します
-
-**利点**:
-
-- 無関係な変更でワークフローが実行されず、CIリソースを節約
-- 変更対象に応じた適切なテストのみ実行され、高速なフィードバック
-- ワークフロー定義が明確で、メンテナンスしやすい
-
-#### ジョブ依存関係（needs）の設計
-
-`needs` でジョブ間の依存を設定し、失敗した前提の後続を流さない。
-
-- **ビルド成果物を使うジョブは、ビルドのジョブに `needs` を張る**: web / batch のビルドは core のビルドの後、Docker ビルドと E2E は web / batch のビルドの後に流す。ビルド順序が保証され、前提が壊れているときに後続が無駄に流れない
-- **lint / format / テストは `needs` で縛らない**: 再利用ワークフローの中で、同じジョブ内の手順として流す。lint が落ちても後続を流して全部の結果を見せるため、ジョブを分けて止める設計にはしない
-- **ビルド系ジョブどうしは並列にする**: 依存のないジョブは `needs` で直列にしない
-
-この方針はサービスの構成 (core / web / batch など) に依らない。構成が異なるサービスでも、同じ原則でビルド成果物の依存だけに `needs` を張る。
-
-**`report` ジョブと `if:` 条件の注意点**:
-
-- `report` ジョブは共通の報告 action を呼ぶ。action は同じ run のジョブ一覧を Actions API で取って表を作るので、`needs` の結果を手で並べない。ジョブを足しても報告を直さずに済む
-- `needs` には全ジョブを並べる。結果を渡すためではなく、全ジョブの終了を待つため
-- `if: github.base_ref == 'develop'` でスキップされたジョブ (`skipped`) は、action が成功として扱う
-- PR のターゲットブランチは、ジョブの `if:` では `github.base_ref` で参照する（`github.ref` ではない）。`actions/github-script` のスクリプトの中では `github` が API クライアントを指し `github.base_ref` は undefined になるため、`context.payload.pull_request.base.ref` を使う
 
 ## テスト作成ガイドライン
 
@@ -458,7 +291,7 @@ npm run test:e2e:headed   # ブラウザ表示モード
 
 ### CI環境
 
-GitHub Actionsで自動実行。
+GitHub Actions で自動実行する。CI の仕様は `docs/platform/specs/ci/` 配下にある。
 
 ## 既知の制約・技術的問題
 
