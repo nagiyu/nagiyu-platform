@@ -28,8 +28,8 @@ description: Issueの内容から実装の指針となるMarkdownドキュメン
 3. **関連ドキュメントの確認**
     以下のドキュメントを確認し、コンテキストを把握:
     - `docs/README.md` - プロジェクト全般の方針
-    - `docs/development/rules.md` - コーディング規約
-    - `docs/development/architecture.md` - アーキテクチャ方針
+    - `docs/platform/rules/coding.md` - コーディング規約
+    - `docs/platform/rules/architecture.md` - アーキテクチャ方針
     - タスクタイプに応じた既存ドキュメント:
         - サービス: `docs/services/{サービス名}/`
         - インフラ: `docs/infra/`
@@ -131,10 +131,10 @@ description: Issueの内容から実装の指針となるMarkdownドキュメン
 
 - **TypeScript strict mode**: 型安全性を最優先
 - **テストカバレッジ 80%以上**: ビジネスロジックを重点的にテスト
-- **ライブラリ依存の一方向性**: `ui → browser → common`（循環禁止）
+- **ライブラリ依存の一方向性**: `ui → common`、`react → browser → common`、`nextjs → common`、`aws → common`（循環禁止）
 - **UI層とビジネスロジックの分離**: `components/`, `app/` vs `lib/`
 - **エラーメッセージ日本語化**: `ERROR_MESSAGES`オブジェクトで定数化
-- **`dangerouslySetInnerHTML`禁止**: DOMPurify経由のみ許可
+- **`dangerouslySetInnerHTML`**: サニタイズ (DOMPurify) かエスケープを通した文字列だけを渡す
 
 ## 注意事項
 
@@ -150,7 +150,7 @@ description: Issueの内容から実装の指針となるMarkdownドキュメン
 
 - **実装を行わない**: コード生成や変更は task.implement エージェントの役割
 - **過度な詳細化**: 実装の詳細まで規定せず、概念レベルに留める
-- **ルール違反**: `.vscode/settings.json`、`docs/development/rules.md`に反する記述
+- **ルール違反**: `.vscode/settings.json`、`docs/platform/rules/coding.md`に反する記述
 - **実コード参照**: ドキュメントは単体で完結させる
 - **`docs/`配下への配置**: タスクドキュメントは`tasks/`配下のみ
 
@@ -171,12 +171,12 @@ description: Issueの内容から実装の指針となるMarkdownドキュメン
 ### プラットフォームタスク
 
 - プラットフォーム全体への影響を評価
-- `docs/development/` 配下のドキュメント更新も検討
+- `docs/platform/rules/` 配下のドキュメント更新も検討
 - CI/CDパイプラインへの影響を考慮
 
 ### ライブラリタスク
 
-- 依存関係の一方向性を維持（`ui → browser → common`）
+- 依存関係の一方向性を維持（`ui → common`、`react → browser → common`、`nextjs → common`、`aws → common`）
 - パスエイリアス（`@/`）はライブラリ内で使用禁止
 - テストカバレッジ80%以上必須
 
@@ -204,8 +204,7 @@ description: Issueの内容から実装の指針となるMarkdownドキュメン
 ## 参考リソース
 
 - [task.implement エージェント](./task.implement.agent.md) - 実装を担当するエージェント
-- [開発フロー](../../docs/development/flow.md) - 2層ドキュメント構成と開発フロー
 - [tasks テンプレート](../../tasks/templates/README.md) - タスクドキュメントテンプレート一覧
-- [コーディング規約](../../docs/development/rules.md) - 実装時の必須ルール
+- [コーディング規約](../../docs/platform/rules/coding.md) - 実装時の必須ルール
 - [ドキュメント方針](../../docs/README.md) - プロジェクトの開発方針
-- [アーキテクチャ方針](../../docs/development/architecture.md) - 設計の基本方針
+- [アーキテクチャ方針](../../docs/platform/rules/architecture.md) - 設計の基本方針

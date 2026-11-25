@@ -36,13 +36,13 @@ docs/         # 永続ドキュメント
 tasks/        # 開発時一時ドキュメント（完了後に削除）
 ```
 
-**ライブラリ依存の一方向性**: `ui → browser → common`（循環依存禁止）
+**ライブラリ依存の一方向性**: `ui → common`、`react → browser → common`、`nextjs → common`、`aws → common`（循環依存禁止）
 
 ---
 
 ## コーディング規約
 
-詳細: `docs/development/rules.md`
+詳細: `docs/platform/rules/coding.md`
 
 ### MUST
 
@@ -50,18 +50,18 @@ tasks/        # 開発時一時ドキュメント（完了後に削除）
 - テストカバレッジ 80% 以上（Jest `coverageThreshold` で自動失敗）
 - エラーメッセージは日本語 + 定数化（`ERROR_MESSAGES` オブジェクト）
 - UI 層（`components/`, `app/`）とビジネスロジック（`lib/`）を分離
-- ライブラリ依存の一方向性を保つ（`ui → browser → common`）
+- ライブラリ依存の一方向性を保つ（`ui → common`、`react → browser → common`、`nextjs → common`、`aws → common`）
 
 ### MUST NOT
 
 - ライブラリ内でパスエイリアス（`@/`）を使用しない
-- `dangerouslySetInnerHTML` を直接使用しない（DOMPurify 経由のみ）
+- `dangerouslySetInnerHTML` に、サニタイズ (DOMPurify) かエスケープを通していない文字列を渡さない
 
 ---
 
 ## テスト要件
 
-詳細: `docs/development/testing.md`
+詳細: `docs/platform/rules/testing.md`
 
 - テストファイルは `tests/` 配下に配置（`src/` と分離）
 - 副作用がある処理のみモック化、純粋関数はそのまま実行
@@ -71,11 +71,11 @@ tasks/        # 開発時一時ドキュメント（完了後に削除）
 
 ## ブランチ戦略
 
-詳細: `docs/branching.md`
+詳細: `docs/platform/rules/branching.md`
 
 ```
-feature/**  →  integration/**  →  develop  →  master
-           (Fast CI)      (Full CI)   (本番)
+作業ブランチ (名前は自由)  →  integration/**  →  develop  →  master
+                          (Fast CI)      (Full CI)   (本番)
 ```
 
 - 作業ブランチ名は自由
@@ -93,10 +93,10 @@ feature/**  →  integration/**  →  develop  →  master
 
 ## 参考ドキュメント
 
-- コーディング規約: `docs/development/rules.md`
-- アーキテクチャ: `docs/development/architecture.md`
-- テスト戦略: `docs/development/testing.md`
-- ブランチ戦略: `docs/branching.md`
-- 共通ライブラリの設計: `docs/development/shared-libraries.md`
+- コーディング規約: `docs/platform/rules/coding.md`
+- アーキテクチャ: `docs/platform/rules/architecture.md`
+- テスト戦略: `docs/platform/rules/testing.md`
+- ブランチ戦略: `docs/platform/rules/branching.md`
+- 共通ライブラリの設計: `docs/platform/rules/shared-libraries.md`
 - 共通ライブラリの仕様: `docs/platform/specs/lib/`
 - エージェント指示: `.github/agents/`

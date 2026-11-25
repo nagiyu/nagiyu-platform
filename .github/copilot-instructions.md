@@ -42,7 +42,7 @@ services/          # アプリケーション
 └── tools/                    # ツール集
 ```
 
-**依存関係の一方向性**: `ui → browser → common`（循環依存禁止）
+**依存関係の一方向性**: `ui → common`、`react → browser → common`、`nextjs → common`、`aws → common`（循環依存禁止）
 補足:
 
 - `react` と `nextjs` は `common` に依存
@@ -52,7 +52,7 @@ services/          # アプリケーション
 
 ## コーディング規約
 
-詳細は [docs/development/rules.md](../docs/development/rules.md) を参照してください。
+詳細は [docs/platform/rules/coding.md](../docs/platform/rules/coding.md) を参照してください。
 
 ### 特に重要なルール
 
@@ -60,15 +60,15 @@ services/          # アプリケーション
 - **MUST**: テストカバレッジ 80%以上必須（Jest の `coverageThreshold` で自動失敗）
 - **MUST**: エラーメッセージは日本語 + 定数化（`ERROR_MESSAGES` オブジェクト）
 - **MUST**: UI層（`components/`, `app/`）とビジネスロジック（`lib/`）を分離
-- **MUST**: ライブラリ依存の一方向性を保つ（`ui → browser → common`）
+- **MUST**: ライブラリ依存の一方向性を保つ（`ui → common`、`react → browser → common`、`nextjs → common`、`aws → common`）
 - **MUST NOT**: ライブラリ内でパスエイリアス (`@/`) を使用しない
-- **MUST NOT**: `dangerouslySetInnerHTML` を使用しない（DOMPurify経由のみ）
+- **MUST NOT**: `dangerouslySetInnerHTML` に、サニタイズ (DOMPurify) かエスケープを通していない文字列を渡さない
 
 ---
 
 ## テスト要件
 
-詳細は [docs/development/testing.md](../docs/development/testing.md) を参照してください。
+詳細は [docs/platform/rules/testing.md](../docs/platform/rules/testing.md) を参照してください。
 
 ### 重点項目
 
@@ -101,7 +101,7 @@ services/          # アプリケーション
 ## レビュー重点項目
 
 1. **最小限のルール原則**: 過剰な抽象化や不要な機能追加を避ける
-2. **依存関係の一方向性**: `ui → browser → common` の方向性が保たれているか
+2. **依存関係の一方向性**: `ui → common`、`react → browser → common`、`nextjs → common`、`aws → common` の方向性が保たれているか
 3. **エラーハンドリング**: 日本語 + 定数化されているか
 4. **テストカバレッジ**: 80%以上、ビジネスロジックが十分にテストされているか
 5. **共通ライブラリの活用**: ブラウザAPI使用時に `@nagiyu/browser` が活用されているか
@@ -110,13 +110,13 @@ services/          # アプリケーション
 
 ## ブランチ戦略とCI/CD
 
-詳細は [docs/branching.md](../docs/branching.md) および [docs/development/testing.md](../docs/development/testing.md) を参照してください。
+詳細は [docs/platform/rules/branching.md](../docs/platform/rules/branching.md) および [docs/platform/rules/testing.md](../docs/platform/rules/testing.md) を参照してください。
 
 ### ブランチフロー
 
 ```
-feature/**  →  integration/**  →  develop  →  master
-           (Fast CI)      (Full CI)   (本番)
+作業ブランチ (名前は自由)  →  integration/**  →  develop  →  master
+                          (Fast CI)      (Full CI)   (本番)
 ```
 
 ### CI要件
@@ -128,9 +128,9 @@ feature/**  →  integration/**  →  develop  →  master
 
 ## 参考ドキュメント
 
-- **コーディング規約**: [docs/development/rules.md](../docs/development/rules.md)
-- **テスト戦略**: [docs/development/testing.md](../docs/development/testing.md)
-- **ブランチ戦略**: [docs/branching.md](../docs/branching.md)
-- **アーキテクチャ**: [docs/development/architecture.md](../docs/development/architecture.md)
-- **共通ライブラリ**: [docs/development/shared-libraries.md](../docs/development/shared-libraries.md)
+- **コーディング規約**: [docs/platform/rules/coding.md](../docs/platform/rules/coding.md)
+- **テスト戦略**: [docs/platform/rules/testing.md](../docs/platform/rules/testing.md)
+- **ブランチ戦略**: [docs/platform/rules/branching.md](../docs/platform/rules/branching.md)
+- **アーキテクチャ**: [docs/platform/rules/architecture.md](../docs/platform/rules/architecture.md)
+- **共通ライブラリ**: [docs/platform/rules/shared-libraries.md](../docs/platform/rules/shared-libraries.md)
 - **共通ライブラリの仕様**: [docs/platform/specs/lib/](../docs/platform/specs/lib/)

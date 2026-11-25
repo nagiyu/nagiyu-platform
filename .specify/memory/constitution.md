@@ -133,7 +133,7 @@ Follow-up TODOs: なし
 - ワークフロー内でのワークスペース指定はパッケージ名（`@nagiyu/hoge`）を使用すること（MUST）。
   パス指定（`services/hoge`）は使用してはならない（MUST NOT）。
 - `npm run build --workspaces`（並列ビルド）は使用してはならない（MUST NOT）。
-  依存関係順（`common` → `aws` → `react` → `browser` → `ui`）に個別ビルドすること（MUST）。
+  `npm run build:libs`（ルート `package.json` が依存順に並べている）でビルドすること（MUST）。
 - E2E テスト失敗時はスクリーンショット・動画・Playwright レポートを 30 日間保存すること（MUST）。
 
 **根拠**: マージ後のデプロイ失敗リスクの最小化、開発速度と品質のバランス確保。
@@ -151,7 +151,7 @@ Follow-up TODOs: なし
   - `@nagiyu/ui`: Next.js + Material-UI 依存の UI コンポーネント
   - `@nagiyu/aws`: AWS SDK 補助・拡張ライブラリ
 - ライブラリ間の依存は一方向を維持すること（MUST）:
-  `ui → browser → common`、`react → common`、`aws`（モノレポ内他ライブラリに依存しない）
+  `ui → common`、`react → browser → common`、`nextjs → common`、`aws → common`
 - 下位ライブラリが上位ライブラリを参照する循環依存は禁止（MUST NOT）。
 - `services/*/core` は `libs/common` のみに依存可能。`libs/ui`、`libs/browser` への依存は禁止（MUST NOT）。
 - `services/*/web` は `libs/common`、`libs/browser`、`libs/ui` に依存可能。
@@ -204,7 +204,7 @@ Follow-up TODOs: なし
 
 - すべての外部入力を検証すること（MUST）。
 - React のデフォルトエスケープ機能を活用すること（MUST）。
-- `dangerouslySetInnerHTML` は DOMPurify なしに使用してはならない（MUST NOT）。
+- `dangerouslySetInnerHTML` に、サニタイズ (DOMPurify) かエスケープを通していない文字列を渡してはならない（MUST NOT）。
 - 秘密情報（APIキー、シークレット等）をソースコードにハードコードしてはならない（MUST NOT）。
 
 ### ブラウザ API
@@ -272,6 +272,6 @@ Follow-up TODOs: なし
 - すべての PR レビューにおいて、本憲法への準拠を確認すること。
 - ESLint・Prettier・CI ゲートが原則の多くを自動強制する。
 - ドキュメント関連原則（VII）は PR レビュー時に人間が確認すること。
-- 開発に関する実行時ガイダンスは `docs/development/` ディレクトリを参照すること。
+- 開発に関する実行時ガイダンスは `docs/platform/rules/` ディレクトリを参照すること。
 
 **バージョン**: 1.0.0 | **批准日**: 2026-02-26 | **最終改正日**: 2026-02-26

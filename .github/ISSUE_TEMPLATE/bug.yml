@@ -8,8 +8,8 @@ body:
         ## 実装時の注意事項
 
         実装前に必ず以下のドキュメントを確認してください:
-        - [コーディング規約・べからず集](../../docs/development/rules.md)
-        - [アーキテクチャガイドライン](../../docs/development/architecture.md)
+        - [コーディング規約](../../docs/platform/rules/coding.md)
+        - [アーキテクチャガイドライン](../../docs/platform/rules/architecture.md)
         - [開発方針](../../docs/README.md)
 
   - type: textarea
