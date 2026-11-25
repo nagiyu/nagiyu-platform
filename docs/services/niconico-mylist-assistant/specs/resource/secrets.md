@@ -5,7 +5,7 @@ sources:
   - infra/niconico-mylist-assistant/lib/policies/web-runtime-policy.ts
   - infra/niconico-mylist-assistant/lib/policies/batch-runtime-policy.ts
   - .github/workflows/niconico-mylist-assistant-deploy.yml
-sources_hash: c82e62a046b97439471d41bea616b7a200ea97e8d297f6ea215bdda9f5a9d106
+sources_hash: 21d56f1214190bce7956116d21d1e4e37b56c6c10611ac41f5eccd1d1752676f
 ---
 
 # シークレット

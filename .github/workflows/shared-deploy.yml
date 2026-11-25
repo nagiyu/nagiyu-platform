@@ -10,7 +10,13 @@ on:
       - 'infra/shared/**'
       # SSM キーの定義は infra-common にあり、変わったら書き込む側の shared も組み直す。
       - 'infra/common/**'
+      - 'configs/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.node-version'
       - '.github/workflows/shared-deploy.yml'
+      - '.github/actions/setup-environment/**'
+      - '.github/actions/setup-node/**'
   workflow_dispatch:
     inputs:
       environment:

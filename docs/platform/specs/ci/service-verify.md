@@ -161,7 +161,7 @@ Fast と Full という名前の仕組みが 1 か所にあるのではなく、
 | リポジトリ全体の lint と書式 | 流れない | 流れる | [全体の lint と format の検査](./all-verify.md) (`develop` と `master` 向けだけ) |
 | 未実装の文書の禁止 | 許す | 禁止 | [docs の検査と公開](./docs.md) (`develop` と `master` 向けで禁止) |
 
-`master` 向けの PR (リリース) では、サービス・ライブラリ・infra の verify は走らない。走るのは [全体の lint と format の検査](./all-verify.md)、[docs の検査と公開](./docs.md)、[Node のメジャー版の一致の検査](./node-version-verify.md) だけである。
+`master` 向けの PR (リリース) では、サービス・ライブラリ・infra の verify は走らない。走るのは [全体の lint と format の検査](./all-verify.md)、[docs の検査と公開](./docs.md)、[Node のメジャー版の一致の検査](./node-version-verify.md)、[workflow の paths の漏れの検査](./workflow-paths-verify.md) だけである。
 
 ## 失敗したとき
 
