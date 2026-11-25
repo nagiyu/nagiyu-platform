@@ -4,7 +4,7 @@ sources:
   - infra/root/cloudfront-lambda-stack.ts
   - infra/root/cloudfront-stack.ts
   - .github/workflows/root-deploy.yml
-sources_hash: 1e14a87099025e2943191e1b71cf74bdd35ed1b48a9ac83d1dda9552359e5bf4
+sources_hash: 7dc5f489134f4bae6755ad971a498508c4b1beffcbe04f66fa230e55e6129b7a
 ---
 
 # Portal のデプロイ先
@@ -44,7 +44,7 @@ dev の CloudFront スタックは、共通の CloudFront の基底スタック�
 
 | 項目 | 内容 |
 |---|---|
-| トリガー | develop・`integration/**`・master への push (Portal・`infra/root/`・`infra/bin/`・libs・configs などのパスが変わったとき)。手動実行 (dev / prod を選ぶ) |
+| トリガー | develop・`integration/**`・master への push (Portal・`infra/root/`・`infra/bin/`・libs・configs・共有 action などのパスが変わったとき)。手動実行 (dev / prod を選ぶ) |
 | デプロイ先の環境 | [dev と prod の切り替え](../../../platform/specs/deploy.md#dev-と-prod-の切り替え) の規則 |
 | 並行実行 | 環境ごとに直列化する。実行中の run は止めず、待機中は最新だけ残す |
 | イメージのタグ | コミットの SHA |

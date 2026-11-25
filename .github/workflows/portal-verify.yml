@@ -20,6 +20,7 @@ on:
       - 'libs/**'
       - 'configs/**'
       - '.github/actions/**'
+      - '.github/scripts/**'
       - '.node-version'
       - 'package.json'
       - 'package-lock.json'

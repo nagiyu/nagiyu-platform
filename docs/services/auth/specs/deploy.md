@@ -3,7 +3,7 @@ sources:
   - infra/auth/bin/auth.ts
   - infra/auth/lib/cloudfront-stack.ts
   - .github/workflows/auth-deploy.yml
-sources_hash: 33798af048c73230d9cbd7bbd301121d533c4813105bdfdcacc57ab561b412b9
+sources_hash: a7c9c1d81988d6651faf16f0fe4d371cee4311ecd8e32dd817c22f9488acda05
 ---
 
 # Auth のデプロイ先
@@ -40,7 +40,7 @@ DNS レコードは、dev は CloudFront の基底スタックが、prod は sha
 
 | 項目 | 内容 |
 |---|---|
-| トリガー | develop・`integration/**`・master への push (`services/auth/**`、`libs/**`、`configs/**`、`infra/auth/**`、`infra/common/**`、`package.json`、`package-lock.json`、このワークフローとヘルスチェック・ECR push のアクションが変わったとき)。手動実行 (dev か prod を選ぶ) |
+| トリガー | develop・`integration/**`・master への push (`services/auth/**`、`libs/**`、`configs/**`、`infra/auth/**`、`infra/common/**`、`package.json`、`package-lock.json`、`.node-version`、このワークフローと、使う composite action・それが呼ぶスクリプトが変わったとき)。手動実行 (dev か prod を選ぶ) |
 | デプロイ先の環境 | [dev と prod の切り替え](../../../platform/specs/deploy.md#dev-と-prod-の切り替え) の規則 |
 | 並行実行 | 環境ごとに直列化する。実行中の run は止めず、待機中は最新だけ残す |
 | イメージのタグ | コミットの SHA |

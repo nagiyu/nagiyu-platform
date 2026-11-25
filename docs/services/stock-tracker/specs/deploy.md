@@ -3,7 +3,7 @@ sources:
   - infra/stock-tracker/bin/stock-tracker.ts
   - infra/stock-tracker/lib/cloudfront-stack.ts
   - .github/workflows/stock-tracker-deploy.yml
-sources_hash: a425358fcc4b62c34d19e5dd63a78943512a1e78bb96e18e16b5d845f1f6a29b
+sources_hash: 2defc7a24e603ad0165246108ae67b12f0130cdcbb1d1bc969070ee87d783691
 ---
 
 # Stock Tracker のデプロイ先
@@ -43,7 +43,7 @@ CloudFront のスタックは `us-east-1` に固定する (CloudFront の制約)
 
 | 項目 | 内容 |
 |---|---|
-| トリガー | develop・`integration/**`・master への push (`services/stock-tracker/**`、`infra/stock-tracker/**`、`infra/common/**`、`libs/**`、`configs/**`、`package.json`、`package-lock.json`、このワークフローとヘルスチェック・ECR push のアクションが変わったとき)。手動実行 (dev か prod を選ぶ) |
+| トリガー | develop・`integration/**`・master への push (`services/stock-tracker/**`、`infra/stock-tracker/**`、`infra/common/**`、`infra/tsconfig.json`、`libs/**`、`configs/**`、`package.json`、`package-lock.json`、`.node-version`、このワークフローと、使う composite action・それが呼ぶスクリプトが変わったとき)。手動実行 (dev か prod を選ぶ) |
 | デプロイ先の環境 | [dev と prod の切り替え](../../../platform/specs/deploy.md#dev-と-prod-の切り替え) の規則 |
 | 並行実行 | 環境ごとに直列化する。実行中の run は止めず、待機中は最新だけ残す |
 | イメージのタグ | コミットの SHA |

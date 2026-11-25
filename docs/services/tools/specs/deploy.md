@@ -3,7 +3,7 @@ sources:
   - infra/tools/bin/tools.ts
   - infra/tools/lib/cloudfront-stack.ts
   - .github/workflows/tools-deploy.yml
-sources_hash: d5f08336827946dd3aa848bef6a445f1a59b3fbd16756939e92984e36e2956e6
+sources_hash: ad97201cfe1595e417f4c119ef26fe0326f3700fe7d230be96c888418d02745d
 ---
 
 # Tools のデプロイ先
@@ -37,7 +37,7 @@ CloudFront のスタックは `us-east-1` に固定する (CloudFront の制約)
 
 | 項目 | 内容 |
 |---|---|
-| トリガー | develop・`integration/**`・master への push (`services/tools/**`、`infra/tools/**`、`infra/common/**`、`libs/**`、`configs/**`、`package.json`、`package-lock.json`、このワークフローとヘルスチェック・ECR push のアクションが変わったとき)。手動実行 (dev か prod を選ぶ) |
+| トリガー | develop・`integration/**`・master への push (`services/tools/**`、`infra/tools/**`、`infra/common/**`、`infra/tsconfig.json`、`libs/**`、`configs/**`、`package.json`、`package-lock.json`、`.node-version`、このワークフローと、使う composite action・それが呼ぶスクリプトが変わったとき)。手動実行 (dev か prod を選ぶ) |
 | デプロイ先の環境 | [dev と prod の切り替え](../../../platform/specs/deploy.md#dev-と-prod-の切り替え) の規則 |
 | 並行実行 | 環境ごとに直列化する。実行中の run は止めず、待機中は最新だけ残す |
 | イメージのタグ | コミットの SHA |
