@@ -8,6 +8,12 @@
  * 読めない書き方 (否定パターン、`paths-ignore`、未対応のグロブ等) は、検査から漏れないよう黙って通さず落とす。
  * npm の依存を増やさないため、Node の標準モジュールだけで書く。
  *
+ * 辿らないもの (導けない参照は、検査の対象外であることを承知して使う):
+ * - `.github/scripts/*.sh` や `.github/workflows/scripts/*` が別のスクリプトを呼んでいても、その先は辿らない。
+ *   シェルの呼び出しは変数展開や条件分岐で決まり、静的には正しく導けず、誤検知のほうが害になるため
+ * - tsconfig の `extends` は、paths が `infra/<x>/**`・`services/<x>/**` の形のときだけ辿る。
+ *   libs は利用側の workflow が `libs/**` をまとめて持ち、個別の継承元を並べる運用ではないため
+ *
  * 使い方:
  *   node .github/workflows/scripts/check-workflow-paths.mjs
  */
@@ -24,7 +30,7 @@ const ACTIONS_DIR = '.github/actions';
 const NODE_VERSION_FILE = '.node-version';
 
 /** `paths` を検査する対象のイベント */
-const TARGET_EVENTS = ['push', 'pull_request'];
+const TARGET_EVENTS = ['push', 'pull_request', 'pull_request_target'];
 
 /** tsconfig を集めるときに潜らない、生成物・依存のディレクトリ */
 const IGNORED_DIRS = new Set(['node_modules', 'dist', '.next', 'cdk.out', 'build', 'coverage', '.turbo']);
@@ -214,7 +220,11 @@ export function scanReferences(content) {
   return {
     actions: unique(/uses:\s*['"]?\.\/\.github\/actions\/([\w.-]+)/g, 1),
     reusables: unique(/uses:\s*['"]?\.\/\.github\/workflows\/([\w.-]+\.ya?ml)/g, 1),
-    scripts: unique(/(?:^|[^\w/.-])(?:\.\/)?(\.github\/scripts\/[\w.-]+(?:\/[\w.-]+)*)/g, 1),
+    // 直前が `/` の参照は別のパスの一部なので除くが、ワークスペース変数に続く `/` だけは拾う
+    scripts: unique(
+      /(?:^|[^\w/.-]|\$GITHUB_WORKSPACE\/|\$\{GITHUB_WORKSPACE\}\/|\$\{\{\s*github\.workspace\s*\}\}\/)(?:\.\/)?(\.github\/(?:workflows\/)?scripts\/[\w.-]+(?:\/[\w.-]+)*)/g,
+      1,
+    ),
     nodeVersion: /node-version-file:\s*['"]?\.node-version['"]?(?:\s|$)/.test(text),
   };
 }
@@ -292,16 +302,50 @@ export function collectRequirements(root, workflowPath, content) {
 }
 
 /**
- * tsconfig の JSON を読む。`//` 行コメントは剥がす。
+ * tsconfig の JSON を読む。tsc が許す行コメント・ブロックコメント・末尾カンマを取り除く。
+ * 文字列リテラルの中の `//` や `/*` (URL、`"@/*"` 等) は壊さない。
  * @param {string} text
  * @returns {any}
  */
-function parseTsconfig(text) {
-  const stripped = text
-    .split(/\r?\n/)
-    .filter((l) => !l.trim().startsWith('//'))
-    .join('\n');
-  return JSON.parse(stripped);
+export function parseTsconfig(text) {
+  let out = '';
+  let i = 0;
+  while (i < text.length) {
+    const c = text[i];
+    if (c === '"') {
+      let j = i + 1;
+      while (j < text.length && text[j] !== '"') j += text[j] === '\\' ? 2 : 1;
+      out += text.slice(i, j + 1);
+      i = j + 1;
+    } else if (c === '/' && text[i + 1] === '/') {
+      while (i < text.length && text[i] !== '\n') i++;
+    } else if (c === '/' && text[i + 1] === '*') {
+      const end = text.indexOf('*/', i + 2);
+      i = end === -1 ? text.length : end + 2;
+    } else {
+      out += c;
+      i++;
+    }
+  }
+  // 文字列の外の `,` の直後が閉じ括弧なら末尾カンマ
+  let result = '';
+  let inString = false;
+  for (let k = 0; k < out.length; k++) {
+    const c = out[k];
+    if (inString) {
+      result += c;
+      if (c === '\\') result += out[++k] ?? '';
+      else if (c === '"') inString = false;
+    } else if (c === '"') {
+      inString = true;
+      result += c;
+    } else if (c === ',' && /^\s*[}\]]/.test(out.slice(k + 1))) {
+      continue;
+    } else {
+      result += c;
+    }
+  }
+  return JSON.parse(result);
 }
 
 /**

@@ -8,6 +8,7 @@ import {
   collectTsconfigRequirements,
   globToRegExp,
   parsePaths,
+  parseTsconfig,
   scanReferences,
 } from '../check-workflow-paths.mjs';
 
@@ -101,13 +102,18 @@ test('scanReferences は action・reusable・スクリプト・node-version を�
       '  - run: ./.github/scripts/build.sh --x',
       '  - run: bash .github/scripts/sub/run.sh',
       '  - run: .github/workflows/scripts/other.sh',
+      '  - run: ./x/.github/scripts/ignored.sh',
       '    with:',
       '      node-version-file: ".node-version"',
     ].join('\n'),
   );
   assert.deepEqual(refs.actions, ['setup-node']);
   assert.deepEqual(refs.reusables, ['reusable-x.yml']);
-  assert.deepEqual(refs.scripts, ['.github/scripts/build.sh', '.github/scripts/sub/run.sh']);
+  assert.deepEqual(refs.scripts, [
+    '.github/scripts/build.sh',
+    '.github/scripts/sub/run.sh',
+    '.github/workflows/scripts/other.sh',
+  ]);
   assert.equal(refs.nodeVersion, true);
 });
 
@@ -217,5 +223,77 @@ test('除外に当たるものは漏れから外れ、不要な除外は落ち�
     const r2 = checkRepository(root, [...used, ...stale]);
     assert.equal(r2.problems.length, 2);
     assert.match(r2.problems[0], /不要/);
+  });
+});
+
+test('scanReferences はワークスペース変数に続くスクリプトの参照も拾う', () => {
+  const refs = scanReferences(
+    [
+      '  - run: bash $GITHUB_WORKSPACE/.github/scripts/a.sh',
+      '  - run: bash ${GITHUB_WORKSPACE}/.github/scripts/b.sh',
+      '  - run: bash ${{ github.workspace }}/.github/workflows/scripts/c.sh',
+      '  - run: node .github/workflows/scripts/tests/c.test.mjs',
+    ].join('\n'),
+  );
+  assert.deepEqual(refs.scripts, [
+    '.github/scripts/a.sh',
+    '.github/scripts/b.sh',
+    '.github/workflows/scripts/c.sh',
+    '.github/workflows/scripts/tests/c.test.mjs',
+  ]);
+});
+
+test('.github/workflows/scripts のスクリプトが paths に無ければ落ちる', () => {
+  withRepo(
+    {
+      '.github/workflows/w.yml': workflow(
+        ['.github/workflows/w.yml'],
+        '  a:\n    steps:\n      - run: python3 .github/workflows/scripts/x.py\n',
+      ),
+    },
+    (root) => {
+      assert.deepEqual(missingPaths(checkRepository(root, [])), ['.github/workflows/scripts/x.py']);
+    },
+  );
+});
+
+test('pull_request_target の paths も検査する', () => {
+  const content = 'on:\n  pull_request_target:\n    paths:\n      - src/**\njobs:\n  a:\n    runs-on: x\n';
+  assert.deepEqual(parsePaths('x.yml', content).events, [{ event: 'pull_request_target', patterns: ['src/**'] }]);
+  withRepo({ '.github/workflows/w.yml': content }, (root) => {
+    const r = checkRepository(root, []);
+    assert.deepEqual(missingPaths(r), ['.github/workflows/w.yml']);
+    assert.equal(r.missing[0].event, 'pull_request_target');
+  });
+});
+
+test('parseTsconfig は行末・ブロックのコメントと末尾カンマを読み、文字列の中は壊さない', () => {
+  const text = [
+    '// 先頭',
+    '{',
+    '  /* ブロック',
+    '     コメント */',
+    '  "extends": "./base.json", // 行末',
+    '  "compilerOptions": {',
+    '    "paths": {"@/*": ["./src/*"]},',
+    '    "x": "http://example.com/a",',
+    '    "q": "a\\"//b",',
+    '  },',
+    '  "include": ["a", "b",],',
+    '}',
+  ].join('\n');
+  assert.deepEqual(parseTsconfig(text), {
+    extends: './base.json',
+    compilerOptions: { paths: { '@/*': ['./src/*'] }, x: 'http://example.com/a', q: 'a"//b' },
+    include: ['a', 'b'],
+  });
+});
+
+test('読めない tsconfig は、ファイル名と JSON のエラーつきで落ちる', () => {
+  withRepo({ 'infra/a/tsconfig.json': '{ "extends": ' }, (root) => {
+    const { errors } = collectTsconfigRequirements(root, 'infra/a');
+    assert.equal(errors.length, 1);
+    assert.match(errors[0], /infra\/a\/tsconfig\.json/);
+    assert.match(errors[0], /JSON/);
   });
 });
