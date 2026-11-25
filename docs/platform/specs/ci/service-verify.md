@@ -6,7 +6,7 @@ sources:
   - .github/actions/report-verify-results/action.yml
   - .github/actions/report-verify-results/report.js
   - .github/actions/build-web-app/action.yml
-sources_hash: 5d9596ba41e29c313d273006d9f1f2d99d583f3c2c47d2a2e979f3b94fd1d756
+sources_hash: 8d75f6ab12094db6f87d49bfe3bbc71c41da5659e2f33d802f3b48909f1cb4ba
 ---
 
 # サービスの PR 検証
@@ -38,7 +38,7 @@ sources_hash: 5d9596ba41e29c313d273006d9f1f2d99d583f3c2c47d2a2e979f3b94fd1d756
 
 ### 検査 (`reusable-service-verify.yml`)
 
-`discover`、`check`、`contract` の 3 ジョブで動く。いずれも共通イメージ `ci:base-v2` の上で動く。
+`discover`、`check`、`contract` の 3 ジョブで動く。いずれも共通イメージ `ci:base-v3` の上で動く。
 
 ```mermaid
 flowchart LR
@@ -108,7 +108,7 @@ flowchart LR
 | `build-web-app` | `npm ci`、`build:libs`、shared-workspaces (core など。カンマ区切り) のビルド、対象ワークスペースのビルドを順に流す |
 | 直書き | `npm ci`、`build:libs`、必要なワークスペースの `npm run build` |
 
-どちらも共通イメージ `ci:base-v2` の上で動き、Node はイメージのものを使う。
+どちらも共通イメージ `ci:base-v3` の上で動き、Node はイメージのものを使う。
 
 ### Docker のビルド確認
 

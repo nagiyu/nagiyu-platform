@@ -7,7 +7,7 @@ sources:
   - .github/workflows/nextjs-verify.yml
   - .github/workflows/react-verify.yml
   - .github/workflows/ui-verify.yml
-sources_hash: 9d5c01479f600e1c82e212f6813893cb7e6b02d406df32a46e447b2ee95ccef6
+sources_hash: 7e5aaecce63ed5919d581a687d32731ad4c07336a792b6af5015b04bdae5d69c
 ---
 
 # ライブラリの PR 検証
@@ -51,7 +51,7 @@ flowchart LR
     F[format-check] --> R
 ```
 
-5 つの検査ジョブは並列に動く。いずれも共通イメージ `ci:base-v2` の上で、`npm ci` と `npm run build:libs` を流してから検査する。依存する lib の `dist` が無いとビルドやテストが解決に失敗するため、全 lib を先にビルドする。
+5 つの検査ジョブは並列に動く。いずれも共通イメージ `ci:base-v3` の上で、`npm ci` と `npm run build:libs` を流してから検査する。依存する lib の `dist` が無いとビルドやテストが解決に失敗するため、全 lib を先にビルドする。
 
 | ジョブ | 内容 |
 |---|---|

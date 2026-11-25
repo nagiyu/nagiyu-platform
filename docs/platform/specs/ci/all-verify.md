@@ -1,7 +1,7 @@
 ---
 sources:
   - .github/workflows/all-verify.yml
-sources_hash: 005d8b2a93191ae495ed1128105acfdfd52462e1624578fe3b658d106d68dc02
+sources_hash: d22df0894d7d3ee99dbcc3f27edfef4fdb3aa17ac85b5931905dfc3f38a9035d
 ---
 
 # 全体の lint と format の検査

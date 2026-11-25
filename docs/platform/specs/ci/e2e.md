@@ -2,7 +2,7 @@
 sources:
   - .github/workflows/reusable-e2e.yml
   - .github/actions/build-web-app/action.yml
-sources_hash: 91d68d5e4863daa01563f764718eff8cca4943c37d02657a64aac5819e1ee7df
+sources_hash: 1af7917ae191da7472c042fac349a496ddbe6d882ad51f564cd9729fe4badb10
 ---
 
 # E2E
@@ -37,7 +37,7 @@ sources_hash: 91d68d5e4863daa01563f764718eff8cca4943c37d02657a64aac5819e1ee7df
 | `true` | `chromium-mobile`、`chromium-desktop`、`webkit-mobile` |
 | `false` | `chromium-mobile` |
 
-ジョブは、ブラウザと OS の依存を入れた共通イメージの上で動く。デバイスが `webkit-` で始まれば `ci:webkit-v2`、それ以外は `ci:chromium-v2`。イメージの作り方は [CI 共通イメージのビルドと公開](./ci-image-build.md) にある。
+ジョブは、ブラウザと OS の依存を入れた共通イメージの上で動く。デバイスが `webkit-` で始まれば `ci:webkit-v3`、それ以外は `ci:chromium-v3`。イメージの作り方は [CI 共通イメージのビルドと公開](./ci-image-build.md) にある。
 
 ### 手順
 

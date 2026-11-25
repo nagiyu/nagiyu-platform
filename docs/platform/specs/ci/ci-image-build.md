@@ -4,7 +4,7 @@ sources:
   - .github/ci-image/Dockerfile
   - .github/ci-image/VERSION
   - .github/ci-image/smoke-test.sh
-sources_hash: 94bdfb89ef6ef7f8c5276dcf6b1bdedd7dba91e388504c5782a450384868051e
+sources_hash: d88fc8cf81b0dfd3654da44ccee87a51374efb76b701b94033547e6b9a030a2c
 ---
 
 # CI 共通イメージのビルドと公開
@@ -72,7 +72,7 @@ push と手動実行で、まだ無い種類が 1 つ以上あるときだけ動
 | `chromium` | `base` に Playwright の Chromium とその OS 依存パッケージを加えたもの |
 | `webkit` | `base` に Playwright の WebKit とその OS 依存パッケージを加えたもの |
 
-- タグは `<種類>-v<VERSION>` (例: `base-v2`)。`VERSION` は `.github/ci-image/VERSION` の整数。
+- タグは `<種類>-v<VERSION>` (例: `base-v3`)。`VERSION` は `.github/ci-image/VERSION` の整数。
 - 同じタグは上書きしない。Dockerfile を変えたら `VERSION` を上げる。
 - ブラウザは `/ms-playwright` に置き (`PLAYWRIGHT_BROWSERS_PATH`)、実行時のユーザーやホームが変わっても同じ場所から見つかるようにする。
 - Playwright の版は Dockerfile の `ARG PLAYWRIGHT_VERSION` で決める。ルートの `package.json` の `@playwright/test` と同じにする。イメージのブラウザは Playwright の版ごとに置き場所が決まり、ずれるとテストがブラウザを見つけられない。E2E のジョブは、ずれを先に確かめる ([E2E](./e2e.md) の「Playwright の版の確認」)。
@@ -109,7 +109,7 @@ push と手動実行で、まだ無い種類が 1 つ以上あるときだけ動
 2. 2 本目で、イメージを使う側を替える。
     - Playwright のときは、ルートの `package.json` の `@playwright/test` を、Dockerfile の `PLAYWRIGHT_VERSION` と同じ版にする。
     - ワークフローの `container:` のイメージのタグ (`ci:<種類>-v<VERSION>`) を、新しい `VERSION` に替える。deploy のワークフローのタグも替わるため、この PR は dev へのデプロイを伴う。
-    - タグは、`ci:base-v2` のように直書きされたものと、式で組み立てたもの (`reusable-e2e.yml` の `ci:${{ ... }}-v<N>`) がある。種類を含めた文字列 (`base-v2`、`chromium-v2` など) で探すと、式の中のものは当たらない。`nagiyu-platform/ci:` で探し、式の末尾の `-v<N>` も確かめる。
-    - docs に直書きされたタグ (`docs/platform/specs/ci/*.md` の `ci:base-v2` など) も替える。
+    - タグは、`ci:base-v3` のように直書きされたものと、式で組み立てたもの (`reusable-e2e.yml` の `ci:${{ ... }}-v<N>`) がある。種類を含めた文字列 (`base-v3`、`chromium-v3` など) で探すと、式の中のものは当たらない。`nagiyu-platform/ci:` で探し、式の末尾の `-v<N>` も確かめる。
+    - docs に直書きされたタグ (`docs/platform/specs/ci/*.md` の `ci:base-v3` など) も替える。
 
 1 本目を `develop` まで入れ、`develop` への push でイメージを公開してから、2 本目に着手する。手動実行は `develop` で行う。公開は `develop` への push か手動実行だけで、`integration/**` で手動実行すると、`develop` に入っていない中身で上書きできないタグができる。そのタグは、`integration/**` から `develop` への PR では既存のタグとして検査が落ちる。1 本にまとめると、イメージができる前にジョブが走り、存在しないタグを取りに行って落ちる。

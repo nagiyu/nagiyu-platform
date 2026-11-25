@@ -6,7 +6,7 @@ sources:
   - .github/workflows/infra-common-verify.yml
   - .github/workflows/infra-shared-verify.yml
   - .github/workflows/ui-storybook-verify.yml
-sources_hash: 45b37001e177b3d47ae99c0738cac3c2c4dea849a49a04b7abaa8a9f4a8bdafe
+sources_hash: 5f2e09cc2ffa2c4318dd4f2298f39975d39b09cbb7b13ec73fce998fe5417794
 ---
 
 # infra の検証
@@ -49,7 +49,7 @@ flowchart LR
 
 ### check
 
-ワークスペースごとの matrix (`Infra (<ワークスペース名>)`)。`fail-fast: false` で、共通イメージ `ci:base-v2` の上で動く。
+ワークスペースごとの matrix (`Infra (<ワークスペース名>)`)。`fail-fast: false` で、共通イメージ `ci:base-v3` の上で動く。
 
 | 順 | 手順 | 流す条件 |
 |---|---|---|
