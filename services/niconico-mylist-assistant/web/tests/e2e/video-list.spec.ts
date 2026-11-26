@@ -56,7 +56,7 @@ test.describe('Video List Page', () => {
     await expect(page.locator('#skip-filter')).toBeVisible();
 
     // タイトル検索フィールド
-    await expect(page.getByPlaceholder('動画タイトルで検索')).toBeVisible();
+    await expect(page.getByPlaceholder('タイトル・動画 ID で検索')).toBeVisible();
   });
 
   test('should display empty state when filter result is empty', async ({ page }) => {
@@ -84,7 +84,7 @@ test.describe('Video List Page', () => {
     await page.waitForLoadState('networkidle');
 
     const searchKeyword = `${startId + 1}`;
-    await page.getByPlaceholder('動画タイトルで検索').fill(searchKeyword);
+    await page.getByPlaceholder('タイトル・動画 ID で検索').fill(searchKeyword);
     await page.getByRole('button', { name: '検索' }).click();
     await page.waitForResponse(
       (response) =>
@@ -103,7 +103,7 @@ test.describe('Video List Page', () => {
     await page.waitForLoadState('networkidle');
 
     const searchKeyword = 'no-match-keyword';
-    await page.getByPlaceholder('動画タイトルで検索').fill(searchKeyword);
+    await page.getByPlaceholder('タイトル・動画 ID で検索').fill(searchKeyword);
     await page.getByRole('button', { name: '検索' }).click();
     await page.waitForResponse(
       (response) =>
@@ -424,7 +424,7 @@ test.describe('Video List URL Synchronization', () => {
     await page.goto('/mylist');
     await page.waitForLoadState('networkidle');
 
-    await page.getByPlaceholder('動画タイトルで検索').fill('test');
+    await page.getByPlaceholder('タイトル・動画 ID で検索').fill('test');
     await page.getByRole('button', { name: '検索' }).click();
 
     await page.waitForResponse(
@@ -500,7 +500,7 @@ test.describe('Video List URL Synchronization', () => {
     await page.goto('/mylist?offset=20');
     await page.waitForLoadState('networkidle');
 
-    await page.getByPlaceholder('動画タイトルで検索').fill('keyword');
+    await page.getByPlaceholder('タイトル・動画 ID で検索').fill('keyword');
     await page.getByRole('button', { name: '検索' }).click();
 
     await expect(page).toHaveURL('/mylist?search=keyword');
@@ -553,7 +553,7 @@ test.describe('Video List URL Synchronization', () => {
     await page.waitForLoadState('networkidle');
 
     const searchKeyword = `${startId + 1}`;
-    const searchField = page.getByPlaceholder('動画タイトルで検索');
+    const searchField = page.getByPlaceholder('タイトル・動画 ID で検索');
     await searchField.fill(searchKeyword);
     await page.getByRole('button', { name: '検索' }).click();
     await page.waitForResponse(

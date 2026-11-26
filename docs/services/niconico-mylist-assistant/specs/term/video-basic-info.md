@@ -3,7 +3,7 @@ sources:
   - services/niconico-mylist-assistant/core/src/entities/video.entity.ts
   - services/niconico-mylist-assistant/core/src/mappers/video.mapper.ts
   - services/niconico-mylist-assistant/core/src/db/videos.ts
-sources_hash: 3303983287fae4de49b93b610600feabfc4b99dac6f2fee9de787fe83fe97967
+sources_hash: 74fe9300dda789ef08e8fe5f5114604d14fdf9a7fe72990355474229fbc1785e
 ---
 
 # 動画基本情報

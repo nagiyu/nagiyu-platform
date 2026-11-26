@@ -4,7 +4,7 @@ sources:
   - services/niconico-mylist-assistant/web/src/app/api/videos/[id]/route.ts
   - services/niconico-mylist-assistant/web/src/app/api/videos/[id]/settings/route.ts
   - services/niconico-mylist-assistant/core/src/db/videos.ts
-sources_hash: 562920e53f93013f8d32eff7e89f6dcac646d8409baa9492267bd7d5659aa05b
+sources_hash: dc502482cdacd861828ce074b4869518da7548e687895016d60a8ab23954f226
 ---
 
 # 動画 API
@@ -30,7 +30,7 @@ sources_hash: 562920e53f93013f8d32eff7e89f6dcac646d8409baa9492267bd7d5659aa05b
 | `offset` | 0 以上の整数。省略は 0 |
 | `isFavorite` | `true` か `false`。`true` はお気に入りのもの、`false` はそれ以外 (設定がない動画を含む) |
 | `isSkip` | `true` か `false`。`true` はスキップのものだけ、`false` はスキップでないもの (設定がない動画を含む) |
-| `search` | 前後の空白を除いたタイトルの部分一致。大文字と小文字は区別しない。空なら絞り込まない |
+| `search` | 前後の空白を除いて、タイトルか動画 ID のどちらかに部分一致するもの。大文字と小文字は区別しない。空なら絞り込まない |
 
 - 絞り込みはすべて満たすものだけ (AND)。並びは動画基本情報の登録日の新しい順。ページは `limit` と `offset` で切る
 - 応答は `{ videos, total, limit, offset }`。`total` は絞り込み後の総件数。`videos` の要素は `videoId`、`title`、`thumbnailUrl`、`length`、`createdAt` と、自分の設定があれば `userSetting` (`isFavorite`、`isSkip`、`memo`、`createdAt`、`updatedAt`)
