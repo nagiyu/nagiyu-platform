@@ -7,9 +7,8 @@ sources:
   - infra/common/src/utils/ssm.ts
   - services/portal/web/Dockerfile
   - .github/workflows/root-deploy.yml
-  - services/portal/web/src/lib/adsense.ts
   - services/portal/web/src/app/layout.tsx
-sources_hash: 4a29deda487da6e5eec9922eebf0f6a524dbb889366b4b1a8e51d20e0cdfb3f5
+sources_hash: 0963f6df356a0acc6c2cb90c65ef228126bf93d00088c027163f3bfea2241e59
 ---
 
 # Web の実行環境
@@ -121,18 +120,17 @@ ALB とクラスターのスタックが書き、ECS サービスのスタック
 | `APP_VERSION` | フッターに出すバージョン | ビルド時の Docker の build-arg。値は `services/portal/web/package.json` の `version`。なければ `1.0.0` |
 | `NEXT_TELEMETRY_DISABLED` | Next.js のテレメトリの無効化 | イメージが `1` を設定する |
 
-- Google AdSense のスクリプトは、`NAGIYU_ENV` が `prod` と完全に一致するときだけ読み込む ([ホーム画面](../screen/home.md)の「全画面で共通の部分」)。`NODE_ENV` では判定できない。`next build` は環境にかかわらず常に `NODE_ENV=production` で動くため、dev と prod を区別できない
+- 広告を読み込むかは `NAGIYU_ENV` で決める (条件は[ホーム画面](../screen/home.md)の「全画面で共通の部分」、理由は[広告](../../requirements/functional/ads.md))。`NODE_ENV` では判定できない。`next build` は環境にかかわらず常に `NODE_ENV=production` で動くため、dev と prod を区別できない
 - `NAGIYU_ENV` と `APP_VERSION` は、画面をビルド時に作る (SSG) ので、ビルドのときの値で決まる。デプロイ後に環境変数を変えても、作られた画面は変わらない。動的に描くルートでもビルド時と同じ判定になるよう、実行時の環境にも `NAGIYU_ENV` を残している
 - シークレットを持たない。値はすべて環境名とバージョンで、秘匿するものはない
 
 ## 理由
 
-- 広告の判定は、未設定を dev とみなす。`prod` と明示された場合に限って読み込む。出し漏れより、dev などの複製の環境に広告が出ることの方が、広告の審査上の害が大きいため
 - prod は ECS の常時稼働のタスクで動かす。コールドスタートを避けるためで、理由の詳細は[デプロイ先](../deploy.md)の「理由」にある
 
 ## 手順
 
-Core Web Vitals を測る手順。基準値は[パフォーマンス](../../requirements/non-functional/performance.md)にある。測る対象のページは、`/`、`/tech`、`/tech/{slug}` (記事 1 本)、`/about`。
+Core Web Vitals を測る手順。基準値は[性能](../../requirements/non-functional/performance.md)にある。測る対象のページは、`/`、`/tech`、`/tech/{slug}` (記事 1 本)、`/about`。
 
 ### PageSpeed Insights (推奨)
 
@@ -159,7 +157,7 @@ Core Web Vitals を測る手順。基準値は[パフォーマンス](../../requ
 
 手元と本番の違い。
 
-- 手元では、`NAGIYU_ENV=prod` を付けない限り (ビルドして動かすときは、ビルド時に付ける)、AdSense が読み込まれない。本番は広告のスクリプトの分だけ重く、手元の値は本番より良く出る
+- 手元では、`NAGIYU_ENV=prod` を付けない限り (ビルドして動かすときは、ビルド時に付ける)、AdSense が読み込まれず、広告のスクリプトの分だけ本番と違う
 - `npm run dev` は開発用のサーバーで、本番のビルドとは動き方が違うので、値は本番と一致しない
 - サーバーの応答時間は、手元の方が実際より速い
 

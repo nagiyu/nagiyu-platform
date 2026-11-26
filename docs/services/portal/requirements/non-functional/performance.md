@@ -16,7 +16,7 @@ sources: []
 | CLS (Cumulative Layout Shift) | 0.1 以下 |
 
 - LCP・INP・CLS の値は、Google が Core Web Vitals で Good とする基準である
-- 測り方は[リソース](../../specs/resource/web-runtime.md)の「手順」を参照
+- 測り方は[Web の実行環境](../../specs/resource/web-runtime.md)の「手順」を参照
 
 ## やらないこと
 

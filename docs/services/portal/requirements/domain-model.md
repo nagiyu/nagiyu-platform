@@ -23,7 +23,7 @@ flowchart TD
     tag[タグ]
     category[カテゴリ]
     featured[特集]
-    article -- "付く (1..多)" --> tag
+    article -- "付く (0..多)" --> tag
     article -- "付く (0..多)" --> category
     article -- "指定される (0..1)" --> featured
     article -- "関連する (タグが 1 つ以上同じ)" --> article
