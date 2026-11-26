@@ -12,10 +12,11 @@ sources:
   - services/livetalk/core/src/notification/decision.ts
   - services/livetalk/core/src/notification/critical-candidates.ts
   - services/livetalk/core/src/study/active-window.ts
+  - services/livetalk/core/src/usecases/acquire.usecase.ts
   - services/livetalk/core/src/study/research-allowance.ts
   - services/livetalk/core/src/repositories/study-usage-counting.ts
   - services/livetalk/core/src/constants.ts
-sources_hash: 4f0dd6c26c95101e6e51539eacb1b6b7b9e664aecd94c34e3ca17f02046ed441
+sources_hash: db6ee2cb77d80ed215557800097027e3373ba76e9b843d252ff3311a6fb76571
 terms: [livetalk/term/permission, livetalk/term/lifecycle, livetalk/term/notification-event, livetalk/term/user-activity-profile, livetalk/term/safety, livetalk/term/character, livetalk/term/study-pause, livetalk/term/freshness-check-request, livetalk/term/care, livetalk/term/topic, livetalk/term/web-fact]
 related_cards: [livetalk/api/status, livetalk/api/push-notification, livetalk/batch/notify, livetalk/batch/acquire, livetalk/screen/home]
 related_adr:
@@ -60,13 +61,14 @@ related_adr:
 
 | 項目 | 内容 |
 |---|---|
-| 勉強 | 勉強がいま止まっている理由を、取得バッチが確かめる順に 1 つ出す。生活サイクルが未登録なら「対象外（生活サイクル未登録）」、3 日ルールで止まっていれば「勉強停止中（3 日ルール）」、回数の上限なら「本日の上限到達」、どれでもなければ「勉強中」 |
+| 勉強 | 勉強がいま止まっている理由を、取得バッチが確かめる順に 1 つ出す。生活サイクルが未登録なら「対象外（生活サイクル未登録）」、3 日ルールで止まっていれば「勉強停止中（3 日ルール）」、キャラクターが就寝中なら「就寝中（起床後に勉強）」、回数の上限なら「本日の上限到達」、どれでもなければ「勉強中」 |
 | 3 日ルール | [勉強の停止](../term/study-pause.md)の有無 (「止まっている」か「止まっていない」)。最後の発話の日時 (直近 7 日に無ければ「なし（直近 7 日）」)。止まる (止まった) 日時は、最後の発話から 72 時間後 |
 | 本日の勉強の回数 | 日本時間のその日の、表示キャラクターの回数とキャラクターの上限、利用者の全キャラクター合計の回数と上限 (20 回)。キャラクターの上限は、合計の上限を勉強中のキャラクターの数で等分した値 (端数は切り捨て。勉強中が 0 なら 0) で、その数も出す |
 | 鮮度確認の依頼待ち | [鮮度確認の依頼](../term/freshness-check-request.md)の件数と、各依頼の Topic の ID と記録の日時 |
-| 重要通知の判定 | 生活サイクルが未登録なら「判定しない（生活サイクル未登録）」、勉強が止まっていれば「判定しない（勉強停止中）」で、どちらも話題を読まない。止まっていなければ「判定する」で、判定に渡る候補と、鮮度切れで外れた話題を出す (Topic の ID、話題名、care)。送り済みの重要通知 (Topic の ID と予定日。予定日が無ければ「記録なし」) は、止まっていても出す |
+| 重要通知の判定 | 通知バッチが確かめる順に、利用者に Push の購読が無ければ「判定しない（購読なし）」、生活サイクルが未登録なら「判定しない（生活サイクル未登録）」、勉強が止まっていれば「判定しない（勉強停止中）」で、どれも話題を読まない。止まっていなければ「判定する」で、判定に渡る候補と、鮮度切れで外れた話題を出す (Topic の ID、話題名、care)。送り済みの重要通知 (件数と、各通知の Topic の ID と予定日。予定日が無ければ「記録なし」) は、判定しないときも出す |
 
 - 生活サイクルが未登録のキャラクターは、取得バッチも通知バッチも扱わない。「ライフサイクル」の欄は既定の就寝と起床の時刻を出すが、勉強と重要通知は止まっている
+- 就寝は一日の中で入れ替わるので、取得バッチと同じく、キャラクターの上限を決める勉強中の数には就寝中のキャラクターも含める
 - 勉強中のキャラクターは、取得バッチと同じく、定義があり、生活サイクルがあり、直近 72 時間に発話があるもの。各キャラクターの直近 72 時間の会話を読んで数える
 - 重要通知の候補は、通知バッチと同じく、[care](../term/care.md) の高い順の上位 10 件の [Topic](../term/topic.md) のうち care が 3 以上の上位 3 件。確認が要る [WEB fact](../term/web-fact.md) を持つものは、鮮度切れで外れた話題に回る
 - 重要通知を出すかの最後の判定 (LLM による予定の日付の判定) は行わない。呼ぶたびに結果が揺れうるので、バッチの実際の判定の説明にならず、画面を開くたびに費用もかかるため
@@ -90,7 +92,7 @@ related_adr:
 
 ### 履歴がないとき
 
-通知もセーフティの検出も記録がない。就寝中でなければ、通知は出せる判定になる。生活サイクルを登録していないので、勉強と重要通知は対象外になる。
+通知もセーフティの検出も記録がない。就寝中でなければ、通知は出せる判定になる。生活サイクルを登録していないので勉強は対象外で、Push の購読も無いので重要通知は判定しない。
 
 | スマホ |
 |---|
