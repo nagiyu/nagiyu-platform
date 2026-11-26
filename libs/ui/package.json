@@ -1,31 +1,44 @@
 {
   "name": "@nagiyu/ui",
-  "version": "1.0.0",
+  "version": "0.1.1",
   "type": "module",
-  "main": "dist/src/index.js",
+  "main": "dist/cjs/index.js",
   "types": "dist/src/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/src/index.d.ts",
-      "import": "./dist/src/index.js"
+      "import": "./dist/src/index.js",
+      "require": "./dist/cjs/index.js"
     },
     "./service-layout": {
       "types": "./dist/src/components/layout/ServiceLayout.d.ts",
-      "import": "./dist/src/components/layout/ServiceLayout.jsx"
+      "import": "./dist/src/components/layout/ServiceLayout.jsx",
+      "require": "./dist/cjs/components/layout/ServiceLayout.js"
     },
     "./session-provider": {
       "types": "./dist/src/session-provider.d.ts",
-      "import": "./dist/src/session-provider.js"
+      "import": "./dist/src/session-provider.js",
+      "require": "./dist/cjs/session-provider.js"
     },
     "./tokens": {
       "types": "./dist/src/styles/tokens.d.ts",
-      "import": "./dist/src/styles/tokens.js"
+      "import": "./dist/src/styles/tokens.js",
+      "require": "./dist/cjs/styles/tokens.js"
     },
     "./tokens.css": "./dist/src/styles/tokens.css",
     "./base.css": "./dist/src/styles/base.css"
   },
+  "files": [
+    "dist/src",
+    "dist/cjs"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nagiyu/nagiyu-platform.git",
+    "directory": "libs/ui"
+  },
   "scripts": {
-    "build": "tsc && node ./scripts/copy-assets.mjs",
+    "build": "tsc && tsc -p tsconfig.cjs.json && node ./scripts/copy-assets.mjs && node ../write-cjs-marker.mjs",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
@@ -47,7 +60,7 @@
     "react-dom": ">=19.0.0"
   },
   "dependencies": {
-    "@nagiyu/common": "*",
+    "@nagiyu/common": "^0.1.1",
     "@radix-ui/react-slot": "^1.2.4"
   },
   "devDependencies": {

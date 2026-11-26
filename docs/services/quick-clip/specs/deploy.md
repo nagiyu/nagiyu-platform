@@ -3,7 +3,7 @@ sources:
   - infra/quick-clip/bin/quick-clip.ts
   - infra/quick-clip/lib/cloudfront-stack.ts
   - .github/workflows/quick-clip-deploy.yml
-sources_hash: 296bd815c53bc32046047be2cba7b396ffa0972cd69abebf7d73692326ef7136
+sources_hash: 762e05f6f6827818e192f82d7ac51538c62f0434418f877a754a37b7d1932f86
 ---
 
 # QuickClip のデプロイ先
@@ -42,7 +42,7 @@ DNS レコードは、dev は CloudFront の基底スタックが、prod は sha
 
 | 項目 | 内容 |
 |---|---|
-| トリガー | develop・`integration/**`・master への push (サービス・infra・libs・configs・共有 action などのパスが変わったとき)。手動実行 (dev / prod を選ぶ) |
+| トリガー | develop・`integration/**`・master への push (サービス・infra・configs・共有 action などのパスが変わったとき)。手動実行 (dev / prod を選ぶ) |
 | デプロイ先の環境 | [dev と prod の切り替え](../../../platform/specs/deploy.md#dev-と-prod-の切り替え) の規則 |
 | 並行実行 | 環境ごとに直列化する。実行中の run は止めず、待機中は最新だけ残す |
 | イメージのタグ | コミットの SHA |

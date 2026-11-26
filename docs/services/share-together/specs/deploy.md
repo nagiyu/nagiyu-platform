@@ -3,7 +3,7 @@ sources:
   - infra/share-together/bin/share-together.ts
   - infra/share-together/lib/cloudfront-stack.ts
   - .github/workflows/share-together-deploy.yml
-sources_hash: 7700b831ef16129f96054229614065daa73bc7fb836d0b69c686428a1dd12a5a
+sources_hash: 32c43d1e53015e35c554d8332faf7825d888109d84e6e958ba16f318296002e8
 ---
 
 # share-together のデプロイ先
@@ -38,7 +38,7 @@ CloudFront のスタックは `us-east-1` に固定する (CloudFront の制約)
 
 | 項目 | 内容 |
 |---|---|
-| トリガー | develop・`integration/**`・master への push (`services/share-together/**`、`infra/share-together/**`、`infra/common/**`、`infra/tsconfig.json`、`libs/**`、`configs/**`、`package.json`、`package-lock.json`、`.node-version`、このワークフローと、使う composite action・それが呼ぶスクリプトが変わったとき)。手動実行 (dev か prod を選ぶ) |
+| トリガー | develop・`integration/**`・master への push (`services/share-together/**`、`infra/share-together/**`、`infra/common/**`、`infra/tsconfig.json`、`configs/**`、`package.json`、`package-lock.json`、`.node-version`、このワークフローと、使う composite action・それが呼ぶスクリプトが変わったとき)。手動実行 (dev か prod を選ぶ) |
 | デプロイ先の環境 | [dev と prod の切り替え](../../../platform/specs/deploy.md#dev-と-prod-の切り替え) の規則 |
 | 並行実行 | 環境ごとに直列化する。実行中の run は止めず、待機中は最新だけ残す |
 | イメージのタグ | コミットの SHA |

@@ -3,7 +3,7 @@ sources:
   - infra/codec-converter/bin/codec-converter.ts
   - infra/codec-converter/lib/codec-converter-stack.ts
   - .github/workflows/codec-converter-deploy.yml
-sources_hash: 73b92f39cef592758fd4ecbb9cebde5d490cd8149f721d5a5a089dc85e3f8d2a
+sources_hash: 3241adf3d53acec723419fbebe9e2b4925b5e920d87d241d66b31cb31c70e639
 ---
 
 # Codec Converter のデプロイ先
@@ -37,7 +37,7 @@ DNS レコードは、dev だけ `NagiyuCodecConverterDev` が自分のスタッ
 
 | 項目 | 内容 |
 |---|---|
-| トリガー | develop・`integration/**`・master への push (サービス・infra・libs・configs・共有 action などのパスが変わったとき)。手動実行 (dev / prod を選ぶ) |
+| トリガー | develop・`integration/**`・master への push (サービス・infra・configs・共有 action などのパスが変わったとき)。手動実行 (dev / prod を選ぶ) |
 | デプロイ先の環境 | [dev と prod の切り替え](../../../platform/specs/deploy.md#dev-と-prod-の切り替え) の規則 |
 | 並行実行 | 環境ごとに直列化する。実行中の run は止めず、待機中は最新だけ残す |
 | イメージのタグ | コミットの SHA |

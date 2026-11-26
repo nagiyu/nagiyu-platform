@@ -74,7 +74,6 @@ paths から漏れた変更では、検証が走らないだけで CI は赤く�
 | paths | 理由 |
 |---|---|
 | `services/<service>/**` | 対象そのもの |
-| `libs/**` | 依存ライブラリを個別に列挙しない。依存を足したときに paths の追従を忘れると、その依存先の変更で検証が走らなくなるため。無関係なライブラリの変更で検証が走るコストは許容する。ライブラリどうしの検証も同じ |
 | `infra/<service>/**` | infra がある場合。ポータルは infra の置き場がサービス名と違うため、代わりに `infra/bin/**`、`infra/root/**` などを持つ |
 | `infra/common/**` | 共通のインフラ部品。変更が全サービスの infra に効く |
 | `infra/tsconfig.json` | `infra/<service>` が継承している場合 |
@@ -86,7 +85,9 @@ paths から漏れた変更では、検証が走らないだけで CI は赤く�
 | `.github/workflows/<target>-verify.yml` | ワークフロー自体 |
 | 呼んでいる再利用ワークフロー (`reusable-*.yml`) | 直したときに、呼び出し側の検証が走らないと検証から漏れる |
 
-ライブラリの検証は `services/` と `infra/` の行を持たず、`libs/**` 全体を指す。どのライブラリの検証も、`libs/**` のどこの変更でも動く。
+サービスの検証とデプロイは `libs/**` を持たない。サービスは registry の版の lib に依存し、`libs/` のソースを読まないためである。
+
+ライブラリの検証は `services/` と `infra/` の行を持たず、`libs/**` 全体を指す。どのライブラリの検証も、`libs/**` のどこの変更でも動く。libs をビルドして使う `ui-storybook-deploy.yml` と `ui-storybook-verify.yml` は、`libs/**` を持つ。
 
 ### デプロイは push をトリガーにし、`develop`・`integration/**`・`master` を対象にする
 
@@ -96,7 +97,7 @@ paths から漏れた変更では、検証が走らないだけで CI は赤く�
 
 | paths | 理由 |
 |---|---|
-| `libs/**`、`infra/common/**` | 含めないと、共通部品の修正がそのサービスの次の変更まで dev・prod に反映されない |
+| `infra/common/**` | 含めないと、共通部品の修正がそのサービスの次の変更まで dev・prod に反映されない |
 | `configs/**` | 共有の tsconfig・eslint 設定。ビルドと型検査が読む |
 | `.node-version` | `setup-node` がこのファイルで Node のバージョンを決める |
 | `infra/tsconfig.json` | `infra/<service>` が継承している場合。継承元が変わるとビルドの結果が変わる |
@@ -126,8 +127,8 @@ paths から漏れた変更では、検証が走らないだけで CI は赤く�
 |---|---|
 | `dev-sync-deploy.yml` | `build-web-app`、`get-stack-output`、`health-check` (Web アプリを持たない) |
 | `livetalk-deploy.yml` | `get-stack-output` (ヘルスチェックの宛先の ALB の DNS 名を SSM から取る) |
-| `shared-deploy.yml` | `libs/**` (infra だけをデプロイする)。composite action は `setup-cdk`、`setup-environment`、`setup-node` だけ持つ |
-| `docs-pages-deploy.yml` | `libs/**`、`configs/**`、`package.json`、`package-lock.json`、`.github/actions` 配下すべて (`docs/**` と `docs-site/**` を持つ) |
+| `shared-deploy.yml` | `setup-cdk`、`setup-environment`、`setup-node` 以外の composite action (infra だけをデプロイする) |
+| `docs-pages-deploy.yml` | `configs/**`、`package.json`、`package-lock.json`、`.github/actions` 配下すべて (`docs/**` と `docs-site/**` を持つ) |
 | `ui-storybook-deploy.yml` | `setup-cdk`、`setup-node` 以外の composite action (`setup-environment` を使わない) |
 
 ブランチと環境にも例外がある。
@@ -182,7 +183,7 @@ concurrency:
 
 ### ビルドは依存順に流す
 
-共有ライブラリは `npm run build:libs`、それ以外は `npm run build --workspace=@nagiyu/hoge` のように個別に流し、`npm run build --workspaces` は使わない。ビルド順の決まり方と理由は [モノレポの構成の規約](./monorepo.md) にある。
+`npm run build --workspace=@nagiyu/hoge` のように個別に流し、`npm run build --workspaces` は使わない。ビルド順の決まり方と理由は [モノレポの構成の規約](./monorepo.md) にある。
 
 ### 秘密情報を CDK の Context で渡すデプロイは、Context を使うスタックと、それに依存するスタックを 1 回のコマンドにまとめる
 

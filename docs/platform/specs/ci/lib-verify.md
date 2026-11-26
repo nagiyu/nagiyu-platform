@@ -7,7 +7,7 @@ sources:
   - .github/workflows/nextjs-verify.yml
   - .github/workflows/react-verify.yml
   - .github/workflows/ui-verify.yml
-sources_hash: 7e5aaecce63ed5919d581a687d32731ad4c07336a792b6af5015b04bdae5d69c
+sources_hash: 71fb25a4614f29cda2fabfbdf81240eff20733384c21d7518ca7a6e953c9be4c
 ---
 
 # ライブラリの PR 検証
@@ -19,7 +19,7 @@ sources_hash: 7e5aaecce63ed5919d581a687d32731ad4c07336a792b6af5015b04bdae5d69c
 | 項目 | 内容 |
 |---|---|
 | イベント | `develop` または `integration/**` を向く PR |
-| 絞り込み | 変更したファイルが、`libs/**`、`configs/**`、`.github/actions/**`、`.node-version`、`package.json`、`package-lock.json`、自分のワークフロー、`reusable-lib-verify.yml` のいずれかに当たると動く。`libs/**` は自分のパッケージではなく `libs/` 全体を指すので、どのライブラリを変えても 6 本すべてが動く |
+| 絞り込み | 変更したファイルが、`libs/**`、`configs/**`、`.github/actions/**`、`.node-version`、`package.json`、`package-lock.json` (`libs/package-lock.json` は `libs/**` に含まれる)、自分のワークフロー、`reusable-lib-verify.yml` のいずれかに当たると動く。`libs/**` は自分のパッケージではなく `libs/` 全体を指すので、どのライブラリを変えても 6 本すべてが動く |
 | 同じ PR の古い run | 新しい run が来たら打ち切る |
 
 `master` 向けの PR では動かない。
@@ -51,7 +51,11 @@ flowchart LR
     F[format-check] --> R
 ```
 
-5 つの検査ジョブは並列に動く。いずれも共通イメージ `ci:base-v3` の上で、`npm ci` と `npm run build:libs` を流してから検査する。依存する lib の `dist` が無いとビルドやテストが解決に失敗するため、全 lib を先にビルドする。
+5 つの検査ジョブは並列に動く。いずれも共通イメージ `ci:base-v3` の上で、`libs/` を作業ディレクトリにして動く。`libs/` はサービスと別の npm プロジェクトで、独自の `package.json` と `package-lock.json` を持つ。
+
+- build・test・coverage・format-check は、`libs/` で `npm ci` し、`libs/` の `npm run build` で全 lib を依存順にビルドしてから、対象のワークスペースを検査する。ルートの install は行わない。依存する lib の `dist` が無いとビルドやテストが解決に失敗するため、全 lib を先にビルドする。
+- lint は、ルートの `npm ci` と `libs/` の `npm ci` の両方を行ってから、`libs/` の `npm run build` を流し、lint する。ESLint の設定 (`configs/`) とプラグインはルートの install から読み、型の解決には `libs/` の install と `dist` が要るためである。
+- npm のキャッシュのキーは、`libs/package-lock.json` (lint はルートの lock も) のハッシュで決める。
 
 | ジョブ | 内容 |
 |---|---|
@@ -75,3 +79,4 @@ flowchart LR
 
 - **ライブラリごとにファイルを分ける**: PR のチェックとコメントをライブラリごとに分けて見せるため。ファイルは、トリガーと入力を渡すだけの薄いものにとどめ、検査は 1 つの再利用ワークフローに持つ。
 - **検査をジョブに分ける**: 落ちた検査を PR のチェックの一覧から見分けられる。
+- **lint 以外はルートの install をしない**: libs の検査が、サービスの依存の変更に左右されず、libs の lock だけで再現できるようにするため。lint だけは、設定を `configs/` に集めている都合で、ルートの install を使う。

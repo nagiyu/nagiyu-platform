@@ -55,7 +55,7 @@ export default function MemoryPage() {
     setDeletePending(true);
     setDeleteError(null);
     try {
-      await deleteSelfFact(deleting.id, characterId);
+      await deleteSelfFact(deleting.id);
     } catch (e) {
       // ダイアログが開いたままなので、失敗はダイアログ内に出す
       setDeleteError(e instanceof Error ? e.message : '記憶の削除に失敗しました');
@@ -69,7 +69,7 @@ export default function MemoryPage() {
     } finally {
       setDeletePending(false);
     }
-  }, [deleting, load, characterId]);
+  }, [deleting, load]);
 
   const handleDeleteOpen = useCallback((item: SelfFactListItem) => {
     setDeleteError(null);

@@ -84,7 +84,6 @@ description: docs/ 配下の文書を作成・更新する。docs を書く・�
 画面 (screen) の仕様の「画面の見た目」に載せる画像は、手で撮らず撮影スクリプトで撮る。画面の仕様を作り直すときは、画像も撮り直して同じ PR に含める。
 
 ```bash
-npm run build:libs                                        # 共通ライブラリ (dist/) が無いとき
 npm run build -w @nagiyu/stock-tracker-core               # サービスの core が無いとき
 npm run capture:specs -w @nagiyu/docs-site -- stock-tracker                 # 全画面
 npm run capture:specs -w @nagiyu/docs-site -- stock-tracker --screen tickers  # 1 画面だけ

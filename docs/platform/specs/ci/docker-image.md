@@ -5,7 +5,7 @@ sources:
   - .github/actions/build-web-app/action.yml
   - .github/actions/setup-node/action.yml
   - .github/scripts/docker-build-with-retry.sh
-sources_hash: 767618722b3fd422d1dc8a3f68251ad0980bfc75d7fa51344601c6fe1370e5e5
+sources_hash: e5a5b93ee648df4d0aca356a1ee19377809f7641260bdc55d4a8fb2e9a530642
 ---
 
 # イメージのビルドと ECR への push
@@ -21,7 +21,7 @@ sources_hash: 767618722b3fd422d1dc8a3f68251ad0980bfc75d7fa51344601c6fe1370e5e5
 | `build-docker-image` | サービスの verify の Docker のビルド確認 | しない |
 | `push-ecr-image` | サービスの deploy のイメージのビルドと push | する |
 | `build-web-app` | verify のビルド確認、E2E、deploy のビルド | しない |
-| `setup-node` | verify、deploy、全体の lint・format、定期の npm 検査 | しない |
+| `setup-node` | verify、deploy、libs の verify、全体の lint・format、定期の npm 検査 | しない |
 
 `build-docker-image` は、`push-ecr-image` からも呼ばれる。
 
@@ -102,9 +102,8 @@ flowchart TD
 1. Node.js のセットアップ (`skip-setup-node` が `'true'` でないとき)。`.node-version` の版を入れ、npm のキャッシュを使う。
 2. npm のキャッシュの設定 (`skip-setup-node` が `'true'` のとき)。キャッシュの場所を `npm config get cache` で調べ、キーを `<OS>-node-<package-lock.json のハッシュ>` にして `actions/cache` で保存する。
 3. `npm ci`
-4. `npm run build:libs` で共有ライブラリをビルドする。ライブラリ間の依存順は `build:libs` が持つため、呼び出し側では並べない。
-5. `shared-workspaces` (カンマ区切り) のワークスペースを、書かれた順にビルドする。空の要素は飛ばす。
-6. `workspace` のワークスペースをビルドする。
+4. `shared-workspaces` (カンマ区切り) のワークスペースを、書かれた順にビルドする。空の要素は飛ばす。
+5. `workspace` のワークスペースをビルドする。
 
 | 入力 | 必須 | 内容 |
 |---|---|---|
@@ -119,6 +118,7 @@ flowchart TD
 | 入力 | 必須 | 内容 |
 |---|---|---|
 | `cache-dependency-path` | 任意 (既定 `./package-lock.json`) | キャッシュのキーにするロックファイル |
+| `working-directory` | 任意 (既定 `.`) | `npm ci` を流すディレクトリ。独立した npm プロジェクト (`libs/`) の install に使う。`cache-dependency-path` には、そのプロジェクトのロックファイルを渡す |
 | `skip-setup-node` | 任意 (既定 `'false'`) | `build-web-app` と同じ |
 
 `skip-setup-node` が `'true'` のときのキャッシュのキーは `build-web-app` と同じ形で、ロックファイルが同じなら両者でキャッシュを共有する。共通イメージの上で動くジョブは Node がイメージに入っているため、このオプションを付ける。

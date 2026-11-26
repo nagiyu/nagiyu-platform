@@ -89,7 +89,7 @@ export const FAILED_JOB = job(
   356.9,
   {
     errorMessage:
-      'FFmpegの実行に失敗しました: exit code 1, stderr: Invalid data found when processing input',
+      '動画の変換に失敗しました。ファイルが壊れているか、対応していない形式の可能性があります',
     updatedAt: at('2026-02-28T01:09:41Z'),
   }
 );

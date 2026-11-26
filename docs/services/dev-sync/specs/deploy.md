@@ -2,7 +2,7 @@
 sources:
   - infra/dev-sync/bin/dev-sync.ts
   - .github/workflows/dev-sync-deploy.yml
-sources_hash: 24d6dc15060cb56fad99278c735645b7ea132d6045034f3ad534721f490f5f77
+sources_hash: e7c379e1bbbc3c655ebc78d2660fb11ca8acfc4ce060c813640cd9be2e3de02c
 ---
 
 # dev-sync のデプロイ先
@@ -28,7 +28,7 @@ dev-sync は、prod の DynamoDB テーブルの内容を dev のテーブルへ
 
 | 項目 | 内容 |
 |---|---|
-| トリガー | develop・`integration/**` への push (サービス・infra・libs・configs・共有 action などのパスが変わったとき)。手動実行 (選べる環境は dev だけ)。master への push では動かない |
+| トリガー | develop・`integration/**` への push (サービス・infra・configs・共有 action などのパスが変わったとき)。手動実行 (選べる環境は dev だけ)。master への push では動かない |
 | デプロイ先の環境 | 常に dev。トリガーが dev の起点に限られ、GitHub Environment も dev に固定する ([dev と prod の切り替え](../../../platform/specs/deploy.md#dev-と-prod-の切り替え)) |
 | 並行実行 | dev で直列化する。実行中の run は止めず、待機中は最新だけ残す |
 | イメージのタグ | コミットの SHA |

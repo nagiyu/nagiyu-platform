@@ -166,6 +166,12 @@ describe('DynamoDBJobRepository', () => {
       { AnalysisProgress: { motion: { status: 'done' }, volume: { status: 'in_progress' } } },
       ['analysisProgress'],
     ],
+    [
+      'updateDurationSec',
+      (r: DynamoDBJobRepository) => r.updateDurationSec('job-1', 125.5),
+      { DurationSec: 125.5 },
+      ['durationSec'],
+    ],
   ])('%s は新属性名で SET し、旧属性名を REMOVE する', async (_name, run, set, remove) => {
     mockSend.mockResolvedValue({ Attributes: buildItem() });
 

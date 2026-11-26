@@ -13,7 +13,7 @@ sources:
   - services/stock-tracker/core/src/repositories/dynamodb-alert.repository.ts
 sources_hash: 018775c508cb56deaf052ab079e69a1a5ae7706778bddb5db089c1046d754d7e
 terms: [stock-tracker/term/temporary-alert, stock-tracker/term/trading-hours]
-related_cards: [admin/flow/error-notification, stock-tracker/api/alerts, stock-tracker/screen/alerts, stock-tracker/flow/alert-notification]
+related_cards: [stock-tracker/api/alerts, stock-tracker/screen/alerts, stock-tracker/flow/alert-notification]
 related_adr:
   - services/stock-tracker/architecture.md#2.11
 ---
@@ -75,7 +75,7 @@ flowchart TD
 - 候補単位の失敗 (取引所が見つからない、更新の失敗) は、失敗に数えてログに残し、次の候補へ進む。更新のあとに保存データの壊れが分かった場合も、更新は済んでいるので TTL は付く。Admin には報告せず、実行の最後に例外も投げない。Lambda は成功で終わる
 - アラートの読み込みの失敗など、候補単位でない例外は、共通の骨格が「一時通知アラート失効バッチ: 致命的エラー」を `error` で報告し、例外を再送出して Lambda を失敗にする
 - CloudWatch Alarm も Admin に届く。5 分間の Errors の平均が 10% を超えたとき
-- Admin への経路は[エラー通知の経路](../../admin/flow/error-notification.md)
+- Admin への経路は[エラー通知の経路](../../../services/admin/specs/flow/error-notification.md)
 
 ## つながり
 

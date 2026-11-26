@@ -10,7 +10,6 @@ on:
       - 'infra/dev-sync/**'
       - 'infra/common/**'
       - 'infra/tsconfig.json'
-      - 'libs/**'
       - 'configs/**'
       - 'package.json'
       - 'package-lock.json'
