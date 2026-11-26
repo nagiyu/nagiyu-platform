@@ -623,17 +623,6 @@ const status: Scenario = {
   },
 };
 
-const forbidden: Scenario = {
-  screen: 'forbidden',
-  async run(ctx) {
-    // 通常表示 (権限がないページから飛ばされた)
-    const page = await ctx.freshPage();
-    await page.goto('/forbidden?from=%2Fnotes');
-    await ready(page, 'アクセス権限がありません');
-    await ctx.shot('default');
-  },
-};
-
 const terms: Scenario = {
   screen: 'terms',
   async run(ctx) {
@@ -715,8 +704,8 @@ export const livetalk: ServiceCapture = {
       },
     ],
   },
-  defaultRoles: ['livetalk-user'],
+  defaultRoles: [],
   fixedTime: FIXED_TIME,
   // サーバーで描くステータスが、サーバー自身に作らせたデータを読むため、データを作る画面は他の画面のあとに置く
-  scenarios: [home, memory, notes, noteDetail, forbidden, terms, privacy, status],
+  scenarios: [home, memory, notes, noteDetail, terms, privacy, status],
 };
