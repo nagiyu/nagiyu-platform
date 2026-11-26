@@ -104,4 +104,49 @@ describe('InMemoryStudyUsageRepository', () => {
     // 日が終わった翌日 (2026-11-07 00:00 JST) の TTL
     expect(item?.['TTL']).toBe(Date.parse('2026-11-06T15:00:00Z') / 1000);
   });
+
+  describe('readUsage', () => {
+    const read = (overrides: { userId?: string; characterId?: string; nowMs?: number } = {}) =>
+      repo.readUsage({ userId: 'u1', characterId: 'hiyori', nowMs: NOW_MS, ...overrides });
+
+    it('記録が無い日は 0 を返す', async () => {
+      expect(await read()).toEqual({ characterCount: 0, totalCount: 0 });
+    });
+
+    it('tryConsume で数えた値を、キャラクター別と合計で別に読める', async () => {
+      await consume();
+      await consume();
+      await consume({ characterId: 'ageha' });
+
+      expect(await read()).toEqual({ characterCount: 2, totalCount: 3 });
+      expect(await read({ characterId: 'ageha' })).toEqual({ characterCount: 1, totalCount: 3 });
+      expect(await read({ characterId: 'unknown' })).toEqual({ characterCount: 0, totalCount: 3 });
+    });
+
+    it('読んでも数えない', async () => {
+      await consume();
+      await read();
+      expect(await read()).toEqual({ characterCount: 1, totalCount: 1 });
+    });
+
+    it('利用者と日本時間の暦日ごとに別々に読む', async () => {
+      await consume({ nowMs: Date.parse('2026-11-05T14:59:59Z') });
+
+      expect(await read({ userId: 'u2' })).toEqual({ characterCount: 0, totalCount: 0 });
+      expect(await read({ nowMs: Date.parse('2026-11-05T15:00:00Z') })).toEqual({
+        characterCount: 0,
+        totalCount: 0,
+      });
+      expect(await read({ nowMs: Date.parse('2026-11-05T14:59:59Z') })).toEqual({
+        characterCount: 1,
+        totalCount: 1,
+      });
+    });
+
+    it('合計が断った分はキャラクター別にも残らない', async () => {
+      await consume({ limit: 5, totalLimit: 1 });
+      await consume({ characterId: 'ageha', limit: 5, totalLimit: 1 });
+      expect(await read({ characterId: 'ageha' })).toEqual({ characterCount: 0, totalCount: 1 });
+    });
+  });
 });

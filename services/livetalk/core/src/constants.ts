@@ -233,6 +233,12 @@ export const NOTIFICATION_EVENT_TTL_SECONDS = 30 * 24 * 60 * 60;
 export const NOTIFY_CRITICAL_CARE_THRESHOLD = 3;
 
 /**
+ * critical 判定の候補にする Topic の最大件数 (care 上位から)。
+ * 候補ごとに WEB fact の読み取りと LLM 判定が走るため、コストを抑えるために絞る。
+ */
+export const CRITICAL_CANDIDATE_TOPIC_LIMIT = 3;
+
+/**
  * クリティカル判定の「時限性あり」とみなすイベント日程の最大日数（今日から何日以内か）。
  *
  * LLM が抽出した eventDate が今日から NOTIFY_CRITICAL_EVENT_HORIZON_DAYS 日以内の未来である場合のみ

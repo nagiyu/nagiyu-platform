@@ -4,7 +4,7 @@
  * DynamoDB クライアントをモックし、送信コマンドの内容を検証する。
  */
 
-import { UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { GetCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { DatabaseError } from '@nagiyu/aws';
 import { STUDY_USAGE_ERROR_MESSAGES } from '../../../src/repositories/study-usage-counting.js';
 import { DynamoDBStudyUsageRepository } from '../../../src/repositories/dynamodb-study-usage.repository.js';
@@ -117,5 +117,45 @@ describe('DynamoDBStudyUsageRepository', () => {
 
     await expect(repo.tryConsume(input)).rejects.toBeInstanceOf(DatabaseError);
     expect(send).toHaveBeenCalledTimes(3);
+  });
+
+  describe('readUsage', () => {
+    const readInput = { userId: 'u1', characterId: 'hiyori', nowMs: NOW_MS };
+
+    it('利用者 × 日のアイテムを 1 回読み、キャラクター別と合計を別に返す', async () => {
+      const send = jest.fn().mockResolvedValue({
+        Item: { 'Count#hiyori': 2, 'Count#ageha': 5, 'Count#total': 7 },
+      });
+      const repo = new DynamoDBStudyUsageRepository(makeClient(send), tableName);
+
+      expect(await repo.readUsage(readInput)).toEqual({ characterCount: 2, totalCount: 7 });
+
+      expect(send).toHaveBeenCalledTimes(1);
+      const command = send.mock.calls[0][0] as GetCommand;
+      expect(command).toBeInstanceOf(GetCommand);
+      expect(command.input.TableName).toBe(tableName);
+      expect(command.input.Key).toEqual({ PK: 'USER#u1', SK: 'STUDYUSAGE#20261105' });
+    });
+
+    it('記録が無い日は 0 を返す', async () => {
+      const send = jest.fn().mockResolvedValue({});
+      const repo = new DynamoDBStudyUsageRepository(makeClient(send), tableName);
+
+      expect(await repo.readUsage(readInput)).toEqual({ characterCount: 0, totalCount: 0 });
+    });
+
+    it('そのキャラクターの属性だけ無ければ、キャラクター別だけ 0 になる', async () => {
+      const send = jest.fn().mockResolvedValue({ Item: { 'Count#total': 3 } });
+      const repo = new DynamoDBStudyUsageRepository(makeClient(send), tableName);
+
+      expect(await repo.readUsage(readInput)).toEqual({ characterCount: 0, totalCount: 3 });
+    });
+
+    it('DynamoDB の障害は DatabaseError として投げる', async () => {
+      const send = jest.fn().mockRejectedValue(new Error('障害'));
+      const repo = new DynamoDBStudyUsageRepository(makeClient(send), tableName);
+
+      await expect(repo.readUsage(readInput)).rejects.toBeInstanceOf(DatabaseError);
+    });
   });
 });

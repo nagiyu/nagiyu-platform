@@ -68,6 +68,14 @@ jest.mock('@nagiyu/livetalk-core', () => ({
   // 鮮度確認の依頼も純粋関数 + 渡したリポジトリへの記録だけなので実物を使う
   hasStaleWebFact: jest.requireActual('../../../../core/src/study/freshness-check.js')
     .hasStaleWebFact,
+  selectCriticalCandidateTopics: jest.requireActual(
+    '../../../../core/src/notification/critical-candidates.js'
+  ).selectCriticalCandidateTopics,
+  partitionCriticalCandidates: jest.requireActual(
+    '../../../../core/src/notification/critical-candidates.js'
+  ).partitionCriticalCandidates,
+  toSentCriticals: jest.requireActual('../../../../core/src/notification/critical-candidates.js')
+    .toSentCriticals,
   requestFreshnessChecks: jest.requireActual('../../../../core/src/study/freshness-check.js')
     .requestFreshnessChecks,
   computeIntensityFactor: jest.fn(() => 1),

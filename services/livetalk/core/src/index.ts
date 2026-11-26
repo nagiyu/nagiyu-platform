@@ -246,6 +246,8 @@ export {
   type ResearchAllowance,
 } from './study/research-allowance.js';
 export type {
+  ReadStudyUsageInput,
+  StudyUsageCounts,
   StudyUsageRepository,
   TryConsumeStudyUsageInput,
 } from './repositories/study-usage.repository.interface.js';
@@ -338,6 +340,9 @@ export {
   buildSuggestedReply,
   detectCriticalTopic,
   selectNotificationsToSend,
+  selectCriticalCandidateTopics,
+  partitionCriticalCandidates,
+  toSentCriticals,
 } from './notification/index.js';
 export type {
   BuildNotificationMessageInput,
@@ -348,6 +353,7 @@ export type {
   SentCritical,
   SelectNotificationsInput,
   SelectNotificationsResult,
+  PartitionedCriticalCandidates,
 } from './notification/index.js';
 
 // 通知関連定数（Phase 5d / #3346）
@@ -363,6 +369,7 @@ export {
   NOTIFY_ACTIVE_WINDOW_MINUTES,
   NOTIFICATION_EVENT_TTL_SECONDS,
   NOTIFY_CRITICAL_CARE_THRESHOLD,
+  CRITICAL_CANDIDATE_TOPIC_LIMIT,
   NOTIFY_CRITICAL_EVENT_HORIZON_DAYS,
   NOTIFY_INTENSITY_WINDOW_DAYS,
   NOTIFY_EVENT_READ_LIMIT,

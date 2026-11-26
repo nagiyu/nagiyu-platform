@@ -7,7 +7,11 @@ import {
   buildUserPK,
 } from '../mappers/keys.js';
 import { STUDY_USAGE_ITEM_TYPE } from './study-usage.repository.interface.js';
-import type { TryConsumeStudyUsageInput } from './study-usage.repository.interface.js';
+import type {
+  ReadStudyUsageInput,
+  StudyUsageCounts,
+  TryConsumeStudyUsageInput,
+} from './study-usage.repository.interface.js';
 
 export const STUDY_USAGE_ERROR_MESSAGES = {
   ROLLBACK_FAILED: '勉強回数のキャラクター別の回数を戻せませんでした (1 回分多く数えたまま)',
@@ -18,6 +22,13 @@ export const STUDY_USAGE_ERROR_MESSAGES = {
  * レポーターは報告の失敗を握るので、報告のために判定が止まることはない。
  */
 const errorReporter = createErrorReporter({ serviceId: 'livetalk' });
+
+/**
+ * 数える側と読む側でキーがずれると、止まる理由の表示が実際の判定と食い違うため、組み立てを 1 か所に置く。
+ */
+function buildStudyUsageKey(userId: string, nowMs: number) {
+  return { PK: buildUserPK(userId), SK: buildStudyUsageSK(toJstDayKey(nowMs)) };
+}
 
 /**
  * キャラクター別と利用者合計の 2 つの属性を、それぞれ上限付きで数える。
@@ -34,10 +45,7 @@ export async function tryConsumeStudyUsage(
   counter: UsageCounter,
   input: TryConsumeStudyUsageInput
 ): Promise<boolean> {
-  const key = {
-    PK: buildUserPK(input.userId),
-    SK: buildStudyUsageSK(toJstDayKey(input.nowMs)),
-  };
+  const key = buildStudyUsageKey(input.userId, input.nowMs);
   const common = { key, ttlSec: toDayTtlSeconds(input.nowMs), itemType: STUDY_USAGE_ITEM_TYPE };
 
   const result = await tryIncrementInOrder(
@@ -59,4 +67,24 @@ export async function tryConsumeStudyUsage(
     }
   );
   return result.ok;
+}
+
+/**
+ * その日のキャラクター別と利用者合計の回数を、数えずに読む。
+ * 数える側 (tryConsumeStudyUsage) と同じキー・属性を読むため、判定に使われる値がそのまま返る。
+ */
+export async function readStudyUsage(
+  counter: UsageCounter,
+  input: ReadStudyUsageInput
+): Promise<StudyUsageCounts> {
+  const countAttribute = buildStudyUsageCountAttribute(input.characterId);
+  const totalAttribute = buildStudyUsageTotalAttribute();
+  const values = await counter.read(buildStudyUsageKey(input.userId, input.nowMs), [
+    countAttribute,
+    totalAttribute,
+  ]);
+  return {
+    characterCount: values[countAttribute] ?? 0,
+    totalCount: values[totalAttribute] ?? 0,
+  };
 }

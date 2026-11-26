@@ -11,7 +11,9 @@ import {
   isStudyPaused,
   findLastUserMessageAt,
   getCharacterDefinitionById,
-  hasStaleWebFact,
+  selectCriticalCandidateTopics,
+  partitionCriticalCandidates,
+  toSentCriticals,
   requestFreshnessChecks,
   selectNotificationsToSend,
   computeIntensityFactor,
@@ -36,11 +38,6 @@ import {
   resolveNotifyMessageSinceMs,
   NOTIFY_SESSION_GAP_MINUTES,
 } from '@nagiyu/livetalk-core';
-
-/**
- * critical 判定用に care 上位から絞り込む Topic 候補数（LLM コスト抑制）。
- */
-const CRITICAL_CANDIDATE_TOPIC_LIMIT = 3;
 
 export interface NotifyAllUsersParams {
   profileRepo: ProfileRepository;
@@ -395,9 +392,7 @@ async function evaluateCharacter(params: {
   // critical 判定用に「高 care」の Topic のみ上位から WEB fact を取得する。
   // care 閾値未満は detectCriticalTopic 側でも LLM をスキップするため、
   // ここで先に絞り込んで無駄な listWebFacts（DynamoDB Query）を避ける。
-  const criticalCandidateTopics = topics
-    .filter((t) => t.care >= NOTIFY_CRITICAL_CARE_THRESHOLD)
-    .slice(0, CRITICAL_CANDIDATE_TOPIC_LIMIT);
+  const criticalCandidateTopics = selectCriticalCandidateTopics(topics);
   const readCriticalCandidates = await Promise.all(
     criticalCandidateTopics.map(async (topic) => ({
       topic,
@@ -418,15 +413,14 @@ async function evaluateCharacter(params: {
     })),
     nowMs: now.getTime(),
   });
-  const criticalCandidates = readCriticalCandidates.filter(
-    ({ webFacts }) => !hasStaleWebFact(webFacts, now.getTime())
+  const { candidates: criticalCandidates } = partitionCriticalCandidates(
+    readCriticalCandidates,
+    now.getTime()
   );
 
   // 送り済みの重要通知は、同じ話題・同じ予定を再び選ばないよう判定へ渡す。
   // 予定の日付が記録に無い旧データは、判定側で話題ごと送り済みとして扱われる。
-  const sentCriticals = charNotifEvents
-    .filter((e) => e.kind === 'critical' && e.topicId !== undefined)
-    .map((e) => ({ topicId: e.topicId as string, eventDate: e.eventDate }));
+  const sentCriticals = toSentCriticals(charNotifEvents);
 
   // topics が空なら候補も空になり、LLM は呼ばれず critical は発火しない。
   const escalation = await detectCriticalTopic({
