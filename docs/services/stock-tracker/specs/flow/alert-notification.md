@@ -9,10 +9,12 @@ sources:
   - libs/common/src/push/config.ts
   - libs/common/src/push/constants.ts
   - services/stock-tracker/web/public/sw.js
+  - services/stock-tracker/web/public/manifest.json
+  - libs/browser/src/push.ts
   - services/stock-tracker/web/app/layout.tsx
   - services/stock-tracker/web/app/api/push/refresh/route.ts
   - libs/react/src/components/ServiceWorkerRegistration.tsx
-sources_hash: c5b67022c36c769db30981fe6a9493374487de752d910cbdc85a6b64a88361ad
+sources_hash: a51237a32e6c0cf1be87525a7d545d593a1edc111e43e3dca20ca90a62fb1ccc
 ---
 
 # アラート通知の経路
@@ -79,9 +81,44 @@ flowchart TD
 - 購読に結びついた、利用者のブラウザ (端末)。アラート 1 件につき宛先は 1 つ
 - タップすると、チャート画面 ([トップ画面](../screen/home.md)) が、通知の取引所とティッカーを選んだ状態で開く
 
+## PWA (manifest と Service Worker)
+
+画面は、ホーム画面に追加できるアプリとして `manifest.json` を持ち、通知の受信と表示を Service Worker (`sw.js`) が受け持つ。
+
+マニフェスト (`public/manifest.json`。画面の `<head>` から `/manifest.json` として参照する)
+
+| 項目 | 値 |
+|---|---|
+| `name`、`short_name` | `Stock Tracker` |
+| `start_url` | `/` |
+| `display` | `standalone` |
+| `background_color` | `#ffffff` |
+| `theme_color` | `#1976d2` |
+| `icons` | `/icon-192x192.png` (192x192)、`/icon-512x512.png` (512x512)。いずれも PNG で、`purpose` は `any maskable` |
+
+Service Worker (`public/sw.js`)
+
+| イベント | 処理 |
+|---|---|
+| `install` | すぐに有効化する (待機しない) |
+| `activate` | 開いているページを、そのまま制御下に置く |
+| `push` | ペイロードを JSON として読み、通知を表示する。タイトルがなければ `Stock Tracker`、本文がなければ `アラート通知`、`tag` がなければ `stock-alert`。JSON として読めなければ、本文をそのまま通知の本文にする。操作するまで消えない (`requireInteraction`)。ペイロードの `data` を通知に持たせる |
+| `notificationclick` | 通知を閉じ、`data.url` (なければ `/alerts`) を開く。同じサービスのウィンドウがあればそこを移動して前面に出し、なければ新しいウィンドウを開く |
+| `notificationclose` | ログを出すだけ |
+
+- Service Worker は Push の受信と通知のクリックだけを扱う。`fetch` を扱わず、キャッシュも作らない
+- 登録は、画面のルートレイアウトに置いた共通の部品が、どのページでも開くたびに `/sw.js` を登録し、更新の確認を走らせる。更新の確認が失敗しても、登録の成否には影響しない。登録に失敗したときは、購読の更新へ進まず、画面にも影響しない
+- 通知の許可を求めて購読を作るのは、アラートを作る操作のときである。登録の部品が行うのは、許可済みの利用者の購読の作り直しだけで、許可のダイアログは出さない
+
 ## 失敗・取りこぼしのとき
 
 - 購読が無効なら通知は届かないが、バッチは成功で終わり、Admin にも報告しない。利用者が画面を開いて購読が更新されるまで、届かない回が続く
 - [日次バッチ](../batch/daily.md)は、保存された購読の形 (URL と鍵の有無) を点検してログに出すだけで、送信先の生死は確かめない
 - 分次バッチは、時間予算 (30 秒) を過ぎると、残りのアラートをその回は判定しない。判定は次の回で行う
 - 価格の取得に失敗したアラートは、その回は判定されない。失敗は Admin に `warning` で報告される
+
+## 理由
+
+- **Web Push を使う**: ブラウザの標準の機能なので、利用者は追加のアプリを入れずに、スマートフォンでもデスクトップでも通知を受けられる。Service Worker が受けるので、ブラウザを閉じた状態でも届く。VAPID 認証で、通知の送り元を確かめられる
+- **iOS Safari の対応が限られることは、既知のトレードオフである**
+- **通知のタップで、取引所とティッカーを選んだチャート画面を開く**: 通知の URL に `exchangeId` と `tickerId` を付ける
