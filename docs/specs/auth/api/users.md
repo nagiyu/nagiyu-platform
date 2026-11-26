@@ -19,7 +19,7 @@ sources:
   - services/auth/core/src/repositories/user-repository.ts
   - libs/nextjs/src/pagination.ts
   - libs/common/src/auth/role-grants.ts
-sources_hash: 4d2ddf806fa5a3590505c571623e7fb0d89cecc3fea9fe55662cc2a3475d7c98
+sources_hash: 0b2bad9463a85f90b93ed3b3c3c45a451945c599f563e54a3fe1de3174f2d1f0
 terms: [platform/term/role, auth/term/role-grant, auth/term/api-error]
 related_cards: [auth/screen/users, auth/screen/user-edit, auth/flow/billing-entitlement]
 related_adr:
