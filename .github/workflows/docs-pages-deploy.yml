@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - develop
-      - 'integration/**'
     paths:
       - 'docs/**'
       - 'docs-site/**'
