@@ -11,7 +11,7 @@ sources_hash: 8193952d1dab6fcd1e314b594854d9d4dc0f06502c3e359f221922aa3b441d76
 ## 入口
 
 - パスは `/offline`
-- この画面へ自動で切り替える処理はない。Service Worker を登録するコードがなく、ほかの画面からのリンクもない。URL を直接開いたときだけ見える
+- 接続が切れたときにこの画面へ切り替わることはない。Service Worker を登録するコードがなく、ページのキャッシュもないため、オフラインで開く経路がない。ほかの画面からのリンクもなく、URL を直接開いたときだけ見える (オフライン対応は未実装)
 
 ## 表示の条件
 
@@ -44,7 +44,7 @@ API は呼ばない。
 
 | スマホ | PC |
 |---|---|
-| ![オフライン画面 通常表示 (スマホ)](../../../images/specs/tools/screen/offline-default-mobile.png) | ![オフライン画面 通常表示 (PC)](../../../images/specs/tools/screen/offline-default-desktop.png) |
+| ![オフライン画面 通常表示 (スマホ)](../../../../images/specs/tools/screen/offline-default-mobile.png) | ![オフライン画面 通常表示 (PC)](../../../../images/specs/tools/screen/offline-default-desktop.png) |
 
 ## つながり
 

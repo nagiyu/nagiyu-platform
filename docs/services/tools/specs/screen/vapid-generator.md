@@ -33,13 +33,14 @@ Web Push 通知に使う[VAPID キー](../term/vapid-key.md)のペアを作り�
 ## 状態
 
 - 初めは鍵がなく、2 つのコピーのボタンが押せない
-- 生成中は、「VAPIDキーを生成」がスピナーになり、押せない
+- 生成中は[ボタンの読み込み表示](../../../../platform/specs/lib/ui/button.md)になり、ラベルは見えず、押せない
 - 失敗したときの扱いは、[通知バー](../term/snackbar.md) (失敗) にメッセージを出すだけで、すでに表示している鍵はそのまま残る
 
 | 条件 | メッセージ |
 |---|---|
 | 通信に失敗した、または API が 200 台以外を返した | VAPIDキーの生成に失敗しました。 |
 | API の応答に、文字列の `publicKey` と `privateKey` がない | VAPIDキー生成APIのレスポンス形式が不正です。 |
+| 200 台の応答が JSON として読めない | 読み込みで起きたエラーのメッセージがそのまま出る (固定の文言はない) |
 
 ## 操作
 
@@ -58,7 +59,7 @@ Web Push 通知に使う[VAPID キー](../term/vapid-key.md)のペアを作り�
 
 | スマホ | PC |
 |---|---|
-| ![VAPID キー生成ツール 通常表示 (スマホ)](../../../images/specs/tools/screen/vapid-generator-default-mobile.png) | ![VAPID キー生成ツール 通常表示 (PC)](../../../images/specs/tools/screen/vapid-generator-default-desktop.png) |
+| ![VAPID キー生成ツール 通常表示 (スマホ)](../../../../images/specs/tools/screen/vapid-generator-default-mobile.png) | ![VAPID キー生成ツール 通常表示 (PC)](../../../../images/specs/tools/screen/vapid-generator-default-desktop.png) |
 
 ### 生成した
 
@@ -66,7 +67,7 @@ Web Push 通知に使う[VAPID キー](../term/vapid-key.md)のペアを作り�
 
 | スマホ | PC |
 |---|---|
-| ![VAPID キー生成ツール 生成した (スマホ)](../../../images/specs/tools/screen/vapid-generator-generated-mobile.png) | ![VAPID キー生成ツール 生成した (PC)](../../../images/specs/tools/screen/vapid-generator-generated-desktop.png) |
+| ![VAPID キー生成ツール 生成した (スマホ)](../../../../images/specs/tools/screen/vapid-generator-generated-mobile.png) | ![VAPID キー生成ツール 生成した (PC)](../../../../images/specs/tools/screen/vapid-generator-generated-desktop.png) |
 
 ### 生成中
 
@@ -74,7 +75,7 @@ Web Push 通知に使う[VAPID キー](../term/vapid-key.md)のペアを作り�
 
 | スマホ | PC |
 |---|---|
-| ![VAPID キー生成ツール 生成中 (スマホ)](../../../images/specs/tools/screen/vapid-generator-generating-mobile.png) | ![VAPID キー生成ツール 生成中 (PC)](../../../images/specs/tools/screen/vapid-generator-generating-desktop.png) |
+| ![VAPID キー生成ツール 生成中 (スマホ)](../../../../images/specs/tools/screen/vapid-generator-generating-mobile.png) | ![VAPID キー生成ツール 生成中 (PC)](../../../../images/specs/tools/screen/vapid-generator-generating-desktop.png) |
 
 ### 生成に失敗したとき
 
@@ -82,7 +83,7 @@ API が 500 を返した例。「VAPIDキーの生成に失敗しました。」
 
 | スマホ | PC |
 |---|---|
-| ![VAPID キー生成ツール 生成に失敗したとき (スマホ)](../../../images/specs/tools/screen/vapid-generator-generate-failed-mobile.png) | ![VAPID キー生成ツール 生成に失敗したとき (PC)](../../../images/specs/tools/screen/vapid-generator-generate-failed-desktop.png) |
+| ![VAPID キー生成ツール 生成に失敗したとき (スマホ)](../../../../images/specs/tools/screen/vapid-generator-generate-failed-mobile.png) | ![VAPID キー生成ツール 生成に失敗したとき (PC)](../../../../images/specs/tools/screen/vapid-generator-generate-failed-desktop.png) |
 
 ## つながり
 

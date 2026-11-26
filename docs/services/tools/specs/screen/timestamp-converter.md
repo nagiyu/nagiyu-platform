@@ -37,16 +37,16 @@ Unix タイムスタンプ (秒・ミリ秒) と日時の文字列を、選ん�
 
 | 値 | 表示 |
 |---|---|
-| `America/New_York` | NYSE, NASDAQ |
-| `America/Chicago` | CME |
-| `Europe/London` | LSE |
-| `Europe/Paris` | Euronext |
-| `Europe/Berlin` | FWB |
-| `Asia/Tokyo` | TSE |
-| `Asia/Hong_Kong` | HKEX |
-| `Asia/Shanghai` | SSE |
-| `Asia/Singapore` | SGX |
-| `Australia/Sydney` | ASX |
+| `America/New_York` | America/New_York (NYSE, NASDAQ) |
+| `America/Chicago` | America/Chicago (CME) |
+| `Europe/London` | Europe/London (LSE) |
+| `Europe/Paris` | Europe/Paris (Euronext) |
+| `Europe/Berlin` | Europe/Berlin (FWB) |
+| `Asia/Tokyo` | Asia/Tokyo (TSE) |
+| `Asia/Hong_Kong` | Asia/Hong_Kong (HKEX) |
+| `Asia/Shanghai` | Asia/Shanghai (SSE) |
+| `Asia/Singapore` | Asia/Singapore (SGX) |
+| `Australia/Sydney` | Australia/Sydney (ASX) |
 
 ## 状態
 
@@ -87,7 +87,7 @@ API は呼ばない。
 
 | スマホ | PC |
 |---|---|
-| ![タイムスタンプ変換ツール 通常表示 (スマホ)](../../../images/specs/tools/screen/timestamp-converter-default-mobile.png) | ![タイムスタンプ変換ツール 通常表示 (PC)](../../../images/specs/tools/screen/timestamp-converter-default-desktop.png) |
+| ![タイムスタンプ変換ツール 通常表示 (スマホ)](../../../../images/specs/tools/screen/timestamp-converter-default-mobile.png) | ![タイムスタンプ変換ツール 通常表示 (PC)](../../../../images/specs/tools/screen/timestamp-converter-default-desktop.png) |
 
 ### Unix 秒を日時に変換した
 
@@ -95,7 +95,7 @@ API は呼ばない。
 
 | スマホ | PC |
 |---|---|
-| ![タイムスタンプ変換ツール Unix 秒を日時に変換した (スマホ)](../../../images/specs/tools/screen/timestamp-converter-converted-mobile.png) | ![タイムスタンプ変換ツール Unix 秒を日時に変換した (PC)](../../../images/specs/tools/screen/timestamp-converter-converted-desktop.png) |
+| ![タイムスタンプ変換ツール Unix 秒を日時に変換した (スマホ)](../../../../images/specs/tools/screen/timestamp-converter-converted-mobile.png) | ![タイムスタンプ変換ツール Unix 秒を日時に変換した (PC)](../../../../images/specs/tools/screen/timestamp-converter-converted-desktop.png) |
 
 ### 日時の形式が違うとき
 
@@ -103,7 +103,7 @@ API は呼ばない。
 
 | スマホ | PC |
 |---|---|
-| ![タイムスタンプ変換ツール 日時の形式が違うとき (スマホ)](../../../images/specs/tools/screen/timestamp-converter-invalid-input-mobile.png) | ![タイムスタンプ変換ツール 日時の形式が違うとき (PC)](../../../images/specs/tools/screen/timestamp-converter-invalid-input-desktop.png) |
+| ![タイムスタンプ変換ツール 日時の形式が違うとき (スマホ)](../../../../images/specs/tools/screen/timestamp-converter-invalid-input-mobile.png) | ![タイムスタンプ変換ツール 日時の形式が違うとき (PC)](../../../../images/specs/tools/screen/timestamp-converter-invalid-input-desktop.png) |
 
 ## つながり
 

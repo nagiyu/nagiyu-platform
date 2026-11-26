@@ -74,7 +74,7 @@ API は呼ばない。
 
 | スマホ | PC |
 |---|---|
-| ![URL エンコーダー / デコーダー 通常表示 (スマホ)](../../../images/specs/tools/screen/url-encoder-default-mobile.png) | ![URL エンコーダー / デコーダー 通常表示 (PC)](../../../images/specs/tools/screen/url-encoder-default-desktop.png) |
+| ![URL エンコーダー / デコーダー 通常表示 (スマホ)](../../../../images/specs/tools/screen/url-encoder-default-mobile.png) | ![URL エンコーダー / デコーダー 通常表示 (PC)](../../../../images/specs/tools/screen/url-encoder-default-desktop.png) |
 
 ### エンコードした
 
@@ -82,7 +82,7 @@ API は呼ばない。
 
 | スマホ | PC |
 |---|---|
-| ![URL エンコーダー / デコーダー エンコードした (スマホ)](../../../images/specs/tools/screen/url-encoder-encoded-mobile.png) | ![URL エンコーダー / デコーダー エンコードした (PC)](../../../images/specs/tools/screen/url-encoder-encoded-desktop.png) |
+| ![URL エンコーダー / デコーダー エンコードした (スマホ)](../../../../images/specs/tools/screen/url-encoder-encoded-mobile.png) | ![URL エンコーダー / デコーダー エンコードした (PC)](../../../../images/specs/tools/screen/url-encoder-encoded-desktop.png) |
 
 ### デコードに失敗したとき
 
@@ -90,7 +90,7 @@ API は呼ばない。
 
 | スマホ | PC |
 |---|---|
-| ![URL エンコーダー / デコーダー デコードに失敗したとき (スマホ)](../../../images/specs/tools/screen/url-encoder-decode-error-mobile.png) | ![URL エンコーダー / デコーダー デコードに失敗したとき (PC)](../../../images/specs/tools/screen/url-encoder-decode-error-desktop.png) |
+| ![URL エンコーダー / デコーダー デコードに失敗したとき (スマホ)](../../../../images/specs/tools/screen/url-encoder-decode-error-mobile.png) | ![URL エンコーダー / デコーダー デコードに失敗したとき (PC)](../../../../images/specs/tools/screen/url-encoder-decode-error-desktop.png) |
 
 ## つながり
 

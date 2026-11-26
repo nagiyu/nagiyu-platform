@@ -77,7 +77,7 @@ API は呼ばない。
 
 | スマホ | PC |
 |---|---|
-| ![Base64 エンコーダー / デコーダー 通常表示 (スマホ)](../../../images/specs/tools/screen/base64-default-mobile.png) | ![Base64 エンコーダー / デコーダー 通常表示 (PC)](../../../images/specs/tools/screen/base64-default-desktop.png) |
+| ![Base64 エンコーダー / デコーダー 通常表示 (スマホ)](../../../../images/specs/tools/screen/base64-default-mobile.png) | ![Base64 エンコーダー / デコーダー 通常表示 (PC)](../../../../images/specs/tools/screen/base64-default-desktop.png) |
 
 ### エンコードした
 
@@ -85,7 +85,7 @@ API は呼ばない。
 
 | スマホ | PC |
 |---|---|
-| ![Base64 エンコーダー / デコーダー エンコードした (スマホ)](../../../images/specs/tools/screen/base64-encoded-mobile.png) | ![Base64 エンコーダー / デコーダー エンコードした (PC)](../../../images/specs/tools/screen/base64-encoded-desktop.png) |
+| ![Base64 エンコーダー / デコーダー エンコードした (スマホ)](../../../../images/specs/tools/screen/base64-encoded-mobile.png) | ![Base64 エンコーダー / デコーダー エンコードした (PC)](../../../../images/specs/tools/screen/base64-encoded-desktop.png) |
 
 ### デコードに失敗したとき
 
@@ -93,7 +93,7 @@ API は呼ばない。
 
 | スマホ | PC |
 |---|---|
-| ![Base64 エンコーダー / デコーダー デコードに失敗したとき (スマホ)](../../../images/specs/tools/screen/base64-decode-error-mobile.png) | ![Base64 エンコーダー / デコーダー デコードに失敗したとき (PC)](../../../images/specs/tools/screen/base64-decode-error-desktop.png) |
+| ![Base64 エンコーダー / デコーダー デコードに失敗したとき (スマホ)](../../../../images/specs/tools/screen/base64-decode-error-mobile.png) | ![Base64 エンコーダー / デコーダー デコードに失敗したとき (PC)](../../../../images/specs/tools/screen/base64-decode-error-desktop.png) |
 
 ### 結果をコピーした
 
@@ -101,7 +101,7 @@ API は呼ばない。
 
 | スマホ | PC |
 |---|---|
-| ![Base64 エンコーダー / デコーダー 結果をコピーした (スマホ)](../../../images/specs/tools/screen/base64-copied-mobile.png) | ![Base64 エンコーダー / デコーダー 結果をコピーした (PC)](../../../images/specs/tools/screen/base64-copied-desktop.png) |
+| ![Base64 エンコーダー / デコーダー 結果をコピーした (スマホ)](../../../../images/specs/tools/screen/base64-copied-mobile.png) | ![Base64 エンコーダー / デコーダー 結果をコピーした (PC)](../../../../images/specs/tools/screen/base64-copied-desktop.png) |
 
 ### コピーに失敗したとき
 
@@ -109,7 +109,7 @@ API は呼ばない。
 
 | スマホ | PC |
 |---|---|
-| ![Base64 エンコーダー / デコーダー コピーに失敗したとき (スマホ)](../../../images/specs/tools/screen/base64-copy-failed-mobile.png) | ![Base64 エンコーダー / デコーダー コピーに失敗したとき (PC)](../../../images/specs/tools/screen/base64-copy-failed-desktop.png) |
+| ![Base64 エンコーダー / デコーダー コピーに失敗したとき (スマホ)](../../../../images/specs/tools/screen/base64-copy-failed-mobile.png) | ![Base64 エンコーダー / デコーダー コピーに失敗したとき (PC)](../../../../images/specs/tools/screen/base64-copy-failed-desktop.png) |
 
 ## つながり
 

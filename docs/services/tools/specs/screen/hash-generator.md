@@ -61,7 +61,7 @@ SHA-256 を選んだ状態。入力前。
 
 | スマホ | PC |
 |---|---|
-| ![ハッシュ生成ツール 通常表示 (スマホ)](../../../images/specs/tools/screen/hash-generator-default-mobile.png) | ![ハッシュ生成ツール 通常表示 (PC)](../../../images/specs/tools/screen/hash-generator-default-desktop.png) |
+| ![ハッシュ生成ツール 通常表示 (スマホ)](../../../../images/specs/tools/screen/hash-generator-default-mobile.png) | ![ハッシュ生成ツール 通常表示 (PC)](../../../../images/specs/tools/screen/hash-generator-default-desktop.png) |
 
 ### 生成した
 
@@ -69,7 +69,7 @@ SHA-512 を選び、日本語の文字列から作った例。「ハッシュを
 
 | スマホ | PC |
 |---|---|
-| ![ハッシュ生成ツール 生成した (スマホ)](../../../images/specs/tools/screen/hash-generator-generated-mobile.png) | ![ハッシュ生成ツール 生成した (PC)](../../../images/specs/tools/screen/hash-generator-generated-desktop.png) |
+| ![ハッシュ生成ツール 生成した (スマホ)](../../../../images/specs/tools/screen/hash-generator-generated-mobile.png) | ![ハッシュ生成ツール 生成した (PC)](../../../../images/specs/tools/screen/hash-generator-generated-desktop.png) |
 
 ### 生成に失敗したとき
 
@@ -77,7 +77,7 @@ SHA-512 を選び、日本語の文字列から作った例。「ハッシュを
 
 | スマホ | PC |
 |---|---|
-| ![ハッシュ生成ツール 生成に失敗したとき (スマホ)](../../../images/specs/tools/screen/hash-generator-generate-failed-mobile.png) | ![ハッシュ生成ツール 生成に失敗したとき (PC)](../../../images/specs/tools/screen/hash-generator-generate-failed-desktop.png) |
+| ![ハッシュ生成ツール 生成に失敗したとき (スマホ)](../../../../images/specs/tools/screen/hash-generator-generate-failed-mobile.png) | ![ハッシュ生成ツール 生成に失敗したとき (PC)](../../../../images/specs/tools/screen/hash-generator-generate-failed-desktop.png) |
 
 ## つながり
 

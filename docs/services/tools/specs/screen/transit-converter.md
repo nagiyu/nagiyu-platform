@@ -52,11 +52,12 @@ sources_hash: ca51dcd5e23a41154376a6de317b668ae09fbc89a20ce7170b55f75c4a7d1f58
 | 番線情報を表示 (ルート詳細の中) | OFF |
 
 - 「ルート詳細を表示」を OFF にすると、中の 3 項目も OFF になり、操作できなくなる。中の 3 項目のどれかを ON にすると、「ルート詳細を表示」も ON になる
-- 設定を変えるたびに、ブラウザの `localStorage` (キーは `transit-converter-display-settings`) に保存する。次に開いたときは、保存した値を初期値に重ねて復元する。読み書きに失敗しても、初期値のまま使える
+- 設定を変えるたびに、ブラウザの `localStorage` (キーは `transit-converter-display-settings`。読み書きは[localStorage](../../../../platform/specs/lib/browser/local-storage.md)) に保存する。次に開いたときは、保存した値を初期値に重ねて復元する。読み書きに失敗しても、初期値のまま使える
 - 変換済みのときに設定を変えると、出力をその場で作り直す (入力の解析はやり直さない)
 
 ## 状態
 
+- 画面の準備ができるまでは、読み込み中の表示を出す
 - 初めは「変換」「コピー」「クリア」が押せない。「変換」は入力が空白だけのとき、「コピー」は出力が空のとき、「クリア」は入力も出力も空のときに押せない
 - 「変換」を押すと、次の順に確かめる。最初に外れた条件のメッセージを出す
 
@@ -80,7 +81,7 @@ sources_hash: ca51dcd5e23a41154376a6de317b668ae09fbc89a20ce7170b55f75c4a7d1f58
 | 運賃 | `運賃[...] {値}` |
 | 乗換回数 | `乗換 {N}回` |
 | 距離 | `距離 {N} km` (数字と小数点) |
-| ルート | 「■」で始まる行を駅として、次の行から続く、時刻範囲 (`↓ 10:00〜10:20`)、路線 (`↓` で始まり「行」か「方面」を含む行)、番線 (`↓` で始まり「番線」を含む行) を、その駅にひもづける |
+| ルート | 「■」で始まる行を駅として、次の駅の行までに現れる、時刻範囲 (`↓ 10:00〜10:20`。`～` も可)、路線 (`↓` で始まり「行」か「方面」を含む行)、番線 (`↓` と空白で始まり、「番線」の前後に文字がある行。路線の条件に当たる行は路線になる) を、その駅にひもづける。各項目は、同じ駅に複数あれば最後の行が残る |
 
 ## 出力の形
 
@@ -97,7 +98,7 @@ sources_hash: ca51dcd5e23a41154376a6de317b668ae09fbc89a20ce7170b55f75c4a7d1f58
 ■ {終点の駅}
 ```
 
-- 設定が OFF の項目は出さない。出す項目が 1 つもない行は、行ごと出さない
+- 設定が OFF の項目は出さない。出す項目が 1 つもない行は、行ごと出さない。駅が 1 つも読み取れなかったときは、「ルート詳細を表示」が ON でも `[ルート]` は出ない
 - 出発地・到着地を OFF にすると、出発時刻・到着時刻も出ない
 - 所要時間・運賃・乗換回数・距離は、入力に見つかったものだけを ` / ` でつなぐ
 - ルートの路線と番線は、最後の駅の次には出さない。番線は路線の行の末尾に付くため、路線名を OFF にすると番線も出ない
@@ -127,7 +128,7 @@ API は呼ばない。
 
 | スマホ | PC |
 |---|---|
-| ![乗り換え変換ツール 通常表示 (スマホ)](../../../images/specs/tools/screen/transit-converter-default-mobile.png) | ![乗り換え変換ツール 通常表示 (PC)](../../../images/specs/tools/screen/transit-converter-default-desktop.png) |
+| ![乗り換え変換ツール 通常表示 (スマホ)](../../../../images/specs/tools/screen/transit-converter-default-mobile.png) | ![乗り換え変換ツール 通常表示 (PC)](../../../../images/specs/tools/screen/transit-converter-default-desktop.png) |
 
 ### 変換した
 
@@ -135,7 +136,7 @@ API は呼ばない。
 
 | スマホ | PC |
 |---|---|
-| ![乗り換え変換ツール 変換した (スマホ)](../../../images/specs/tools/screen/transit-converter-converted-mobile.png) | ![乗り換え変換ツール 変換した (PC)](../../../images/specs/tools/screen/transit-converter-converted-desktop.png) |
+| ![乗り換え変換ツール 変換した (スマホ)](../../../../images/specs/tools/screen/transit-converter-converted-mobile.png) | ![乗り換え変換ツール 変換した (PC)](../../../../images/specs/tools/screen/transit-converter-converted-desktop.png) |
 
 ### 表示設定を開いた状態
 
@@ -143,7 +144,7 @@ API は呼ばない。
 
 | スマホ | PC |
 |---|---|
-| ![乗り換え変換ツール 表示設定を開いた状態 (スマホ)](../../../images/specs/tools/screen/transit-converter-settings-open-mobile.png) | ![乗り換え変換ツール 表示設定を開いた状態 (PC)](../../../images/specs/tools/screen/transit-converter-settings-open-desktop.png) |
+| ![乗り換え変換ツール 表示設定を開いた状態 (スマホ)](../../../../images/specs/tools/screen/transit-converter-settings-open-mobile.png) | ![乗り換え変換ツール 表示設定を開いた状態 (PC)](../../../../images/specs/tools/screen/transit-converter-settings-open-desktop.png) |
 
 ### 乗り換え案内でないテキストを変換したとき
 
@@ -151,7 +152,7 @@ API は呼ばない。
 
 | スマホ | PC |
 |---|---|
-| ![乗り換え変換ツール 乗り換え案内でないテキストを変換したとき (スマホ)](../../../images/specs/tools/screen/transit-converter-invalid-input-mobile.png) | ![乗り換え変換ツール 乗り換え案内でないテキストを変換したとき (PC)](../../../images/specs/tools/screen/transit-converter-invalid-input-desktop.png) |
+| ![乗り換え変換ツール 乗り換え案内でないテキストを変換したとき (スマホ)](../../../../images/specs/tools/screen/transit-converter-invalid-input-mobile.png) | ![乗り換え変換ツール 乗り換え案内でないテキストを変換したとき (PC)](../../../../images/specs/tools/screen/transit-converter-invalid-input-desktop.png) |
 
 ### 共有されたとき
 
@@ -159,7 +160,7 @@ API は呼ばない。
 
 | スマホ | PC |
 |---|---|
-| ![乗り換え変換ツール 共有されたとき (スマホ)](../../../images/specs/tools/screen/transit-converter-shared-mobile.png) | ![乗り換え変換ツール 共有されたとき (PC)](../../../images/specs/tools/screen/transit-converter-shared-desktop.png) |
+| ![乗り換え変換ツール 共有されたとき (スマホ)](../../../../images/specs/tools/screen/transit-converter-shared-mobile.png) | ![乗り換え変換ツール 共有されたとき (PC)](../../../../images/specs/tools/screen/transit-converter-shared-desktop.png) |
 
 ## つながり
 

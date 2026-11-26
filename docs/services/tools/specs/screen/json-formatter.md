@@ -45,7 +45,6 @@ JSON の文字列を、読みやすく整形するか、1 行に圧縮する画�
 | 「クリア」 | 入力・出力・エラーを消す |
 
 - 整形も圧縮も、いったん JavaScript の値に読んで書き直す。そのため、キーの並びは JavaScript のオブジェクトの順になり (整数に見えるキーは先頭に出る)、桁の大きい数値は精度が落ちる
-- インデント幅の指定、キーの並べ替え、結果の自動コピーはない
 
 API は呼ばない。
 
@@ -57,7 +56,7 @@ API は呼ばない。
 
 | スマホ | PC |
 |---|---|
-| ![JSON 整形ツール 通常表示 (スマホ)](../../../images/specs/tools/screen/json-formatter-default-mobile.png) | ![JSON 整形ツール 通常表示 (PC)](../../../images/specs/tools/screen/json-formatter-default-desktop.png) |
+| ![JSON 整形ツール 通常表示 (スマホ)](../../../../images/specs/tools/screen/json-formatter-default-mobile.png) | ![JSON 整形ツール 通常表示 (PC)](../../../../images/specs/tools/screen/json-formatter-default-desktop.png) |
 
 ### 整形した
 
@@ -65,7 +64,7 @@ API は呼ばない。
 
 | スマホ | PC |
 |---|---|
-| ![JSON 整形ツール 整形した (スマホ)](../../../images/specs/tools/screen/json-formatter-formatted-mobile.png) | ![JSON 整形ツール 整形した (PC)](../../../images/specs/tools/screen/json-formatter-formatted-desktop.png) |
+| ![JSON 整形ツール 整形した (スマホ)](../../../../images/specs/tools/screen/json-formatter-formatted-mobile.png) | ![JSON 整形ツール 整形した (PC)](../../../../images/specs/tools/screen/json-formatter-formatted-desktop.png) |
 
 ### 圧縮した
 
@@ -73,7 +72,7 @@ API は呼ばない。
 
 | スマホ | PC |
 |---|---|
-| ![JSON 整形ツール 圧縮した (スマホ)](../../../images/specs/tools/screen/json-formatter-minified-mobile.png) | ![JSON 整形ツール 圧縮した (PC)](../../../images/specs/tools/screen/json-formatter-minified-desktop.png) |
+| ![JSON 整形ツール 圧縮した (スマホ)](../../../../images/specs/tools/screen/json-formatter-minified-mobile.png) | ![JSON 整形ツール 圧縮した (PC)](../../../../images/specs/tools/screen/json-formatter-minified-desktop.png) |
 
 ### JSON として正しくない入力を整形したとき
 
@@ -81,7 +80,7 @@ API は呼ばない。
 
 | スマホ | PC |
 |---|---|
-| ![JSON 整形ツール JSON として正しくない入力を整形したとき (スマホ)](../../../images/specs/tools/screen/json-formatter-invalid-json-mobile.png) | ![JSON 整形ツール JSON として正しくない入力を整形したとき (PC)](../../../images/specs/tools/screen/json-formatter-invalid-json-desktop.png) |
+| ![JSON 整形ツール JSON として正しくない入力を整形したとき (スマホ)](../../../../images/specs/tools/screen/json-formatter-invalid-json-mobile.png) | ![JSON 整形ツール JSON として正しくない入力を整形したとき (PC)](../../../../images/specs/tools/screen/json-formatter-invalid-json-desktop.png) |
 
 ## つながり
 
