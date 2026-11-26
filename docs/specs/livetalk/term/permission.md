@@ -10,14 +10,14 @@ sources:
   - services/livetalk/web/src/middleware.ts
 sources_hash: e0447c92da19018a1d7d56092bddc5a87130e3730d73d8120960b06a01b3ff8e
 terms: [livetalk/term/api-error]
-related_cards: [livetalk/screen/forbidden, livetalk/screen/status, platform/term/role]
+related_cards: [livetalk/screen/forbidden, livetalk/screen/status]
 related_adr:
   - services/livetalk/architecture.md#2.8
 ---
 
 # 権限とロール
 
-リブトークの画面と API は、ログインした利用者のロールが持つ 2 つの権限で、使える操作を分ける。ロールの定義は[ロールと権限の定義](../../platform/term/role.md)にある。
+リブトークの画面と API は、ログインした利用者のロールが持つ 2 つの権限で、使える操作を分ける。ロールの定義は[ロールと権限の定義](../../../platform/specs/lib/common/roles-and-permissions.md)にある。
 
 ## 説明
 

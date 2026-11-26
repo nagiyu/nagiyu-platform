@@ -9,7 +9,7 @@ sources:
   - libs/common/src/auth/roles.ts
   - libs/common/src/auth/permissions.ts
 sources_hash: ae9c6a09806f97869266d0efd97f55cb599058e0635ece489fb2158406297666
-terms: [platform/term/role, auth/term/plan-tier]
+terms: []
 related_cards: [quick-clip/api/usage, quick-clip/api/jobs, quick-clip/flow/usage-metering, quick-clip/screen/upload]
 related_adr:
   - services/quick-clip/architecture.md#ADR-018
@@ -34,7 +34,7 @@ related_adr:
     - `quick-clip:unlimited` があれば使い放題。なければ `quick-clip:pro` があればプロ、`quick-clip:standard` があればスタンダード。どれもなければ無料
     - ログインしていない (セッションがない) 利用者は未ログイン
     - セッションの検証が例外になったときも、未ログインとして扱う
-- 使い放題は有料の[段](../../auth/term/plan-tier.md)ではなく、管理者が手動で付けるロール。プロと両方持っていても使い放題になる。回数は数えず、長さの上限だけを受ける。[ロール](../../platform/term/role.md)の定義にある
+- 使い放題は有料の[段](../../../services/auth/specs/term/plan-tier.md)ではなく、管理者が手動で付けるロール。プロと両方持っていても使い放題になる。回数は数えず、長さの上限だけを受ける。[ロール](../../../platform/specs/lib/common/roles-and-permissions.md)の定義にある
 - 回数を数える主体は、ログイン中は `USER#{ユーザー ID}`、未ログインは Cookie の匿名 ID (`ANON#{ID}`)。数え方は[利用回数の流れ](../flow/usage-metering.md)にある
 
 ## 関連するカード

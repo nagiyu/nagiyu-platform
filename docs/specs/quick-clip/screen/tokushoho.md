@@ -8,7 +8,6 @@ sources:
   - libs/ui/src/components/legal/CommercialTransactionsTable.tsx
   - libs/ui/src/data/commercialTransactionsData.ts
 sources_hash: 008eda429a5513d3172c1ca62420ce78eec4a553fac2192dcae830094ab27914
-related_cards: [auth/screen/tokushoho, auth/screen/plans]
 ---
 
 # 特定商取引法画面
@@ -22,8 +21,8 @@ related_cards: [auth/screen/tokushoho, auth/screen/plans]
 
 ## 表示するもの
 
-- 見出し「特定商取引法に基づく表記」(中央寄せ) と、項目名と内容の表。表は共通の部品 (`CommercialTransactionsTable`) で描き、項目の文面は共通ライブラリが持つ。内容は [Auth の同名の画面](../../auth/screen/tokushoho.md)と同じ
-- 表の中の「プランのページ」は、Auth サービスのプラン画面 (`{NEXT_PUBLIC_AUTH_URL}/plans`。末尾の `/` は除く) へのリンク ([プラン画面](../../auth/screen/plans.md))。連絡先は `mailto:` のリンク
+- 見出し「特定商取引法に基づく表記」(中央寄せ) と、項目名と内容の表。表は共通の部品 (`CommercialTransactionsTable`) で描き、項目の文面は共通ライブラリが持つ。内容は [Auth の同名の画面](../../../services/auth/specs/screen/tokushoho.md)と同じ
+- 表の中の「プランのページ」は、Auth サービスのプラン画面 (`{NEXT_PUBLIC_AUTH_URL}/plans`。末尾の `/` は除く) へのリンク ([プラン画面](../../../services/auth/specs/screen/plans.md))。連絡先は `mailto:` のリンク
 - 狭い画面では、項目名と内容を縦に積む
 
 ## 操作

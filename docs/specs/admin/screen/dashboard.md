@@ -13,7 +13,7 @@ sources:
   - libs/browser/src/push.ts
   - libs/common/src/auth/roles.ts
 sources_hash: d4cdb9a3eeb9878a49da3b503db383d96a4d8d04bc3108a018a82f47f1861aaf
-terms: [admin/term/permission, admin/term/push-subscription, platform/term/role]
+terms: [admin/term/permission, admin/term/push-subscription]
 related_cards: [admin/screen/errors, admin/api/notify, admin/api/system, admin/flow/push-subscription]
 ---
 
@@ -38,7 +38,7 @@ related_cards: [admin/screen/errors, admin/api/notify, admin/api/system, admin/f
 
 | カード | 内容 | 出る条件 |
 |---|---|---|
-| ユーザー情報 | メールアドレスと、持っているロールの名前の札 ([ロールと権限の定義](../../platform/term/role.md))。定義にないロール ID は ID のまま出す | 常に |
+| ユーザー情報 | メールアドレスと、持っているロールの名前の札 ([ロールと権限の定義](../../../platform/specs/lib/common/roles-and-permissions.md))。定義にないロール ID は ID のまま出す | 常に |
 | 認証ステータス | 「✓ Auth サービスとの SSO 連携が正常に動作しています」と「JWT トークンによる認証が有効です」。固定の文言で、実際の状態は確かめていない | 常に |
 | 通知設定 | 「通知を有効にする」ボタン | `notifications:write` |
 | エラー履歴 | 説明と、「エラー履歴を表示」のリンク | `errors:read` |
