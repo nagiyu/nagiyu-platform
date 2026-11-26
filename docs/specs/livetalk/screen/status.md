@@ -10,17 +10,21 @@ sources:
   - services/livetalk/web/src/components/StatusCharacterSwitcher.tsx
   - services/livetalk/web/src/components/StatusTestPush.tsx
   - services/livetalk/core/src/notification/decision.ts
+  - services/livetalk/core/src/notification/critical-candidates.ts
+  - services/livetalk/core/src/study/active-window.ts
+  - services/livetalk/core/src/study/research-allowance.ts
+  - services/livetalk/core/src/repositories/study-usage-counting.ts
   - services/livetalk/core/src/constants.ts
-sources_hash: d1a4cba835935034daea43fa1a551d1a288e7e5884607a97a173efe855b40c87
-terms: [livetalk/term/permission, livetalk/term/lifecycle, livetalk/term/notification-event, livetalk/term/user-activity-profile, livetalk/term/safety, livetalk/term/character]
-related_cards: [livetalk/api/status, livetalk/api/push-notification, livetalk/batch/notify, livetalk/screen/home]
+sources_hash: 4f0dd6c26c95101e6e51539eacb1b6b7b9e664aecd94c34e3ca17f02046ed441
+terms: [livetalk/term/permission, livetalk/term/lifecycle, livetalk/term/notification-event, livetalk/term/user-activity-profile, livetalk/term/safety, livetalk/term/character, livetalk/term/study-pause, livetalk/term/freshness-check-request, livetalk/term/care, livetalk/term/topic, livetalk/term/web-fact]
+related_cards: [livetalk/api/status, livetalk/api/push-notification, livetalk/batch/notify, livetalk/batch/acquire, livetalk/screen/home]
 related_adr:
   - services/livetalk/architecture.md#2.22
 ---
 
 # ステータス画面
 
-管理者向けに、キャラクターの生活サイクルと通知の判定、通知の履歴、テスト送信、セーフティの検出の横断レビューを 1 画面に並べる運用の画面。
+管理者向けに、キャラクターの生活サイクルと通知の判定、勉強と重要通知が止まる理由、通知の履歴、テスト送信、セーフティの検出の横断レビューを 1 画面に並べる運用の画面。
 
 ## 入口
 
@@ -40,6 +44,7 @@ related_adr:
 | ライフサイクル | 状態 (`awake` か `sleeping`)、就寝と起床の時刻、[活動時間プロファイル](../term/user-activity-profile.md) (朝と夕のピーク、サンプルの件数、最終学習。なければ「未学習」) |
 | 通知判定 (現時刻) | 今この時刻に平常通知を出せるか。出せるときは種別と口調の区分、出せないときは理由 (インターバル未経過、活動時間帯外、睡眠帯、本日の上限到達、長期不在 (通知停止)、コンテンツなし)。インターバル未経過のときは、解除される目安の日時 (活動時間帯と睡眠帯は別) |
 | 直近通知履歴 | 最新 5 件の[通知の記録](../term/notification-event.md)。日時 (日本時間、秒まで)、種別、消化の有無、本文の先頭 100 文字 |
+| 勉強と重要通知 | [下の表](#勉強と重要通知) |
 | コンテンツ | 勉強の待ちの件数 |
 | テスト通知送信 | キャラクターごとのボタン。判定を介さず、その場で送る |
 | セーフティ横断レビュー | 直近 50 件の検出を、全利用者を横断して新しい順に並べる。日時、トリガー (キーワード検出か Moderation)、キャラクター、検出したパターン、利用者の ID。入力の文と応答の文は出さない |
@@ -48,6 +53,24 @@ related_adr:
 - 通知判定と直近通知履歴は、表示キャラクターの通知の記録だけを使う。通知の記録は利用者の直近 60 件 (通知バッチと同じ件数) を読み、そこから表示キャラクターのものに絞る。他のキャラクターの通知は、1 日の上限・無視の回数・基準時刻にも履歴にも効かない
 - 判定と間隔が解ける目安の時刻は、[通知バッチ](../batch/notify.md)の平常通知の判定と同じ関数で求める。画面と[ステータス API](../api/status.md)は、読み取りと判定を同じ処理で行う
 - 日時は、サーバーが画面を描いた時刻を基準にする。画面を開き直すまで更新されない
+
+### 勉強と重要通知
+
+勉強と重要通知を、今この時刻に止めている理由を出す。どれも[取得バッチ](../batch/acquire.md)と[通知バッチ](../batch/notify.md)と同じ関数で求め、画面は読むだけで何も書かない。
+
+| 項目 | 内容 |
+|---|---|
+| 勉強 | 勉強がいま止まっている理由を、取得バッチが確かめる順に 1 つ出す。生活サイクルが未登録なら「対象外（生活サイクル未登録）」、3 日ルールで止まっていれば「勉強停止中（3 日ルール）」、回数の上限なら「本日の上限到達」、どれでもなければ「勉強中」 |
+| 3 日ルール | [勉強の停止](../term/study-pause.md)の有無 (「止まっている」か「止まっていない」)。最後の発話の日時 (直近 7 日に無ければ「なし（直近 7 日）」)。止まる (止まった) 日時は、最後の発話から 72 時間後 |
+| 本日の勉強の回数 | 日本時間のその日の、表示キャラクターの回数とキャラクターの上限、利用者の全キャラクター合計の回数と上限 (20 回)。キャラクターの上限は、合計の上限を勉強中のキャラクターの数で等分した値 (端数は切り捨て。勉強中が 0 なら 0) で、その数も出す |
+| 鮮度確認の依頼待ち | [鮮度確認の依頼](../term/freshness-check-request.md)の件数と、各依頼の Topic の ID と記録の日時 |
+| 重要通知の判定 | 生活サイクルが未登録なら「判定しない（生活サイクル未登録）」、勉強が止まっていれば「判定しない（勉強停止中）」で、どちらも話題を読まない。止まっていなければ「判定する」で、判定に渡る候補と、鮮度切れで外れた話題を出す (Topic の ID、話題名、care)。送り済みの重要通知 (Topic の ID と予定日。予定日が無ければ「記録なし」) は、止まっていても出す |
+
+- 生活サイクルが未登録のキャラクターは、取得バッチも通知バッチも扱わない。「ライフサイクル」の欄は既定の就寝と起床の時刻を出すが、勉強と重要通知は止まっている
+- 勉強中のキャラクターは、取得バッチと同じく、定義があり、生活サイクルがあり、直近 72 時間に発話があるもの。各キャラクターの直近 72 時間の会話を読んで数える
+- 重要通知の候補は、通知バッチと同じく、[care](../term/care.md) の高い順の上位 10 件の [Topic](../term/topic.md) のうち care が 3 以上の上位 3 件。確認が要る [WEB fact](../term/web-fact.md) を持つものは、鮮度切れで外れた話題に回る
+- 重要通知を出すかの最後の判定 (LLM による予定の日付の判定) は行わない。呼ぶたびに結果が揺れうるので、バッチの実際の判定の説明にならず、画面を開くたびに費用もかかるため
+- 画面は鮮度確認の依頼を記録しない。通知バッチは候補の Topic を使ったとみなして依頼を記録するが、画面は見るだけで Topic を使わないため
 
 ## 状態
 
@@ -67,7 +90,7 @@ related_adr:
 
 ### 履歴がないとき
 
-通知もセーフティの検出も記録がない。就寝中でなければ、通知は出せる判定になる。
+通知もセーフティの検出も記録がない。就寝中でなければ、通知は出せる判定になる。生活サイクルを登録していないので、勉強と重要通知は対象外になる。
 
 | スマホ |
 |---|
@@ -91,7 +114,7 @@ related_adr:
 
 ### 通常表示
 
-通知の履歴とセーフティの検出が並ぶ。通知を送った日は、1 日の上限に達した判定になる。
+通知の履歴とセーフティの検出が並ぶ。通知を送った日は、1 日の上限に達した判定になる。会話はあるが生活サイクルを登録していないので、3 日ルールでは止まっていなくても、勉強と重要通知は対象外になる。
 
 | スマホ |
 |---|
@@ -111,6 +134,7 @@ related_adr:
 flowchart TD
     H[ヘッダーのメニュー] --> S[ステータス画面]
     S -->|同じ読み取りをサーバーで| D[(生活サイクル・通知の記録・会話履歴・セーフティの記録)]
+    S -->|読むだけ| U[(勉強の回数・鮮度確認の依頼・Topic と WEB fact)]
     S -->|テスト通知| A[通知まわりの API]
     API[ステータス API] -.同じ読み取り.-> D
 ```
