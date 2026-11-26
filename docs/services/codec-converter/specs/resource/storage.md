@@ -2,8 +2,10 @@
 sources:
   - infra/codec-converter/lib/codec-converter-stack.ts
   - infra/common/src/storage/service-bucket.ts
+  - services/codec-converter/batch/src/index.ts
   - services/codec-converter/core/src/constants.ts
-sources_hash: e7cae66a6b4d32d73bad3c7cbb00d22beb332bd344b2a7e39c42bc5adc4afe5f
+  - services/codec-converter/web/src/app/api/jobs/route.ts
+sources_hash: d8579dc5bfab3c9c56622f8b5f94868702fd9e59021666e766822dd6f65607e6
 ---
 
 # ストレージ
@@ -51,7 +53,7 @@ sources_hash: e7cae66a6b4d32d73bad3c7cbb00d22beb332bd344b2a7e39c42bc5adc4afe5f
 - ベースドメインは、SSM パラメータの `ACM_DOMAIN_NAME` の値で、dev では `dev.nagiyu.com`、prod では `nagiyu.com` ([デプロイ先](../deploy.md)の「ホスト名」)
 - 許可するオリジンは、CDK の context `allowedOrigin` で上書きできる。指定すると、上の既定の代わりにその値 1 つになる
 
-## 誰が読み書きするか
+## 権限
 
 | 主体 | 操作 | 詳細 |
 |---|---|---|
@@ -62,4 +64,4 @@ sources_hash: e7cae66a6b4d32d73bad3c7cbb00d22beb332bd344b2a7e39c42bc5adc4afe5f
 ## 理由
 
 - 入力と出力を 1 日で削除する理由は、[データの保持](../../requirements/non-functional/data-retention.md)の要件にある
-- ブラウザには期限つきの署名付き URL だけを渡し、バケットは公開しない。パブリックアクセスを全面ブロックする
+- バケットを非公開にし、ブラウザの読み書きを署名付き URL に限る理由は、[セキュリティ](../../requirements/non-functional/security.md)の要件にある

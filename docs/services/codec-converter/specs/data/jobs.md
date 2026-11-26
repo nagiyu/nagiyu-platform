@@ -5,15 +5,18 @@ sources:
   - services/codec-converter/core/src/repositories/dynamodb-job.repository.ts
   - services/codec-converter/core/src/types.ts
   - services/codec-converter/core/src/constants.ts
+  - services/codec-converter/batch/src/index.ts
+  - services/codec-converter/web/src/app/api/jobs/route.ts
+  - services/codec-converter/web/src/app/api/jobs/[jobId]/route.ts
   - libs/aws/src/dynamodb/validators.ts
   - libs/aws/src/dynamodb/store/dynamodb-entity-store.ts
   - libs/aws/src/dynamodb/store/entity-store-support.ts
-sources_hash: 20009e0dc05cc5cf78ef8ad183d47cb6a25075473b689f9b16eaa4ffea02c042
+sources_hash: 75fc282f91f06dc6f75108bdba087d70d60b84f91bb9456463b12b55a6cf3b35
 ---
 
 # ジョブのテーブル
 
-変換の依頼 ([ジョブ](../term/job.md)) を保存する DynamoDB のテーブル。ジョブ 1 件が 1 項目で、ステータスと、入出力の S3 キーなどを持つ。Web が作り、Web と変換バッチが読み、ステータスは変換バッチが更新する。
+変換の依頼 ([ジョブ](../term/job.md)) を保存する DynamoDB のテーブル。ジョブ 1 件が 1 項目で、ステータスと、入出力の S3 キーなどを持つ。Web が作って読み、ステータスは変換バッチが更新する。
 
 ## テーブル
 
@@ -41,7 +44,7 @@ sources_hash: 20009e0dc05cc5cf78ef8ad183d47cb6a25075473b689f9b16eaa4ffea02c042
 - 取得は、`jobId` を指定した GetItem だけ。一覧や絞り込みの取得はない
 - 書き込みは次の 2 つ。
     - 作成: Web が、ジョブ API の `POST /api/jobs` で、`PENDING` の項目を作る
-    - ステータスの更新: 変換バッチが、`status`・`outputFile`・`errorMessage` だけを更新する。更新前の状態を条件にしない ([ジョブとステータス](../term/job.md))
+    - ステータスの更新: 変換バッチが、`status`・`outputFile`・`errorMessage` だけを更新する。更新前の状態は条件にしない ([ジョブとステータス](../term/job.md))。項目があること (`attribute_exists(jobId)`) は条件にするので、項目が消えたあとの更新は `EntityNotFoundError` で失敗する。変換バッチは項目を読まず、更新の戻り値 (`ALL_NEW`) で更新後の項目を受け取るだけ
 - キーの属性名 `jobId` だけは、先頭が小文字のまま。ほかの属性は先頭が大文字 ([理由](#理由))
 
 ## 項目
@@ -73,5 +76,5 @@ sources_hash: 20009e0dc05cc5cf78ef8ad183d47cb6a25075473b689f9b16eaa4ffea02c042
 
 - DynamoDB を使う。TTL で作成から 24 時間後にジョブを自動で消せる。取得は `jobId` で引くだけで、複雑な問い合わせが要らない。オンデマンド課金は小規模の運用に合う。RDS は、この用途には過剰で、サーバーの管理が要る
 - TTL の削除は遅れうる。DynamoDB は期限を過ぎた項目を、すぐには消さないことがある。API は `TTL` を見て弾かないので、削除されるまでは、期限を過ぎたジョブも読める
-- バックアップを取らない。ジョブは 24 時間で消える一時的なデータなので、ポイントインタイムリカバリは有効にしない
-- キーを `jobId` の 1 つだけにして、camelCase のまま据え置く。キー属性の名前は、テーブルを作り直さないと変えられないため。ほかのサービスとの関係は[データアクセスの規約](../../../../platform/rules/data-access.md)にある
+- バックアップを取らない (ポイントインタイムリカバリは有効にしない)。理由は[データの保持](../../requirements/non-functional/data-retention.md)の要件にある
+- キー属性 `jobId` を camelCase のまま据え置く理由は、[データアクセスの規約](../../../../platform/rules/data-access.md)にある

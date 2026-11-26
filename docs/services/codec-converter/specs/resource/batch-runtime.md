@@ -7,7 +7,8 @@ sources:
   - infra/common/src/utils/image-tag.ts
   - infra/common/src/utils/naming.ts
   - infra/common/src/utils/vpc.ts
-sources_hash: 9461b850539932bcdc2edce50829294e1e350d1c613aeb8cbdddf1dbbba263dd
+  - services/codec-converter/batch/src/index.ts
+sources_hash: 3133c5f11de1a473f54644354af2f6c906d3074df6139e50d6c0d6aa07d9d0ac
 ---
 
 # Batch の実行環境
@@ -27,7 +28,9 @@ sources_hash: 9461b850539932bcdc2edce50829294e1e350d1c613aeb8cbdddf1dbbba263dd
 
 `{env}` は `dev` か `prod`。スタックは `NagiyuCodecConverter{Env}` で、[Web の実行環境](./web-runtime.md)や[ストレージ](./storage.md)と同じスタックにある。ワーカーのイメージの置き場 (ECR) は[デプロイ先](../deploy.md)の「スタック」にある。
 
-## コンピュート環境とジョブキュー
+## 設定値
+
+### コンピュート環境とジョブキュー
 
 | 項目 | 値 |
 |---|---|
@@ -39,7 +42,7 @@ sources_hash: 9461b850539932bcdc2edce50829294e1e350d1c613aeb8cbdddf1dbbba263dd
 | ジョブキューの優先度 | 1 |
 | ジョブキューが使うコンピュート環境 | 上の 1 つだけ |
 
-## ジョブ定義
+### ジョブ定義
 
 4 つのジョブ定義は、サイズ以外の設定が同じ。サイズごとの vCPU・メモリと、投入時の選び方は[ジョブ定義のサイズ](../term/job-definition-size.md)にある。
 
@@ -49,11 +52,19 @@ sources_hash: 9461b850539932bcdc2edce50829294e1e350d1c613aeb8cbdddf1dbbba263dd
 | イメージ | ワーカー用の ECR リポジトリ (`nagiyu-codec-converter-batch-ecr-{env}`) の、環境変数 `IMAGE_TAG` のタグ。Web の関数と同じタグ。`IMAGE_TAG` がないか空なら、合成が失敗する |
 | 試行の回数 | 2 (リトライは 1 回) |
 | 試行ごとのタイムアウト | 7,200 秒 |
-| ログの出力先 | ロググループ `/aws/batch/nagiyu-codec-converter-{env}`。ストリームの接頭辞は `batch` (`awslogs`) |
+| ログの出力先 | ロググループ `/aws/batch/nagiyu-codec-converter-{env}` ([ロググループ](#ロググループ))。ストリームの接頭辞は `batch` (`awslogs`) |
 | タスク実行ロール | 下の「権限」のタスク実行ロール |
 | ジョブロール | 下の「権限」のジョブロール |
 
-### 環境変数
+### ロググループ
+
+| 項目 | 値 |
+|---|---|
+| 名前 | `/aws/batch/nagiyu-codec-converter-{env}` |
+| 保持期間 | 1 週間 |
+| 削除ポリシー | 削除する (`DESTROY`)。スタックを削除すると、ログも消える |
+
+## 環境変数
 
 ジョブ定義が持つ値。起動ごとに変わる `JOB_ID` と `OUTPUT_CODEC` は、投入時に渡す ([変換バッチ](../batch/convert.md)の「起点」)。
 
@@ -64,7 +75,7 @@ sources_hash: 9461b850539932bcdc2edce50829294e1e350d1c613aeb8cbdddf1dbbba263dd
 | `AWS_REGION` | リージョン | スタックのリージョン |
 | `ERROR_EVENTS_TABLE_NAME` | エラー履歴の書き込み先 | `nagiyu-error-events-{env}` |
 
-- `JOB_DEFINITION_NAME` はジョブ定義が設定しない。変換バッチは、この環境変数があればログに出すだけで、ログでは `unknown` になる
+- `JOB_DEFINITION_NAME` は、変換バッチがあればログに出すだけの値で、ジョブ定義はこの環境変数を設定しない。そのため、ログでは `unknown` になる
 - `NODE_ENV` は設定しない
 
 ## 権限
