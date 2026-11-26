@@ -2,8 +2,7 @@
 sources:
   - services/dev-sync/batch/src/lib/types.ts
   - services/dev-sync/batch/src/lib/copy-logic.ts
-  - infra/dev-sync/lib/manifest.ts
-sources_hash: 4cb6b6e8e2d98521bf09ded6c13d57bac0ed542a15145287cb48cc39652f9be5
+sources_hash: e0dcda457d43b6b02afbc7ae54882c56aa85d6eb3b9fd5d9ae48e99bdddfb245
 ---
 
 # 同期戦略 (mirror / gsiWindow)
@@ -26,9 +25,8 @@ prod のテーブルを dev へコピーするときの、更新の仕方の種�
 | `mirror` | 全件 (PK / SK のプレフィックスで絞れる) | `on` / `off` を選べる | `scope.pkPrefix`、`scope.skPrefix` |
 | `gsiWindow` | GSI の直近 N 日 | なし (`off` 固定) | `gsi` (インデックス名、パーティションキーの値、`windowDays` など) |
 
-- `gsiWindow` に `delete: "on"` を指定すると、ジョブ設定の検証で弾かれる。`mirror` には `scope` が必須で、`gsi` は指定できない。`gsiWindow` には `gsi` が必須である
-- どちらも、コピー (upsert) を先に終えてから削除する。処理の手順は[同期バッチ](../batch/sync.md)にある
-- `gsiWindow` のジョブは、今はマニフェストに登録されていない。コードは対応している ([同期の実行環境](../resource/batch-runtime.md)の「ジョブ」)
+- `gsiWindow` は削除しない。`delete: "on"` を指定すると、ジョブ設定の検証で弾かれる。検証の条件は[同期バッチ](../batch/sync.md)にある
+- 削除する `mirror` は、コピー (upsert) を先に終えてから削除する。処理の手順は[同期バッチ](../batch/sync.md)にある
 
 ### 選び方
 
@@ -45,7 +43,7 @@ prod のテーブルを dev へコピーするときの、更新の仕方の種�
 
 - GSI はパーティションキーの値を 1 つ指定してしか引けないので、ウィンドウはパーティション単位になる。パーティションが分かれているテーブル (取引所ごとなど) では、パーティションごとに 1 ジョブを登録する
 - ジョブに登録していないパーティションは、見に行かない。取りこぼしても、エラーにも警告にもならず、無音で欠ける。対象のパーティションが増えたら、ジョブも足す ([同期の実行環境](../resource/batch-runtime.md)の「手順」)
-- GSI のソートキーが日付の前に接頭辞を持つとき (`DATE#2026-06-06` など) は、ジョブの `gsi.skPrefix` と `gsi.dateGranularity` をソートキーの形に合わせる。合わせないと、下限と実際のソートキーの比較が常に成り立って、ウィンドウが効かず、全件を読む
+- GSI のソートキーが日付の前に接頭辞を持つとき (`DATE#2026-06-06` など) は、ジョブの `gsi.skPrefix` と `gsi.dateGranularity` をソートキーの形に合わせる。合わせないと、接頭辞の文字によっては、比較が常に成り立って全件になるか、常に成り立たず 0 件になる
     - 下限は `{skPrefix}{日付}` で、`dateGranularity` が `date` なら日付が `YYYY-MM-DD`、省略か `datetime` なら ISO 8601 の日時になる
     - 比較は文字列で、`ソートキー >= 下限` である
 

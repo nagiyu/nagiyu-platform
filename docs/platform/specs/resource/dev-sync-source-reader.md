@@ -1,15 +1,13 @@
 ---
 sources:
   - infra/shared/lib/iam/dev-sync-source-reader-stack.ts
-  - infra/shared/bin/shared.ts
-  - infra/shared/lib/stack-plan.ts
   - infra/shared/lib/account-scope.ts
-sources_hash: e44b6045799c0971fa49d76974be2a02b869f1a21b1d64f693e49946aea88bca
+sources_hash: f78d4b29d68e3d4ab2fccd93450f48e7a9533f4738b7030222a51eeea92ba93c
 ---
 
 # dev-sync の読み取りロール
 
-dev アカウントの dev-sync の Lambda が、prod アカウントの DynamoDB テーブルを読むために引き受ける IAM ロール。prod アカウントにだけ作る。
+dev アカウントの dev-sync の Lambda が、prod アカウントの DynamoDB テーブルを読むために引き受ける IAM ロール。prod アカウントにだけ作る ([shared のデプロイ先](../deploy.md)のスタック一覧)。
 
 ## リソース
 
@@ -17,7 +15,7 @@ dev アカウントの dev-sync の Lambda が、prod アカウントの DynamoD
 |---|---|---|---|
 | `nagiyu-dev-sync-source-reader` | IAM ロール | prod | dev-sync が prod のテーブルを読むときの身元。読み取りの権限しか持たない |
 
-- スタックは `NagiyuSharedDevSyncSourceReader`。[shared のデプロイ先](../deploy.md)の「スタック」の 9 番で、prod のときだけ作られる
+- スタックは [shared のデプロイ先](../deploy.md)の「スタック」の一覧にある
 - スタックの Output `SourceReaderRoleArnExport` に、ロールの ARN を出す。dev 側の Lambda は、この Output を参照せず、ロール名から組み立てた ARN を環境変数で受け取る ([同期の実行環境](../../../services/dev-sync/specs/resource/batch-runtime.md))
 
 ## 信頼ポリシー
@@ -43,11 +41,11 @@ dev アカウントの dev-sync の Lambda が、prod アカウントの DynamoD
 | `nagiyu-stock-tracker-main-prod` |
 
 - 書き込み・削除の操作は許さない
-- この一覧は、dev-sync のマニフェストのコピー元 (`sourceTable`) と、手で合わせる。パッケージをまたぐ import をしないため、自動では一致しない。一覧にないテーブルをマニフェストに足すと、そのジョブの読み取りは権限エラーになる。足す手順は[同期の実行環境](../../../services/dev-sync/specs/resource/batch-runtime.md)の「手順」にある
+- この一覧は、dev-sync のマニフェストのコピー元 (`sourceTable`) と、手で合わせる。パッケージをまたぐ import をしないため、自動では一致しない。足す手順と、足さないときの結果は[同期の実行環境](../../../services/dev-sync/specs/resource/batch-runtime.md)の「手順」にある
 
 ## 理由
 
 - AssumeRole でアカウントの境界を越えるのは、対象のテーブルが AWS マネージドキーで暗号化されているため。DynamoDB のリソースポリシーでクロスアカウントの読み取りを許可する方法が使えない
 - ロールを prod 側に置くのは、読み取られるデータを持つアカウントの側で、ロールと権限を管理するため。prod のデータへの経路を、prod 側だけで把握できる
-- dev アカウントは prod に依存させない方針である ([AWS アカウントとアクセス](../../rules/aws-accounts.md))。prod と dev をつなぐのは dev-sync のデータコピーだけで、その入口をこの 1 ロールに絞る
+- dev アカウントは prod に依存させない方針である ([AWS アカウントとアクセス](../../rules/aws-accounts.md))。prod と dev をつなぐのは dev-sync のデータコピーだけで、prod への入口をこの 1 ロールに絞る。dev 側の実行ロールが持つのは、このロールを引き受ける権限だけである
 - 信頼ポリシーの主体を、実行ロールの ARN の直書きにせず、アカウントのプリンシパルと `aws:PrincipalArn` の条件にする。IAM は、存在しないロールをプリンシパルに書くとロールの作成を拒否する。条件にしておけば、このロールを実行ロールより先に作れる

@@ -3,7 +3,8 @@ sources:
   - infra/dev-sync/lib/dev-sync-stack.ts
   - infra/dev-sync/lib/manifest.ts
   - infra/dev-sync/bin/dev-sync.ts
-sources_hash: e1451a6fc6d7d7e1d44c2020f7cea268da078290e661d69f37d679ef4dca82ca
+  - services/dev-sync/batch/src/lib/types.ts
+sources_hash: c75b7eb7503372dc3bd650c04a5a71963e1525437648ad7944177a70915e80a2
 ---
 
 # 同期の実行環境
@@ -17,29 +18,28 @@ prod のテーブルを dev へコピーする Lambda 関数と、その実行�
 | `nagiyu-dev-sync-{env}` | Lambda 関数 (ECR イメージ) | [同期バッチ](../batch/sync.md)。1 回の起動で 1 ジョブを処理する |
 | `nagiyu-dev-sync-{env}-execution` | IAM ロール | 関数の実行ロール |
 | 名前は CDK が決める | IAM ロール | Scheduler が関数を起動するためのロール |
-| `dev-sync-{コピー先テーブル名}-{添字}` | EventBridge Scheduler のスケジュール | ジョブ 1 件につき 1 つ |
+| `dev-sync-{safeName}-{添字}` | EventBridge Scheduler のスケジュール | ジョブ 1 件につき 1 つ。`safeName` と添字は「スケジュール」にある |
 | `/aws/lambda/nagiyu-dev-sync-{env}` | CloudWatch Logs のロググループ | 関数のログ |
-| `nagiyu-dev-sync-ecr-{env}` | ECR リポジトリ | 関数のイメージの置き場。別のスタックで作る ([デプロイ先](../deploy.md)) |
 
 - `{env}` は `dev` か `prod`。メインのスタックは `NagiyuDevSync{Env}`。リージョンは、環境変数 `CDK_DEFAULT_REGION` がなければ `us-east-1`
-- 関数の名前と既定値は [Lambda 関数の共通部品](../../../../platform/specs/resource/lambda-function.md)のとおり。ワークフローが dev にしかデプロイしないので、実際に存在するのは dev のスタックだけである
+- 関数の名前は、スタックが `nagiyu-dev-sync-{env}` と明示する。関数の設定のうち、下で触れないものは [Lambda 関数の共通部品](../../../../platform/specs/resource/lambda-function.md)のとおり。関数のイメージの置き場 (ECR) は別のスタックで、[デプロイ先](../deploy.md)にある。ワークフローが dev にしかデプロイしないので、実際に存在するのは dev のスタックだけである
 - スタックの Output は、`SyncFunctionArn`、`SyncFunctionName`、`ManifestEntryCount` (マニフェストのジョブ数)
 
 ## 設定値
 
 ### Lambda 関数
 
-共通部品の既定値からの差分は次のとおり。
+[Lambda 関数の共通部品](../../../../platform/specs/resource/lambda-function.md)の既定値との差分は次のとおり。
 
-| 項目 | 値 | 既定 |
-|---|---|---|
-| メモリ | 256 MB | 512 MB |
-| タイムアウト | 15 分 | 30 秒 |
-| 起動するハンドラー (`cmd`) | `services/dev-sync/batch/dist/src/sync-handler.handler` | なし |
-| 実行ロール | このスタックで作る (下の「権限」) | CDK が作る |
-| ロググループ | 新しく作らず、既存のものを引き継ぐ (`adoptExistingLogGroup`) | 作る |
+| 項目 | 値 |
+|---|---|
+| メモリ | 256 MB |
+| タイムアウト | 15 分 |
+| 起動するハンドラー (`cmd`) | `services/dev-sync/batch/dist/src/sync-handler.handler` |
+| 実行ロール | このスタックで作る (下の「権限」) |
+| ロググループ | 新しく作らず、既存のものを引き継ぐ (`adoptExistingLogGroup`) |
 
-- 表にない項目 (アーキテクチャ、X-Ray、ログの保持期間、イメージのタグ) は、共通部品の既定のまま。タグの `Service` は `dev-sync`
+- 表にない項目は、共通部品の既定のまま。タグの `Service` は `dev-sync`
 - ロググループを引き継ぐのは、CloudFormation の管理外に同名のロググループがすでにあり、作ると名前が衝突するため
 - エラー履歴への書き込みは、共通部品の既定のまま有効 ([エラーイベントのテーブル](../../../../platform/specs/data/error-events.md))。失敗は [同期バッチ](../batch/sync.md)の「失敗したとき」のとおり報告される
 
@@ -72,7 +72,12 @@ prod のテーブルを dev へコピーする Lambda 関数と、その実行�
 
 ### 合成時の検査
 
-マニフェストの `destTable` が `-dev` で終わらないジョブがあると、CDK の合成 (synth) を中止する。prod のテーブルへの書き込み権限が、合成の時点で発行されるのを防ぐ。同じ検査を、関数の実行時にも行う ([同期バッチ](../batch/sync.md))。
+マニフェストの `destTable` が `-dev` で終わらないジョブがあると、CDK の合成 (synth) を中止する。同じ検査を、関数の実行時にも行う ([同期バッチ](../batch/sync.md))。
+
+検査を合成時と実行時の多層にする理由は次のとおり。
+
+- 合成時に止めるのは、prod のテーブルへの書き込み権限が、合成の時点で発行されること自体を防ぐため
+- 実行時にも止めるのは、ジョブ設定を手で渡して関数を呼ばれたときに、合成時の検査では防げないため
 
 ## 環境変数
 
@@ -109,8 +114,8 @@ prod のテーブルを dev へコピーする Lambda 関数と、その実行�
 
 - ジョブをマニフェストで宣言するのは、サービスを同期に載せる作業を、マニフェストへの追加で終わらせるため。コピーの処理はサービスの内部表現に依存しない汎用の処理で ([同期バッチ](../batch/sync.md)の「理由」)、スケジュールと権限は、マニフェストから生成される
 - 権限を次のように分けて、prod を壊さないことを最優先にしている。
-    - prod には読むだけにする。実行ロールは、prod のテーブルへの権限を持たず、prod 側の読み取りロールの引き受けだけを持つ。prod への書き込みの権限は、そもそも発行しない
-    - コピー先は dev のテーブルに限る。合成時と実行時の両方で `-dev` で終わることを検査する
+    - prod には読むだけにする。実行ロールは、prod のテーブルへの権限を持たず、prod 側の読み取りロールの引き受けだけを持つ。prod への書き込みの権限は、そもそも発行しない。入口を 1 ロールに絞る理由は [dev-sync の読み取りロール](../../../../platform/specs/resource/dev-sync-source-reader.md)にある
+    - コピー先は dev のテーブルに限る。合成時と実行時の両方で `-dev` で終わることを検査する (理由は「合成時の検査」)
     - 削除の権限は、削除するジョブのコピー先にだけ付ける。削除しないジョブのコピー先に、余計な権限を与えない
 
 ## 手順
@@ -118,6 +123,7 @@ prod のテーブルを dev へコピーする Lambda 関数と、その実行�
 ### 同期の対象を足す
 
 1. `infra/dev-sync/lib/manifest.ts` の `MANIFEST` に、ジョブ (コピー元・コピー先・戦略・削除・スケジュール) を足す。コピー先は `-dev` で終わるテーブルにする。戦略は[同期戦略](../term/sync-strategy.md)の「選び方」で決める
-2. コピー元が、まだ読み取りロールの対象にないテーブルなら、`infra/shared/lib/iam/dev-sync-source-reader-stack.ts` の `SOURCE_TABLE_NAMES` にも足し、prod へリリースする。リリースするまで、そのジョブの読み取りは権限エラーになる ([dev-sync の読み取りロール](../../../../platform/specs/resource/dev-sync-source-reader.md))
-3. `gsiWindow` で、対象のパーティション (取引所など) が増えたときは、増えた分のジョブを足す。足さないと、増えた分は無音で欠ける
+    - `mirror` の `scope.pkPrefix` は、マニフェストの型では省略できるが、実行時の検証 (zod) では必須である。省略すると検証で失敗する。PK で絞らないときは、空文字を指定する
+2. コピー元が、まだ読み取りロールの対象にないテーブルなら、`infra/shared/lib/iam/dev-sync-source-reader-stack.ts` の `SOURCE_TABLE_NAMES` にも足し、prod へリリースする。一覧に足してリリースするまで、そのジョブの読み取りは権限エラーになる ([dev-sync の読み取りロール](../../../../platform/specs/resource/dev-sync-source-reader.md))
+3. `gsiWindow` で、対象のパーティション (取引所など) が増えたときは、増えた分のジョブを足す。足さないと無音で欠ける ([同期戦略](../term/sync-strategy.md)の「gsiWindow の制約」)
 4. develop・`integration/**` に push する。メインのスタックは、ワークフローが dev にデプロイする ([デプロイ先](../deploy.md))。ジョブを足した直後は、スケジュールを待たずに[同期バッチ](../batch/sync.md)の「手順」で手で流して確かめられる

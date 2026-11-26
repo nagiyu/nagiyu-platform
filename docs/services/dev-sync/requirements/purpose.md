@@ -8,11 +8,11 @@ prod の DynamoDB のデータを dev 環境へ写す、プラットフォーム
 
 ## 解決したい課題
 
-運営者自身がプラットフォームの利用者であり、dev を日常利用の場 (ドッグフーディング) にして、prod を壊さない場所にする。実利用で回帰が常に見え、壊れたら自分が困ることが、品質を保つ動機になる。この方針とデータの出自の分類は、[dev 環境のデータ](../../../platform/rules/dev-data.md)にある。
+dev を日常利用の場 (ドッグフーディング) にして、prod を壊さない場所にする。この方針とデータの出自の分類は、[dev 環境のデータ](../../../platform/rules/dev-data.md)にある。
 
-共有マスタのように prod が正のデータは、dev に無いと使えない。niconico の動画基本情報や stock-tracker の取引所・銘柄は、dev が自分で得られない。このサービスは、そうしたデータを prod から dev へ写す。
+prod が正のデータ (共有マスタ。今は niconico の動画基本情報、stock-tracker の取引所・銘柄) は、dev に無いと使えない。このサービスは、そうしたデータを prod から dev へ写す。
 
 ## 扱わない範囲
 
-- **dev から prod への書き込み**: しない。prod は壊さない場所であり、dev での操作が prod のデータに及んではいけないため ([セキュリティ](non-functional/security.md))
-- **prod が正でないデータの同期**: 外部 API 由来、コード / 設定由来、派生・エフェメラルのデータは、dev が自分で得られる。写すと正の所在が増えるため写さない ([dev 環境のデータ](../../../platform/rules/dev-data.md))
+- **dev から prod への書き込み**: しない。理由は [セキュリティ](non-functional/security.md) にある
+- **prod が正でないデータの同期**: 写すデータの範囲は [dev 環境のデータ](../../../platform/rules/dev-data.md)の分類による。個人データを写さないことは [同期](functional/sync.md) にある
