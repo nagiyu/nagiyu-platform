@@ -1,7 +1,7 @@
 ---
 sources:
   - package.json
-sources_hash: 9eef7f300a13e7d4212439339981e216a99753fce7c59f1b83f5567e20f50d4c
+sources_hash: 20a67749f85b90f2bbc78a2ff3abb4524d54cb17e58bb16c43dbda1e6285ccfe
 ---
 
 # モノレポの構成の規約
@@ -19,11 +19,14 @@ npm workspaces によるモノレポの、ディレクトリ・パッケージ�
 | `services/<service>/core`、`web`、`batch` | サービスのパッケージ |
 | `services/<service>/lambda/*` | 1 つのサービスの中の Lambda ごとのパッケージ。今は quick-clip だけが持つ |
 | `services/tools` | tools は 1 つのパッケージで、core・web・batch に分けない |
-| `libs/*` | 共通ライブラリ |
 | `infra`、`infra/*` | CDK |
 | `docs-site` | docs の公開サイト |
 
 `workspaces` には、実在しない場所のパターン (`web-*`、`batch-*`、`api`) も並んでいるが、使っているサービスはない。
+
+### `libs/` は、ルートの `workspaces` に載せない
+
+`libs/` は、`libs/package.json` と `libs/package-lock.json` を持つ独立した npm プロジェクトである。libs を変えても、サービスの lockfile とビルドの入力が変わらないようにするためである。サービスは registry の `@nagiyu/*` に、`^` の範囲で依存する ([共通ライブラリの公開と版の規約](./lib-packages.md))。lib のビルド・テスト・Storybook は、`libs/` で `npm ci` してから流す。
 
 ## ディレクトリ名
 
@@ -51,19 +54,19 @@ npm workspaces によるモノレポの、ディレクトリ・パッケージ�
 
 ## ビルド
 
-### 共有 libs は `npm run build:libs` で依存順にビルドする
+### lib は `libs/` の中でビルドする
 
-libs のビルドは、ルートの `package.json` の `build:libs` が `--workspace` を依存順に並べて 1 つずつ実行する。npm は複数の `--workspace` を指定順に実行するため、並びがそのままビルド順になる。並びは `@nagiyu/common`、`@nagiyu/aws`、`@nagiyu/browser`、`@nagiyu/nextjs`、`@nagiyu/react`、`@nagiyu/ui` で、依存される側が先に来る。
+`libs/package.json` の `build` が、`--workspace` を依存順に並べて 1 つずつ実行する。npm は複数の `--workspace` を指定順に実行するため、並びがそのままビルド順になる。並びは `@nagiyu/common`、`@nagiyu/aws`、`@nagiyu/browser`、`@nagiyu/nextjs`、`@nagiyu/react`、`@nagiyu/ui` で、依存される側が先に来る。ルートの install では libs はビルドされず、サービスは registry からビルド済みの lib を受け取る。
 
-`npm run build --workspaces` は使わない。依存順ではなくワークスペースの定義順に実行され、依存先のビルド成果物がない状態でビルドが始まって失敗するためである。libs 以外は、`npm run build --workspace=@nagiyu/hoge` のように個別に流す。
+`npm run build --workspaces` は使わない。依存順ではなくワークスペースの定義順に実行され、依存先のビルド成果物がない状態でビルドが始まって失敗するためである。ルートでは、`npm run build --workspace=@nagiyu/hoge` のように個別に流す。
 
 依存の方向は [アーキテクチャの規約](./architecture.md) にある。
 
 ## 足すときの決まり
 
-### lib を足したら、`build:libs` の並びを直す
+### lib を足したら、`libs/package.json` の `build` の並びを直す
 
-足した lib を、依存先の後ろ、依存元の前に差し込む。並べ忘れると、ビルド順が崩れ、lib が `build:libs` の対象から漏れる。lib の検証ワークフローを足す手順は [ワークフローの規約](./workflows.md) にある。
+足した lib を、依存先の後ろ、依存元の前に差し込む。並べ忘れると、ビルド順が崩れ、lib がビルドの対象から漏れる。publish の対象も別に持つ ([ライブラリの publish](../specs/ci/lib-publish.md))。lib の検証ワークフローを足す手順は [ワークフローの規約](./workflows.md) にある。
 
 ### サービスを足したら、サービスの規約に沿ったパッケージを用意する
 

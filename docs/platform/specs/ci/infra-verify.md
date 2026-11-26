@@ -6,7 +6,7 @@ sources:
   - .github/workflows/infra-common-verify.yml
   - .github/workflows/infra-shared-verify.yml
   - .github/workflows/ui-storybook-verify.yml
-sources_hash: 5f2e09cc2ffa2c4318dd4f2298f39975d39b09cbb7b13ec73fce998fe5417794
+sources_hash: 1d975a0f9e598676b1cd94ab40dc4601f73e4645a09dc664657b2ace00e0c567
 ---
 
 # infra の検証
@@ -61,7 +61,7 @@ flowchart LR
 
 #### pre-synth-scripts
 
-先に `npm run build:libs` を流し、そのあと各行の `npm run <npm script 名> --workspace=<ワークスペース名>` を流す。行が 2 つの語でなければ、その行を示して落ちる。synth が libs のビルド成果物 (storybook-static など) を asset として読む場合に使う。`ui-storybook-verify.yml` は `@nagiyu/ui build-storybook` を渡す。
+`libs/` で `npm ci` してから、各行の `npm run <npm script 名> --workspace=<ワークスペース名>` を `libs/` で流す。libs はルートのワークスペースではないため、ワークスペース名は libs のものを書く。行が 2 つの語でなければ、その行を示して落ちる。synth が libs のビルド成果物 (storybook-static など) を asset として読む場合に使う。`ui-storybook-verify.yml` は `@nagiyu/ui build-storybook` を渡す。
 
 #### synth
 

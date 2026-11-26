@@ -6,7 +6,7 @@ sources:
   - .github/actions/report-verify-results/action.yml
   - .github/actions/report-verify-results/report.js
   - .github/actions/build-web-app/action.yml
-sources_hash: 8d75f6ab12094db6f87d49bfe3bbc71c41da5659e2f33d802f3b48909f1cb4ba
+sources_hash: e500d57bd39b539cd2c34d2b8cc89d20a682842fe32a6dd74d43208d222a4b40
 ---
 
 # サービスの PR 検証
@@ -79,7 +79,7 @@ flowchart LR
 | 1 | 依存のインストール (`npm ci`) | 条件なし (最初の手順) |
 | 2 | lint | 前の手順が通り、`lint` を持つ |
 | 3 | 書式の検査 | `format:check` を持つ。前の手順が落ちても流す |
-| 4 | ビルド (`npm run build:libs`、続けて `prebuild` の各ワークスペースの `build`) | `test` か `test:coverage` を持つ。前の手順が落ちても流す |
+| 4 | ビルド (`prebuild` の各ワークスペースの `build`) | `test` か `test:coverage` を持つ。前の手順が落ちても流す |
 | 5 | カバレッジつきのテスト | `develop` 向けで、`test:coverage` を持つ。ビルドが落ちたら流さない |
 | 6 | テスト | `test` を持ち、5 を流す対象ではない。ビルドが落ちたら流さない |
 
@@ -93,7 +93,7 @@ flowchart LR
 
 | 手順 | 内容 |
 |---|---|
-| 1 | `npm ci`、`build:libs`、`prebuild` のビルド |
+| 1 | `npm ci`、`prebuild` のビルド |
 | 2 | DynamoDB Local が応答するまで待つ (1 秒おきに最大 30 回) |
 | 3 | `DYNAMODB_ENDPOINT=http://dynamodb-local:8000`、リージョン `us-east-1`、ダミーの認証情報を渡して `test:contract` を流す |
 
@@ -105,8 +105,8 @@ flowchart LR
 
 | 手段 | 内容 |
 |---|---|
-| `build-web-app` | `npm ci`、`build:libs`、shared-workspaces (core など。カンマ区切り) のビルド、対象ワークスペースのビルドを順に流す |
-| 直書き | `npm ci`、`build:libs`、必要なワークスペースの `npm run build` |
+| `build-web-app` | `npm ci`、shared-workspaces (core など。カンマ区切り) のビルド、対象ワークスペースのビルドを順に流す |
+| 直書き | `npm ci`、必要なワークスペースの `npm run build` |
 
 どちらも共通イメージ `ci:base-v3` の上で動き、Node はイメージのものを使う。
 

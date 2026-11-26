@@ -2,7 +2,7 @@
 sources:
   - .github/workflows/reusable-e2e.yml
   - .github/actions/build-web-app/action.yml
-sources_hash: 1af7917ae191da7472c042fac349a496ddbe6d882ad51f564cd9729fe4badb10
+sources_hash: 32959019163213a482e4e4da29a401dfdf5305c7caf3f1ad78456710fa5a8152
 ---
 
 # E2E
@@ -44,7 +44,7 @@ sources_hash: 1af7917ae191da7472c042fac349a496ddbe6d882ad51f564cd9729fe4badb10
 | 順 | 手順 | 流す条件 |
 |---|---|---|
 | 1 | `env` を `GITHUB_ENV` に書く | `env` が空ではない |
-| 2 | `build-web-app` で web をビルドする (`npm ci`、`build:libs`、`shared-workspaces`、対象の順)。Node はイメージのものを使う | 前の手順が通れば |
+| 2 | `build-web-app` で web をビルドする (`npm ci`、`shared-workspaces`、対象の順)。Node はイメージのものを使う | 前の手順が通れば |
 | 3 | Playwright の版がイメージと揃っているか確かめる | 前の手順が通れば |
 | 4 | `npm run test:e2e --workspace=<workspace>` を、環境変数 `CI=true` と `PROJECT=<デバイス>` で流す | 前の手順が通れば |
 | 5 | Playwright のレポートを Artifact に保存する | 常に (`if: always()`) |

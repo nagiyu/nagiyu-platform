@@ -24,7 +24,7 @@ sources:
   - infra/ui-storybook/bin/ui-storybook.ts
   - infra/ui-storybook/lib/storybook-stack.ts
   - .github/workflows/ui-storybook-deploy.yml
-sources_hash: 9dbec505aed9bd28ee9aa438362230da0b5af69b33e677453cb0467b8e715500
+sources_hash: f582ac9938182328ad850f093a32e178c4321611c6550812ed380bc3958a02ca
 ---
 
 # shared と ui-storybook のデプロイ先
@@ -235,9 +235,8 @@ flowchart TD
 ```mermaid
 flowchart TD
     A[push または手動実行] --> B[AWS の認証]
-    B --> C[共通ライブラリをビルド]
-    C --> D[infra-common をビルド]
-    D --> E[Storybook の静的サイトをビルド]
+    B --> D[infra-common をビルド]
+    D --> E[libs で npm ci して Storybook の静的サイトをビルド]
     E --> F[CDK Bootstrap]
     F --> G[CDK Deploy --all<br/>env=dev]
     G --> H[Summary]
