@@ -212,14 +212,7 @@ export const codecConverter: ServiceCapture = {
     command: ['npm', 'run', 'start', '--'],
     port: 3300,
     healthPath: '/api/health',
-    requiredBuilds: [
-      'libs/ui/dist',
-      'libs/nextjs/dist',
-      'libs/aws/dist',
-      'libs/common/dist',
-      'libs/browser/dist',
-      'services/codec-converter/core/dist',
-    ],
+    requiredBuilds: ['services/codec-converter/core/dist'],
     // DynamoDB / S3 / Batch の向き先を、実際の AWS ではなく偽の AWS にする。鍵はダミー
     extraEnv: {
       AWS_ENDPOINT_URL: FAKE_AWS_URL,

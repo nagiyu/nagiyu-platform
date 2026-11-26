@@ -42,12 +42,6 @@ Portal サイトの Core Web Vitals を Lighthouse / PageSpeed Insights で測�
 - dev サーバーが起動していること
 - `npm run dev` を実行して `http://localhost:3000` にアクセスできること
 
-### shared libs のビルド（必須）
-
-```bash
-npm run build:libs
-```
-
 ### dev サーバー起動
 
 ```bash

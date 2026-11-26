@@ -8,6 +8,9 @@ set -euo pipefail
 # 出力契約:
 #   {"critical":N,"high":N,"moderate":N,"low":N,"criticalPackages":[...],"highPackages":[...]}
 #
+# 環境変数 NPM_WORKDIR に作業ディレクトリを指定すると、そこで npm audit を実行する
+# （libs/ のようにルートとは別の npm プロジェクトを検査するため。既定はカレント）。
+#
 # テスト用: 環境変数 NPM_AUDIT_JSON_FILE に `npm audit --json` 相当のJSONファイルパスを
 # 指定すると、実際に npm audit を実行せずそのファイルを入力として集計する
 # （node_modules が無い環境でも集計ロジックを検証できるようにするため）。
@@ -16,7 +19,7 @@ AUDIT_JSON_FILE="${NPM_AUDIT_JSON_FILE:-}"
 
 if [ -z "$AUDIT_JSON_FILE" ]; then
   AUDIT_JSON_FILE=$(mktemp)
-  npm audit --json > "$AUDIT_JSON_FILE" 2>/dev/null || true
+  (cd "${NPM_WORKDIR:-.}" && npm audit --json) > "$AUDIT_JSON_FILE" 2>/dev/null || true
 fi
 
 # npm audit --json は脆弱性が無くても metadata を含む JSON を出力する。

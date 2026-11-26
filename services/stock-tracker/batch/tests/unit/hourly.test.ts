@@ -21,18 +21,13 @@ let mockTradingViewGetCurrentPrice: jest.Mock;
 let mockFinnhubGetCurrentPrice: jest.Mock;
 
 // モックの設定
-// createScheduledHandler の骨格は本物を使い、骨格内部のエラー報告も同じモックで観測できるよう
-// 報告関数の実体モジュールを差し替える。
-jest.mock('../../../../../libs/aws/src/error-events/report.js', () => ({
-  ...jest.requireActual('../../../../../libs/aws/src/error-events/report.js'),
-  reportErrorEvent: jest.fn().mockResolvedValue(null),
-}));
+// createScheduledHandler の骨格は本物を使う。骨格内部のエラー報告も、レポーターと同じ in-memory の
+// 書き込み先に入るため、getReportedEvents() でまとめて観測できる。
 jest.mock('@nagiyu/aws', () => {
   const actual = jest.requireActual('@nagiyu/aws');
   return {
     ...jest.createMockFromModule('@nagiyu/aws'),
     createScheduledHandler: actual.createScheduledHandler,
-    reportErrorEvent: actual.reportErrorEvent,
     // レポーターは実物を通し、書き込み先の in-memory ライターで報告内容を確かめる
     createErrorReporter: actual.createErrorReporter,
     createErrorEventWriter: actual.createErrorEventWriter,
@@ -518,7 +513,6 @@ describe('hourly batch handler', () => {
       mockExchangeRepo.getById.mockResolvedValue(mockExchange);
       (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(true);
       mockFinnhubGetCurrentPrice.mockRejectedValue(new Error('Finnhub API タイムアウト'));
-      (awsClients.reportErrorEvent as jest.Mock).mockResolvedValue(null);
 
       // Act
       const response = await handler(mockEvent);
@@ -592,18 +586,17 @@ describe('hourly batch handler', () => {
       // Arrange
       const dbError = new Error('DynamoDB 接続エラー');
       mockAlertRepo.getByFrequency.mockRejectedValue(dbError);
-      (awsClients.reportErrorEvent as jest.Mock).mockResolvedValue(null);
 
       // Act & Assert
       await expect(handler(mockEvent)).rejects.toBe(dbError);
-      expect(awsClients.reportErrorEvent).toHaveBeenCalledWith(
+      expect(getReportedEvents()).toEqual([
         expect.objectContaining({
           serviceId: 'stock-tracker',
           severity: 'error',
           title: '時間次バッチ: 致命的エラー',
           message: 'DynamoDB 接続エラー',
-        })
-      );
+        }),
+      ]);
     });
   });
 
@@ -763,7 +756,7 @@ describe('hourly batch handler', () => {
       expect(body.statistics.notificationsSent).toBe(0);
       expect(body.statistics.errors).toBe(0);
       expect(body.statistics.invalidSubscriptions).toBe(1);
-      expect(awsClients.reportErrorEvent).not.toHaveBeenCalled();
+      expect(getReportedEvents()).toEqual([]);
       expect(mockAlertRepo.update).not.toHaveBeenCalled();
       expect(mockAlertRepo.delete).not.toHaveBeenCalled();
     });

@@ -294,8 +294,8 @@ Toolsアプリの開発環境をセットアップする
 ログイン成功後、ダッシュボードにリダイレクトされるべきだが、ログイン画面のまま
 
 ## 関連ドキュメント
-- docs/services/auth/requirements.md
-- docs/services/auth/architecture.md
+- docs/services/auth/requirements/functional/sign-in.md
+- docs/services/auth/specs/flow/sign-in.md
 
 ## 期待される修正
 architecture.md の認証フロー仕様に従って実装を修正

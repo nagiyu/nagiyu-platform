@@ -1,0 +1,80 @@
+name: Publish Libraries
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+# 同じ版の再 publish は registry が拒む。同時に 2 本走ると片方が必ず失敗するため、直列にする。
+# publish を途中で止めると、出た lib と出ていない lib が混在したまま残るので、実行中の run は完走させる。
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # registry-url を設定しないと、publish 先と認証の設定 (.npmrc) が作られない
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          registry-url: https://registry.npmjs.org
+
+      # trusted publishing (OIDC) には npm CLI 11.5.1 以上が要る。
+      # Node が同梱する npm とずれないよう、足りないときだけ上げる
+      - name: Ensure npm for trusted publishing
+        run: |
+          current=$(npm --version)
+          required=11.5.1
+          if [ "$(printf '%s\n%s\n' "$required" "$current" | sort -V | head -n1)" = "$required" ]; then
+            echo "npm ${current} は ${required} 以上のため、そのまま使う"
+          else
+            echo "npm ${current} は ${required} 未満のため、npm@11 に上げる"
+            npm install -g npm@11
+          fi
+          npm --version
+
+      # publish に要るのは libs のビルドだけ。ルートの依存はビルドの結果に関わらない
+      - name: Install dependencies
+        working-directory: libs
+        run: npm ci
+
+      - name: Build libraries
+        working-directory: libs
+        run: npm run build
+
+      # 依存先の新しい版が依存元より先に registry に載るよう、依存順に 1 つずつ出す。
+      # ディレクトリの glob 順は依存順と一致しないため、順序を明示する。
+      # 途中で失敗したら、そこで止める (bash の -e)。出た lib は registry に残り、
+      # 起動し直すと出た版は飛ばされて残りだけが出る。
+      # NPM_TOKEN は、まだ npmjs.com に無い lib の初版だけに置く。無ければ OIDC で認証する
+      - name: Publish changed versions
+        working-directory: libs
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          for dir in common aws browser nextjs react ui; do
+            name=$(node -p "require('./${dir}/package.json').name")
+            version=$(node -p "require('./${dir}/package.json').version")
+            # npm view は、版が無いときだけでなく registry に届かないときも失敗する。
+            # 後者でも「無い」と見なして publish に進み、publish 側の失敗で止める。
+            # 失敗の原因を npm view の側で切り分けずに済ませるため
+            if npm view "${name}@${version}" version >/dev/null 2>&1; then
+              echo "skip: ${name}@${version} は publish 済み"
+              continue
+            fi
+            tag_args=()
+            # プレリリースを latest にすると、利用者の既定の install が不安定な版になる
+            if [[ "${version}" == *-* ]]; then
+              tag_args=(--tag next)
+            fi
+            npm publish --workspace "${dir}" --access public "${tag_args[@]}"
+          done

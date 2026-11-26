@@ -12,6 +12,9 @@ export type UniformInterval = {
 
 const DURATION_PROBE_ARGS_LENGTH = 3;
 
+/** 長さを読めなかったときも解析を進められるようにするための仮の長さ(秒) */
+const FALLBACK_DURATION_SEC = 10;
+
 const parseFps = (input: string): number => {
   const direct = Number.parseFloat(input);
   if (Number.isFinite(direct) && direct > 0) {
@@ -172,11 +175,28 @@ export class FfmpegVideoAnalyzer {
     return entries;
   }
 
+  /**
+   * 動画の長さを返す。読めなかったときは解析を続けるための仮の長さを返す。
+   * 仮の長さを実際の長さとして保存しないよう、区別が要る呼び出し側は measureDuration を使う。
+   */
   public async getDurationSec(videoFilePath: string): Promise<number> {
+    return (await this.measureDuration(videoFilePath)).durationSec;
+  }
+
+  /**
+   * 動画の長さを計る。
+   *
+   * @returns measured が false のとき、durationSec は読めなかったための仮の値
+   */
+  public async measureDuration(
+    videoFilePath: string
+  ): Promise<{ durationSec: number; measured: boolean }> {
     const stderr = await this.runFfmpeg(['-hide_banner', '-i', videoFilePath]);
     const durationMatch = stderr.match(/Duration:\s*(\d+:\d+:\d+(?:\.\d+)?)/);
     const duration = parseTimeToSeconds(durationMatch?.[1] ?? '');
-    return Number.isFinite(duration) && duration > 0 ? duration : 10;
+    return Number.isFinite(duration) && duration > 0
+      ? { durationSec: duration, measured: true }
+      : { durationSec: FALLBACK_DURATION_SEC, measured: false };
   }
 
   public async detectUniformIntervals(videoFilePath: string): Promise<UniformInterval[]> {

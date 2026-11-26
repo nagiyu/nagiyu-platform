@@ -681,15 +681,7 @@ export const livetalk: ServiceCapture = {
     port: 3405,
     healthPath: '/api/health',
     envFile: 'services/livetalk/web/.env.test',
-    requiredBuilds: [
-      'libs/ui/dist',
-      'libs/nextjs/dist',
-      'libs/aws/dist',
-      'libs/react/dist',
-      'libs/common/dist',
-      'libs/browser/dist',
-      'services/livetalk/core/dist',
-    ],
+    requiredBuilds: ['services/livetalk/core/dist'],
     // E2E の設定 (認証を飛ばす) に、インメモリ DB と、外部へ出ないためのダミーの値を足す。
     // OPENAI_API_KEY はクライアントの生成に要るだけで、チャットは差し替えるため API は呼ばれない
     extraEnv: {

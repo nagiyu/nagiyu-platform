@@ -12,7 +12,7 @@ sources:
   - services/niconico-mylist-assistant/batch/playwright.config.ts
   - services/niconico-mylist-assistant/batch/.env.local.example
   - services/niconico-mylist-assistant/batch/tests/integration/mylist-registration.spec.ts
-sources_hash: ea19cbcc1fa1e903b71caa90d34deb0f8627343691a41563afc0cbdda0e97e26
+sources_hash: c0cb20d1973e1ed34a7c090e76b46a9d74bebd8a2a6ede3afd0112795f177983
 ---
 
 # マイリスト登録バッチ (mylist-register)
@@ -103,7 +103,7 @@ flowchart TD
 | 一部の動画の登録に失敗 | `SUCCEEDED` (`failedCount` が 1 以上) | なし | 送る (成功率の本文) | 0 |
 
 - 全体の失敗の報告は `withErrorReporting` で、`exitOnError` を真にして渡す ([エラーの報告](../../../../platform/specs/lib/aws/error-reporting.md))。終了コードが 1 のとき、AWS Batch はジョブを失敗にする。試行は 1 回なので、再実行はしない
-- ジョブ定義のタイムアウトを超えると Batch がジョブを止める。ワーカーは時間を見ておらず、ステータスを更新できないので、記録は `RUNNING` のまま残る。画面は 30 分で取得を打ち切る。Batch の失敗を拾う EventBridge のルールや CloudWatch Alarm は、niconico-mylist-assistant のインフラには定義されていない ([エラー通知の経路](../../../../specs/admin/flow/error-notification.md)の `batch-event` の対象にならない)
+- ジョブ定義のタイムアウトを超えると Batch がジョブを止める。ワーカーは時間を見ておらず、ステータスを更新できないので、記録は `RUNNING` のまま残る。画面は 30 分で取得を打ち切る。Batch の失敗を拾う EventBridge のルールや CloudWatch Alarm は、niconico-mylist-assistant のインフラには定義されていない ([エラー通知の経路](../../../admin/specs/flow/error-notification.md)の `batch-event` の対象にならない)
 - ジョブの記録の更新が失敗しても、バッチは警告やエラーのログを出して続ける (最終ステータスの更新が失敗すると、記録は `RUNNING` のまま残る)
 - 報告は [ErrorEvent](../../../../platform/specs/term/error-event.md) で、`serviceId` は `niconico-mylist-assistant`。書き込みに失敗したときの扱いは[エラーの報告](../../../../platform/specs/lib/aws/error-reporting.md)のとおり
 
