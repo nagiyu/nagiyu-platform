@@ -21,7 +21,7 @@ on:
       pre-synth-scripts:
         description: >-
           synth の前に流す npm script (複数行)。1 行が "<ワークスペース名> <npm script 名>"。
-          指定があれば、先に npm run build:libs を流す
+          libs は独立した npm プロジェクトのため、libs で npm ci してから、libs のワークスペースで流す
         required: false
         type: string
         default: ''
@@ -105,12 +105,14 @@ jobs:
       - name: Build
         run: npm run build --workspace="$WORKSPACE_NAME"
 
-      # synth が libs のビルド成果物 (storybook-static など) を asset として読む場合に、先に作る
+      # synth が libs のビルド成果物 (storybook-static など) を asset として読む場合に、先に作る。
+      # libs はルートのワークスペースではなく独立した npm プロジェクトのため、libs の中で入れて流す
       - name: Run pre-synth scripts
         if: matrix.workspace.synth && inputs.pre-synth-scripts != ''
+        working-directory: libs
         run: |
           set -euo pipefail
-          npm run build:libs
+          npm ci
           while IFS= read -r line || [ -n "$line" ]; do
             read -r -a fields <<< "$line"
             if [ "${#fields[@]}" -eq 0 ]; then

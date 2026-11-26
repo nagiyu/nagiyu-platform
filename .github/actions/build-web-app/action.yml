@@ -44,11 +44,6 @@ runs:
       shell: bash
       run: npm ci
 
-    # libs 間の依存順は build:libs が持つため、呼び出し側で個別に並べない
-    - name: Build shared libs
-      shell: bash
-      run: npm run build:libs
-
     - name: Build shared workspaces
       if: inputs.shared-workspaces != ''
       shell: bash

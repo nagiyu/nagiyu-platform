@@ -67,13 +67,16 @@ jobs:
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
           aws-region: us-east-1
 
-      - name: Build shared libraries
-        run: npm run build:libs
-
       - name: Build common infrastructure package
         run: npm run build --workspace=@nagiyu/infra-common
 
+      # libs はルートのワークスペースではなく独立した npm プロジェクトのため、libs の中で入れてビルドする
+      - name: Install libs dependencies
+        working-directory: libs
+        run: npm ci
+
       - name: Build Storybook static site
+        working-directory: libs
         run: npm run build-storybook --workspace=@nagiyu/ui
 
       - name: CDK Bootstrap (if needed)

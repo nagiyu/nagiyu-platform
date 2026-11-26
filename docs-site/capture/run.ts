@@ -46,7 +46,7 @@ const MESSAGES = {
   UNKNOWN_SCREEN: (name: string) => `撮影シナリオにない画面です: ${name}`,
   MISSING_COMPANION_FILE: (path: string) => `補助のプロセスに必要なファイルがありません: ${path}`,
   MISSING_BUILD: (path: string) =>
-    `ビルド成果物がありません: ${path}\n共通ライブラリとサービスの core を先にビルドしてください (build-shared-libs スキル)`,
+    `ビルド成果物がありません: ${path}\nサービスの core を先にビルドしてください`,
   BUILD_FAILED: 'サービスのビルドに失敗しました',
   SERVER_TIMEOUT: (url: string) => `サービスの起動を待ちきれませんでした: ${url}`,
 } as const;

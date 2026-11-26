@@ -10,15 +10,12 @@ WORKDIR /app
 # モノレポ全体の package.json とソースをコピー
 COPY package*.json ./
 COPY configs ./configs/
-COPY libs ./libs/
 COPY services/dev-sync ./services/dev-sync/
 
 # 依存関係をインストール（ソースコード存在下で実行）
 RUN npm ci
 
-# 共通ライブラリ → dev-sync-batch の順にビルド（core は無し）
-RUN npm run build --workspace=@nagiyu/common
-RUN npm run build --workspace=@nagiyu/aws
+# dev-sync-batch をビルド（core は無し）
 RUN npm run build --workspace=@nagiyu/dev-sync-batch
 
 # 実行ステージ
@@ -32,14 +29,6 @@ COPY --from=builder /app/node_modules ./node_modules
 
 # 必要なビルド成果物と package.json をコピー
 COPY --from=builder /app/package*.json ./
-
-# 共通ライブラリ
-COPY --from=builder /app/libs/common/package*.json ./libs/common/
-COPY --from=builder /app/libs/common/dist ./libs/common/dist
-
-# AWS ライブラリ
-COPY --from=builder /app/libs/aws/package*.json ./libs/aws/
-COPY --from=builder /app/libs/aws/dist ./libs/aws/dist
 
 # dev-sync Batch
 COPY --from=builder /app/services/dev-sync/batch/package*.json ./services/dev-sync/batch/
