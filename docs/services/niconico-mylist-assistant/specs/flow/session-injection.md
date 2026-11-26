@@ -8,7 +8,7 @@ sources:
   - services/niconico-mylist-assistant/core/src/niconico/session.ts
   - services/niconico-mylist-assistant/batch/src/index.ts
   - services/niconico-mylist-assistant/batch/src/playwright-automation.ts
-sources_hash: 74cbc2f13e3dd7d616b53a725a66fa20465995bb0a754e753732c102ff2ed9e3
+sources_hash: 1d3d9dcddbd79d5d05f3153d06377a71b0386df4059a803ab008f49d5889a00a
 ---
 
 # セッションの登録から利用まで
@@ -39,7 +39,7 @@ flowchart TD
 3. **保存**: 鍵 (Secrets Manager) で暗号化し、取得日時 (今) と推定有効期限 (30 日後) と合わせて、利用者ごとに 1 件保存する。以前の値は上書きされる
 4. **状態の表示**: マイリスト登録画面を開くたびに `GET /api/niconico/session` が、保存した値を復号して有効性を判定し直す。無効や未登録なら、画面は登録を止めて更新を促す。判定不能のときは止めない
 5. **依頼**: [マイリスト登録 API](../api/mylist-register.md) は、保存した値を復号せず、暗号化したままジョブの環境変数 `ENCRYPTED_USER_SESSION` に載せる。この時点では有効性を確かめない (保存の有無だけ見る)
-6. **実行前の判定**: [バッチ](../batch/mylist-register.md)が値を復号し、ニコニコ動画で有効性を判定し直す。無効ならジョブを失敗にして終了する。判定不能は、続行する
+6. **実行前の判定**: [バッチ](../batch/mylist-register.md)が値を復号し、ニコニコ動画で有効性を判定し直す。無効ならジョブを失敗にし、セッションの再設定を促す通知を送って終了する。判定不能は、続行する
 7. **注入**: バッチが、ブラウザのコンテキストに `user_session` をクッキーとして入れ、ログインの操作なしでマイリストを操作する
 
 ## 届く先

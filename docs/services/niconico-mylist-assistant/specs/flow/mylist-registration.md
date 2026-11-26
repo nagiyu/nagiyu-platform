@@ -8,7 +8,7 @@ sources:
   - services/niconico-mylist-assistant/web/public/sw.js
   - services/niconico-mylist-assistant/batch/src/index.ts
   - services/niconico-mylist-assistant/batch/src/lib/web-push-client.ts
-sources_hash: 174c31a58cca9e27a7393b72c30f2c9c0557d6f77e62d324930be96b391bc3ac
+sources_hash: 0c7f01339389856430d9055d082636c9631de554e5c9f69f96396371b4863ab3
 ---
 
 # マイリスト登録の経路
@@ -38,9 +38,9 @@ flowchart TD
 2. **投入**: [マイリスト登録 API](../api/mylist-register.md) が、条件に合う動画を最大 `maxCount` 件選び、保存済みのセッションの暗号化した値と合わせて AWS Batch にジョブを投入し、ジョブの記録を `SUBMITTED` で作る。購読は、この記録に書く。成功すると `jobId` を返す
 3. **実行**: [バッチ](../batch/mylist-register.md)は、記録から購読を読み (環境変数には載せない)、`RUNNING` にして、マイリストを全削除、作成、動画を 1 件ずつ登録する
 4. **結果**: 成功と失敗の件数から `SUCCEEDED` か `FAILED` を決め、結果と完了日時を記録に書く
-5. **通知**: 購読があれば、記録を更新したあとに Web Push を 1 件送る。題名は「マイリスト登録完了」で、本文は件数によって変わる ([バッチ](../batch/mylist-register.md))。ペイロードに遷移先の URL は含めない
+5. **通知**: 購読があれば、記録を更新したあとに Web Push を 1 件送る。題名は「マイリスト登録完了」で、本文は件数によって変わる ([バッチ](../batch/mylist-register.md))。完了通知のペイロードに遷移先の URL は含めない
 6. **表示**: サービスワーカー (`/sw.js`) が通知を出す。登録は全画面の layout で行い、通知を許可済みなら購読も送り直す ([Push 購読の React 部品](../../../../platform/specs/lib/react/push-subscription.md))。通知は、同じタグで置き換わり、操作するまで消えない
-7. **遷移**: 通知をタップすると、開いているタブがあればそれを、なければ新しいタブを、`/mylist` (動画管理画面) に移す。ジョブの状態画面は開かない
+7. **遷移**: 通知をタップすると、開いているタブがあればそれを、なければ新しいタブを、通知のペイロードに URL があればその URL (セッション無効の失敗通知は `/mylist/register`)、なければ `/mylist` (動画管理画面) に移す。ジョブの状態画面は開かない
 8. **状態の画面**: 依頼が成功すると、画面は 3 秒後に[ジョブの状態画面](../screen/job-status.md)へ移る。状態画面は、5 秒ごとに[ジョブ API](../api/batch-jobs.md) を呼び、結果を見せる。通知がなくても、ここで結果を見られる
 
 ## 届く先
@@ -55,7 +55,7 @@ flowchart TD
 - 通知の送信に失敗しても、ジョブの結果は変わらない
 - 記録の更新に失敗すると、通知も送らない。ジョブの記録の作成が API で失敗したときは、ジョブは動くが、記録がないので状態も通知も出ない ([マイリスト登録 API](../api/mylist-register.md))
 - バッチが時間切れで止められると、記録は `RUNNING` のまま残り、通知も出ない。画面は 30 分で取得を打ち切る
-- 実行の直前にセッションが無効と分かると、ジョブは `FAILED` になり、通知は出るが、件数が 0 のため本文は「全 0 件のマイリスト登録が完了しました」になる
+- 実行の直前にセッションが無効と分かると、ジョブは `FAILED` になり、「マイリスト登録失敗」の通知が出る。本文は、セッションを再設定するよう促し、タップするとマイリスト登録画面 (`/mylist/register`) が開く
 
 ## つながり
 
