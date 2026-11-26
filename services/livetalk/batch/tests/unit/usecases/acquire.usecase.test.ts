@@ -1,4 +1,4 @@
-import { InMemorySingleTableStore } from '@nagiyu/aws';
+import { InMemoryAuthUserRoleSourceReader, InMemorySingleTableStore } from '@nagiyu/aws';
 import { InMemoryStudyUsageRepository } from '@nagiyu/livetalk-core';
 
 jest.mock('@nagiyu/livetalk-core', () => ({
@@ -51,9 +51,13 @@ const mockGetCharacterDefinitionById = jest.requireMock('@nagiyu/livetalk-core')
 const mockAcquireForUser = jest.requireMock('@nagiyu/livetalk-core').acquireForUser as jest.Mock;
 
 describe('acquireAllUsers', () => {
-  const makeProfileRepo = (userIds: string[]) => ({
+  /** 既定ではお試し中 (作成から 1 時間) の Profile を返す */
+  const makeProfileRepo = (userIds: string[], createdAtByUser: Record<string, number> = {}) => ({
     listAllUserIds: jest.fn().mockResolvedValue(userIds),
-    getById: jest.fn(),
+    getById: jest.fn().mockImplementation(async ({ userId }: { userId: string }) => ({
+      userId,
+      createdAt: createdAtByUser[userId] ?? NOW_MS - HOUR_MS,
+    })),
     upsert: jest.fn(),
   });
 
@@ -96,9 +100,11 @@ describe('acquireAllUsers', () => {
   });
 
   let studyUsageRepo: InMemoryStudyUsageRepository;
+  let authReader: InMemoryAuthUserRoleSourceReader;
 
   const makeParams = (overrides = {}) => ({
     profileRepo: makeProfileRepo(['u1', 'u2']) as never,
+    authUserRoleSourceReader: authReader,
     lifecycleRepo: makeLifecycleRepo() as never,
     messageRepo: makeMessageRepo() as never,
     studyUsageRepo,
@@ -117,6 +123,7 @@ describe('acquireAllUsers', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     studyUsageRepo = new InMemoryStudyUsageRepository(new InMemorySingleTableStore());
+    authReader = new InMemoryAuthUserRoleSourceReader();
     mockGetAllCharacterIds.mockReturnValue(['hiyori', 'ageha']);
   });
 
@@ -470,5 +477,221 @@ describe('acquireAllUsers', () => {
       'unknown-char',
       expect.anything()
     );
+  });
+
+  describe('利用者の区分と 1 日の上限', () => {
+    const DAY_MS = 24 * HOUR_MS;
+    const acquired = {
+      outcome: 'acquired',
+      requestsProcessed: 0,
+      staleRefreshed: 0,
+      staleChanged: 0,
+      staleFactsReviewed: 0,
+      selfStudied: 0,
+      webRawWritten: 0,
+      dailyLimitReached: false,
+      counterFailed: false,
+    };
+
+    /** 枠を使い切るまで問い合わせ、利用者ごとに使えた回数を記録する */
+    const drainByUser = (used: Record<string, number>) =>
+      mockAcquireForUser.mockImplementation(
+        async (
+          userId: string,
+          characterId: string,
+          params: { researchAllowance: { tryConsume: () => Promise<boolean> } }
+        ) => {
+          let count = 0;
+          while (await params.researchAllowance.tryConsume()) count++;
+          used[`${userId}:${characterId}`] = count;
+          return acquired;
+        }
+      );
+
+    const run = async (overrides = {}) => {
+      const { acquireAllUsers } = await import('../../../src/usecases/acquire.usecase.js');
+      return acquireAllUsers(makeParams(overrides));
+    };
+
+    it('運営者・スタンダード・お試し中は 20 回、お試しのあとは勉強しない', async () => {
+      authReader.putItem({ userId: 'op', Roles: ['livetalk-operator'] });
+      authReader.putItem({ userId: 'std', Roles: ['livetalk-standard'] });
+      const used: Record<string, number> = {};
+      drainByUser(used);
+      mockGetAllCharacterIds.mockReturnValue(['hiyori']);
+
+      const result = await run({
+        profileRepo: makeProfileRepo(['op', 'std', 'trial', 'expired'], {
+          // 運営者・スタンダードは期限を問わない
+          op: NOW_MS - 30 * DAY_MS,
+          std: NOW_MS - 30 * DAY_MS,
+          trial: NOW_MS - 3 * DAY_MS,
+          expired: NOW_MS - 30 * DAY_MS,
+        }) as never,
+        messageRepo: makeMessageRepo() as never,
+      });
+
+      expect(used).toEqual({ 'op:hiyori': 20, 'std:hiyori': 20, 'trial:hiyori': 20 });
+      expect(result.tierUsers).toEqual({ operator: 1, standard: 1, freeTrial: 1, freeExpired: 1 });
+      expect(result.trialExpiredUsers).toBe(1);
+      expect(result.skippedUsers).toBe(1);
+      expect(result.processedUsers).toBe(3);
+    });
+
+    it('運営者とスタンダードの両方を持つ利用者は運営者として数える', async () => {
+      authReader.putItem({ userId: 'u1', Roles: ['livetalk-standard', 'livetalk-operator'] });
+
+      const result = await run({ profileRepo: makeProfileRepo(['u1']) as never });
+
+      expect(result.tierUsers).toEqual({ operator: 1, standard: 0, freeTrial: 0, freeExpired: 0 });
+    });
+
+    it('有効な権利のロールも区分に使い、期限切れの権利は使わない', async () => {
+      const grant = (grantId: string, expiresAt: number) => ({
+        grantId,
+        roleId: 'livetalk-standard',
+        source: 'manual',
+        createdAt: 1,
+        updatedAt: 1,
+        expiresAt,
+      });
+      authReader.putItem({
+        userId: 'active',
+        Roles: [],
+        RoleGrants: [grant('g1', NOW_MS + DAY_MS)],
+      });
+      authReader.putItem({ userId: 'lapsed', Roles: [], RoleGrants: [grant('g2', NOW_MS)] });
+
+      const result = await run({
+        profileRepo: makeProfileRepo(['active', 'lapsed'], {
+          active: NOW_MS - 30 * DAY_MS,
+          lapsed: NOW_MS - 30 * DAY_MS,
+        }) as never,
+      });
+
+      expect(result.tierUsers).toEqual({ operator: 0, standard: 1, freeTrial: 0, freeExpired: 1 });
+    });
+
+    it('お試しはちょうど 7 日で終わる', async () => {
+      const result = await run({
+        profileRepo: makeProfileRepo(['edge', 'inside'], {
+          edge: NOW_MS - 7 * DAY_MS,
+          inside: NOW_MS - 7 * DAY_MS + 1,
+        }) as never,
+      });
+
+      expect(result.tierUsers).toMatchObject({ freeTrial: 1, freeExpired: 1 });
+    });
+
+    it('auth にユーザーがいなければロールなし (無料) として扱う', async () => {
+      const result = await run({ profileRepo: makeProfileRepo(['ghost']) as never });
+
+      expect(result.tierUsers).toMatchObject({ freeTrial: 1 });
+      expect(result.failedUsers).toBe(0);
+    });
+
+    it('上限 0 の利用者は、キャラクターの走査もカウンタも触らない', async () => {
+      const messageRepo = makeMessageRepo();
+      const lifecycleRepo = makeLifecycleRepo();
+      const repoSpy = jest.spyOn(studyUsageRepo, 'tryConsume');
+
+      const result = await run({
+        profileRepo: makeProfileRepo(['expired'], { expired: NOW_MS - 30 * DAY_MS }) as never,
+        messageRepo: messageRepo as never,
+        lifecycleRepo: lifecycleRepo as never,
+      });
+
+      expect(lifecycleRepo.get).not.toHaveBeenCalled();
+      expect(messageRepo.listSince).not.toHaveBeenCalled();
+      expect(mockAcquireForUser).not.toHaveBeenCalled();
+      expect(repoSpy).not.toHaveBeenCalled();
+      expect(result.skippedUsers).toBe(1);
+      expect(result.trialExpiredUsers).toBe(1);
+    });
+
+    it('auth の読み取りに失敗した利用者は勉強せず失敗として数え、他の利用者は続く', async () => {
+      const used: Record<string, number> = {};
+      drainByUser(used);
+      mockGetAllCharacterIds.mockReturnValue(['hiyori']);
+      const original = authReader.getRoleSources.bind(authReader);
+      jest.spyOn(authReader, 'getRoleSources').mockImplementation(async (userId: string) => {
+        if (userId === 'bad') throw new Error('auth の読み取り失敗');
+        return original(userId);
+      });
+
+      const result = await run({ profileRepo: makeProfileRepo(['bad', 'good']) as never });
+
+      expect(result.failedUsers).toBe(1);
+      expect(result.failedUserIds).toEqual(['bad']);
+      expect(used).toEqual({ 'good:hiyori': 20 });
+      expect(result.tierUsers.freeTrial).toBe(1);
+    });
+
+    it('Profile の読み取りに失敗した利用者は勉強せず失敗として数え、他の利用者は続く', async () => {
+      const used: Record<string, number> = {};
+      drainByUser(used);
+      mockGetAllCharacterIds.mockReturnValue(['hiyori']);
+      const profileRepo = makeProfileRepo(['bad', 'good']);
+      profileRepo.getById.mockImplementation(async ({ userId }: { userId: string }) => {
+        if (userId === 'bad') throw new Error('Profile の読み取り失敗');
+        return { userId, createdAt: NOW_MS };
+      });
+
+      const result = await run({ profileRepo: profileRepo as never });
+
+      expect(result.failedUserIds).toEqual(['bad']);
+      expect(used).toEqual({ 'good:hiyori': 20 });
+    });
+
+    it('お試しの判定に要る Profile がない無料の利用者は失敗として数える', async () => {
+      const profileRepo = makeProfileRepo(['u1']);
+      profileRepo.getById.mockResolvedValue(null);
+
+      const result = await run({ profileRepo: profileRepo as never });
+
+      expect(result.failedUserIds).toEqual(['u1']);
+      expect(mockAcquireForUser).not.toHaveBeenCalled();
+    });
+
+    it('Profile がなくても、運営者は期限を見ずに勉強できる', async () => {
+      authReader.putItem({ userId: 'u1', Roles: ['livetalk-operator'] });
+      mockAcquireForUser.mockResolvedValue(acquired);
+      const profileRepo = makeProfileRepo(['u1']);
+      profileRepo.getById.mockResolvedValue(null);
+
+      const result = await run({ profileRepo: profileRepo as never });
+
+      expect(result.failedUsers).toBe(0);
+      expect(mockAcquireForUser).toHaveBeenCalled();
+    });
+
+    it('全体の上限で断られたら、利用者とキャラクターの回数が戻る', async () => {
+      const used: Record<string, number> = {};
+      drainByUser(used);
+      mockGetAllCharacterIds.mockReturnValue(['hiyori']);
+      const store = new InMemorySingleTableStore();
+      // 全体は 200 回のうち残り 3 回
+      store.put({
+        PK: 'GLOBAL#STUDYUSAGE',
+        SK: 'STUDYUSAGE#20261105',
+        Type: 'StudyUsage',
+        'Count#total': 197,
+      });
+
+      await run({
+        studyUsageRepo: new InMemoryStudyUsageRepository(store),
+        profileRepo: makeProfileRepo(['u1', 'u2']) as never,
+      });
+
+      expect(used).toEqual({ 'u1:hiyori': 3, 'u2:hiyori': 0 });
+      expect(store.get('GLOBAL#STUDYUSAGE', 'STUDYUSAGE#20261105')).toMatchObject({
+        'Count#total': 200,
+      });
+      // 断られた u2 の分は戻っている
+      expect(store.get('USER#u2', 'STUDYUSAGE#20261105')).toMatchObject({
+        'Count#hiyori': 0,
+        'Count#total': 0,
+      });
+    });
   });
 });

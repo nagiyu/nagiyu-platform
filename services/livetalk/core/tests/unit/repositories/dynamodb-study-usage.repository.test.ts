@@ -20,7 +20,14 @@ const NOW_MS = Date.parse('2026-11-05T03:00:00Z');
 const tableName = 'nagiyu-livetalk-dev';
 
 const makeClient = (send: jest.Mock) => ({ send }) as never;
-const input = { userId: 'u1', characterId: 'hiyori', limit: 5, totalLimit: 20, nowMs: NOW_MS };
+const input = {
+  userId: 'u1',
+  characterId: 'hiyori',
+  limit: 5,
+  totalLimit: 20,
+  globalLimit: 200,
+  nowMs: NOW_MS,
+};
 
 describe('DynamoDBStudyUsageRepository', () => {
   it('利用者 × 日のアイテムのキャラクター別の属性を、上限付きで加算する', async () => {
@@ -117,5 +124,40 @@ describe('DynamoDBStudyUsageRepository', () => {
 
     await expect(repo.tryConsume(input)).rejects.toBeInstanceOf(DatabaseError);
     expect(send).toHaveBeenCalledTimes(3);
+  });
+
+  it('全体の加算は日ごとの別アイテムに、全体の上限で数える', async () => {
+    const send = jest.fn().mockResolvedValue({});
+    const repo = new DynamoDBStudyUsageRepository(makeClient(send), tableName);
+
+    expect(await repo.tryConsume(input)).toBe(true);
+
+    expect(send).toHaveBeenCalledTimes(3);
+    const global = send.mock.calls[2][0] as UpdateCommand;
+    expect(global.input.Key).toEqual({ PK: 'GLOBAL#STUDYUSAGE', SK: 'STUDYUSAGE#20261105' });
+    expect(global.input.ExpressionAttributeNames).toMatchObject({ '#cnt': 'Count#total' });
+    expect(global.input.ExpressionAttributeValues).toMatchObject({
+      ':limit': 200,
+      ':type': 'StudyUsage',
+    });
+  });
+
+  it('全体だけが断ったら、利用者の合計とキャラクター別を逆順に戻して false を返す', async () => {
+    const send = jest
+      .fn()
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({})
+      .mockRejectedValueOnce(conditionFailed())
+      .mockResolvedValue({});
+    const repo = new DynamoDBStudyUsageRepository(makeClient(send), tableName);
+
+    expect(await repo.tryConsume(input)).toBe(false);
+
+    expect(send).toHaveBeenCalledTimes(5);
+    const first = send.mock.calls[3][0] as UpdateCommand;
+    const second = send.mock.calls[4][0] as UpdateCommand;
+    expect(first.input.ExpressionAttributeNames).toMatchObject({ '#cnt': 'Count#total' });
+    expect(first.input.Key).toEqual({ PK: 'USER#u1', SK: 'STUDYUSAGE#20261105' });
+    expect(second.input.ExpressionAttributeNames).toMatchObject({ '#cnt': 'Count#hiyori' });
   });
 });

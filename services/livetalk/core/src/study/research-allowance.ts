@@ -1,4 +1,7 @@
-import { STUDY_DAILY_RESEARCH_LIMIT_PER_USER } from '../constants.js';
+import {
+  STUDY_DAILY_RESEARCH_LIMIT_GLOBAL,
+  STUDY_DAILY_RESEARCH_LIMIT_PER_USER,
+} from '../constants.js';
 import type { StudyUsageRepository } from '../repositories/study-usage.repository.interface.js';
 
 /**
@@ -38,11 +41,13 @@ export interface CreateDailyResearchAllowanceParams {
   limit: number;
   /** 利用者の全キャラクター合計の 1 日の上限 */
   totalLimit?: number;
+  /** 全利用者の合計の 1 日の上限 */
+  globalLimit?: number;
   /** 日付の判定に使う。呼ぶたびに評価するため、日をまたいだ実行でも日付が追従する */
   now?: () => Date;
 }
 
-/** 利用者 × キャラクターの 1 日の枠を、回数のリポジトリで数える形で作る。 */
+/** 利用者 × キャラクターの 1 日の枠 (全利用者の合計の枠も含む) を、回数のリポジトリで数える形で作る。 */
 export function createDailyResearchAllowance(
   params: CreateDailyResearchAllowanceParams
 ): ResearchAllowance {
@@ -52,10 +57,18 @@ export function createDailyResearchAllowance(
     characterId,
     limit,
     totalLimit = STUDY_DAILY_RESEARCH_LIMIT_PER_USER,
+    globalLimit = STUDY_DAILY_RESEARCH_LIMIT_GLOBAL,
     now = () => new Date(),
   } = params;
   return {
     tryConsume: () =>
-      studyUsageRepo.tryConsume({ userId, characterId, limit, totalLimit, nowMs: now().getTime() }),
+      studyUsageRepo.tryConsume({
+        userId,
+        characterId,
+        limit,
+        totalLimit,
+        globalLimit,
+        nowMs: now().getTime(),
+      }),
   };
 }

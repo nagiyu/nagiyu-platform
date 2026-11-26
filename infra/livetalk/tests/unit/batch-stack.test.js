@@ -303,6 +303,41 @@ describe('LiveTalkBatchStack', () => {
     });
   });
 
+  it('acquire バッチ Lambda 環境変数に auth のユーザーテーブル名が含まれる', () => {
+    const { template } = synth('prod');
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      FunctionName: Match.stringLikeRegexp('livetalk-batch-acquire'),
+      Environment: {
+        Variables: Match.objectLike({ AUTH_USERS_TABLE_NAME: 'nagiyu-auth-users-prod' }),
+      },
+    });
+  });
+
+  it('acquire ロールは auth のユーザーテーブルの GetItem だけを許す', () => {
+    const { template } = synth();
+    const roles = template.findResources('AWS::IAM::Role', {
+      Properties: { RoleName: Match.stringLikeRegexp('livetalk-acquire-role') },
+    });
+    const roleLogicalId = Object.keys(roles)[0];
+    const policies = template.findResources('AWS::IAM::Policy', {
+      Properties: { Roles: Match.arrayWith([Match.objectLike({ Ref: roleLogicalId })]) },
+    });
+    const statements = Object.values(policies).flatMap(
+      (policy) => policy.Properties.PolicyDocument.Statement
+    );
+    const authStatements = statements.filter((statement) =>
+      JSON.stringify(statement.Resource).includes('nagiyu-auth-users-dev')
+    );
+
+    expect(authStatements).toEqual([
+      {
+        Action: 'dynamodb:GetItem',
+        Effect: 'Allow',
+        Resource: 'arn:aws:dynamodb:us-east-1:000000000000:table/nagiyu-auth-users-dev',
+      },
+    ]);
+  });
+
   it('EventBridge ルールはスケジュール起動の 4 バッチ分のみ', () => {
     const { template } = synth();
     template.resourceCountIs('AWS::Events::Rule', 4);

@@ -88,6 +88,19 @@ export const STUDY_PAUSE_AFTER_HOURS = 72;
 export const STUDY_DAILY_RESEARCH_LIMIT_PER_USER = 20;
 
 /**
+ * 無料の利用者が勉強できるお試しの長さ (日)。利用者の Profile の作成時刻 (最初に LiveTalk を開いた時刻) から数える。
+ * お試しは新しい登録ごとに原価がかかるため、期限を設けて原価を有限にする。
+ */
+export const STUDY_FREE_TRIAL_DAYS = 7;
+
+/**
+ * 全利用者の勉強 (Web リサーチ) の合計の 1 日あたりの上限回数。日本時間の暦日で数える。
+ * 勉強 1 回の原価は約 2 円で、200 回/日は月最大で約 1.2 万円。ふだんの使い方の 15 人分ほどにあたる。
+ * 登録が急に増えたときに、利用者ごとの上限では原価を止められないため、全体にも上限を置く。
+ */
+export const STUDY_DAILY_RESEARCH_LIMIT_GLOBAL = 200;
+
+/**
  * StudyTopic に付与する DynamoDB TTL（秒）。30 日後に自動削除。
  */
 export const STUDY_TOPIC_TTL_SECONDS = 30 * 24 * 60 * 60;

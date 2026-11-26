@@ -5,6 +5,7 @@ jest.mock('@nagiyu/aws', () => ({
   ...jest.requireActual('@nagiyu/aws'),
   getDynamoDBDocumentClient: jest.fn(() => ({})),
   getTableName: jest.fn(() => 'test-table'),
+  createAuthUserRoleSourceReader: jest.fn(() => ({ kind: 'auth-reader' })),
 }));
 jest.mock('../../../../../../libs/aws/src/error-events/report.js', () => ({
   reportErrorEvent: jest.fn().mockResolvedValue(null),
@@ -46,8 +47,43 @@ const makeEvent = (overrides: Partial<ScheduledEvent> = {}): ScheduledEvent => (
 });
 
 describe('acquire handler', () => {
+  const originalAuthTable = process.env.AUTH_USERS_TABLE_NAME;
+
   beforeEach(() => {
     jest.clearAllMocks();
+    process.env.AUTH_USERS_TABLE_NAME = 'nagiyu-auth-users-dev';
+  });
+
+  afterAll(() => {
+    if (originalAuthTable === undefined) {
+      delete process.env.AUTH_USERS_TABLE_NAME;
+    } else {
+      process.env.AUTH_USERS_TABLE_NAME = originalAuthTable;
+    }
+  });
+
+  it('auth のユーザーテーブル名から reader を作って acquire に渡す', async () => {
+    const { createAuthUserRoleSourceReader } = await import('@nagiyu/aws');
+    mockAcquireAll.mockResolvedValue({ failedUsers: 0, failedUserIds: [] });
+
+    const { handler } = await import('../../../src/handlers/acquire.js');
+    await handler(makeEvent());
+
+    expect(createAuthUserRoleSourceReader).toHaveBeenCalledWith('nagiyu-auth-users-dev', {});
+    expect(mockAcquireAll).toHaveBeenCalledWith(
+      expect.objectContaining({ authUserRoleSourceReader: { kind: 'auth-reader' } })
+    );
+  });
+
+  it('AUTH_USERS_TABLE_NAME が未設定なら、勉強を始めずにエラーにする', async () => {
+    delete process.env.AUTH_USERS_TABLE_NAME;
+
+    const { handler, ACQUIRE_HANDLER_ERROR_MESSAGES } =
+      await import('../../../src/handlers/acquire.js');
+    await expect(handler(makeEvent())).rejects.toThrow(
+      ACQUIRE_HANDLER_ERROR_MESSAGES.AUTH_USERS_TABLE_NAME_MISSING
+    );
+    expect(mockAcquireAll).not.toHaveBeenCalled();
   });
 
   it('正常処理時に 200 を返す', async () => {

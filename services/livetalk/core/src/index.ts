@@ -245,6 +245,16 @@ export {
   createDailyResearchAllowance,
   type ResearchAllowance,
 } from './study/research-allowance.js';
+export {
+  resolveStudyTier,
+  isStudyTrialActive,
+  getStudyTrialEndsAt,
+  getStudyTrialRemainingMs,
+  resolveStudyDailyLimit,
+  STUDY_DAILY_LIMITS,
+  STUDY_FREE_TRIAL_DURATION_MS,
+  type StudyTier,
+} from './study/study-plan.js';
 export type {
   StudyUsageRepository,
   TryConsumeStudyUsageInput,

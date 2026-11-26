@@ -1,4 +1,5 @@
-import { logger, toErrorMessage } from '@nagiyu/common';
+import { getEffectiveRoles, logger, toErrorMessage } from '@nagiyu/common';
+import type { AuthUserRoleSourceReader } from '@nagiyu/aws';
 import {
   getAllCharacterIds,
   getCharacterDefinitionById,
@@ -6,6 +7,9 @@ import {
   computePerCharacterResearchLimit,
   createDailyResearchAllowance,
   isStudyPaused,
+  isStudyTrialActive,
+  resolveStudyDailyLimit,
+  resolveStudyTier,
   resolveLastUserMessageAt,
   type CharacterDefinition,
   type IResearchClient,
@@ -24,8 +28,26 @@ import {
   type WebRawRepository,
 } from '@nagiyu/livetalk-core';
 
+/** 利用者の区分ごとの人数。お試しの判定は無料の利用者だけに行う */
+export interface StudyTierUserCounts {
+  operator: number;
+  standard: number;
+  /** 無料でお試し中 */
+  freeTrial: number;
+  /** 無料でお試しを過ぎた */
+  freeExpired: number;
+}
+
+/** バッチのエラーメッセージ */
+export const ACQUIRE_ERROR_MESSAGES = {
+  PROFILE_NOT_FOUND:
+    '利用者の Profile が見つからず、お試しの期限を判定できません (勉強を止めて失敗として数える)',
+} as const;
+
 export interface AcquireAllUsersParams {
   profileRepo: ProfileRepository;
+  /** auth のユーザーの手動ロールと課金の権利を読む。勉強の区分と 1 日の上限を決めるのに使う */
+  authUserRoleSourceReader: AuthUserRoleSourceReader;
   lifecycleRepo: LifecycleRepository;
   messageRepo: MessageRepository;
   topicRepo: TopicRepository;
@@ -71,6 +93,10 @@ export interface AcquireAllUsersResult {
   counterFailedCharacters: number;
   /** research が実行した Web 検索 tool call の総回数（action の種別を問わない） */
   webSearchCalls: number;
+  /** お試しを過ぎて、1 日の上限が 0 のため勉強しなかった利用者の数 (skippedUsers にも含む) */
+  trialExpiredUsers: number;
+  /** 区分ごとの利用者数。区分を判定できなかった (失敗した) 利用者は含まない */
+  tierUsers: StudyTierUserCounts;
 }
 
 /** 勉強中 (lifecycle があり、3 日ルールで止まっていない) のキャラクター */
@@ -93,6 +119,7 @@ export async function acquireAllUsers(
 ): Promise<AcquireAllUsersResult> {
   const {
     profileRepo,
+    authUserRoleSourceReader,
     lifecycleRepo,
     messageRepo,
     topicRepo,
@@ -126,6 +153,8 @@ export async function acquireAllUsers(
     dailyLimitReachedCharacters: 0,
     counterFailedCharacters: 0,
     webSearchCalls: 0,
+    trialExpiredUsers: 0,
+    tierUsers: { operator: 0, standard: 0, freeTrial: 0, freeExpired: 0 },
   };
 
   const allCharacterIds = getAllCharacterIds();
@@ -135,6 +164,22 @@ export async function acquireAllUsers(
     let hasAcquired = false;
 
     try {
+      // 区分と 1 日の上限を先に決める。読み取りの失敗は外側の catch で失敗として数え、勉強しない:
+      // 区分がわからないまま勉強すると、原価の上限を守れないため
+      const dailyLimit = await resolveUserDailyLimit(
+        userId,
+        profileRepo,
+        authUserRoleSourceReader,
+        now().getTime(),
+        result.tierUsers
+      );
+      if (dailyLimit === 0) {
+        // お試しを過ぎた無料の利用者は、キャラクターの走査もカウンタも触らない
+        result.trialExpiredUsers++;
+        result.skippedUsers++;
+        continue;
+      }
+
       // 勉強中のキャラクターの人数で 1 日の枠を等分するため、先に全キャラクターの
       // lifecycle と停止判定を済ませる。就寝中のキャラクターも枠の配分には含める:
       // 勉強中かどうかは 3 日ルールで決まり、就寝は一日の中で入れ替わる一時的な状態のため、
@@ -176,7 +221,7 @@ export async function acquireAllUsers(
         }
       }
 
-      const limitPerCharacter = computePerCharacterResearchLimit(studying.length);
+      const limitPerCharacter = computePerCharacterResearchLimit(studying.length, dailyLimit);
 
       for (const { characterId, characterDef, lifecycle } of studying) {
         try {
@@ -196,6 +241,7 @@ export async function acquireAllUsers(
               userId,
               characterId,
               limit: limitPerCharacter,
+              totalLimit: dailyLimit,
               now,
             }),
             ulidFactory,
@@ -250,4 +296,42 @@ export async function acquireAllUsers(
 
   logger.info('[acquireAllUsers] 全ユーザー処理完了', { ...result });
   return result;
+}
+
+/**
+ * 利用者の勉強の 1 日の上限を決める。区分ごとの人数も数える。
+ *
+ * auth にユーザーがいなければロールなし (無料) として扱う。
+ * 無料の利用者は Profile の作成時刻からお試しの期限を判定するため、Profile がなければ判定できず投げる。
+ *
+ * @throws auth または Profile の読み取りに失敗したとき、判定に要る Profile がないとき
+ */
+async function resolveUserDailyLimit(
+  userId: string,
+  profileRepo: ProfileRepository,
+  authUserRoleSourceReader: AuthUserRoleSourceReader,
+  nowMs: number,
+  tierUsers: StudyTierUserCounts
+): Promise<number> {
+  const [profile, sources] = await Promise.all([
+    profileRepo.getById({ userId }),
+    authUserRoleSourceReader.getRoleSources(userId),
+  ]);
+  const effectiveRoles = getEffectiveRoles(sources?.roles ?? [], sources?.roleGrants ?? [], nowMs);
+  const tier = resolveStudyTier(effectiveRoles);
+
+  if (tier !== 'free') {
+    tierUsers[tier]++;
+    return resolveStudyDailyLimit(tier, false);
+  }
+  if (!profile) {
+    throw new Error(ACQUIRE_ERROR_MESSAGES.PROFILE_NOT_FOUND);
+  }
+  const trialActive = isStudyTrialActive(profile.createdAt, nowMs);
+  if (trialActive) {
+    tierUsers.freeTrial++;
+  } else {
+    tierUsers.freeExpired++;
+  }
+  return resolveStudyDailyLimit(tier, trialActive);
 }

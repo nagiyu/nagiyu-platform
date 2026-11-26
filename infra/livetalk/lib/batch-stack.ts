@@ -279,6 +279,21 @@ export class LiveTalkBatchStack extends cdk.Stack {
     dynamoTable.grantReadWriteData(acquireRole);
     acquireDlq.grantSendMessages(acquireRole);
 
+    // 勉強の回数を利用者の区分 (運営者・スタンダード・無料) で変えるため、auth のユーザーの
+    // ロールの出どころだけを読む。読み取り (GetItem) 以外は許さない
+    const authUsersTableName = `nagiyu-auth-users-${environment}`;
+    const authUsersTableArn = getDynamoDBTableArn(
+      cdk.Stack.of(this).region,
+      cdk.Stack.of(this).account,
+      authUsersTableName
+    );
+    acquireRole.addToPolicy(
+      new iam.PolicyStatement({
+        actions: ['dynamodb:GetItem'],
+        resources: [authUsersTableArn],
+      })
+    );
+
     // acquire バッチ Lambda
     const acquireFunction = createEcrImageFunction(this, 'AcquireFunction', {
       functionName: `nagiyu-livetalk-batch-acquire-${environment}`,
@@ -293,6 +308,7 @@ export class LiveTalkBatchStack extends cdk.Stack {
         NODE_ENV: environment,
         LIVETALK_ENV: environment,
         DYNAMODB_TABLE_NAME: dynamoTableName,
+        AUTH_USERS_TABLE_NAME: authUsersTableName,
         OPENAI_API_KEY: openAiApiKey,
         TZ: 'Asia/Tokyo',
       },

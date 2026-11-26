@@ -1,5 +1,6 @@
 import { logger } from '@nagiyu/common';
 import {
+  createAuthUserRoleSourceReader,
   createScheduledHandler,
   getDynamoDBDocumentClient,
   getTableName,
@@ -27,12 +28,23 @@ import { acquireAllUsers } from '../usecases/acquire.usecase.js';
 
 const SERVICE_ID = 'livetalk';
 
+export const ACQUIRE_HANDLER_ERROR_MESSAGES = {
+  AUTH_USERS_TABLE_NAME_MISSING:
+    '環境変数 AUTH_USERS_TABLE_NAME が設定されていません (利用者の区分を判定できないため勉強を実行しません)',
+} as const;
+
 export const handler = createScheduledHandler<ScheduledEvent, HandlerResponse>(
   { serviceId: SERVICE_ID, name: 'acquire', errorTitle: 'acquire バッチ: 致命的エラー' },
   async (event) => {
     const docClient = getDynamoDBDocumentClient();
     const tableName = getTableName();
     const apiKey = process.env.OPENAI_API_KEY ?? '';
+    // 区分を判定できないまま勉強すると原価の上限を守れないため、未設定は起動時に失敗させる
+    const authUsersTableName = process.env.AUTH_USERS_TABLE_NAME;
+    if (!authUsersTableName) {
+      throw new Error(ACQUIRE_HANDLER_ERROR_MESSAGES.AUTH_USERS_TABLE_NAME_MISSING);
+    }
+    const authUserRoleSourceReader = createAuthUserRoleSourceReader(authUsersTableName, docClient);
 
     const topicRepo = createTopicRepository(docClient, tableName);
     const webRawRepo = createWebRawRepository(docClient, tableName);
@@ -50,6 +62,7 @@ export const handler = createScheduledHandler<ScheduledEvent, HandlerResponse>(
 
     const result = await acquireAllUsers({
       profileRepo,
+      authUserRoleSourceReader,
       lifecycleRepo,
       messageRepo,
       topicRepo,
@@ -64,6 +77,7 @@ export const handler = createScheduledHandler<ScheduledEvent, HandlerResponse>(
       ulidFactory: defaultUlidFactory,
     });
 
+    // dev で区分どおりに動いたかをログで確かめられるよう、結果の tierUsers・trialExpiredUsers もそのまま出す
     logger.info('[acquire] バッチ完了', {
       eventId: event.id,
       ...result,
