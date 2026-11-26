@@ -3,7 +3,7 @@ sources:
   - services/niconico-mylist-assistant/core/src/entities/user-setting.entity.ts
   - services/niconico-mylist-assistant/core/src/mappers/user-setting.mapper.ts
   - services/niconico-mylist-assistant/core/src/db/videos.ts
-sources_hash: 9483eea2001accc2d2049a367d56c8e680408b6d12a7c1b2e24224c614605329
+sources_hash: 2e5fe6016eb648ea4dc707574db7f6c4ca1c154d5b3e717c0050d7779fb62f4b
 ---
 
 # ユーザー設定 (お気に入り・スキップ・メモ)

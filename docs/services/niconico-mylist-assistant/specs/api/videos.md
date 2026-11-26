@@ -4,7 +4,7 @@ sources:
   - services/niconico-mylist-assistant/web/src/app/api/videos/[id]/route.ts
   - services/niconico-mylist-assistant/web/src/app/api/videos/[id]/settings/route.ts
   - services/niconico-mylist-assistant/core/src/db/videos.ts
-sources_hash: 45e0212972f34d0a84ecbd5d933fa5f4e89fc8a0faaa16e071de87839da63cfb
+sources_hash: dc502482cdacd861828ce074b4869518da7548e687895016d60a8ab23954f226
 ---
 
 # 動画 API

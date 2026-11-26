@@ -239,9 +239,10 @@ export async function listVideosWithSettings(
     filteredVideos = filteredVideos.filter((video) => video.userSetting?.isSkip === true);
   }
   if (hasSearchKeyword) {
-    filteredVideos = filteredVideos.filter((video) =>
-      video.title.toLowerCase().includes(searchKeyword!) ||
-      video.videoId.toLowerCase().includes(searchKeyword!)
+    filteredVideos = filteredVideos.filter(
+      (video) =>
+        video.title.toLowerCase().includes(searchKeyword!) ||
+        video.videoId.toLowerCase().includes(searchKeyword!)
     );
   }
 
