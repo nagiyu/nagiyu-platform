@@ -595,6 +595,11 @@ const status: Scenario = {
       data: { subscription: { endpoint: FAKE_PUSH_ENDPOINT, keys: FAKE_PUSH_KEYS } },
     });
     if (!subscribed.ok()) throw new Error(`購読の登録に失敗しました: ${subscribed.status()}`);
+    // チャットはサーバー側でも同意を確かめるため、先に同意を記録する
+    const consented = await page.request.post('/api/consent', {
+      data: { termsAgreed: true, privacyAgreed: true, ageVerified: true },
+    });
+    if (!consented.ok()) throw new Error(`同意の記録に失敗しました: ${consented.status()}`);
     const chat = await page.request.post('/api/chat', {
       data: { text: CHAT.riskyInput, characterId: 'hiyori' },
     });

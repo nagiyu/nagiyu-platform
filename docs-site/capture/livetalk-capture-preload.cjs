@@ -7,13 +7,13 @@
  * - 時計: 画面の生活サイクル (就寝中か) や通知の判定、履歴の時刻は、サーバーの実時間で決まる。
  *   撮影のたびに画像が変わらないよう、`next start` のプロセスの Date を撮影の固定時刻に止める。
  *   ビルドや npm 自身の Date には触れない
- * - Web Push: web-push は https.request で購読の宛先へ送る。宛先の名前 (`push.capture.invalid`) への
+ * - Web Push: web-push は https.request で購読の宛先へ送る。宛先の名前 (`push-capture.notify.windows.com`。撮影のデータの購読先と同じ) への
  *   送信だけを、偽の Push サーバー (http) への通信に置き換える。他の通信には触れない
  */
 const http = require('node:http');
 const https = require('node:https');
 
-const PUSH_HOST = 'push.capture.invalid';
+const PUSH_HOST = 'push-capture.notify.windows.com';
 
 const fixedNow = Date.parse(process.env.CAPTURE_SERVER_NOW ?? '');
 const isNextStart = process.argv.some((arg) =>
