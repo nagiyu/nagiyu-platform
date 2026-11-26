@@ -50,7 +50,7 @@ Auth が持つユーザーを保存する DynamoDB のテーブル。ユーザ�
 |---|---|
 | ユーザー 1 件 (ユーザー ID から) | `userId` を指定した GetItem |
 | ログイン・ロールの再取得のユーザー引き当て | `googleId-index` の Query (先頭の 1 件を採る) |
-| ユーザーの一覧 | テーブル全体の Scan。1 ページ 100 件で、続きはカーソルで渡す |
+| ユーザーの一覧 | テーブル全体の Scan。続きはカーソルで渡す。1 ページの件数は呼び出し側が決める (API の既定と上限は[ユーザー API](../api/users.md)と[ページネーション](../../../../platform/specs/lib/nextjs/pagination.md)) |
 
 - 1 テーブルにユーザーの項目だけを置く。`PK` / `SK` の形ではなく、複数の種類を混在させない (Single Table ではない)
 - 使われていない項目がある。属性 `Type` は書くが、どの処理も読まない
@@ -76,7 +76,7 @@ Auth が持つユーザーを保存する DynamoDB のテーブル。ユーザ�
 
 - 保存する属性名は PascalCase にする。例外はテーブルと `googleId-index` のキー (`userId`・`googleId`) で、camelCase のまま据え置く ([データアクセスの規約](../../../../platform/rules/data-access.md))
 - `RoleGrants` の各要素の属性は camelCase (`grantId`、`roleId`、`source`、`sourceRef`、`expiresAt`、`revokedAt`、`grantedBy`、`createdAt`、`updatedAt`)。意味は[課金の権利](../../../../platform/specs/lib/common/role-grants.md)にある。要素の `source` が出どころの定義 (`manual`、`stripe`) にない値のときは、そのユーザーの項目を読めない (`InvalidEntityDataError`)
-- 旧形式の項目も読める。新しい名前の属性を先に見て、なければ旧名を見る。時刻は、ISO 文字列と、エポック秒の数値 (1e11 未満) も受け付ける。書くときは新しい形式で書き、その属性の旧名を消す
+- 旧形式 (旧名の属性、ISO 文字列やエポック秒の時刻) の項目も読める。読み方と、書くときに旧名を消す挙動は[Item の読み取り](../../../../platform/specs/lib/aws/item-readers.md)と[EntityStore](../../../../platform/specs/lib/aws/entity-store.md)にある
 - 読めない項目があると、そのユーザーを引く処理は失敗する。一覧は 1 ページ分をまとめて変換するので、読めないユーザーが 1 人いるとそのページ全体が失敗する
 
 ## 理由
@@ -88,10 +88,10 @@ Auth が持つユーザーを保存する DynamoDB のテーブル。ユーザ�
     - dev では develop の版と integration の版が後勝ちで上書きし合う。更新は変えた属性だけを書くので、知らない属性を持つ項目を古い版が更新しても、その属性は消えない
 - Stripe の顧客 ID の GSI は作らない。通知から顧客 ID を受け取ったら、Stripe の顧客の `metadata.userId` からユーザーを引き、そのユーザーの `StripeCustomerId` が通知の顧客 ID と一致するかを確かめる。代わりに、同期のたびに Stripe の顧客の取得が 1 回増える。同期は毎回 Stripe に問い合わせるので、増えるのはその 1 回だけで、テーブルの定義を変えずに済む
 - 権利を書き換えるときは、読んだときの `UpdatedAt` を条件にして書く (楽観ロック)。競合したら読み直して、計算からやり直す。試行は初回を含めて 3 回で、解けなければ競合として返す。やり直しの読み取りは、強い整合性にしない。競合は同じユーザーへの書き込みがミリ秒単位で重なったときだけ起き、失敗しても変更は失われない。管理者は再読み込みして保存し直せばよく、Stripe の通知は再送される
-- Stripe との同期は、Stripe を読む前に読んだユーザーの `UpdatedAt` を条件にして書く。競合したら、ユーザーと Stripe の両方を読み直す。Stripe を読んでいる間に別の通知が新しい状態を書いたとき、古い読み取りで上書きしないため
-- 旧形式の項目は `UpdatedAt` が数値で保存されていない (旧名の属性や ISO 文字列) ので、条件が一致しない。競合したら、中身を変えずに `UpdatedAt` だけを今の形で書き直してから読み直す。直さないと、読み直しても競合し続ける
+- Stripe との同期の書き込みも、読んだ `UpdatedAt` を条件にする。Stripe を読む前に読む理由と、競合したときのやり直しは[契約がロールになる経路](../flow/billing-entitlement.md)にある
+- 旧形式の項目は `UpdatedAt` が数値で保存されておらず、[EntityStore の楽観ロック](../../../../platform/specs/lib/aws/entity-store.md)で条件が一致しない。競合したら、中身を変えずに `UpdatedAt` だけを今の形で書き直してから読み直す。直さないと、読み直しても競合し続ける
 - 課金の権利の読み取りは厳格にし、知らない出どころの権利があるユーザーは読めないようにする。読み飛ばすと、その版でユーザーを書き換えたときに、読めなかった権利が黙って消える。代わりに、読めない版ではそのユーザーを扱えなくなる。そのため、出どころを足すときは、読める版を先に出してから、書く版を出す (下の「手順」)
-- キー属性を camelCase に据え置くのは、テーブルを作り直さないと名前を変えられないため ([データアクセスの規約](../../../../platform/rules/data-access.md))。旧形式の読み取りを残すのは、書き込まれない項目が旧形式のまま残り、dev の後勝ちの上書きでも、新しい版は旧形式の項目でエラーにならないため。一括では移行しない
+- キー属性を camelCase に据え置くのは、テーブルを作り直さないと名前を変えられないため ([データアクセスの規約](../../../../platform/rules/data-access.md))
 
 ## 手順
 
@@ -112,13 +112,14 @@ Auth が持つユーザーを保存する DynamoDB のテーブル。ユーザ�
     ```
 
     Google のアカウント ID が分かるなら、`googleId-index` に `aws dynamodb query --index-name googleId-index` で引いてもよい
-3. `Roles` を `["admin"]` にする。`ROLES` は DynamoDB の予約語なので、属性名はプレースホルダーで渡す。小文字の `roles` に書いても効かない。読むときは `Roles` を先に見て、あればそれを採るので、`Roles` が空のリストでも小文字の属性は無視される
+3. `Roles` を `["admin"]` にする。`ROLES` は DynamoDB の予約語なので、属性名はプレースホルダーで渡す。`--condition-expression` で項目の存在を条件にするのは、`userId` の打ち間違いで、必須の属性がない読めない項目ができ、一覧がそのページごと失敗するのを防ぐため。小文字の `roles` に書いても効かない。読むときは `Roles` を先に見て、あればそれを採るので、`Roles` が空のリストでも小文字の属性は無視される
 
     ```bash
     aws dynamodb update-item \
         --table-name nagiyu-auth-users-{env} \
         --key '{"userId":{"S":"<userId>"}}' \
         --update-expression "SET #r = :r" \
+        --condition-expression "attribute_exists(userId)" \
         --expression-attribute-names '{"#r":"Roles"}' \
         --expression-attribute-values '{":r":{"L":[{"S":"admin"}]}}' \
         --region us-east-1 --profile nagiyu-{env}

@@ -123,5 +123,6 @@ Cookie は 6 種類で、名前の `{末尾}` は上の表の名前の末尾。
 - Cookie のドメインを `.nagiyu.com` / `.dev.nagiyu.com` にするのは、サービス間でセッションを共有するため
 - 名前に `.dev` を付けるのは、ドメインを分けるだけでは dev と prod の Cookie が衝突するため。prod の `Domain=.nagiyu.com` の Cookie は `*.dev.nagiyu.com` にも送られ、名前が同じだと dev で prod の Cookie と区別できない。セッショントークンだけでなく 6 種類すべての名前を変えるのは、サインインの途中で使う `callback-url` や `state` なども同じ衝突を起こし、dev と prod の認証フローが混ざるため
 - `httpOnly` を `true` にするのは、JavaScript から Cookie を読めないようにして、XSS でセッションを盗まれるのを防ぐため。`secure` を `true` にするのは、Cookie を HTTPS の通信だけで送り、中間者に盗まれるのを防ぐため
+- `sameSite` を `lax` にするのは、別のサイトから送られるリクエスト (フォームの POST など) にセッションの Cookie を付けず、CSRF を防ぐため。`strict` にしないのは、Google の認証から戻る遷移や、ほかのサイトのリンクから開く遷移でも Cookie が付かず、ログイン中でも未ログインに見えてしまうため
 - ローカル開発はドメインを付けず (`localhost` で動き、`nagiyu.com` のドメインの Cookie は受け付けられない)、`secure` を `false` にする。それ以外の環境は HTTPS 前提で `secure` を `true` にする
 - CSRF トークンの Cookie だけ `__Host-` の接頭辞を使い、ドメインを付けない。`__Host-` の Cookie はドメインを指定できないというブラウザの規則があるため

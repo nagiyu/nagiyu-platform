@@ -2,7 +2,8 @@
 sources:
   - infra/auth/lib/lambda-stack.ts
   - infra/auth/bin/auth.ts
-sources_hash: a46c9f7e9ac2bcdf8bbd0f03ed06a59b755b791f4b693b469a8388f1d81e2f76
+  - services/auth/core/src/billing/checkout-policy.ts
+sources_hash: e293aa33a8d91d7b3c6f4b61dbf1bedacf2553b7c208fba9ecd61e4e878d4b4e
 ---
 
 # Web の実行環境
@@ -37,11 +38,11 @@ Next.js の Web を動かす Lambda 関数と、その実行ロール・ログ�
 | 名前 | 意味 | 値の出どころ |
 |---|---|---|
 | `NODE_ENV` | 実行環境の名前 | 環境名 (`dev` / `prod`) |
-| `NAGIYU_ENV` | ログイン用クッキーのドメインの判定に使う環境名 | 環境名 |
+| `NAGIYU_ENV` | ログイン用 Cookie のドメインの判定と、本番以外での申し込みの制限に使う環境名 | 環境名 |
 | `APP_VERSION` | 死活確認 API が返すバージョン | デプロイ時の環境変数 `APP_VERSION`。なければ `1.0.0` |
 | `DYNAMODB_TABLE_NAME` | [ユーザーテーブル](../data/users.md)の名前 | `nagiyu-auth-users-{env}` |
 | `AUTH_URL` | このサービスの URL (NextAuth のベース URL) | 環境ごとのこのサービスの URL ([デプロイ先](../deploy.md)のホスト名) |
-| `AUTH_SECRET` | ログインのセッションの署名に使う値 | CDK の context `nextAuthSecret`。なければ仮の値 `PLACEHOLDER_NEXTAUTH_SECRET` |
+| `AUTH_SECRET` | ログインの JWT の暗号化に使う鍵 | CDK の context `nextAuthSecret`。なければ仮の値 `PLACEHOLDER_NEXTAUTH_SECRET` |
 | `AUTH_TRUST_HOST` | NextAuth がリクエストのホストを信頼する | 常に `true` |
 | `GOOGLE_CLIENT_ID` | Google OAuth のクライアント ID | CDK の context `googleClientId`。なければ仮の値 `PLACEHOLDER_CLIENT_ID` |
 | `GOOGLE_CLIENT_SECRET` | Google OAuth のクライアントシークレット | CDK の context `googleClientSecret`。なければ仮の値 `PLACEHOLDER_CLIENT_SECRET` |
@@ -55,11 +56,10 @@ Next.js の Web を動かす Lambda 関数と、その実行ロール・ログ�
 
 ## 権限
 
-実行ロールは、次の 3 つを持つ。
+実行ロールの権限のうち、共通部品の既定で付くもの (ログの書き込み、X-Ray など) は[Lambda 関数の共通部品](../../../../platform/specs/resource/lambda-function.md)に従う。Auth が足すのは次の 2 つ。
 
 | 権限 | 対象 | 内容 |
 |---|---|---|
-| AWS 管理ポリシー `AWSLambdaBasicExecutionRole` | ロググループ | ログの書き込み |
 | エラー履歴の書き込み | [エラーイベントのテーブル](../../../../platform/specs/data/error-events.md) | `dynamodb:PutItem` |
 | ユーザーテーブルの操作 | [ユーザーテーブル](../data/users.md)とそのインデックス | `GetItem`、`PutItem`、`UpdateItem`、`DeleteItem`、`Query`、`Scan` |
 
@@ -67,4 +67,5 @@ Next.js の Web を動かす Lambda 関数と、その実行ロール・ログ�
 
 ## 理由
 
-- `NAGIYU_ENV` を別に持つのは、`NODE_ENV` が Next.js のビルド時に `production` へ置き換えられ、デプロイしたあとの dev と prod の判定に使えないため。未設定のときは prod として扱う ([NextAuth の設定](../../../../platform/specs/lib/nextjs/auth-config.md))
+- `NAGIYU_ENV` を別に持つのは、`NODE_ENV` が Next.js のビルド時に `production` へ置き換えられ、デプロイしたあとの dev と prod の判定に使えないため
+- 未設定のときの扱いは、用途で逆向きになる。Cookie のドメインは prod として扱い ([NextAuth の設定](../../../../platform/specs/lib/nextjs/auth-config.md))、申し込みは制限する側に倒す ([課金 API](../api/billing.md))

@@ -6,8 +6,10 @@ sources:
   - libs/ui/src/components/dialogs/PrivacyPolicyDialog.tsx
   - libs/ui/src/components/dialogs/TermsOfServiceDialog.tsx
   - libs/ui/src/data/commercialTransactionsData.ts
+  - libs/ui/src/data/termsOfServiceData.ts
+  - libs/ui/src/data/privacyPolicyData.ts
   - libs/ui/src/types/legal.ts
-sources_hash: a168699c3ed4ae0c52e0191259b6e93885520a0b77a54732a3b0fe8a9fc081dc
+sources_hash: d0093634635fad56a56d7191e136fed4eb38d7725f2ce23e87e5b3d178e974ec
 ---
 
 # 法務の文書
