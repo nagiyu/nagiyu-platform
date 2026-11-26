@@ -31,16 +31,13 @@ WORKDIR /app
 # モノレポ全体のpackage.jsonとソースをコピー
 COPY package*.json ./
 COPY configs ./configs/
-COPY libs ./libs/
 COPY services/niconico-mylist-assistant/core ./services/niconico-mylist-assistant/core/
 COPY services/niconico-mylist-assistant/batch ./services/niconico-mylist-assistant/batch/
 
 # 依存関係をインストール（ソースコード存在下で実行）
 RUN npm ci --omit=optional
 
-# モノレポのルートからビルド（共通ライブラリも含めて）
-RUN npm run build --workspace=@nagiyu/common
-RUN npm run build --workspace=@nagiyu/aws
+# モノレポのルートからビルド
 RUN npm run build --workspace=@nagiyu/niconico-mylist-assistant-core
 RUN npm run build --workspace=@nagiyu/niconico-mylist-assistant-batch
 
@@ -55,14 +52,6 @@ COPY --from=builder /app/node_modules ./node_modules
 
 # 必要なビルド成果物とpackage.jsonをコピー
 COPY --from=builder /app/package*.json ./
-
-# 共通ライブラリ
-COPY --from=builder /app/libs/common/package*.json ./libs/common/
-COPY --from=builder /app/libs/common/dist ./libs/common/dist
-
-# AWS ライブラリ
-COPY --from=builder /app/libs/aws/package*.json ./libs/aws/
-COPY --from=builder /app/libs/aws/dist ./libs/aws/dist
 
 # Core パッケージ
 COPY --from=builder /app/services/niconico-mylist-assistant/core/package*.json ./services/niconico-mylist-assistant/core/

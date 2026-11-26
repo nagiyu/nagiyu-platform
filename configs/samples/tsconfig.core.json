@@ -10,8 +10,5 @@
     "types": ["jest"]
   },
   "include": ["src/**/*", "tests/**/*"],
-  "exclude": ["node_modules", "dist"],
-  "references": [
-    { "path": "../../../libs/common" }
-  ]
+  "exclude": ["node_modules", "dist"]
 }

@@ -12,7 +12,6 @@ on:
     paths:
       - 'services/codec-converter/**'
       - 'infra/codec-converter/**'
-      - 'libs/**'
       - 'infra/common/**'
       - 'configs/**'
       - '.github/actions/**'

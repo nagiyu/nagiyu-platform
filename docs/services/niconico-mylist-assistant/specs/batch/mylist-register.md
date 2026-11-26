@@ -12,7 +12,7 @@ sources:
   - services/niconico-mylist-assistant/batch/playwright.config.ts
   - services/niconico-mylist-assistant/batch/.env.local.example
   - services/niconico-mylist-assistant/batch/tests/integration/mylist-registration.spec.ts
-sources_hash: 60e4c8a0cd29a20b28b91e0c27bb6db757fd4944de7b5fbcb5da2cb37341feb0
+sources_hash: 1669e325bfb88bcc24dc856e0c93046dea79541b4ebf12c1435d1547b62fe41e
 ---
 
 # マイリスト登録バッチ (mylist-register)

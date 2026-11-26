@@ -12,15 +12,13 @@ ENV APP_VERSION=${APP_VERSION}
 # モノレポ全体のファイルをコピー
 COPY package*.json ./
 COPY configs ./configs/
-COPY libs ./libs/
 COPY services/tools ./services/tools/
 
 # 依存関係をインストール（ソースコード存在下で実行）
 RUN npm ci
 
-# 共通ライブラリ、web の順にビルドする
+# web をビルドする
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN npm run build:libs
 RUN npm run build --workspace=@nagiyu/tools
 
 # 本番ステージ
