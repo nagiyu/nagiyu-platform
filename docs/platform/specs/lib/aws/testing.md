@@ -23,12 +23,11 @@ sources_hash: 829cb74100b234070abbf4a90f7b6695272418c2cb91cafb32fbf0faff297dad
 
 ### 解決のしかた
 
-`@nagiyu/aws/testing` は、`libs/aws/package.json` の `exports` に載せていない。メインのエントリー (`@nagiyu/aws`) からも export しない。素の Node では解決できず、各サービスの `jest.contract.config.ts` の `moduleNameMapper` だけが解決する。
+`@nagiyu/aws/testing` は、`libs/aws/package.json` の `exports` に載せていない。メインのエントリー (`@nagiyu/aws`) からも export しない。素の Node では解決できず、各サービスの `jest.contract.config.ts` の `moduleNameMapper` だけが解決する。向き先は、install したパッケージに入っている CJS 版 (`dist/cjs/testing/index.js`) である。
 
 ```ts
 moduleNameMapper: {
-  '^@nagiyu/aws/testing$': '<rootDir>/../../../libs/aws/src/testing/index.ts',
-  '^@nagiyu/aws$': '<rootDir>/../../../libs/aws/src/index.ts',
+  '^@nagiyu/aws/testing$': '<rootDir>/../../../node_modules/@nagiyu/aws/dist/cjs/testing/index.js',
 }
 ```
 
