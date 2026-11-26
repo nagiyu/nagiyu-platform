@@ -633,7 +633,7 @@ export const stockTracker: ServiceCapture = {
     port: 3100,
     healthPath: '/api/health',
     envFile: 'services/stock-tracker/web/.env.test',
-    requiredBuilds: ['libs/ui/dist', 'libs/nextjs/dist', 'services/stock-tracker/core/dist'],
+    requiredBuilds: ['services/stock-tracker/core/dist'],
   },
   fixedTime: '2026-02-28T01:30:00Z',
   defaultRoles: ['stock-admin'],

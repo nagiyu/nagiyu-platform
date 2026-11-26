@@ -12,7 +12,7 @@ Claude Code on the web でこのリポジトリを扱うときの、環境固有
 
 Setup Script は claude.ai/code の環境設定にあり (リポジトリの外)、`claude code` の起動前に 1 度走って、ファイルシステムがキャッシュされる。キャッシュは約 7 日とされる (旧文書の記述。この環境では確かめられず、再測定していない)。重い処理を 1 度払って何度も使う形である。SessionStart hook (`.claude/settings.json`) は毎セッション走り、キャッシュがない。
 
-このリポジトリはモノレポで、複数のサービスが共存する。毎回の前処理を一律に回すと、ほかのサービスの作業では無駄になる。`package-lock.json` と libs のソースは頻繁に変わり、毎回判定すると重く、古い結果を信じると壊れる。そのため `.claude/settings.json` に SessionStart hook は置かない。
+このリポジトリはモノレポで、複数のサービスが共存する。毎回の前処理を一律に回すと、ほかのサービスの作業では無駄になる。`package-lock.json` とソースは頻繁に変わり、毎回判定すると重く、古い結果を信じると壊れる。そのため `.claude/settings.json` に SessionStart hook は置かない。
 
 ### Setup Script には、コードに連動しないものだけを置く
 
@@ -21,7 +21,7 @@ Setup Script は claude.ai/code の環境設定にあり (リポジトリの外)
 | 置く場所 | 対象 | 理由 |
 |---|---|---|
 | Setup Script | Playwright 用の OS ライブラリ (apt)、Chromium のバイナリ | OS レベルで変わりにくく、毎セッション apt を回すのは重い。`playwright install` は冪等 |
-| 置かない (手動、必要なとき) | `npm ci`、共通ライブラリのビルド | `package-lock.json` やソースの変更で、キャッシュが陳腐化する。古い `node_modules` や `dist/` で動き続ける |
+| 置かない (手動、必要なとき) | `npm ci`、core などのビルド | `package-lock.json` やソースの変更で、キャッシュが陳腐化する。古い `node_modules` や `dist/` で動き続ける |
 | on-demand | WebKit | 使う日が限られる。常駐させると容量と保守が釣り合わない |
 
 ### ベースイメージのツールは、リポジトリのスクリプトで入れ直さない
@@ -51,17 +51,13 @@ Node はルートの `package.json` の `engines` より古いことがある。
 
 `playwright-setup` スキルで `webkit` を指定する。`--with-deps` で多数の OS ライブラリが apt 経由で入るため、Setup Script には載せない。
 
-## 共通ライブラリのビルド
+## ビルド
 
-### Next.js の起動と E2E の前に、共通ライブラリをビルドする
+### Next.js の起動と E2E の前に、対象サービスの core をビルドする
 
-`libs/*` の `package.json` の `main` は `dist/` を指すが、`npm ci` はビルドを走らせない。`dist/` がないままサービスを起動すると、`@nagiyu/ui` などのモジュール解決に失敗し、`/` が 500 を返す。`next dev` も `next build` も、これに依存する。
+サービスの core パッケージは `main` が `dist/` を指し、`npm ci` では作られない。ビルドしないまま起動すると、起動は成功し、失敗は core を参照する API を叩いた瞬間に 500 として現れる。E2E では、ブラウザを使わない API テストだけが通り、画面を伴うテストが軒並み落ちる、という紛らわしい形になる。
 
-ルートの `npm run build:libs` が、依存順にビルドする。順の決まり方は [モノレポの構成の規約](./monorepo.md) にある。手順は build-shared-libs スキル (`.claude/skills/build-shared-libs/SKILL.md`) にある。
-
-### E2E の前には、対象サービスの core もビルドする
-
-サービスの core パッケージも `main` が `dist/` を指し、`npm ci` では作られない。libs のビルドだけを済ませても、起動は成功する。失敗は、core を参照する API を叩いた瞬間に 500 として現れる。E2E では、ブラウザを使わない API テストだけが通り、画面を伴うテストが軒並み落ちる、という紛らわしい形になる。
+`@nagiyu/*` の共通ライブラリは、registry からビルド済みで入るため、手元でビルドしない。
 
 ## DynamoDB Local
 

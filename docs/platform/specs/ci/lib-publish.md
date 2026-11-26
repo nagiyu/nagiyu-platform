@@ -1,6 +1,21 @@
 ---
-sources: []
-unimplemented: true
+sources:
+  - .github/workflows/lib-publish.yml
+  - libs/package.json
+  - libs/write-cjs-marker.mjs
+  - libs/common/package.json
+  - libs/common/tsconfig.cjs.json
+  - libs/aws/package.json
+  - libs/aws/tsconfig.cjs.json
+  - libs/browser/package.json
+  - libs/browser/tsconfig.cjs.json
+  - libs/nextjs/package.json
+  - libs/nextjs/tsconfig.cjs.json
+  - libs/react/package.json
+  - libs/react/tsconfig.cjs.json
+  - libs/ui/package.json
+  - libs/ui/tsconfig.cjs.json
+sources_hash: 130cd379f31c2413a9e5276c753989054bdc2ef6b14d0f309f3c1ea0c7cc71df
 ---
 
 # ライブラリの publish
@@ -37,9 +52,9 @@ flowchart TD
 | 権限 | `contents: read`、`id-token: write`。`id-token: write` は trusted publishing (OIDC) の認証に要る |
 | Node と npm | `.node-version` の Node を使い、registry に `https://registry.npmjs.org` を設定する。trusted publishing には npm CLI 11.5.1 以上が要るため、npm の版を確かめ、足りなければ上げる |
 | install | `libs/` で `npm ci` する。ルートの install は行わない |
-| ビルド | `libs/` の全 lib を、依存される側から順に (`common`、`aws`、`browser`、`nextjs`、`react`、`ui`) ビルドする。各 lib の `build` が、ESM 版 (`dist/src`) と CJS 版 (`dist/cjs`) の両方を出す |
+| ビルド | `libs/` で `npm run build` を流し、全 lib を依存される側から順に (`common`、`aws`、`browser`、`nextjs`、`react`、`ui`) ビルドする。各 lib の `build` が、ESM 版 (`dist/src`) と CJS 版 (`dist/cjs`) の両方を出し、`dist/cjs` に `{"type": "commonjs"}` の `package.json` を置く |
 | 判定 | lib ごとに `package.json` の名前と版を読み、`npm view <名前>@<版>` で registry にあるかを確かめる。ある版は飛ばす。同じ版の再 publish は registry が拒むためである |
-| publish | ない版を `npm publish --access public` で出す。版に `-` を含む (プレリリース) ときは `--tag next` を付け、`latest` を動かさない |
+| publish | ない版を、依存順 (ビルドと同じ並び) に 1 つずつ `npm publish --workspace <lib> --access public` で出す。版に `-` を含む (プレリリース) ときは `--tag next` を付け、`latest` を動かさない |
 
 - 依存の順に出すので、依存先の新しい版が、依存元より先に registry に載る。
 - 認証は、secret `NPM_TOKEN` があればそれを使い、なければ OIDC を使う。`NPM_TOKEN` は、まだ npmjs.com に無い lib を初めて出すときだけ置く (下の「手順」)。

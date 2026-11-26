@@ -5,7 +5,7 @@ sources:
   - .github/actions/build-web-app/action.yml
   - .github/actions/setup-node/action.yml
   - .github/scripts/docker-build-with-retry.sh
-sources_hash: 144cf4c6b253a81bac9f3a4b489ec55bcaa8316d25e16065045b5157c13146a6
+sources_hash: e5a5b93ee648df4d0aca356a1ee19377809f7641260bdc55d4a8fb2e9a530642
 ---
 
 # イメージのビルドと ECR への push
@@ -102,9 +102,8 @@ flowchart TD
 1. Node.js のセットアップ (`skip-setup-node` が `'true'` でないとき)。`.node-version` の版を入れ、npm のキャッシュを使う。
 2. npm のキャッシュの設定 (`skip-setup-node` が `'true'` のとき)。キャッシュの場所を `npm config get cache` で調べ、キーを `<OS>-node-<package-lock.json のハッシュ>` にして `actions/cache` で保存する。
 3. `npm ci`
-4. `npm run build:libs` で共有ライブラリをビルドする。ライブラリ間の依存順は `build:libs` が持つため、呼び出し側では並べない。
-5. `shared-workspaces` (カンマ区切り) のワークスペースを、書かれた順にビルドする。空の要素は飛ばす。
-6. `workspace` のワークスペースをビルドする。
+4. `shared-workspaces` (カンマ区切り) のワークスペースを、書かれた順にビルドする。空の要素は飛ばす。
+5. `workspace` のワークスペースをビルドする。
 
 | 入力 | 必須 | 内容 |
 |---|---|---|
