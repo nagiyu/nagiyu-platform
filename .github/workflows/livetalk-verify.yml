@@ -13,7 +13,6 @@ on:
       - 'services/livetalk/**'
       - 'infra/livetalk/**'
       - 'infra/common/**'
-      - 'libs/**'
       - 'infra/tsconfig.json'
       - 'configs/**'
       - '.github/actions/**'

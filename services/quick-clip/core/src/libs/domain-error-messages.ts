@@ -10,6 +10,7 @@ export const DOMAIN_ERROR_MESSAGES = {
   UPDATE_FIELDS_REQUIRED: '更新内容が指定されていません',
   SECOND_VALUE_INVALID: '開始時刻と終了時刻は0以上で指定してください',
   RANGE_INVALID: '開始時刻は終了時刻より小さくしてください',
+  END_EXCEEDS_DURATION: '終了時刻は動画の長さ以下にしてください',
   HIGHLIGHT_NOT_FOUND: '見どころが見つかりません',
   DURATION_LIMIT_EXCEEDED: '動画の長さがご利用の上限を超えているため、処理できませんでした',
 } as const;

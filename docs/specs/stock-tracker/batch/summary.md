@@ -13,7 +13,7 @@ sources:
   - services/stock-tracker/core/src/services/trading-hours-checker.ts
 sources_hash: a01feded7d8bdfc3aadb8de4c36bcff7781395ad31be66ba5e64f3d3d3e01119
 terms: [stock-tracker/term/daily-summary, stock-tracker/term/trading-hours, stock-tracker/term/forecast]
-related_cards: [admin/flow/error-notification, stock-tracker/batch/forecast, stock-tracker/api/summaries, stock-tracker/screen/summaries, stock-tracker/screen/home]
+related_cards: [stock-tracker/batch/forecast, stock-tracker/api/summaries, stock-tracker/screen/summaries, stock-tracker/screen/home]
 related_adr:
   - services/stock-tracker/architecture.md#2.3
   - services/stock-tracker/architecture.md#2.7
@@ -82,7 +82,7 @@ flowchart TD
 - 取引所一覧の読み込みなど、これら以外の例外は、共通の骨格が「サマリーバッチ: 致命的エラー」を `error` で報告し、例外を再送出して Lambda を失敗にする
 - 確度算出バッチの起動に失敗しても、サマリーの保存は有効のまま。次の毎時の実行が確度算出を拾う
 - CloudWatch Alarm も Admin に届く。5 分間の Errors の平均が 10% を超えたとき
-- Admin への経路は[エラー通知の経路](../../admin/flow/error-notification.md)
+- Admin への経路は[エラー通知の経路](../../../services/admin/specs/flow/error-notification.md)
 
 ## つながり
 

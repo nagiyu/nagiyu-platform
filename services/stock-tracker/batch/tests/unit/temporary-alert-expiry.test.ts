@@ -1,5 +1,5 @@
 import { handler } from '../../src/temporary-alert-expiry.js';
-import type { ScheduledEvent } from '@nagiyu/aws';
+import type { ScheduledEvent, InMemoryErrorEventWriter } from '@nagiyu/aws';
 import * as awsClients from '@nagiyu/aws';
 import { logger } from '@nagiyu/common';
 import type {
@@ -21,18 +21,15 @@ jest.mock('@nagiyu/common', () => ({
   },
 }));
 
-// createScheduledHandler の骨格は本物を使い、骨格内部のエラー報告も同じモックで観測できるよう
-// 報告関数の実体モジュールを差し替える。
-jest.mock('../../../../../libs/aws/src/error-events/report.js', () => ({
-  ...jest.requireActual('../../../../../libs/aws/src/error-events/report.js'),
-  reportErrorEvent: jest.fn().mockResolvedValue(null),
-}));
+// createScheduledHandler の骨格は本物を使う。骨格内部のエラー報告は in-memory の書き込み先に入るため、
+// getReportedEvents() で観測できる。
 jest.mock('@nagiyu/aws', () => {
   const actual = jest.requireActual('@nagiyu/aws');
   return {
     ...jest.createMockFromModule('@nagiyu/aws'),
     createScheduledHandler: actual.createScheduledHandler,
-    reportErrorEvent: actual.reportErrorEvent,
+    createErrorEventWriter: actual.createErrorEventWriter,
+    resetErrorEventWriter: actual.resetErrorEventWriter,
   };
 });
 jest.mock('@nagiyu/stock-tracker-core', () => ({
@@ -68,6 +65,11 @@ function buildCandidate(overrides: Partial<TemporaryAlertCandidate> = {}): Tempo
   };
 }
 
+/** 報告された ErrorEvent を取り出す */
+function getReportedEvents() {
+  return (awsClients.createErrorEventWriter() as InMemoryErrorEventWriter).getRecords();
+}
+
 describe('temporary alert expiry batch handler', () => {
   let mockAlertRepo: jest.Mocked<AlertRepository>;
   let mockExchangeRepo: jest.Mocked<ExchangeRepository>;
@@ -75,6 +77,9 @@ describe('temporary alert expiry batch handler', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    process.env.USE_IN_MEMORY_DB = 'true';
+    process.env.ERROR_EVENTS_TABLE_NAME = 'test-error-events';
+    awsClients.resetErrorEventWriter();
 
     (awsClients.getDynamoDBDocumentClient as jest.Mock).mockReturnValue({});
     (awsClients.getTableName as jest.Mock).mockReturnValue('test-table');
@@ -113,6 +118,12 @@ describe('temporary alert expiry batch handler', () => {
       resources: [],
       detail: {},
     };
+  });
+
+  afterEach(() => {
+    delete process.env.USE_IN_MEMORY_DB;
+    delete process.env.ERROR_EVENTS_TABLE_NAME;
+    awsClients.resetErrorEventWriter();
   });
 
   it('期限切れ一時通知は markTemporaryAsExpired で無効化＋TTL 設定される', async () => {
@@ -320,14 +331,14 @@ describe('temporary alert expiry batch handler', () => {
 
     await expect(handler(mockEvent)).rejects.toBe(dbError);
 
-    expect(awsClients.reportErrorEvent).toHaveBeenCalledWith(
+    expect(getReportedEvents()).toEqual([
       expect.objectContaining({
         serviceId: 'stock-tracker',
         severity: 'error',
         title: '一時通知アラート失効バッチ: 致命的エラー',
         message: 'DynamoDB 接続エラー',
-      })
-    );
+      }),
+    ]);
   });
 
   it('ページ上限到達時にワーニングログを出し、HOURLY_LEVEL の処理を継続する', async () => {

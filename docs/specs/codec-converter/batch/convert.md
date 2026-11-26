@@ -11,9 +11,9 @@ sources:
   - infra/codec-converter/lib/codec-converter-stack.ts
   - libs/aws/src/error-events/with-error-reporting.ts
   - libs/aws/src/error-events/report.ts
-sources_hash: bf566c0372c670909a84c3aeaca69339e78445d43652ccde759179a2bb25e28b
+sources_hash: 602ca10c214b47ba72205b72afc9c921871fc06cc9e361382e6ba86a6d1ae453
 terms: [codec-converter/term/job, codec-converter/term/output-codec, codec-converter/term/job-definition-size]
-related_cards: [codec-converter/api/jobs, codec-converter/flow/conversion, codec-converter/flow/error-reporting, admin/flow/error-notification]
+related_cards: [codec-converter/api/jobs, codec-converter/flow/conversion, codec-converter/flow/error-reporting]
 related_adr:
   - services/codec-converter/architecture.md#Batch Worker 実装詳細
   - services/codec-converter/architecture.md#動的リソース配分
@@ -63,20 +63,32 @@ flowchart TD
 
 ## 失敗したとき
 
-処理 (②〜⑥) のどこかで例外になると、次を行う。
+処理 (②〜⑦) のどこかで例外になると、次を行う。
 
 | 順 | 内容 | 報告 |
 |---|---|---|
-| 1 | ステータスを `FAILED`、`errorMessage` を例外のメッセージにして保存する。メッセージは段ごとに「S3からのダウンロードに失敗しました」「S3へのアップロードに失敗しました」「FFmpegの実行に失敗しました」「DynamoDBの更新に失敗しました」の前置きがつく。FFmpeg の失敗には、終了コードと標準エラー出力の全文が入る | 保存できなければ報告 (error) |
-| 2 | 一時ファイルを削除する。ないファイルは無視する | 削除に失敗したら報告 (warning) |
-| 3 | 例外を投げ直す | 処理の失敗を報告 (critical) |
+| 1 | 例外の内容 (終了コード・標準エラー出力・S3 のエラー文を含む) をログに出し、処理の失敗を報告する | 処理の失敗を報告 (critical) |
+| 2 | ステータスを `FAILED`、`errorMessage` を失敗した段の決まった文言にして保存する (下の表) | 保存できなければ報告 (error) |
+| 3 | 一時ファイルを削除する。ないファイルは無視する | 削除に失敗したら報告 (warning) |
+| 4 | 例外を投げ直す | ― |
+
+`errorMessage` は画面と API 応答にそのまま出るので、技術的な内容を含めず、失敗した段ごとの文言だけを保存する。詳細は、ログと報告の本文 (例外のメッセージ) にだけ残す。
+
+| 失敗した段 | `errorMessage` |
+|---|---|
+| ③ 入力のダウンロード | 動画ファイルの取得に失敗しました。しばらくしてからもう一度お試しください |
+| ④ FFmpeg の変換 (終了コードが 0 以外) | 動画の変換に失敗しました。ファイルが壊れているか、対応していない形式の可能性があります |
+| ⑤ 出力のアップロード | 変換後のファイルの保存に失敗しました。しばらくしてからもう一度お試しください |
+| 上以外 (② と ⑥ のステータス更新、⑦ の削除、④ で FFmpeg を起動できなかったとき) | 変換中にエラーが発生しました。しばらくしてからもう一度お試しください |
+
+- FFmpeg の標準エラー出力は、末尾 4,000 文字だけを保持する。長い変換で溜まり続けないようにするためで、失敗の理由は末尾に出るので末尾を残す
 
 - 例外を投げ直したあと、起動の骨格がもう一度報告 (critical) し、終了コード 1 でプロセスを終える。このため、1 回の失敗につき critical が 2 件記録される。題名は「Batchジョブが失敗しました」と「コーデック変換バッチが起動時に失敗しました」
 - 起動時の検証の失敗 (環境変数の不足など) は、ステータスを更新せず、後者だけを報告して終了する。この場合ジョブは `PENDING` のまま
 - 終了コードが 0 でないので、AWS Batch が 2 回まで試行する。再試行で最初から処理し直し、報告も試行ごとに増える
 - ⑥ の `COMPLETED` の保存が失敗したときも、同じ失敗の扱いになる。`FAILED` の保存も失敗すれば、ステータスは `PROCESSING` のまま残る
 - ⑦ の一時ファイルの削除は、処理の `try` の中にある。削除に失敗する (ないファイル以外の理由) と、`COMPLETED` にしたあとでも失敗の扱いになり、`FAILED` で上書きする
-- 7,200 秒を超えると Batch がジョブを止める。ワーカーは時間を見ておらず、ステータスを更新できないので、ジョブは `PROCESSING` のまま残る。Batch の失敗を拾う EventBridge のルールや CloudWatch Alarm は、codec-converter のインフラには定義されていない ([エラー通知の経路](../../admin/flow/error-notification.md)の `batch-event` の対象にならない)
+- 7,200 秒を超えると Batch がジョブを止める。ワーカーは時間を見ておらず、ステータスを更新できないので、ジョブは `PROCESSING` のまま残る。Batch の失敗を拾う EventBridge のルールや CloudWatch Alarm は、codec-converter のインフラには定義されていない ([エラー通知の経路](../../../services/admin/specs/flow/error-notification.md)の `batch-event` の対象にならない)
 - 報告の書き込みに失敗しても、例外は伝えない。ログだけを残す
 
 ## つながり

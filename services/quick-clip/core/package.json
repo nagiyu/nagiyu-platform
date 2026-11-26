@@ -18,8 +18,8 @@
     "@aws-sdk/client-dynamodb": "^3.1063.0",
     "@aws-sdk/client-s3": "^3.1063.0",
     "@aws-sdk/lib-dynamodb": "^3.1063.0",
-    "@nagiyu/aws": "*",
-    "@nagiyu/common": "*",
+    "@nagiyu/aws": "^0.1.1",
+    "@nagiyu/common": "^0.1.1",
     "jszip": "^3.10.1",
     "openai": "^7.5.0",
     "zod": "^4.6.6"

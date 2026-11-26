@@ -2,7 +2,7 @@
 sources:
   - libs/nextjs/src/repository.ts
   - libs/nextjs/package.json
-sources_hash: 50d5df36c87c73e9576ccad448a2c33ab65af28cd353e03c74aacb452bb346bf
+sources_hash: 5e7c5fb60d124bcfba5d7720ace4f844daa675585ddec7e126b60232833c0bb2
 ---
 
 # リポジトリの初期化
