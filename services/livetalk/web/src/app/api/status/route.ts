@@ -16,59 +16,12 @@
 
 import { NextResponse } from 'next/server';
 import { withAuth } from '@nagiyu/nextjs';
-import {
-  DEFAULT_CHARACTER_ID,
-  LIFECYCLE_DEFAULT_BEDTIME,
-  LIFECYCLE_DEFAULT_WAKE_UP_TIME,
-  NOTIFY_BACKOFF_BASE,
-  NOTIFY_RECENT_SESSION_SAMPLE_N,
-  NOTIFY_SESSION_GAP_MINUTES,
-  resolveLifecycleState,
-  shouldNotifyNow,
-  extractSessionStartTimes,
-  computeSessionIntervals,
-  computeBaseIntervalMs,
-  computeIntensityFactor,
-  type MessageEntity,
-  type NotificationEventEntity,
-  createLifecycleRepository,
-  createNotificationEventRepository,
-  createStudyTopicRepository,
-  createMessageRepository,
-} from '@nagiyu/livetalk-core';
+import { DEFAULT_CHARACTER_ID } from '@nagiyu/livetalk-core';
 import { getSession } from '@/lib/server/session';
 import { withApiErrorReporting } from '@/lib/server/api-error-reporting';
+import { loadStatusSnapshot } from '@/lib/server/status';
 import { STATUS_ERROR_MESSAGES } from './constants';
 import { hasCharacter } from '@/lib/characters/registry';
-
-/**
- * reason が 'not_due' のときに「インターバル条件が解除される最早時刻」を算出する。
- * shouldNotifyNow の内部ロジックを再現した純粋計算。
- * 活動時間帯ゲート・睡眠帯は考慮しないため、あくまで「インターバル解除の目安」。
- */
-function computeNextEarliestAt(
-  userMessages: Pick<MessageEntity, 'createdAt'>[],
-  notificationEvents: NotificationEventEntity[],
-  now: Date
-): number {
-  const sessionGapMs = NOTIFY_SESSION_GAP_MINUTES * 60 * 1000;
-  const sessionStarts = extractSessionStartTimes(userMessages, sessionGapMs);
-  const intervals = computeSessionIntervals(sessionStarts, NOTIFY_RECENT_SESSION_SAMPLE_N);
-  // 強度係数を反映（decision.ts と同じロジックでミラーする）
-  const intensityFactor = computeIntensityFactor(sessionStarts, now);
-  const baseIntervalMs = computeBaseIntervalMs(intervals, intensityFactor);
-
-  const lastNormalAt = notificationEvents.find((e) => e.kind === 'normal')?.createdAt ?? 0;
-  const lastInteractionAt =
-    userMessages.length > 0 ? Math.max(...userMessages.map((m) => m.createdAt)) : 0;
-  const referenceTime = Math.max(lastInteractionAt, lastNormalAt);
-
-  const missedCount = notificationEvents.filter(
-    (e) => e.kind === 'normal' && e.createdAt > lastInteractionAt
-  ).length;
-
-  return referenceTime + baseIntervalMs * Math.pow(NOTIFY_BACKOFF_BASE, missedCount);
-}
 
 export const GET = withApiErrorReporting(
   'Web API: ステータス情報取得エラー',
@@ -77,54 +30,12 @@ export const GET = withApiErrorReporting(
     const url = new URL(request.url);
     const queriedId = url.searchParams.get('characterId');
     const characterId = queriedId && hasCharacter(queriedId) ? queriedId : DEFAULT_CHARACTER_ID;
-    const now = new Date();
-
-    const [lifecycle, allUserEvents, allMessages, studyPending] = await Promise.all([
-      createLifecycleRepository().get({ userId, characterId }),
-      // バッチと同じ件数で読む。件数が違うと、1 日の上限や無視回数の数え方がバッチとずれる
-      createNotificationEventRepository().listByUser(userId, 60),
-      createMessageRepository().listSince(userId, characterId, 0),
-      createStudyTopicRepository().listByStatus(userId, characterId, 'pending'),
-    ]);
-
-    // 通知の記録は利用者単位で返るため、判定と表示は表示キャラのものだけに絞る (バッチと同じ)
-    const notificationEvents = allUserEvents.filter((e) => e.characterId === characterId);
-
-    const bedtime = lifecycle?.bedtime ?? LIFECYCLE_DEFAULT_BEDTIME;
-    const wakeUpTime = lifecycle?.wakeUpTime ?? LIFECYCLE_DEFAULT_WAKE_UP_TIME;
-    const state = resolveLifecycleState(now, bedtime, wakeUpTime);
-
-    const userMessages = allMessages.filter((m) => m.role === 'user');
-
-    const lifecycleForDecision = lifecycle ?? {
-      userId,
-      characterId,
-      bedtime: LIFECYCLE_DEFAULT_BEDTIME,
-      wakeUpTime: LIFECYCLE_DEFAULT_WAKE_UP_TIME,
-      createdAt: 0,
-      updatedAt: 0,
-    };
-
-    const notifyDecision = shouldNotifyNow({
-      userMessages,
-      lifecycle: lifecycleForDecision,
-      notificationEvents,
-      now,
-    });
-
-    let nextEarliestAt: number | undefined;
-    if (!notifyDecision.notify && notifyDecision.reason === 'not_due') {
-      nextEarliestAt = computeNextEarliestAt(userMessages, notificationEvents, now);
-    }
+    const snapshot = await loadStatusSnapshot(userId, characterId, new Date());
+    const { notifyDecision, nextEarliestAt } = snapshot;
 
     return NextResponse.json({
-      lifecycle: {
-        state,
-        bedtime,
-        wakeUpTime,
-        userActivityProfile: lifecycle?.userActivityProfile ?? null,
-      },
-      recentNotifications: notificationEvents.slice(0, 5).map((e) => ({
+      lifecycle: snapshot.lifecycle,
+      recentNotifications: snapshot.recentNotifications.map((e) => ({
         notifId: e.notifId,
         kind: e.kind,
         title: e.title,
@@ -136,7 +47,7 @@ export const GET = withApiErrorReporting(
         ...notifyDecision,
         ...(nextEarliestAt !== undefined ? { nextEarliestAt } : {}),
       },
-      studyTopicPendingCount: studyPending.length,
+      studyTopicPendingCount: snapshot.studyTopicPendingCount,
     });
   }),
   { error: 'FETCH_FAILED', message: STATUS_ERROR_MESSAGES.FETCH_FAILED }

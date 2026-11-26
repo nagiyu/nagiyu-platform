@@ -137,6 +137,12 @@ export const NOTE_RECENT_LIMIT = 3;
 export const NOTIFY_RECENT_SESSION_SAMPLE_N = 10;
 
 /**
+ * 通知の判定で読む、利用者単位の通知の記録の件数。
+ * 件数が違うと、1 日の上限や無視回数の数え方が、バッチと画面でずれる。
+ */
+export const NOTIFY_EVENT_READ_LIMIT = 60;
+
+/**
  * セッション分割の閾値（分）。
  * 連続メッセージ間の間隔がこれ以上なら新セッション開始とみなす。
  */
