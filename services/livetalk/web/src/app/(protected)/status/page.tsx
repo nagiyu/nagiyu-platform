@@ -24,6 +24,7 @@ import {
 } from '@/lib/characters/registry';
 import StatusCharacterSwitcher from '@/components/StatusCharacterSwitcher';
 import StatusTestPush from '@/components/StatusTestPush';
+import type { CriticalTopicSummary } from '@/lib/server/status';
 
 const REASON_LABELS: Record<string, string> = {
   not_due: 'インターバル未経過',
@@ -42,6 +43,27 @@ const SAFETY_TRIGGER_LABELS: Record<string, string> = {
 
 interface StatusPageProps {
   searchParams: Promise<{ characterId?: string }>;
+}
+
+/** 重要通知の判定に関わる話題の一覧。 */
+function TopicList({ title, topics }: { title: string; topics: CriticalTopicSummary[] }) {
+  return (
+    <Box sx={{ mt: 0.5 }}>
+      <Typography variant="body2">
+        {title}: {topics.length === 0 ? 'なし' : `${topics.length} 件`}
+      </Typography>
+      {topics.map((t) => (
+        <Typography
+          key={t.topicId}
+          variant="body2"
+          color="text.secondary"
+          sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}
+        >
+          {t.topicId} | {t.subject} | care {t.care}
+        </Typography>
+      ))}
+    </Box>
+  );
 }
 
 export default async function StatusPage({ searchParams }: StatusPageProps) {
@@ -68,6 +90,7 @@ export default async function StatusPage({ searchParams }: StatusPageProps) {
   const { lifecycle, notifyDecision, nextEarliestAt, recentNotifications } = snapshot;
   const { state, bedtime, wakeUpTime } = lifecycle;
   const studyPendingCount = snapshot.studyTopicPendingCount;
+  const { studyPause, studyUsage, freshnessCheckRequests, criticalCandidates } = snapshot;
 
   // テスト通知送信用: 登録キャラクターの表示名マップを構築する
   const registeredCharacterIds = getRegisteredCharacterIds();
@@ -181,6 +204,90 @@ export default async function StatusPage({ searchParams }: StatusPageProps) {
           ))}
         </Box>
       )}
+
+      <Divider sx={{ my: 1.5 }} />
+
+      {/* 勉強と重要通知 */}
+      <Typography variant="subtitle2" sx={{ mb: 0.5, fontWeight: 'bold' }}>
+        勉強と重要通知
+      </Typography>
+      <Box sx={{ mb: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Typography variant="body2">3 日ルール:</Typography>
+          <Chip size="sm" color={studyPause.paused ? 'warning' : 'success'}>
+            {studyPause.paused ? '勉強停止中' : '勉強中'}
+          </Chip>
+        </Box>
+        <Typography variant="body2" color="text.secondary">
+          最後の発話:{' '}
+          {studyPause.lastUserMessageAt !== null
+            ? formatJstDateTime(studyPause.lastUserMessageAt, { seconds: true })
+            : 'なし（直近 7 日）'}
+        </Typography>
+        {studyPause.pausesAt !== null && (
+          <Typography variant="body2" color="text.secondary">
+            {studyPause.paused ? '停止した時刻' : '停止する時刻'}:{' '}
+            {formatJstDateTime(studyPause.pausesAt, { seconds: true })}
+          </Typography>
+        )}
+      </Box>
+      <Box sx={{ mb: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Typography variant="body2">本日の勉強の回数:</Typography>
+          <Chip size="sm" color={studyUsage.limitReached ? 'warning' : 'success'}>
+            {studyUsage.limitReached ? '上限到達' : '上限内'}
+          </Chip>
+        </Box>
+        <Typography variant="body2" color="text.secondary">
+          このキャラ: {studyUsage.characterCount} / {studyUsage.characterLimit} 回 （勉強中のキャラ{' '}
+          {studyUsage.studyingCharacterCount} 人で等分）
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          全キャラ合計: {studyUsage.totalCount} / {studyUsage.totalLimit} 回
+        </Typography>
+      </Box>
+      <Box sx={{ mb: 1 }}>
+        <Typography variant="body2">
+          鮮度確認の依頼待ち: {freshnessCheckRequests.count} 件
+        </Typography>
+        {freshnessCheckRequests.requests.map((r) => (
+          <Typography
+            key={r.topicId}
+            variant="body2"
+            color="text.secondary"
+            sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}
+          >
+            {r.topicId} | {formatJstDateTime(r.createdAt, { seconds: true })}
+          </Typography>
+        ))}
+      </Box>
+      <Box sx={{ mb: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Typography variant="body2">重要通知の判定:</Typography>
+          <Chip size="sm" color={criticalCandidates.evaluated ? 'success' : 'warning'}>
+            {criticalCandidates.evaluated ? '判定する' : '判定しない（勉強停止中）'}
+          </Chip>
+        </Box>
+        {criticalCandidates.evaluated && (
+          <>
+            <TopicList title="判定に渡る候補" topics={criticalCandidates.candidates} />
+            <TopicList title="鮮度切れで外れた話題" topics={criticalCandidates.staleExcluded} />
+          </>
+        )}
+        <Typography variant="body2" sx={{ mt: 0.5 }}>
+          送り済みの重要通知: {criticalCandidates.sentCriticals.length === 0 ? 'なし' : ''}
+        </Typography>
+        {criticalCandidates.sentCriticals.map((c) => (
+          <Typography
+            key={`${c.topicId}-${c.eventDate ?? ''}`}
+            variant="body2"
+            color="text.secondary"
+            sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}
+          >
+            {c.topicId} | 予定日: {c.eventDate ?? '記録なし'}
+          </Typography>
+        ))}
+      </Box>
 
       <Divider sx={{ my: 1.5 }} />
 

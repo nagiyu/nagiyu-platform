@@ -9,6 +9,10 @@
  *   - 現時点の通知判定結果（shouldNotifyNow の reason / toneBucket 等）
  *   - インターバル解除予測時刻（reason が not_due の場合のみ）
  *   - STUDY_TOPIC pending 件数
+ *   - 3 日ルール（studyPause: 停止中か / 最後の発話 / 停止する時刻）
+ *   - 勉強の日次の回数と上限（studyUsage）
+ *   - 鮮度確認の依頼待ち（freshnessCheckRequests）
+ *   - 重要通知の判定の手前（criticalCandidates: 判定に渡る候補 / 鮮度切れで外れた話題 / 送り済み）
  *
  * chat metrics（promptTokens / latencyMs）は DynamoDB 未永続のため本 Issue のスコープ外。
  * CloudWatch Logs Insights で確認する。
@@ -48,6 +52,10 @@ export const GET = withApiErrorReporting(
         ...(nextEarliestAt !== undefined ? { nextEarliestAt } : {}),
       },
       studyTopicPendingCount: snapshot.studyTopicPendingCount,
+      studyPause: snapshot.studyPause,
+      studyUsage: snapshot.studyUsage,
+      freshnessCheckRequests: snapshot.freshnessCheckRequests,
+      criticalCandidates: snapshot.criticalCandidates,
     });
   }),
   { error: 'FETCH_FAILED', message: STATUS_ERROR_MESSAGES.FETCH_FAILED }

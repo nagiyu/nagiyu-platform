@@ -8,6 +8,9 @@ import {
   createNotificationEventRepository,
   createStudyTopicRepository,
   createMessageRepository,
+  createStudyUsageRepository,
+  createFreshnessCheckRequestRepository,
+  createTopicRepository,
   NOTIFY_EVENT_READ_LIMIT,
 } from '@nagiyu/livetalk-core';
 import type {
@@ -27,6 +30,9 @@ jest.mock('@nagiyu/livetalk-core', () => ({
   createNotificationEventRepository: jest.fn(),
   createStudyTopicRepository: jest.fn(),
   createMessageRepository: jest.fn(),
+  createStudyUsageRepository: jest.fn(),
+  createFreshnessCheckRequestRepository: jest.fn(),
+  createTopicRepository: jest.fn(),
 }));
 
 const mockGetSession = getSession as jest.MockedFunction<typeof getSession>;
@@ -112,6 +118,17 @@ function setupDefaultMocks() {
 describe('GET /api/status', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    // 勉強と重要通知の読み取りは既定で空にする
+    (createStudyUsageRepository as jest.Mock).mockReturnValue({
+      readUsage: jest.fn(async () => ({ characterCount: 3, totalCount: 5 })),
+    });
+    (createFreshnessCheckRequestRepository as jest.Mock).mockReturnValue({
+      listByCharacter: jest.fn(async () => [{ topicId: 't1', createdAt: 123 }]),
+    });
+    (createTopicRepository as jest.Mock).mockReturnValue({
+      listTopicHeadersByCareDesc: jest.fn(async () => []),
+      listWebFacts: jest.fn(async () => []),
+    });
   });
 
   it('未認証は 401', async () => {
@@ -138,6 +155,22 @@ describe('GET /api/status', () => {
     expect(json).toHaveProperty('recentNotifications');
     expect(json).toHaveProperty('notifyDecision');
     expect(json).toHaveProperty('studyTopicPendingCount');
+    expect(json.studyPause).toEqual({ paused: true, lastUserMessageAt: null, pausesAt: null });
+    expect(json.studyUsage).toMatchObject({
+      characterCount: 3,
+      totalCount: 5,
+      totalLimit: 20,
+    });
+    expect(json.freshnessCheckRequests).toEqual({
+      count: 1,
+      requests: [{ topicId: 't1', createdAt: 123 }],
+    });
+    expect(json.criticalCandidates).toEqual({
+      evaluated: false,
+      candidates: [],
+      staleExcluded: [],
+      sentCriticals: [],
+    });
   });
 
   it('lifecycle が null の場合はデフォルト値でフォールバックする', async () => {

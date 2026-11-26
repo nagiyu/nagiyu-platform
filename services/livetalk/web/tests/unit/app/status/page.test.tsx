@@ -11,6 +11,9 @@ import {
   createSafetyEventRepository,
   createStudyTopicRepository,
   createMessageRepository,
+  createStudyUsageRepository,
+  createFreshnessCheckRequestRepository,
+  createTopicRepository,
 } from '@nagiyu/livetalk-core';
 import type {
   LifecycleRepository,
@@ -45,6 +48,9 @@ jest.mock('@nagiyu/livetalk-core', () => ({
   createSafetyEventRepository: jest.fn(),
   createStudyTopicRepository: jest.fn(),
   createMessageRepository: jest.fn(),
+  createStudyUsageRepository: jest.fn(),
+  createFreshnessCheckRequestRepository: jest.fn(),
+  createTopicRepository: jest.fn(),
 }));
 
 const mockGetSession = getSession as jest.MockedFunction<typeof getSession>;
@@ -84,7 +90,15 @@ const makeEvent = (notifId: string, characterId: string, createdAt: number) => (
   expiresAt: 9_999_999_999_000,
 });
 
-function setup(events: ReturnType<typeof makeEvent>[]) {
+function setup(
+  events: ReturnType<typeof makeEvent>[],
+  extra: {
+    messages?: { role: string; createdAt: number }[];
+    usage?: { characterCount: number; totalCount: number };
+    topics?: { topicId: string; subject: string; care: number }[];
+    freshnessRequests?: { topicId: string; createdAt: number }[];
+  } = {}
+) {
   const listByUser = jest.fn(async () => events);
   mockGetSession.mockResolvedValue(adminSession);
   mockLifecycleRepo.mockReturnValue({
@@ -105,8 +119,18 @@ function setup(events: ReturnType<typeof makeEvent>[]) {
     listByStatus: jest.fn(async () => []),
   } as unknown as StudyTopicRepository);
   mockMessageRepo.mockReturnValue({
-    listSince: jest.fn(async () => []),
+    listSince: jest.fn(async () => extra.messages ?? []),
   } as unknown as MessageRepository);
+  (createStudyUsageRepository as jest.Mock).mockReturnValue({
+    readUsage: jest.fn(async () => extra.usage ?? { characterCount: 0, totalCount: 0 }),
+  });
+  (createFreshnessCheckRequestRepository as jest.Mock).mockReturnValue({
+    listByCharacter: jest.fn(async () => extra.freshnessRequests ?? []),
+  });
+  (createTopicRepository as jest.Mock).mockReturnValue({
+    listTopicHeadersByCareDesc: jest.fn(async () => extra.topics ?? []),
+    listWebFacts: jest.fn(async () => []),
+  });
   return listByUser;
 }
 
@@ -171,5 +195,58 @@ describe('StatusPage 通知の記録のキャラクター絞り込み', () => {
     expect(html).toContain('本日の上限到達');
     expect(html).toContain('本文-own-1');
     expect(html).not.toContain('本文-other-1');
+  });
+});
+
+describe('StatusPage 勉強と重要通知', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.useFakeTimers({
+      now: NOW,
+      doNotFake: [
+        'nextTick',
+        'setImmediate',
+        'clearImmediate',
+        'setTimeout',
+        'clearTimeout',
+        'setInterval',
+        'clearInterval',
+        'queueMicrotask',
+        'performance',
+      ],
+    });
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('発話がなければ勉強停止中と判定しないことを表示する', async () => {
+    setup([]);
+
+    const html = await renderPage();
+
+    expect(html).toContain('勉強と重要通知');
+    expect(html).toContain('勉強停止中');
+    expect(html).toContain('上限到達');
+    expect(html).toContain('判定しない（勉強停止中）');
+  });
+
+  it('勉強中は回数・依頼待ち・判定に渡る候補を表示する', async () => {
+    setup([], {
+      messages: [{ role: 'user', createdAt: NOW.getTime() - 60 * 60 * 1000 }],
+      usage: { characterCount: 2, totalCount: 4 },
+      topics: [{ topicId: 'topic-1', subject: '来週のライブ', care: 5 }],
+      freshnessRequests: [{ topicId: 'topic-9', createdAt: NOW.getTime() - 1000 }],
+    });
+
+    const html = await renderPage();
+
+    expect(html).toContain('勉強中');
+    expect(html).toContain('上限内');
+    expect(html).toContain('判定する');
+    expect(html).toContain('topic-1 | 来週のライブ | care 5');
+    expect(html).toContain('鮮度確認の依頼待ち: 1 件');
+    expect(html).toContain('topic-9');
   });
 });
