@@ -1,20 +1,11 @@
 ---
-id: quick-clip/batch/clip-regenerate
-title: クリップ再生成 (clip-regenerate)
-kind: batch
-service: quick-clip
 sources:
   - services/quick-clip/lambda/clip/src/handler.ts
   - infra/quick-clip/lib/lambda-stack.ts
   - infra/quick-clip/lib/monitoring-stack.ts
   - libs/aws/src/error-events/with-error-reporting.ts
   - libs/aws/src/error-events/report.ts
-sources_hash: 9dc158bcb979a6b0def552b9076eb57e34d5c3155dfc1ff5e3b15eda64dd0a78
-terms: [quick-clip/term/highlight]
-related_cards: [quick-clip/api/highlights, quick-clip/screen/highlights, quick-clip/batch/extract]
-related_adr:
-  - services/quick-clip/architecture.md#ADR-002
-  - services/quick-clip/architecture.md#ADR-017
+sources_hash: 0000000000000000000000000000000000000000000000000000000000000000
 ---
 
 # クリップ再生成 (clip-regenerate)
@@ -26,7 +17,7 @@ related_adr:
 - スケジュールはない。[見どころ API](../api/highlights.md) が、見どころの更新 (開始か終了を含むもの) と、作り直し (`regenerate`) のときに、結果を待たずに (非同期で) 起動する
 - 入力は `{ jobId, highlightId, startSec, endSec }`。`jobId` と `highlightId` が空、`startSec` と `endSec` が数値でない、`startSec` が負、`endSec` が `startSec` 以下、のどれかなら例外 (入力値が不正です)
 - 環境変数 `DYNAMODB_TABLE_NAME`、`S3_BUCKET`、`AWS_REGION` が必須。なければ例外
-- 関数の設定は、メモリ 2,048 MB、一時ストレージ 10,240 MiB、タイムアウト 300 秒。非同期起動の再試行は 0 回
+- 非同期起動の再試行は 0 回 ([見どころとクリップの状態](../term/highlight.md)の「理由」)。メモリ・一時ストレージ・タイムアウトは[ワーカーの実行環境](../resource/worker-runtime.md)にある
 
 ## 処理
 
@@ -45,7 +36,7 @@ flowchart TD
 | ④ 保存 | `outputs/{jobId}/clips/{highlightId}.mp4` に上書きする |
 | ⑤ 更新 | 見どころの `clipStatus` を `GENERATED` にする。ほかの項目は変えない |
 
-- 終わると、作業用のディレクトリを消す。成功でも失敗でも消す
+- 終わると、出力を置いたディレクトリを消す。成功でも失敗でも消す。作業用のディレクトリにリクエストごとの UUID を入れるのは、Lambda の `/tmp` が実行環境の中で共有されうるため、同時の呼び出しが衝突しないようにするため
 - 入力の動画が 24 時間で消えていると、③ の読み込みが失敗して `FAILED` になる
 
 ## 失敗したとき
@@ -59,9 +50,9 @@ flowchart TD
 | 3 | 例外を投げ直す | なし |
 
 - 再試行しないので、失敗した見どころは `FAILED` のまま残る。利用者が画面のリトライを押すまで、変わらない ([見どころ API](../api/highlights.md))
-- Lambda が強制終了されるとこの処理は走らず、`GENERATING` のまま残る。API が 360 秒を過ぎたものを `FAILED` にする ([見どころとクリップの状態](../term/highlight.md))
+- Lambda が強制終了されるとこの処理は走らず、`GENERATING` のまま残る。見どころ確認画面が一覧を取る前に呼ぶ復旧の API が、360 秒を過ぎたものを `FAILED` にする ([見どころとクリップの状態](../term/highlight.md)、[見どころ API](../api/highlights.md))
 - Lambda の失敗を拾う CloudWatch Alarm や EventBridge のルールは、quick-clip のインフラには定義されていない。報告できるのは、アプリが例外を受けられたときだけ
-- 報告の書き込みに失敗しても、例外は伝えない。ログだけを残す
+- 報告の書き込みに失敗しても、例外は伝えない。ログだけを残す ([エラーの報告](../../../../platform/specs/lib/aws/error-reporting.md))
 
 ## つながり
 
@@ -73,3 +64,8 @@ flowchart TD
     L -.->|失敗の報告| E[(error-events テーブル)]
     E -->|Streams| N[Admin の Web Push]
 ```
+
+## 理由
+
+- 作り直しを、抽出バッチではなく専用の Lambda にする。画面の操作 (時間の調整とリトライ) から、見どころ 1 件ずつ個別に起動できるため。Web の API から Lambda を直接起動するので、Batch にジョブを再投入するより速く、仕組みも単純になる
+- 初回のクリップは抽出バッチの中で切り出す ([抽出バッチ](./extract.md)の「理由」)。この Lambda は、初回の切り出しの経路には入らない
