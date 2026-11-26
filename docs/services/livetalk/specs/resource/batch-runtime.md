@@ -3,6 +3,7 @@ sources:
   - infra/livetalk/lib/batch-stack.ts
   - infra/livetalk/bin/livetalk.ts
   - infra/livetalk/lib/batch-ecr-stack.ts
+sources_hash: ca59657b36d2894461d3c6a16a21cea2d8795e695e5aa2017df9df90b14a7d45
 ---
 
 # バッチの実行環境

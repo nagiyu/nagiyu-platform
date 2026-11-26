@@ -4,11 +4,12 @@ sources:
   - infra/common/src/utils/ssm.ts
   - services/livetalk/web/src/lib/characters/client-profiles.ts
   - services/livetalk/web/src/app/layout.tsx
+sources_hash: 710d1bd750c68160fb5a3811abcef7b1f23fe4f2fcf4b2121212bb59b04d38e9
 ---
 
-# アセットの配信
+# CloudFront の配信とアセット
 
-Live2D のモデルのファイル、Cubism Core、一枚絵のパーツ画像を置く S3 バケットと、それを CloudFront の `/assets/*` で配る設定。バケットは CloudFront のスタックの中で作り、公開のアクセスは持たず、CloudFront (OAC) だけが読む。同じスタックが、Web の入口になる CloudFront のディストリビューションと DNS のレコードも作る。
+Web の公開の入口になる CloudFront のディストリビューションと、Live2D のモデルのファイル・Cubism Core・一枚絵のパーツ画像を置く S3 バケット。バケットは CloudFront のスタックの中で作り、公開のアクセスは持たず、CloudFront (OAC) だけが読む。`/assets/*` はバケットから、それ以外は ALB ([Web の実行環境](./web-runtime.md)) から配る。共通の部品を使わず直接作っているため、共通の仕様にない設定をここに書く。
 
 ## リソース
 

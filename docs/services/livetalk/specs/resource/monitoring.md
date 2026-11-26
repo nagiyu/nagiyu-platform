@@ -7,6 +7,7 @@ sources:
   - infra/livetalk/lib/batch-stack.ts
   - services/livetalk/core/src/usecases/chat-usecase.ts
   - services/livetalk/core/src/usecases/consolidate.usecase.ts
+sources_hash: 8643cdac0741170919f1eb832077d01a700498f3fb83fcb1a2c6d534d3bd3140
 ---
 
 # 監視

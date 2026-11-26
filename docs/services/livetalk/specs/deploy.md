@@ -71,3 +71,7 @@ flowchart TD
 | `infrastructure-batch` | Secrets Manager の値を取り出し、Batch をデプロイする (`infrastructure-ecr` と `build-batch` の後) |
 | `infrastructure-cloudfront` | `infrastructure-app` の後に CloudFront をデプロイする。CloudFront 経由のヘルスチェックはしない |
 | `summary` | 結果を要約に出す (`always`) |
+
+## 理由
+
+- リージョンを `us-east-1` に固定する。CloudFront で使う ACM の証明書は `us-east-1` に作る必要があり、CloudFront と組み合わせるリソース (Lambda@Edge など) も `us-east-1` を要するため。サービスのスタックを同じリージョンにそろえる
