@@ -133,7 +133,7 @@ Follow-up TODOs: なし
 - ワークフロー内でのワークスペース指定はパッケージ名（`@nagiyu/hoge`）を使用すること（MUST）。
   パス指定（`services/hoge`）は使用してはならない（MUST NOT）。
 - `npm run build --workspaces`（並列ビルド）は使用してはならない（MUST NOT）。
-  `npm run build:libs`（ルート `package.json` が依存順に並べている）でビルドすること（MUST）。
+  `npm run build --workspace=@nagiyu/hoge` のように個別にビルドすること（MUST）。
 - E2E テスト失敗時はスクリーンショット・動画・Playwright レポートを 30 日間保存すること（MUST）。
 
 **根拠**: マージ後のデプロイ失敗リスクの最小化、開発速度と品質のバランス確保。

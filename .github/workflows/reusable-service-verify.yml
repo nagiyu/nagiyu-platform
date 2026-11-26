@@ -103,7 +103,6 @@ jobs:
         id: build
         if: (success() || failure()) && (matrix.workspace.test || matrix.workspace.coverage)
         run: |
-          npm run build:libs
           for workspace in $PREBUILD; do
             npm run build --workspace="$workspace"
           done
@@ -165,7 +164,6 @@ jobs:
 
       - name: Build dependencies
         run: |
-          npm run build:libs
           for workspace in $PREBUILD; do
             npm run build --workspace="$workspace"
           done

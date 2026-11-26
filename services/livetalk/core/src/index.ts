@@ -320,6 +320,8 @@ export { buildNotifSK, buildNotifSKPrefix } from './mappers/keys.js';
 // Notification logic（Phase 5d / #3346）
 export {
   shouldNotifyNow,
+  computeNextEarliestAt,
+  resolveNotifyMessageSinceMs,
   extractSessionStartTimes,
   computeSessionIntervals,
   computeBaseIntervalMs,
@@ -363,6 +365,7 @@ export {
   NOTIFY_CRITICAL_CARE_THRESHOLD,
   NOTIFY_CRITICAL_EVENT_HORIZON_DAYS,
   NOTIFY_INTENSITY_WINDOW_DAYS,
+  NOTIFY_EVENT_READ_LIMIT,
   // チャット API 保護ガード（Issue #3528）
   CHAT_RATE_LIMIT_PER_MINUTE,
   CHAT_RATE_LIMIT_PER_HOUR,

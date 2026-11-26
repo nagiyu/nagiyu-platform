@@ -14,7 +14,7 @@
     "format:check": "prettier --check ."
   },
   "dependencies": {
-    "@nagiyu/aws": "*",
+    "@nagiyu/aws": "^0.1.1",
     "@nagiyu/quick-clip-core": "*"
   }
 }

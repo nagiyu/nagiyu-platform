@@ -12,7 +12,6 @@ on:
     paths:
       - 'services/dev-sync/**'
       - 'infra/dev-sync/**'
-      - 'libs/**'
       - 'infra/common/**'
       - 'infra/tsconfig.json'
       - 'configs/**'

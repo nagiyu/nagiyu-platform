@@ -124,6 +124,18 @@ describe('MemoryPage 削除エラーと一覧エラーの分離', () => {
     mockFetchSelfFacts.mockResolvedValue([sampleItem]);
   });
 
+  it('削除は id だけを渡し、characterId を渡さない', async () => {
+    render(<MemoryPage />);
+    await waitFor(() => expect(mockFetchSelfFacts).toHaveBeenCalled());
+
+    act(() => lastProps(mockMemoryList).onDelete(sampleItem));
+    await act(async () => {
+      await lastProps(mockDeleteDialog).onConfirm();
+    });
+
+    expect(mockDeleteSelfFact).toHaveBeenCalledWith('a');
+  });
+
   it('削除失敗はダイアログへ渡し、一覧エラーには出さない', async () => {
     mockDeleteSelfFact.mockRejectedValueOnce(new Error('記憶の削除に失敗しました'));
     render(<MemoryPage />);

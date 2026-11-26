@@ -8,7 +8,7 @@ sources:
   - services/share-together/core/src/libs/group.ts
   - services/share-together/web/src/lib/api/authorization.ts
 sources_hash: cddc5a54a7d0ac74a2557765a321eb9fcf707b649ce200b8577505a83dd27330
-terms: [platform/term/role]
+terms: []
 related_cards: [share-together/term/invitation, share-together/api/groups, share-together/api/group-members, share-together/screen/groups]
 related_adr:
   - services/share-together/architecture.md#2.12 共有リスト編集の権限を全承認済みメンバーに付与する
@@ -16,7 +16,7 @@ related_adr:
 
 # グループの立場 (オーナーとメンバー)
 
-グループの中での利用者の立場。グループごとに決まり、そのグループで何ができるかを分ける。プラットフォーム全体の[ロールと権限](../../platform/term/role.md)とは別のもので、Share Together はロールの権限を判定に使わない。
+グループの中での利用者の立場。グループごとに決まり、そのグループで何ができるかを分ける。プラットフォーム全体の[ロールと権限](../../../platform/specs/lib/common/roles-and-permissions.md)とは別のもので、Share Together はロールの権限を判定に使わない。
 
 ## 説明
 

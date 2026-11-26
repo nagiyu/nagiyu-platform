@@ -1,5 +1,7 @@
 export {
   shouldNotifyNow,
+  computeNextEarliestAt,
+  resolveNotifyMessageSinceMs,
   extractSessionStartTimes,
   computeSessionIntervals,
   computeBaseIntervalMs,

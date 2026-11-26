@@ -11,8 +11,5 @@
   },
   "include": ["src/**/*", "tests/**/*"],
   "exclude": ["node_modules", "dist"],
-  "references": [
-    { "path": "../core" },
-    { "path": "../../../libs/common" }
-  ]
+  "references": [{ "path": "../core" }]
 }
