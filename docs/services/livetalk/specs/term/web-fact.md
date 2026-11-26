@@ -1,0 +1,28 @@
+---
+sources:
+  - services/livetalk/core/src/entities/web-fact.entity.ts
+  - services/livetalk/core/src/study/freshness-check.ts
+  - services/livetalk/core/src/knowledge/recent-web-facts.ts
+  - services/livetalk/core/src/constants.ts
+sources_hash: 3589faae39a559310b1fef87474e8ec4e85ab91b20abee7e9ea76d41ea838496
+---
+
+# WEB fact
+
+Web リサーチで得た外部の事実。[Topic](./topic.md) の配下に 1 件ずつ持つ。
+
+## 説明
+
+揮発性の区分ごとに、再確認の期限 (nextReview) と保持件数が決まる。
+
+| 区分 | 再確認の間隔 | 保持の上限 |
+|---|---|---|
+| stable | なし (期限を持たない) | 10 件 |
+| low | 30 日 | stable 以外の合計で 20 件 |
+| medium | 7 日 | 同上 |
+| high | 1 日 | 同上 |
+
+- 上限を超えた分は、区分ごとに観測日時の古い順に消す。消すのは集約バッチ
+- 確認が要る事実は、stable 以外で、再確認の期限を過ぎたもの
+- 読む側は、観測日時の新しい順に 20 件までを使う。会話のプロンプトは 5 件、ノートは 10 件、探索の角度の生成は 5 件まで
+- 作るのは集約バッチだけ。新しい事実は、既存の事実と見比べて追加・置き換え・重複 (観測日時と期限の更新だけ) のどれかで入れる
