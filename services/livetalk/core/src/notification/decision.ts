@@ -173,6 +173,65 @@ export function countTodayNotifications(
 }
 
 /**
+ * 平常通知の間隔判定に使う値を算出する (純粋関数)。
+ * shouldNotifyNow と computeNextEarliestAt が同じ計算を共有し、判定と解除予測がずれないようにする。
+ */
+function computeIntervalState(
+  userMessages: Pick<MessageEntity, 'createdAt'>[],
+  notificationEvents: NotificationEventEntity[],
+  now: Date
+): { intensityFactor: number; effectiveIntervalMs: number; referenceTime: number } {
+  const sessionGapMs = NOTIFY_SESSION_GAP_MINUTES * 60 * 1000;
+  const sessionStarts = extractSessionStartTimes(userMessages, sessionGapMs);
+  const intervals = computeSessionIntervals(sessionStarts, NOTIFY_RECENT_SESSION_SAMPLE_N);
+
+  // 強度係数を算出して interval・cap 両方に反映 (活発ユーザーほど短間隔・高 cap)
+  const intensityFactor = computeIntensityFactor(sessionStarts, now);
+  const baseIntervalMs = computeBaseIntervalMs(intervals, intensityFactor);
+
+  // 直近の平常通知と最終会話時刻の後ろ側を基準時刻とする
+  const lastNormalEvent = notificationEvents.find((e) => e.kind === 'normal');
+  const lastNormalAt = lastNormalEvent?.createdAt ?? 0;
+  const lastInteractionAt =
+    userMessages.length > 0 ? Math.max(...userMessages.map((m) => m.createdAt)) : 0;
+  const referenceTime = Math.max(lastInteractionAt, lastNormalAt);
+
+  // missedCount = lastInteractionAt 以降に送った平常通知の件数
+  const missedCount = notificationEvents.filter(
+    (e) => e.kind === 'normal' && e.createdAt > lastInteractionAt
+  ).length;
+
+  const effectiveIntervalMs = baseIntervalMs * Math.pow(NOTIFY_BACKOFF_BASE, missedCount);
+  return { intensityFactor, effectiveIntervalMs, referenceTime };
+}
+
+/**
+ * インターバル条件が解除される最早時刻 (ms) を返す。
+ * 活動時間帯ゲート・睡眠帯は考慮しないため、あくまで「インターバル解除の目安」。
+ */
+export function computeNextEarliestAt(
+  userMessages: Pick<MessageEntity, 'createdAt'>[],
+  notificationEvents: NotificationEventEntity[],
+  now: Date
+): number {
+  const { effectiveIntervalMs, referenceTime } = computeIntervalState(
+    userMessages,
+    notificationEvents,
+    now
+  );
+  return referenceTime + effectiveIntervalMs;
+}
+
+/**
+ * 通知の判定に使う会話を読み始める時刻 (ms) を返す。
+ * 判定側が直近 NOTIFY_INTENSITY_WINDOW_DAYS 日だけを前提にしているため、
+ * 読む側が期間を変えるとセッション間隔や最終会話時刻がバッチとずれる。
+ */
+export function resolveNotifyMessageSinceMs(now: Date): number {
+  return now.getTime() - NOTIFY_INTENSITY_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+}
+
+/**
  * 平常通知の発火判定（純粋関数）。
  *
  * 判定順序:
@@ -208,27 +267,11 @@ export function shouldNotifyNow(input: NotifyDecisionInput): NotifyDecision {
 
   // --- 平常通知判定 ---
 
-  const sessionGapMs = NOTIFY_SESSION_GAP_MINUTES * 60 * 1000;
-  const sessionStarts = extractSessionStartTimes(userMessages, sessionGapMs);
-  const intervals = computeSessionIntervals(sessionStarts, NOTIFY_RECENT_SESSION_SAMPLE_N);
-
-  // 強度係数を算出して interval・cap 両方に反映（活発ユーザーほど短間隔・高 cap）
-  const intensityFactor = computeIntensityFactor(sessionStarts, now);
-  const baseIntervalMs = computeBaseIntervalMs(intervals, intensityFactor);
-
-  // 直近の平常通知と最終会話時刻の後ろ側を基準時刻とする
-  const lastNormalEvent = notificationEvents.find((e) => e.kind === 'normal');
-  const lastNormalAt = lastNormalEvent?.createdAt ?? 0;
-  const lastInteractionAt =
-    userMessages.length > 0 ? Math.max(...userMessages.map((m) => m.createdAt)) : 0;
-  const referenceTime = Math.max(lastInteractionAt, lastNormalAt);
-
-  // missedCount = lastInteractionAt 以降に送った平常通知の件数
-  const missedCount = notificationEvents.filter(
-    (e) => e.kind === 'normal' && e.createdAt > lastInteractionAt
-  ).length;
-
-  const effectiveIntervalMs = baseIntervalMs * Math.pow(NOTIFY_BACKOFF_BASE, missedCount);
+  const { intensityFactor, effectiveIntervalMs, referenceTime } = computeIntervalState(
+    userMessages,
+    notificationEvents,
+    now
+  );
   const maxMs = NOTIFY_MAX_INTERVAL_DAYS * 24 * 60 * 60 * 1000;
 
   // 3. 停止チェック

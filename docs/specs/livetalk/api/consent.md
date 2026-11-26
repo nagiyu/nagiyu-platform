@@ -9,7 +9,7 @@ sources:
   - services/livetalk/web/src/lib/server/consent.ts
   - services/livetalk/core/src/lib/consent.ts
   - services/livetalk/core/src/constants.ts
-sources_hash: 3a12b4ebe9cac3e4b4185be24a77c251619ce210ae8c9dcfaf810a78af775385
+sources_hash: a8a860b6bb19f051857fa0b581ef6f86e9ecf496ff0b95947c1a60f08c9dfad8
 terms: [livetalk/term/permission, livetalk/term/api-error, livetalk/term/consent]
 related_cards: [livetalk/screen/home, livetalk/api/chat]
 related_adr:

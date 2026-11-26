@@ -6,8 +6,10 @@ service: livetalk
 sources:
   - services/livetalk/web/src/app/api/status/route.ts
   - services/livetalk/web/src/app/api/status/constants.ts
+  - services/livetalk/web/src/lib/server/status.ts
+  - services/livetalk/core/src/constants.ts
   - services/livetalk/core/src/notification/decision.ts
-sources_hash: 48c00eac2e4e7540400b9bbb94a36c74bdc9cfc9bdfd7bff08af5c13c8f4b8ab
+sources_hash: bb017e40586307782e6b91e4627a108ee7e539ef5443a05fb5d9c943cab2a54c
 terms: [livetalk/term/permission, livetalk/term/api-error, livetalk/term/lifecycle, livetalk/term/notification-event, livetalk/term/user-activity-profile, livetalk/term/character]
 related_cards: [livetalk/screen/status, livetalk/batch/notify]
 related_adr:
@@ -37,7 +39,8 @@ related_adr:
 | `studyTopicPendingCount` | 勉強の待ちの件数 |
 
 - 判定と `recentNotifications` は、表示キャラクターの通知の記録だけを使う。通知の記録は利用者の直近 60 件 (通知バッチと同じ件数) を読み、そこから表示キャラクターのものに絞る。他のキャラクターの通知は、1 日の上限・無視の回数・基準時刻にも一覧にも効かない
-- 判定は[通知バッチ](../batch/notify.md)の平常通知の判定と同じ関数を使う。重要通知の判定 (話題の指定) と、複数のキャラクターの調停は含まない
+- 判定に使う会話は、通知バッチと同じ直近 7 日の分だけを読む。7 日より前の発話は、セッションの間隔にも最後の発話の時刻にも入らない
+- 判定と間隔が解ける目安の時刻は、[通知バッチ](../batch/notify.md)の平常通知の判定と同じ関数で求める。画面とこの API は、読み取りと判定を同じ処理で行う。重要通知の判定 (話題の指定) と、複数のキャラクターの調停は含まない
 
 ## エラー
 
