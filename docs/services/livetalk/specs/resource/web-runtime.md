@@ -124,7 +124,7 @@ Next.js の Web と VOICEVOX を 1 つのタスクに同居させて動かす EC
 | `VAPID_PUBLIC_KEY`、`VAPID_PRIVATE_KEY` | [シークレット](./secrets.md)の VAPID キー (JSON の `publicKey` と `privateKey`) |
 
 - `AUTH_URL` を渡すのは、渡さないと NextAuth がコンテナの内部ホスト名を使い、ログインとセッション検証のリダイレクトが名前解決に失敗するため
-- 時刻と日付の判定は、コードが日本時間を明示して求める。`TZ` には頼らない
+- `TZ` に頼らない時刻の判定は[バッチの実行環境](./batch-runtime.md)の「理由」にある
 
 ## 権限
 
@@ -138,7 +138,7 @@ Next.js の Web と VOICEVOX を 1 つのタスクに同居させて動かす EC
 | タスクロール | [エラーイベントのテーブル](../../../../platform/specs/data/error-events.md) | `dynamodb:PutItem` (`grantErrorEventsWrite`) |
 
 - シークレットを読むのはタスク実行ロールで、タスクロールは Secrets Manager を読まない。`secrets` を取り出すのは、コンテナを起動する ECS のエージェントだから
-- テーブルのインデックスを読む権限は、テーブルを `fromTableAttributes` に `globalIndexes` を付けて取り込むことで付く。`fromTableArn` で取り込むと付かず、インデックスの Query が `AccessDenied` になる
+- テーブルのインデックスを読む権限の付け方は、[テーブル](../data/main-table.md)の「手順」にある
 
 ## 理由
 
@@ -152,16 +152,27 @@ Next.js の Web と VOICEVOX を 1 つのタスクに同居させて動かす EC
     - dev は 1,024 / 2,048。実測のピークは CPU 289 units (2,048 の 14.1%)、メモリ 422 MB (4,096 MB の 10.3%) で、この割当にも余裕がある
 - 起動の時間を決めるのは、VOICEVOX のモデルのロードではなく、イメージの pull である。実測 (prod のタスク) では、起動の 81.6 秒の内訳は、イメージの pull が 37.5 秒、ヘルスチェックのポーリングの待ち、`livetalk-web` の起動である。VOICEVOX のエンジンは、既定で全話者のモデルをロードせず、話者ごとに遅れてロードするので、短い時間で HTTP に応答でき、メモリのピークが 690 MB に収まっていることとも合う。起動を短くするには、`startPeriod` ではなく pull の時間が効く
 - dev は Fargate Spot で費用を抑える。中断されても、サービスが自動でタスクを立て直す。prod は、利用中の中断を避けるため、オンデマンドにする
-- ALB のアイドルタイムアウトを 120 秒にする。LLM の応答をストリーミングで返すので、応答の間に長い無通信の時間が生じうる
-- ALB はサービスごとに持つ。クラスターは費用がかからず共有の副作用もないので、共有する ([共有 ECS クラスター](../../../../platform/specs/resource/ecs-cluster.md))。ALB は、アイドルタイムアウトや TLS をサービスごとに調整できるほうがよく、LiveTalk の LLM のストリーミングには長いアイドルタイムアウトが要る。ターゲットグループ・リスナー・タスク定義・サービスも、サービスごとに持つ
+- ALB のアイドルタイムアウトを 120 秒にする。LLM の応答をストリーミングで返すので、応答の間に長い無通信の時間が生じうる。ただし、前段の CloudFront のオリジンの読み取りのタイムアウトは 60 秒で ([アセットの配信](./assets.md))、CloudFront を経由する通信の実効の上限は 60 秒である
+- クラスターを共有し、ALB などをサービスごとに持つ理由は[共有 ECS クラスター](../../../../platform/specs/resource/ecs-cluster.md)にある。LiveTalk では、LLM のストリーミングに長いアイドルタイムアウトが要るので、専用の ALB で調整できる
 - `NODE_ENV` には、`development` ではなく環境名 (`dev` / `prod`) を渡す。共通ライブラリのクッキー名の接尾辞とドメインの範囲を、Auth が発行するクッキーとそろえるため
 - `LIVETALK_ENV` と `NAGIYU_ENV` を別に持つのは、`next start` が `NODE_ENV` を `production` に上書きし、デプロイしたあとの dev と prod の判定に使えないため
-- `AUTH_SECRET`・OpenAI API キー・VAPID キーは、`environment` ではなく `secrets` で渡す。`environment` に平文を入れると、CloudFormation のテンプレートとタスク定義に値が残り、`aws ecs describe-task-definition` で読め、タスク定義のリビジョンのたびに複製される。`secrets` なら、タスク定義には ARN の参照だけが残る。シークレットは、このスタックでは作らず、名前で取り込む (作ると、入れた値を上書きしてしまう)
+- `AUTH_SECRET`・OpenAI API キー・VAPID キーは、`environment` ではなく `secrets` で渡す。`environment` に平文を入れると、CloudFormation のテンプレートとタスク定義に値が残り、`aws ecs describe-task-definition` で読め、タスク定義のリビジョンのたびに複製される。`secrets` なら、タスク定義には ARN の参照だけが残る。シークレットを作る側は[シークレット](./secrets.md)にある
 
 ## 手順
 
 ### VOICEVOX の版を上げる
 
-1. `infra/livetalk/lib/ecs-service-stack.ts` の `voicevox` のイメージを、新しい版のタグと digest に差し替える。タグだけを変えない (digest が変わらないと、新しい版は使われない)
-2. dev にデプロイし、`voicevox` のヘルスチェックが通って、タスクが `HEALTHY` で安定するのを確かめる
-3. 確かめてから、prod へ進める
+1. 作業ブランチで、`infra/livetalk/lib/ecs-service-stack.ts` の `voicevox` のイメージを、新しい版のタグと digest に差し替える。タグだけを変えない (digest が変わらないと、新しい版は使われない)
+2. dev に出す。資材が dev に出て、dev で確かめる必要がある変更なので、`integration/**` を切って、そこへ PR を出す ([ブランチの規約](../../../../platform/rules/branching.md))。マージすると、[デプロイ](../deploy.md)のワークフローが dev へデプロイする
+3. dev で、ワークフローが成功し、タスクの `voicevox` が `HEALTHY` になることを確かめる
+
+    ```bash
+    TASK=$(aws ecs list-tasks --cluster nagiyu-shared-cluster-dev \
+        --service-name nagiyu-livetalk-service-dev --query 'taskArns[0]' --output text \
+        --region us-east-1 --profile nagiyu-dev)
+    aws ecs describe-tasks --cluster nagiyu-shared-cluster-dev --tasks "$TASK" \
+        --query 'tasks[0].containers[].[name,healthStatus]' --output text \
+        --region us-east-1 --profile nagiyu-dev
+    ```
+
+4. prod へは、integration を develop に入れ、リリースの流れ (develop から `release/vX.Y.Z` を切り、master へ入れる。[ブランチの規約](../../../../platform/rules/branching.md)の「リリース」) で出す。master への push で prod にデプロイされる ([デプロイ先](../deploy.md))

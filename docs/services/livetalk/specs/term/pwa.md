@@ -7,7 +7,8 @@ sources:
   - services/livetalk/web/src/components/InstallGuide.tsx
   - services/livetalk/web/src/lib/pwa/standalone.ts
   - services/livetalk/web/src/lib/home/useOnboarding.ts
-sources_hash: 8f0f2e977902d0e0b8f1cabacc4a346eeb689add84a877e2b771183342b63dcc
+  - services/livetalk/web/src/components/NotificationPermission.tsx
+sources_hash: c17d1e15b0ecaffe80be25f41ae047698badcd3c0c60c63569c87315a9b12179
 ---
 
 # PWA

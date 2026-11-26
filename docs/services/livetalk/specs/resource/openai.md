@@ -83,7 +83,7 @@ LiveTalk が OpenAI の API をどう使うか。会話・要約・分類・Web 
 
 ## 音声合成
 
-OpenAI の音声を使うキャラクターは、Realtime API (WebSocket) で合成する。VOICEVOX を使うキャラクターとは、`voice.provider` で振り分ける ([Web の実行環境](./web-runtime.md))。
+OpenAI の音声を使うキャラクターは、Realtime API (WebSocket) で合成する。VOICEVOX を使うキャラクターとは、`voice.provider` で振り分ける (`services/livetalk/web/src/lib/server/voice.ts`)。
 
 - 1 回の合成ごとに接続し、読み上げ専用の応答を 1 件だけ生成させ、24 kHz・16 bit・モノラルの PCM を集めて WAV にして返す。接続は、成功・失敗・タイムアウトのどれでも閉じる
 - 読み上げ専用の指示 (入力を一字一句そのまま読み、返答や相槌を付けない) に、キャラクターごとの話し方の指示を足す

@@ -63,6 +63,12 @@ Web の公開の入口になる CloudFront のディストリビューション�
 | HTTP のバージョン | HTTP/2 と HTTP/3 |
 | IPv6 | 有効 |
 | ビューアーの最小 TLS | 1.2 (`TLS_V1_2_2021`) |
+
+レスポンスヘッダーポリシー `nagiyu-livetalk-security-headers-{env}` の設定。両方のビヘイビアに付く。
+
+| 項目 | 値 |
+|---|---|
+| セキュリティヘッダー | 有効 |
 | noindex | 有効 |
 
 - ALB の DNS 名は、SSM の `/nagiyu/livetalk/{env}/alb/dns-name` から読む ([Web の実行環境](./web-runtime.md))。そのため、CloudFront のスタックは ALB のスタックの後にデプロイされる
@@ -86,13 +92,14 @@ Web の公開の入口になる CloudFront のディストリビューション�
 | コードの中のパス | バケットのキー | 使う場所 |
 |---|---|---|
 | `/assets/cubism-core/live2dcubismcore.min.js` | `cubism-core/live2dcubismcore.min.js` | 全画面の共通で読み込む Cubism Core |
-| `/assets/characters/hiyori/runtime/hiyori_free_t08.model3.json` | `characters/hiyori/runtime/hiyori_free_t08.model3.json` | 桃瀬ひよりの Live2D のモデル |
+| `/assets/characters/hiyori/runtime/` の下の一式 (入口は `hiyori_free_t08.model3.json`) | `characters/hiyori/runtime/` の下の一式 | 桃瀬ひよりの Live2D のモデル |
 | `/assets/characters/ageha/sprite/base.png` | `characters/ageha/sprite/base.png` | 早瀬アゲハのベース画像 |
 | `/assets/characters/ageha/sprite/eye-open.png`、`eye-closed.png` | `characters/ageha/sprite/eye-open.png`、`eye-closed.png` | 開いた目、閉じた目 |
 | `/assets/characters/ageha/sprite/mouth-open.png`、`mouth-closed.png` | `characters/ageha/sprite/mouth-open.png`、`mouth-closed.png` | 開いた口、閉じた口 |
 
+- Live2D のモデルは、`model3.json` が、同じディレクトリの moc3・テクスチャ・モーションなどを相対パスで参照する ([Live2D の形式](https://docs.live2d.com/en/cubism-sdk-manual/model-settings-model3-json/))。そのため、`model3.json` だけでなく、`runtime/` のディレクトリを、構成を保ったまま丸ごと置く
 - パスは、`client-profiles.ts` のキャラクターの登録と、`layout.tsx` の Cubism Core の読み込みが決める。キャラクターを足すときは、そのパスに合わせてバケットに置く
-- `/assets/*` は `CACHING_OPTIMIZED` でキャッシュされる。同じキーのファイルを置き換えるときは、CloudFront のキャッシュに古いものが残りうる
+- `/assets/*` は `CACHING_OPTIMIZED` でキャッシュされる。同じキーのファイルを置き換えるときは、CloudFront のキャッシュに古いものが残りうるので、置き換えたあとに無効化する (下の「手順」)
 
 ## 理由
 
@@ -108,8 +115,26 @@ Web の公開の入口になる CloudFront のディストリビューション�
 新しい環境や、新しいキャラクターのときは、上の「置くもの」のキーに合わせて、環境のバケット (`nagiyu-livetalk-assets-{env}`) にファイルを置く。置くためのコードやワークフローは、出典にない。以下は、キーに合わせて `aws s3 cp` で置く例である。
 
 ```bash
+# 1 ファイル
 aws s3 cp <ローカルのファイル> s3://nagiyu-livetalk-assets-{env}/<バケットのキー> \
     --region us-east-1 --profile nagiyu-{env}
+
+# ディレクトリ一式 (Live2D のモデルなど)
+aws s3 cp <ローカルのディレクトリ> s3://nagiyu-livetalk-assets-{env}/characters/hiyori/runtime/ \
+    --recursive --region us-east-1 --profile nagiyu-{env}
 ```
 
 置いたあとは、`https://<ホスト名>/assets/<バケットのキー>` が 200 で返ることを確かめる (ホスト名は[デプロイ先](../deploy.md))。
+
+### 置き換えたあとにキャッシュを無効化する
+
+既に置いてあるキーを置き換えたときは、CloudFront のキャッシュを無効化する。ディストリビューションの ID は、SSM の `/nagiyu/livetalk/{env}/cloudfront/distribution-id` にある。
+
+```bash
+DIST_ID=$(aws ssm get-parameter --name /nagiyu/livetalk/{env}/cloudfront/distribution-id \
+    --query Parameter.Value --output text --region us-east-1 --profile nagiyu-{env})
+aws cloudfront create-invalidation --distribution-id "$DIST_ID" \
+    --paths "/assets/<バケットのキー>" --profile nagiyu-{env}
+```
+
+ディレクトリ一式を置き換えたときは、`--paths "/assets/characters/hiyori/runtime/*"` のように `*` で指す。

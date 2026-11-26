@@ -74,4 +74,4 @@ flowchart TD
 
 ## 理由
 
-- リージョンを `us-east-1` に固定する。CloudFront で使う ACM の証明書は `us-east-1` に作る必要があり、CloudFront と組み合わせるリソース (Lambda@Edge など) も `us-east-1` を要するため。サービスのスタックを同じリージョンにそろえる
+- リージョンを `us-east-1` に固定する。CloudFront の証明書が `us-east-1` にあり ([DNS と証明書](../../../platform/specs/resource/dns-certificate.md))、CloudFront のスタックをそのリージョンに作る必要があるため。サービスのほかのスタックも、同じリージョンにそろえる

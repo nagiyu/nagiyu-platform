@@ -73,11 +73,17 @@ AWS CLI は、環境ごとに `--profile nagiyu-dev` か `--profile nagiyu-prod`
 | 環境 | `--ref` | 理由 |
 |---|---|---|
 | prod | `master` | 既定の `develop` から流すと、`develop` のまだリリースしていない資材が本番に出るため |
-| dev | 今 dev に載っている資材のブランチ (dev へ最後にデプロイした run のブランチ) | 既定の `develop` から流すと、`integration/**` の版が載っているときに、その版を上書きするため |
+| dev | 今 dev に載っている資材のブランチ (dev へ最後にデプロイした run のブランチ。調べ方は下) | 既定の `develop` から流すと、`integration/**` の版が載っているときに、その版を上書きするため |
 
 ```bash
 gh workflow run livetalk-deploy.yml --ref master -f environment=prod
 gh workflow run livetalk-deploy.yml --ref <dev に載っているブランチ> -f environment=dev
+```
+
+dev に載っているブランチは、このワークフローの直近の run から調べる。`headBranch` が、最後にデプロイした run のブランチである。
+
+```bash
+gh run list --workflow livetalk-deploy.yml --limit 5 --json headBranch,event,conclusion,createdAt
 ```
 
 このワークフローは、デプロイのたびに ECS のサービスも強制的に再デプロイする ([デプロイ先](../deploy.md))。そのため、再デプロイは Web とバッチの両方に値を届ける。

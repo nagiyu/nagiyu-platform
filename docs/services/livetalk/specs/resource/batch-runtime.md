@@ -25,7 +25,7 @@ sources_hash: ca59657b36d2894461d3c6a16a21cea2d8795e695e5aa2017df9df90b14a7d45
 
 | 項目 | 値 |
 |---|---|
-| メモリ | 512 MB (共通部品の既定のまま) |
+| メモリ | 512 MB (4 つとも明示する。値は共通部品の既定と同じ) |
 | タイムアウト | 15 分 (Lambda の上限) |
 | 起動するハンドラー | `services/livetalk/batch/dist/src/handlers/{learn-user-activity,notify,consolidate-conversations,acquire}.handler` |
 | ロググループ | 4 つとも新しく作らず、既存のものを引き継ぐ (`adoptExistingLogGroup`。[Lambda 関数の共通部品](../../../../platform/specs/resource/lambda-function.md)の「ロググループ」) |
@@ -76,7 +76,6 @@ EventBridge のルールのターゲットと、Lambda の関数のどちらに�
 
 - 活動時間学習は、OpenAI の API キーも VAPID キーも持たない
 - 実行中の Lambda は Secrets Manager を読まない。値を変えたときの反映は[シークレット](./secrets.md)にある
-- 時刻と日付の判定は、コードが日本時間を明示して求める。`TZ` には頼らない
 
 ## 権限
 
@@ -89,7 +88,7 @@ EventBridge のルールのターゲットと、Lambda の関数のどちらに�
 
 - ロールは、バッチごとに別々に作る。同じ権限だが、DLQ は自分のキューにだけ送れる
 - どのロールも Secrets Manager を読まない。OpenAI API キーと VAPID キーは、デプロイのときに環境変数として渡す
-- テーブルのインデックスを読む権限は、テーブルを `fromTableAttributes` に `globalIndexes` を付けて取り込むことで付く。`fromTableArn` で取り込むと付かず、インデックスの Query が `AccessDenied` になる
+- テーブルのインデックスを読む権限の付け方は、[テーブル](../data/main-table.md)の「手順」にある
 
 ## 理由
 

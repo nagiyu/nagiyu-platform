@@ -60,7 +60,7 @@ flowchart TD
 - キャラクターごとの失敗は、他のキャラクターを続けながらログに残し、その利用者を失敗として数える
 - 失敗した利用者がいても Lambda は失敗にしない
 - Lambda 全体が例外で終わったときは、Admin にエラーとして届く ([エラー通知の経路](../../../admin/specs/flow/error-notification.md))
-- EventBridge のルールから非同期に呼ばれるので、関数が例外で終わると、Lambda の既定の再試行 (2 回) で最大 3 回実行される。キャラクターや利用者ごとの失敗では例外を投げないので、再試行されるのは全体が例外で終わったときだけである。再試行を使い切った呼び出しの送り先 (DLQ) と、その監視は[バッチの実行環境](../resource/batch-runtime.md)と[監視](../resource/monitoring.md)にある
+- キャラクターや利用者ごとの失敗では例外を投げないので、Lambda の再試行が働くのは全体が例外で終わったときだけである。再試行と DLQ は[バッチの実行環境](../resource/batch-runtime.md)、監視は[監視](../resource/monitoring.md)にある
 
 ## つながり
 

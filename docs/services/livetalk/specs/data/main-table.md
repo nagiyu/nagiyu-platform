@@ -91,7 +91,7 @@ LiveTalk のデータをすべて保存する DynamoDB の 1 つのテーブル�
 - 話題の束の外に置くもの (`NOTESKIP`、`EXPLORE`、`FRESHCHECK`) がある。束の `begins_with` に混ざらないようにするため
 - `STUDYUSAGE` の日は日本時間の暦日。キャラクター別の回数 (`Count#{c}`) と、利用者の合計 (`Count#total`) を、1 つの項目の属性に持つ
 - `RATELIMIT` の窓の番号は、`1m` ならエポック分、`1h` ならエポック時 (`Count` を数える)
-- 退会したあとの SafetyEvent は、`PK` が `USER#ANON#{ULID}` に付け替わる ([アカウント API](../api/account.md))
+- 退会したあとの SafetyEvent は、`UserID` が `ANON#{ULID}` に置き換わり、`PK` が `USER#ANON#{ULID}` に付け替わる ([アカウント API](../api/account.md))
 
 ### インデックス
 
@@ -131,7 +131,7 @@ LiveTalk のデータをすべて保存する DynamoDB の 1 つのテーブル�
 | 項目 | 型 | 意味 |
 |---|---|---|
 | `CreatedAt` | 数値 | 作った日時 |
-| `UpdatedAt` | 数値 | 書き込みのたびに更新する日時。SelfFact・WebFact・WebRaw、回数とロックは持たない |
+| `UpdatedAt` | 数値 | 書き込みのたびに更新する日時。mapper が書かない種類にも、store が必ず `UpdatedAt` を足す ([EntityStore](../../../../platform/specs/lib/aws/entity-store.md))。持たないのは、回数 (`StudyUsage`、`ChatRateLimit`) とロックだけ |
 | `TTL` | 数値 | 有効期限 (エポック秒)。持つ種類は下の表 |
 
 ### 種類ごとの属性
@@ -174,7 +174,7 @@ LiveTalk のデータをすべて保存する DynamoDB の 1 つのテーブル�
 
 - 上にない種類 (プロフィール、キャラクターの状態、lifecycle、Topic の束、ノート、ノートの見送りの記録、探索の記録、集約のカーソル、Push の購読) は、有効期限を持たず、恒久である
 - DynamoDB の TTL による削除は、期限から遅れることがある。ロックの失効は、`ExpiresAt` で判定し、TTL の削除には頼らない
-- 退会のときは、`PK` の配下をすべて削除する。ただし SafetyEvent だけは、匿名の持ち主 (`USER#ANON#{ULID}`、`UserID` も同じ匿名の値) に付け替えて残す。付け替えても `GSI2` には載り続け、期限も引き継ぐ ([アカウント API](../api/account.md))
+- 退会のときは、`PK` の配下をすべて削除する。ただし SafetyEvent だけは、匿名の持ち主に付け替えて残す。`UserID` を `ANON#{ULID}` に置き換え、`PK` を `USER#ANON#{ULID}` に移す。付け替えても `GSI2` には載り続け、期限も引き継ぐ ([アカウント API](../api/account.md))
 
 ## 理由
 
@@ -192,7 +192,7 @@ LiveTalk のデータをすべて保存する DynamoDB の 1 つのテーブル�
 インデックスを足しても、そのインデックスを Query するロールは、すぐには使えない。次の 3 つを、1 つの変更で一緒に直す。
 
 1. `infra/livetalk/lib/dynamodb-stack.ts` に、インデックスを足す
-2. そのインデックスを Query する各ロールのテーブルの取り込みを、`Table.fromTableAttributes` に `globalIndexes` を付けた形にする。`fromTableArn` だけだと、権限に `table/.../index/*` が含まれず、`dynamodb:Query` が `AccessDenied` になる。取り込む場所は、[Web の実行環境](../resource/web-runtime.md) (`infra/livetalk/lib/ecs-service-stack.ts`) と[バッチの実行環境](../resource/batch-runtime.md) (`infra/livetalk/lib/batch-stack.ts`) のスタック
+2. そのインデックスを Query する各ロールのテーブルの取り込みを、`Table.fromTableAttributes` に `globalIndexes` を付けた形にする。`fromTableArn` だけだと、権限に `table/.../index/*` が含まれず、`dynamodb:Query` が `AccessDenied` になる。権限は、テーブルを取り込むロールごとに付くので、取り込む場所を漏らさない。取り込む場所は、[Web の実行環境](../resource/web-runtime.md) (`infra/livetalk/lib/ecs-service-stack.ts`) と[バッチの実行環境](../resource/batch-runtime.md) (`infra/livetalk/lib/batch-stack.ts`) のスタック
 3. Query の実装と、`services/livetalk/core/src/mappers/keys.ts` のインデックス名と射影の定数を、足す
 
 - 射影の定数 (`PROFILE_GSI_PROJECTION`、`SAFETY_EVENT_GSI_PROJECTION`、`TOPIC_GSI_PROJECTION`) は、インメモリの実装が実際の射影の欠落を再現するために使う。テーブル定義と食い違うと、`services/livetalk/core/tests/contract/table-schema-drift.test.ts` が検知する。インデックスを足す・変えるときは、このテストも合わせて直す

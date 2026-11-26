@@ -65,13 +65,14 @@ LiveTalk のインフラの障害を知らせる CloudWatch のアラーム 9 �
 | `LiveTalk/Batch` | `CompressedMessageCount` | Count | その回に集約したメッセージの数 |
 | `LiveTalk/Batch` | `BatchLatency` | Milliseconds | その組の集約の時間 |
 
-- `PromptTotalTokens` と `CompressedMessageCount` は、いつも出る。ほかは、計測できたときだけ出る
+- `PromptTotalTokens` は、チャットのたびに出る。ほかのチャットのメトリクスは、計測できたときだけ出る
+- `LiveTalk/Batch` は、集約を実行した組だけに出る。未集約のデータがなくてスキップした組と、カーソルの保存に失敗して例外で終わった組には出ない
 - 同じ計測は、構造化ログ (`[chat-observability]`、`[batch-observability]`) にも出る。ログには、利用者 ID とキャラクター ID、トークン数・時間・件数・DynamoDB の消費 RCU だけが入る
 - DynamoDB の消費 RCU は、ログにだけ出て、EMF のメトリクスにはならない
 
 ## 理由
 
-- 障害の通知は、LiveTalk で配信を作らず、Admin の共通の基盤に乗せる。通知先は Admin の本流のトピックで、そこから、エラー履歴への書き込み、Web Push の経路に流れる。通知が二重になったり、独自の配信ができたりしない。Admin 自身の障害の監視に使う自己監視のトピックは、用途が違うので使わない
+- 障害の通知は、LiveTalk で配信を作らず、Admin の共通の基盤に乗せる。通知先は Admin の本流のトピックで、そこから、エラー履歴への書き込み、Web Push の経路に流れる。これにより、通知が二重にならず、LiveTalk だけの配信の仕組みも要らない。Admin 自身の障害の監視に使う自己監視のトピックは、用途が違うので使わない
 - アラームのしきい値は、保守的に低く、1 件で鳴るようにする。誤検知よりも、見逃しを嫌う
 - DLQ の滞留を知らせるのは、DLQ のメッセージの保持が 7 日で、バッチが落ち続けても、証拠が 7 日で消えるのを避けるため
 - アプリの計測は、画面を作らず、CloudWatch で観測する
@@ -79,4 +80,4 @@ LiveTalk のインフラの障害を知らせる CloudWatch のアラーム 9 �
 - 計測に、会話の本文 (個人情報になりうる) を入れない。入れるのは、トークン数・時間・件数だけにする
 - EMF は、`console.log` でトップレベルに `_aws` キーを持つ JSON を直接出す。ログから CloudWatch がメトリクスを作るので、ECS・Lambda のどちらでも、追加の権限やインフラを変えずに済む
 - メトリクスの環境の識別に、`NODE_ENV` ではなく `LIVETALK_ENV` を使う。`next start` が `NODE_ENV` を `production` に上書きするため、dev と prod を区別できない
-- `LLMTotalLatency` と `TTSTotalLatency` は、必ずセットで出す。音声合成が LLM の応答の時間の裏に隠れているか、はみ出しているかを、この 2 つの大小で判定するため
+- `LLMTotalLatency` と `TTSTotalLatency` は、音声合成が LLM の応答の時間の裏に隠れているか、はみ出しているかを、2 つの大小で判定するために、別々に出す。音声の合成が 0 ミリ秒のとき (音声を合成しなかったとき) は、`TTSTotalLatency` を出さず、`LLMTotalLatency` だけが出る

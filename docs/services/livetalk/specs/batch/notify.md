@@ -113,7 +113,7 @@ flowchart TD
 - 利用者ごとの失敗は、ログに残して次の利用者へ進む。失敗した利用者がいても Lambda は失敗にしない
 - LLM の判定に失敗した Topic は、緊急ではないものとして次へ進む
 - Lambda 全体が例外で終わったときは、Admin にエラーとして届く ([エラー通知の経路](../../../admin/specs/flow/error-notification.md))
-- EventBridge のルールから非同期に呼ばれるので、関数が例外で終わると、Lambda の既定の再試行 (2 回) で最大 3 回実行される。利用者ごとの失敗では例外を投げないので、再試行されるのは全体が例外で終わったときだけである。再試行を使い切った呼び出しの送り先 (DLQ) と、その監視は[バッチの実行環境](../resource/batch-runtime.md)と[監視](../resource/monitoring.md)にある
+- 利用者ごとの失敗では例外を投げないので、Lambda の再試行が働くのは全体が例外で終わったときだけである。再試行と DLQ は[バッチの実行環境](../resource/batch-runtime.md)、監視は[監視](../resource/monitoring.md)にある
 
 ## つながり
 
