@@ -16,7 +16,7 @@ sources:
   - services/livetalk/core/src/lifecycle/state-resolver.ts
   - services/livetalk/core/src/constants.ts
   - libs/aws/src/dynamodb/counter/try-increment-in-order.ts
-sources_hash: b68802ca20a0442e5453ba8b82cd9b3549708f0b127ed05a0b52cdf02646a0db
+sources_hash: da1d22d6b8c600772817cfbf089958fadf914d5df69dae5952bdee01bc86b019
 terms: [livetalk/term/care, livetalk/term/topic, livetalk/term/web-fact, livetalk/term/webraw, livetalk/term/lifecycle, livetalk/term/user-activity-profile, livetalk/term/study-pause, livetalk/term/study-topic, livetalk/term/freshness-check-request, livetalk/term/exploration]
 related_cards: [admin/flow/error-notification, livetalk/batch/consolidate-conversations, livetalk/batch/notify, livetalk/flow/conversation]
 related_adr:
@@ -117,6 +117,7 @@ flowchart TD
 - 枠は検索の直前に 1 回分ずつ数え、失敗しても戻さない。枠を使い切ったら、その組はその回の残りの検索を止める
 - 枠はキャラクターあたり → 利用者 1 人あたり → 全利用者の合計の順に数える。あとの枠で断られたら、通った前の枠を 1 回ずつ戻す。戻せなければ、その枠を 1 回多く数えたまま続け、報告する (warning、題名は「勉強回数を戻せませんでした (1 回分多く数えたまま)」)
 - 回数の記録に失敗したときも、上限を守れないので勉強を止める
+- 全利用者の合計の枠で断られたら、その回の勉強を打ち切る。その利用者の残りのキャラクターと、残りの利用者は勉強もカウンタも触らない。打ち切った残りの利用者はスキップした利用者 (`skippedUsers`) に数え、区分ごとの人数には入れない。結果の `globalLimitReached` を true にし、warn のログ「全体の勉強の上限に達したため、この回の勉強を打ち切りました」を出す
 
 ## 失敗したとき
 
