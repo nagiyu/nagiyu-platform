@@ -1,8 +1,4 @@
 ---
-id: portal/screen/home
-title: ホーム画面
-kind: screen
-service: portal
 sources:
   - services/portal/web/src/app/page.tsx
   - services/portal/web/src/components/HomeHeroSection.tsx
@@ -14,11 +10,6 @@ sources:
   - services/portal/web/src/lib/author.ts
   - services/portal/web/src/lib/jsonLd.ts
 sources_hash: 637a10fbba1e98bd266fdab53871386f177c672592d723a7c77e58118149022b
-terms: [portal/term/article, portal/term/featured, portal/term/tag]
-related_cards: [portal/screen/tech, portal/screen/tech-article, portal/screen/about, portal/flow/article-publishing]
-related_adr:
-  - services/portal/external-design.md#SCR-001: トップページ
-  - services/portal/architecture.md#ADR-004: 技術メディアへの単一目的化（サービスハブの撤去）を採択した理由
 ---
 
 # ホーム画面
@@ -85,7 +76,7 @@ Portal の全画面は、同じヘッダーとフッターの内側に描かれ�
 
 | スマホ | PC |
 |---|---|
-| ![ホーム画面 通常表示 (スマホ)](../../../images/specs/portal/screen/home-default-mobile.png) | ![ホーム画面 通常表示 (PC)](../../../images/specs/portal/screen/home-default-desktop.png) |
+| ![ホーム画面 通常表示 (スマホ)](../../../../images/specs/portal/screen/home-default-mobile.png) | ![ホーム画面 通常表示 (PC)](../../../../images/specs/portal/screen/home-default-desktop.png) |
 
 ### 特集記事
 
@@ -93,7 +84,7 @@ Portal の全画面は、同じヘッダーとフッターの内側に描かれ�
 
 | スマホ | PC |
 |---|---|
-| ![ホーム画面 特集記事 (スマホ)](../../../images/specs/portal/screen/home-featured-mobile.png) | ![ホーム画面 特集記事 (PC)](../../../images/specs/portal/screen/home-featured-desktop.png) |
+| ![ホーム画面 特集記事 (スマホ)](../../../../images/specs/portal/screen/home-featured-mobile.png) | ![ホーム画面 特集記事 (PC)](../../../../images/specs/portal/screen/home-featured-desktop.png) |
 
 ### 最新の技術記事
 
@@ -101,7 +92,7 @@ Portal の全画面は、同じヘッダーとフッターの内側に描かれ�
 
 | スマホ | PC |
 |---|---|
-| ![ホーム画面 最新の技術記事 (スマホ)](../../../images/specs/portal/screen/home-latest-mobile.png) | ![ホーム画面 最新の技術記事 (PC)](../../../images/specs/portal/screen/home-latest-desktop.png) |
+| ![ホーム画面 最新の技術記事 (スマホ)](../../../../images/specs/portal/screen/home-latest-mobile.png) | ![ホーム画面 最新の技術記事 (PC)](../../../../images/specs/portal/screen/home-latest-desktop.png) |
 
 ## つながり
 

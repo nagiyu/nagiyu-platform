@@ -1,13 +1,8 @@
 ---
-id: portal/term/article
-title: 記事
-kind: term
-service: portal
 sources:
   - services/portal/web/src/types/content.ts
   - services/portal/web/src/lib/content.ts
 sources_hash: 1ee815696d72c25a1945004148dd19a91ae534d59f8b8121059ec8470263d201
-related_cards: [portal/flow/article-publishing, portal/screen/tech-article]
 ---
 
 # 記事

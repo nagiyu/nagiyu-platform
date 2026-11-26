@@ -1,8 +1,4 @@
 ---
-id: portal/screen/tech
-title: 技術記事一覧画面
-kind: screen
-service: portal
 sources:
   - services/portal/web/src/app/tech/page.tsx
   - services/portal/web/src/components/ArticleCardLink.tsx
@@ -11,11 +7,6 @@ sources:
   - services/portal/web/src/lib/redirects.ts
   - services/portal/web/next.config.ts
 sources_hash: 89f876874d2026a272f9de55344789292b0947b968b6466a35645a52db91fb0a
-terms: [portal/term/article, portal/term/tag, portal/term/category]
-related_cards: [portal/screen/home, portal/screen/tech-article, portal/flow/article-publishing]
-related_adr:
-  - services/portal/external-design.md#1.1 画面一覧
-  - services/portal/architecture.md#ADR-004: 技術メディアへの単一目的化（サービスハブの撤去）を採択した理由
 ---
 
 # 技術記事一覧画面
@@ -64,7 +55,7 @@ related_adr:
 
 | スマホ | PC |
 |---|---|
-| ![技術記事一覧画面 通常表示 (スマホ)](../../../images/specs/portal/screen/tech-default-mobile.png) | ![技術記事一覧画面 通常表示 (PC)](../../../images/specs/portal/screen/tech-default-desktop.png) |
+| ![技術記事一覧画面 通常表示 (スマホ)](../../../../images/specs/portal/screen/tech-default-mobile.png) | ![技術記事一覧画面 通常表示 (PC)](../../../../images/specs/portal/screen/tech-default-desktop.png) |
 
 ## つながり
 

@@ -1,14 +1,7 @@
 ---
-id: portal/api/robots
-title: robots.txt
-kind: api
-service: portal
 sources:
   - services/portal/web/src/app/robots.ts
 sources_hash: 758d0a1c7223e8a2960afe18b5335611b17df53d52d7a2b168db2309c5081837
-related_cards: [portal/api/sitemap]
-related_adr:
-  - services/portal/requirements.md#3.5 SEO・クローラビリティ要件
 ---
 
 # robots.txt

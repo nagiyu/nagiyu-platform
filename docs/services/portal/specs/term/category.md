@@ -1,18 +1,10 @@
 ---
-id: portal/term/category
-title: カテゴリ
-kind: term
-service: portal
 sources:
   - services/portal/web/src/lib/content.ts
   - services/portal/web/src/app/tech/page.tsx
   - services/portal/web/src/app/tech/[slug]/page.tsx
   - services/portal/web/src/lib/redirects.ts
 sources_hash: 4df32798070beff61fc535c7e718a42ff23a40f638df2c5695a2b39aefd3b2c1
-terms: [portal/term/article]
-related_cards: [portal/screen/tech, portal/screen/tech-article, portal/flow/article-publishing]
-related_adr:
-  - services/portal/architecture.md#ADR-004: 技術メディアへの単一目的化（サービスハブの撤去）を採択した理由
 ---
 
 # カテゴリ

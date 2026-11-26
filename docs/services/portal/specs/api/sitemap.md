@@ -1,16 +1,8 @@
 ---
-id: portal/api/sitemap
-title: サイトマップ
-kind: api
-service: portal
 sources:
   - services/portal/web/src/app/sitemap.ts
   - services/portal/web/src/lib/content.ts
 sources_hash: f95b55a25f1425e738410730fae41fdd71c1eb9ae02a53d66ad8090aba65b7c0
-terms: [portal/term/article]
-related_cards: [portal/api/robots, portal/flow/article-publishing]
-related_adr:
-  - services/portal/requirements.md#3.5 SEO・クローラビリティ要件
 ---
 
 # サイトマップ

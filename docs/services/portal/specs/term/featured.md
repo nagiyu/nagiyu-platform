@@ -1,14 +1,8 @@
 ---
-id: portal/term/featured
-title: 特集記事
-kind: term
-service: portal
 sources:
   - services/portal/web/src/lib/content.ts
   - services/portal/web/src/components/HomeFeaturedSection.tsx
 sources_hash: 2ac4c78de2d489148cb9cbc32ea9e72e72c76bd3d8782d263eaad1387b37d569
-terms: [portal/term/article]
-related_cards: [portal/screen/home, portal/flow/article-publishing]
 ---
 
 # 特集記事

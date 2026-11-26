@@ -1,8 +1,4 @@
 ---
-id: portal/flow/article-publishing
-title: 記事が公開されるまで
-kind: flow
-service: portal
 sources:
   - services/portal/web/src/lib/content.ts
   - services/portal/web/src/types/content.ts
@@ -11,10 +7,6 @@ sources:
   - services/portal/web/src/app/tech/[slug]/page.tsx
   - services/portal/web/src/app/sitemap.ts
 sources_hash: c69d0adfd184465a1bc1436eba0b235fd3ce30ac22d3e80fe0749bf24ab33220
-terms: [portal/term/article, portal/term/featured, portal/term/category]
-related_cards: [portal/screen/home, portal/screen/tech, portal/screen/tech-article, portal/api/sitemap]
-related_adr:
-  - services/portal/architecture.md#ADR-002: gray-matter + remark/rehype（plain Markdown）を採択した理由
 ---
 
 # 記事が公開されるまで
