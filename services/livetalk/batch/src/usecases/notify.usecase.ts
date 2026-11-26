@@ -34,6 +34,7 @@ import {
   defaultUlidFactory,
   NOTIFICATION_EVENT_TTL_SECONDS,
   NOTIFY_CRITICAL_CARE_THRESHOLD,
+  NOTIFY_TOPIC_HEADER_READ_LIMIT,
   NOTIFY_EVENT_READ_LIMIT,
   resolveNotifyMessageSinceMs,
   NOTIFY_SESSION_GAP_MINUTES,
@@ -387,7 +388,11 @@ async function evaluateCharacter(params: {
   // care 降順で Topic ヘッダを取得（ネタ源・critical 判定の候補）。止まっている間は使わない。
   const topics = studyPaused
     ? []
-    : await topicRepo.listTopicHeadersByCareDesc(userId, characterId, 10);
+    : await topicRepo.listTopicHeadersByCareDesc(
+        userId,
+        characterId,
+        NOTIFY_TOPIC_HEADER_READ_LIMIT
+      );
 
   // critical 判定用に「高 care」の Topic のみ上位から WEB fact を取得する。
   // care 閾値未満は detectCriticalTopic 側でも LLM をスキップするため、

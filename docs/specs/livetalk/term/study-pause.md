@@ -6,7 +6,7 @@ service: livetalk
 sources:
   - services/livetalk/core/src/study/active-window.ts
   - services/livetalk/core/src/constants.ts
-sources_hash: a8a252225d2b95c56043caf3cdda709ed7d1535465f4544618d745eae49a4bf7
+sources_hash: 00ea4ae3e48ddfcf0ec74d2278158a1af9b8752872a02270c33ad8d9c15e65e3
 related_cards: [livetalk/batch/acquire, livetalk/batch/notify]
 related_adr:
   - services/livetalk/architecture.md#2.25

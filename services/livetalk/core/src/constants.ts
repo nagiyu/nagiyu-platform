@@ -239,6 +239,12 @@ export const NOTIFY_CRITICAL_CARE_THRESHOLD = 3;
 export const CRITICAL_CANDIDATE_TOPIC_LIMIT = 3;
 
 /**
+ * 通知の判定で読む Topic ヘッダの件数 (care 上位から)。平常通知の話題と、重要通知の候補の母集団になる。
+ * 通知バッチとステータス画面が同じ母集団から候補を選ぶよう、1 か所に置く。
+ */
+export const NOTIFY_TOPIC_HEADER_READ_LIMIT = 10;
+
+/**
  * クリティカル判定の「時限性あり」とみなすイベント日程の最大日数（今日から何日以内か）。
  *
  * LLM が抽出した eventDate が今日から NOTIFY_CRITICAL_EVENT_HORIZON_DAYS 日以内の未来である場合のみ

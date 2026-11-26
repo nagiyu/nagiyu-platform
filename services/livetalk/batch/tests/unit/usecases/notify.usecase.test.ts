@@ -84,6 +84,7 @@ jest.mock('@nagiyu/livetalk-core', () => ({
   defaultUlidFactory: jest.fn(() => 'ULID-0001'),
   NOTIFICATION_EVENT_TTL_SECONDS: 2592000,
   NOTIFY_CRITICAL_CARE_THRESHOLD: 3,
+  NOTIFY_TOPIC_HEADER_READ_LIMIT: 10,
   // 判定に使う会話の読み始めは純粋関数なので実物を使う
   resolveNotifyMessageSinceMs:
     jest.requireActual('@nagiyu/livetalk-core').resolveNotifyMessageSinceMs,
