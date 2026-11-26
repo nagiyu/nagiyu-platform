@@ -6,7 +6,7 @@ sources:
   - services/niconico-mylist-assistant/batch/Dockerfile
   - services/niconico-mylist-assistant/batch/package.json
   - services/niconico-mylist-assistant/batch/src/lib/job-environment.ts
-sources_hash: bc6eda30e5b27e0183a39558e2c58e3f24b875df20bfa7462719b1963f2498f4
+sources_hash: b000a2f34c8e17e43521ad0003becc3ace75ecd0db565166940824c3023eb109
 ---
 
 # バッチの実行環境
