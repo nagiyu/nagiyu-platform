@@ -15,9 +15,8 @@ export const dynamic = 'force-dynamic';
 /**
  * ページのエントリポイント（サーバーコンポーネント）。
  *
- * authUrl の解決は layout.tsx（LiveTalkHeader 経由）へ移設したため、
- * このページでは authUrl を HomePageClient に渡す必要がなくなった。
+ * 勉強の札からプランの画面へ遷移するため、auth の URL をランタイム env から解決して渡す。
  */
 export default function Page() {
-  return <HomePageClient />;
+  return <HomePageClient authUrl={process.env.NEXT_PUBLIC_AUTH_URL ?? ''} />;
 }

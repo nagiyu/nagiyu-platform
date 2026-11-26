@@ -11,6 +11,7 @@ import NotificationToggle from '@/components/NotificationToggle';
 import InstallGuide from '@/components/InstallGuide';
 import NotificationPermission from '@/components/NotificationPermission';
 import CharacterSelectButton from '@/components/CharacterSelectButton';
+import StudyStatusBadge from '@/components/StudyStatusBadge';
 import { useCharacter } from '@/lib/characters/CharacterContext';
 import { getCharacterDisplay, hasCharacterProfile } from '@/lib/characters/client-profiles';
 import { useAudioContext } from '@/lib/audio/useAudioContext';
@@ -32,6 +33,15 @@ import type { ChatPhase } from '@/lib/home/types';
  */
 const CONVERSATION_MIN_HEIGHT = 140;
 
+export interface HomePageClientProps {
+  /**
+   * auth サービスのベース URL。勉強の札からプランの画面へ遷移するときに使う。
+   * client component 内で process.env.NEXT_PUBLIC_AUTH_URL を参照するとビルド時インライン化で
+   * 空文字になるため、サーバーコンポーネント (page.tsx) でランタイム env から解決して渡す。
+   */
+  authUrl: string;
+}
+
 /**
  * Phase 2c のチャット画面（Phase 2f で Web Audio 再生に切替）。
  *
@@ -47,7 +57,7 @@ const CONVERSATION_MIN_HEIGHT = 140;
  * ナビゲーション（私が覚えていること・ノート・ステータス）・サインアウト・退会の導線は
  * LiveTalkHeader（layout.tsx 経由）へ移設したため、本コンポーネントからは除去済み。
  */
-function HomePageInner() {
+function HomePageInner({ authUrl }: HomePageClientProps) {
   const { characterId } = useCharacter();
 
   // phase は HomePageInner の state のまま残す。
@@ -151,8 +161,17 @@ function HomePageInner() {
           py: 1,
         }}
       >
-        <Box sx={{ display: 'flex', justifyContent: 'flex-start', mb: 0.5 }}>
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: 1,
+            mb: 0.5,
+          }}
+        >
           <CharacterSelectButton disabled={phase !== 'idle'} />
+          <StudyStatusBadge authUrl={authUrl} />
         </Box>
         {/* 縦の短い画面ではキャラ側を縮めて、会話の領域 (下の minHeight) を優先して確保する。 */}
         <Box sx={{ flex: '0 1 60%', minHeight: 0, mb: 1 }}>
@@ -261,13 +280,13 @@ function HomePageInner() {
  * useSearchParams を含む HomePageInner を Suspense 境界でラップする
  * （App Router の prerender 要件を満たすため）。
  *
- * ナビゲーション・サインアウト・退会の導線は LiveTalkHeader（layout.tsx 経由）が担うため、
- * authUrl prop は不要になった。
+ * ナビゲーション・サインアウト・退会の導線は LiveTalkHeader（layout.tsx 経由）が担う。
+ * authUrl は勉強の札のプランへのリンクにだけ使う。
  */
-export function HomePageClient() {
+export function HomePageClient({ authUrl }: HomePageClientProps) {
   return (
     <Suspense fallback={null}>
-      <HomePageInner />
+      <HomePageInner authUrl={authUrl} />
     </Suspense>
   );
 }
