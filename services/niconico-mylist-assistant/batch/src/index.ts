@@ -14,7 +14,10 @@ import type { CryptoConfig } from '@nagiyu/niconico-mylist-assistant-core';
 import { createErrorReporter, reportErrorEvent, withErrorReporting } from '@nagiyu/aws';
 import { sendWebPushNotification, getVapidConfig } from '@nagiyu/common/push';
 import { executeMylistRegistration } from './playwright-automation.js';
-import { createBatchCompletionPayload, createSessionInvalidPayload } from './lib/web-push-client.js';
+import {
+  createBatchCompletionPayload,
+  createSessionInvalidPayload,
+} from './lib/web-push-client.js';
 import { determineBatchJobStatus } from './lib/job-status.js';
 import { getTimestamp, toErrorMessage } from '@nagiyu/common';
 import type { PushSubscription } from '@nagiyu/common';

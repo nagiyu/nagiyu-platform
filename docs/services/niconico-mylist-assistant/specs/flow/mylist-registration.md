@@ -8,7 +8,7 @@ sources:
   - services/niconico-mylist-assistant/web/public/sw.js
   - services/niconico-mylist-assistant/batch/src/index.ts
   - services/niconico-mylist-assistant/batch/src/lib/web-push-client.ts
-sources_hash: 0c7f01339389856430d9055d082636c9631de554e5c9f69f96396371b4863ab3
+sources_hash: 0d727a648fd85be31e65b80be74b39c654def6034ce1bc5238cddc5ae857d09a
 ---
 
 # マイリスト登録の経路

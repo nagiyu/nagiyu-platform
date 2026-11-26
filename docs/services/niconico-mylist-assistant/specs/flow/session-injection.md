@@ -8,7 +8,7 @@ sources:
   - services/niconico-mylist-assistant/core/src/niconico/session.ts
   - services/niconico-mylist-assistant/batch/src/index.ts
   - services/niconico-mylist-assistant/batch/src/playwright-automation.ts
-sources_hash: 1d3d9dcddbd79d5d05f3153d06377a71b0386df4059a803ab008f49d5889a00a
+sources_hash: 52d2908e4e0b89ff0f6b406c629f30dad6cc8bbe632bc10333909ae0b4619c62
 ---
 
 # セッションの登録から利用まで
