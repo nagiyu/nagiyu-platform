@@ -7,7 +7,7 @@ sources:
   - services/livetalk/web/src/app/api/lifecycle/route.ts
   - services/livetalk/core/src/lifecycle/state-resolver.ts
   - services/livetalk/core/src/constants.ts
-sources_hash: 042875ef790bce4b2da3c0cb3f61fb1238e5c2db478e5af28f126af864652b59
+sources_hash: 3358f871e7ef752f0e35fc815d6ccaeba79cb7d015f8f772a83a0fd412a447f9
 terms: [livetalk/term/permission, livetalk/term/api-error, livetalk/term/lifecycle, livetalk/term/character]
 related_cards: [livetalk/screen/home, livetalk/api/chat]
 related_adr:

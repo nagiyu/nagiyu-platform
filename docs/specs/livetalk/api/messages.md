@@ -7,7 +7,7 @@ sources:
   - services/livetalk/web/src/app/api/messages/route.ts
   - services/livetalk/web/src/app/api/messages/constants.ts
   - services/livetalk/core/src/constants.ts
-sources_hash: f83400ce24755afdd815dbe46e46342fc437ee5272ca082c866e8bdfee08e8f5
+sources_hash: 639429d1464f7203d76c4a549b88e446b9bb431102b84f4ec5ef4cc6f12241de
 terms: [livetalk/term/permission, livetalk/term/api-error, livetalk/term/character]
 related_cards: [livetalk/api/chat]
 related_adr:

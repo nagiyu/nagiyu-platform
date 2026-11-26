@@ -9,11 +9,12 @@ sources:
   - services/livetalk/batch/src/usecases/notify.usecase.ts
   - services/livetalk/core/src/notification/decision.ts
   - services/livetalk/core/src/notification/escalation.ts
+  - services/livetalk/core/src/notification/critical-candidates.ts
   - services/livetalk/core/src/notification/selection.ts
   - services/livetalk/core/src/study/active-window.ts
   - services/livetalk/core/src/study/freshness-check.ts
   - services/livetalk/core/src/constants.ts
-sources_hash: f65e6d3f299e4d825b3fd228b2fd4652c3506106dfab6a0b5d968c8b225f4519
+sources_hash: 54128578e3d1d67fc2b426cb3fbab465cf48a002bae3d090dd153aef5f89a39b
 terms: [livetalk/term/care, livetalk/term/topic, livetalk/term/web-fact, livetalk/term/lifecycle, livetalk/term/user-activity-profile, livetalk/term/study-pause, livetalk/term/freshness-check-request]
 related_cards: [admin/flow/error-notification, livetalk/batch/acquire, livetalk/batch/learn-user-activity, livetalk/flow/notification-open, livetalk/api/push-notification]
 related_adr:

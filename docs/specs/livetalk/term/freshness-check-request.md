@@ -7,7 +7,7 @@ sources:
   - services/livetalk/core/src/entities/freshness-check-request.entity.ts
   - services/livetalk/core/src/study/freshness-check.ts
   - services/livetalk/core/src/constants.ts
-sources_hash: f1588cc08ace1d24813e77b6c6af603f7d328176da8a258a4ecdab3d6f5bcfc6
+sources_hash: f4f0fc4595af92bf22f7e51947d7d1cbf8930f11fa083c60e20b464b15980bac
 terms: [livetalk/term/topic, livetalk/term/web-fact]
 related_cards: [livetalk/batch/acquire, livetalk/batch/notify]
 related_adr:
