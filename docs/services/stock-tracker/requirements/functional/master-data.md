@@ -8,7 +8,7 @@ sources: []
 
 ## 要件
 
-- 取引所を、作成・編集・削除できる。名前・タイムゾーン・取引時間・価格の取得元・市場を持つ ([取引所 API](../../specs/api/exchanges.md)、[取引所管理画面](../../specs/screen/exchanges.md))
+- 取引所を、作成・編集・削除できる。持たせる項目は、[取引所 API](../../specs/api/exchanges.md)と[取引所管理画面](../../specs/screen/exchanges.md)で決まる
 - ティッカーを、作成・銘柄名の編集・削除できる。ティッカー ID は、取引所の key とシンボルから決まる ([ティッカー API](../../specs/api/tickers.md)、[ティッカー管理画面](../../specs/screen/tickers.md)、[ティッカー ID](../../specs/term/ticker-id.md))
 - 作成・編集・削除は、`stocks:manage-data` 権限を持つ管理者だけが行える。一覧は、`stocks:read` 権限があれば読める ([アクセス制御](access-control.md))
 - 取引所ごとに、アラートの判定に使う現在価格の取得元を、TradingView と Finnhub から選べる。コードを変えずに、取引所の設定だけで切り替えられる ([価格の取得元](../../specs/term/price-source.md))
@@ -18,4 +18,4 @@ sources: []
 
 ## やらないこと
 
-- **取引所の祝日の登録**: 休場日は、データソースの日足の日付で扱うため ([日次サマリー](daily-summary.md))
+- **取引所の祝日の登録**: 理由は[日次サマリー](daily-summary.md)の「やらないこと」にある

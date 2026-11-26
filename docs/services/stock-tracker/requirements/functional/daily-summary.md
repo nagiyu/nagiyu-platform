@@ -17,7 +17,7 @@ sources: []
 - 個別のティッカーや取引所の失敗は、その処理を飛ばして、残りの処理を続ける ([信頼性](../non-functional/reliability.md))
 - 1 件以上保存した回の終わりに、確度の算出を起動する。1 件も保存しなかったときは起動しない ([確度](forecast.md))
 - アラートを判定するバッチとは独立した、別のバッチとして動かす ([アラート](alerts.md))
-- 管理者 (`stocks:manage-data` 権限) は、サマリー画面の「サマリー更新」で、生成を手動で起動できる。完了は待たない ([サマリー API](../../specs/api/summaries.md))
+- 管理者 (`stocks:manage-data` 権限) は、サマリー画面から、生成を手動で起動できる。完了は待たない ([サマリー画面](../../specs/screen/summaries.md)、[サマリー API](../../specs/api/summaries.md))
 - パターンは固定の定義で持ち、判定の結果は判断軸の材料として使う ([判断軸](../../specs/term/axis.md))
 
 ### 一覧
