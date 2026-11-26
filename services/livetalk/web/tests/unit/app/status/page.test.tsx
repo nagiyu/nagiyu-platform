@@ -8,6 +8,7 @@ import { getSession } from '@/lib/server/session';
 import {
   createLifecycleRepository,
   createNotificationEventRepository,
+  createPushSubscriptionRepository,
   createSafetyEventRepository,
   createStudyTopicRepository,
   createMessageRepository,
@@ -45,6 +46,7 @@ jest.mock('@nagiyu/livetalk-core', () => ({
   ...jest.requireActual('@nagiyu/livetalk-core'),
   createLifecycleRepository: jest.fn(),
   createNotificationEventRepository: jest.fn(),
+  createPushSubscriptionRepository: jest.fn(),
   createSafetyEventRepository: jest.fn(),
   createStudyTopicRepository: jest.fn(),
   createMessageRepository: jest.fn(),
@@ -99,6 +101,8 @@ function setup(
     freshnessRequests?: { topicId: string; createdAt: number }[];
     /** false なら生活サイクルを未登録にする */
     hasLifecycle?: boolean;
+    /** false なら購読を 0 件にする */
+    hasSubscription?: boolean;
   } = {}
 ) {
   const listByUser = jest.fn(async () => events);
@@ -118,6 +122,9 @@ function setup(
     ),
   } as unknown as LifecycleRepository);
   mockNotifRepo.mockReturnValue({ listByUser } as unknown as NotificationEventRepository);
+  (createPushSubscriptionRepository as jest.Mock).mockReturnValue({
+    listByUser: jest.fn(async () => (extra.hasSubscription === false ? [] : [{}])),
+  });
   mockSafetyRepo.mockReturnValue({
     listRecent: jest.fn(async () => []),
   } as unknown as SafetyEventRepository);
@@ -237,6 +244,42 @@ describe('StatusPage 勉強と重要通知', () => {
     expect(html).toContain('勉強と重要通知');
     expect(html).toContain('対象外（生活サイクル未登録）');
     expect(html).toContain('判定しない（生活サイクル未登録）');
+  });
+
+  it('購読がなければ重要通知を判定しないと表示する', async () => {
+    setup([], { messages: recentUser(), hasSubscription: false });
+
+    const html = await renderPage();
+
+    expect(html).toContain('判定しない（購読なし）');
+  });
+
+  it('就寝帯なら就寝中と表示する', async () => {
+    // 日本時間の 03:00
+    const sleepingNow = new Date('2026-06-09T18:00:00.000Z');
+    jest.setSystemTime(sleepingNow);
+    setup([], { messages: [{ role: 'user', createdAt: sleepingNow.getTime() - 60 * 60 * 1000 }] });
+
+    const html = await renderPage();
+
+    expect(html).toContain('就寝中（起床後に勉強）');
+  });
+
+  it('送り済みの重要通知は、なければ「なし」、あれば件数を見出しに出す', async () => {
+    setup([], { messages: recentUser() });
+    expect(await renderPage()).toContain('送り済みの重要通知: なし');
+
+    setup(
+      [
+        {
+          ...makeEvent('c1', 'hiyori', NOW.getTime() - 1000),
+          kind: 'critical' as never,
+          topicId: 't1',
+        } as unknown as ReturnType<typeof makeEvent>,
+      ],
+      { messages: recentUser() }
+    );
+    expect(await renderPage()).toContain('送り済みの重要通知: 1 件');
   });
 
   it('発話がなければ勉強停止中と表示し、重要通知も判定しない', async () => {

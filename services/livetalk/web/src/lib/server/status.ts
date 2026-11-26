@@ -11,6 +11,7 @@ import {
   createLifecycleRepository,
   createMessageRepository,
   createNotificationEventRepository,
+  createPushSubscriptionRepository,
   createStudyTopicRepository,
   createStudyUsageRepository,
   createTopicRepository,
@@ -23,6 +24,7 @@ import {
   resolveLifecycleState,
   resolveNotifyMessageSinceMs,
   selectCriticalCandidateTopics,
+  shouldAcquireNow,
   shouldNotifyNow,
   toSentCriticals,
   type LifecycleEntity,
@@ -47,7 +49,7 @@ export interface StatusSnapshot {
   nextEarliestAt?: number;
   studyTopicPendingCount: number;
   /**
-   * 勉強がいま止まっている理由の要約。取得バッチが判定する順 (生活サイクル、3 日ルール、回数の上限) で、
+   * 勉強がいま止まっている理由の要約。取得バッチが判定する順 (生活サイクル、3 日ルール、就寝、回数の上限) で、
    * 最初に当たったものを返す。止まっていなければ studying。
    */
   studyState: StudyState;
@@ -92,15 +94,16 @@ export interface StatusSnapshot {
  * 勉強が止まっている理由。
  * - no_lifecycle: 生活サイクルが未登録で、取得バッチの対象外
  * - paused: 3 日ルールで止まっている
+ * - sleeping: キャラが就寝中で、起床後に勉強する
  * - limit_reached: その日の回数の上限に達している
  */
-export type StudyState = 'no_lifecycle' | 'paused' | 'limit_reached' | 'studying';
+export type StudyState = 'no_lifecycle' | 'paused' | 'sleeping' | 'limit_reached' | 'studying';
 
 /**
- * 重要通知を判定しない理由。生活サイクルが未登録のキャラは通知バッチの対象外で、
- * 勉強が止まっているキャラは話題を使わないため判定しない。
+ * 重要通知を判定しない理由。通知バッチは購読のない利用者をキャラを見る前に飛ばし、
+ * 生活サイクルが未登録のキャラは対象外で、勉強が止まっているキャラは話題を使わないため判定しない。
  */
-export type CriticalSkipReason = 'no_lifecycle' | 'study_paused';
+export type CriticalSkipReason = 'no_subscription' | 'no_lifecycle' | 'study_paused';
 
 /** 判定の候補の表示用の要約。WEB fact の中身は含めない。 */
 export interface CriticalTopicSummary {
@@ -122,12 +125,15 @@ export async function loadStatusSnapshot(
   characterId: string,
   now: Date
 ): Promise<StatusSnapshot> {
-  const [lifecycle, allUserEvents, recentMessages, studyPending] = await Promise.all([
-    createLifecycleRepository().get({ userId, characterId }),
-    createNotificationEventRepository().listByUser(userId, NOTIFY_EVENT_READ_LIMIT),
-    createMessageRepository().listSince(userId, characterId, resolveNotifyMessageSinceMs(now)),
-    createStudyTopicRepository().listByStatus(userId, characterId, 'pending'),
-  ]);
+  const [lifecycle, allUserEvents, recentMessages, studyPending, subscriptions] = await Promise.all(
+    [
+      createLifecycleRepository().get({ userId, characterId }),
+      createNotificationEventRepository().listByUser(userId, NOTIFY_EVENT_READ_LIMIT),
+      createMessageRepository().listSince(userId, characterId, resolveNotifyMessageSinceMs(now)),
+      createStudyTopicRepository().listByStatus(userId, characterId, 'pending'),
+      createPushSubscriptionRepository().listByUser(userId),
+    ]
+  );
 
   // 通知の記録は利用者単位で返るため、判定と表示は表示キャラのものだけに絞る
   const notificationEvents = allUserEvents.filter((e) => e.characterId === characterId);
@@ -154,7 +160,14 @@ export async function loadStatusSnapshot(
     loadCriticalCandidates(
       userId,
       characterId,
-      lifecycle === null ? 'no_lifecycle' : studyPaused ? 'study_paused' : null,
+      // 通知バッチの判定順 (購読、生活サイクル、勉強停止) と同じにする
+      subscriptions.length === 0
+        ? 'no_subscription'
+        : lifecycle === null
+          ? 'no_lifecycle'
+          : studyPaused
+            ? 'study_paused'
+            : null,
       notificationEvents,
       now
     ),
@@ -188,9 +201,11 @@ export async function loadStatusSnapshot(
         ? 'no_lifecycle'
         : studyPaused
           ? 'paused'
-          : studyUsage.limitReached
-            ? 'limit_reached'
-            : 'studying',
+          : !shouldAcquireNow(lifecycle, now).awake
+            ? 'sleeping'
+            : studyUsage.limitReached
+              ? 'limit_reached'
+              : 'studying',
     studyPause: {
       paused: studyPaused,
       lastUserMessageAt: lastUserMessageAt ?? null,

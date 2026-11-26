@@ -6,6 +6,8 @@ import {
   createLifecycleRepository,
   createMessageRepository,
   createNotificationEventRepository,
+  createPushSubscriptionRepository,
+  getCharacterDefinitionById,
   createStudyTopicRepository,
   createStudyUsageRepository,
   createFreshnessCheckRequestRepository,
@@ -16,6 +18,8 @@ import {
 
 jest.mock('@nagiyu/livetalk-core', () => ({
   ...jest.requireActual('@nagiyu/livetalk-core'),
+  createPushSubscriptionRepository: jest.fn(),
+  getCharacterDefinitionById: jest.fn(),
   createLifecycleRepository: jest.fn(),
   createNotificationEventRepository: jest.fn(),
   createStudyTopicRepository: jest.fn(),
@@ -55,8 +59,13 @@ function setup(options: {
   freshnessRequests?: { topicId: string; createdAt: number }[];
   topics?: { topicId: string; subject: string; care: number }[];
   webFacts?: Record<string, unknown[]>;
+  /** 購読の数。既定は 1 件 */
+  subscriptionCount?: number;
 }) {
   const listByUser = jest.fn(async () => options.events ?? []);
+  (createPushSubscriptionRepository as jest.Mock).mockReturnValue({
+    listByUser: jest.fn(async () => Array(options.subscriptionCount ?? 1).fill({})),
+  });
   // 実際のリポジトリと同じく、since より後の会話だけを返す
   const listSince = jest.fn(async (_userId: string, characterId: string, since: number) =>
     (options.messagesFor?.[characterId] ?? options.messages ?? []).filter(
@@ -92,7 +101,14 @@ function setup(options: {
 }
 
 describe('loadStatusSnapshot', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    // 定義の有無だけを差し替えるため、既定は実物をそのまま返す
+    (getCharacterDefinitionById as jest.Mock).mockImplementation(
+      (jest.requireActual('@nagiyu/livetalk-core') as typeof import('@nagiyu/livetalk-core'))
+        .getCharacterDefinitionById
+    );
+  });
 
   it('会話を通知バッチと同じ直近 7 日から読み、通知の記録をバッチと同じ件数で読む', async () => {
     const { listByUser, listSince } = setup({});
@@ -308,6 +324,23 @@ describe('loadStatusSnapshot', () => {
       expect(second.studyUsage.studyingCharacterCount).toBe(1);
     });
 
+    it('定義を返さないキャラは、lifecycle があり発話があっても数えない', async () => {
+      const actual = (
+        jest.requireActual('@nagiyu/livetalk-core') as typeof import('@nagiyu/livetalk-core')
+      ).getCharacterDefinitionById;
+      (getCharacterDefinitionById as jest.Mock).mockImplementation((id: string) =>
+        id === 'ageha' ? undefined : actual(id)
+      );
+      setup({
+        lifecycleFor: { hiyori: lifecycle('hiyori'), ageha: lifecycle('ageha') },
+        messages: recent,
+      });
+
+      const { studyUsage } = await loadStatusSnapshot('u1', 'hiyori', NOW);
+
+      expect(studyUsage.studyingCharacterCount).toBe(1);
+    });
+
     it('キャラ別の上限に達したら上限到達になる', async () => {
       setup({
         lifecycleFor: { hiyori: lifecycle('hiyori'), ageha: lifecycle('ageha') },
@@ -356,6 +389,34 @@ describe('loadStatusSnapshot', () => {
       setup({ lifecycle });
 
       const { studyState } = await loadStatusSnapshot('u1', 'hiyori', NOW);
+
+      expect(studyState).toBe('paused');
+    });
+
+    it('生活サイクルがあり 3 日ルールで止まっておらず就寝帯なら、回数の上限より先に sleeping になる', async () => {
+      // 日本時間の 03:00 (就寝 01:30 から起床 09:30 の間)
+      const sleepingNow = new Date('2026-06-09T18:00:00.000Z');
+      setup({
+        lifecycleFor: { hiyori: lifecycle, ageha: { ...lifecycle, characterId: 'ageha' } },
+        messages: [{ role: 'user', createdAt: sleepingNow.getTime() - HOUR }],
+        usage: { characterCount: 10, totalCount: 10 },
+      });
+
+      const { studyState, studyUsage } = await loadStatusSnapshot('u1', 'hiyori', sleepingNow);
+
+      expect(studyState).toBe('sleeping');
+      // 枠の配分は就寝を数え直さない
+      expect(studyUsage.studyingCharacterCount).toBe(2);
+    });
+
+    it('就寝帯でも 3 日ルールで止まっていれば paused', async () => {
+      setup({ lifecycle });
+
+      const { studyState } = await loadStatusSnapshot(
+        'u1',
+        'hiyori',
+        new Date('2026-06-09T18:00:00.000Z')
+      );
 
       expect(studyState).toBe('paused');
     });
@@ -439,6 +500,35 @@ describe('loadStatusSnapshot', () => {
       });
       expect(listTopicHeadersByCareDesc).not.toHaveBeenCalled();
       expect(listWebFacts).not.toHaveBeenCalled();
+    });
+
+    it('購読がなければ no_subscription で判定せず、Topic を読まない', async () => {
+      const { listTopicHeadersByCareDesc, listWebFacts } = setup({
+        lifecycle,
+        messages: recent,
+        subscriptionCount: 0,
+        topics: [topic('t1', 5)],
+      });
+
+      const { criticalCandidates } = await loadStatusSnapshot('u1', 'hiyori', NOW);
+
+      expect(criticalCandidates).toEqual({
+        evaluated: false,
+        skipReason: 'no_subscription',
+        candidates: [],
+        staleExcluded: [],
+        sentCriticals: [],
+      });
+      expect(listTopicHeadersByCareDesc).not.toHaveBeenCalled();
+      expect(listWebFacts).not.toHaveBeenCalled();
+    });
+
+    it('購読がなく生活サイクルも未登録なら、バッチと同じ順で no_subscription になる', async () => {
+      setup({ subscriptionCount: 0 });
+
+      const { criticalCandidates } = await loadStatusSnapshot('u1', 'hiyori', NOW);
+
+      expect(criticalCandidates.skipReason).toBe('no_subscription');
     });
 
     it('生活サイクルが未登録なら no_lifecycle で判定せず、Topic を読まない', async () => {

@@ -39,12 +39,14 @@ const REASON_LABELS: Record<string, string> = {
 const STUDY_STATE_LABELS: Record<StudyState, string> = {
   no_lifecycle: '対象外（生活サイクル未登録）',
   paused: '勉強停止中（3 日ルール）',
+  sleeping: '就寝中（起床後に勉強）',
   limit_reached: '本日の上限到達',
   studying: '勉強中',
 };
 
 /** 重要通知を判定しない理由のラベル */
 const CRITICAL_SKIP_LABELS: Record<CriticalSkipReason, string> = {
+  no_subscription: '判定しない（購読なし）',
   no_lifecycle: '判定しない（生活サイクル未登録）',
   study_paused: '判定しない（勉強停止中）',
 };
@@ -290,7 +292,10 @@ export default async function StatusPage({ searchParams }: StatusPageProps) {
           </>
         )}
         <Typography variant="body2" sx={{ mt: 0.5 }}>
-          送り済みの重要通知: {criticalCandidates.sentCriticals.length === 0 ? 'なし' : ''}
+          送り済みの重要通知:{' '}
+          {criticalCandidates.sentCriticals.length === 0
+            ? 'なし'
+            : `${criticalCandidates.sentCriticals.length} 件`}
         </Typography>
         {criticalCandidates.sentCriticals.map((c) => (
           <Typography

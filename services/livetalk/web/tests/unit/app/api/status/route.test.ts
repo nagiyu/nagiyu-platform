@@ -6,6 +6,7 @@ import { getSession } from '@/lib/server/session';
 import {
   createLifecycleRepository,
   createNotificationEventRepository,
+  createPushSubscriptionRepository,
   createStudyTopicRepository,
   createMessageRepository,
   createStudyUsageRepository,
@@ -28,6 +29,7 @@ jest.mock('@nagiyu/livetalk-core', () => ({
   ...jest.requireActual('@nagiyu/livetalk-core'),
   createLifecycleRepository: jest.fn(),
   createNotificationEventRepository: jest.fn(),
+  createPushSubscriptionRepository: jest.fn(),
   createStudyTopicRepository: jest.fn(),
   createMessageRepository: jest.fn(),
   createStudyUsageRepository: jest.fn(),
@@ -118,6 +120,9 @@ function setupDefaultMocks() {
 describe('GET /api/status', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    (createPushSubscriptionRepository as jest.Mock).mockReturnValue({
+      listByUser: jest.fn(async () => [{}]),
+    });
     // 勉強と重要通知の読み取りは既定で空にする
     (createStudyUsageRepository as jest.Mock).mockReturnValue({
       readUsage: jest.fn(async () => ({ characterCount: 3, totalCount: 5 })),
