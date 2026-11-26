@@ -1,7 +1,6 @@
 {
   "name": "@nagiyu/react",
-  "version": "1.0.0",
-  "private": true,
+  "version": "0.1.0",
   "type": "module",
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",
@@ -10,6 +9,14 @@
       "types": "./dist/src/index.d.ts",
       "import": "./dist/src/index.js"
     }
+  },
+  "files": [
+    "dist/src"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nagiyu/nagiyu-platform.git",
+    "directory": "libs/react"
   },
   "scripts": {
     "build": "tsc",
@@ -21,8 +28,8 @@
     "format:check": "prettier --check ."
   },
   "dependencies": {
-    "@nagiyu/browser": "*",
-    "@nagiyu/common": "*"
+    "@nagiyu/browser": "^0.1.0",
+    "@nagiyu/common": "^0.1.0"
   },
   "peerDependencies": {
     "react": ">=19.0.0"

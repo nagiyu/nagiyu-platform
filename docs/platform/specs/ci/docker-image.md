@@ -5,7 +5,7 @@ sources:
   - .github/actions/build-web-app/action.yml
   - .github/actions/setup-node/action.yml
   - .github/scripts/docker-build-with-retry.sh
-sources_hash: 767618722b3fd422d1dc8a3f68251ad0980bfc75d7fa51344601c6fe1370e5e5
+sources_hash: 144cf4c6b253a81bac9f3a4b489ec55bcaa8316d25e16065045b5157c13146a6
 ---
 
 # イメージのビルドと ECR への push
@@ -21,7 +21,7 @@ sources_hash: 767618722b3fd422d1dc8a3f68251ad0980bfc75d7fa51344601c6fe1370e5e5
 | `build-docker-image` | サービスの verify の Docker のビルド確認 | しない |
 | `push-ecr-image` | サービスの deploy のイメージのビルドと push | する |
 | `build-web-app` | verify のビルド確認、E2E、deploy のビルド | しない |
-| `setup-node` | verify、deploy、全体の lint・format、定期の npm 検査 | しない |
+| `setup-node` | verify、deploy、libs の verify、全体の lint・format、定期の npm 検査 | しない |
 
 `build-docker-image` は、`push-ecr-image` からも呼ばれる。
 
@@ -119,6 +119,7 @@ flowchart TD
 | 入力 | 必須 | 内容 |
 |---|---|---|
 | `cache-dependency-path` | 任意 (既定 `./package-lock.json`) | キャッシュのキーにするロックファイル |
+| `working-directory` | 任意 (既定 `.`) | `npm ci` を流すディレクトリ。独立した npm プロジェクト (`libs/`) の install に使う。`cache-dependency-path` には、そのプロジェクトのロックファイルを渡す |
 | `skip-setup-node` | 任意 (既定 `'false'`) | `build-web-app` と同じ |
 
 `skip-setup-node` が `'true'` のときのキャッシュのキーは `build-web-app` と同じ形で、ロックファイルが同じなら両者でキャッシュを共有する。共通イメージの上で動くジョブは Node がイメージに入っているため、このオプションを付ける。

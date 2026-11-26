@@ -1,6 +1,6 @@
 {
   "name": "@nagiyu/aws",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "type": "module",
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",
@@ -9,6 +9,14 @@
       "types": "./dist/src/index.d.ts",
       "import": "./dist/src/index.js"
     }
+  },
+  "files": [
+    "dist/src"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nagiyu/nagiyu-platform.git",
+    "directory": "libs/aws"
   },
   "scripts": {
     "build": "tsc",
@@ -27,6 +35,6 @@
     "@aws-sdk/client-secrets-manager": "^3.1063.0",
     "@aws-sdk/lib-dynamodb": "^3.1063.0",
     "@aws-sdk/s3-request-presigner": "^3.1063.0",
-    "@nagiyu/common": "*"
+    "@nagiyu/common": "^0.1.0"
   }
 }

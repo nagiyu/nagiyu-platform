@@ -21,6 +21,15 @@
       "types": "./src/types/next-auth.d.ts"
     }
   },
+  "files": [
+    "dist/src",
+    "src/types/next-auth.d.ts"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nagiyu/nagiyu-platform.git",
+    "directory": "libs/nextjs"
+  },
   "scripts": {
     "build": "tsc",
     "test": "jest",
@@ -31,7 +40,7 @@
     "format:check": "prettier --check ."
   },
   "dependencies": {
-    "@nagiyu/common": "*",
+    "@nagiyu/common": "^0.1.0",
     "next-auth": "^5.0.0-beta.32"
   },
   "peerDependencies": {
