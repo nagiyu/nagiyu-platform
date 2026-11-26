@@ -1,18 +1,10 @@
 ---
-id: share-together/screen/invitations
-title: 招待画面
-kind: screen
-service: share-together
 sources:
   - services/share-together/web/src/app/invitations/page.tsx
   - services/share-together/web/src/lib/invitation-errors.ts
   - services/share-together/web/src/lib/invitation-events.ts
   - services/share-together/web/src/lib/constants/errors.ts
 sources_hash: 272d4950e9ef46a97bddc7da4985938ab1567b1b6827290fdd798666575df246
-terms: [share-together/term/invitation, share-together/term/group-role]
-related_cards: [share-together/api/invitations, share-together/screen/groups, share-together/flow/group-invitation, share-together/screen/home]
-related_adr:
-  - services/share-together/architecture.md#2.3 グループ招待通知をサービス内通知とした理由
 ---
 
 # 招待画面
@@ -68,7 +60,7 @@ related_adr:
 
 | スマホ | PC |
 |---|---|
-| ![招待が届いているとき (スマホ)](../../../images/specs/share-together/screen/invitations-default-mobile.png) | ![招待が届いているとき (PC)](../../../images/specs/share-together/screen/invitations-default-desktop.png) |
+| ![招待が届いているとき (スマホ)](../../../../images/specs/share-together/screen/invitations-default-mobile.png) | ![招待が届いているとき (PC)](../../../../images/specs/share-together/screen/invitations-default-desktop.png) |
 
 ### 拒否の確認
 
@@ -76,7 +68,7 @@ related_adr:
 
 | スマホ | PC |
 |---|---|
-| ![拒否の確認 (スマホ)](../../../images/specs/share-together/screen/invitations-reject-dialog-mobile.png) | ![拒否の確認 (PC)](../../../images/specs/share-together/screen/invitations-reject-dialog-desktop.png) |
+| ![拒否の確認 (スマホ)](../../../../images/specs/share-together/screen/invitations-reject-dialog-mobile.png) | ![拒否の確認 (PC)](../../../../images/specs/share-together/screen/invitations-reject-dialog-desktop.png) |
 
 ### 承認した直後
 
@@ -84,7 +76,7 @@ related_adr:
 
 | スマホ | PC |
 |---|---|
-| ![承認した直後 (スマホ)](../../../images/specs/share-together/screen/invitations-accepted-mobile.png) | ![承認した直後 (PC)](../../../images/specs/share-together/screen/invitations-accepted-desktop.png) |
+| ![承認した直後 (スマホ)](../../../../images/specs/share-together/screen/invitations-accepted-mobile.png) | ![承認した直後 (PC)](../../../../images/specs/share-together/screen/invitations-accepted-desktop.png) |
 
 ### 承認できなかったとき
 
@@ -92,7 +84,7 @@ related_adr:
 
 | スマホ | PC |
 |---|---|
-| ![承認できなかったとき (スマホ)](../../../images/specs/share-together/screen/invitations-accept-failed-mobile.png) | ![承認できなかったとき (PC)](../../../images/specs/share-together/screen/invitations-accept-failed-desktop.png) |
+| ![承認できなかったとき (スマホ)](../../../../images/specs/share-together/screen/invitations-accept-failed-mobile.png) | ![承認できなかったとき (PC)](../../../../images/specs/share-together/screen/invitations-accept-failed-desktop.png) |
 
 ### 期限が切れていたとき
 
@@ -100,7 +92,7 @@ related_adr:
 
 | スマホ | PC |
 |---|---|
-| ![期限が切れていたとき (スマホ)](../../../images/specs/share-together/screen/invitations-expired-mobile.png) | ![期限が切れていたとき (PC)](../../../images/specs/share-together/screen/invitations-expired-desktop.png) |
+| ![期限が切れていたとき (スマホ)](../../../../images/specs/share-together/screen/invitations-expired-mobile.png) | ![期限が切れていたとき (PC)](../../../../images/specs/share-together/screen/invitations-expired-desktop.png) |
 
 ### 招待がないとき
 
@@ -108,7 +100,7 @@ related_adr:
 
 | スマホ | PC |
 |---|---|
-| ![招待がないとき (スマホ)](../../../images/specs/share-together/screen/invitations-empty-mobile.png) | ![招待がないとき (PC)](../../../images/specs/share-together/screen/invitations-empty-desktop.png) |
+| ![招待がないとき (スマホ)](../../../../images/specs/share-together/screen/invitations-empty-mobile.png) | ![招待がないとき (PC)](../../../../images/specs/share-together/screen/invitations-empty-desktop.png) |
 
 ### 一覧の取得に失敗したとき
 
@@ -116,7 +108,7 @@ related_adr:
 
 | スマホ | PC |
 |---|---|
-| ![一覧の取得に失敗したとき (スマホ)](../../../images/specs/share-together/screen/invitations-fetch-error-mobile.png) | ![一覧の取得に失敗したとき (PC)](../../../images/specs/share-together/screen/invitations-fetch-error-desktop.png) |
+| ![一覧の取得に失敗したとき (スマホ)](../../../../images/specs/share-together/screen/invitations-fetch-error-mobile.png) | ![一覧の取得に失敗したとき (PC)](../../../../images/specs/share-together/screen/invitations-fetch-error-desktop.png) |
 
 ## つながり
 

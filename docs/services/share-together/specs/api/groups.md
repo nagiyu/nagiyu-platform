@@ -1,18 +1,10 @@
 ---
-id: share-together/api/groups
-title: グループ API
-kind: api
-service: share-together
 sources:
   - services/share-together/web/src/app/api/groups/route.ts
   - services/share-together/web/src/app/api/groups/[groupId]/route.ts
   - services/share-together/web/src/lib/api/validation.ts
   - services/share-together/core/src/libs/group.ts
 sources_hash: 3afb29f5bf4c47be0bda5d49710b9283c8af9b998d8d4897573e26290faa5dc0
-terms: [share-together/term/group-role, share-together/term/api-error]
-related_cards: [share-together/screen/groups, share-together/api/group-members, share-together/api/group-lists, share-together/screen/lists]
-related_adr:
-  - services/share-together/architecture.md#2.5 グループ削除時のアプリケーション層カスケード削除
 ---
 
 # グループ API

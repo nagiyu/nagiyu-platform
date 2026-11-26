@@ -1,8 +1,4 @@
 ---
-id: share-together/api/personal-todos
-title: 個人 ToDo API
-kind: api
-service: share-together
 sources:
   - services/share-together/web/src/app/api/lists/[listId]/todos/route.ts
   - services/share-together/web/src/app/api/lists/[listId]/todos/[todoId]/route.ts
@@ -10,8 +6,6 @@ sources:
   - services/share-together/core/src/libs/list.ts
   - services/share-together/core/src/libs/sort.ts
 sources_hash: 532da56efd2d28f26460c4c7da8bc6f45ca32427493027bf42af21e47495209b
-terms: [share-together/term/personal-list, share-together/term/api-error]
-related_cards: [share-together/screen/lists, share-together/api/personal-lists, share-together/api/group-todos]
 ---
 
 # 個人 ToDo API

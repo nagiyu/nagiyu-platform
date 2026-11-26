@@ -1,8 +1,4 @@
 ---
-id: share-together/flow/group-invitation
-title: 招待から参加までの経路
-kind: flow
-service: share-together
 sources:
   - services/share-together/web/src/components/InviteForm.tsx
   - services/share-together/web/src/app/groups/page.tsx
@@ -15,11 +11,6 @@ sources:
   - services/share-together/web/src/app/api/invitations/[groupId]/route.ts
   - services/share-together/core/src/libs/group.ts
 sources_hash: 995df639732430fd8f23e026847bed3e6ea92b12ca1d2bed5ac05c985ce5c436
-terms: [share-together/term/invitation, share-together/term/group-role]
-related_cards: [share-together/screen/groups, share-together/screen/invitations, share-together/api/group-members, share-together/api/invitations, share-together/screen/lists]
-related_adr:
-  - services/share-together/architecture.md#2.3 グループ招待通知をサービス内通知とした理由
-  - services/share-together/architecture.md#2.6 ユーザー検索をメールアドレス完全一致とした理由
 ---
 
 # 招待から参加までの経路

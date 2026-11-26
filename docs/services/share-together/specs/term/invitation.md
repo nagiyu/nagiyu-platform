@@ -1,16 +1,8 @@
 ---
-id: share-together/term/invitation
-title: 招待
-kind: term
-service: share-together
 sources:
   - services/share-together/core/src/libs/group.ts
   - services/share-together/core/src/types/index.ts
 sources_hash: f1fb96be225f2ec3100490c8042b402108ea9a345f3d506a8d2433e5764f5bf8
-terms: [share-together/term/group-role]
-related_cards: [share-together/flow/group-invitation, share-together/api/group-members, share-together/api/invitations, share-together/screen/invitations]
-related_adr:
-  - services/share-together/architecture.md#2.3 グループ招待通知をサービス内通知とした理由
 ---
 
 # 招待
@@ -30,8 +22,3 @@ related_adr:
 - 拒否済みの相手にも、改めて招待できる。上書きするとき、前の応答の日時は消す
 - 応答 (承認・拒否) すると期限は外れ、記録は消えずに残る
 - 招待の通知はメールを送らず、招待された人が [招待画面](../screen/invitations.md)を開いたときに読む (ヘッダーの件数を含む)
-
-## 関連するカード
-
-- [招待から参加までの経路](../flow/group-invitation.md)
-- [グループの立場](./group-role.md)

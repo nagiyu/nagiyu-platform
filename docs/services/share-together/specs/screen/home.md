@@ -1,17 +1,10 @@
 ---
-id: share-together/screen/home
-title: トップ画面
-kind: screen
-service: share-together
 sources:
   - services/share-together/web/src/app/page.tsx
   - services/share-together/web/src/app/layout.tsx
   - services/share-together/web/src/components/InvitationBadge.tsx
   - services/share-together/web/src/lib/invitation-events.ts
 sources_hash: 013e3038812279581f4dd8568ce7d55c33d49250a5fafeb3eac82d8489dd6ddc
-related_cards: [share-together/screen/lists, share-together/screen/groups, share-together/screen/invitations, share-together/flow/session-start, share-together/api/invitations]
-related_adr:
-  - services/share-together/architecture.md#2.10 ヘッダーは共通の SessionHeader を使い、招待件数バッジは actions スロットに置く
 ---
 
 # トップ画面
@@ -60,7 +53,7 @@ Share Together の入口。リスト画面とグループ画面への 2 つの�
 
 | スマホ | PC |
 |---|---|
-| ![通常表示 (スマホ)](../../../images/specs/share-together/screen/home-default-mobile.png) | ![通常表示 (PC)](../../../images/specs/share-together/screen/home-default-desktop.png) |
+| ![通常表示 (スマホ)](../../../../images/specs/share-together/screen/home-default-mobile.png) | ![通常表示 (PC)](../../../../images/specs/share-together/screen/home-default-desktop.png) |
 
 ## つながり
 

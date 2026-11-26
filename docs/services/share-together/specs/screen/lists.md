@@ -1,8 +1,4 @@
 ---
-id: share-together/screen/lists
-title: リスト画面
-kind: screen
-service: share-together
 sources:
   - services/share-together/web/src/app/lists/page.tsx
   - services/share-together/web/src/components/ListWorkspace.tsx
@@ -14,12 +10,6 @@ sources:
   - services/share-together/web/src/lib/listsQuery.ts
   - services/share-together/web/src/lib/constants/errors.ts
 sources_hash: 373ad0ab5cd63d010de92eef6c4de9664d0c791fc327cfd082e5d2221b76eff8
-terms: [share-together/term/personal-list, share-together/term/shared-list, share-together/term/group-role]
-related_cards: [share-together/api/personal-lists, share-together/api/personal-todos, share-together/api/group-lists, share-together/api/group-todos, share-together/api/groups, share-together/screen/groups, share-together/screen/home, share-together/flow/session-start]
-related_adr:
-  - services/share-together/architecture.md#2.8 スコープ切り替え時のリスト選択
-  - services/share-together/architecture.md#2.9 リスト作成における個人スコープと共有スコープの責務分離
-  - services/share-together/architecture.md#2.12 共有リスト編集の権限を全承認済みメンバーに付与する
 ---
 
 # リスト画面
@@ -110,7 +100,7 @@ ToDo の操作 (個人も共有も同じ)。
 
 | スマホ | PC |
 |---|---|
-| ![個人リスト (スマホ)](../../../images/specs/share-together/screen/lists-personal-default-mobile.png) | ![個人リスト (PC)](../../../images/specs/share-together/screen/lists-personal-default-desktop.png) |
+| ![個人リスト (スマホ)](../../../../images/specs/share-together/screen/lists-personal-default-mobile.png) | ![個人リスト (PC)](../../../../images/specs/share-together/screen/lists-personal-default-desktop.png) |
 
 ### ToDo がないとき
 
@@ -118,7 +108,7 @@ ToDo の操作 (個人も共有も同じ)。
 
 | スマホ | PC |
 |---|---|
-| ![ToDo がないとき (スマホ)](../../../images/specs/share-together/screen/lists-personal-empty-mobile.png) | ![ToDo がないとき (PC)](../../../images/specs/share-together/screen/lists-personal-empty-desktop.png) |
+| ![ToDo がないとき (スマホ)](../../../../images/specs/share-together/screen/lists-personal-empty-mobile.png) | ![ToDo がないとき (PC)](../../../../images/specs/share-together/screen/lists-personal-empty-desktop.png) |
 
 ### ToDo を編集しているとき
 
@@ -126,7 +116,7 @@ ToDo の操作 (個人も共有も同じ)。
 
 | スマホ | PC |
 |---|---|
-| ![ToDo を編集しているとき (スマホ)](../../../images/specs/share-together/screen/lists-todo-editing-mobile.png) | ![ToDo を編集しているとき (PC)](../../../images/specs/share-together/screen/lists-todo-editing-desktop.png) |
+| ![ToDo を編集しているとき (スマホ)](../../../../images/specs/share-together/screen/lists-todo-editing-mobile.png) | ![ToDo を編集しているとき (PC)](../../../../images/specs/share-together/screen/lists-todo-editing-desktop.png) |
 
 ### ToDo の削除の確認
 
@@ -134,7 +124,7 @@ ToDo の操作 (個人も共有も同じ)。
 
 | スマホ | PC |
 |---|---|
-| ![ToDo の削除の確認 (スマホ)](../../../images/specs/share-together/screen/lists-todo-delete-dialog-mobile.png) | ![ToDo の削除の確認 (PC)](../../../images/specs/share-together/screen/lists-todo-delete-dialog-desktop.png) |
+| ![ToDo の削除の確認 (スマホ)](../../../../images/specs/share-together/screen/lists-todo-delete-dialog-mobile.png) | ![ToDo の削除の確認 (PC)](../../../../images/specs/share-together/screen/lists-todo-delete-dialog-desktop.png) |
 
 ### 個人リストの作成
 
@@ -142,7 +132,7 @@ ToDo の操作 (個人も共有も同じ)。
 
 | スマホ | PC |
 |---|---|
-| ![個人リストの作成 (スマホ)](../../../images/specs/share-together/screen/lists-list-create-dialog-mobile.png) | ![個人リストの作成 (PC)](../../../images/specs/share-together/screen/lists-list-create-dialog-desktop.png) |
+| ![個人リストの作成 (スマホ)](../../../../images/specs/share-together/screen/lists-list-create-dialog-mobile.png) | ![個人リストの作成 (PC)](../../../../images/specs/share-together/screen/lists-list-create-dialog-desktop.png) |
 
 ### 個人リストの名前の変更
 
@@ -150,7 +140,7 @@ ToDo の操作 (個人も共有も同じ)。
 
 | スマホ | PC |
 |---|---|
-| ![個人リストの名前の変更 (スマホ)](../../../images/specs/share-together/screen/lists-list-rename-dialog-mobile.png) | ![個人リストの名前の変更 (PC)](../../../images/specs/share-together/screen/lists-list-rename-dialog-desktop.png) |
+| ![個人リストの名前の変更 (スマホ)](../../../../images/specs/share-together/screen/lists-list-rename-dialog-mobile.png) | ![個人リストの名前の変更 (PC)](../../../../images/specs/share-together/screen/lists-list-rename-dialog-desktop.png) |
 
 ### 個人リストの削除の確認
 
@@ -158,7 +148,7 @@ ToDo の操作 (個人も共有も同じ)。
 
 | スマホ | PC |
 |---|---|
-| ![個人リストの削除の確認 (スマホ)](../../../images/specs/share-together/screen/lists-list-delete-dialog-mobile.png) | ![個人リストの削除の確認 (PC)](../../../images/specs/share-together/screen/lists-list-delete-dialog-desktop.png) |
+| ![個人リストの削除の確認 (スマホ)](../../../../images/specs/share-together/screen/lists-list-delete-dialog-mobile.png) | ![個人リストの削除の確認 (PC)](../../../../images/specs/share-together/screen/lists-list-delete-dialog-desktop.png) |
 
 ### 個人リストが 100 件に達したとき
 
@@ -166,7 +156,7 @@ ToDo の操作 (個人も共有も同じ)。
 
 | スマホ | PC |
 |---|---|
-| ![個人リストが 100 件に達したとき (スマホ)](../../../images/specs/share-together/screen/lists-list-limit-mobile.png) | ![個人リストが 100 件に達したとき (PC)](../../../images/specs/share-together/screen/lists-list-limit-desktop.png) |
+| ![個人リストが 100 件に達したとき (スマホ)](../../../../images/specs/share-together/screen/lists-list-limit-mobile.png) | ![個人リストが 100 件に達したとき (PC)](../../../../images/specs/share-together/screen/lists-list-limit-desktop.png) |
 
 ### ToDo の取得に失敗したとき
 
@@ -174,7 +164,7 @@ ToDo の操作 (個人も共有も同じ)。
 
 | スマホ | PC |
 |---|---|
-| ![ToDo の取得に失敗したとき (スマホ)](../../../images/specs/share-together/screen/lists-todo-fetch-error-mobile.png) | ![ToDo の取得に失敗したとき (PC)](../../../images/specs/share-together/screen/lists-todo-fetch-error-desktop.png) |
+| ![ToDo の取得に失敗したとき (スマホ)](../../../../images/specs/share-together/screen/lists-todo-fetch-error-mobile.png) | ![ToDo の取得に失敗したとき (PC)](../../../../images/specs/share-together/screen/lists-todo-fetch-error-desktop.png) |
 
 ### 個人リスト一覧の取得に失敗したとき
 
@@ -182,7 +172,7 @@ ToDo の操作 (個人も共有も同じ)。
 
 | スマホ | PC |
 |---|---|
-| ![個人リスト一覧の取得に失敗したとき (スマホ)](../../../images/specs/share-together/screen/lists-default-list-error-mobile.png) | ![個人リスト一覧の取得に失敗したとき (PC)](../../../images/specs/share-together/screen/lists-default-list-error-desktop.png) |
+| ![個人リスト一覧の取得に失敗したとき (スマホ)](../../../../images/specs/share-together/screen/lists-default-list-error-mobile.png) | ![個人リスト一覧の取得に失敗したとき (PC)](../../../../images/specs/share-together/screen/lists-default-list-error-desktop.png) |
 
 ### 共有リスト (オーナー)
 
@@ -190,7 +180,7 @@ ToDo の操作 (個人も共有も同じ)。
 
 | スマホ | PC |
 |---|---|
-| ![共有リスト (オーナー) (スマホ)](../../../images/specs/share-together/screen/lists-shared-default-mobile.png) | ![共有リスト (オーナー) (PC)](../../../images/specs/share-together/screen/lists-shared-default-desktop.png) |
+| ![共有リスト (オーナー) (スマホ)](../../../../images/specs/share-together/screen/lists-shared-default-mobile.png) | ![共有リスト (オーナー) (PC)](../../../../images/specs/share-together/screen/lists-shared-default-desktop.png) |
 
 ### 共有リスト (メンバー)
 
@@ -198,7 +188,7 @@ ToDo の操作 (個人も共有も同じ)。
 
 | スマホ | PC |
 |---|---|
-| ![共有リスト (メンバー) (スマホ)](../../../images/specs/share-together/screen/lists-shared-member-mobile.png) | ![共有リスト (メンバー) (PC)](../../../images/specs/share-together/screen/lists-shared-member-desktop.png) |
+| ![共有リスト (メンバー) (スマホ)](../../../../images/specs/share-together/screen/lists-shared-member-mobile.png) | ![共有リスト (メンバー) (PC)](../../../../images/specs/share-together/screen/lists-shared-member-desktop.png) |
 
 ### 共有リストの作成
 
@@ -206,7 +196,7 @@ ToDo の操作 (個人も共有も同じ)。
 
 | スマホ | PC |
 |---|---|
-| ![共有リストの作成 (スマホ)](../../../images/specs/share-together/screen/lists-shared-create-dialog-mobile.png) | ![共有リストの作成 (PC)](../../../images/specs/share-together/screen/lists-shared-create-dialog-desktop.png) |
+| ![共有リストの作成 (スマホ)](../../../../images/specs/share-together/screen/lists-shared-create-dialog-mobile.png) | ![共有リストの作成 (PC)](../../../../images/specs/share-together/screen/lists-shared-create-dialog-desktop.png) |
 
 ### 共有リストの名前の変更
 
@@ -214,7 +204,7 @@ ToDo の操作 (個人も共有も同じ)。
 
 | スマホ | PC |
 |---|---|
-| ![共有リストの名前の変更 (スマホ)](../../../images/specs/share-together/screen/lists-shared-rename-dialog-mobile.png) | ![共有リストの名前の変更 (PC)](../../../images/specs/share-together/screen/lists-shared-rename-dialog-desktop.png) |
+| ![共有リストの名前の変更 (スマホ)](../../../../images/specs/share-together/screen/lists-shared-rename-dialog-mobile.png) | ![共有リストの名前の変更 (PC)](../../../../images/specs/share-together/screen/lists-shared-rename-dialog-desktop.png) |
 
 ### 共有リストの削除の確認
 
@@ -222,7 +212,7 @@ ToDo の操作 (個人も共有も同じ)。
 
 | スマホ | PC |
 |---|---|
-| ![共有リストの削除の確認 (スマホ)](../../../images/specs/share-together/screen/lists-shared-delete-dialog-mobile.png) | ![共有リストの削除の確認 (PC)](../../../images/specs/share-together/screen/lists-shared-delete-dialog-desktop.png) |
+| ![共有リストの削除の確認 (スマホ)](../../../../images/specs/share-together/screen/lists-shared-delete-dialog-mobile.png) | ![共有リストの削除の確認 (PC)](../../../../images/specs/share-together/screen/lists-shared-delete-dialog-desktop.png) |
 
 ### グループに入っていないとき
 
@@ -230,7 +220,7 @@ ToDo の操作 (個人も共有も同じ)。
 
 | スマホ | PC |
 |---|---|
-| ![グループに入っていないとき (スマホ)](../../../images/specs/share-together/screen/lists-shared-no-groups-mobile.png) | ![グループに入っていないとき (PC)](../../../images/specs/share-together/screen/lists-shared-no-groups-desktop.png) |
+| ![グループに入っていないとき (スマホ)](../../../../images/specs/share-together/screen/lists-shared-no-groups-mobile.png) | ![グループに入っていないとき (PC)](../../../../images/specs/share-together/screen/lists-shared-no-groups-desktop.png) |
 
 ### 共有リストがないとき
 
@@ -238,7 +228,7 @@ ToDo の操作 (個人も共有も同じ)。
 
 | スマホ | PC |
 |---|---|
-| ![共有リストがないとき (スマホ)](../../../images/specs/share-together/screen/lists-shared-no-lists-mobile.png) | ![共有リストがないとき (PC)](../../../images/specs/share-together/screen/lists-shared-no-lists-desktop.png) |
+| ![共有リストがないとき (スマホ)](../../../../images/specs/share-together/screen/lists-shared-no-lists-mobile.png) | ![共有リストがないとき (PC)](../../../../images/specs/share-together/screen/lists-shared-no-lists-desktop.png) |
 
 ### グループ一覧の取得に失敗したとき
 
@@ -246,7 +236,7 @@ ToDo の操作 (個人も共有も同じ)。
 
 | スマホ | PC |
 |---|---|
-| ![グループ一覧の取得に失敗したとき (スマホ)](../../../images/specs/share-together/screen/lists-shared-groups-fetch-error-mobile.png) | ![グループ一覧の取得に失敗したとき (PC)](../../../images/specs/share-together/screen/lists-shared-groups-fetch-error-desktop.png) |
+| ![グループ一覧の取得に失敗したとき (スマホ)](../../../../images/specs/share-together/screen/lists-shared-groups-fetch-error-mobile.png) | ![グループ一覧の取得に失敗したとき (PC)](../../../../images/specs/share-together/screen/lists-shared-groups-fetch-error-desktop.png) |
 
 ### 共有リストの取得に失敗したとき
 
@@ -254,7 +244,7 @@ ToDo の操作 (個人も共有も同じ)。
 
 | スマホ | PC |
 |---|---|
-| ![共有リストの取得に失敗したとき (スマホ)](../../../images/specs/share-together/screen/lists-shared-lists-fetch-error-mobile.png) | ![共有リストの取得に失敗したとき (PC)](../../../images/specs/share-together/screen/lists-shared-lists-fetch-error-desktop.png) |
+| ![共有リストの取得に失敗したとき (スマホ)](../../../../images/specs/share-together/screen/lists-shared-lists-fetch-error-mobile.png) | ![共有リストの取得に失敗したとき (PC)](../../../../images/specs/share-together/screen/lists-shared-lists-fetch-error-desktop.png) |
 
 ## つながり
 

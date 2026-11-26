@@ -1,8 +1,4 @@
 ---
-id: share-together/flow/session-start
-title: 起動時の流れ (利用者登録と前回の画面の復元)
-kind: flow
-service: share-together
 sources:
   - services/share-together/web/src/app/layout.tsx
   - services/share-together/web/src/components/UserRegistrationInitializer.tsx
@@ -11,9 +7,6 @@ sources:
   - services/share-together/web/src/middleware.ts
   - services/share-together/web/src/app/api/users/route.ts
 sources_hash: cdb96849c2a4f3c1f9fafe9e1dad732d4bbbfeec4ba4e42ae3e63bb9bdc149bc
-related_cards: [share-together/api/users, share-together/screen/home, share-together/screen/lists]
-related_adr:
-  - services/share-together/architecture.md#2.14 PWA 起動時の最終訪問パスをクライアント側 LocalStorage で復元する
 ---
 
 # 起動時の流れ (利用者登録と前回の画面の復元)

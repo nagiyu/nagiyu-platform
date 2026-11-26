@@ -1,18 +1,10 @@
 ---
-id: share-together/api/invitations
-title: 招待 API
-kind: api
-service: share-together
 sources:
   - services/share-together/web/src/app/api/invitations/route.ts
   - services/share-together/web/src/app/api/invitations/[groupId]/route.ts
   - services/share-together/core/src/libs/group.ts
   - services/share-together/web/src/lib/constants/errors.ts
 sources_hash: efe94a47d019f3be5597b6cb6e6d404c06362c003310b00b451869755e648690
-terms: [share-together/term/invitation, share-together/term/group-role, share-together/term/api-error]
-related_cards: [share-together/screen/invitations, share-together/screen/home, share-together/flow/group-invitation, share-together/api/group-members]
-related_adr:
-  - services/share-together/architecture.md#2.3 グループ招待通知をサービス内通知とした理由
 ---
 
 # 招待 API

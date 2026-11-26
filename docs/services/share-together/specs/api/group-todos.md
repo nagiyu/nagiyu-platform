@@ -1,18 +1,10 @@
 ---
-id: share-together/api/group-todos
-title: 共有 ToDo API
-kind: api
-service: share-together
 sources:
   - services/share-together/web/src/app/api/groups/[groupId]/lists/[listId]/todos/route.ts
   - services/share-together/web/src/app/api/groups/[groupId]/lists/[listId]/todos/[todoId]/route.ts
   - services/share-together/web/src/lib/api/authorization.ts
   - services/share-together/core/src/libs/todo.ts
 sources_hash: d19028a86293e8eda9f07c01fccdfcc1f2fcbd3e4116fcc4559ef20c864ba26d
-terms: [share-together/term/shared-list, share-together/term/group-role, share-together/term/api-error]
-related_cards: [share-together/screen/lists, share-together/api/group-lists, share-together/api/personal-todos]
-related_adr:
-  - services/share-together/architecture.md#2.12 共有リスト編集の権限を全承認済みメンバーに付与する
 ---
 
 # 共有 ToDo API

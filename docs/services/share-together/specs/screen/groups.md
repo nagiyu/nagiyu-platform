@@ -1,8 +1,4 @@
 ---
-id: share-together/screen/groups
-title: グループ画面
-kind: screen
-service: share-together
 sources:
   - services/share-together/web/src/app/groups/page.tsx
   - services/share-together/web/src/components/GroupCard.tsx
@@ -12,12 +8,6 @@ sources:
   - services/share-together/web/src/lib/listsQuery.ts
   - services/share-together/web/src/lib/constants/errors.ts
 sources_hash: 64c9844577ee4c2507e1bfcef6f9f26cb75eaba9bc977725dcdc10dc9bbfcaa9
-terms: [share-together/term/group-role, share-together/term/invitation, share-together/term/shared-list]
-related_cards: [share-together/api/groups, share-together/api/group-members, share-together/api/group-lists, share-together/screen/lists, share-together/flow/group-invitation, share-together/screen/home]
-related_adr:
-  - services/share-together/architecture.md#2.5 グループ削除時のアプリケーション層カスケード削除
-  - services/share-together/architecture.md#2.6 ユーザー検索をメールアドレス完全一致とした理由
-  - services/share-together/architecture.md#2.12 共有リスト編集の権限を全承認済みメンバーに付与する
 ---
 
 # グループ画面
@@ -98,7 +88,7 @@ related_adr:
 
 | スマホ | PC |
 |---|---|
-| ![オーナーとして開いたグループ (スマホ)](../../../images/specs/share-together/screen/groups-owner-mobile.png) | ![オーナーとして開いたグループ (PC)](../../../images/specs/share-together/screen/groups-owner-desktop.png) |
+| ![オーナーとして開いたグループ (スマホ)](../../../../images/specs/share-together/screen/groups-owner-mobile.png) | ![オーナーとして開いたグループ (PC)](../../../../images/specs/share-together/screen/groups-owner-desktop.png) |
 
 ### メンバーとして開いたグループ
 
@@ -106,7 +96,7 @@ related_adr:
 
 | スマホ | PC |
 |---|---|
-| ![メンバーとして開いたグループ (スマホ)](../../../images/specs/share-together/screen/groups-member-mobile.png) | ![メンバーとして開いたグループ (PC)](../../../images/specs/share-together/screen/groups-member-desktop.png) |
+| ![メンバーとして開いたグループ (スマホ)](../../../../images/specs/share-together/screen/groups-member-mobile.png) | ![メンバーとして開いたグループ (PC)](../../../../images/specs/share-together/screen/groups-member-desktop.png) |
 
 ### グループがないとき
 
@@ -114,7 +104,7 @@ related_adr:
 
 | スマホ | PC |
 |---|---|
-| ![グループがないとき (スマホ)](../../../images/specs/share-together/screen/groups-empty-mobile.png) | ![グループがないとき (PC)](../../../images/specs/share-together/screen/groups-empty-desktop.png) |
+| ![グループがないとき (スマホ)](../../../../images/specs/share-together/screen/groups-empty-mobile.png) | ![グループがないとき (PC)](../../../../images/specs/share-together/screen/groups-empty-desktop.png) |
 
 ### グループの作成
 
@@ -122,7 +112,7 @@ related_adr:
 
 | スマホ | PC |
 |---|---|
-| ![グループの作成 (スマホ)](../../../images/specs/share-together/screen/groups-create-dialog-mobile.png) | ![グループの作成 (PC)](../../../images/specs/share-together/screen/groups-create-dialog-desktop.png) |
+| ![グループの作成 (スマホ)](../../../../images/specs/share-together/screen/groups-create-dialog-mobile.png) | ![グループの作成 (PC)](../../../../images/specs/share-together/screen/groups-create-dialog-desktop.png) |
 
 ### 作成に失敗したとき
 
@@ -130,7 +120,7 @@ related_adr:
 
 | スマホ | PC |
 |---|---|
-| ![作成に失敗したとき (スマホ)](../../../images/specs/share-together/screen/groups-create-error-mobile.png) | ![作成に失敗したとき (PC)](../../../images/specs/share-together/screen/groups-create-error-desktop.png) |
+| ![作成に失敗したとき (スマホ)](../../../../images/specs/share-together/screen/groups-create-error-mobile.png) | ![作成に失敗したとき (PC)](../../../../images/specs/share-together/screen/groups-create-error-desktop.png) |
 
 ### メンバーの削除の確認
 
@@ -138,7 +128,7 @@ related_adr:
 
 | スマホ | PC |
 |---|---|
-| ![メンバーの削除の確認 (スマホ)](../../../images/specs/share-together/screen/groups-remove-member-dialog-mobile.png) | ![メンバーの削除の確認 (PC)](../../../images/specs/share-together/screen/groups-remove-member-dialog-desktop.png) |
+| ![メンバーの削除の確認 (スマホ)](../../../../images/specs/share-together/screen/groups-remove-member-dialog-mobile.png) | ![メンバーの削除の確認 (PC)](../../../../images/specs/share-together/screen/groups-remove-member-dialog-desktop.png) |
 
 ### グループの削除の確認
 
@@ -146,7 +136,7 @@ related_adr:
 
 | スマホ | PC |
 |---|---|
-| ![グループの削除の確認 (スマホ)](../../../images/specs/share-together/screen/groups-delete-group-dialog-mobile.png) | ![グループの削除の確認 (PC)](../../../images/specs/share-together/screen/groups-delete-group-dialog-desktop.png) |
+| ![グループの削除の確認 (スマホ)](../../../../images/specs/share-together/screen/groups-delete-group-dialog-mobile.png) | ![グループの削除の確認 (PC)](../../../../images/specs/share-together/screen/groups-delete-group-dialog-desktop.png) |
 
 ### 脱退の確認
 
@@ -154,7 +144,7 @@ related_adr:
 
 | スマホ | PC |
 |---|---|
-| ![脱退の確認 (スマホ)](../../../images/specs/share-together/screen/groups-leave-dialog-mobile.png) | ![脱退の確認 (PC)](../../../images/specs/share-together/screen/groups-leave-dialog-desktop.png) |
+| ![脱退の確認 (スマホ)](../../../../images/specs/share-together/screen/groups-leave-dialog-mobile.png) | ![脱退の確認 (PC)](../../../../images/specs/share-together/screen/groups-leave-dialog-desktop.png) |
 
 ### 脱退した直後
 
@@ -162,7 +152,7 @@ related_adr:
 
 | スマホ | PC |
 |---|---|
-| ![脱退した直後 (スマホ)](../../../images/specs/share-together/screen/groups-left-mobile.png) | ![脱退した直後 (PC)](../../../images/specs/share-together/screen/groups-left-desktop.png) |
+| ![脱退した直後 (スマホ)](../../../../images/specs/share-together/screen/groups-left-mobile.png) | ![脱退した直後 (PC)](../../../../images/specs/share-together/screen/groups-left-desktop.png) |
 
 ### グループを削除した直後
 
@@ -170,7 +160,7 @@ related_adr:
 
 | スマホ | PC |
 |---|---|
-| ![グループを削除した直後 (スマホ)](../../../images/specs/share-together/screen/groups-deleted-mobile.png) | ![グループを削除した直後 (PC)](../../../images/specs/share-together/screen/groups-deleted-desktop.png) |
+| ![グループを削除した直後 (スマホ)](../../../../images/specs/share-together/screen/groups-deleted-mobile.png) | ![グループを削除した直後 (PC)](../../../../images/specs/share-together/screen/groups-deleted-desktop.png) |
 
 ### 招待を送ったとき
 
@@ -178,7 +168,7 @@ related_adr:
 
 | スマホ | PC |
 |---|---|
-| ![招待を送ったとき (スマホ)](../../../images/specs/share-together/screen/groups-invite-sent-mobile.png) | ![招待を送ったとき (PC)](../../../images/specs/share-together/screen/groups-invite-sent-desktop.png) |
+| ![招待を送ったとき (スマホ)](../../../../images/specs/share-together/screen/groups-invite-sent-mobile.png) | ![招待を送ったとき (PC)](../../../../images/specs/share-together/screen/groups-invite-sent-desktop.png) |
 
 ### メールアドレスの形式が不正なとき
 
@@ -186,7 +176,7 @@ API を呼ばずにエラーを出す。
 
 | スマホ | PC |
 |---|---|
-| ![メールアドレスの形式が不正なとき (スマホ)](../../../images/specs/share-together/screen/groups-invite-invalid-email-mobile.png) | ![メールアドレスの形式が不正なとき (PC)](../../../images/specs/share-together/screen/groups-invite-invalid-email-desktop.png) |
+| ![メールアドレスの形式が不正なとき (スマホ)](../../../../images/specs/share-together/screen/groups-invite-invalid-email-mobile.png) | ![メールアドレスの形式が不正なとき (PC)](../../../../images/specs/share-together/screen/groups-invite-invalid-email-desktop.png) |
 
 ### 登録のないメールアドレスを招待したとき
 
@@ -194,7 +184,7 @@ API が返したエラーを出す。
 
 | スマホ | PC |
 |---|---|
-| ![登録のないメールアドレスを招待したとき (スマホ)](../../../images/specs/share-together/screen/groups-invite-not-registered-mobile.png) | ![登録のないメールアドレスを招待したとき (PC)](../../../images/specs/share-together/screen/groups-invite-not-registered-desktop.png) |
+| ![登録のないメールアドレスを招待したとき (スマホ)](../../../../images/specs/share-together/screen/groups-invite-not-registered-mobile.png) | ![登録のないメールアドレスを招待したとき (PC)](../../../../images/specs/share-together/screen/groups-invite-not-registered-desktop.png) |
 
 ### メンバーが 5 名に達しているとき
 
@@ -202,7 +192,7 @@ API が返したエラーを出す。
 
 | スマホ | PC |
 |---|---|
-| ![メンバーが 5 名に達しているとき (スマホ)](../../../images/specs/share-together/screen/groups-member-limit-mobile.png) | ![メンバーが 5 名に達しているとき (PC)](../../../images/specs/share-together/screen/groups-member-limit-desktop.png) |
+| ![メンバーが 5 名に達しているとき (スマホ)](../../../../images/specs/share-together/screen/groups-member-limit-mobile.png) | ![メンバーが 5 名に達しているとき (PC)](../../../../images/specs/share-together/screen/groups-member-limit-desktop.png) |
 
 ### 一覧の取得に失敗したとき
 
@@ -210,7 +200,7 @@ API が返したエラーを出す。
 
 | スマホ | PC |
 |---|---|
-| ![一覧の取得に失敗したとき (スマホ)](../../../images/specs/share-together/screen/groups-fetch-error-mobile.png) | ![一覧の取得に失敗したとき (PC)](../../../images/specs/share-together/screen/groups-fetch-error-desktop.png) |
+| ![一覧の取得に失敗したとき (スマホ)](../../../../images/specs/share-together/screen/groups-fetch-error-mobile.png) | ![一覧の取得に失敗したとき (PC)](../../../../images/specs/share-together/screen/groups-fetch-error-desktop.png) |
 
 ### 詳細の取得に失敗したとき
 
@@ -218,7 +208,7 @@ API が返したエラーを出す。
 
 | スマホ | PC |
 |---|---|
-| ![詳細の取得に失敗したとき (スマホ)](../../../images/specs/share-together/screen/groups-detail-fetch-error-mobile.png) | ![詳細の取得に失敗したとき (PC)](../../../images/specs/share-together/screen/groups-detail-fetch-error-desktop.png) |
+| ![詳細の取得に失敗したとき (スマホ)](../../../../images/specs/share-together/screen/groups-detail-fetch-error-mobile.png) | ![詳細の取得に失敗したとき (PC)](../../../../images/specs/share-together/screen/groups-detail-fetch-error-desktop.png) |
 
 ## つながり
 

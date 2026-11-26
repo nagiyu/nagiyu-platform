@@ -1,15 +1,9 @@
 ---
-id: share-together/api/users
-title: ユーザー API
-kind: api
-service: share-together
 sources:
   - services/share-together/web/src/app/api/users/route.ts
   - services/share-together/web/src/lib/auth/session.ts
   - services/share-together/web/src/components/UserRegistrationInitializer.tsx
 sources_hash: d8a4b4a293e8da595037ff9910d15c0e438ab616c80465a256bd2fb14c75fb7a
-terms: [share-together/term/personal-list, share-together/term/api-error]
-related_cards: [share-together/flow/session-start, share-together/api/personal-lists]
 ---
 
 # ユーザー API

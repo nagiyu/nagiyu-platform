@@ -1,18 +1,10 @@
 ---
-id: share-together/api/group-members
-title: グループメンバー API
-kind: api
-service: share-together
 sources:
   - services/share-together/web/src/app/api/groups/[groupId]/members/route.ts
   - services/share-together/web/src/app/api/groups/[groupId]/members/[userId]/route.ts
   - services/share-together/core/src/libs/group.ts
   - services/share-together/web/src/lib/constants/errors.ts
 sources_hash: 8f4d0d96397efa15e6416a4d008b697b3ba1acc525faf3c2d1d3681bbab076c4
-terms: [share-together/term/group-role, share-together/term/invitation, share-together/term/api-error]
-related_cards: [share-together/screen/groups, share-together/flow/group-invitation, share-together/api/invitations, share-together/api/groups]
-related_adr:
-  - services/share-together/architecture.md#2.6 ユーザー検索をメールアドレス完全一致とした理由
 ---
 
 # グループメンバー API

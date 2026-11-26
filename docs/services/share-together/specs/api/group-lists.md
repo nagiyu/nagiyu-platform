@@ -1,18 +1,10 @@
 ---
-id: share-together/api/group-lists
-title: 共有リスト API
-kind: api
-service: share-together
 sources:
   - services/share-together/web/src/app/api/groups/[groupId]/lists/route.ts
   - services/share-together/web/src/app/api/groups/[groupId]/lists/[listId]/route.ts
   - services/share-together/web/src/lib/api/authorization.ts
   - services/share-together/core/src/libs/sort.ts
 sources_hash: 5a350e64a221e95ecadfb9fd02d2ab4fe658340678e8bbd0fcd7aea885a6f651
-terms: [share-together/term/shared-list, share-together/term/group-role, share-together/term/api-error]
-related_cards: [share-together/screen/lists, share-together/screen/groups, share-together/api/group-todos, share-together/api/groups]
-related_adr:
-  - services/share-together/architecture.md#2.12 共有リスト編集の権限を全承認済みメンバーに付与する
 ---
 
 # 共有リスト API

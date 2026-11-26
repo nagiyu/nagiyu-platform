@@ -1,8 +1,4 @@
 ---
-id: share-together/api/system
-title: システム系の API
-kind: api
-service: share-together
 sources:
   - services/share-together/web/src/app/api/health/route.ts
   - services/share-together/web/src/app/api/auth/[...nextauth]/route.ts
@@ -10,8 +6,6 @@ sources:
   - libs/nextjs/src/health.ts
   - libs/nextjs/src/session.ts
 sources_hash: 9731791da53c82fbd1cd41c91637215c4baa4331be80deb1dfeb196ad89eda22
-terms: [share-together/term/api-error]
-related_cards: [share-together/api/users]
 ---
 
 # システム系の API

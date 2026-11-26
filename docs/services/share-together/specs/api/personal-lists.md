@@ -1,18 +1,10 @@
 ---
-id: share-together/api/personal-lists
-title: 個人リスト API
-kind: api
-service: share-together
 sources:
   - services/share-together/web/src/app/api/lists/route.ts
   - services/share-together/web/src/app/api/lists/[listId]/route.ts
   - services/share-together/core/src/libs/list.ts
   - services/share-together/core/src/libs/sort.ts
 sources_hash: 31c66477086cf946f95e56abe8cf2d0cbe50f70d540339e8995ed5ed23b49006
-terms: [share-together/term/personal-list, share-together/term/api-error]
-related_cards: [share-together/screen/lists, share-together/api/personal-todos, share-together/api/users]
-related_adr:
-  - services/share-together/architecture.md#2.9 リスト作成における個人スコープと共有スコープの責務分離
 ---
 
 # 個人リスト API
