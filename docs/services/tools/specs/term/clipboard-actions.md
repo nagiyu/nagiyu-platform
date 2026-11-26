@@ -7,7 +7,8 @@ sources:
   - services/tools/src/app/hash-generator/HashGeneratorClient.tsx
   - services/tools/src/app/timestamp-converter/TimestampConverterClient.tsx
   - services/tools/src/app/vapid-generator/page.tsx
-sources_hash: 8d0ba4f0039c7fefa92937170d8fc2d4952940bff5ca3b43f07cc3ab45995378
+  - libs/browser/src/clipboard.ts
+sources_hash: 98166e16ab9e8b1c81ccef2da622f193c6a19e401008a7494911c038a9467cef
 ---
 
 # クリップボード操作
@@ -18,8 +19,8 @@ sources_hash: 8d0ba4f0039c7fefa92937170d8fc2d4952940bff5ca3b43f07cc3ab45995378
 
 | 操作 | 成功したとき | 失敗したとき |
 |---|---|---|
-| 読み取り | 入力欄を、読み取った文字列に置き換える。入力欄のエラー表示を消す。[通知バー](./snackbar.md)に「クリップボードから読み取りました」 (成功) | 「クリップボードの読み取りに失敗しました。手動で貼り付けてください。」を通知バー (失敗) に出す。入力欄は変わらない |
-| コピー | 結果をクリップボードに書く。通知バーに「クリップボードにコピーしました」 (成功) | 「コピーに失敗しました」を通知バー (失敗) に出す |
+| 読み取り | 入力欄を、読み取った文字列に置き換える。入力欄のエラー表示を消す。[通知バー](./snackbar.md)に「クリップボードから読み取りました」(成功) | 「クリップボードの読み取りに失敗しました。手動で貼り付けてください。」を通知バー (失敗) に出す。入力欄は変わらない |
+| コピー | 結果をクリップボードに書く。通知バーに「クリップボードにコピーしました」(成功) | 「コピーに失敗しました」を通知バー (失敗) に出す |
 
 - 失敗には、ブラウザが Clipboard API を持たない場合と、ブラウザが許可しなかった場合の両方が入る。理由は区別しない
 - 「コピー」は、コピーするものがあるときだけ押せる。読み取りは、画面にいつも出ていて押せる

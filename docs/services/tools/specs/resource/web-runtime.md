@@ -3,7 +3,8 @@ sources:
   - infra/tools/lib/lambda-stack.ts
   - infra/tools/bin/tools.ts
   - services/tools/public/ads.txt
-sources_hash: 0eaf1776c760a138098deeecbd38719dbc03b8558e310e0d397718a6eb8ad177
+  - services/tools/src/app/layout.tsx
+sources_hash: 725f3745879c76d3b6b3a09c54f3e257413a0d2e58a3550dc910ffe2d97bfaf8
 ---
 
 # Web の実行環境

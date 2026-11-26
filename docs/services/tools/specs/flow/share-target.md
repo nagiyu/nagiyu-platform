@@ -24,7 +24,7 @@ sources_hash: b6604e2c49c8f1bacb4edb44a816cf09ce7f2cd7fdffa5236f0f0656af2c5667
 
 | 項目 | 値 |
 |---|---|
-| アプリ名 | 「Tools - 便利な開発ツール集」 (短い名前は「Tools」) |
+| アプリ名 | 「Tools - 便利な開発ツール集」(短い名前は「Tools」) |
 | 開始 URL、スコープ | `/` |
 | 表示モード | `standalone` |
 | 向き | `portrait-primary` |
