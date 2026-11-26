@@ -35,7 +35,7 @@ function isConsentRequest(
  */
 export const GET = withApiErrorReporting(
   'Web API: 同意状態取得エラー',
-  withAuth(getSession, 'livetalk:chat', async (session) => {
+  withAuth(getSession, null, async (session) => {
     const userId = session.user.id;
 
     const { consented, consents } = await getConsentStatus(userId);
@@ -61,7 +61,7 @@ export const GET = withApiErrorReporting(
  */
 export const POST = withApiErrorReporting(
   'Web API: 同意状態保存エラー',
-  withAuth(getSession, 'livetalk:chat', async (session, request: Request) => {
+  withAuth(getSession, null, async (session, request: Request) => {
     const bodyResult = await readJsonObjectBody(request);
     if (!bodyResult.ok || !isConsentRequest(bodyResult.body)) {
       return NextResponse.json(

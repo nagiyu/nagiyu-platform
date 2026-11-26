@@ -376,14 +376,14 @@ describe('jwt コールバック - rolesRefreshedAt', () => {
         roles: ['admin', 'stock-user'],
         roleGrants: [
           grant({ grantId: 'a', roleId: 'stock-user', expiresAt: now + 60_000 }),
-          grant({ grantId: 'b', roleId: 'livetalk-user', expiresAt: now + 60_000 }),
+          grant({ grantId: 'b', roleId: 'stock-admin', expiresAt: now + 60_000 }),
         ],
       });
       await useRepository();
 
       const result = await run();
 
-      expect(result.roles).toEqual(['admin', 'stock-user', 'livetalk-user']);
+      expect(result.roles).toEqual(['admin', 'stock-user', 'stock-admin']);
     });
 
     it.each([
@@ -395,7 +395,7 @@ describe('jwt コールバック - rolesRefreshedAt', () => {
         roles: ['admin'],
         roleGrants: [
           grant({ grantId: 'a', expiresAt: now - 1 }),
-          grant({ grantId: 'b', roleId: 'livetalk-user', expiresAt: now + 60_000, revokedAt: now }),
+          grant({ grantId: 'b', roleId: 'stock-admin', expiresAt: now + 60_000, revokedAt: now }),
         ],
       });
       await useRepository();

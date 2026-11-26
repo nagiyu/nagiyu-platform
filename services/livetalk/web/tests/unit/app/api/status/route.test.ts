@@ -47,7 +47,7 @@ const livetalkUserSession = {
     id: 'u1',
     email: 'user@example.com',
     name: 'User',
-    roles: ['livetalk-user'],
+    roles: [],
   },
   expires: new Date(Date.now() + 60 * 1000).toISOString(),
 };
@@ -119,7 +119,7 @@ describe('GET /api/status', () => {
     expect(res.status).toBe(401);
   });
 
-  it('livetalk:admin 権限なし（livetalk-user のみ）は 403', async () => {
+  it('livetalk:admin 権限なし（ロールなし）は 403', async () => {
     mockGetSession.mockResolvedValueOnce(livetalkUserSession);
     const res = await GET(buildGetRequest());
     expect(res.status).toBe(403);

@@ -21,7 +21,7 @@ const validSession = {
     id: 'u1',
     email: 'u@example.com',
     name: 'U',
-    roles: ['livetalk-user'],
+    roles: [],
   },
   expires: new Date(Date.now() + 60 * 1000).toISOString(),
 };
@@ -70,15 +70,6 @@ describe('GET /api/messages', () => {
     mockGetSession.mockResolvedValueOnce(null);
     const response = await GET(buildRequest());
     expect(response.status).toBe(401);
-  });
-
-  it('permission がない場合は 403', async () => {
-    mockGetSession.mockResolvedValueOnce({
-      ...validSession,
-      user: { ...validSession.user, roles: ['guest'] },
-    });
-    const response = await GET(buildRequest());
-    expect(response.status).toBe(403);
   });
 
   describe('認証済み', () => {

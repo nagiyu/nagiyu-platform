@@ -11,7 +11,6 @@ import { createPushSubscriptionRepository } from '@nagiyu/livetalk-core';
 
 export const POST = createPushSubscribeRoute({
   getSession,
-  requiredPermission: 'livetalk:chat',
   onError: errorReporter.onError('Web API: Push 購読登録エラー'),
   onSubscribe: async ({ session, subscription, subscriptionId }) => {
     await createPushSubscriptionRepository().put({

@@ -72,7 +72,7 @@ describe('getEffectiveRoles', () => {
   it('期限切れと取り消しの権利は含めない', () => {
     const grants = [
       grant({ grantId: 'a', roleId: 'stock-user', expiresAt: NOW - 1 }),
-      grant({ grantId: 'b', roleId: 'livetalk-user', expiresAt: NOW + 1, revokedAt: NOW - 1 }),
+      grant({ grantId: 'b', roleId: 'stock-user', expiresAt: NOW + 1, revokedAt: NOW - 1 }),
     ];
     expect(getEffectiveRoles(['admin'], grants, NOW)).toEqual(['admin']);
   });

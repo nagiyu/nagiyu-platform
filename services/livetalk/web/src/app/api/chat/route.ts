@@ -80,7 +80,7 @@ function isChatRequest(
  */
 export const POST = withApiErrorReporting(
   'Web API: チャットエラー',
-  withAuth(getSession, 'livetalk:chat', async (session, request: Request) => {
+  withAuth(getSession, null, async (session, request: Request) => {
     const bodyResult = await readJsonObjectBody(request);
     if (!bodyResult.ok || !isChatRequest(bodyResult.body)) {
       return NextResponse.json(

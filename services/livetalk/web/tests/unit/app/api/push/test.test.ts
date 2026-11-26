@@ -115,7 +115,7 @@ const livetalkUserSession = {
     id: 'u1',
     email: 'user@example.com',
     name: 'User',
-    roles: ['livetalk-user'],
+    roles: [],
   },
   expires: new Date(Date.now() + 60 * 1000).toISOString(),
 };
@@ -198,7 +198,7 @@ describe('POST /api/push/test', () => {
       expect(res.status).toBe(401);
     });
 
-    it('livetalk:admin 権限なし（livetalk-user のみ）は 403 を返す', async () => {
+    it('livetalk:admin 権限なし（ロールなし）は 403 を返す', async () => {
       mockGetSession.mockResolvedValueOnce(livetalkUserSession);
       const res = await POST(buildPostRequest({ characterId: 'hiyori' }));
       expect(res.status).toBe(403);

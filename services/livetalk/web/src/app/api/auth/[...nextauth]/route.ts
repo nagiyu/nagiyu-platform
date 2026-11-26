@@ -17,7 +17,7 @@ import type { NextRequest } from 'next/server';
  * ロールの見え方を一致させる。
  */
 const GET = createClientSessionGetHandler((req: NextRequest) => handlers.GET(req), {
-  defaultRoles: ['livetalk-user'],
+  defaultRoles: [],
 });
 
 // サインアウト処理は Cookie 発行元の auth サービスに集約する方針のため、

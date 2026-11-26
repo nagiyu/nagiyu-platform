@@ -11,5 +11,5 @@ import type { Session } from '@nagiyu/common';
  */
 export const getSession = createSessionGetter({
   auth: auth as () => Promise<Session | null>,
-  defaultRoles: ['livetalk-user'],
+  defaultRoles: [],
 });

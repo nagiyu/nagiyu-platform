@@ -23,7 +23,7 @@ import {
  */
 export const GET = withApiErrorReporting(
   'Web API: メッセージ取得エラー',
-  withAuth(getSession, 'livetalk:chat', async (session, request: Request) => {
+  withAuth(getSession, null, async (session, request: Request) => {
     const url = new URL(request.url);
     const characterId = url.searchParams.get('characterId') || DEFAULT_CHARACTER_ID;
 

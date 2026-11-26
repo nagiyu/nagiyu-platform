@@ -20,7 +20,7 @@ const ERROR_MESSAGES = {
 
 export const PATCH = withApiErrorReporting(
   'Web API: 通知消化済みマークエラー',
-  withAuth(getSession, 'livetalk:chat', async (session, request: NextRequest) => {
+  withAuth(getSession, null, async (session, request: NextRequest) => {
     const bodyResult = await readJsonObjectBody(request);
     const notifId = bodyResult.ok ? bodyResult.body.notifId : undefined;
     if (typeof notifId !== 'string') {

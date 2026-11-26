@@ -23,7 +23,6 @@ describe('VALID_ROLES', () => {
     expect(VALID_ROLES).toContain('stock-viewer');
     expect(VALID_ROLES).toContain('stock-user');
     expect(VALID_ROLES).toContain('stock-admin');
-    expect(VALID_ROLES).toContain('livetalk-user');
     expect(VALID_ROLES).toContain('livetalk-admin');
   });
 
@@ -133,33 +132,6 @@ describe('ROLES', () => {
     });
   });
 
-  describe('livetalk-user role', () => {
-    it('正しい構造を持つべき', () => {
-      expect(ROLES['livetalk-user']).toBeDefined();
-      expect(ROLES['livetalk-user'].id).toBe('livetalk-user');
-      expect(ROLES['livetalk-user'].name).toBe('LiveTalk ユーザー');
-      expect(ROLES['livetalk-user'].description).toBeDefined();
-      expect(Array.isArray(ROLES['livetalk-user'].permissions)).toBe(true);
-    });
-
-    it('livetalk:chat 権限のみを持つべき', () => {
-      expect(ROLES['livetalk-user'].permissions).toContain('livetalk:chat');
-      expect(ROLES['livetalk-user'].permissions).toHaveLength(1);
-    });
-  });
-
-  describe('livetalk:chat 権限の付与範囲', () => {
-    it('livetalk-user と livetalk-admin が livetalk:chat を持つべき', () => {
-      expect(ROLES['livetalk-user'].permissions).toContain('livetalk:chat');
-      expect(ROLES['livetalk-admin'].permissions).toContain('livetalk:chat');
-      expect(ROLES.admin.permissions).not.toContain('livetalk:chat');
-      expect(ROLES['user-manager'].permissions).not.toContain('livetalk:chat');
-      expect(ROLES['stock-viewer'].permissions).not.toContain('livetalk:chat');
-      expect(ROLES['stock-user'].permissions).not.toContain('livetalk:chat');
-      expect(ROLES['stock-admin'].permissions).not.toContain('livetalk:chat');
-    });
-  });
-
   describe('livetalk-admin role', () => {
     it('正しい構造を持つべき', () => {
       expect(ROLES['livetalk-admin']).toBeDefined();
@@ -169,13 +141,11 @@ describe('ROLES', () => {
       expect(Array.isArray(ROLES['livetalk-admin'].permissions)).toBe(true);
     });
 
-    it('livetalk:chat と livetalk:admin 権限を持つべき', () => {
-      expect(ROLES['livetalk-admin'].permissions).toContain('livetalk:chat');
-      expect(ROLES['livetalk-admin'].permissions).toContain('livetalk:admin');
-      expect(ROLES['livetalk-admin'].permissions).toHaveLength(2);
+    it('livetalk:admin 権限のみを持つべき', () => {
+      expect(ROLES['livetalk-admin'].permissions).toEqual(['livetalk:admin']);
     });
 
-    it('livetalk:admin 権限のみを持つべき（それ以外の権限は不要）', () => {
+    it('ほかのサービスの権限は持たない', () => {
       expect(ROLES['livetalk-admin'].permissions).not.toContain('users:read');
       expect(ROLES['livetalk-admin'].permissions).not.toContain('stocks:read');
     });
@@ -184,7 +154,6 @@ describe('ROLES', () => {
   describe('livetalk:admin 権限の付与範囲', () => {
     it('livetalk-admin のみが livetalk:admin を持つべき', () => {
       expect(ROLES['livetalk-admin'].permissions).toContain('livetalk:admin');
-      expect(ROLES['livetalk-user'].permissions).not.toContain('livetalk:admin');
       expect(ROLES.admin.permissions).not.toContain('livetalk:admin');
       expect(ROLES['user-manager'].permissions).not.toContain('livetalk:admin');
       expect(ROLES['stock-admin'].permissions).not.toContain('livetalk:admin');
@@ -283,7 +252,7 @@ describe('有料ロール', () => {
       expect(VALID_ROLES).toContain(roleId);
     }
     expect(PAID_ROLES).not.toContain('admin');
-    expect(PAID_ROLES).not.toContain('livetalk-user');
+    expect(PAID_ROLES).not.toContain('livetalk-admin');
   });
 
   it('すべての有料ロールのサービスは BILLING_SERVICES に定義されているべき', () => {
@@ -296,7 +265,7 @@ describe('有料ロール', () => {
   it('getBillingServiceId はロール ID からサービス ID を返し、有料ロール以外は undefined', () => {
     expect(getBillingServiceId('quick-clip-pro')).toBe('quick-clip');
     expect(getBillingServiceId('livetalk-standard')).toBe('livetalk');
-    expect(getBillingServiceId('livetalk-user')).toBeUndefined();
+    expect(getBillingServiceId('livetalk-admin')).toBeUndefined();
     expect(getBillingServiceId('unknown')).toBeUndefined();
   });
 

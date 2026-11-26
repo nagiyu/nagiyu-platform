@@ -32,7 +32,7 @@ export interface PendingNotification {
 
 export const GET = withApiErrorReporting(
   'Web API: 未消化通知取得エラー',
-  withAuth(getSession, 'livetalk:chat', async (session) => {
+  withAuth(getSession, null, async (session) => {
     const userId = session.user.id;
     const repo = createNotificationEventRepository();
     const characterIds = getAllCharacterIds();
