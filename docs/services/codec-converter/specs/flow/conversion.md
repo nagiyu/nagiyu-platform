@@ -1,8 +1,4 @@
 ---
-id: codec-converter/flow/conversion
-title: 変換の経路
-kind: flow
-service: codec-converter
 sources:
   - services/codec-converter/web/src/app/page.tsx
   - services/codec-converter/web/src/app/jobs/[jobId]/page.tsx
@@ -13,11 +9,6 @@ sources:
   - services/codec-converter/core/src/constants.ts
   - infra/codec-converter/lib/codec-converter-stack.ts
 sources_hash: 336805960a80389c1ebbf4bba4dd6c4a86f6b2a919a18ce2ffc7b9aaa3e8ec7d
-terms: [codec-converter/term/job, codec-converter/term/output-codec, codec-converter/term/job-definition-size]
-related_cards: [codec-converter/screen/upload, codec-converter/screen/job-detail, codec-converter/api/jobs, codec-converter/batch/convert, codec-converter/flow/error-reporting]
-related_adr:
-  - services/codec-converter/architecture.md#データフロー
-  - services/codec-converter/architecture.md#S3 Presigned URL
 ---
 
 # 変換の経路
@@ -78,3 +69,9 @@ flowchart TD
     J[ジョブ詳細画面] --> A
     J -->|ダウンロード| S
 ```
+
+## 理由
+
+- 動画は、署名付き URL を使って、ブラウザと S3 の間で直接運ぶ。次の理由による
+    - Lambda のペイロードの上限 (6MB) を超える。Lambda を通すと、最大 500MB の動画を通せない
+    - Lambda の帯域を使わずに済む

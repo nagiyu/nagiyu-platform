@@ -1,15 +1,8 @@
 ---
-id: codec-converter/term/job-definition-size
-title: ジョブ定義のサイズ
-kind: term
-service: codec-converter
 sources:
   - services/codec-converter/core/src/resource-selector.ts
   - infra/codec-converter/lib/codec-converter-stack.ts
 sources_hash: b83d258626af8ae7fe86af6c4a202bd43a1ddcf7f2f1aa34b09baa1798e70224
-related_cards: [codec-converter/api/jobs, codec-converter/batch/convert, codec-converter/flow/conversion, codec-converter/term/output-codec]
-related_adr:
-  - services/codec-converter/architecture.md#動的リソース配分
 ---
 
 # ジョブ定義のサイズ
@@ -18,7 +11,7 @@ related_adr:
 
 ## 説明
 
-ジョブ定義は `{BATCH_JOB_DEFINITION_PREFIX}-{サイズ}` の名前で、インフラが作る (プレフィックスは `nagiyu-codec-converter-{env}`)。
+ジョブ定義は `{BATCH_JOB_DEFINITION_PREFIX}-{サイズ}` の名前で、インフラが作る (プレフィックスは `nagiyu-codec-converter-{env}`。[Batch の実行環境](../resource/batch-runtime.md))。
 
 | サイズ | vCPU | メモリ (MB) |
 |---|---|---|
@@ -40,6 +33,9 @@ related_adr:
 - 選んだ定義で投入に失敗したときも `medium` で再投入する
 - 全サイズのジョブ定義は、同じイメージ、タイムアウト (7,200 秒)、リトライ (2 回まで試行) を持つ
 
-## 関連するカード
+## 理由
 
-- [ジョブ API](../api/jobs.md)・[変換バッチ](../batch/convert.md)・[変換の経路](../flow/conversion.md)
+- ファイルサイズとコーデックでサイズを使い分ける。軽い処理に大きな資源を割り当てるとコストが無駄になり、重い処理に小さな資源を割り当てると処理時間が延びるため
+- 選べないとき、または選んだ定義での投入に失敗したときは、既定の `medium` で続ける。既存のジョブを失敗させないため
+- vCPU とメモリの値は、AWS Fargate の組み合わせの制約 (1 vCPU は 2,048〜8,192 MB、2 vCPU は 4,096〜16,384 MB、4 vCPU は 8,192〜30,720 MB) に収める。参考: https://docs.aws.amazon.com/batch/latest/userguide/fargate.html
+- 並行して動かせる量は、コンピュート環境の最大 vCPU で決まる ([Batch の実行環境](../resource/batch-runtime.md))

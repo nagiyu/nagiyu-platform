@@ -1,8 +1,4 @@
 ---
-id: codec-converter/api/system
-title: システム系の API
-kind: api
-service: codec-converter
 sources:
   - services/codec-converter/web/src/app/api/health/route.ts
   - libs/nextjs/src/health.ts

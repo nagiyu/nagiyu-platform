@@ -1,8 +1,4 @@
 ---
-id: codec-converter/batch/convert
-title: 変換バッチ (convert)
-kind: batch
-service: codec-converter
 sources:
   - services/codec-converter/batch/src/index.ts
   - services/codec-converter/core/src/batch-job-input.ts
@@ -12,11 +8,6 @@ sources:
   - libs/aws/src/error-events/with-error-reporting.ts
   - libs/aws/src/error-events/report.ts
 sources_hash: 602ca10c214b47ba72205b72afc9c921871fc06cc9e361382e6ba86a6d1ae453
-terms: [codec-converter/term/job, codec-converter/term/output-codec, codec-converter/term/job-definition-size]
-related_cards: [codec-converter/api/jobs, codec-converter/flow/conversion, codec-converter/flow/error-reporting]
-related_adr:
-  - services/codec-converter/architecture.md#Batch Worker 実装詳細
-  - services/codec-converter/architecture.md#動的リソース配分
 ---
 
 # 変換バッチ (convert)
@@ -35,7 +26,7 @@ S3 に置かれた動画を FFmpeg で[出力コーデック](../term/output-cod
 | `ERROR_EVENTS_TABLE_NAME` | ジョブ定義 | エラー履歴の報告先。なければ報告だけができない |
 | `JOB_DEFINITION_NAME` | 任意 | あればログに出す。インフラのジョブ定義は設定しないので、ログでは `unknown` になる |
 
-- 実行基盤は Fargate の Batch。ジョブ定義は 4 サイズで、イメージ、リトライ (2 回まで試行)、タイムアウト (7,200 秒) は共通
+- 実行基盤は Fargate の Batch ([Batch の実行環境](../resource/batch-runtime.md))。ジョブ定義は 4 サイズで、イメージ、リトライ (2 回まで試行)、タイムアウト (7,200 秒) は共通
 - ジョブ定義のログ出力先は CloudWatch Logs `/aws/batch/nagiyu-codec-converter-{env}` (保持 1 週間)
 - 同時に動かせる大きさは、コンピュート環境の最大 16 vCPU で決まる
 
@@ -88,7 +79,7 @@ flowchart TD
 - 終了コードが 0 でないので、AWS Batch が 2 回まで試行する。再試行で最初から処理し直し、報告も試行ごとに増える
 - ⑥ の `COMPLETED` の保存が失敗したときも、同じ失敗の扱いになる。`FAILED` の保存も失敗すれば、ステータスは `PROCESSING` のまま残る
 - ⑦ の一時ファイルの削除は、処理の `try` の中にある。削除に失敗する (ないファイル以外の理由) と、`COMPLETED` にしたあとでも失敗の扱いになり、`FAILED` で上書きする
-- 7,200 秒を超えると Batch がジョブを止める。ワーカーは時間を見ておらず、ステータスを更新できないので、ジョブは `PROCESSING` のまま残る。Batch の失敗を拾う EventBridge のルールや CloudWatch Alarm は、codec-converter のインフラには定義されていない ([エラー通知の経路](../../../services/admin/specs/flow/error-notification.md)の `batch-event` の対象にならない)
+- 7,200 秒を超えると Batch がジョブを止める。ワーカーは時間を見ておらず、ステータスを更新できないので、ジョブは `PROCESSING` のまま残る。Batch の失敗を拾う EventBridge のルールや CloudWatch Alarm は、codec-converter のインフラには定義されていない ([エラー通知の経路](../../../admin/specs/flow/error-notification.md)の `batch-event` の対象にならない)
 - 報告の書き込みに失敗しても、例外は伝えない。ログだけを残す
 
 ## つながり
@@ -102,3 +93,7 @@ flowchart TD
     W -.->|失敗の報告| E[(error-events テーブル)]
     E -->|Streams| N[Admin の Web Push]
 ```
+
+## 理由
+
+- 再試行は AWS Batch に任せ、ワーカーの中では再試行しない。ワーカーは失敗を報告して異常終了するだけにして、失敗の報告と再試行の責務を分けるため
