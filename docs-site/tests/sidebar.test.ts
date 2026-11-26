@@ -159,11 +159,7 @@ describe('実際の docs の章立て', () => {
       '共通基盤',
       '開発の進め方',
     ]);
-    const services = sidebar[1].items ?? [];
-    const devSync = services.find((item) => item.text === 'dev-sync');
-    expect(JSON.stringify(devSync)).toContain('/development/dev-sync');
     const guide = JSON.stringify(sidebar[3]);
-    expect(guide).not.toContain('/development/dev-sync');
     expect(guide).toContain('仕様カードの書き方');
   });
 

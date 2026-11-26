@@ -19,10 +19,10 @@
     "check:internal-links": "node scripts/check-internal-links.mjs"
   },
   "dependencies": {
-    "@nagiyu/browser": "*",
-    "@nagiyu/common": "*",
-    "@nagiyu/nextjs": "*",
-    "@nagiyu/ui": "*",
+    "@nagiyu/browser": "^0.1.1",
+    "@nagiyu/common": "^0.1.1",
+    "@nagiyu/nextjs": "^0.1.1",
+    "@nagiyu/ui": "^0.1.1",
     "gray-matter": "^4.0.3",
     "isomorphic-dompurify": "^3.16.0",
     "rehype-stringify": "^10.0.1",

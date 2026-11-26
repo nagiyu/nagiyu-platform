@@ -40,6 +40,10 @@ export class DynamoDBJobRepository implements JobRepository {
     await this.entityStore.update({ jobId }, { analysisProgress: progress });
   }
 
+  public async updateDurationSec(jobId: string, durationSec: number): Promise<void> {
+    await this.entityStore.update({ jobId }, { durationSec });
+  }
+
   public async markUsageReleased(jobId: string): Promise<boolean> {
     const result = await this.entityStore.updateIfAttributeAbsent({ jobId }, 'UsageReleased', {
       usageReleased: true,

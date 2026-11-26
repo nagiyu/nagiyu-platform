@@ -18,7 +18,7 @@ sources:
   - libs/react/src/components/ServiceWorkerRegistration.tsx
 sources_hash: c5b67022c36c769db30981fe6a9493374487de752d910cbdc85a6b64a88361ad
 terms: [stock-tracker/term/trading-hours, stock-tracker/term/price-source, stock-tracker/term/push-subscription, stock-tracker/term/temporary-alert]
-related_cards: [admin/flow/error-notification, stock-tracker/batch/minute, stock-tracker/batch/hourly, stock-tracker/batch/daily, stock-tracker/batch/temporary-alert-expiry, stock-tracker/api/alerts, stock-tracker/api/push, stock-tracker/screen/alerts, stock-tracker/screen/home]
+related_cards: [stock-tracker/batch/minute, stock-tracker/batch/hourly, stock-tracker/batch/daily, stock-tracker/batch/temporary-alert-expiry, stock-tracker/api/alerts, stock-tracker/api/push, stock-tracker/screen/alerts, stock-tracker/screen/home]
 related_adr:
   - services/stock-tracker/architecture.md#2.4
   - services/stock-tracker/architecture.md#2.18
@@ -60,7 +60,7 @@ flowchart TD
 4. **送信**: 判定したアラート自身の購読 1 件へ送る。VAPID の鍵は環境変数から読む
     - 送れた: 成功に数える
     - 送り先が 404 か 410 を返した、または `endpoint` が既知の Push サービスの https URL でなく送らなかった (購読が無効): 警告ログだけを残す。失敗には数えず、アラートも購読も消さない
-    - それ以外の失敗 (VAPID の鍵がないなど): そのアラートの失敗に数える ([エラー通知の経路](../../admin/flow/error-notification.md))
+    - それ以外の失敗 (VAPID の鍵がないなど): そのアラートの失敗に数える ([エラー通知の経路](../../../services/admin/specs/flow/error-notification.md))
 5. **表示**: 端末のサービスワーカーが通知を受け、ペイロードのタイトル、本文、アイコンで表示する。ペイロードに `tag` がないので `stock-alert` を付ける。操作するまで残る
 6. **タップ**: 通知の URL を開く。同じサービスのウィンドウがすでに開いていればそこを移動して前面に出し、なければ新しいウィンドウを開く。URL がなければ `/alerts` を開く
 7. **購読の更新**: 画面はどのページでも、開くたびにサービスワーカーを登録し、通知を許可済みなら購読を作り直して [Push 通知 API](../api/push.md) に送る。利用者のアラート (最大 100 件) のうち、購読が違うものがすべて新しい購読に書き換わる。別の端末で画面を開くと、宛先がその端末に変わる
