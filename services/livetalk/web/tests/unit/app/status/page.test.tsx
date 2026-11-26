@@ -97,19 +97,25 @@ function setup(
     usage?: { characterCount: number; totalCount: number };
     topics?: { topicId: string; subject: string; care: number }[];
     freshnessRequests?: { topicId: string; createdAt: number }[];
+    /** false なら生活サイクルを未登録にする */
+    hasLifecycle?: boolean;
   } = {}
 ) {
   const listByUser = jest.fn(async () => events);
   mockGetSession.mockResolvedValue(adminSession);
   mockLifecycleRepo.mockReturnValue({
-    get: jest.fn(async () => ({
-      userId: 'u1',
-      characterId: 'hiyori',
-      bedtime: '01:30',
-      wakeUpTime: '09:30',
-      createdAt: 0,
-      updatedAt: 0,
-    })),
+    get: jest.fn(async () =>
+      extra.hasLifecycle === false
+        ? null
+        : {
+            userId: 'u1',
+            characterId: 'hiyori',
+            bedtime: '01:30',
+            wakeUpTime: '09:30',
+            createdAt: 0,
+            updatedAt: 0,
+          }
+    ),
   } as unknown as LifecycleRepository);
   mockNotifRepo.mockReturnValue({ listByUser } as unknown as NotificationEventRepository);
   mockSafetyRepo.mockReturnValue({
@@ -221,21 +227,45 @@ describe('StatusPage 勉強と重要通知', () => {
     jest.useRealTimers();
   });
 
-  it('発話がなければ勉強停止中と判定しないことを表示する', async () => {
-    setup([]);
+  const recentUser = () => [{ role: 'user', createdAt: NOW.getTime() - 60 * 60 * 1000 }];
+
+  it('生活サイクルが未登録なら対象外と表示し、重要通知も判定しない', async () => {
+    setup([], { hasLifecycle: false, messages: recentUser() });
 
     const html = await renderPage();
 
     expect(html).toContain('勉強と重要通知');
-    expect(html).toContain('勉強停止中');
-    expect(html).toContain('上限到達');
+    expect(html).toContain('対象外（生活サイクル未登録）');
+    expect(html).toContain('判定しない（生活サイクル未登録）');
+  });
+
+  it('発話がなければ勉強停止中と表示し、重要通知も判定しない', async () => {
+    setup([]);
+
+    const html = await renderPage();
+
+    expect(html).toContain('勉強停止中（3 日ルール）');
+    expect(html).toContain('3 日ルール: 止まっている');
     expect(html).toContain('判定しない（勉強停止中）');
+  });
+
+  it('回数の上限に達していれば本日の上限到達と表示する', async () => {
+    setup([], {
+      messages: recentUser(),
+      usage: { characterCount: 20, totalCount: 20 },
+    });
+
+    const html = await renderPage();
+
+    expect(html).toContain('3 日ルール: 止まっていない');
+    expect(html).toContain('本日の上限到達');
+    expect(html).toContain('判定する');
   });
 
   it('勉強中は回数・依頼待ち・判定に渡る候補を表示する', async () => {
     setup([], {
-      messages: [{ role: 'user', createdAt: NOW.getTime() - 60 * 60 * 1000 }],
-      usage: { characterCount: 2, totalCount: 4 },
+      messages: recentUser(),
+      usage: { characterCount: 0, totalCount: 0 },
       topics: [{ topicId: 'topic-1', subject: '来週のライブ', care: 5 }],
       freshnessRequests: [{ topicId: 'topic-9', createdAt: NOW.getTime() - 1000 }],
     });
@@ -243,7 +273,6 @@ describe('StatusPage 勉強と重要通知', () => {
     const html = await renderPage();
 
     expect(html).toContain('勉強中');
-    expect(html).toContain('上限内');
     expect(html).toContain('判定する');
     expect(html).toContain('topic-1 | 来週のライブ | care 5');
     expect(html).toContain('鮮度確認の依頼待ち: 1 件');

@@ -46,6 +46,11 @@ export interface StatusSnapshot {
   /** 判定が not_due のときだけ入る、間隔が解ける目安の時刻。 */
   nextEarliestAt?: number;
   studyTopicPendingCount: number;
+  /**
+   * 勉強がいま止まっている理由の要約。取得バッチが判定する順 (生活サイクル、3 日ルール、回数の上限) で、
+   * 最初に当たったものを返す。止まっていなければ studying。
+   */
+  studyState: StudyState;
   /** 3 日ルール。止まっている間は勉強も話題を使う重要通知も止まる。 */
   studyPause: {
     paused: boolean;
@@ -71,8 +76,10 @@ export interface StatusSnapshot {
   };
   /** 重要通知の判定 (LLM) に渡る手前の状態。LLM は呼ばない。 */
   criticalCandidates: {
-    /** 勉強が止まっているときは話題を使わないため判定しない (false)。 */
+    /** 通知バッチがこのキャラの重要通知を判定するか。 */
     evaluated: boolean;
+    /** 判定しない理由。判定するときは null。 */
+    skipReason: CriticalSkipReason | null;
     candidates: CriticalTopicSummary[];
     /** 確認が要る WEB fact を持つため判定の候補から外れた話題。 */
     staleExcluded: CriticalTopicSummary[];
@@ -80,6 +87,20 @@ export interface StatusSnapshot {
     sentCriticals: { topicId: string; eventDate: string | null }[];
   };
 }
+
+/**
+ * 勉強が止まっている理由。
+ * - no_lifecycle: 生活サイクルが未登録で、取得バッチの対象外
+ * - paused: 3 日ルールで止まっている
+ * - limit_reached: その日の回数の上限に達している
+ */
+export type StudyState = 'no_lifecycle' | 'paused' | 'limit_reached' | 'studying';
+
+/**
+ * 重要通知を判定しない理由。生活サイクルが未登録のキャラは通知バッチの対象外で、
+ * 勉強が止まっているキャラは話題を使わないため判定しない。
+ */
+export type CriticalSkipReason = 'no_lifecycle' | 'study_paused';
 
 /** 判定の候補の表示用の要約。WEB fact の中身は含めない。 */
 export interface CriticalTopicSummary {
@@ -130,7 +151,13 @@ export async function loadStatusSnapshot(
   const [studyUsage, freshnessRequests, criticalCandidates] = await Promise.all([
     loadStudyUsage(userId, characterId, now),
     createFreshnessCheckRequestRepository().listByCharacter(userId, characterId),
-    loadCriticalCandidates(userId, characterId, studyPaused, notificationEvents, now),
+    loadCriticalCandidates(
+      userId,
+      characterId,
+      lifecycle === null ? 'no_lifecycle' : studyPaused ? 'study_paused' : null,
+      notificationEvents,
+      now
+    ),
   ]);
 
   const notifyDecision = shouldNotifyNow({
@@ -156,6 +183,14 @@ export async function loadStatusSnapshot(
     notifyDecision,
     ...(nextEarliestAt !== undefined ? { nextEarliestAt } : {}),
     studyTopicPendingCount: studyPending.length,
+    studyState:
+      lifecycle === null
+        ? 'no_lifecycle'
+        : studyPaused
+          ? 'paused'
+          : studyUsage.limitReached
+            ? 'limit_reached'
+            : 'studying',
     studyPause: {
       paused: studyPaused,
       lastUserMessageAt: lastUserMessageAt ?? null,
@@ -220,12 +255,12 @@ async function loadStudyUsage(
  * 重要通知の判定に渡る候補を、LLM を呼ばずに求める。
  *
  * 通知バッチと同じ順・同じ関数で絞るが、鮮度確認の依頼は書かない。
- * 勉強が止まっているときは話題を使わないため、Topic も読まない。
+ * 判定しないとき (skipReason がある) は、バッチも話題を使わないため Topic も読まない。
  */
 async function loadCriticalCandidates(
   userId: string,
   characterId: string,
-  studyPaused: boolean,
+  skipReason: CriticalSkipReason | null,
   notificationEvents: NotificationEventEntity[],
   now: Date
 ): Promise<StatusSnapshot['criticalCandidates']> {
@@ -233,8 +268,8 @@ async function loadCriticalCandidates(
     topicId: s.topicId,
     eventDate: s.eventDate ?? null,
   }));
-  if (studyPaused) {
-    return { evaluated: false, candidates: [], staleExcluded: [], sentCriticals };
+  if (skipReason !== null) {
+    return { evaluated: false, skipReason, candidates: [], staleExcluded: [], sentCriticals };
   }
 
   const topicRepo = createTopicRepository();
@@ -257,6 +292,7 @@ async function loadCriticalCandidates(
   });
   return {
     evaluated: true,
+    skipReason: null,
     candidates: candidates.map(summarize),
     staleExcluded: staleExcluded.map(summarize),
     sentCriticals,

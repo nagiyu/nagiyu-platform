@@ -333,6 +333,58 @@ describe('loadStatusSnapshot', () => {
     });
   });
 
+  describe('勉強の状態 (studyState)', () => {
+    const lifecycle = {
+      userId: 'u1',
+      characterId: 'hiyori',
+      bedtime: '01:30',
+      wakeUpTime: '09:30',
+      createdAt: 0,
+      updatedAt: 0,
+    };
+    const recent = [{ role: 'user', createdAt: NOW.getTime() - HOUR }];
+
+    it('生活サイクルが未登録なら、3 日ルールや回数より先に no_lifecycle になる', async () => {
+      setup({ messages: recent });
+
+      const { studyState } = await loadStatusSnapshot('u1', 'hiyori', NOW);
+
+      expect(studyState).toBe('no_lifecycle');
+    });
+
+    it('生活サイクルがあり 3 日ルールで止まっていれば paused', async () => {
+      setup({ lifecycle });
+
+      const { studyState } = await loadStatusSnapshot('u1', 'hiyori', NOW);
+
+      expect(studyState).toBe('paused');
+    });
+
+    it('止まっておらず回数の上限に達していれば limit_reached', async () => {
+      setup({
+        lifecycleFor: { hiyori: lifecycle, ageha: { ...lifecycle, characterId: 'ageha' } },
+        messages: recent,
+        usage: { characterCount: 10, totalCount: 10 },
+      });
+
+      const { studyState } = await loadStatusSnapshot('u1', 'hiyori', NOW);
+
+      expect(studyState).toBe('limit_reached');
+    });
+
+    it('どれにも当たらなければ studying', async () => {
+      setup({
+        lifecycleFor: { hiyori: lifecycle, ageha: { ...lifecycle, characterId: 'ageha' } },
+        messages: recent,
+        usage: { characterCount: 1, totalCount: 1 },
+      });
+
+      const { studyState } = await loadStatusSnapshot('u1', 'hiyori', NOW);
+
+      expect(studyState).toBe('studying');
+    });
+  });
+
   describe('鮮度確認の依頼待ち', () => {
     it('件数と、各依頼の topicId・記録時刻を返す', async () => {
       setup({
@@ -356,6 +408,14 @@ describe('loadStatusSnapshot', () => {
 
   describe('重要通知の判定の手前 (criticalCandidates)', () => {
     const recent = [{ role: 'user', createdAt: NOW.getTime() - HOUR }];
+    const lifecycle = {
+      userId: 'u1',
+      characterId: 'hiyori',
+      bedtime: '01:30',
+      wakeUpTime: '09:30',
+      createdAt: 0,
+      updatedAt: 0,
+    };
     const topic = (topicId: string, care: number) => ({
       topicId,
       subject: `話題-${topicId}`,
@@ -364,6 +424,7 @@ describe('loadStatusSnapshot', () => {
 
     it('勉強が止まっているときは判定せず、Topic を読まない', async () => {
       const { listTopicHeadersByCareDesc, listWebFacts } = setup({
+        lifecycle,
         topics: [topic('t1', 5)],
       });
 
@@ -371,6 +432,26 @@ describe('loadStatusSnapshot', () => {
 
       expect(criticalCandidates).toEqual({
         evaluated: false,
+        skipReason: 'study_paused',
+        candidates: [],
+        staleExcluded: [],
+        sentCriticals: [],
+      });
+      expect(listTopicHeadersByCareDesc).not.toHaveBeenCalled();
+      expect(listWebFacts).not.toHaveBeenCalled();
+    });
+
+    it('生活サイクルが未登録なら no_lifecycle で判定せず、Topic を読まない', async () => {
+      const { listTopicHeadersByCareDesc, listWebFacts } = setup({
+        messages: recent,
+        topics: [topic('t1', 5)],
+      });
+
+      const { criticalCandidates } = await loadStatusSnapshot('u1', 'hiyori', NOW);
+
+      expect(criticalCandidates).toEqual({
+        evaluated: false,
+        skipReason: 'no_lifecycle',
         candidates: [],
         staleExcluded: [],
         sentCriticals: [],
@@ -381,6 +462,7 @@ describe('loadStatusSnapshot', () => {
 
     it('care の閾値以上の話題だけを候補にし、WEB fact の中身は出さない', async () => {
       const { listTopicHeadersByCareDesc } = setup({
+        lifecycle,
         messages: recent,
         topics: [topic('t1', 5), topic('t2', 1)],
         webFacts: { t1: [{ factId: 'f1', volatility: 'stable', content: '秘密の中身' }] },
@@ -394,6 +476,7 @@ describe('loadStatusSnapshot', () => {
         NOTIFY_TOPIC_HEADER_READ_LIMIT
       );
       expect(criticalCandidates.evaluated).toBe(true);
+      expect(criticalCandidates.skipReason).toBeNull();
       expect(criticalCandidates.candidates).toEqual([
         { topicId: 't1', subject: '話題-t1', care: 5 },
       ]);
@@ -402,6 +485,7 @@ describe('loadStatusSnapshot', () => {
 
     it('鮮度切れの WEB fact を持つ話題は候補から外れ、staleExcluded に出る', async () => {
       setup({
+        lifecycle,
         messages: recent,
         topics: [topic('t1', 5), topic('t2', 4)],
         webFacts: {
@@ -442,6 +526,7 @@ describe('loadStatusSnapshot', () => {
 
     it('勉強が止まっていても送り済みの重要通知は返す', async () => {
       setup({
+        lifecycle,
         events: [{ ...makeEvent('c1', 'hiyori', 1000), kind: 'critical' as const, topicId: 't1' }],
       });
 

@@ -24,7 +24,7 @@ import {
 } from '@/lib/characters/registry';
 import StatusCharacterSwitcher from '@/components/StatusCharacterSwitcher';
 import StatusTestPush from '@/components/StatusTestPush';
-import type { CriticalTopicSummary } from '@/lib/server/status';
+import type { CriticalSkipReason, CriticalTopicSummary, StudyState } from '@/lib/server/status';
 
 const REASON_LABELS: Record<string, string> = {
   not_due: 'インターバル未経過',
@@ -33,6 +33,20 @@ const REASON_LABELS: Record<string, string> = {
   daily_cap: '本日の上限到達',
   inactive_stopped: '長期不在（通知停止）',
   no_content: 'コンテンツなし',
+};
+
+/** 勉強が止まっている理由のラベル。止まっていなければ「勉強中」 */
+const STUDY_STATE_LABELS: Record<StudyState, string> = {
+  no_lifecycle: '対象外（生活サイクル未登録）',
+  paused: '勉強停止中（3 日ルール）',
+  limit_reached: '本日の上限到達',
+  studying: '勉強中',
+};
+
+/** 重要通知を判定しない理由のラベル */
+const CRITICAL_SKIP_LABELS: Record<CriticalSkipReason, string> = {
+  no_lifecycle: '判定しない（生活サイクル未登録）',
+  study_paused: '判定しない（勉強停止中）',
 };
 
 /** セーフティ検出の Trigger を日本語ラベルに変換する */
@@ -90,7 +104,8 @@ export default async function StatusPage({ searchParams }: StatusPageProps) {
   const { lifecycle, notifyDecision, nextEarliestAt, recentNotifications } = snapshot;
   const { state, bedtime, wakeUpTime } = lifecycle;
   const studyPendingCount = snapshot.studyTopicPendingCount;
-  const { studyPause, studyUsage, freshnessCheckRequests, criticalCandidates } = snapshot;
+  const { studyState, studyPause, studyUsage, freshnessCheckRequests, criticalCandidates } =
+    snapshot;
 
   // テスト通知送信用: 登録キャラクターの表示名マップを構築する
   const registeredCharacterIds = getRegisteredCharacterIds();
@@ -211,13 +226,16 @@ export default async function StatusPage({ searchParams }: StatusPageProps) {
       <Typography variant="subtitle2" sx={{ mb: 0.5, fontWeight: 'bold' }}>
         勉強と重要通知
       </Typography>
+      <Box sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Typography variant="body2">勉強:</Typography>
+        <Chip size="sm" color={studyState === 'studying' ? 'success' : 'warning'}>
+          {STUDY_STATE_LABELS[studyState]}
+        </Chip>
+      </Box>
       <Box sx={{ mb: 1 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Typography variant="body2">3 日ルール:</Typography>
-          <Chip size="sm" color={studyPause.paused ? 'warning' : 'success'}>
-            {studyPause.paused ? '勉強停止中' : '勉強中'}
-          </Chip>
-        </Box>
+        <Typography variant="body2">
+          3 日ルール: {studyPause.paused ? '止まっている' : '止まっていない'}
+        </Typography>
         <Typography variant="body2" color="text.secondary">
           最後の発話:{' '}
           {studyPause.lastUserMessageAt !== null
@@ -232,12 +250,7 @@ export default async function StatusPage({ searchParams }: StatusPageProps) {
         )}
       </Box>
       <Box sx={{ mb: 1 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Typography variant="body2">本日の勉強の回数:</Typography>
-          <Chip size="sm" color={studyUsage.limitReached ? 'warning' : 'success'}>
-            {studyUsage.limitReached ? '上限到達' : '上限内'}
-          </Chip>
-        </Box>
+        <Typography variant="body2">本日の勉強の回数:</Typography>
         <Typography variant="body2" color="text.secondary">
           このキャラ: {studyUsage.characterCount} / {studyUsage.characterLimit} 回 （勉強中のキャラ{' '}
           {studyUsage.studyingCharacterCount} 人で等分）
@@ -264,8 +277,10 @@ export default async function StatusPage({ searchParams }: StatusPageProps) {
       <Box sx={{ mb: 1 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Typography variant="body2">重要通知の判定:</Typography>
-          <Chip size="sm" color={criticalCandidates.evaluated ? 'success' : 'warning'}>
-            {criticalCandidates.evaluated ? '判定する' : '判定しない（勉強停止中）'}
+          <Chip size="sm" color={criticalCandidates.skipReason === null ? 'success' : 'warning'}>
+            {criticalCandidates.skipReason === null
+              ? '判定する'
+              : CRITICAL_SKIP_LABELS[criticalCandidates.skipReason]}
           </Chip>
         </Box>
         {criticalCandidates.evaluated && (

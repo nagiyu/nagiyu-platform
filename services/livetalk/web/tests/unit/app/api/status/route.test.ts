@@ -155,6 +155,7 @@ describe('GET /api/status', () => {
     expect(json).toHaveProperty('recentNotifications');
     expect(json).toHaveProperty('notifyDecision');
     expect(json).toHaveProperty('studyTopicPendingCount');
+    expect(json.studyState).toBe('paused');
     expect(json.studyPause).toEqual({ paused: true, lastUserMessageAt: null, pausesAt: null });
     expect(json.studyUsage).toMatchObject({
       characterCount: 3,
@@ -167,6 +168,7 @@ describe('GET /api/status', () => {
     });
     expect(json.criticalCandidates).toEqual({
       evaluated: false,
+      skipReason: 'study_paused',
       candidates: [],
       staleExcluded: [],
       sentCriticals: [],
