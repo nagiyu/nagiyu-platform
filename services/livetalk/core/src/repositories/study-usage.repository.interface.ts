@@ -31,6 +31,14 @@ export type StudyUsageDeniedScope = 'character' | 'user' | 'global';
 export type TryConsumeStudyUsageResult =
   { ok: true } | { ok: false; deniedBy: StudyUsageDeniedScope };
 
+/** その日の勉強の回数。記録がなければ 0 */
+export interface StudyUsageToday {
+  /** 利用者の全キャラクター合計 */
+  userTotal: number;
+  /** 全利用者の合計 */
+  globalTotal: number;
+}
+
 export interface StudyUsageRepository {
   /**
    * キャラクターの上限・利用者の合計の上限・全利用者の合計の上限のすべてに達していなければ 1 回分を数える。上限は超えないが、同時に呼ばれると実際より多く数えて断る側にずれることがある。
@@ -39,4 +47,11 @@ export interface StudyUsageRepository {
    * @throws 記録の読み書きに失敗したとき
    */
   tryConsume(input: TryConsumeStudyUsageInput): Promise<TryConsumeStudyUsageResult>;
+
+  /**
+   * 今日 (日本時間) の回数を、数えずに読む。記録がない日は 0 を返す。
+   *
+   * @throws 記録の読み取りに失敗したとき
+   */
+  readToday(userId: string, nowMs: number): Promise<StudyUsageToday>;
 }

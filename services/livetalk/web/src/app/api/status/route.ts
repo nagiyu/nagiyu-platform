@@ -9,6 +9,7 @@
  *   - 現時点の通知判定結果（shouldNotifyNow の reason / toneBucket 等）
  *   - インターバル解除予測時刻（reason が not_due の場合のみ）
  *   - STUDY_TOPIC pending 件数
+ *   - 勉強の区分・お試し・今日の回数 (study)
  *
  * chat metrics（promptTokens / latencyMs）は DynamoDB 未永続のため本 Issue のスコープ外。
  * CloudWatch Logs Insights で確認する。
@@ -38,6 +39,7 @@ import {
 } from '@nagiyu/livetalk-core';
 import { getSession } from '@/lib/server/session';
 import { withApiErrorReporting } from '@/lib/server/api-error-reporting';
+import { loadAdminStudyStatus } from '@/lib/study/admin-study-status';
 import { STATUS_ERROR_MESSAGES } from './constants';
 import { hasCharacter } from '@/lib/characters/registry';
 
@@ -79,12 +81,13 @@ export const GET = withApiErrorReporting(
     const characterId = queriedId && hasCharacter(queriedId) ? queriedId : DEFAULT_CHARACTER_ID;
     const now = new Date();
 
-    const [lifecycle, allUserEvents, allMessages, studyPending] = await Promise.all([
+    const [lifecycle, allUserEvents, allMessages, studyPending, study] = await Promise.all([
       createLifecycleRepository().get({ userId, characterId }),
       // バッチと同じ件数で読む。件数が違うと、1 日の上限や無視回数の数え方がバッチとずれる
       createNotificationEventRepository().listByUser(userId, 60),
       createMessageRepository().listSince(userId, characterId, 0),
       createStudyTopicRepository().listByStatus(userId, characterId, 'pending'),
+      loadAdminStudyStatus(userId, session.user.roles, now.getTime()),
     ]);
 
     // 通知の記録は利用者単位で返るため、判定と表示は表示キャラのものだけに絞る (バッチと同じ)
@@ -137,6 +140,7 @@ export const GET = withApiErrorReporting(
         ...(nextEarliestAt !== undefined ? { nextEarliestAt } : {}),
       },
       studyTopicPendingCount: studyPending.length,
+      study,
     });
   }),
   { error: 'FETCH_FAILED', message: STATUS_ERROR_MESSAGES.FETCH_FAILED }

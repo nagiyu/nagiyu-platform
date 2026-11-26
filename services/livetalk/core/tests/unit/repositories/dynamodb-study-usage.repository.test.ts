@@ -4,7 +4,7 @@
  * DynamoDB クライアントをモックし、送信コマンドの内容を検証する。
  */
 
-import { UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { GetCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { DatabaseError } from '@nagiyu/aws';
 import { STUDY_USAGE_ERROR_MESSAGES } from '../../../src/repositories/study-usage-counting.js';
 import { DynamoDBStudyUsageRepository } from '../../../src/repositories/dynamodb-study-usage.repository.js';
@@ -159,5 +159,40 @@ describe('DynamoDBStudyUsageRepository', () => {
     expect(first.input.ExpressionAttributeNames).toMatchObject({ '#cnt': 'Count#total' });
     expect(first.input.Key).toEqual({ PK: 'USER#u1', SK: 'STUDYUSAGE#20261105' });
     expect(second.input.ExpressionAttributeNames).toMatchObject({ '#cnt': 'Count#hiyori' });
+  });
+
+  describe('readToday', () => {
+    it('数えるときと同じキーを、強い整合性で読む', async () => {
+      const send = jest
+        .fn()
+        .mockResolvedValueOnce({ Item: { 'Count#total': 3 } })
+        .mockResolvedValueOnce({ Item: { 'Count#total': 40 } });
+      const repo = new DynamoDBStudyUsageRepository(makeClient(send), tableName);
+
+      expect(await repo.readToday('u1', NOW_MS)).toEqual({ userTotal: 3, globalTotal: 40 });
+
+      const keys = send.mock.calls.map((call) => (call[0] as GetCommand).input.Key);
+      expect(keys).toEqual(
+        expect.arrayContaining([
+          { PK: 'USER#u1', SK: 'STUDYUSAGE#20261105' },
+          { PK: 'GLOBAL#STUDYUSAGE', SK: 'STUDYUSAGE#20261105' },
+        ])
+      );
+      expect((send.mock.calls[0][0] as GetCommand).input.ConsistentRead).toBe(true);
+    });
+
+    it('記録がない日は 0 を返す', async () => {
+      const send = jest.fn().mockResolvedValue({});
+      const repo = new DynamoDBStudyUsageRepository(makeClient(send), tableName);
+
+      expect(await repo.readToday('u1', NOW_MS)).toEqual({ userTotal: 0, globalTotal: 0 });
+    });
+
+    it('読み取りに失敗したら DatabaseError を投げる', async () => {
+      const send = jest.fn().mockRejectedValue(new Error('boom'));
+      const repo = new DynamoDBStudyUsageRepository(makeClient(send), tableName);
+
+      await expect(repo.readToday('u1', NOW_MS)).rejects.toBeInstanceOf(DatabaseError);
+    });
   });
 });

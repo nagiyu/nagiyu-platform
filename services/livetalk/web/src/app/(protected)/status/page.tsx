@@ -38,6 +38,11 @@ import {
   getRegisteredCharacterIds,
   getCharacterDisplay,
 } from '@/lib/characters/registry';
+import {
+  ADMIN_STUDY_LABELS,
+  formatAdminStudyLines,
+  loadAdminStudyStatus,
+} from '@/lib/study/admin-study-status';
 import StatusCharacterSwitcher from '@/components/StatusCharacterSwitcher';
 import StatusTestPush from '@/components/StatusTestPush';
 
@@ -101,7 +106,7 @@ export default async function StatusPage({ searchParams }: StatusPageProps) {
   const userId = session.user.id;
   const now = new Date();
 
-  const [lifecycle, allUserEvents, allMessages, studyPending, recentSafetyEvents] =
+  const [lifecycle, allUserEvents, allMessages, studyPending, recentSafetyEvents, studyStatus] =
     await Promise.all([
       createLifecycleRepository().get({ userId, characterId }),
       // バッチと同じ件数で読む。件数が違うと、1 日の上限や無視回数の数え方がバッチとずれる
@@ -109,6 +114,7 @@ export default async function StatusPage({ searchParams }: StatusPageProps) {
       createMessageRepository().listSince(userId, characterId, 0),
       createStudyTopicRepository().listByStatus(userId, characterId, 'pending'),
       createSafetyEventRepository().listRecent(SAFETY_REVIEW_DEFAULT_LIMIT),
+      loadAdminStudyStatus(userId, session.user.roles, now.getTime()),
     ]);
 
   // 通知の記録は利用者単位で返るため、判定と表示は表示キャラのものだけに絞る (バッチと同じ)
@@ -262,6 +268,18 @@ export default async function StatusPage({ searchParams }: StatusPageProps) {
         コンテンツ
       </Typography>
       <Typography variant="body2">STUDY_TOPIC (pending): {studyPending.length} 件</Typography>
+
+      <Divider sx={{ my: 1.5 }} />
+
+      {/* 勉強が止まっているとき、区分・お試し・上限のどれが理由かを見分ける */}
+      <Typography variant="subtitle2" sx={{ mb: 0.5, fontWeight: 'bold' }}>
+        {ADMIN_STUDY_LABELS.SECTION_TITLE}
+      </Typography>
+      {formatAdminStudyLines(studyStatus).map((line) => (
+        <Typography key={line} variant="body2">
+          {line}
+        </Typography>
+      ))}
 
       <Divider sx={{ my: 1.5 }} />
 

@@ -11,6 +11,8 @@ import {
   createSafetyEventRepository,
   createStudyTopicRepository,
   createMessageRepository,
+  createProfileRepository,
+  createStudyUsageRepository,
 } from '@nagiyu/livetalk-core';
 import type {
   LifecycleRepository,
@@ -18,6 +20,8 @@ import type {
   SafetyEventRepository,
   StudyTopicRepository,
   MessageRepository,
+  ProfileRepository,
+  StudyUsageRepository,
 } from '@nagiyu/livetalk-core';
 
 jest.mock('@/lib/server/session', () => ({
@@ -45,6 +49,8 @@ jest.mock('@nagiyu/livetalk-core', () => ({
   createSafetyEventRepository: jest.fn(),
   createStudyTopicRepository: jest.fn(),
   createMessageRepository: jest.fn(),
+  createProfileRepository: jest.fn(),
+  createStudyUsageRepository: jest.fn(),
 }));
 
 const mockGetSession = getSession as jest.MockedFunction<typeof getSession>;
@@ -62,6 +68,13 @@ const mockStudyRepo = createStudyTopicRepository as jest.MockedFunction<
 >;
 const mockMessageRepo = createMessageRepository as jest.MockedFunction<
   typeof createMessageRepository
+>;
+
+const mockProfileRepo = createProfileRepository as jest.MockedFunction<
+  typeof createProfileRepository
+>;
+const mockStudyUsageRepo = createStudyUsageRepository as jest.MockedFunction<
+  typeof createStudyUsageRepository
 >;
 
 const adminSession = {
@@ -107,6 +120,12 @@ function setup(events: ReturnType<typeof makeEvent>[]) {
   mockMessageRepo.mockReturnValue({
     listSince: jest.fn(async () => []),
   } as unknown as MessageRepository);
+  mockProfileRepo.mockReturnValue({
+    getById: jest.fn(async () => null),
+  } as unknown as ProfileRepository);
+  mockStudyUsageRepo.mockReturnValue({
+    readToday: jest.fn(async () => ({ userTotal: 0, globalTotal: 12 })),
+  } as unknown as StudyUsageRepository);
   return listByUser;
 }
 
@@ -171,5 +190,29 @@ describe('StatusPage 通知の記録のキャラクター絞り込み', () => {
     expect(html).toContain('本日の上限到達');
     expect(html).toContain('本文-own-1');
     expect(html).not.toContain('本文-other-1');
+  });
+});
+
+describe('StatusPage 勉強の節', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.useFakeTimers().setSystemTime(NOW);
+  });
+  afterEach(() => jest.useRealTimers());
+
+  it('区分・お試し・今日の回数を出し、上限に達していればそうとわかる', async () => {
+    setup([]);
+    const html = await renderPage();
+
+    expect(html).toContain('区分: 無料');
+    expect(html).toContain('お試し: まだ始まっていない');
+    expect(html).toContain('今日の回数 (あなた): 0 / 0 (上限に達している)');
+    expect(html).toContain('今日の回数 (全利用者): 12 / 200');
+    expect(html).not.toContain('今日の回数 (全利用者): 12 / 200 (');
+  });
+
+  it('既存の勉強の待ち件数は変えない', async () => {
+    setup([]);
+    expect(await renderPage()).toContain('STUDY_TOPIC (pending): 0 件');
   });
 });
