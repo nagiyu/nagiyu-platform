@@ -51,6 +51,12 @@ jest.mock('@nagiyu/quick-clip-core', () => ({
   ),
 }));
 
+// 期限を過ぎていないことを示す、十分に先の時刻 (ミリ秒)
+const FUTURE_EXPIRES_AT = 4102444800000;
+
+// 期限を過ぎていることを示す、過去の時刻 (ミリ秒)
+const PAST_EXPIRES_AT = 1;
+
 describe('GET /api/jobs/[jobId]/highlights', () => {
   const mockedGetS3Client = getS3Client as jest.MockedFunction<typeof getS3Client>;
   const mockedGetSignedUrl = getSignedUrl as jest.MockedFunction<typeof getSignedUrl>;
@@ -70,7 +76,7 @@ describe('GET /api/jobs/[jobId]/highlights', () => {
       originalFileName: 'movie.mp4',
       fileSize: 100,
       createdAt: 1,
-      expiresAt: 2,
+      expiresAt: FUTURE_EXPIRES_AT,
     });
     mockGetHighlights.mockResolvedValue([
       {
@@ -111,7 +117,7 @@ describe('GET /api/jobs/[jobId]/highlights', () => {
       originalFileName: 'movie.mp4',
       fileSize: 100,
       createdAt: 1,
-      expiresAt: 2,
+      expiresAt: FUTURE_EXPIRES_AT,
     });
     mockGetHighlights.mockResolvedValue([
       {
@@ -159,7 +165,7 @@ describe('GET /api/jobs/[jobId]/highlights', () => {
       originalFileName: 'movie.mp4',
       fileSize: 100,
       createdAt: 1,
-      expiresAt: 2,
+      expiresAt: FUTURE_EXPIRES_AT,
     });
     mockGetHighlights.mockResolvedValue([
       {
@@ -206,6 +212,27 @@ describe('GET /api/jobs/[jobId]/highlights', () => {
     });
   });
 
+  it('異常系: 期限を過ぎたジョブは、削除前でも存在しない場合と同じ404を返す', async () => {
+    mockGetJob.mockResolvedValue({
+      jobId: 'job-1',
+      originalFileName: 'movie.mp4',
+      fileSize: 100,
+      createdAt: 1,
+      expiresAt: PAST_EXPIRES_AT,
+    });
+
+    const response = await GET(mockRequest, {
+      params: Promise.resolve({ jobId: 'job-1' }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(404);
+    expect(body).toEqual({
+      error: 'JOB_NOT_FOUND',
+      message: '指定されたジョブが見つかりません',
+    });
+  });
+
   it('異常系: clipUrl 生成失敗時は500を返す', async () => {
     mockGetJob.mockResolvedValue({
       jobId: 'job-1',
@@ -213,7 +240,7 @@ describe('GET /api/jobs/[jobId]/highlights', () => {
       originalFileName: 'movie.mp4',
       fileSize: 100,
       createdAt: 1,
-      expiresAt: 2,
+      expiresAt: FUTURE_EXPIRES_AT,
     });
     mockGetHighlights.mockResolvedValue([
       {

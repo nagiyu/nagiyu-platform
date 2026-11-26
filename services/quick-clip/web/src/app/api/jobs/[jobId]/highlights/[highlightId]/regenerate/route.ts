@@ -1,11 +1,17 @@
-import { createHighlightRepository } from '@nagiyu/quick-clip-core';
+import { createHighlightRepository, createJobRepository } from '@nagiyu/quick-clip-core';
+import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import { NextResponse } from 'next/server';
 import { InvokeCommand } from '@aws-sdk/client-lambda';
 import { getClipRegenerateFunctionName, getLambdaClient } from '@/lib/server/aws';
 import { withApiErrorReporting } from '@/lib/api-error-reporting';
-import { DOMAIN_ERROR_MESSAGES, HighlightDomainService } from '@/lib/server/domain-services';
+import {
+  DOMAIN_ERROR_MESSAGES,
+  HighlightDomainService,
+  JobDomainService,
+} from '@/lib/server/domain-services';
 
 const ERROR_MESSAGES = {
+  JOB_NOT_FOUND: COMMON_ERROR_MESSAGES.JOB_NOT_FOUND,
   HIGHLIGHT_NOT_FOUND: '指定された見どころが見つかりません',
   CLIP_GENERATING: 'クリップを作り直している最中のため、変更できません',
   INTERNAL_SERVER_ERROR: 'クリップ再生成の開始に失敗しました',
@@ -23,11 +29,22 @@ export const POST = withApiErrorReporting(
   ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
   async (_request: Request, { params }: RouteParams): Promise<NextResponse> => {
     const { jobId, highlightId } = await params;
-    const repository = createHighlightRepository();
-    const highlightService = new HighlightDomainService(repository);
+    const highlightService = new HighlightDomainService(createHighlightRepository());
 
     try {
-      const current = await repository.getById(jobId, highlightId);
+      // 消えた・期限を過ぎたジョブの見どころは作り直させない
+      const job = await new JobDomainService(createJobRepository()).getActiveJob(jobId);
+      if (!job) {
+        return NextResponse.json(
+          {
+            error: 'JOB_NOT_FOUND',
+            message: ERROR_MESSAGES.JOB_NOT_FOUND,
+          },
+          { status: 404 }
+        );
+      }
+
+      const current = await highlightService.getHighlight(jobId, highlightId);
       if (!current) {
         return NextResponse.json(
           {

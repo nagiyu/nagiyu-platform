@@ -10,7 +10,7 @@ sources:
   - services/quick-clip/core/src/libs/highlight-extractor.service.ts
   - services/quick-clip/web/src/lib/server/highlight-recovery.ts
   - services/quick-clip/web/src/lib/highlight-edit-lock.ts
-sources_hash: 38a2066c24dabd9e81882175b2d3604f53dbb5dacd49fef45d325ce52990bc1a
+sources_hash: edc818c70dee67c70824717bbca2ef2fbf63ac050f833afdd97e354cce19c29c
 related_cards: [quick-clip/api/highlights, quick-clip/batch/extract, quick-clip/batch/clip-regenerate, quick-clip/screen/highlights, quick-clip/term/job]
 related_adr:
   - services/quick-clip/architecture.md#ADR-002
@@ -34,7 +34,7 @@ related_adr:
 | `status` | 採否。`unconfirmed` (未確認)、`accepted` (使える)、`rejected` (使えない)。抽出の直後は `unconfirmed` |
 | `clipStatus` | クリップの状態 (下表) |
 | `clipGeneratingStartedAt` | `GENERATING` にした時刻 (epoch ミリ秒)。止まった作り直しを見分けるために使い、古いデータにはない |
-| `expiresAt` | ジョブと同じ期限。同じ時刻に自動で削除される |
+| `expiresAt` | ジョブと同じ期限。同じ時刻に自動で削除される。TTL の削除は遅れるので、期限を過ぎた見どころは、削除の前でも「ない」ものとして扱う (`expiresAt` が今以前なら期限切れ)。一覧には出さず、取得は `null`、更新は「見つからない」エラーになる |
 
 - クリップの S3 キーは `outputs/{jobId}/clips/{highlightId}.mp4` で、保存はせずに導く
 - 旧形式の小文字始まりの属性名も読む。必須項目が欠けたり、`source`、`status`、`clipStatus`、`dominantEmotion` が許可外の値だったりすると、読む側が例外にする

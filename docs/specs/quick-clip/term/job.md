@@ -8,7 +8,7 @@ sources:
   - services/quick-clip/core/src/mappers/job.mapper.ts
   - services/quick-clip/core/src/libs/job.service.ts
   - services/quick-clip/web/src/app/api/jobs/[jobId]/route.ts
-sources_hash: d91a7bae40cfa680b17ec58f681d6fa10298495453aaa2dc6fc2dc8dab9f09c7
+sources_hash: 9e31bd256e8e53cf5a6dadb7666615f1b5ceff7b929656ab66353d4cbcb9bf7c
 terms: [quick-clip/term/ai-analysis]
 related_cards: [quick-clip/api/jobs, quick-clip/batch/extract, quick-clip/flow/extraction, quick-clip/screen/upload, quick-clip/screen/job-status, quick-clip/screen/highlights, quick-clip/term/highlight]
 related_adr:
@@ -35,6 +35,7 @@ related_adr:
 | `aiAnalysis`、`maxDurationSec` | 作成のときに決めた、AI 解析をするかと、許される動画の長さの上限 (秒)。ないジョブは、AI 解析をするもの、長さを照合しないものとして扱う |
 | `usage`、`usageReleased`、`usageSwitched` | 数えた利用回数の記録と、戻し済み、付け替え済みの印 ([利用回数の流れ](../flow/usage-metering.md)) |
 
+- 期限を過ぎたジョブは、TTL で消える前でも、Web の API では「ない」ものとして扱う (404)。TTL の削除は遅れ、期限後は S3 のファイルも消えているため、削除の前後で見え方を変えない。`expiresAt` が今以前なら期限切れで、ちょうどの時刻も含む。Batch は処理中のジョブの記録と回数の戻しを期限で止めないため、期限を見ずに読む
 - 見どころは同じ `PK` の `HIGHLIGHT#{highlightId}` として、同じテーブルに入る ([見どころ](./highlight.md))
 - 旧形式の小文字始まりの属性名も読む。必須項目が欠けたり、`batchStage` が許可外の値だったりすると、読む側が例外にする
 - `analysisProgress` と `batchStage` は Batch が書く。`errorMessage` は Batch の失敗か、動画の長さの超過で書く

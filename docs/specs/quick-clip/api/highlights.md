@@ -14,7 +14,7 @@ sources:
   - services/quick-clip/core/src/libs/highlight.service.ts
   - services/quick-clip/core/src/libs/domain-error-messages.ts
   - libs/nextjs/src/request-body.ts
-sources_hash: 2d0545fd56f4c6a18ec9a687ec8f047c476efb79dca8d9d88d7d9ddd1abf8c7c
+sources_hash: 69179ad2ab170c4744b8aeabeb97d9d761b370f070e807965c177bb60e9fa1d0
 terms: [quick-clip/term/highlight, quick-clip/term/job, quick-clip/term/api-error]
 related_cards: [quick-clip/screen/highlights, quick-clip/batch/clip-regenerate, quick-clip/batch/extract, quick-clip/api/download, quick-clip/api/jobs]
 related_adr:
@@ -42,6 +42,7 @@ related_adr:
 - 出力は 200 で `{ highlights }`。`order` の昇順。各要素は[見どころ](../term/highlight.md)の項目に、`clipUrl` を足したもの
 - `clipUrl` は、`clipStatus` が `GENERATED` のものだけにある。クリップへの署名付き URL で、有効 3,600 秒
 - ジョブがまだ処理中でも、見どころがなければ空の配列を返す。ジョブの状態は見ない
+- 期限を過ぎたジョブには、TTL で消える前でも、ジョブがないときと同じ 404 を返す。TTL の削除は遅れ、期限後は S3 のファイルも消えているため、削除の前後で見え方を変えない。期限を過ぎた見どころは一覧に出さない
 
 復旧 (`POST .../recover`)。本文はない。
 
@@ -55,10 +56,11 @@ related_adr:
 | `status` | `accepted`、`unconfirmed`、`rejected` のどれか |
 | `startSec`、`endSec` | 数値。0 以上の有限の数。更新後の開始が終了より小さい。終了を保存済みの値から動かすときは、ジョブの `durationSec` 以下 (ジョブに `durationSec` がないときは、上限を見ない) |
 
+- ジョブがない (TTL で消えた)、または期限を過ぎているときは、採否だけの更新も含めて 404 にして、何も更新しない。時刻の更新は、ジョブの `durationSec` を終了の上限にするため、ジョブが必須である
 - 出力は 200 で更新後の見どころ。`clipUrl` は付かない
 - `status` だけの更新は、そのまま保存する。作り直し中 (`GENERATING`) でも受ける
 - `startSec` か `endSec` を含む更新は、クリップを作り直す。受け付けると次を行う
-    1. 見どころを読む。ないときは 404
+    1. 見どころを読む。ないか、期限を過ぎているときは 404
     2. `clipStatus` が `GENERATING` なら 409。作り直しを重ねない
     3. 採否が `accepted` か `rejected` なら `unconfirmed` に戻す
     4. `clipStatus` を `GENERATING` にし、`clipGeneratingStartedAt` を今にして保存する
@@ -67,6 +69,7 @@ related_adr:
 
 作り直し (`POST .../regenerate`)。本文はない。
 
+- ジョブがない、または期限を過ぎているときは 404 にして、何もしない
 - 見どころを読み、`clipStatus` が `GENERATING` でなければ、`GENERATING` にして `clipGeneratingStartedAt` を今にし、Lambda を非同期で起動する。渡すのは保存済みの `startSec` と `endSec`。出力は 200 で `GENERATING` になった見どころ
 - `clipStatus` が `GENERATED` のものでも作り直せる。採否は変えない
 - 起動に失敗したときは、`clipStatus` を `FAILED` にして、例外を 500 にする
@@ -77,8 +80,8 @@ related_adr:
 
 | 条件 | 状態 | `error` | `message` |
 |---|---|---|---|
-| 一覧、復旧: ジョブがない | 404 | `JOB_NOT_FOUND` | 指定されたジョブが見つかりません |
-| 更新、作り直し: 見どころがない | 404 | `HIGHLIGHT_NOT_FOUND` | 指定された見どころが見つかりません |
+| 一覧、復旧、更新、作り直し: ジョブがない、または期限を過ぎている | 404 | `JOB_NOT_FOUND` | 指定されたジョブが見つかりません |
+| 更新、作り直し: 見どころがない、または期限を過ぎている | 404 | `HIGHLIGHT_NOT_FOUND` | 指定された見どころが見つかりません |
 | 更新: 本文が JSON のオブジェクトでない、項目の型が違う、`status` が許可外 | 400 | `INVALID_REQUEST` | 更新内容が不正です |
 | 更新: `startSec` と `endSec` が両方あり、開始が終了以上 | 400 | `INVALID_REQUEST` | 更新内容が不正です |
 | 更新: 項目が 1 つもない、時刻が負か有限でない、保存済みの時刻と合わせて開始が終了以上、終了を動かして動画の長さを超える | 400 | `INVALID_REQUEST` | 更新内容が不正です |
@@ -88,8 +91,8 @@ related_adr:
 | 更新: 想定外の例外 | 500 | `INTERNAL_SERVER_ERROR` | 見どころの更新に失敗しました |
 | 作り直し: 想定外の例外 (起動の失敗を含む) | 500 | `INTERNAL_SERVER_ERROR` | クリップ再生成の開始に失敗しました |
 
-- 更新の 404 は、`status` だけの更新ではドメインの検査 (保存済みの見どころを読む) で、時刻を含む更新では先に見どころを読む段で返す。どちらも同じ本文
-- 「更新」は、ジョブが存在するかを確かめない。時刻を含む更新は、ジョブがあれば `durationSec` を読んで終了の上限にし、なければ上限を見ない。超過は作り直しの起動より前に断る。見どころは `jobId` と `highlightId` の組で探す
+- 見どころの 404 は、`status` だけの更新ではドメインの検査 (保存済みの見どころを読む) で、時刻を含む更新では先に見どころを読む段で返す。どちらも同じ本文
+- 「更新」は、先にジョブを読む。ジョブの `durationSec` があれば終了の上限にし、なければ上限を見ない。超過は作り直しの起動より前に断る。見どころは `jobId` と `highlightId` の組で探す
 - 作り直しの状態の見方は[見どころ](../term/highlight.md)にある。条件付きの書き込みにはしていないので、別のタブなどから同時に呼ぶと、重なりうる
 
 ## つながり
@@ -97,7 +100,7 @@ related_adr:
 ```mermaid
 flowchart TD
     H[見どころ確認画面] -->|一覧・復旧・更新・作り直し| A[見どころ API]
-    A --> D[(見どころのテーブル)]
+    A --> D[(ジョブ・見どころのテーブル)]
     A -->|署名付き URL| S[(S3 バケット)]
     A -->|非同期で起動| L[クリップ再生成]
     L --> S

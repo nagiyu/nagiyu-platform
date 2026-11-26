@@ -15,7 +15,7 @@ sources:
   - services/quick-clip/core/src/libs/job.service.ts
   - infra/quick-clip/lib/storage-stack.ts
   - infra/quick-clip/lib/dynamodb-stack.ts
-sources_hash: c63fdbca214cf06652dd1becc598fa996d9c7a7109b510be895994e0f2f62c55
+sources_hash: 163abdede486feece1cc91ff671ef5a7ebbae8512433bd6df041f8389f5d5447
 terms: [quick-clip/term/job, quick-clip/term/highlight, quick-clip/term/job-definition-size]
 related_cards: [quick-clip/screen/upload, quick-clip/screen/job-status, quick-clip/screen/highlights, quick-clip/api/jobs, quick-clip/api/highlights, quick-clip/batch/extract, quick-clip/flow/usage-metering]
 related_adr:
@@ -68,7 +68,7 @@ flowchart TD
 - 100 MiB 未満で、アップロードに失敗したときは、投入済みの Batch が入力を最大 30 分待ち、見つからなければ失敗する (`FAILED`)。利用回数は、Batch が失敗するときに戻る。画面は、アップロードの失敗のメッセージを出して、そのまま残る
 - Batch が失敗すると、ジョブは `FAILED` になり、画面は `errorMessage` か「処理に失敗しました」を出す。このとき利用回数は戻り、Admin のエラー履歴にも残る ([抽出バッチ](../batch/extract.md))
 - 動画の長さが段の上限を超えていたときは、Batch は成功で終えるが、ジョブは `FAILED` として見せる。申告された長さで通った動画が、実際には長かったときの安全網
-- 作成から 24 時間で、ジョブと見どころは DynamoDB の TTL で、S3 のファイル (動画、クリップ、文字起こし、ZIP) は S3 のライフサイクルで、消える。消えたあとは、画面が「指定されたジョブが見つかりません」を出す
+- 作成から 24 時間で、ジョブと見どころは DynamoDB の TTL で、S3 のファイル (動画、クリップ、文字起こし、ZIP) は S3 のライフサイクルで、消える。消えたあとは、画面が「指定されたジョブが見つかりません」を出す。TTL の削除は遅れるため、Web の API は、期限を過ぎたジョブと見どころを、削除の前でも同じく見つからない扱い (404) にする。期限後は S3 のファイルも消えていて、削除の前後で見え方を変えないためである。Batch は処理中の記録を期限で止めない
 - 見どころ確認画面は、ジョブが処理中か失敗のときは、一覧を取らず、処理状況画面への案内だけを出す
 
 ## つながり
