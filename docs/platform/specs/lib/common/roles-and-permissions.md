@@ -112,3 +112,12 @@ const canChat = hasUserPermission(session?.user, 'livetalk:chat');
 メッセージの文言は [エラーコードとエラーメッセージ](./error-codes.md) にある。
 
 `@nagiyu/nextjs` にも同名の `getAuthError` がある ([with-auth](../nextjs/with-auth.md))。違いは次のとおり。こちらは `permission` が必須で、`Session` を受け取る。未認証のメッセージは `COMMON_ERROR_MESSAGES.UNAUTHORIZED` (`@nagiyu/nextjs` のものは `ログインが必要です`)。`@nagiyu/nextjs` のものは `permission` を省略でき、`user.roles` を持つセッションなら受け取る。
+
+## 理由
+
+- ロールはコードで定義し、DB に持たない。変更を Git の履歴とコードレビューで審査でき、デプロイで自動的に反映され、権限を変えるときのデータの移行が要らないため。制約として、ロールを足すにはコードのデプロイが要り、実行時にロールを作れない
+- `user-manager` に `roles:assign` を持たせない。ユーザーを管理できる人が、自分や他人にロールを付けて権限を広げられると、権限昇格になるため。ロールの割り当ては `admin` に限る
+- 有料ロールのサービスと段の上下を `billing` に持ち、ロール ID の文字列から解析しない。段名から上下は読めず、ID の付け方に縛られないようにするため
+- 上の段は下の段の権限を含む。手動の権利と契約が重なっても、サービスは上の権限から順に見れば段が決まる
+- `quick-clip-unlimited` と `billing-tester` は `billing` を持たない。有料の段の並びの外にあり、売らず課金とも結びつけないため。`billing` を持たなければ `PAID_ROLES` に入らず、課金の権利の選択肢にも出ない。上の段として `quick-clip:standard` などを含めないのも同じ理由。Quick Clip は `quick-clip:unlimited` を先に見る
+- `billing-tester` は `admin` に含めず、管理者の権限と分ける。テスト用の別アカウントに、ユーザー管理やロール割り当てを含む管理者権限を渡さずに付けられるようにするため

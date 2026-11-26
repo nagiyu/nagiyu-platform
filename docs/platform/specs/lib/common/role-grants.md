@@ -27,14 +27,14 @@ const effective = getEffectiveRoles(user.roles, user.roleGrants ?? [], Date.now(
 | `grantId` | 権利の ID (UUID v4) |
 | `roleId` | 付与するロールの ID (`ROLES` のキー) |
 | `source` | 出どころ。`manual` または `stripe` |
-| `sourceRef` | 出どころ側の参照 (任意)。手動ならメモ、Stripe なら顧客 ID など |
+| `sourceRef` | 出どころ側の参照 (任意)。手動ならメモ、Stripe 由来では契約 ID (値は Auth が入れる。[課金の権利](../../../../services/auth/specs/term/role-grant.md)) |
 | `expiresAt` | 有効期限 (任意、Unix ミリ秒)。この時刻になると無効。手動で付ける権利では必須 |
 | `revokedAt` | 取り消した時刻 (任意、Unix ミリ秒)。取り消した権利も経緯のために残す |
 | `grantedBy` | 手動で付けた運営者のユーザー ID (任意) |
 | `createdAt` / `updatedAt` | 作成・更新の時刻 (Unix ミリ秒) |
 
 - 権利の持ち主は、権利を保持する `User` の項目 (`roleGrants`) で決まるため、権利自体は持ち主の ID を持たない。`User` は [ロールと権限](./roles-and-permissions.md) にある
-- 出どころの一覧は `ROLE_GRANT_SOURCES` の配列で、`RoleGrantSource` 型はそこから導く。出どころを増やすときはこの配列に足す
+- 出どころの一覧は `ROLE_GRANT_SOURCES` の配列で、`RoleGrantSource` 型はそこから導く。出どころを増やすときはこの配列に足す。足したあとのデプロイの順序は [ユーザーテーブル](../../../../services/auth/specs/data/users.md) にある
 
 ## 振る舞い
 

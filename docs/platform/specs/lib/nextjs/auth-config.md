@@ -120,6 +120,8 @@ Cookie は 6 種類で、名前の `{末尾}` は上の表の名前の末尾。
 
 - 環境の判定に `NAGIYU_ENV` を使う。Next.js はビルド時に `process.env.NODE_ENV` を `production` に置き換え、`NEXT_PUBLIC_` の環境変数もビルド時の値に固定する。そのため、デプロイ後のサーバー側では、これらから dev と prod を区別できない。ビルド時に置き換えられない実行時の環境変数が要る。`NODE_ENV` が `development` かどうかだけは、ローカル開発が `next build` を通らないので `NODE_ENV` で判定できる
 - `NAGIYU_ENV` が未設定なら prod として扱う。本番の設定漏れで dev 扱いになると、Cookie のドメインが変わり、サービス間のシングルサインオンが壊れるため
-- Cookie のドメインを `.nagiyu.com` / `.dev.nagiyu.com` にするのは、サービス間でセッションを共有するため。名前に `.dev` を付けるのは、dev と prod の Cookie を分け、環境の取り違えを防ぐため
+- Cookie のドメインを `.nagiyu.com` / `.dev.nagiyu.com` にするのは、サービス間でセッションを共有するため
+- 名前に `.dev` を付けるのは、ドメインを分けるだけでは dev と prod の Cookie が衝突するため。prod の `Domain=.nagiyu.com` の Cookie は `*.dev.nagiyu.com` にも送られ、名前が同じだと dev で prod の Cookie と区別できない。セッショントークンだけでなく 6 種類すべての名前を変えるのは、サインインの途中で使う `callback-url` や `state` なども同じ衝突を起こし、dev と prod の認証フローが混ざるため
+- `httpOnly` を `true` にするのは、JavaScript から Cookie を読めないようにして、XSS でセッションを盗まれるのを防ぐため。`secure` を `true` にするのは、Cookie を HTTPS の通信だけで送り、中間者に盗まれるのを防ぐため
 - ローカル開発はドメインを付けず (`localhost` で動き、`nagiyu.com` のドメインの Cookie は受け付けられない)、`secure` を `false` にする。それ以外の環境は HTTPS 前提で `secure` を `true` にする
 - CSRF トークンの Cookie だけ `__Host-` の接頭辞を使い、ドメインを付けない。`__Host-` の Cookie はドメインを指定できないというブラウザの規則があるため
