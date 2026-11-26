@@ -6,7 +6,7 @@ service: platform
 sources:
   - libs/common/src/auth/roles.ts
   - libs/common/src/auth/permissions.ts
-sources_hash: c46fa23fab9d715ba2279d62b90d0bddb9eb77ff4dffdc28f0d161a7be9a02d5
+sources_hash: fbcaf32e34ff851ed55901e8627eb9471fcac35c84f22f06ca202782ee5a16c0
 related_cards: [auth/screen/user-edit, auth/api/users, auth/term/plan-tier]
 ---
 
@@ -26,6 +26,7 @@ related_cards: [auth/screen/user-edit, auth/api/users, auth/term/plan-tier]
 | `livetalk-user` | LiveTalk ユーザー | `livetalk:chat` | |
 | `livetalk-admin` | LiveTalk 管理者 | `livetalk:chat`、`livetalk:admin` | |
 | `livetalk-standard` | LiveTalk スタンダード | `livetalk:standard` | 有料ロール |
+| `livetalk-operator` | LiveTalk 運営者 | `livetalk:operator` | 手動ロール。課金とは結びつけない |
 | `quick-clip-standard` | Quick Clip スタンダード | `quick-clip:standard` | 有料ロール (下の段) |
 | `quick-clip-pro` | Quick Clip プロ | `quick-clip:standard`、`quick-clip:pro` | 有料ロール (上の段) |
 | `quick-clip-unlimited` | Quick Clip 使い放題 | `quick-clip:unlimited` | 手動ロール。課金とは結びつけない |

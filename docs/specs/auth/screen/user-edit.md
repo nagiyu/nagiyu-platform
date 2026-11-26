@@ -13,7 +13,7 @@ sources:
   - libs/common/src/auth/roles.ts
   - services/auth/web/src/lib/manual-roles.ts
   - libs/common/src/auth/role-grants.ts
-sources_hash: fae0666194923c4814330241d5712726855ea221c9f6ba3a392aa69aa4b58272
+sources_hash: bf62ffd9e828e78d3e6e1e6ccfc6a38a0f43dbbd2332093e366b885d76067f57
 terms: [platform/term/role, auth/term/role-grant, auth/term/api-error]
 related_cards: [auth/screen/users, auth/api/users, auth/flow/billing-entitlement]
 related_adr:

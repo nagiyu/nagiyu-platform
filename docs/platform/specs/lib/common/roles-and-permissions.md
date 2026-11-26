@@ -4,7 +4,7 @@ sources:
   - libs/common/src/auth/roles.ts
   - libs/common/src/auth/permissions.ts
   - libs/common/src/auth/auth-error.ts
-sources_hash: d07e8cda775b5fcffc2fca1af28f91e87b933b049c24efa903e688fca6331ac1
+sources_hash: e90e7a50959d0097e0fe3b5131d9d01a71bda03282a835f9b953b29c396c892b
 ---
 
 # ロールと権限
@@ -39,6 +39,7 @@ sources_hash: d07e8cda775b5fcffc2fca1af28f91e87b933b049c24efa903e688fca6331ac1
 | `livetalk-user` | LiveTalk ユーザー | `livetalk:chat` | なし |
 | `livetalk-admin` | LiveTalk 管理者 | `livetalk:chat`、`livetalk:admin` | なし |
 | `livetalk-standard` | LiveTalk スタンダード | `livetalk:standard` | `livetalk` / 段 1 |
+| `livetalk-operator` | LiveTalk 運営者 | `livetalk:operator` | なし |
 | `quick-clip-standard` | Quick Clip スタンダード | `quick-clip:standard` | `quick-clip` / 段 1 |
 | `quick-clip-pro` | Quick Clip プロ | `quick-clip:standard`、`quick-clip:pro` | `quick-clip` / 段 2 |
 | `quick-clip-unlimited` | Quick Clip 使い放題 | `quick-clip:unlimited` | なし |
@@ -47,7 +48,7 @@ sources_hash: d07e8cda775b5fcffc2fca1af28f91e87b933b049c24efa903e688fca6331ac1
 - `Permission` 型には `auth:read` と `auth:write` もあるが、どのロールにも割り当てていない
 - `livetalk-admin` が `livetalk:chat` を含むのは、チャットの権限を要求する処理を管理者も通すため
 - `quick-clip-pro` が `quick-clip:standard` を含むのは、上の段が下の段の権限を含むため
-- `quick-clip-unlimited` と `billing-tester` は、売らず課金とも結びつけないので `billing` を持たない。`billing-tester` は本番以外の環境でテスト用の決済を始めるためのロールで、管理者の権限とは分けてある
+- `livetalk-operator`、`quick-clip-unlimited`、`billing-tester` は、売らず課金とも結びつけないので `billing` を持たない。`billing-tester` は本番以外の環境でテスト用の決済を始めるためのロールで、管理者の権限とは分けてある
 
 #### ロールの参照
 
