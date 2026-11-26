@@ -47,7 +47,7 @@ related_cards: [codec-converter/api/jobs, codec-converter/screen/upload, codec-c
 | `FAILED` | 🔴 失敗 (赤) | 変換処理に失敗しました | なし |
 
 - 「新しい動画を変換」は、どのステータスでも出る
-- `FAILED` で `errorMessage` があれば、「エラー詳細」としてその文字列をそのまま出す。変換バッチが保存した内容で、FFmpeg の終了コードと標準エラー出力を含むことがある
+- `FAILED` で `errorMessage` があれば、「エラー詳細」としてその文字列をそのまま出す。変換バッチが保存した、失敗した段ごとの利用者向けの文言で、終了コードなどの技術的な内容は含まない
 
 ## 状態
 
