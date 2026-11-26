@@ -69,5 +69,4 @@ Web から非同期で起動する 2 つの Lambda 関数 (clip-regenerate と z
 
 ## 理由
 
-- clip-regenerate の非同期呼び出しの再試行を 0 回にする。再試行は起動したときの古い開始・終了の秒で走るため、あとから変えた内容をクリップが上書きされうる。失敗したクリップは `FAILED` のまま残り、画面のリトライの操作で再開する ([クリップ再生成](../batch/clip-regenerate.md))
-- `s3:ListBucket` を持つのは、キーが無いときに `AccessDenied` ではなく `NoSuchKey` を返させるため。zip-generator は、文字起こしのファイルが無いことを `NoSuchKey` で見分けて、無いものとして続ける
+- clip-regenerate の非同期呼び出しの再試行を 0 回にする理由は、[見どころとクリップの状態](../term/highlight.md)の「理由」にある

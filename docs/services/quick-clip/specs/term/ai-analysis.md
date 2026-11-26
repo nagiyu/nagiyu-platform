@@ -8,7 +8,8 @@ sources:
   - services/quick-clip/web/src/app/api/jobs/route.ts
   - services/quick-clip/web/src/app/api/jobs/[jobId]/complete-upload/route.ts
   - services/quick-clip/web/src/app/page.tsx
-sources_hash: b9612da65df32e7f154df3ddd1a6e62ed882ed235f8cbd5ac4834d8a0b13feeb
+  - services/quick-clip/web/src/app/jobs/[jobId]/page.tsx
+sources_hash: d8f08fb2aac1b5d3eb05bdd4a54a11c3ec9c5237611acbe87a064a45492a21f5
 ---
 
 # AI 解析
@@ -30,7 +31,7 @@ OpenAI を使う 2 つの処理、[文字起こし](./transcript.md)と感情分
 - AI 解析ありとなしは、月の回数を別々に数える ([利用の段と上限](./usage-tier.md))
 - 抽出バッチが AI 解析をするのは、ジョブが AI 解析をするもので、環境変数 `AI_ANALYSIS` が `false` でなく、`OPENAI_API_KEY` があるときだけ。`AI_ANALYSIS` が未設定か空白のときは `true` として扱う。`true` と `false` 以外の値は例外
 - 感情分析は文字起こしの結果が 1 行以上あるときだけ走る
-- 文字起こしか感情分析が失敗しても、ジョブは失敗にしない。その処理を飛ばして、映像と音量だけで続ける。飛ばした処理は、画面では「(スキップ)」と出る
+- 文字起こしか感情分析が失敗しても、ジョブは失敗にしない。その処理を飛ばして、映像と音量だけで続ける。飛ばした処理は、処理状況画面で、ラベルのあとに `（スキップ）` (全角のカッコ) が付く
 - AI 解析ありで数えたのに、AI 解析をしなかった (API キーがない、どちらかが失敗した) ジョブは、AI 解析なしの 1 回に付け替える ([利用回数の流れ](../flow/usage-metering.md))
 - 抽出の細かい手順は[抽出バッチ](../batch/extract.md)にある
 

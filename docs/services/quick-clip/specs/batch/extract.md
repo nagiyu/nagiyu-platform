@@ -12,10 +12,13 @@ sources:
   - services/quick-clip/core/src/libs/transcription.service.ts
   - services/quick-clip/core/src/libs/emotion-highlight.service.ts
   - services/quick-clip/core/src/libs/usage.service.ts
+  - services/quick-clip/core/src/libs/domain-error-messages.ts
+  - services/quick-clip/core/src/libs/job.service.ts
   - services/quick-clip/core/src/repositories/dynamodb-highlight.repository.ts
+  - services/quick-clip/core/src/repositories/dynamodb-job.repository.ts
   - libs/aws/src/error-events/with-error-reporting.ts
   - libs/aws/src/error-events/report.ts
-sources_hash: 5a82586b96f7123548224db920de931935fa2dc4cf27719ff9ac13e1d5741750
+sources_hash: 16645518215b382b6a4564743794d1ff0cdfdd746e2c4e07bd4063d971d9da6a
 ---
 
 # 抽出バッチ (extract)
@@ -80,7 +83,7 @@ flowchart TD
 ## 上限
 
 - 見どころは 20 件まで
-- 入力が S3 に見つからないとき、3 秒おきに最大 600 回 (30 分) 待つ。100 MiB 未満の動画は、アップロードの完了を待たずに投入するため、この待ちがある
+- 入力が S3 に見つからないとき、3 秒おきに最大 600 回取りに行く。100 MiB 未満の動画は、アップロードの完了を待たずに投入するため、この待ちがある
 - ジョブ定義のタイムアウトで、Batch が止める ([ジョブ定義のサイズ](../term/job-definition-size.md)、[Batch の実行環境](../resource/batch-runtime.md))
 
 ## 失敗したとき
@@ -99,7 +102,7 @@ flowchart TD
 - 終了コードが 1 になった Batch ジョブは `FAILED` になり、インフラの EventBridge のルールが検知して、Admin の集約 SNS に流す ([Batch の実行環境](../resource/batch-runtime.md)、[エラー通知の経路](../../../admin/specs/flow/error-notification.md))。Admin には `batch-event` (critical) の履歴も残る
 - タイムアウトによる停止など、プロセスが即死する失敗は、例外の処理に入らない。`errorMessage` は保存されず、数えた利用回数も戻らない。報告は Batch の失敗を拾うルールだけが行う
 - 文字起こしの失敗は、ログだけで飛ばす。感情分析の失敗は、報告 (warning、題名は「QuickClip 感情分析に失敗しスキップしました」) を残して飛ばす。`transcript.json` の保存の失敗は、警告のログだけで続ける
-- 報告の書き込みに失敗しても、例外は伝えない。ログだけを残す ([エラーの報告](../../../../platform/specs/lib/aws/error-reporting.md))
+- 報告の書き込みに失敗したときの扱いは[エラーの報告](../../../../platform/specs/lib/aws/error-reporting.md)にある
 
 ## つながり
 
@@ -123,7 +126,7 @@ flowchart TD
 - **暗転・白転は専用のフィルターで除く**: 演出の暗転 (黒への切り替え) や白転 (白への切り替え) は、前後のフレームの差が大きく、`scene` が約 1.0 になる。しきい値 (0.2) を上げても、約 1.0 の点は消せない。黒いフレームの区間を `blackdetect`、白いフレームの区間を色を反転した `blackdetect` で検出し、その区間にある点を除く。FFmpeg の機能を使うので、しきい値の調整より精度が高く安定する。映像の解析とは並走させ、処理時間の増加を抑える
 - **音量は暗転・白転で除かない**: 暗転・白転の区間にも音声があれば、有効な見どころになりうるため
 - **感情分析を 50 行ごとに分ける**: 1 回の呼び出しで採点する行を増やすと、スコアの粒度と品質が変わる。50 行は、この採点の粒度から選んだ値で、入力のトークンの上限から選んだ値ではない。並列を 3 にとどめるのは、OpenAI のレート制限に触れるのと、トークンの消費が一時に集中するのを避けるため
-- **映像・音量・文字起こしを並走させる**: 長い動画は、直列では解析に時間がかかる。3 つの処理は互いに入力を必要としないので並走させる。感情分析は文字起こしの結果が要るので、3 処理が終わってから始める。映像と音量は 10 分ごとのチャンクに分けて 4 並列で動かす。このとき FFmpeg が最大 10 本並ぶ ([ジョブ定義のサイズ](../term/job-definition-size.md))
+- **映像・音量・文字起こしを並走させる**: 長い動画は、直列では解析に時間がかかる。3 つの処理は互いに入力を必要としないので並走させる。感情分析は文字起こしの結果が要るので、3 処理が終わってから始める。映像と音量は 10 分ごとのチャンクに分けて 4 並列で動かす。並ぶ FFmpeg の本数と、vCPU との関係は[バッチの実行環境](../resource/batch-runtime.md)にある
 - **失敗したら、走っているチャンクを待ってから失敗にする**: チャンクを並列に処理しているとき、1 つが失敗しても、新しいチャンクは始めず、実行中のチャンクが終わるのを待つ ([同時実行数を制限したタスクの実行](../../../../platform/specs/lib/common/concurrency.md))。文字起こしも同じ振る舞いにしている。失敗を返した時点で裏に処理が残らず、失敗の状態が最後の状態として残る。代わりに、失敗の表示とジョブの失敗の記録が、実行中の呼び出しが終わる分だけ遅れる (感情分析では、最悪でタイムアウトまで)
 - **進捗は完了した件数で報告する**: 並列ではチャンクの完了順が入れ替わる。チャンクの番号で報告すると、進捗が戻ったり、ほかのチャンクが走っているのに完了と見えたりするため
 - **文字起こしの区間の決め方**: 区間が長いと 1 行が粗くなり、感情スコアの単位 (1 行) が大きくなりすぎるため、30 秒で等分する。0.3 秒未満の音は物音で発話にならないので送らない。区間の前後に 0.2 秒の余白を足すのは、語頭・語尾が切れて認識されなくなるのを防ぐため。無音のしきい値 (-35 dB) は、BGM や環境音を拾いすぎず、発話の間の息継ぎを無音として切れる値

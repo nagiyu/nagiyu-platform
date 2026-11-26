@@ -37,7 +37,7 @@ flowchart TD
 | ⑤ 更新 | 見どころの `clipStatus` を `GENERATED` にする。ほかの項目は変えない |
 
 - 終わると、出力を置いたディレクトリを消す。成功でも失敗でも消す。作業用のディレクトリにリクエストごとの UUID を入れるのは、Lambda の `/tmp` が実行環境の中で共有されうるため、同時の呼び出しが衝突しないようにするため
-- 入力の動画が 24 時間で消えていると、③ の読み込みが失敗して `FAILED` になる
+- 入力の動画は、アップロードしてから 1 日で消える ([ストレージ](../resource/storage.md))。消えたあとは、③ の読み込みが失敗して `FAILED` になる
 
 ## 失敗したとき
 
@@ -52,7 +52,7 @@ flowchart TD
 - 再試行しないので、失敗した見どころは `FAILED` のまま残る。利用者が画面のリトライを押すまで、変わらない ([見どころ API](../api/highlights.md))
 - Lambda が強制終了されるとこの処理は走らず、`GENERATING` のまま残る。見どころ確認画面が一覧を取る前に呼ぶ復旧の API が、360 秒を過ぎたものを `FAILED` にする ([見どころとクリップの状態](../term/highlight.md)、[見どころ API](../api/highlights.md))
 - Lambda の失敗を拾う CloudWatch Alarm や EventBridge のルールは、quick-clip のインフラには定義されていない。報告できるのは、アプリが例外を受けられたときだけ
-- 報告の書き込みに失敗しても、例外は伝えない。ログだけを残す ([エラーの報告](../../../../platform/specs/lib/aws/error-reporting.md))
+- 報告の書き込みに失敗したときの扱いは[エラーの報告](../../../../platform/specs/lib/aws/error-reporting.md)にある
 
 ## つながり
 

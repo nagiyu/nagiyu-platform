@@ -15,7 +15,7 @@ sources_hash: d91a7bae40cfa680b17ec58f681d6fa10298495453aaa2dc6fc2dc8dab9f09c7
 
 | 項目 | 内容 |
 |---|---|
-| `jobId` | UUID v4。キーは `PK` と `SK` がどちらも `JOB#{jobId}` |
+| `jobId` | UUID v4。テーブルのキーは[ジョブのテーブル](../data/jobs-table.md)にある |
 | `originalFileName`、`fileSize` | 元のファイル名 (前後の空白を除く) と、申告されたバイト数 |
 | `durationSec` | 動画の長さ (秒)。作成のときはブラウザが申告した値 (読めなかったときはない)。Batch が FFmpeg で実際の長さを読めたときは、その値で上書きする。見どころの時刻の上限になる |
 | `createdAt`、`expiresAt` | epoch ミリ秒。`expiresAt` は作成の 24 時間後。保存するときは TTL 属性 (`TTL`、epoch 秒) に書く |

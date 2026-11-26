@@ -11,9 +11,7 @@ sources:
   - services/quick-clip/core/src/repositories/counting-usage.repository.ts
   - services/quick-clip/core/src/libs/job.service.ts
   - services/quick-clip/core/src/libs/usage.service.ts
-  - libs/common/src/format/jst-period.ts
-  - libs/aws/src/dynamodb/counter/dynamodb-usage-counter.ts
-sources_hash: 71cb04a8ae60f679d34fdaa36c3e3314ad48eac0004e6c52a628af576465cfba
+sources_hash: 450659994d11eeea673696998a445504706c6b58c48b8557e728e47b7541225e
 ---
 
 # ジョブのテーブル
@@ -35,7 +33,7 @@ Quick Clip が持つ、ジョブ・見どころ・利用回数・日ごとの塩
 | スタックの削除 (dev・prod とも) | テーブルとデータを削除する (削除ポリシーが削除) |
 | TTL の期限切れ | DynamoDB が項目を削除する |
 
-- 名前は、[Web の実行環境](../resource/web-runtime.md)、[バッチの実行環境](../resource/batch-runtime.md)、[ワーカーの実行環境](../resource/worker-runtime.md)の環境変数 `DYNAMODB_TABLE_NAME` で渡す。clip-regenerate だけが読み書きし、zip-generator は触れない
+- 名前は、[Web の実行環境](../resource/web-runtime.md)、[バッチの実行環境](../resource/batch-runtime.md)、[ワーカーの実行環境](../resource/worker-runtime.md)の環境変数 `DYNAMODB_TABLE_NAME` で渡す。ワーカーのうち clip-regenerate だけが読み書きし、zip-generator は触れない
 - スタックは `NagiyuQuickClipDynamoDB{Env}` ([デプロイ先](../deploy.md))
 - 項目を消すのは TTL だけ。コードにテーブルの項目を消す操作はない
 - TTL の削除は、期限の直後とは限らない
@@ -48,11 +46,11 @@ Quick Clip が持つ、ジョブ・見どころ・利用回数・日ごとの塩
 |---|---|---|---|
 | ジョブ | `JOB#{jobId}` | `JOB#{jobId}` | `JOB` |
 | 見どころ | `JOB#{jobId}` | `HIGHLIGHT#{highlightId}` | `HIGHLIGHT` |
-| 利用回数 (月ごと) | `USAGE#USER#{利用者の ID}` (ログイン中) または `USAGE#ANON#{匿名の ID}` (未ログイン) | `MONTH#{yyyymm}` | `USAGE_COUNTER` |
-| 日ごとの塩 | `USAGE_SALT#{yyyyMMdd}` | `PK` と同じ値 | `USAGE_SALT` |
-| IP ごとの日次のジョブ数 | `USAGE_IP#{yyyyMMdd}` | `IP#{IP のハッシュ}` | `USAGE_IP` |
+| 利用回数 (月ごと) | `USAGE#USER#{利用者の ID}` (ログイン中) または `USAGE#ANON#{匿名の ID}` (未ログイン) | `MONTH#{YYYYMM}` | `USAGE_COUNTER` |
+| 日ごとの塩 | `USAGE_SALT#{YYYYMMDD}` | `PK` と同じ値 | `USAGE_SALT` |
+| IP ごとの日次のジョブ数 | `USAGE_IP#{YYYYMMDD}` | `IP#{IP のハッシュ}` | `USAGE_IP` |
 
-- 月 (`yyyymm`) と日 (`yyyyMMdd`) は日本時間の暦
+- 月 (`YYYYMM`) と日 (`YYYYMMDD`) は日本時間の暦 ([日本時間の期間](../../../../platform/specs/lib/common/jst-period.md))
 - 見どころは、ジョブと同じ `PK` に載る。ジョブの見どころを `PK` の Query 1 回で引くため
 - 利用回数・塩・IP の項目は接頭辞が `USAGE` で始まり、ジョブ (`JOB#`)・見どころ (`HIGHLIGHT#`) のキーと衝突しない
 
@@ -66,13 +64,12 @@ Quick Clip が持つ、ジョブ・見どころ・利用回数・日ごとの塩
 | ジョブの見どころの一覧 | `PK` が `JOB#{jobId}` で、`SK` が `HIGHLIGHT#` で始まるものの Query。アプリの側で `Order` の昇順に並べる |
 | 見どころ 1 件 | `PK` と `SK` を指定した GetItem |
 | 見どころの保存・更新 | 抽出バッチは見どころをまとめて PutItem で書く (既存があれば置き換える)。更新は UpdateItem |
-| 利用回数の加算 | UpdateItem。属性が未設定か上限未満のときだけ 1 加算する条件つき。上限に達していれば書かない |
-| 利用回数の戻し | UpdateItem。属性が 1 以上のときだけ 1 減らす条件つき。0 以下や記録なしでは何も書かない |
-| 利用回数の取得 | 強い整合性の GetItem (AI 解析あり・なしの 2 つの属性を読む) |
+| 利用回数の加算・戻し | [回数カウンター](../../../../platform/specs/lib/aws/usage-counter.md)の DynamoDB 版が、条件つきの UpdateItem で行う |
+| 利用回数の取得 | 回数カウンターの読み取り (強い整合性)。AI 解析あり・なしの 2 つの属性を読む |
 | 日ごとの塩の取得 | 強い整合性の GetItem |
 | 日ごとの塩の作成 | その日になければ作る条件つきの書き込み。同時に別のリクエストが先に作っていたら、その塩を使う |
 
-数え方の共通の仕組み (条件つきの加算と戻し、複数の上限を順に数える) は[回数カウンター](../../../../platform/specs/lib/aws/usage-counter.md)にある。月の回数と IP の日次のジョブ数は、未ログインのとき順に数える (どちらかで断られたら、通ったほうを戻す)。
+数え方の共通の仕組み (条件つきの加算と戻し、複数の上限を順に数える) は回数カウンターにある。月の回数と IP の日次のジョブ数は、未ログインのとき順に数える (どちらかで断られたら、通ったほうを戻す)。
 
 ## 項目
 
@@ -121,7 +118,7 @@ Quick Clip が持つ、ジョブ・見どころ・利用回数・日ごとの塩
 |---|---|---|
 | `AiCount` | 数値 | その月の AI 解析ありの回数。一度も数えていなければない |
 | `NoAiCount` | 数値 | その月の AI 解析なしの回数。一度も数えていなければない |
-| `TTL` | 数値 | 削除予定のエポック秒。翌月末 (日本時間) の 7 日後。項目を最初に作ったときだけ書く |
+| `TTL` | 数値 | 削除予定のエポック秒。月ごとの記録の TTL ([日本時間の期間](../../../../platform/specs/lib/common/jst-period.md))。項目を最初に作ったときだけ書く |
 
 ### 日ごとの塩
 
@@ -129,7 +126,7 @@ Quick Clip が持つ、ジョブ・見どころ・利用回数・日ごとの塩
 |---|---|---|
 | `Salt` | 文字列 | 利用者の IP をハッシュするときの鍵。作ったあとは変えない |
 | `CreatedAt`、`UpdatedAt` | 数値 | 作成の日時と、ストアが書き込みのたびに更新する日時 |
-| `TTL` | 数値 | 削除予定のエポック秒。その日 (日本時間) の終わりの 1 日後 |
+| `TTL` | 数値 | 削除予定のエポック秒。日ごとの記録の TTL ([日本時間の期間](../../../../platform/specs/lib/common/jst-period.md)) |
 
 ### IP ごとの日次のジョブ数
 
@@ -139,7 +136,7 @@ Quick Clip が持つ、ジョブ・見どころ・利用回数・日ごとの塩
 | `TTL` | 数値 | 削除予定のエポック秒。日ごとの塩と同じ値。項目を最初に作ったときだけ書く |
 
 - IP は、そのままは保存しない。日ごとの塩を鍵にした HMAC (SHA-256) の 16 進の文字列を、`SK` に入れる ([利用回数の流れ](../flow/usage-metering.md))
-- 利用回数と IP の項目は、カウンターが直接書くので、`CreatedAt` と `UpdatedAt` を持たない
+- 利用回数と IP の項目は、回数カウンターが直接書くので、`CreatedAt` と `UpdatedAt` を持たない ([回数カウンター](../../../../platform/specs/lib/aws/usage-counter.md))
 - ジョブと見どころは、小文字で始まる旧い属性名 (`jobId`、`expiresAt` など) も読む。書くのは新しい名前だけ
 
 ## 理由

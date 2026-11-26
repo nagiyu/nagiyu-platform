@@ -29,7 +29,7 @@ sources_hash: f99315f9c25c96adf6bc48b7a78413d15fb062049f24a3ce23710468edef423a
     - セッションの検証が例外になったときも、未ログインとして扱う
 - スタンダードとプロは、Auth で申し込む有料の[段](../../../auth/specs/term/plan-tier.md)。申し込みと契約は[申し込みと管理](../../../auth/requirements/functional/subscription.md)、Stripe の設定は [Stripe](../../../auth/specs/resource/stripe.md)にある。金額は Stripe の価格で持ち、ここには書かない
 - 使い放題は有料の段ではなく、管理者が手動で付けるロール。プロと両方持っていても使い放題になる。回数は数えず、長さの上限だけを受ける。[ロール](../../../../platform/specs/lib/common/roles-and-permissions.md)の定義にある
-- 回数を数える主体は、ログイン中は `USER#{ユーザー ID}`、未ログインは Cookie の匿名 ID (`ANON#{ID}`)。数え方は[利用回数の流れ](../flow/usage-metering.md)にある
+- 回数を数える主体 (ログイン中はユーザー、未ログインは Cookie の匿名 ID) と数え方は、[利用回数の流れ](../flow/usage-metering.md)にある
 
 ## 理由
 

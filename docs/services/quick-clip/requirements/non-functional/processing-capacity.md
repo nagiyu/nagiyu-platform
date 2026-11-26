@@ -11,7 +11,6 @@ sources: []
 - 20 GiB (21,474,836,480 バイト) までの動画を受け付ける ([ジョブ API](../../specs/api/jobs.md))
 - 20 GiB までの動画を、メモリ不足で落ちることなく処理できる
 - 動画のファイルサイズと長さに応じて、処理の資源 (AWS Batch のジョブ定義) を自動で選ぶ。選び方は[ジョブ定義のサイズ](../../specs/term/job-definition-size.md)、各サイズの値は[バッチの実行環境](../../specs/resource/batch-runtime.md)にある
-- 動画の長さは、段の上限まで処理できる ([利用の段と上限](../../specs/term/usage-tier.md))
 
 ## やらないこと
 

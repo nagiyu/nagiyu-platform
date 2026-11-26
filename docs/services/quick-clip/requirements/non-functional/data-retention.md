@@ -10,7 +10,7 @@ sources: []
 
 - アップロードされた動画、生成したクリップ、文字起こし、ZIP は、作成の 1 日後に自動で削除する ([S3 バケット](../../specs/resource/storage.md))
 - ジョブと見どころの記録も、同じ期限で自動で削除する ([ジョブとステータス](../../specs/term/job.md)、[見どころとクリップの状態](../../specs/term/highlight.md))
-- 期限は画面に示す ([処理の進み具合](../functional/job-progress.md))
+- 期限を画面に示す。アップロード画面には、データが 24 時間で自動削除されることを常に示す。処理状況画面と見どころ確認画面には、削除される日時を示す ([アップロード画面](../../specs/screen/upload.md)、[処理状況画面](../../specs/screen/job-status.md)、[見どころ確認画面](../../specs/screen/highlights.md))
 
 ## やらないこと
 

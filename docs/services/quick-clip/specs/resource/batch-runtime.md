@@ -5,7 +5,12 @@ sources:
   - infra/quick-clip/bin/quick-clip.ts
   - services/quick-clip/batch/Dockerfile
   - services/quick-clip/web/src/lib/server/submit-extract-job.ts
-sources_hash: e39490389763a1973673c6ea79e8fda1b633e91cffbb2d7f20b52a8143897dbf
+  - services/quick-clip/core/src/libs/quick-clip-batch-runner.ts
+  - services/quick-clip/core/src/libs/motion-highlight.service.ts
+  - services/quick-clip/core/src/libs/volume-highlight.service.ts
+  - services/quick-clip/core/src/libs/ffmpeg-video-analyzer.ts
+  - services/quick-clip/core/src/libs/transcription.service.ts
+sources_hash: 881f04f5404c9b5bc51498c3e43de7228cd588e5198071f8d437d0ccb00cc574
 ---
 
 # バッチの実行環境
@@ -41,6 +46,8 @@ sources_hash: e39490389763a1973673c6ea79e8fda1b633e91cffbb2d7f20b52a8143897dbf
 | 計算環境の置き場所 | 共有 VPC ([共有 VPC](../../../../platform/specs/resource/vpc.md)) のパブリックサブネット |
 | ジョブキューの優先度 | 1 (計算環境は 1 つ) |
 | ロググループの保持期間 | 1 週間。スタックを削除すると一緒に消える |
+
+- 計算環境の最大 32 vCPU は、8 vCPU のジョブを同時に 4 つ、4 vCPU のジョブを同時に 8 つ動かせる大きさ
 
 ### ジョブ定義
 
@@ -111,7 +118,10 @@ sources_hash: e39490389763a1973673c6ea79e8fda1b633e91cffbb2d7f20b52a8143897dbf
 ## 理由
 
 - 失敗の通知を EventBridge のルールで行うのは、アプリの報告だけではタイムアウトの失敗を拾えないため。アプリは例外を受けて Admin へ報告するが、Batch のタイムアウトは SIGKILL (exit 137) で、プロセスがその場で終わり、報告が走らない。プロセスが生きているかに依存しない経路で、Batch の状態の変化を見る
-- ジョブの vCPU は FFmpeg の並列数に合わせる。解析は、動きの検出 (4 並列)、一様な区間の検出 (2)、音量の検出 (4 並列) で、最大 10 の FFmpeg のプロセスが同時に動く。`large` と `xlarge` を 8 vCPU にするのはこのため。`small` も、1 vCPU では長尺の動画が時間内に終わらなかった実測があり、4 vCPU にしている ([ジョブ定義のサイズ](../term/job-definition-size.md))
-- メモリは Fargate の組み合わせの制約で決まる。4 vCPU は 8 GiB 以上、8 vCPU は 16 GiB 以上が要る
-- 計算環境の最大 32 vCPU は、8 vCPU のジョブを同時に 4 つ、4 vCPU のジョブを同時に 8 つ動かせる大きさ
+- ジョブの vCPU は、解析で同時に動く FFmpeg の本数に合わせて選ぶ
+    - AI 解析なしでは、最大 10 本が並ぶ。映像のチャンクが 4、暗転・白転の検出が 2、音量のチャンクが 4
+    - AI 解析ありでは、これに文字起こしの FFmpeg が並走する。文字起こしの FFmpeg は、音声の抽出、無音の検出、発話の区間の切り出しの順に動き、区間の切り出しは最大 5 並列。合わせて最大 15 本ほどになる
+    - `large` と `xlarge` の 8 vCPU は、AI 解析なしの 10 本を基準に選んだ値
+- 今の vCPU とタイムアウトは、dev の実測 (1 vCPU や 2 vCPU では時間内に終わらなかった) を踏まえて選んでいる ([ジョブ定義のサイズ](../term/job-definition-size.md)の「理由」)
+- メモリは Fargate の vCPU とメモリの組み合わせの制約で決まる。4 vCPU は 8 GiB 以上、8 vCPU は 16 GiB 以上が要る
 - 共有 VPC は NAT を持たず、パブリックサブネットだけなので、タスクにパブリック IP を付けて外へ通信する

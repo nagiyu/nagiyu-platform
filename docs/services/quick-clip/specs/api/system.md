@@ -24,7 +24,7 @@ sources_hash: 70d16e1cf67883d1865a27a54fe14bb5f10a2c4adee65b87e046f45a8137a5a7
 - 認証は next-auth の GET だけを公開する。POST は公開しない (サインアウトは Auth サービスの URL へ遷移する)。Quick Clip には認証の提供元 (プロバイダー) がなく、Auth サービスが発行した JWT を検証するだけ ([NextAuth の設定](../../../../platform/specs/lib/nextjs/auth-config.md))。JWT を検証する鍵 `AUTH_SECRET` は、[Auth のシークレット](../../../auth/specs/resource/secrets.md)にある
 - ログインしていなくても、すべての画面と API を使える。ログインの有無で変わるのは、利用の[段](../term/usage-tier.md)だけ
 - サーバー側の処理がセッションを読むとき、`AUTH_SECRET` が未設定や、壊れた Cookie でセッションの検証が例外になっても、未ログインとして扱い、落とさない
-- 環境変数 `SKIP_AUTH_CHECK` が `true` のテスト用の設定では、`/api/auth/session` が認証せずにテスト用のセッションを返し、サーバー側のセッションもテスト用になる。ロールは、リクエストヘッダ `x-test-user-roles`、環境変数 `TEST_USER_ROLES`、既定の空の順で決まる ([セッション取得とテストセッション](../../../../platform/specs/lib/nextjs/session.md))
+- 環境変数 `SKIP_AUTH_CHECK` が `true` のテスト用の設定では、`/api/auth/session` が認証せずにテスト用のセッションを返し、サーバー側のセッションもテスト用になる。ロールの決め方は[セッション取得とテストセッション](../../../../platform/specs/lib/nextjs/session.md)のとおりで、Quick Clip が渡す既定のロールは空
 
 ## エラー
 

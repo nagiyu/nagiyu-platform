@@ -6,8 +6,7 @@ sources:
   - services/quick-clip/web/src/lib/auth/session.ts
   - services/quick-clip/core/src/libs/usage.service.ts
   - services/quick-clip/core/src/libs/usage-plan.ts
-  - libs/common/src/format/jst-period.ts
-sources_hash: 483959a8172279ead787a6b77a4f34a52e6ec6994efd0b0352bad9e1e6a0dc72
+sources_hash: 4c6ec2042391cfd714309c57c1c5f62bfd43db417936658b20fc90f79103fcb7
 ---
 
 # 利用状況 API
@@ -23,7 +22,7 @@ sources_hash: 483959a8172279ead787a6b77a4f34a52e6ec6994efd0b0352bad9e1e6a0dc72
 ## 入力と出力
 
 - 出力は 200 で、次の形
-    - `month`: 日本時間の暦月 (例: `202611`)
+    - `month`: 日本時間の暦月 (例: `202611`。[日本時間の期間](../../../../platform/specs/lib/common/jst-period.md))
     - `tier`: 利用の[段](../term/usage-tier.md)
     - `limits`: `aiPerMonth`、`noAiPerMonth`、`maxDurationSec`。回数の上限なしは `null`
     - `used`: 今月に数えた `ai` と `noAi`

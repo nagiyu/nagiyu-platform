@@ -46,7 +46,7 @@ flowchart TD
 - ZIP は作られず、ジョブにも失敗の印は残らない。[ダウンロード API](../api/download.md) の取得は `PROCESSING` を返し続ける。画面は 300 秒で待つのをやめて、エラーを出す ([見どころ確認画面](../screen/highlights.md))
 - 前の ZIP は、API が開始のときに消す ([ダウンロード API](../api/download.md))
 - Lambda の失敗を拾う CloudWatch Alarm や EventBridge のルールは、quick-clip のインフラには定義されていない。報告できるのは、アプリが例外を受けられたときだけ
-- 報告の書き込みに失敗しても、例外は伝えない。ログだけを残す ([エラーの報告](../../../../platform/specs/lib/aws/error-reporting.md))
+- 報告の書き込みに失敗したときの扱いは[エラーの報告](../../../../platform/specs/lib/aws/error-reporting.md)にある
 
 ## つながり
 

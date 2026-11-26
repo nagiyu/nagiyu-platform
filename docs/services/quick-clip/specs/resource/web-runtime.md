@@ -87,12 +87,12 @@ Web のイメージのビルドで、クライアントのコードに埋め込�
 | clip-regenerate と zip-generator の 2 つの Lambda 関数 | `lambda:InvokeFunction` ([ワーカーの実行環境](./worker-runtime.md)) |
 | [エラーイベントのテーブル](../../../../platform/specs/data/error-events.md) | `dynamodb:PutItem` |
 
+- `batch:SubmitJob` を許可するジョブ定義の ARN は、版なしの名前と、版つき (`:*`) の両方。Web が投入で渡すジョブ定義は、版を付けない名前 (`{接頭辞}-{サイズ}`)
 - `batch:DescribeJobs` は、リソースを絞る権限の指定に対応していないため、`*` に許可する
-- エラー履歴の `PutItem` は、Web が自分の 500 を報告するために持つ ([エラーの報告](../../../../platform/specs/lib/aws/error-reporting.md))
+- エラー履歴の `PutItem` は、Web が 500 の例外と、例外を握って続ける箇所の失敗 (warning など) を報告するために持つ ([エラーの報告](../../../../platform/specs/lib/aws/error-reporting.md))
 - Secrets Manager を読む権限は持たない。シークレットの値は、デプロイのときに環境変数へ入る
 
 ## 理由
 
 - `NAGIYU_ENV` を別に持つのは、`NODE_ENV` が Next.js のビルド時に `production` へ置き換えられ、デプロイしたあとの dev と prod の判定に使えないため
-- ジョブ定義の ARN を版つきと版なしの両方で許可するのは、投入のときに版を指定しないため。ジョブ定義の更新で版が変わっても、権限を直さずに投入できる
 - Batch の ARN は、スタックの出力を参照せず、命名規則から組み立てて渡す ([デプロイ先](../deploy.md)の「理由」)
