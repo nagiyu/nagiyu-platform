@@ -159,6 +159,7 @@
     "specs/livetalk/api/push-notification.md",
     "specs/livetalk/api/push.md",
     "specs/livetalk/api/status.md",
+    "specs/livetalk/api/study-status.md",
     "specs/livetalk/api/system.md",
     "specs/livetalk/batch/acquire.md",
     "specs/livetalk/batch/consolidate-conversations.md",
