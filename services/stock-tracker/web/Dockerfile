@@ -12,16 +12,14 @@ ENV APP_VERSION=${APP_VERSION}
 # モノレポ全体のファイルをコピー
 COPY package*.json ./
 COPY configs ./configs/
-COPY libs ./libs/
 COPY services/stock-tracker/core ./services/stock-tracker/core/
 COPY services/stock-tracker/web ./services/stock-tracker/web/
 
 # 依存関係をインストール（ソースコード存在下で実行）
 RUN npm ci
 
-# 共通ライブラリ、core、web の順にビルドする
+# core、web の順にビルドする
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN npm run build:libs
 RUN npm run build --workspace=@nagiyu/stock-tracker-core
 RUN npm run build --workspace=@nagiyu/stock-tracker-web
 

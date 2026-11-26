@@ -12,7 +12,7 @@ sources:
   - services/stock-tracker/core/src/repositories/dynamodb-alert.repository.ts
 sources_hash: 21c62f71ca7583796f273c2507bcab0c4a540e1b14f6ef6252e2f0f56375f4cb
 terms: [stock-tracker/term/push-subscription]
-related_cards: [admin/flow/error-notification, stock-tracker/flow/alert-notification, stock-tracker/api/push, stock-tracker/api/alerts]
+related_cards: [stock-tracker/flow/alert-notification, stock-tracker/api/push, stock-tracker/api/alerts]
 related_adr:
   - services/stock-tracker/architecture.md#2.8
 ---
@@ -54,7 +54,7 @@ flowchart TD
 - 無効な購読が見つかっても、失敗にはしない。Admin にも報告しない (ログのみ)
 - アラートの読み込みの失敗など、すべての例外は、共通の骨格が「日次バッチ: 致命的エラー」を `error` で報告し、例外を再送出して Lambda を失敗にする
 - CloudWatch Alarm も Admin に届く。5 分間の Errors の平均が 10% を超える、実行時間の平均が 8 分を超える、スロットリングが 1 回以上起きる、のいずれか
-- Admin への経路は[エラー通知の経路](../../admin/flow/error-notification.md)
+- Admin への経路は[エラー通知の経路](../../../services/admin/specs/flow/error-notification.md)
 
 ## つながり
 

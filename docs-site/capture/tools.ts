@@ -399,7 +399,7 @@ export const tools: ServiceCapture = {
     command: ['npm', 'run', 'start', '--'],
     port: 3400,
     healthPath: '/api/health',
-    requiredBuilds: ['libs/ui/dist', 'libs/nextjs/dist', 'libs/common/dist', 'libs/browser/dist'],
+    requiredBuilds: [],
     // E2E にも環境変数ファイルはない。フッターのバージョン表示を固定する
     extraEnv: { APP_VERSION: '1.0.0' },
   },
