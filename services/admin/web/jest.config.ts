@@ -38,22 +38,5 @@ const config: Config = {
   },
 };
 
-const createConfig = createJestConfig(config);
-
-// next/jest は node_modules を変換対象から外し、カスタム設定の transformIgnorePatterns は追加しかできない
-// (どれか 1 つに一致すれば除外される)。そのままでは公開版の @nagiyu/* (ESM) が変換されないため、
-// 解決済みの設定のうち node_modules 全体を除外するパターンだけ @nagiyu/* を除いた形に差し替える。
-// 変換には next/jest 既定の SWC が使われ、ESM は CJS に変換される。
-const resolveConfig = async (): Promise<Config> => {
-  const resolved = await createConfig();
-  return {
-    ...resolved,
-    transformIgnorePatterns: (resolved.transformIgnorePatterns ?? []).map((pattern) =>
-      pattern.startsWith('/node_modules/(?!')
-        ? pattern.replace('/node_modules/(?!', '/node_modules/(?!@nagiyu/)(?!')
-        : pattern
-    ),
-  };
-};
-
-export default resolveConfig;
+// createJestConfig is exported this way to ensure that next/jest can load the Next.js config which is async
+export default nagiyuLib.withNagiyuLibs(createJestConfig(config));
