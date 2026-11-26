@@ -13,6 +13,7 @@ import { tryConsumeStudyUsage } from './study-usage-counting.js';
 import type {
   StudyUsageRepository,
   TryConsumeStudyUsageInput,
+  TryConsumeStudyUsageResult,
 } from './study-usage.repository.interface.js';
 
 export class DynamoDBStudyUsageRepository implements StudyUsageRepository {
@@ -22,7 +23,7 @@ export class DynamoDBStudyUsageRepository implements StudyUsageRepository {
     this.counter = new DynamoDBUsageCounter(docClient, tableName);
   }
 
-  public async tryConsume(input: TryConsumeStudyUsageInput): Promise<boolean> {
+  public async tryConsume(input: TryConsumeStudyUsageInput): Promise<TryConsumeStudyUsageResult> {
     return tryConsumeStudyUsage(this.counter, input);
   }
 }

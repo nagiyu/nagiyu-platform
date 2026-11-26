@@ -1,4 +1,5 @@
 import { InMemoryAuthUserRoleSourceReader, InMemorySingleTableStore } from '@nagiyu/aws';
+import { logger } from '@nagiyu/common';
 import { InMemoryStudyUsageRepository } from '@nagiyu/livetalk-core';
 
 jest.mock('@nagiyu/livetalk-core', () => ({
@@ -168,10 +169,10 @@ describe('acquireAllUsers', () => {
         async (
           userId: string,
           characterId: string,
-          params: { researchAllowance: { tryConsume: () => Promise<boolean> } }
+          params: { researchAllowance: { tryConsume: () => Promise<{ ok: boolean }> } }
         ) => {
           let count = 0;
-          while (await params.researchAllowance.tryConsume()) count++;
+          while ((await params.researchAllowance.tryConsume()).ok) count++;
           used[`${userId}:${characterId}`] = count;
           return {
             outcome: 'acquired',
@@ -499,10 +500,10 @@ describe('acquireAllUsers', () => {
         async (
           userId: string,
           characterId: string,
-          params: { researchAllowance: { tryConsume: () => Promise<boolean> } }
+          params: { researchAllowance: { tryConsume: () => Promise<{ ok: boolean }> } }
         ) => {
           let count = 0;
-          while (await params.researchAllowance.tryConsume()) count++;
+          while ((await params.researchAllowance.tryConsume()).ok) count++;
           used[`${userId}:${characterId}`] = count;
           return acquired;
         }
@@ -512,6 +513,86 @@ describe('acquireAllUsers', () => {
       const { acquireAllUsers } = await import('../../../src/usecases/acquire.usecase.js');
       return acquireAllUsers(makeParams(overrides));
     };
+
+    describe('全体の上限', () => {
+      const userIds = Array.from({ length: 13 }, (_, i) => `u${i + 1}`);
+
+      beforeEach(() => {
+        // 先のテストが定義の差し替えを残すため、2 キャラクターとも定義を返すよう戻す
+        mockGetCharacterDefinitionById.mockImplementation((id: string) => ({ id }));
+      });
+
+      /** 枠を使い切るまで問い合わせ、全体の上限で断られたときだけ globalLimitReached を返す */
+      const drainReportingGlobal = () =>
+        mockAcquireForUser.mockImplementation(
+          async (
+            _userId: string,
+            _characterId: string,
+            params: {
+              researchAllowance: {
+                tryConsume: () => Promise<{ ok: boolean; deniedBy?: string }>;
+              };
+            }
+          ) => {
+            let denied: string | undefined;
+            for (;;) {
+              const consumed = await params.researchAllowance.tryConsume();
+              if (consumed.ok) continue;
+              denied = consumed.deniedBy;
+              break;
+            }
+            return {
+              ...acquired,
+              dailyLimitReached: true,
+              globalLimitReached: denied === 'global',
+            };
+          }
+        );
+
+      it('全体の上限に当たったら、以降の利用者・キャラクターのカウンタを触らず、結果に載せる', async () => {
+        drainReportingGlobal();
+        const warnSpy = jest.spyOn(logger, 'warn').mockImplementation(() => undefined);
+        const repoSpy = jest.spyOn(studyUsageRepo, 'tryConsume');
+
+        const result = await run({ profileRepo: makeProfileRepo(userIds) as never });
+
+        // 1 人 20 回 x 10 人で 200 回に達し、11 人目の 1 つ目のキャラクターで断られて打ち切る
+        expect(mockAcquireForUser).toHaveBeenCalledTimes(10 * 2 + 1);
+        const calledUsers = mockAcquireForUser.mock.calls.map((call) => call[0]);
+        expect(calledUsers).not.toContain('u12');
+        expect(calledUsers).not.toContain('u13');
+        const touchedUsers = repoSpy.mock.calls.map(([input]) => input.userId);
+        expect(touchedUsers).not.toContain('u12');
+        expect(touchedUsers).not.toContain('u13');
+        expect(result.globalLimitReached).toBe(true);
+        expect(warnSpy).toHaveBeenCalledWith(
+          '[acquireAllUsers] 全体の勉強の上限に達したため、この回の勉強を打ち切りました',
+          { userId: 'u11', unprocessedUsers: 2 }
+        );
+      });
+
+      it('打ち切りで処理しなかった利用者は skipped に数え、打ち切った利用者本人は結果どおりに数える', async () => {
+        drainReportingGlobal();
+        jest.spyOn(logger, 'warn').mockImplementation(() => undefined);
+
+        const result = await run({ profileRepo: makeProfileRepo(userIds) as never });
+
+        expect(result.processedUsers).toBe(11);
+        expect(result.skippedUsers).toBe(2);
+        expect(result.failedUsers).toBe(0);
+      });
+
+      it('利用者ごとの上限だけなら打ち切らない', async () => {
+        drainReportingGlobal();
+        const warnSpy = jest.spyOn(logger, 'warn').mockImplementation(() => undefined);
+
+        const result = await run({ profileRepo: makeProfileRepo(['u1', 'u2']) as never });
+
+        expect(mockAcquireForUser).toHaveBeenCalledTimes(4);
+        expect(result.globalLimitReached).toBe(false);
+        expect(warnSpy).not.toHaveBeenCalled();
+      });
+    });
 
     it('運営者・スタンダード・お試し中は 20 回、お試しのあとは勉強しない', async () => {
       authReader.putItem({ userId: 'op', Roles: ['livetalk-operator'] });

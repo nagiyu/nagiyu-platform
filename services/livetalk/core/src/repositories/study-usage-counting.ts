@@ -8,11 +8,18 @@ import {
   buildUserPK,
 } from '../mappers/keys.js';
 import { STUDY_USAGE_ITEM_TYPE } from './study-usage.repository.interface.js';
-import type { TryConsumeStudyUsageInput } from './study-usage.repository.interface.js';
+import type {
+  StudyUsageDeniedScope,
+  TryConsumeStudyUsageInput,
+  TryConsumeStudyUsageResult,
+} from './study-usage.repository.interface.js';
 
 export const STUDY_USAGE_ERROR_MESSAGES = {
   ROLLBACK_FAILED: '勉強回数を戻せませんでした (1 回分多く数えたまま)',
 } as const;
+
+/** tryIncrementInOrder に渡す段の並びと対応させる。段を足すときはここも揃える */
+const DENIED_SCOPES: readonly StudyUsageDeniedScope[] = ['character', 'user', 'global'];
 
 /**
  * 戻しの失敗は断りや元の例外を優先して握るため、握る箇所でその場で報告する。
@@ -35,7 +42,7 @@ const errorReporter = createErrorReporter({ serviceId: 'livetalk' });
 export async function tryConsumeStudyUsage(
   counter: UsageCounter,
   input: TryConsumeStudyUsageInput
-): Promise<boolean> {
+): Promise<TryConsumeStudyUsageResult> {
   const sk = buildStudyUsageSK(toJstDayKey(input.nowMs));
   const key = { PK: buildUserPK(input.userId), SK: sk };
   const globalKey = { PK: buildGlobalStudyUsagePK(), SK: sk };
@@ -65,5 +72,6 @@ export async function tryConsumeStudyUsage(
         }),
     }
   );
-  return result.ok;
+  if (result.ok) return { ok: true };
+  return { ok: false, deniedBy: DENIED_SCOPES[result.deniedIndex] };
 }

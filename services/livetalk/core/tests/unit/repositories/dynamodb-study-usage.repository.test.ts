@@ -34,7 +34,7 @@ describe('DynamoDBStudyUsageRepository', () => {
     const send = jest.fn().mockResolvedValue({});
     const repo = new DynamoDBStudyUsageRepository(makeClient(send), tableName);
 
-    expect(await repo.tryConsume(input)).toBe(true);
+    expect(await repo.tryConsume(input)).toEqual({ ok: true });
 
     const command = send.mock.calls[0][0] as UpdateCommand;
     expect(command).toBeInstanceOf(UpdateCommand);
@@ -55,7 +55,7 @@ describe('DynamoDBStudyUsageRepository', () => {
     });
   });
 
-  it('上限に達していたら false を返す', async () => {
+  it('上限に達していたら、断った枠つきで返す', async () => {
     const send = jest
       .fn()
       .mockRejectedValue(
@@ -63,7 +63,7 @@ describe('DynamoDBStudyUsageRepository', () => {
       );
     const repo = new DynamoDBStudyUsageRepository(makeClient(send), tableName);
 
-    expect(await repo.tryConsume(input)).toBe(false);
+    expect(await repo.tryConsume(input)).toEqual({ ok: false, deniedBy: 'character' });
   });
 
   it('DynamoDB の障害は DatabaseError として投げる', async () => {
@@ -80,7 +80,7 @@ describe('DynamoDBStudyUsageRepository', () => {
     const send = jest.fn().mockRejectedValue(conditionFailed());
     const repo = new DynamoDBStudyUsageRepository(makeClient(send), tableName);
 
-    expect(await repo.tryConsume(input)).toBe(false);
+    expect(await repo.tryConsume(input)).toEqual({ ok: false, deniedBy: 'character' });
     expect(send).toHaveBeenCalledTimes(1);
   });
 
@@ -92,7 +92,7 @@ describe('DynamoDBStudyUsageRepository', () => {
       .mockResolvedValueOnce({});
     const repo = new DynamoDBStudyUsageRepository(makeClient(send), tableName);
 
-    expect(await repo.tryConsume(input)).toBe(false);
+    expect(await repo.tryConsume(input)).toEqual({ ok: false, deniedBy: 'user' });
     const rollback = send.mock.calls[2][0] as UpdateCommand;
     expect(rollback.input.ExpressionAttributeValues).toMatchObject({ ':minusOne': -1 });
     expect(rollback.input.ExpressionAttributeNames).toMatchObject({ '#cnt': 'Count#hiyori' });
@@ -106,7 +106,7 @@ describe('DynamoDBStudyUsageRepository', () => {
       .mockRejectedValueOnce(new Error('戻し失敗'));
     const repo = new DynamoDBStudyUsageRepository(makeClient(send), tableName);
 
-    expect(await repo.tryConsume(input)).toBe(false);
+    expect(await repo.tryConsume(input)).toEqual({ ok: false, deniedBy: 'user' });
     expect(mockReport).toHaveBeenCalledWith(
       STUDY_USAGE_ERROR_MESSAGES.ROLLBACK_FAILED,
       expect.any(DatabaseError),
@@ -130,7 +130,7 @@ describe('DynamoDBStudyUsageRepository', () => {
     const send = jest.fn().mockResolvedValue({});
     const repo = new DynamoDBStudyUsageRepository(makeClient(send), tableName);
 
-    expect(await repo.tryConsume(input)).toBe(true);
+    expect(await repo.tryConsume(input)).toEqual({ ok: true });
 
     expect(send).toHaveBeenCalledTimes(3);
     const global = send.mock.calls[2][0] as UpdateCommand;
@@ -151,7 +151,7 @@ describe('DynamoDBStudyUsageRepository', () => {
       .mockResolvedValue({});
     const repo = new DynamoDBStudyUsageRepository(makeClient(send), tableName);
 
-    expect(await repo.tryConsume(input)).toBe(false);
+    expect(await repo.tryConsume(input)).toEqual({ ok: false, deniedBy: 'global' });
 
     expect(send).toHaveBeenCalledTimes(5);
     const first = send.mock.calls[3][0] as UpdateCommand;

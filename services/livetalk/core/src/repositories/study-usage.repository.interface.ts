@@ -21,12 +21,22 @@ export interface TryConsumeStudyUsageInput {
   nowMs: number;
 }
 
+/** 回数の上限で断った枠。狭い順 (キャラクター別 → 利用者の合計 → 全利用者の合計) */
+export type StudyUsageDeniedScope = 'character' | 'user' | 'global';
+
+/**
+ * 回数を数えた結果。断られたときは、どの枠で断られたかを持つ。
+ * 全利用者の合計の枠で断られた場合は、利用者ごとの上限とは別に運営が把握する必要があるため、区別して返す。
+ */
+export type TryConsumeStudyUsageResult =
+  { ok: true } | { ok: false; deniedBy: StudyUsageDeniedScope };
+
 export interface StudyUsageRepository {
   /**
    * キャラクターの上限・利用者の合計の上限・全利用者の合計の上限のすべてに達していなければ 1 回分を数える。上限は超えないが、同時に呼ばれると実際より多く数えて断る側にずれることがある。
    *
-   * @returns 数えられたとき true、上限に達していたとき false
+   * @returns 数えられたとき `{ ok: true }`、上限に達していたとき `{ ok: false, deniedBy }`
    * @throws 記録の読み書きに失敗したとき
    */
-  tryConsume(input: TryConsumeStudyUsageInput): Promise<boolean>;
+  tryConsume(input: TryConsumeStudyUsageInput): Promise<TryConsumeStudyUsageResult>;
 }

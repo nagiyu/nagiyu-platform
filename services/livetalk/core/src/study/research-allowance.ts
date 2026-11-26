@@ -2,7 +2,10 @@ import {
   STUDY_DAILY_RESEARCH_LIMIT_GLOBAL,
   STUDY_DAILY_RESEARCH_LIMIT_PER_USER,
 } from '../constants.js';
-import type { StudyUsageRepository } from '../repositories/study-usage.repository.interface.js';
+import type {
+  StudyUsageRepository,
+  TryConsumeStudyUsageResult,
+} from '../repositories/study-usage.repository.interface.js';
 
 /**
  * 勉強 (Web リサーチ) を 1 回使えるかを問い合わせる枠。
@@ -13,10 +16,10 @@ export interface ResearchAllowance {
   /**
    * 1 回分を数える。リサーチを呼ぶ直前に呼ぶ。リサーチが失敗しても戻さない。
    *
-   * @returns 使えるとき true、枠を使い切っているとき false
+   * @returns 使えるとき `{ ok: true }`、枠を使い切っているとき、断った枠つきの `{ ok: false, deniedBy }`
    * @throws 回数の記録の読み書きに失敗したとき
    */
-  tryConsume(): Promise<boolean>;
+  tryConsume(): Promise<TryConsumeStudyUsageResult>;
 }
 
 /**

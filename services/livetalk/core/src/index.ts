@@ -257,7 +257,9 @@ export {
 } from './study/study-plan.js';
 export type {
   StudyUsageRepository,
+  StudyUsageDeniedScope,
   TryConsumeStudyUsageInput,
+  TryConsumeStudyUsageResult,
 } from './repositories/study-usage.repository.interface.js';
 export { InMemoryStudyUsageRepository } from './repositories/in-memory-study-usage.repository.js';
 export { DynamoDBStudyUsageRepository } from './repositories/dynamodb-study-usage.repository.js';

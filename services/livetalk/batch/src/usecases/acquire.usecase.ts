@@ -69,6 +69,11 @@ export interface AcquireAllUsersParams {
 
 export interface AcquireAllUsersResult {
   processedUsers: number;
+  /**
+   * 勉強しなかった利用者の数。お試しを過ぎた無料の利用者、勉強するキャラクターがいなかった利用者に加え、
+   * 全体の上限で打ち切った回の、まだ処理していなかった利用者も含む (勉強を始められなかったという点で同じため)。
+   * 打ち切った利用者本人は、打ち切るまでの結果で processed / failed を数える。
+   */
   skippedUsers: number;
   failedUsers: number;
   failedUserIds: string[];
@@ -91,6 +96,12 @@ export interface AcquireAllUsersResult {
   dailyLimitReachedCharacters: number;
   /** 回数の記録に失敗して勉強を止めた利用者 × キャラクターの組の数 */
   counterFailedCharacters: number;
+  /**
+   * 全利用者の合計の上限に達して、この回の残りの勉強を打ち切ったか。
+   * 打ち切った後は、残りの利用者・キャラクターのカウンタも触らない。
+   * 区分ごとの人数 (`tierUsers`) には、打ち切りで処理しなかった利用者は含まない。
+   */
+  globalLimitReached: boolean;
   /** research が実行した Web 検索 tool call の総回数（action の種別を問わない） */
   webSearchCalls: number;
   /** 区分ごとの利用者数。区分を判定できなかった (失敗した) 利用者は含まない。お試しを過ぎた無料の利用者 (freeExpired) は勉強せず、skippedUsers にも含む */
@@ -150,13 +161,14 @@ export async function acquireAllUsers(
     webRawWritten: 0,
     dailyLimitReachedCharacters: 0,
     counterFailedCharacters: 0,
+    globalLimitReached: false,
     webSearchCalls: 0,
     tierUsers: { operator: 0, standard: 0, freeTrial: 0, freeExpired: 0 },
   };
 
   const allCharacterIds = getAllCharacterIds();
 
-  for (const userId of userIds) {
+  for (const [userIndex, userId] of userIds.entries()) {
     let hasCharacterError = false;
     let hasAcquired = false;
 
@@ -245,6 +257,7 @@ export async function acquireAllUsers(
           });
 
           if (outcome.dailyLimitReached) result.dailyLimitReachedCharacters++;
+          if (outcome.globalLimitReached) result.globalLimitReached = true;
           if (outcome.counterFailed) {
             result.counterFailedCharacters++;
             // 勉強が黙って止まらないよう、バッチの失敗として上げる
@@ -261,6 +274,9 @@ export async function acquireAllUsers(
             result.webRawWritten += outcome.webRawWritten;
             result.webSearchCalls += outcome.webSearchCalls;
           }
+
+          // 全体の上限は他の利用者・キャラクターにも効くため、これ以上カウンタを触らない
+          if (result.globalLimitReached) break;
         } catch (error) {
           logger.warn('[acquireAllUsers] キャラクター処理失敗（他キャラは継続）', {
             userId,
@@ -279,6 +295,18 @@ export async function acquireAllUsers(
         result.processedUsers++;
       } else {
         result.skippedUsers++;
+      }
+
+      if (result.globalLimitReached) {
+        result.skippedUsers += userIds.length - userIndex - 1;
+        logger.warn(
+          '[acquireAllUsers] 全体の勉強の上限に達したため、この回の勉強を打ち切りました',
+          {
+            userId,
+            unprocessedUsers: userIds.length - userIndex - 1,
+          }
+        );
+        break;
       }
     } catch (error) {
       logger.error('[acquireAllUsers] ユーザー処理失敗', {
