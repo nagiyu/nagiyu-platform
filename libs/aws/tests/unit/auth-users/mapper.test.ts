@@ -1,10 +1,11 @@
 /**
- * Auth Core - User Mapper Unit Tests
+ * Auth ユーザー Mapper の単体テスト
  */
 
-import { InvalidEntityDataError, REMOVE_ATTRIBUTE } from '@nagiyu/aws';
+import { InvalidEntityDataError } from '../../../src/dynamodb/errors.js';
+import { REMOVE_ATTRIBUTE } from '../../../src/dynamodb/helpers.js';
 import type { RoleGrant, User } from '@nagiyu/common';
-import { UserMapper } from '../../../src/mappers/user.mapper';
+import { UserMapper, readRoleGrants, readRoles } from '../../../src/auth-users/mapper.js';
 
 const CREATED_AT = 1704067200000;
 const UPDATED_AT = 1706745600000;
@@ -331,5 +332,40 @@ describe('UserMapper', () => {
         LastLoginAt: ['lastLoginAt'],
       });
     });
+  });
+});
+
+describe('readRoles / readRoleGrants', () => {
+  it('新名 Roles を読み、なければ旧名 roles を読む', () => {
+    expect(readRoles({ Roles: ['admin'] })).toEqual(['admin']);
+    expect(readRoles({ roles: ['legacy'] })).toEqual(['legacy']);
+  });
+
+  it('ロールが配列でなければ InvalidEntityDataError', () => {
+    expect(() => readRoles({ Roles: 'admin' })).toThrow(InvalidEntityDataError);
+  });
+
+  it('RoleGrants がなければ undefined、あれば権利に変換する', () => {
+    expect(readRoleGrants({})).toBeUndefined();
+    const grants = readRoleGrants({
+      RoleGrants: [
+        {
+          grantId: 'g1',
+          roleId: 'livetalk-plus',
+          source: 'manual',
+          createdAt: CREATED_AT,
+          updatedAt: UPDATED_AT,
+        },
+      ],
+    });
+    expect(grants).toEqual([
+      {
+        grantId: 'g1',
+        roleId: 'livetalk-plus',
+        source: 'manual',
+        createdAt: CREATED_AT,
+        updatedAt: UPDATED_AT,
+      },
+    ]);
   });
 });

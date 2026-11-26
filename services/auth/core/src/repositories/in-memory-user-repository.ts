@@ -2,12 +2,13 @@ import {
   InMemoryEntityStore,
   InMemorySingleTableStore,
   type EntityStore,
+  type UserKey,
+  UserMapper,
   type PaginatedResult,
   type PaginationOptions,
 } from '@nagiyu/aws';
 import type { User } from '@nagiyu/common';
 import { randomUUID } from 'node:crypto';
-import { UserMapper, type UserKey } from '../mappers/user.mapper';
 import type {
   RolesAndGrantsChange,
   UpdateUserInput,

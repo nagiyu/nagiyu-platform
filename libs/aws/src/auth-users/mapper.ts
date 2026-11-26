@@ -1,27 +1,32 @@
 /**
- * Auth Core - User Mapper
+ * Auth ユーザー Mapper
  *
- * User ↔ DynamoDB Item の変換を担当
+ * auth のユーザーテーブルの項目の形を知るのはここだけにする。
+ * auth-core と、ロールだけを読む他サービスが同じ解釈を使う。
  */
 
+import { ROLE_GRANT_SOURCES, type RoleGrant, type User } from '@nagiyu/common';
 import {
-  immutablePatchValue,
-  optionalPatchValue,
   readAttribute,
   readOptionalTimestamp,
   readTimestamp,
-  requiredPatchValue,
   validateArrayField,
   validateEnumField,
   validateObjectField,
   validateStringField,
   validateTimestampField,
-  type DynamoDBAttributes,
-  type DynamoDBKey,
-  type EntityMapper,
-  type EntityPatch,
-} from '@nagiyu/aws';
-import { ROLE_GRANT_SOURCES, type RoleGrant, type User } from '@nagiyu/common';
+} from '../dynamodb/validators.js';
+import {
+  immutablePatchValue,
+  optionalPatchValue,
+  requiredPatchValue,
+} from '../dynamodb/mapper/patch-values.js';
+import type {
+  DynamoDBAttributes,
+  DynamoDBKey,
+  EntityMapper,
+  EntityPatch,
+} from '../dynamodb/mapper/entity-mapper.interface.js';
 
 /** ユーザーのビジネスキー */
 export type UserKey = { userId: string };
@@ -32,7 +37,7 @@ export type UserKey = { userId: string };
  * 旧データは小文字始まりの属性名で保存されている。キー属性 (`userId`) と GSI のキー (`googleId`) は
  * テーブルを作り直さないと変えられないため据え置く。
  */
-const LEGACY_ATTRIBUTE_NAMES = {
+export const LEGACY_ATTRIBUTE_NAMES = {
   Email: ['email'],
   Name: ['name'],
   Picture: ['picture'],
@@ -47,7 +52,7 @@ const LEGACY_ATTRIBUTE_NAMES = {
  *
  * undefined の任意項目は属性を作らない。
  */
-function roleGrantToItem(grant: RoleGrant): DynamoDBAttributes {
+export function roleGrantToItem(grant: RoleGrant): DynamoDBAttributes {
   const item: DynamoDBAttributes = {
     grantId: grant.grantId,
     roleId: grant.roleId,
@@ -75,7 +80,7 @@ function roleGrantToItem(grant: RoleGrant): DynamoDBAttributes {
  *
  * @throws InvalidEntityDataError 読めない要素のとき
  */
-function roleGrantToEntity(value: unknown): RoleGrant {
+export function roleGrantToEntity(value: unknown): RoleGrant {
   const raw = validateObjectField(value, 'RoleGrants[]');
   const grant: RoleGrant = {
     grantId: validateStringField(raw.grantId, 'RoleGrants[].grantId'),
@@ -99,6 +104,32 @@ function roleGrantToEntity(value: unknown): RoleGrant {
     grant.grantedBy = validateStringField(raw.grantedBy, 'RoleGrants[].grantedBy');
   }
   return grant;
+}
+
+/**
+ * 項目からロール (手動付与) を読む。旧名 `roles` の項目も読む。
+ *
+ * @throws InvalidEntityDataError 読めないデータのとき
+ */
+export function readRoles(item: DynamoDBAttributes): string[] {
+  return validateArrayField(readAttribute(item, 'Roles', LEGACY_ATTRIBUTE_NAMES.Roles), 'Roles', {
+    isElement: (v): v is string => typeof v === 'string',
+  });
+}
+
+/**
+ * 項目から課金などの権利を読む。
+ *
+ * 権利を一度も付けていないユーザーの項目には属性が無く、そのときは undefined を返す。
+ *
+ * @throws InvalidEntityDataError 読めないデータのとき
+ */
+export function readRoleGrants(item: DynamoDBAttributes): RoleGrant[] | undefined {
+  const roleGrants = item.RoleGrants;
+  if (roleGrants === undefined) {
+    return undefined;
+  }
+  return validateArrayField(roleGrants, 'RoleGrants').map(roleGrantToEntity);
 }
 
 /**
@@ -192,17 +223,15 @@ export class UserMapper implements EntityMapper<User, UserKey> {
       googleId: validateStringField(item.googleId, 'googleId'),
       email: validateStringField(this.read(item, 'Email'), 'Email'),
       name: validateStringField(this.read(item, 'Name'), 'Name'),
-      roles: validateArrayField(this.read(item, 'Roles'), 'Roles', {
-        isElement: (v): v is string => typeof v === 'string',
-      }),
+      roles: readRoles(item),
       createdAt: readTimestamp(item, 'CreatedAt', LEGACY_ATTRIBUTE_NAMES.CreatedAt),
       updatedAt: readTimestamp(item, 'UpdatedAt', LEGACY_ATTRIBUTE_NAMES.UpdatedAt),
     };
 
     // 権利を一度も付けていないユーザーの項目には属性が無く、そのときは roleGrants を持たせない
-    const roleGrants = item.RoleGrants;
+    const roleGrants = readRoleGrants(item);
     if (roleGrants !== undefined) {
-      entity.roleGrants = validateArrayField(roleGrants, 'RoleGrants').map(roleGrantToEntity);
+      entity.roleGrants = roleGrants;
     }
 
     if (item.StripeCustomerId !== undefined) {

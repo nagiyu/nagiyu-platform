@@ -14,3 +14,4 @@ export * from './batch/index.js';
 export * from './lambda/index.js';
 export * from './crypto/index.js';
 export * from './error-events/index.js';
+export * from './auth-users/index.js';
