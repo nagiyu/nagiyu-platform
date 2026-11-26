@@ -17,15 +17,12 @@ sources: []
 | SELF fact | 利用者自身についての事実。利用者が削除できる ([SELF fact](../specs/term/self-fact.md)) |
 | WEB fact | Web で調べた外部の事実 ([WEB fact](../specs/term/web-fact.md)) |
 | care | 話題への注目度。調べる話題・ノート・通知の選び方に使う ([care](../specs/term/care.md)) |
-| 集約カーソル | 会話履歴と WebRaw のどこまでを Topic に畳んだかの位置 ([集約バッチ](../specs/batch/consolidate-conversations.md)) |
 | WebRaw | Web から取ってきた生の内容。Topic に畳む前の元データ ([WebRaw](../specs/term/webraw.md)) |
 | 勉強の依頼 | 会話で知らない話題が出たときに積む、調べものの依頼 ([勉強の依頼](../specs/term/study-topic.md)) |
 | 鮮度確認の依頼 | 使われた Topic の古い WEB fact を調べ直す依頼 ([鮮度確認の依頼](../specs/term/freshness-check-request.md)) |
 | 探索の記録 | 自発的に調べるときに、起点の話題から広げた角度と時刻の記録 ([探索の記録](../specs/term/exploration.md)) |
 | 勉強の回数 | 利用者が 1 日に使った、調べものの回数。上限の判定に使う ([勉強バッチ](../specs/batch/acquire.md)) |
-| 勉強の停止 | 利用者が 3 日話しかけていないキャラクターの勉強と、話題を使う通知を止める決まり ([勉強の停止](../specs/term/study-pause.md)) |
 | ノート | キャラクターが利用者に贈る手紙。Topic を参照する ([ノート](../specs/term/note.md)) |
-| ノートを作らない記録 | Topic をノートにしないと判断した時刻の記録。新しい WEB fact が増えるまで判断し直さない ([集約バッチ](../specs/batch/consolidate-conversations.md)) |
 | 生活サイクル | キャラクターの就寝・起床時刻。利用者の活動時間に合わせて寄る ([生活サイクル](../specs/term/lifecycle.md)) |
 | 活動時間プロファイル | 利用者がよく話しかける時間帯 ([活動時間プロファイル](../specs/term/user-activity-profile.md)) |
 | 親密度 | 利用者とキャラクターの接触量の累積。上がるだけで、今は体験に使っていない ([親密度](../specs/term/affection.md)) |
@@ -46,26 +43,23 @@ flowchart TD
     web[WEB fact]
     care[care]
     raw[WebRaw]
-    cursor[集約カーソル]
     req["勉強の依頼 /<br/>鮮度確認の依頼"]
     explore[探索の記録]
     count[勉強の回数]
     note[ノート]
-    skip[ノートを作らない記録]
     life[生活サイクル]
+    prof[活動時間プロファイル]
     aff[親密度]
     notif[通知の記録]
     sub[Push の購読]
     safety[セーフティの記録]
-    user -- "記録する (1)" --> consent
+    user -- "記録する (同意するまで 0、以降 1)" --> consent
     user -- "選んで話す (1..多)" --> char
     user -- "発言する (0..多)" --> msg
     char -- "持つ (利用者ごとに 0..1)" --> life
-    char -- "持つ (利用者ごとに 1)" --> aff
+    char -- "持つ (初めて話すまで 0、以降 1)" --> aff
     msg -- "畳まれる" --> topic
     raw -- "畳まれる" --> topic
-    cursor -- "進捗を持つ" --> msg
-    cursor -- "進捗を持つ" --> raw
     topic -- "持つ (0..多)" --> self
     topic -- "持つ (0..多)" --> web
     topic -- "持つ (1)" --> care
@@ -76,9 +70,10 @@ flowchart TD
     explore -- "調べる" --> raw
     count -- "上限を決める" --> raw
     topic -- "贈る (0..1)" --> note
-    topic -- "見送った時刻 (0..1)" --> skip
     topic -- "ネタになる" --> notif
-    life -- "時間帯を決める" --> notif
+    life -- "持つ (0..1)" --> prof
+    prof -- "時間帯を決める" --> notif
+    life -- "就寝中は送らない" --> notif
     user -- "登録する (0..多)" --> sub
     notif -- "届く" --> sub
     msg -- "検出する" --> safety
