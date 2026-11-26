@@ -15,7 +15,7 @@ sources:
   - libs/aws/src/error-events/report.ts
   - libs/aws/src/error-events/with-error-reporting.ts
   - infra/codec-converter/lib/codec-converter-stack.ts
-sources_hash: 7277ba6a6e66fc8f832c4561429108f34d9783c6650ff0b6e72fb8450a530ba2
+sources_hash: b8e86fffeceef202cb301682c53b1266ac1ed298325b4ae4547b668c3b9f45c2
 terms: []
 related_cards: [admin/flow/error-notification, codec-converter/api/jobs, codec-converter/batch/convert, codec-converter/flow/conversion]
 ---
@@ -64,7 +64,7 @@ flowchart TD
 | 変換バッチ: 一時ファイルの削除に失敗 | 一時ファイルのクリーンアップに失敗しました | warning | `jobId` |
 | 変換バッチ: 起動の骨格 (処理の失敗も通る) | コーデック変換バッチが起動時に失敗しました | critical | 例外の情報だけ |
 
-- どの報告にも、例外の名前、メッセージ、スタックが context に入る。本文 (`message`) は例外のメッセージ
+- どの報告にも、例外の名前、メッセージ、スタックが context に入る。本文 (`message`) は例外のメッセージ。変換バッチの処理の失敗では、FFmpeg の終了コードと標準エラー出力 (末尾 4,000 文字) もここに入る。ジョブの `errorMessage` には入れない ([変換バッチ](../batch/convert.md))
 - API ルートの入口の報告は、500 以上になる例外だけ。ルートが自分で返す 400、404、409 は想定内なので報告しない。ただし、投入で入力ファイルが S3 にないときの 404 だけは、原因を調べられるよう、その場で報告する。ルートが例外を握って続ける箇所も、例外が上に届かないので、その場で報告する
 - 変換バッチは、処理の失敗で 2 件 (「Batchジョブが失敗しました」と「コーデック変換バッチが起動時に失敗しました」) を報告する。AWS Batch の再試行があれば、試行ごとに増える ([変換バッチ](../batch/convert.md))
 
