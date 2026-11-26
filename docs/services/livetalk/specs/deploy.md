@@ -71,3 +71,7 @@ flowchart TD
 | `infrastructure-batch` | Secrets Manager の値を取り出し、Batch をデプロイする (`infrastructure-ecr` と `build-batch` の後) |
 | `infrastructure-cloudfront` | `infrastructure-app` の後に CloudFront をデプロイする。CloudFront 経由のヘルスチェックはしない |
 | `summary` | 結果を要約に出す (`always`) |
+
+## 理由
+
+- リージョンを `us-east-1` に固定する。CloudFront の証明書が `us-east-1` にあり ([DNS と証明書](../../../platform/specs/resource/dns-certificate.md))、CloudFront のスタックをそのリージョンに作る必要があるため。サービスのほかのスタックも、同じリージョンにそろえる
