@@ -1,24 +1,16 @@
 ---
-id: admin/screen/errors
-title: エラー履歴一覧画面
-kind: screen
-service: admin
 sources:
   - services/admin/web/src/app/(protected)/errors/page.tsx
   - services/admin/web/src/components/errors/PeriodFilterSelect.tsx
   - services/admin/web/src/app/error.tsx
   - services/admin/core/src/errors/reader.ts
   - services/admin/core/src/errors/dynamodb-reader.ts
-  - libs/ui/src/components/feedback/AccessDeniedView.tsx
-  - libs/ui/src/components/feedback/ErrorView.tsx
-sources_hash: 53bbde5cc939b507d5a41a031e837ba2b0241d8599a809f217c00e8850bc259f
-terms: [admin/term/permission, admin/term/error-event-key]
-related_cards: [admin/screen/error-detail, admin/screen/dashboard, admin/api/errors, admin/flow/error-notification]
+sources_hash: c873f06cda49d0a7bdee2d278f58dbda0d4a02df07b0993a397ff43051212d26
 ---
 
 # エラー履歴一覧画面
 
-プラットフォーム上で起きた[エラーイベント](../../../platform/specs/term/error-event.md)を、新しい順に一覧する。サービスと期間で絞り込み、行から詳細へ進む。
+プラットフォーム上で起きた[エラーイベント](../../../../platform/specs/term/error-event.md)を、新しい順に一覧する。サービスと期間で絞り込み、行から詳細へ進む。
 
 ## 入口
 
@@ -28,7 +20,7 @@ related_cards: [admin/screen/error-detail, admin/screen/dashboard, admin/api/err
 
 ## 表示の条件
 
-- `errors:read` を持つ利用者だけ。権限がなければ、一覧を読まずに「アクセス権限がありません」を出す ([権限とロール](../term/permission.md))。画面には「アクセスを更新」と「再ログイン」のボタンが付く (Auth サービスへ遷移する)
+- `errors:read` を持つ利用者だけ。権限がなければ、一覧を読まずに「アクセス権限がありません」を出す ([権限とロール](../term/permission.md))。画面には「アクセスを更新」と「再ログイン」のボタンが付き、Auth サービスへ遷移する ([エラー画面](../../../../platform/specs/lib/ui/feedback-views.md))
 
 ## 表示するもの
 
@@ -50,7 +42,7 @@ related_cards: [admin/screen/error-detail, admin/screen/dashboard, admin/api/err
 
 - 0 件のときは「エラー履歴がありません」。期間や `serviceId` の絞り込みで 0 件のときも同じ
 - 読み込みはサーバーで済ませてから描画するので、読み込み中の表示はない
-- 履歴の読み込みが失敗したとき (保存された項目が読めない、テーブル名の環境変数がない、`cursor` が読めないなど) は、共通のエラー画面「エラーが発生しました」を出す。「もう一度試す」と「トップページへ戻る」のボタンが付く
+- 履歴の読み込みが失敗したとき (保存された項目が読めない、テーブル名の環境変数がない、`cursor` が読めないなど) は、共通のエラー画面「エラーが発生しました」を出す。「もう一度試す」と「トップページへ戻る」のボタンが付く ([エラー画面](../../../../platform/specs/lib/ui/feedback-views.md))。例外の内容は画面に出さず、ブラウザのコンソールに出す
 
 ## 操作
 
@@ -71,7 +63,7 @@ related_cards: [admin/screen/error-detail, admin/screen/dashboard, admin/api/err
 
 | スマホ | PC |
 |---|---|
-| ![エラー履歴一覧画面 既定の期間 (直近 24 時間) に履歴がないとき (スマホ)](../../../images/specs/admin/screen/errors-empty-mobile.png) | ![エラー履歴一覧画面 既定の期間 (直近 24 時間) に履歴がないとき (PC)](../../../images/specs/admin/screen/errors-empty-desktop.png) |
+| ![エラー履歴一覧画面 既定の期間 (直近 24 時間) に履歴がないとき (スマホ)](../../../../images/specs/admin/screen/errors-empty-mobile.png) | ![エラー履歴一覧画面 既定の期間 (直近 24 時間) に履歴がないとき (PC)](../../../../images/specs/admin/screen/errors-empty-desktop.png) |
 
 ### 通常表示
 
@@ -79,7 +71,7 @@ related_cards: [admin/screen/error-detail, admin/screen/dashboard, admin/api/err
 
 | スマホ | PC |
 |---|---|
-| ![エラー履歴一覧画面 通常表示 (スマホ)](../../../images/specs/admin/screen/errors-default-mobile.png) | ![エラー履歴一覧画面 通常表示 (PC)](../../../images/specs/admin/screen/errors-default-desktop.png) |
+| ![エラー履歴一覧画面 通常表示 (スマホ)](../../../../images/specs/admin/screen/errors-default-mobile.png) | ![エラー履歴一覧画面 通常表示 (PC)](../../../../images/specs/admin/screen/errors-default-desktop.png) |
 
 ### サービス ID で絞り込んだとき
 
@@ -87,7 +79,7 @@ related_cards: [admin/screen/error-detail, admin/screen/dashboard, admin/api/err
 
 | スマホ | PC |
 |---|---|
-| ![エラー履歴一覧画面 サービス ID で絞り込んだとき (スマホ)](../../../images/specs/admin/screen/errors-filtered-mobile.png) | ![エラー履歴一覧画面 サービス ID で絞り込んだとき (PC)](../../../images/specs/admin/screen/errors-filtered-desktop.png) |
+| ![エラー履歴一覧画面 サービス ID で絞り込んだとき (スマホ)](../../../../images/specs/admin/screen/errors-filtered-mobile.png) | ![エラー履歴一覧画面 サービス ID で絞り込んだとき (PC)](../../../../images/specs/admin/screen/errors-filtered-desktop.png) |
 
 ### 履歴が 1 ページに収まらないとき
 
@@ -95,7 +87,7 @@ related_cards: [admin/screen/error-detail, admin/screen/dashboard, admin/api/err
 
 | スマホ | PC |
 |---|---|
-| ![エラー履歴一覧画面 履歴が 1 ページに収まらないとき (スマホ)](../../../images/specs/admin/screen/errors-next-page-mobile.png) | ![エラー履歴一覧画面 履歴が 1 ページに収まらないとき (PC)](../../../images/specs/admin/screen/errors-next-page-desktop.png) |
+| ![エラー履歴一覧画面 履歴が 1 ページに収まらないとき (スマホ)](../../../../images/specs/admin/screen/errors-next-page-mobile.png) | ![エラー履歴一覧画面 履歴が 1 ページに収まらないとき (PC)](../../../../images/specs/admin/screen/errors-next-page-desktop.png) |
 
 ### 権限がないとき (`user-manager`)
 
@@ -103,7 +95,7 @@ related_cards: [admin/screen/error-detail, admin/screen/dashboard, admin/api/err
 
 | スマホ | PC |
 |---|---|
-| ![エラー履歴一覧画面 権限がないとき (`user-manager`) (スマホ)](../../../images/specs/admin/screen/errors-access-denied-mobile.png) | ![エラー履歴一覧画面 権限がないとき (`user-manager`) (PC)](../../../images/specs/admin/screen/errors-access-denied-desktop.png) |
+| ![エラー履歴一覧画面 権限がないとき (`user-manager`) (スマホ)](../../../../images/specs/admin/screen/errors-access-denied-mobile.png) | ![エラー履歴一覧画面 権限がないとき (`user-manager`) (PC)](../../../../images/specs/admin/screen/errors-access-denied-desktop.png) |
 
 ### 履歴の読み込みが失敗したとき
 
@@ -111,7 +103,7 @@ related_cards: [admin/screen/error-detail, admin/screen/dashboard, admin/api/err
 
 | スマホ | PC |
 |---|---|
-| ![エラー履歴一覧画面 履歴の読み込みが失敗したとき (スマホ)](../../../images/specs/admin/screen/errors-fetch-error-mobile.png) | ![エラー履歴一覧画面 履歴の読み込みが失敗したとき (PC)](../../../images/specs/admin/screen/errors-fetch-error-desktop.png) |
+| ![エラー履歴一覧画面 履歴の読み込みが失敗したとき (スマホ)](../../../../images/specs/admin/screen/errors-fetch-error-mobile.png) | ![エラー履歴一覧画面 履歴の読み込みが失敗したとき (PC)](../../../../images/specs/admin/screen/errors-fetch-error-desktop.png) |
 
 ## つながり
 

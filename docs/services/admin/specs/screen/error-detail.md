@@ -1,26 +1,16 @@
 ---
-id: admin/screen/error-detail
-title: エラー詳細画面
-kind: screen
-service: admin
 sources:
   - services/admin/web/src/app/(protected)/errors/[eventId]/page.tsx
   - services/admin/web/src/lib/errors/occurred-at.ts
   - services/admin/web/src/app/error.tsx
   - services/admin/web/src/app/not-found.tsx
   - services/admin/core/src/errors/dynamodb-reader.ts
-  - libs/ui/src/components/feedback/AccessDeniedView.tsx
-  - libs/ui/src/components/feedback/NotFoundView.tsx
-sources_hash: d24f0b8dcf157459a0ad213aaebee037a6acbdc5220852ab596baa3e982cc2ae
-terms: [admin/term/permission, admin/term/error-event-key]
-related_cards: [admin/screen/errors, admin/api/errors, admin/batch/stream-handler, admin/flow/error-notification]
-related_adr:
-  - services/admin/architecture.md#ADR-008
+sources_hash: e3ccbe93a437bfcbb072d52b93178764721f0f4a869eff4854d1f0705c95f038
 ---
 
 # エラー詳細画面
 
-[エラーイベント](../../../platform/specs/term/error-event.md) 1 件の、メタ情報・本文・コンテキストを見る。
+[エラーイベント](../../../../platform/specs/term/error-event.md) 1 件の、メタ情報・本文・コンテキストを見る。
 
 ## 入口
 
@@ -29,8 +19,8 @@ related_adr:
 
 ## 表示の条件
 
-- `errors:read` を持つ利用者だけ。権限がなければ「アクセス権限がありません」を出し、履歴は読まない ([権限とロール](../term/permission.md))
-- `at` が読めない (数字でも ISO 8601 でもない)、または `serviceId` がないときは、履歴を読まずに「ページが見つかりません」を出す
+- `errors:read` を持つ利用者だけ。権限がなければ「アクセス権限がありません」を出し、履歴は読まない ([権限とロール](../term/permission.md)、[エラー画面](../../../../platform/specs/lib/ui/feedback-views.md))
+- `at` が読めない (数字だけの文字列でなく、日時としても解釈できない)、または `serviceId` がないときは、履歴を読まずに「ページが見つかりません」を出す。「トップページへ戻る」のボタンが付く
 
 ## 表示するもの
 
@@ -47,7 +37,7 @@ related_adr:
 ## 状態
 
 - 該当の履歴がないとき (期限の 180 日を過ぎて消えたものを含む) は、「ページが見つかりません」を出す
-- 履歴の読み込みが失敗したとき (保存された項目が読めない、テーブル名の環境変数がないなど) は、共通のエラー画面「エラーが発生しました」を出す
+- 履歴の読み込みが失敗したとき (保存された項目が読めない、テーブル名の環境変数がないなど) は、共通のエラー画面「エラーが発生しました」を出す ([エラー画面](../../../../platform/specs/lib/ui/feedback-views.md))
 
 ## 操作
 
@@ -65,7 +55,7 @@ CloudWatch Alarm 由来の例。コンテキストは JSON を整形して出す
 
 | スマホ | PC |
 |---|---|
-| ![エラー詳細画面 通常表示 (スマホ)](../../../images/specs/admin/screen/error-detail-default-mobile.png) | ![エラー詳細画面 通常表示 (PC)](../../../images/specs/admin/screen/error-detail-default-desktop.png) |
+| ![エラー詳細画面 通常表示 (スマホ)](../../../../images/specs/admin/screen/error-detail-default-mobile.png) | ![エラー詳細画面 通常表示 (PC)](../../../../images/specs/admin/screen/error-detail-default-desktop.png) |
 
 ### 指定した履歴がないとき
 
@@ -73,7 +63,7 @@ CloudWatch Alarm 由来の例。コンテキストは JSON を整形して出す
 
 | スマホ | PC |
 |---|---|
-| ![エラー詳細画面 指定した履歴がないとき (スマホ)](../../../images/specs/admin/screen/error-detail-not-found-mobile.png) | ![エラー詳細画面 指定した履歴がないとき (PC)](../../../images/specs/admin/screen/error-detail-not-found-desktop.png) |
+| ![エラー詳細画面 指定した履歴がないとき (スマホ)](../../../../images/specs/admin/screen/error-detail-not-found-mobile.png) | ![エラー詳細画面 指定した履歴がないとき (PC)](../../../../images/specs/admin/screen/error-detail-not-found-desktop.png) |
 
 ### 権限がないとき (`user-manager`)
 
@@ -81,7 +71,7 @@ CloudWatch Alarm 由来の例。コンテキストは JSON を整形して出す
 
 | スマホ | PC |
 |---|---|
-| ![エラー詳細画面 権限がないとき (`user-manager`) (スマホ)](../../../images/specs/admin/screen/error-detail-access-denied-mobile.png) | ![エラー詳細画面 権限がないとき (`user-manager`) (PC)](../../../images/specs/admin/screen/error-detail-access-denied-desktop.png) |
+| ![エラー詳細画面 権限がないとき (`user-manager`) (スマホ)](../../../../images/specs/admin/screen/error-detail-access-denied-mobile.png) | ![エラー詳細画面 権限がないとき (`user-manager`) (PC)](../../../../images/specs/admin/screen/error-detail-access-denied-desktop.png) |
 
 ## つながり
 

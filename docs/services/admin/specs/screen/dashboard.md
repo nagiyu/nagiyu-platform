@@ -1,8 +1,4 @@
 ---
-id: admin/screen/dashboard
-title: ダッシュボード画面
-kind: screen
-service: admin
 sources:
   - services/admin/web/src/app/page.tsx
   - services/admin/web/src/app/(protected)/dashboard/page.tsx
@@ -10,11 +6,7 @@ sources:
   - services/admin/web/src/components/notify/NotifyButton.tsx
   - services/admin/web/src/app/layout.tsx
   - services/admin/web/src/middleware.ts
-  - libs/browser/src/push.ts
-  - libs/common/src/auth/roles.ts
-sources_hash: d4cdb9a3eeb9878a49da3b503db383d96a4d8d04bc3108a018a82f47f1861aaf
-terms: [admin/term/permission, admin/term/push-subscription]
-related_cards: [admin/screen/errors, admin/api/notify, admin/api/system, admin/flow/push-subscription]
+sources_hash: 7f1a97f6aee191a356e078c928b6cd95d88b142807824759676359a8aefb0a2c
 ---
 
 # ダッシュボード画面
@@ -25,12 +17,12 @@ related_cards: [admin/screen/errors, admin/api/notify, admin/api/system, admin/f
 
 - パスは `/dashboard`。`/` を開くと、ここへリダイレクトする
 - ヘッダーの「Admin」(ホームに戻るリンク) から来る
-- 未ログインのときは、Auth サービスのサインイン画面 (`/signin`) へリダイレクトされ、ログイン後に戻る ([システム系の API](../api/system.md))
+- 未ログインのときは、Auth サービスのサインイン画面 (`/signin`) へリダイレクトされ、ログイン後に戻る ([システム系の API](../api/system.md))。ミドルウェアを通ったあとにセッションが取れなかったときも、画面自身が `/signin` へリダイレクトする (戻り先は付かない)
 
 ## 表示の条件
 
 - ログインしていれば、権限がなくても開ける
-- カードは権限で出し分ける ([権限とロール](../term/permission.md))
+- カードは権限で出し分ける。判定は[ロールと権限](../../../../platform/specs/lib/common/roles-and-permissions.md)に従う ([権限とロール](../term/permission.md))
     - 「通知設定」は `notifications:write` を持つときだけ
     - 「エラー履歴」は `errors:read` を持つときだけ
 
@@ -38,26 +30,26 @@ related_cards: [admin/screen/errors, admin/api/notify, admin/api/system, admin/f
 
 | カード | 内容 | 出る条件 |
 |---|---|---|
-| ユーザー情報 | メールアドレスと、持っているロールの名前の札 ([ロールと権限の定義](../../../platform/specs/lib/common/roles-and-permissions.md))。定義にないロール ID は ID のまま出す | 常に |
+| ユーザー情報 | メールアドレスと、持っているロールの名前の札 ([ロールと権限の定義](../../../../platform/specs/lib/common/roles-and-permissions.md))。定義にないロール ID は ID のまま出す | 常に |
 | 認証ステータス | 「✓ Auth サービスとの SSO 連携が正常に動作しています」と「JWT トークンによる認証が有効です」。固定の文言で、実際の状態は確かめていない | 常に |
 | 通知設定 | 「通知を有効にする」ボタン | `notifications:write` |
 | エラー履歴 | 説明と、「エラー履歴を表示」のリンク | `errors:read` |
 
-- ヘッダーは「Admin」のタイトルとアカウントメニュー (ログアウト)。フッターはバージョン (環境変数 `APP_VERSION`、なければ `1.0.0`)、プライバシーポリシー、利用規約
+- ヘッダーは「Admin」のタイトル (押すと `/` へ移り、ダッシュボードに戻る) とアカウントメニュー (ログアウト)。作りは[SessionHeader](../../../../platform/specs/lib/ui/session-header.md)にある。フッターはバージョン (環境変数 `APP_VERSION`、なければ `1.0.0`)、プライバシーポリシー、利用規約 ([Footer](../../../../platform/specs/lib/ui/footer.md))
 
 ## 状態
 
 - 「通知を有効にする」を押している間は、ボタンに読み込みの表示を出す
 - 結果は、ボタンの下に出す
     - 成功は「通知を有効化しました」(成功の表示)
-    - 失敗は、エラーの表示。文言は、ブラウザが対応していないなら「このブラウザはプッシュ通知に対応していません」、拒否されたなら「通知が拒否されました。ブラウザ設定から通知を許可してください」、登録 API の失敗なら「サブスクリプションの登録に失敗しました」。理由が分からない失敗は「通知設定中にエラーが発生しました」
+    - 失敗は、エラーの表示。文言は、購読の手続きが投げたエラーのメッセージをそのまま出す ([Web Push (ブラウザ側)](../../../../platform/specs/lib/browser/web-push.md)の失敗したとき)。ブラウザが対応していないなら「このブラウザはプッシュ通知に対応していません」、拒否されたなら「通知が拒否されました。ブラウザ設定から通知を許可してください」、公開鍵の取得が失敗したなら「VAPID公開鍵の取得に失敗しました」、登録 API の失敗なら「サブスクリプションの登録に失敗しました」など。`Error` でない値が投げられたときだけ「通知設定中にエラーが発生しました」
 - 押すたびに、前の結果は消える。有効にしたあとも、ボタンは「通知を有効にする」のままで、購読済みの表示や解除の操作はない
 
 ## 操作
 
 | 操作 | 結果 |
 |---|---|
-| 通知を有効にする | ブラウザの許可を求め、公開鍵と購読の登録に [Push 購読 API](../api/notify.md) を使う。流れは[Push 購読の経路](../flow/push-subscription.md) |
+| 通知を有効にする | ブラウザの許可を求め、Service Worker (`/sw-push.js`) を登録し、公開鍵の取得と購読の登録に [Push 購読 API](../api/notify.md) を使う。流れは[Push 購読の経路](../flow/push-subscription.md) |
 | エラー履歴を表示 | [エラー履歴一覧画面](./errors.md) (`/errors`) を開く |
 
 ## 画面の見た目
@@ -68,7 +60,7 @@ related_cards: [admin/screen/errors, admin/api/notify, admin/api/system, admin/f
 
 | スマホ | PC |
 |---|---|
-| ![ダッシュボード画面 通常表示 (スマホ)](../../../images/specs/admin/screen/dashboard-default-mobile.png) | ![ダッシュボード画面 通常表示 (PC)](../../../images/specs/admin/screen/dashboard-default-desktop.png) |
+| ![ダッシュボード画面 通常表示 (スマホ)](../../../../images/specs/admin/screen/dashboard-default-mobile.png) | ![ダッシュボード画面 通常表示 (PC)](../../../../images/specs/admin/screen/dashboard-default-desktop.png) |
 
 ### 通知・履歴の権限がないロール (`user-manager`)
 
@@ -76,7 +68,7 @@ related_cards: [admin/screen/errors, admin/api/notify, admin/api/system, admin/f
 
 | スマホ | PC |
 |---|---|
-| ![ダッシュボード画面 通知・履歴の権限がないロール (`user-manager`) (スマホ)](../../../images/specs/admin/screen/dashboard-no-permission-mobile.png) | ![ダッシュボード画面 通知・履歴の権限がないロール (`user-manager`) (PC)](../../../images/specs/admin/screen/dashboard-no-permission-desktop.png) |
+| ![ダッシュボード画面 通知・履歴の権限がないロール (`user-manager`) (スマホ)](../../../../images/specs/admin/screen/dashboard-no-permission-mobile.png) | ![ダッシュボード画面 通知・履歴の権限がないロール (`user-manager`) (PC)](../../../../images/specs/admin/screen/dashboard-no-permission-desktop.png) |
 
 ### 通知を有効にできたとき
 
@@ -84,7 +76,7 @@ related_cards: [admin/screen/errors, admin/api/notify, admin/api/system, admin/f
 
 | スマホ | PC |
 |---|---|
-| ![ダッシュボード画面 通知を有効にできたとき (スマホ)](../../../images/specs/admin/screen/dashboard-notify-enabled-mobile.png) | ![ダッシュボード画面 通知を有効にできたとき (PC)](../../../images/specs/admin/screen/dashboard-notify-enabled-desktop.png) |
+| ![ダッシュボード画面 通知を有効にできたとき (スマホ)](../../../../images/specs/admin/screen/dashboard-notify-enabled-mobile.png) | ![ダッシュボード画面 通知を有効にできたとき (PC)](../../../../images/specs/admin/screen/dashboard-notify-enabled-desktop.png) |
 
 ### ブラウザで通知を拒否したとき
 
@@ -92,7 +84,7 @@ related_cards: [admin/screen/errors, admin/api/notify, admin/api/system, admin/f
 
 | スマホ | PC |
 |---|---|
-| ![ダッシュボード画面 ブラウザで通知を拒否したとき (スマホ)](../../../images/specs/admin/screen/dashboard-notify-denied-mobile.png) | ![ダッシュボード画面 ブラウザで通知を拒否したとき (PC)](../../../images/specs/admin/screen/dashboard-notify-denied-desktop.png) |
+| ![ダッシュボード画面 ブラウザで通知を拒否したとき (スマホ)](../../../../images/specs/admin/screen/dashboard-notify-denied-mobile.png) | ![ダッシュボード画面 ブラウザで通知を拒否したとき (PC)](../../../../images/specs/admin/screen/dashboard-notify-denied-desktop.png) |
 
 ### ブラウザが Push に対応していないとき
 
@@ -100,7 +92,7 @@ related_cards: [admin/screen/errors, admin/api/notify, admin/api/system, admin/f
 
 | スマホ | PC |
 |---|---|
-| ![ダッシュボード画面 ブラウザが Push に対応していないとき (スマホ)](../../../images/specs/admin/screen/dashboard-notify-unsupported-mobile.png) | ![ダッシュボード画面 ブラウザが Push に対応していないとき (PC)](../../../images/specs/admin/screen/dashboard-notify-unsupported-desktop.png) |
+| ![ダッシュボード画面 ブラウザが Push に対応していないとき (スマホ)](../../../../images/specs/admin/screen/dashboard-notify-unsupported-mobile.png) | ![ダッシュボード画面 ブラウザが Push に対応していないとき (PC)](../../../../images/specs/admin/screen/dashboard-notify-unsupported-desktop.png) |
 
 ### 購読の登録 API が失敗したとき
 
@@ -108,7 +100,7 @@ related_cards: [admin/screen/errors, admin/api/notify, admin/api/system, admin/f
 
 | スマホ | PC |
 |---|---|
-| ![ダッシュボード画面 購読の登録 API が失敗したとき (スマホ)](../../../images/specs/admin/screen/dashboard-notify-failed-mobile.png) | ![ダッシュボード画面 購読の登録 API が失敗したとき (PC)](../../../images/specs/admin/screen/dashboard-notify-failed-desktop.png) |
+| ![ダッシュボード画面 購読の登録 API が失敗したとき (スマホ)](../../../../images/specs/admin/screen/dashboard-notify-failed-mobile.png) | ![ダッシュボード画面 購読の登録 API が失敗したとき (PC)](../../../../images/specs/admin/screen/dashboard-notify-failed-desktop.png) |
 
 ## つながり
 

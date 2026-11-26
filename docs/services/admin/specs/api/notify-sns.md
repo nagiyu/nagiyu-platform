@@ -1,21 +1,11 @@
 ---
-id: admin/api/notify-sns
-title: SNS 受信 API
-kind: api
-service: admin
 sources:
   - services/admin/web/src/app/api/notify/sns/route.ts
   - services/admin/core/src/notify/sns-validator.ts
   - services/admin/core/src/notify/web-push-sender.ts
-  - libs/nextjs/src/request-body.ts
-  - infra/admin/lib/sns-stack.ts
   - infra/admin/lib/lambda-stack.ts
   - infra/admin/lib/self-monitoring-topic.ts
-sources_hash: e3214d2ee195e13d02ff1d6ee34eae925fb64aa865c65d2357e6de5a9262ef9d
-terms: [admin/term/push-subscription, admin/term/api-error]
-related_cards: [admin/flow/error-notification, admin/api/notify, admin/batch/stream-handler]
-related_adr:
-  - services/admin/architecture.md#ADR-006
+sources_hash: ce7e37d89289a71be1f09989b64811c2060cfe8336cd431c254b3448627062ac
 ---
 
 # SNS 受信 API
@@ -30,13 +20,13 @@ related_adr:
 
 ## 入力と出力
 
-- 入力は SNS が HTTPS で送るメッセージ (JSON のオブジェクト)。`Type` は `SubscriptionConfirmation`、`Notification`、`UnsubscribeConfirmation` のいずれか
+- 入力は SNS が HTTPS で送るメッセージ (JSON のオブジェクト。読み方は[リクエストボディの読み取り](../../../../platform/specs/lib/nextjs/request-body.md))。`Type` は `SubscriptionConfirmation`、`Notification`、`UnsubscribeConfirmation` のいずれか
 - 受け付ける順に判定する
     1. 本文が JSON のオブジェクトであること
     2. SNS の署名が正しいこと
-    3. 送信元のトピック (`TopicArn`) が、環境変数 `SNS_ALLOWED_TOPIC_ARN` と同じであること。環境変数が空でも拒否する
-- `SubscriptionConfirmation` は、`SubscribeURL` が AWS SNS の確認用 URL のときだけ取得して 200 を返す。確認用 URL の条件は、`https`、ホストが `sns.{リージョン}.amazonaws.com`、ポート・ユーザー情報なし。取得ではリダイレクトを許さない
-- `UnsubscribeConfirmation` は、何もせず 200 を返す
+    3. 送信元のトピック (`TopicArn`) が、環境変数 `SNS_ALLOWED_TOPIC_ARN` と同じであること。値は同じ環境の自己監視のトピック (`nagiyu-admin-self-monitoring-{env}`) の ARN ([自己監視](../resource/self-monitoring.md))。環境変数が空でも拒否する
+- `SubscriptionConfirmation` は、`SubscribeURL` が AWS SNS の確認用 URL のときだけ取得して 200 `{ success: true }` を返す。確認用 URL の条件は、`https`、ホストが `sns.{リージョン}.amazonaws.com`、ポート・ユーザー情報なし。取得ではリダイレクトを許さない。取得したレスポンスのステータスは見ない
+- `UnsubscribeConfirmation` は、何もせず 200 `{ success: true }` を返す
 - `Notification` は、保存されている購読すべてに Web Push を送り、200 で `{ success: true, sent, invalid, failed }` を返す。件数の意味は[購読](../term/push-subscription.md)にある
     - CloudWatch Alarm のメッセージ (`AlarmName`・`NewStateValue`・`NewStateReason` がそろう) なら、題名が `{AlarmName} ({NewStateValue})`、本文が `NewStateReason`
     - それ以外は、題名が SNS の `Subject` (空なら「CloudWatch Alarm 通知」)、本文が `Message` (空なら「アラーム通知を受信しました」)
@@ -52,8 +42,8 @@ related_adr:
 | `SNS_ALLOWED_TOPIC_ARN` がない、またはトピックが違う | 403 | `FORBIDDEN` |
 | 確認用 URL の取得の失敗、購読の読み込みや送信の準備の失敗 (テーブル名・VAPID 鍵の不足など) | 500 | `INTERNAL_ERROR` |
 
-- 形は[API のエラー応答](../term/api-error.md)。ただしこの API の 500 は、履歴へ報告しない。報告すると、監視対象の仕組みに依存してしまい、SNS の再送で重複もするため
-- 送信先の購読が無効だった分は、送信の中で購読を削除する。購読の削除に失敗しても、応答は成功のまま
+- 形は[API のエラー応答](../term/api-error.md)。ただしこの API の 500 は、履歴へ報告しない (理由は下の「理由」)
+- 送信先の購読が無効だった分は、送信の中で購読を削除する。購読の削除に失敗しても、応答は成功のまま。例外で送れなかった分も、応答は成功のままで、`failed` に数える
 
 ## つながり
 
@@ -64,3 +54,10 @@ flowchart TD
     A --> D[(購読<br/>Admin のテーブル)]
     A --> P[Web Push<br/>購読すべて]
 ```
+
+## 理由
+
+- このエンドポイントは、自己監視の経路専用である。エラー履歴を介する本流とは別に、履歴の仕組み (error-events テーブル・stream-handler) 自身が止まっても通知が届くようにするため。自己監視のトピックを本流と分ける理由は[自己監視](../resource/self-monitoring.md)にある
+- 自己監視のトピックからのメッセージだけを受け付ける。SNS の署名は、どの AWS アカウントのトピックから送られても正規のものになるので、署名の検証だけでは送信元を限定できない。そのため、受け付けるトピックを `SNS_ALLOWED_TOPIC_ARN` で固定し、副作用 (確認用 URL の取得、Push の送信) の前に照合する
+- 別のトピックに、このエンドポイントを購読させても、購読確認の時点で拒否されるので、購読は成立しない。受け口を増やすなら、許可するトピックの設定も変える必要がある
+- 履歴へ報告しない。自己監視の経路を、監視対象 (エラー履歴の仕組み) に依存させないため。SNS の再送で、同じ報告が重複もする
