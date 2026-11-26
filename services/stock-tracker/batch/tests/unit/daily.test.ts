@@ -6,7 +6,7 @@
  */
 
 import { handler } from '../../src/daily.js';
-import type { ScheduledEvent } from '@nagiyu/aws';
+import type { ScheduledEvent, InMemoryErrorEventWriter } from '@nagiyu/aws';
 import * as awsClients from '@nagiyu/aws';
 import { QueryCommand, ScanCommand } from '@aws-sdk/lib-dynamodb';
 import { logger } from '@nagiyu/common';
@@ -14,12 +14,6 @@ import { AlertMapper, clearMemoryStore } from '@nagiyu/stock-tracker-core';
 import type { AlertEntity } from '@nagiyu/stock-tracker-core';
 
 // モックの設定
-// createScheduledHandler の骨格は本物を使い、骨格内部のエラー報告も同じモックで観測できるよう
-// 報告関数の実体モジュールを差し替える。
-jest.mock('../../../../../libs/aws/src/error-events/report.js', () => ({
-  ...jest.requireActual('../../../../../libs/aws/src/error-events/report.js'),
-  reportErrorEvent: jest.fn().mockResolvedValue(null),
-}));
 jest.mock('@nagiyu/aws', () => {
   const actual = jest.requireActual('@nagiyu/aws');
   return {
@@ -30,6 +24,31 @@ jest.mock('@nagiyu/aws', () => {
 });
 
 const mapper = new AlertMapper();
+
+/**
+ * エラーイベントの書き込み先だけを in-memory にする。
+ *
+ * USE_IN_MEMORY_DB を立てたままにするとアラートのリポジトリも in-memory に切り替わり、
+ * モックした DocumentClient を通せなくなる。書き込み先はシングルトンとして保持されるため、
+ * 生成の間だけ立てて戻す。
+ */
+function useInMemoryErrorEvents(): void {
+  const previous = process.env.USE_IN_MEMORY_DB;
+  process.env.USE_IN_MEMORY_DB = 'true';
+  process.env.ERROR_EVENTS_TABLE_NAME = 'test-error-events';
+  awsClients.resetErrorEventWriter();
+  awsClients.createErrorEventWriter();
+  if (previous === undefined) {
+    delete process.env.USE_IN_MEMORY_DB;
+  } else {
+    process.env.USE_IN_MEMORY_DB = previous;
+  }
+}
+
+/** 報告された ErrorEvent を取り出す */
+function getReportedEvents() {
+  return (awsClients.createErrorEventWriter() as InMemoryErrorEventWriter).getRecords();
+}
 
 function buildAlert(alertId: string, overrides: Partial<AlertEntity> = {}): AlertEntity {
   return {
@@ -83,11 +102,17 @@ describe('daily batch handler', () => {
     });
   }
 
+  afterEach(() => {
+    delete process.env.ERROR_EVENTS_TABLE_NAME;
+    awsClients.resetErrorEventWriter();
+  });
+
   beforeEach(() => {
     // モックのリセット
     jest.clearAllMocks();
     // 生成口はシングルトンで docClient を保持するため、テストごとのモックに差し替わるよう捨てる
     clearMemoryStore();
+    useInMemoryErrorEvents();
 
     // Mock DynamoDB Document Client
     mockDocClient = {
@@ -323,18 +348,17 @@ describe('daily batch handler', () => {
     it('DynamoDBでエラーが発生した場合、エラー報告したうえで例外を再送出する', async () => {
       const dbError = new Error('DynamoDB Error');
       mockDocClient.send.mockRejectedValue(dbError);
-      (awsClients.reportErrorEvent as jest.Mock).mockResolvedValue(null);
 
       // リポジトリが DatabaseError に包むため、原因のメッセージは残るが同一の例外ではない
       await expect(handler(mockEvent)).rejects.toThrow('DynamoDB Error');
-      expect(awsClients.reportErrorEvent).toHaveBeenCalledWith(
+      expect(getReportedEvents()).toEqual([
         expect.objectContaining({
           serviceId: 'stock-tracker',
           severity: 'error',
           title: '日次バッチ: 致命的エラー',
           message: expect.stringContaining('DynamoDB Error'),
-        })
-      );
+        }),
+      ]);
     });
   });
 

@@ -16,7 +16,7 @@
     "format:check": "prettier --check ."
   },
   "dependencies": {
-    "@nagiyu/aws": "*",
-    "@nagiyu/common": "*"
+    "@nagiyu/aws": "^0.1.1",
+    "@nagiyu/common": "^0.1.1"
   }
 }

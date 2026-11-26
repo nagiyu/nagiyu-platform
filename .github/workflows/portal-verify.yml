@@ -17,7 +17,6 @@ on:
       - 'infra/package.json'
       - 'infra/cdk.json'
       - 'infra/tsconfig.json'
-      - 'libs/**'
       - 'configs/**'
       - '.github/actions/**'
       - '.github/scripts/**'

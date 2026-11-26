@@ -54,8 +54,7 @@ export const SITE_STRUCTURE: readonly StructureNode[] = [
         cardsDir: 'specs',
         excludeServices: ['platform'],
         designTitle: '設計資料',
-        // dev-sync は専用のサービスディレクトリを持たず、設計資料が開発の文書と同じ場所にある
-        extraDesign: { 'dev-sync': ['development/dev-sync.md'] },
+        extraDesign: {},
         designLabels: {
           'requirements.md': '要件定義',
           'external-design.md': '外部設計',
@@ -87,7 +86,7 @@ export const SITE_STRUCTURE: readonly StructureNode[] = [
     title: '開発の進め方',
     collapsed: true,
     items: [
-      { type: 'files', dir: 'development', exclude: ['development/dev-sync.md'] },
+      { type: 'files', dir: 'development' },
       // 仕様カードという語を見出しに出すのは、カードの書き方の文書だけ
       { type: 'page', path: 'specs/README.md', title: '仕様カードの書き方' },
       { type: 'directory', path: 'agents', title: 'エージェント' },

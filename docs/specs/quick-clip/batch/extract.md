@@ -20,9 +20,9 @@ sources:
   - infra/quick-clip/lib/monitoring-stack.ts
   - libs/aws/src/error-events/with-error-reporting.ts
   - libs/aws/src/error-events/report.ts
-sources_hash: 67d7961599ce1ec1ef931b2212e85f260e0f7efd1b0dbc28618e0bc594ecbb60
+sources_hash: a4b1880107a0c56d34077c9b9e7c6113467e08da77d22c10a592e2f74f3a7f90
 terms: [quick-clip/term/job, quick-clip/term/highlight, quick-clip/term/job-definition-size, quick-clip/term/ai-analysis, quick-clip/term/transcript]
-related_cards: [quick-clip/api/jobs, quick-clip/flow/extraction, quick-clip/flow/usage-metering, quick-clip/screen/job-status, quick-clip/batch/clip-regenerate, admin/flow/error-notification, admin/batch/alarm-ingest]
+related_cards: [quick-clip/api/jobs, quick-clip/flow/extraction, quick-clip/flow/usage-metering, quick-clip/screen/job-status, quick-clip/batch/clip-regenerate]
 related_adr:
   - services/quick-clip/architecture.md#ADR-001
   - services/quick-clip/architecture.md#ADR-007
@@ -72,7 +72,7 @@ flowchart TD
 | 手順 | 内容 |
 |---|---|
 | ② 取得 | `uploads/{JOB_ID}/input.mp4` を `/tmp/quick-clip/{JOB_ID}/input.mp4` に保存する。S3 に見つからなければ、3 秒おきにやり直す。ほかの失敗は「動画ファイルのダウンロードに失敗しました」の前置きで例外 |
-| ③ 長さ | ジョブを読む (なければ例外)。FFmpeg の出力から動画の長さを読む。読めなければ 10 秒とする。ジョブに `maxDurationSec` があり、長さがそれを超えていれば、文字起こしの前に止める (下の「失敗したとき」)。続ける場合は、解析の内訳 (`analysisProgress`) の初期値を書く |
+| ③ 長さ | ジョブを読む (なければ例外)。FFmpeg の出力から動画の長さを読む。読めなければ解析には 10 秒を使う。ジョブに `maxDurationSec` があり、長さがそれを超えていれば、文字起こしの前に止める (下の「失敗したとき」)。続ける場合は、長さを読めていればジョブの `durationSec` をその長さで上書きし (見どころの時刻の上限に使うため。ジョブ定義は投入の前に選び済み。読めなかったときの 10 秒は書かない)、解析の内訳 (`analysisProgress`) の初期値を書く |
 | ④ 映像 | 10 分ごとのチャンクに分け、4 並列で FFmpeg の場面転換 (`scene` が 0.2 を超えるフレーム) を取る。1 点が (秒、場面転換の強さ)。暗転と白転 (`blackdetect`、画素のしきい値 0.10、継続時間の下限なし) の区間にある点は捨てる |
 | ④ 音量 | 10 分ごとのチャンクに分け、4 並列で FFmpeg の `astats` から、フレームごとの RMS を取る。振幅 (`10^(RMS/20)`) を強さとする。秒が取れないものは捨てる |
 | ④ 文字起こし | [AI 解析](../term/ai-analysis.md)のときだけ。音声を 16 kHz の mono、32 kbps の MP3 にし、FFmpeg の無音検出 (-35 dB 以下が 0.5 秒以上) で発話の区間に分ける。0.3 秒未満の区間は捨て、前後に 0.2 秒の余白を足し、30 秒を超える区間は等分する。区間ごとに `gpt-transcribe` (日本語) で行にし、区間の開始と終了を行の時刻にする ([文字起こし](../term/transcript.md))。同時に送るのは 5 区間まで。1 回の呼び出しは、タイムアウト 60 秒、再試行 3 回 (間隔は 1 秒から倍ずつ)。1 区間でも失敗したら、残りの区間は送らず、走っている区間の終わりを待って文字起こしを失敗にする |
@@ -111,7 +111,7 @@ flowchart TD
 
 - 動画の長さの超過は、利用者の側の理由で、障害ではない。メッセージは「動画の長さがご利用の上限を超えているため、処理できませんでした」。Batch は成功で終えるが、`errorMessage` があるので、画面は失敗として見せる ([ジョブとステータス](../term/job.md))
 - 例外を投げ直したあと、起動の骨格がもう一度報告 (critical、題名は「QuickClip バッチ処理が失敗しました」) し、終了コード 1 でプロセスを終える。このため、1 回の失敗につき、アプリの報告が 2 件 (error と critical) 残る。起動時の検証の失敗 (環境変数の不足など) は、後者だけで、`errorMessage` は保存しない
-- 終了コードが 1 になった Batch ジョブは `FAILED` になり、インフラの EventBridge のルールが検知して、Admin の集約 SNS に流す。Admin には `batch-event` (critical) の履歴も残る ([エラー通知の経路](../../admin/flow/error-notification.md))
+- 終了コードが 1 になった Batch ジョブは `FAILED` になり、インフラの EventBridge のルールが検知して、Admin の集約 SNS に流す。Admin には `batch-event` (critical) の履歴も残る ([エラー通知の経路](../../../services/admin/specs/flow/error-notification.md))
 - タイムアウトによる停止など、プロセスが即死する失敗は、例外の処理に入らない。`errorMessage` は保存されず、数えた利用回数も戻らない。報告は Batch の失敗を拾うルールだけが行う
 - 文字起こしの失敗は、ログだけで飛ばす。感情分析の失敗は、報告 (warning、題名は「QuickClip 感情分析に失敗しスキップしました」) を残して飛ばす。`transcript.json` の保存の失敗は、警告のログだけで続ける
 - 報告の書き込みに失敗しても、例外は伝えない。ログだけを残す

@@ -11,6 +11,7 @@ import { InvokeCommand } from '@aws-sdk/client-lambda';
 
 const mockUpdate = jest.fn();
 const mockGetById = jest.fn();
+const mockJobGetById = jest.fn();
 const mockLambdaSend = jest.fn();
 
 jest.mock('@nagiyu/quick-clip-core', () => ({
@@ -23,6 +24,7 @@ jest.mock('@nagiyu/quick-clip-core', () => ({
         update: mockUpdate,
       }) as unknown as HighlightRepository
   ),
+  createJobRepository: jest.fn().mockImplementation(() => ({ getById: mockJobGetById })),
 }));
 
 jest.mock('next/server', () => ({
@@ -71,6 +73,7 @@ describe('PATCH /api/jobs/[jobId]/highlights/[highlightId]', () => {
     } as unknown as ReturnType<typeof getLambdaClient>);
     mockedGetClipRegenerateFunctionName.mockReturnValue('clip-regenerate');
     mockLambdaSend.mockResolvedValue({});
+    mockJobGetById.mockResolvedValue({ jobId: 'job-1', durationSec: 100 });
     consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
   });
 
@@ -471,6 +474,54 @@ describe('PATCH /api/jobs/[jobId]/highlights/[highlightId]', () => {
       error: 'INVALID_REQUEST',
       message: '更新内容が不正です',
     });
+  });
+
+  it('異常系: 終了が動画の長さを超える場合は 400 を返し、更新も Lambda 起動もしない', async () => {
+    mockGetById.mockResolvedValueOnce({
+      highlightId: 'h1',
+      jobId: 'job-1',
+      order: 1,
+      startSec: 10,
+      endSec: 20,
+      source: 'motion',
+      status: 'unconfirmed',
+      clipStatus: 'GENERATED',
+    });
+
+    const response = await PATCH(createRequest({ endSec: 1e308 }), {
+      params: Promise.resolve({ jobId: 'job-1', highlightId: 'h1' }),
+    });
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      error: 'INVALID_REQUEST',
+      message: '更新内容が不正です',
+    });
+    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(mockLambdaSend).not.toHaveBeenCalled();
+  });
+
+  it('正常系: ジョブに動画の長さが無いときは終了の上限を見ない', async () => {
+    mockJobGetById.mockResolvedValue({ jobId: 'job-1' });
+    const current = {
+      highlightId: 'h1',
+      jobId: 'job-1',
+      order: 1,
+      startSec: 10,
+      endSec: 20,
+      source: 'motion',
+      status: 'unconfirmed',
+      clipStatus: 'GENERATED',
+    };
+    mockGetById.mockResolvedValue(current);
+    mockUpdate.mockResolvedValue({ ...current, endSec: 5000, clipStatus: 'GENERATING' });
+
+    const response = await PATCH(createRequest({ endSec: 5000 }), {
+      params: Promise.resolve({ jobId: 'job-1', highlightId: 'h1' }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(mockLambdaSend).toHaveBeenCalledTimes(1);
   });
 
   it('異常系: 見どころが存在しない場合は404を返す', async () => {
