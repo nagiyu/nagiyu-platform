@@ -401,15 +401,7 @@ export const shareTogether: ServiceCapture = {
     port: 3402,
     healthPath: '/api/health',
     envFile: 'services/share-together/web/.env.test',
-    requiredBuilds: [
-      'libs/ui/dist',
-      'libs/nextjs/dist',
-      'libs/aws/dist',
-      'libs/common/dist',
-      'libs/react/dist',
-      'libs/browser/dist',
-      'services/share-together/core/dist',
-    ],
+    requiredBuilds: ['services/share-together/core/dist'],
     // E2E の設定のままだと利用者名が英語の `Test User` になるため、画面の言語に合わせて日本語名にする
     extraEnv: {
       TEST_USER_NAME,

@@ -8,8 +8,6 @@ const config: Config = {
   // 契約テストは DynamoDB Local を前提とするため、`npm run test:contract` からのみ実行する
   testPathIgnorePatterns: ['/node_modules/', '<rootDir>/tests/contract/'],
   moduleNameMapper: {
-    '^@nagiyu/aws$': '<rootDir>/../../../libs/aws/src/index.ts',
-    '^@nagiyu/common$': '<rootDir>/../../../libs/common/src/index.ts',
     '^(\\.{1,2}/.*)\\.js$': '$1',
   },
   modulePathIgnorePatterns: ['<rootDir>/../../../package.json'],

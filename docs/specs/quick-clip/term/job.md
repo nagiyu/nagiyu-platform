@@ -8,7 +8,7 @@ sources:
   - services/quick-clip/core/src/mappers/job.mapper.ts
   - services/quick-clip/core/src/libs/job.service.ts
   - services/quick-clip/web/src/app/api/jobs/[jobId]/route.ts
-sources_hash: 760dace8fedb67403e96d2a666eb394cb441b6b59aeaf209b62b38d26380c234
+sources_hash: d91a7bae40cfa680b17ec58f681d6fa10298495453aaa2dc6fc2dc8dab9f09c7
 terms: [quick-clip/term/ai-analysis]
 related_cards: [quick-clip/api/jobs, quick-clip/batch/extract, quick-clip/flow/extraction, quick-clip/screen/upload, quick-clip/screen/job-status, quick-clip/screen/highlights, quick-clip/term/highlight]
 related_adr:
@@ -26,7 +26,7 @@ related_adr:
 |---|---|
 | `jobId` | UUID v4。キーは `PK` と `SK` がどちらも `JOB#{jobId}` |
 | `originalFileName`、`fileSize` | 元のファイル名 (前後の空白を除く) と、申告されたバイト数 |
-| `durationSec` | ブラウザが申告した動画の長さ (秒)。読めなかったときはない |
+| `durationSec` | 動画の長さ (秒)。作成のときはブラウザが申告した値 (読めなかったときはない)。Batch が FFmpeg で実際の長さを読めたときは、その値で上書きする。見どころの時刻の上限になる |
 | `createdAt`、`expiresAt` | epoch ミリ秒。`expiresAt` は作成の 24 時間後。保存するときは TTL 属性 (`TTL`、epoch 秒) に書く |
 | `batchJobId` | 投入した Batch ジョブの ID。投入するまではない |
 | `batchStage` | Batch が今いる段階。`downloading`、`analyzing`、`clipping`、`aggregating` |

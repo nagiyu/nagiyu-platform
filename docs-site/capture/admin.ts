@@ -253,14 +253,7 @@ export const admin: ServiceCapture = {
     port: 3200,
     healthPath: '/api/health',
     envFile: 'services/admin/web/.env.test',
-    requiredBuilds: [
-      'libs/ui/dist',
-      'libs/nextjs/dist',
-      'libs/aws/dist',
-      'libs/react/dist',
-      'libs/browser/dist',
-      'services/admin/core/dist',
-    ],
+    requiredBuilds: ['services/admin/core/dist'],
     // 履歴の置き場所を、実際の AWS ではなく偽の DynamoDB に向ける。鍵はダミー
     extraEnv: {
       AWS_ENDPOINT_URL_DYNAMODB: FAKE_DDB_URL,

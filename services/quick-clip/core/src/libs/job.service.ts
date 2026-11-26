@@ -75,6 +75,17 @@ export class JobService {
     return this.jobRepository.updateErrorMessage(jobId, normalizedErrorMessage);
   }
 
+  /** Batch が計った実際の動画の長さで上書きする */
+  public async updateDurationSec(jobId: string, durationSec: number): Promise<void> {
+    if (jobId.trim().length === 0) {
+      throw new Error(DOMAIN_ERROR_MESSAGES.JOB_ID_REQUIRED);
+    }
+    if (!Number.isFinite(durationSec) || durationSec <= 0) {
+      throw new Error(DOMAIN_ERROR_MESSAGES.DURATION_INVALID);
+    }
+    return this.jobRepository.updateDurationSec(jobId, durationSec);
+  }
+
   public async updateAnalysisProgress(jobId: string, progress: AnalysisProgress): Promise<void> {
     if (jobId.trim().length === 0) {
       throw new Error(DOMAIN_ERROR_MESSAGES.JOB_ID_REQUIRED);

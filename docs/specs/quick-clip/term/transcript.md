@@ -8,7 +8,7 @@ sources:
   - services/quick-clip/web/src/app/api/jobs/[jobId]/transcript/route.ts
   - services/quick-clip/web/src/app/jobs/[jobId]/highlights/page.tsx
   - services/quick-clip/lambda/zip/src/handler.ts
-sources_hash: 51456368bcf19c9aaa846f635fc8653bacb2deea9aff0d18510cf8fa64e388f1
+sources_hash: cfac8b5826205aed76e19227e5e00180ea3116d0a6a24d94ba1e6d5ad638a6bf
 related_cards: [quick-clip/batch/extract, quick-clip/batch/zip-generate, quick-clip/api/transcript, quick-clip/screen/highlights, quick-clip/term/ai-analysis]
 related_adr:
   - services/quick-clip/architecture.md#ADR-015
