@@ -1,6 +1,6 @@
 {
   "name": "@nagiyu/ui",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "type": "module",
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",
@@ -23,6 +23,14 @@
     },
     "./tokens.css": "./dist/src/styles/tokens.css",
     "./base.css": "./dist/src/styles/base.css"
+  },
+  "files": [
+    "dist/src"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nagiyu/nagiyu-platform.git",
+    "directory": "libs/ui"
   },
   "scripts": {
     "build": "tsc && node ./scripts/copy-assets.mjs",
@@ -47,7 +55,7 @@
     "react-dom": ">=19.0.0"
   },
   "dependencies": {
-    "@nagiyu/common": "*",
+    "@nagiyu/common": "^0.1.0",
     "@radix-ui/react-slot": "^1.2.4"
   },
   "devDependencies": {

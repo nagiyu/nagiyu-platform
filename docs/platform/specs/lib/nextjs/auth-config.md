@@ -3,7 +3,7 @@ sources:
   - libs/nextjs/src/auth-config.ts
   - libs/nextjs/src/types/next-auth.d.ts
   - libs/nextjs/package.json
-sources_hash: 6f6380ff74f787abd19dad5f99ed341fb305e307e64b4f5cbccc2d46e2176847
+sources_hash: 11df721fd85fdbf4aecf76a91f4be557911633d8932e8a27f4ec55479e544ecc
 ---
 
 # NextAuth の設定

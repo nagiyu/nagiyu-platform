@@ -6,6 +6,10 @@ inputs:
     description: Path to dependency lock file for npm cache
     required: false
     default: './package-lock.json'
+  working-directory:
+    description: Directory in which to run npm ci (the root of the npm project whose lock file is used). Defaults to the repository root
+    required: false
+    default: '.'
   skip-setup-node:
     description: Set to 'true' to skip actions/setup-node and use the Node.js already in the runtime environment (e.g. a container image)
     required: false
@@ -40,4 +44,5 @@ runs:
 
     - name: Install dependencies
       shell: bash
+      working-directory: ${{ inputs.working-directory }}
       run: npm ci
