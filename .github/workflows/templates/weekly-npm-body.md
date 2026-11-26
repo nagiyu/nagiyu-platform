@@ -12,9 +12,11 @@
 | 脆弱性 Moderate | {{MODERATE}} |
 | 脆弱性 Low | {{LOW}} |
 | 更新可能パッケージ | {{OUTDATED_SUMMARY}} |
+| libs/ の脆弱性 (Critical / High / Moderate / Low) | {{LIBS_AUDIT_SUMMARY}} |
+| libs/ の更新可能パッケージ | {{LIBS_OUTDATED_SUMMARY}} |
 | バージョン不整合 | {{INCONSISTENCY_COUNT}} |
 | 重複 devDependencies | {{DUPLICATES_COUNT}} |
-{{DETECTION_TARGETS_SECTION}}
+{{DETECTION_TARGETS_SECTION}}{{NAGIYU_SECTION}}
 ## 対応方針
 
 {{POLICY_LINE}}
@@ -24,4 +26,6 @@
 ```bash
 npm audit
 npm outdated
+# libs/ はルートとは別の npm プロジェクト
+(cd libs && npm audit && npm outdated)
 ```
