@@ -2,6 +2,13 @@ name: Publish Libraries
 
 on:
   workflow_dispatch:
+  # workflow_dispatch は既定のブランチ (develop) にあるワークフローしか起動できず、
+  # まだ develop に無いこのワークフローで初版を出す手段がないため、一時的に integration への push でも動かす。
+  # 作業ブランチの push では、レビュー前の版が出てしまうため動かさない。
+  # 初版を出して Trusted Publisher を登録したら外す
+  push:
+    branches:
+      - integration/5050-libs-packages
 
 permissions:
   id-token: write
