@@ -16,9 +16,6 @@ const config: Config = {
     // @nagiyu/ui の CSS Modules import をスタブ化（クラス名そのものを返す）
     '\\.module\\.css$': 'identity-obj-proxy',
     '^@/(.*)$': '<rootDir>/src/$1',
-    '^@nagiyu/ui$': '<rootDir>/../../libs/ui/src/index.ts',
-    '^@nagiyu/browser$': '<rootDir>/../../libs/browser/src/index.ts',
-    '^@nagiyu/common$': '<rootDir>/../../libs/common/src/index.ts',
     '^(\\.{1,2}/.*)\\.js$': '$1',
   },
   // Exclude E2E tests from Jest (they use Playwright)
