@@ -1,13 +1,12 @@
-import type { ScheduledEvent } from '@nagiyu/aws';
+import type { InMemoryErrorEventWriter, ScheduledEvent } from '@nagiyu/aws';
+import { createErrorEventWriter, resetErrorEventWriter } from '@nagiyu/aws';
 
-// 骨格 (createScheduledHandler) は実物を使い、副作用のある DynamoDB 取得とエラー報告だけを差し替える
+// 骨格 (createScheduledHandler) は実物を使い、副作用のある DynamoDB 取得だけを差し替える。
+// エラー報告は in-memory の書き込み先に入る
 jest.mock('@nagiyu/aws', () => ({
   ...jest.requireActual('@nagiyu/aws'),
   getDynamoDBDocumentClient: jest.fn(() => ({})),
   getTableName: jest.fn(() => 'test-table'),
-}));
-jest.mock('../../../../../../libs/aws/src/error-events/report.js', () => ({
-  reportErrorEvent: jest.fn().mockResolvedValue(null),
 }));
 
 jest.mock('@nagiyu/livetalk-core', () => ({
@@ -42,9 +41,23 @@ function makeEvent(overrides: Partial<ScheduledEvent> = {}): ScheduledEvent {
   };
 }
 
+/** 報告された ErrorEvent を取り出す */
+function getReportedEvents() {
+  return (createErrorEventWriter() as InMemoryErrorEventWriter).getRecords();
+}
+
 describe('notify handler', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    process.env.USE_IN_MEMORY_DB = 'true';
+    process.env.ERROR_EVENTS_TABLE_NAME = 'test-error-events';
+    resetErrorEventWriter();
+  });
+
+  afterEach(() => {
+    delete process.env.USE_IN_MEMORY_DB;
+    delete process.env.ERROR_EVENTS_TABLE_NAME;
+    resetErrorEventWriter();
   });
 
   it('正常処理時に 200 を返し結果を body に含める', async () => {
@@ -71,19 +84,18 @@ describe('notify handler', () => {
     await expect(handler(makeEvent())).rejects.toThrow('DynamoDB 障害');
   });
 
-  it('例外発生時に reportErrorEvent を呼ぶ', async () => {
+  it('例外発生時に エラーを報告する', async () => {
     mockNotifyAll.mockRejectedValue(new Error('致命的エラー'));
-    const { reportErrorEvent } = await import('@nagiyu/aws');
 
     const { handler } = await import('../../../src/handlers/notify.js');
     await expect(handler(makeEvent())).rejects.toThrow();
 
-    expect(reportErrorEvent).toHaveBeenCalledWith(
+    expect(getReportedEvents()).toEqual([
       expect.objectContaining({
         serviceId: 'livetalk',
         severity: 'error',
         title: '通知バッチ: 致命的エラー',
-      })
-    );
+      }),
+    ]);
   });
 });

@@ -6,7 +6,7 @@ service: stock-tracker
 sources:
   - services/stock-tracker/web/app/api/tickers/route.ts
   - services/stock-tracker/web/app/api/holdings/[id]/route.ts
-sources_hash: f40eea94b8025702e51d77ccd065be8b670d2e8c83b93eaa56eadac843142776
+sources_hash: 8d02cd4ae7514c4dd29d75e9329edf832b602e019c5595f41d0bc529369d1208
 related_cards: [stock-tracker/api/tickers, stock-tracker/api/holdings]
 ---
 

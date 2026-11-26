@@ -27,7 +27,7 @@ sources_hash: 4602ea7ccf0468b12de46a7106e7ffa7a7a2acd5356262122605b2d373ac0e17
 
 形 C ([API のエラー応答](../term/api-error.md))。条件と応答は[Web Push のルート](../../../../platform/specs/lib/nextjs/push-routes.md)の表のとおり。
 
-- 500 を返す直前に、Admin へ報告する ([エラー通知の経路](../../../../specs/admin/flow/error-notification.md))
+- 500 を返す直前に、Admin へ報告する ([エラー通知の経路](../../../admin/specs/flow/error-notification.md))
 
 ## つながり
 

@@ -2,7 +2,7 @@
 sources:
   - .github/workflows/workflow-paths-verify.yml
   - .github/workflows/scripts/check-workflow-paths.mjs
-sources_hash: 4449a66f2e60e16beb48602dff21e99209285d9bc40874e090dd4384e462f842
+sources_hash: 85fefc68ca87d696a1b46e36e6e2316788176a463a79c5fc726f0e48342b719d
 ---
 
 # workflow の paths の漏れの検査
@@ -43,7 +43,7 @@ flowchart TD
 | `.node-version` | `node-version-file: .node-version` の参照 |
 | tsconfig の継承元 | `paths` に `infra/<x>/**` または `services/<x>/**` の形のパターンがあるとき、そのディレクトリ配下の `tsconfig*.json` の `extends` (相対パスのもの) を辿った先のうち、そのディレクトリの外にあるファイル |
 
-スクリプトが別のスクリプトを呼んでいても、その先は辿らない。シェルの呼び出しは変数展開や条件分岐で決まり、静的には正しく導けないためである。`libs/**` の tsconfig も辿らない。利用側のワークフローが `libs/**` をまとめて持つためである。
+スクリプトが別のスクリプトを呼んでいても、その先は辿らない。シェルの呼び出しは変数展開や条件分岐で決まり、静的には正しく導けないためである。
 
 意図して `paths` から外すものは、スクリプトの定数 `EXCLUSIONS` に、ワークフローとパスと理由を持つ。今は空である。
 

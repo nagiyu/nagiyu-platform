@@ -17,12 +17,12 @@ sources:
   - infra/codec-converter/lib/codec-converter-stack.ts
 sources_hash: b8e86fffeceef202cb301682c53b1266ac1ed298325b4ae4547b668c3b9f45c2
 terms: []
-related_cards: [admin/flow/error-notification, codec-converter/api/jobs, codec-converter/batch/convert, codec-converter/flow/conversion]
+related_cards: [codec-converter/api/jobs, codec-converter/batch/convert, codec-converter/flow/conversion]
 ---
 
 # エラー報告の経路
 
-codec-converter の失敗が、Admin のエラー履歴に届くまでの流れ。全体の仕組み (保存、通知、画面) は[エラー通知の経路](../../admin/flow/error-notification.md)にあり、ここでは codec-converter が何を、どこから報告するかだけを書く。
+codec-converter の失敗が、Admin のエラー履歴に届くまでの流れ。全体の仕組み (保存、通知、画面) は[エラー通知の経路](../../../services/admin/specs/flow/error-notification.md)にあり、ここでは codec-converter が何を、どこから報告するかだけを書く。
 
 ## 起点
 

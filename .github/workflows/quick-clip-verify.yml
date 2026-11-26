@@ -12,7 +12,6 @@ on:
     paths:
       - 'services/quick-clip/**'
       - 'infra/quick-clip/**'
-      - 'libs/**'
       - 'infra/common/**'
       - 'infra/tsconfig.json'
       - 'configs/**'
@@ -75,9 +74,6 @@ jobs:
           # Node はイメージに入っているものを使う
           skip-setup-node: 'true'
 
-      - name: Build shared libraries
-        run: npm run build:libs
-
       - name: Build core package
         run: npm run build --workspace=@nagiyu/quick-clip-core
 
@@ -132,9 +128,6 @@ jobs:
           # Node はイメージに入っているものを使う
           skip-setup-node: 'true'
 
-      - name: Build shared libraries
-        run: npm run build:libs
-
       - name: Build core package
         run: npm run build --workspace=@nagiyu/quick-clip-core
 
@@ -166,9 +159,6 @@ jobs:
           # Node はイメージに入っているものを使う
           skip-setup-node: 'true'
 
-      - name: Build shared libraries
-        run: npm run build:libs
-
       - name: Build core package
         run: npm run build --workspace=@nagiyu/quick-clip-core
 
@@ -199,9 +189,6 @@ jobs:
           cache-dependency-path: './package-lock.json'
           # Node はイメージに入っているものを使う
           skip-setup-node: 'true'
-
-      - name: Build shared libraries
-        run: npm run build:libs
 
       - name: Build core package
         run: npm run build --workspace=@nagiyu/quick-clip-core

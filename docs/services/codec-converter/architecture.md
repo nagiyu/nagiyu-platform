@@ -303,31 +303,18 @@ CloudFront の Response Headers Policy で、全サービス共通のセキュ�
    - `integration/codec-converter` → `dev`
    - `develop` → `dev`
    - `master` → `prod`
-2. 共通ライブラリのビルド（依存関係順: common → browser → ui）
-3. ECR スタックのデプロイ（Web 用と Batch 用）
-4. Lambda コンテナイメージのビルド・プッシュ（タグはコミットの sha）
-5. Batch Worker コンテナイメージのビルド・プッシュ（同じタグ）
-6. 本体スタックのデプロイ（Lambda 関数と Batch ジョブ定義が、そのタグのイメージへ更新される）
+2. ECR スタックのデプロイ（Web 用と Batch 用）
+3. Lambda コンテナイメージのビルド・プッシュ（タグはコミットの sha）
+4. Batch Worker コンテナイメージのビルド・プッシュ（同じタグ）
+5. 本体スタックのデプロイ（Lambda 関数と Batch ジョブ定義が、そのタグのイメージへ更新される）
 
 ### テスト戦略
 
 テストデバイス構成・E2E シナリオ・カバレッジ目標は[テスト仕様書](./testing.md)を参照する。
 
-### 共通ライブラリのビルド順序
+### サービス内の共通処理
 
-**依存関係**:
-
-- `@nagiyu/common`: フレームワーク非依存（他に依存なし）
-- `@nagiyu/browser`: `@nagiyu/common` に依存
-- `@nagiyu/ui`: `@nagiyu/browser` と Next.js + Material-UI に依存
-- アプリケーション: `@nagiyu/ui` に依存
-
-**重要な制約**:
-
-- 並列ビルド（`npm run build --workspaces`）は依存関係を考慮しないため使用禁止
-- 必ず依存関係順に逐次ビルドすること（common → browser → ui → アプリケーション）
-
-**注**: Codec Converter と Codec Converter Worker の共通処理（AWS SDKラッパーなど）は `services/codec-converter/src/lib/shared/` のようにサービス内に配置し、Dockerfileで両方のコンテナに含める。`libs/` 配下には配置しない。
+Codec Converter と Codec Converter Worker の共通処理（AWS SDKラッパーなど）は `services/codec-converter/src/lib/shared/` のようにサービス内に配置し、Dockerfileで両方のコンテナに含める。`libs/` 配下には配置しない。
 
 ### 開発環境セットアップ
 

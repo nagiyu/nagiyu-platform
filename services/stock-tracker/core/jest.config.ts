@@ -7,8 +7,6 @@ const config: Config = {
   testMatch: ['**/*.test.ts'],
   testPathIgnorePatterns: ['/node_modules/', '<rootDir>/tests/e2e/', '<rootDir>/tests/contract/'],
   moduleNameMapper: {
-    '^@nagiyu/aws$': '<rootDir>/../../../libs/aws/src/index.ts',
-    '^@nagiyu/common$': '<rootDir>/../../../libs/common/src/index.ts',
     '^(\\.{1,2}/.*)\\.js$': '$1', // Remove .js extension for ts-jest
   },
   modulePathIgnorePatterns: ['<rootDir>/../../../package.json'],

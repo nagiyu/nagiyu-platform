@@ -45,8 +45,7 @@ npm run lint --workspace @nagiyu/{package}
 npm run format:check --workspace @nagiyu/{package}
 npm run format --workspace @nagiyu/{package}
 
-# ビルド（libs は依存順を持つ build:libs で一括、その後にサービス）
-npm run build:libs
+# ビルド（libs は registry の @nagiyu/* を使うため、ルートではビルドしない）
 npm run build --workspace {service-web}
 ```
 

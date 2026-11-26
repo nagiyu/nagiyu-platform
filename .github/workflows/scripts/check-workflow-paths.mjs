@@ -11,8 +11,7 @@
  * 辿らないもの (導けない参照は、検査の対象外であることを承知して使う):
  * - `.github/scripts/*.sh` や `.github/workflows/scripts/*` が別のスクリプトを呼んでいても、その先は辿らない。
  *   シェルの呼び出しは変数展開や条件分岐で決まり、静的には正しく導けず、誤検知のほうが害になるため
- * - tsconfig の `extends` は、paths が `infra/<x>/**`・`services/<x>/**` の形のときだけ辿る。
- *   libs は利用側の workflow が `libs/**` をまとめて持ち、個別の継承元を並べる運用ではないため
+ * - tsconfig の `extends` は、paths が `infra/<x>/**`・`services/<x>/**` の形のときだけ辿る
  *
  * 使い方:
  *   node .github/workflows/scripts/check-workflow-paths.mjs

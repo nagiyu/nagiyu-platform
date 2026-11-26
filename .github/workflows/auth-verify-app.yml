@@ -11,7 +11,6 @@ on:
       - develop
     paths:
       - 'services/auth/**'
-      - 'libs/**'
       - 'infra/auth/**'
       - 'infra/common/**'
       - 'configs/**'

@@ -11,12 +11,6 @@
 import { InMemorySingleTableStore } from '@nagiyu/aws';
 import * as awsModule from '@nagiyu/aws';
 
-// 骨格 (createScheduledHandler) は実物を使い、副作用のあるエラー報告だけを差し替える。
-// 骨格は libs/aws 内部の相対 import で呼ぶため、再エクスポートの spy では捕まらずモジュール自体を差し替える
-jest.mock('../../../../../libs/aws/src/error-events/report.js', () => ({
-  ...jest.requireActual('../../../../../libs/aws/src/error-events/report.js'),
-  reportErrorEvent: jest.fn().mockResolvedValue(null),
-}));
 import {
   InMemoryDailySummaryRepository,
   InMemoryExchangeRepository,
@@ -40,8 +34,8 @@ import { handler } from '../../src/forecast.js';
 import type { InMemoryErrorEventWriter, ScheduledEvent } from '@nagiyu/aws';
 import type { HandlerDependencies, ReplayEvent } from '../../src/forecast.js';
 
-// 各ステップ・市場の個別報告はレポーターが in-memory ライターへ書き、骨格の報告は上のモックに届く。
-// レポーターは実物を通して context の組み立てまで確かめる
+// 骨格 (createScheduledHandler) とレポーターは実物を使う。各ステップ・市場の個別報告も
+// 骨格の報告も in-memory ライターへ書かれ、context の組み立てまで確かめられる
 beforeEach(() => {
   process.env.USE_IN_MEMORY_DB = 'true';
   process.env.ERROR_EVENTS_TABLE_NAME = 'test-error-events';
@@ -175,8 +169,6 @@ describe('forecast batch handler（通常モード）', () => {
   let dependencies: Omit<HandlerDependencies, 'nowFn'>;
 
   beforeEach(async () => {
-    jest.mocked(awsModule.reportErrorEvent).mockClear();
-
     store = new InMemorySingleTableStore();
     exchangeRepository = new InMemoryExchangeRepository(store);
     dailySummaryRepository = new InMemoryDailySummaryRepository(store);
@@ -465,8 +457,6 @@ describe('forecast batch handler（通常モード）', () => {
 
 describe('forecast batch handler（市場ごとの失敗分離）', () => {
   it('1つの市場の失敗が他の市場を止めず、最後に例外を投げる', async () => {
-    jest.mocked(awsModule.reportErrorEvent).mockClear();
-
     const store = new InMemorySingleTableStore();
     const exchangeRepository = new InMemoryExchangeRepository(store);
     const realDailySummaryRepository = new InMemoryDailySummaryRepository(store);
@@ -539,7 +529,10 @@ describe('forecast batch handler（市場ごとの失敗分離）', () => {
     expect(await marketForecastRepository.getByMarketAndDate('US', d0)).toBeNull();
     // 市場ごとの個別報告に加え、骨格は「致命的エラー」ではなく部分失敗として 1 回報告する
     const marketReports = getReportedEvents();
-    expect(marketReports.map((event) => event.title)).toEqual(['確度算出バッチ: 市場処理失敗']);
+    expect(marketReports.map((event) => event.title)).toEqual([
+      '確度算出バッチ: 市場処理失敗',
+      '確度算出バッチ: 部分失敗',
+    ]);
     expect(JSON.parse(marketReports[0].context)).toEqual(
       expect.objectContaining({
         market: 'US',
@@ -548,9 +541,7 @@ describe('forecast batch handler（市場ごとの失敗分離）', () => {
         errorStack: expect.any(String),
       })
     );
-    const reports = jest.mocked(awsModule.reportErrorEvent).mock.calls.map(([input]) => input);
-    expect(reports.map((input) => input.title)).toEqual(['確度算出バッチ: 部分失敗']);
-    expect(reports[0].context).toEqual(
+    expect(JSON.parse(marketReports[1].context)).toEqual(
       expect.objectContaining({
         failedMarkets: ['US'],
         statistics: expect.objectContaining({ errors: 1, totalMarkets: 2 }),
@@ -661,8 +652,6 @@ describe('forecast batch handler（リプレイモード）', () => {
   }
 
   beforeEach(async () => {
-    jest.mocked(awsModule.reportErrorEvent).mockClear();
-
     store = new InMemorySingleTableStore();
     exchangeRepository = new InMemoryExchangeRepository(store);
     dailySummaryRepository = new InMemoryDailySummaryRepository(store);
@@ -837,12 +826,12 @@ describe('forecast batch handler（リプレイモード）', () => {
     ).rejects.toThrow(new RegExp(`${d2}.*一時的な書き込み失敗`));
 
     // ステップごとの個別報告に加え、骨格は「致命的エラー」ではなく停止として 1 回報告する
-    expect(getReportedEvents().map((event) => event.title)).toEqual([
+    const replayReports = getReportedEvents();
+    expect(replayReports.map((event) => event.title)).toEqual([
       '確度算出バッチ（リプレイ）: ステップ処理失敗',
+      '確度算出バッチ（リプレイ）: 停止',
     ]);
-    const reports = jest.mocked(awsModule.reportErrorEvent).mock.calls.map(([input]) => input);
-    expect(reports.map((input) => input.title)).toEqual(['確度算出バッチ（リプレイ）: 停止']);
-    expect(reports[0].context).toEqual(
+    expect(JSON.parse(replayReports[1].context)).toEqual(
       expect.objectContaining({
         stoppedAt: { market: 'JP', date: d2, reason: '一時的な書き込み失敗' },
         statistics: expect.objectContaining({ errors: 1 }),

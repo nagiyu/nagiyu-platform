@@ -25,20 +25,23 @@ jobs:
     defaults:
       run:
         shell: bash
+        working-directory: libs
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # libs は独立した npm プロジェクトのため、ルートの install は行わない
       - name: Setup Node.js and install dependencies
         uses: ./.github/actions/setup-node
         with:
-          cache-dependency-path: './package-lock.json'
+          working-directory: libs
+          cache-dependency-path: './libs/package-lock.json'
           skip-setup-node: 'true'
 
       # 依存する lib の dist が無いとビルドやテストが解決に失敗するため、全 lib で先に作る
       - name: Build shared libraries
-        run: npm run build:libs
+        run: npm run build
 
       - name: Build library
         run: npm run build --workspace=${{ inputs.workspace }}
@@ -55,20 +58,23 @@ jobs:
     defaults:
       run:
         shell: bash
+        working-directory: libs
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # libs は独立した npm プロジェクトのため、ルートの install は行わない
       - name: Setup Node.js and install dependencies
         uses: ./.github/actions/setup-node
         with:
-          cache-dependency-path: './package-lock.json'
+          working-directory: libs
+          cache-dependency-path: './libs/package-lock.json'
           skip-setup-node: 'true'
 
       # 依存する lib の dist が無いとビルドやテストが解決に失敗するため、全 lib で先に作る
       - name: Build shared libraries
-        run: npm run build:libs
+        run: npm run build
 
       - name: Run tests
         run: npm run test --workspace=${{ inputs.workspace }}
@@ -85,20 +91,23 @@ jobs:
     defaults:
       run:
         shell: bash
+        working-directory: libs
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # libs は独立した npm プロジェクトのため、ルートの install は行わない
       - name: Setup Node.js and install dependencies
         uses: ./.github/actions/setup-node
         with:
-          cache-dependency-path: './package-lock.json'
+          working-directory: libs
+          cache-dependency-path: './libs/package-lock.json'
           skip-setup-node: 'true'
 
       # 依存する lib の dist が無いとビルドやテストが解決に失敗するため、全 lib で先に作る
       - name: Build shared libraries
-        run: npm run build:libs
+        run: npm run build
 
       - name: Run tests with coverage
         run: npm run test:coverage --workspace=${{ inputs.workspace }}
@@ -115,20 +124,29 @@ jobs:
     defaults:
       run:
         shell: bash
+        working-directory: libs
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js and install dependencies
+      # eslint と configs/ の設定は、ルートの install から読む
+      - name: Setup Node.js and install dependencies (root)
         uses: ./.github/actions/setup-node
         with:
           cache-dependency-path: './package-lock.json'
           skip-setup-node: 'true'
 
-      # 依存する lib の dist が無いとビルドやテストが解決に失敗するため、全 lib で先に作る
+      - name: Install dependencies (libs)
+        uses: ./.github/actions/setup-node
+        with:
+          working-directory: libs
+          cache-dependency-path: './libs/package-lock.json'
+          skip-setup-node: 'true'
+
+      # 依存する lib の dist が無いと型の解決に失敗するため、全 lib で先に作る
       - name: Build shared libraries
-        run: npm run build:libs
+        run: npm run build
 
       - name: Run lint
         run: npm run lint --workspace=${{ inputs.workspace }}
@@ -145,20 +163,23 @@ jobs:
     defaults:
       run:
         shell: bash
+        working-directory: libs
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # libs は独立した npm プロジェクトのため、ルートの install は行わない
       - name: Setup Node.js and install dependencies
         uses: ./.github/actions/setup-node
         with:
-          cache-dependency-path: './package-lock.json'
+          working-directory: libs
+          cache-dependency-path: './libs/package-lock.json'
           skip-setup-node: 'true'
 
       # 依存する lib の dist が無いとビルドやテストが解決に失敗するため、全 lib で先に作る
       - name: Build shared libraries
-        run: npm run build:libs
+        run: npm run build
 
       - name: Check formatting
         run: npm run format:check --workspace=${{ inputs.workspace }}

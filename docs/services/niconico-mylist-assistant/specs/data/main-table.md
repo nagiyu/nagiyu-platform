@@ -35,7 +35,7 @@ sources_hash: 9e0bb98816696c66d5f91e7948fb464ad3634a7dc5bfc2d7cd3693a54ba2edcd
 | dev | 削除する |
 | prod | 残す |
 
-- 本番の動画基本情報は、定期的に dev へ複写される ([同期バッチ](../../../../specs/dev-sync/batch/sync.md))
+- 本番の動画基本情報は、定期的に dev へ複写される ([同期バッチ](../../../dev-sync/specs/batch/sync.md))
 
 ## キー設計
 
