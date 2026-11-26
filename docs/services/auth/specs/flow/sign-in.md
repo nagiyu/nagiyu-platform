@@ -71,7 +71,7 @@ sequenceDiagram
 | 戻り先が許可されない | Auth のトップへ戻す (失敗にはしない) |
 | Google が失敗を返した (同意画面のキャンセルも)・サインアウトなど認証ライブラリへ直接送った操作で CSRF 照合に失敗した | [サインイン画面](../screen/signin.md)へ `?error=<種類>` を付けて戻し、エラーの帯を出す |
 
-- 報告は[エラー通知の経路](../../../../specs/admin/flow/error-notification.md)の「アプリの報告」にあたり、`serviceId` は `auth`
+- 報告は[エラー通知の経路](../../../admin/specs/flow/error-notification.md)の「アプリの報告」にあたり、`serviceId` は `auth`
 
 ## つながり
 

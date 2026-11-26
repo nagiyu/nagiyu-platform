@@ -13,7 +13,7 @@ sources:
   - libs/aws/src/error-events/report.ts
 sources_hash: 602ca10c214b47ba72205b72afc9c921871fc06cc9e361382e6ba86a6d1ae453
 terms: [codec-converter/term/job, codec-converter/term/output-codec, codec-converter/term/job-definition-size]
-related_cards: [codec-converter/api/jobs, codec-converter/flow/conversion, codec-converter/flow/error-reporting, admin/flow/error-notification]
+related_cards: [codec-converter/api/jobs, codec-converter/flow/conversion, codec-converter/flow/error-reporting]
 related_adr:
   - services/codec-converter/architecture.md#Batch Worker 実装詳細
   - services/codec-converter/architecture.md#動的リソース配分
@@ -88,7 +88,7 @@ flowchart TD
 - 終了コードが 0 でないので、AWS Batch が 2 回まで試行する。再試行で最初から処理し直し、報告も試行ごとに増える
 - ⑥ の `COMPLETED` の保存が失敗したときも、同じ失敗の扱いになる。`FAILED` の保存も失敗すれば、ステータスは `PROCESSING` のまま残る
 - ⑦ の一時ファイルの削除は、処理の `try` の中にある。削除に失敗する (ないファイル以外の理由) と、`COMPLETED` にしたあとでも失敗の扱いになり、`FAILED` で上書きする
-- 7,200 秒を超えると Batch がジョブを止める。ワーカーは時間を見ておらず、ステータスを更新できないので、ジョブは `PROCESSING` のまま残る。Batch の失敗を拾う EventBridge のルールや CloudWatch Alarm は、codec-converter のインフラには定義されていない ([エラー通知の経路](../../admin/flow/error-notification.md)の `batch-event` の対象にならない)
+- 7,200 秒を超えると Batch がジョブを止める。ワーカーは時間を見ておらず、ステータスを更新できないので、ジョブは `PROCESSING` のまま残る。Batch の失敗を拾う EventBridge のルールや CloudWatch Alarm は、codec-converter のインフラには定義されていない ([エラー通知の経路](../../../services/admin/specs/flow/error-notification.md)の `batch-event` の対象にならない)
 - 報告の書き込みに失敗しても、例外は伝えない。ログだけを残す
 
 ## つながり
