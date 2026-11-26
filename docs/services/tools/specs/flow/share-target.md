@@ -20,8 +20,19 @@ sources_hash: b6604e2c49c8f1bacb4edb44a816cf09ce7f2cd7fdffa5236f0f0656af2c5667
 | メソッド | GET |
 | 受け取る項目 | `title`、`text`、`url` (URL のクエリで届く) |
 
-- マニフェストはほかに、アプリ名「Tools - 便利な開発ツール集」、短い名前「Tools」、開始 URL `/`、表示モード `standalone`、テーマ色 `#1976d2`、アイコン (192px と 512px) を持つ
+- マニフェストはほかに、次の項目を持つ
+
+| 項目 | 値 |
+|---|---|
+| アプリ名 | 「Tools - 便利な開発ツール集」 (短い名前は「Tools」) |
+| 開始 URL、スコープ | `/` |
+| 表示モード | `standalone` |
+| 向き | `portrait-primary` |
+| 背景色、テーマ色 | `#ffffff`、`#1976d2` |
+| アイコン | 192px と 512px の PNG (`any maskable`) |
+
 - Service Worker は登録しない。オフライン用のキャッシュを作る処理も、[オフライン画面](../screen/offline.md)へ切り替える処理もない
+- ツールの要件は[乗り換え変換](../../requirements/functional/transit-converter.md)にある
 
 ## 経路
 

@@ -1,6 +1,5 @@
 ---
 sources:
-  - libs/browser/src/clipboard.ts
   - services/tools/src/app/transit-converter/page.tsx
   - services/tools/src/app/json-formatter/JsonFormatterClient.tsx
   - services/tools/src/app/base64/Base64Client.tsx
@@ -8,12 +7,12 @@ sources:
   - services/tools/src/app/hash-generator/HashGeneratorClient.tsx
   - services/tools/src/app/timestamp-converter/TimestampConverterClient.tsx
   - services/tools/src/app/vapid-generator/page.tsx
-sources_hash: 98166e16ab9e8b1c81ccef2da622f193c6a19e401008a7494911c038a9467cef
+sources_hash: 8d0ba4f0039c7fefa92937170d8fc2d4952940bff5ca3b43f07cc3ab45995378
 ---
 
 # クリップボード操作
 
-ツール画面の「クリップボードから読み取り」と「コピー」。ブラウザの Clipboard API で、端末のクリップボードを読み書きする。
+ツール画面の「クリップボードから読み取り」と「コピー」。ブラウザの Clipboard API で、端末のクリップボードを読み書きする。API の呼び方と失敗の扱いは[クリップボード](../../../../platform/specs/lib/browser/clipboard.md)にある。全ツールで操作と通知をそろえる要件は[共通の操作](../../requirements/functional/common-actions.md)にある。
 
 ## 説明
 
@@ -33,6 +32,6 @@ sources_hash: 98166e16ab9e8b1c81ccef2da622f193c6a19e401008a7494911c038a9467cef
 | タイムスタンプ変換 | 変換結果を 5 行にまとめたテキスト (タイムゾーン、日時、UTC (ISO 8601)、Unix 秒、Unix ミリ秒)。成功の文言は「変換結果をクリップボードにコピーしました」 |
 | VAPID キー生成 | 押した側の鍵 (公開鍵か秘密鍵) |
 
-## 関連するカード
+## 理由
 
-- [乗り換え変換ツール](../screen/transit-converter.md)・[JSON 整形ツール](../screen/json-formatter.md)・[Base64 エンコーダー / デコーダー](../screen/base64.md)・[URL エンコーダー / デコーダー](../screen/url-encoder.md)・[ハッシュ生成ツール](../screen/hash-generator.md)・[タイムスタンプ変換ツール](../screen/timestamp-converter.md)・[VAPID キー生成ツール](../screen/vapid-generator.md)
+- ボタンを押したときだけ読み書きする。Clipboard API は、ユーザーの明示的な操作 (クリックなど) がないと使えないため

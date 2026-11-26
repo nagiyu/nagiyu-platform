@@ -1,8 +1,7 @@
 ---
 sources:
   - services/tools/src/app/api/health/route.ts
-  - libs/nextjs/src/health.ts
-sources_hash: 720ffcaf2e42d28cb0a196734ae5c0d33e2d5c664f1d1bd1876931dacc88621b
+sources_hash: b1a088aa8889b75d4feecad512f5406427107ffb1fae1ed8fb73cffd9a4130bf
 ---
 
 # システム系の API
@@ -17,7 +16,7 @@ sources_hash: 720ffcaf2e42d28cb0a196734ae5c0d33e2d5c664f1d1bd1876931dacc88621b
 
 ## 入力と出力
 
-- `{ status: 'ok', service: 'tools', version, timestamp }` を返す。`version` は環境変数 `APP_VERSION`、なければ `1.0.0`。`timestamp` は ISO 8601
+- [ヘルスチェックのルート](../../../../platform/specs/lib/nextjs/health-route.md)で、`service` は `tools`。`version` は環境変数 `APP_VERSION`、なければ `1.0.0` ([Web の実行環境](../resource/web-runtime.md))
 - 入力はない。サーバーが応答できるかだけを示す
 
 ## エラー

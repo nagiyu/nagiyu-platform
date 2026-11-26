@@ -18,7 +18,4 @@ Web Push の送信元を示す、公開鍵と秘密鍵のペア。このサー�
 
 - 画面の注意書きは、公開鍵はクライアント側、秘密鍵はサーバー側で安全に保管するよう求める
 - 鍵は生成のたびに新しく作る。サーバーは鍵を保存せず、ログにも出さない。画面を閉じるか、もう一度生成すると、前の鍵は画面から消える
-
-## 関連するカード
-
-- [VAPID キー API](../api/vapid.md)・[VAPID キー生成ツール](../screen/vapid-generator.md)
+- 生成する画面は[VAPID キー生成ツール](../screen/vapid-generator.md)、生成する API は[VAPID キー API](../api/vapid.md)。ツールの要件は[VAPID キー生成](../../requirements/functional/vapid-generator.md)にある
