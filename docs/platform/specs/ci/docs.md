@@ -5,12 +5,12 @@ sources:
   - .github/workflows/docs-pages-deploy.yml
   - .github/workflows/scripts/docs-structure.mjs
   - .github/workflows/scripts/check-doc-links.py
-sources_hash: 71ef8917d169d09a7933f98c310b9005d03cfc438486862a9496021200fadd59
+sources_hash: 8f56296f4c6973540239db9c88141899ba339f2ee419217f2d1fa3ff3bb46bd1
 ---
 
 # docs の検査と公開
 
-`docs/` の文書を、PR で 2 つのワークフロー (配置と出典の検査、リンクとサイトのビルドの検査) で確かめ、`develop` と `integration/**` への push で公開サイトを GitHub Pages に載せる。検査の内容 (frontmatter、出典のハッシュ、配置、未実装) は[docs の書き方](../../rules/docs.md)にある。ここには、ワークフローとしての起点、ジョブ、報告を書く。
+`docs/` の文書を、PR で 2 つのワークフロー (配置と出典の検査、リンクとサイトのビルドの検査) で確かめ、`develop` への push で公開サイトを GitHub Pages に載せる。検査の内容 (frontmatter、出典のハッシュ、配置、未実装) は[docs の書き方](../../rules/docs.md)にある。ここには、ワークフローとしての起点、ジョブ、報告を書く。
 
 ## 起点
 
@@ -18,7 +18,7 @@ sources_hash: 71ef8917d169d09a7933f98c310b9005d03cfc438486862a9496021200fadd59
 |---|---|---|
 | `docs-structure-verify.yml` | `pull_request` | 向き先が `develop`、`master`、`integration/**`。変更したファイルでは絞らない (毎回走る) |
 | `docs-verify.yml` | `pull_request` | 向き先が同じ。変更が `docs/**`、`docs-site/**`、`.node-version`、`check-doc-links.py`、このワークフローのいずれかにある |
-| `docs-pages-deploy.yml` | `push` | `develop` と `integration/**` への push。変更が `docs/**`、`docs-site/**`、`.node-version`、このワークフローのいずれかにある |
+| `docs-pages-deploy.yml` | `push` | `develop` への push。変更が `docs/**`、`docs-site/**`、`.node-version`、このワークフローのいずれかにある |
 | `docs-pages-deploy.yml` | `workflow_dispatch` | 手動 |
 
 検査の 2 本は、同じ PR の古いコミットの run を打ち切る。公開は打ち切らない (後述)。
@@ -76,7 +76,7 @@ flowchart LR
 | `build` | 共通イメージ (`base`) の上で、依存を入れ (`docs-site` とルートだけ)、`npm run build -w docs-site` でサイトをビルドし、`actions/configure-pages` を実行して、`docs-site/.vitepress/dist` を Pages の成果物としてアップロードする |
 | `deploy` | `build` の後、同じイメージの上で、環境 `github-pages` に `actions/deploy-pages` で公開する。環境の URL に公開先の URL を出す |
 
-- 公開の対象は、`develop` と `integration/**` のどちらの push でも同じ 1 つのサイトである。後から公開した内容が載る。手動実行も同じ。
+- 公開の対象は 1 つのサイトで、後から公開した内容が載る。手動実行では、選んだブランチの内容が載る。
 - 権限は、`contents: read`、`pages: write`、`id-token: write`。
 - 同時実行は `concurrency.group: pages` で 1 本ずつにし、`cancel-in-progress: false` で進行中の公開を止めない。
 
@@ -92,5 +92,6 @@ flowchart LR
 
 - 検査を `develop` と `master` 向けで強くするのは、未実装の仕様が今の挙動として読まれないようにするため。`integration/**` の上では、実装の前に仕様を置けるように許す。
 - リンク検査は、`docs/` だけを公開する先 (GitHub Pages など) でもリンクが壊れないよう、`docs/` の中で閉じていることを確かめる。
+- 自動の公開を `develop` だけにするのは、公開サイトが 1 つしかないため。`integration/**` でも公開すると、docs に触れる integration どうしが公開サイトを上書きし合い、順番を待つことになる。integration の上の文書を表示で確かめたいときは、手動実行で公開する。
 - 公開を打ち切らないのは、進行中の公開を途中で止めると、サイトが壊れた状態になりうるため。
 - 配置と出典の検査とリンク検査は、依存を足さずランナーの Node または `python3` で動かす。サイトのビルドと公開は、検査と同じ共通イメージの上で動かし、環境の差で公開だけが落ちるのを避ける。

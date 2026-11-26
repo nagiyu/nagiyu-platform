@@ -16,12 +16,12 @@ sources: []
 | 種類 | 名前 | デプロイ | 目的 |
 |---|---|---|---|
 | 作業ブランチ | 自由 | なし | 個別の作業 |
-| 統合ブランチ | `integration/{issue-number}-{slug}` | dev 環境、docs の公開サイト | Issue 単位で資材を組み立て、dev 環境で検証する |
+| 統合ブランチ | `integration/{issue-number}-{slug}` | dev 環境 | Issue 単位で資材を組み立て、dev 環境で検証する |
 | develop | `develop` | dev 環境、docs の公開サイト | 完成した資材だけが載る、いつでもリリース可能な地点 |
 | release | `release/vX.Y.Z` | なし | リリースの準備 (バージョン更新など) |
 | master | `master` | 本番 | 本番に出ている資材 |
 
-docs の公開サイトは 1 つで、`develop` と `integration/**` の push で更新される (`.github/workflows/docs-pages-deploy.yml`)。integration に積んだ文書は、develop に入る前から公開サイトに出る。振る舞いは [docs の検証と公開](../specs/ci/docs.md) にある。
+docs の公開サイトは 1 つで、`develop` への push で更新される (`.github/workflows/docs-pages-deploy.yml`)。integration に積んだ文書は、develop に入るまで公開サイトに出ない。振る舞いは [docs の検証と公開](../specs/ci/docs.md) にある。
 
 ## 作業ブランチ
 
