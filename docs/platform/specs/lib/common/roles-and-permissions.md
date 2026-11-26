@@ -4,7 +4,7 @@ sources:
   - libs/common/src/auth/roles.ts
   - libs/common/src/auth/permissions.ts
   - libs/common/src/auth/auth-error.ts
-sources_hash: e90e7a50959d0097e0fe3b5131d9d01a71bda03282a835f9b953b29c396c892b
+sources_hash: 8748c60d5b4d1a74643650a01441a90cdfd34523b4b2abaebd14273079b2ae2b
 ---
 
 # ロールと権限
@@ -36,8 +36,7 @@ sources_hash: e90e7a50959d0097e0fe3b5131d9d01a71bda03282a835f9b953b29c396c892b
 | `stock-viewer` | Stock 閲覧者 | `stocks:read` | なし |
 | `stock-user` | Stock ユーザー | `stocks:read`、`stocks:write-own` | なし |
 | `stock-admin` | Stock 管理者 | `stocks:read`、`stocks:write-own`、`stocks:manage-data` | なし |
-| `livetalk-user` | LiveTalk ユーザー | `livetalk:chat` | なし |
-| `livetalk-admin` | LiveTalk 管理者 | `livetalk:chat`、`livetalk:admin` | なし |
+| `livetalk-admin` | LiveTalk 管理者 | `livetalk:admin` | なし |
 | `livetalk-standard` | LiveTalk スタンダード | `livetalk:standard` | `livetalk` / 段 1 |
 | `livetalk-operator` | LiveTalk 運営者 | `livetalk:operator` | なし |
 | `quick-clip-standard` | Quick Clip スタンダード | `quick-clip:standard` | `quick-clip` / 段 1 |
@@ -46,7 +45,6 @@ sources_hash: e90e7a50959d0097e0fe3b5131d9d01a71bda03282a835f9b953b29c396c892b
 | `billing-tester` | 課金のテスト | `billing:test` | なし |
 
 - `Permission` 型には `auth:read` と `auth:write` もあるが、どのロールにも割り当てていない
-- `livetalk-admin` が `livetalk:chat` を含むのは、チャットの権限を要求する処理を管理者も通すため
 - `quick-clip-pro` が `quick-clip:standard` を含むのは、上の段が下の段の権限を含むため
 - `livetalk-operator`、`quick-clip-unlimited`、`billing-tester` は、売らず課金とも結びつけないので `billing` を持たない。`billing-tester` は本番以外の環境でテスト用の決済を始めるためのロールで、管理者の権限とは分けてある
 
@@ -95,7 +93,7 @@ sources_hash: e90e7a50959d0097e0fe3b5131d9d01a71bda03282a835f9b953b29c396c892b
 | `hasAllPermissions` | ロール ID の配列、権限の配列 | すべて持てば `true`。空の配列は `true` |
 
 ```typescript
-const canChat = hasUserPermission(session?.user, 'livetalk:chat');
+const canRead = hasUserPermission(session?.user, 'stocks:read');
 ```
 
 - `hasUserPermission` が `roles` を `unknown` で受けるのは、next-auth の型拡張に依存せず、未ログイン・`roles` 未設定・想定外の型のどれでも例外にしたくないため

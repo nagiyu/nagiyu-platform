@@ -166,7 +166,6 @@
     "specs/livetalk/batch/notify.md",
     "specs/livetalk/flow/conversation.md",
     "specs/livetalk/flow/notification-open.md",
-    "specs/livetalk/screen/forbidden.md",
     "specs/livetalk/screen/home.md",
     "specs/livetalk/screen/memory.md",
     "specs/livetalk/screen/note-detail.md",

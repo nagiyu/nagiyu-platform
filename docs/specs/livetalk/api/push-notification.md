@@ -8,7 +8,7 @@ sources:
   - services/livetalk/web/src/app/api/push/first-word/route.ts
   - services/livetalk/web/src/app/api/push/consumed/route.ts
   - services/livetalk/web/src/app/api/push/test/route.ts
-sources_hash: 4b89134747b2be3ccd7930b5588916ecc1eb697d036c3ed3bff246a705de6061
+sources_hash: c116e62a095948dc3eaeaf4514a33cc929079a0b7da7043ee08dbba38c8e346c
 terms: [livetalk/term/permission, livetalk/term/api-error, livetalk/term/notification-event, livetalk/term/character]
 related_cards: [livetalk/screen/home, livetalk/screen/status, livetalk/api/push, livetalk/batch/notify, livetalk/flow/notification-open]
 related_adr:
@@ -23,9 +23,9 @@ related_adr:
 
 | メソッド | パス | 権限 |
 |---|---|---|
-| GET | `/api/push/pending` | `livetalk:chat` |
-| GET | `/api/push/first-word` | `livetalk:chat` |
-| PATCH | `/api/push/consumed` | `livetalk:chat` |
+| GET | `/api/push/pending` | ログインしていること |
+| GET | `/api/push/first-word` | ログインしていること |
+| PATCH | `/api/push/consumed` | ログインしていること |
 | POST | `/api/push/test` | `livetalk:admin` |
 
 ## 入力と出力
@@ -49,7 +49,7 @@ related_adr:
 | `test` の送信の失敗 | 500 | `SEND_FAILED` |
 | `pending`・`first-word`・`consumed` の失敗 | 500 | `INTERNAL_ERROR` |
 
-- 権限の不足は 401 / 403。形は [API のエラー応答](../term/api-error.md)
+- 未ログインは 401、テスト通知で `livetalk:admin` がなければ 403。形は [API のエラー応答](../term/api-error.md)
 
 ## つながり
 

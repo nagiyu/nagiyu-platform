@@ -10,7 +10,7 @@ sources:
   - services/livetalk/web/src/lib/memory/memory-id.ts
   - services/livetalk/web/src/lib/memory/serializer.ts
   - services/livetalk/core/src/usecases/forget-self-fact.usecase.ts
-sources_hash: 217e19def513ca44dfda872c26b15eb32a7cab30d6bf114f9209107e96edbc18
+sources_hash: 50e47d63b16ebfa0af9e48754b987917d631f8960ee25193adf068b42e2dd31b
 terms: [livetalk/term/permission, livetalk/term/api-error, livetalk/term/self-fact, livetalk/term/topic, livetalk/term/character]
 related_cards: [livetalk/screen/memory, livetalk/batch/consolidate-conversations]
 related_adr:
@@ -25,8 +25,8 @@ related_adr:
 
 | メソッド | パス | 権限 |
 |---|---|---|
-| GET | `/api/memory` | `livetalk:chat` |
-| DELETE | `/api/memory/{id}` | `livetalk:chat` |
+| GET | `/api/memory` | ログインしていること |
+| DELETE | `/api/memory/{id}` | ログインしていること |
 
 ## 入力と出力
 
@@ -46,7 +46,7 @@ related_adr:
 | 読み取りの失敗 | 500 | `FETCH_FAILED` |
 | 削除・要約の作り直しの失敗 | 500 | `DELETE_FAILED` |
 
-- 権限の不足は 401 / 403。形は [API のエラー応答](../term/api-error.md)
+- 未ログインは 401。形は [API のエラー応答](../term/api-error.md)
 
 ## つながり
 

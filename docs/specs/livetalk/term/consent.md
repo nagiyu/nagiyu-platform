@@ -9,7 +9,7 @@ sources:
   - services/livetalk/web/src/app/api/consent/route.ts
   - services/livetalk/web/src/lib/server/consent.ts
   - services/livetalk/web/src/lib/consent/notice.ts
-sources_hash: 38a9c6d303277d6d01ecea9084429766980819b23cc04af84836ca60cd19e5f7
+sources_hash: eee4f1a4439358975e094b88d6c3297f2319b531e3ff0e50648b7d7910cee24e
 related_cards: [livetalk/api/consent, livetalk/api/chat, livetalk/screen/home, livetalk/screen/terms, livetalk/screen/privacy]
 related_adr:
   - services/livetalk/architecture.md#2.9

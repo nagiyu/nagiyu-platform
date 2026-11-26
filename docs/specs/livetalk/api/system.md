@@ -7,7 +7,7 @@ sources:
   - services/livetalk/web/src/app/api/health/route.ts
   - services/livetalk/web/src/app/api/auth/[...nextauth]/route.ts
   - libs/nextjs/src/session.ts
-sources_hash: 4ae0517a9284f84544ef6b240f110352c2d590ce93d37c21197418f879251e29
+sources_hash: c0bb93ce0b444677442670375fc10f6949b38e9d07283fb2d769d42b15e1c380
 terms: [livetalk/term/permission]
 related_cards: [livetalk/screen/home]
 ---
@@ -26,7 +26,7 @@ related_cards: [livetalk/screen/home]
 ## 入力と出力
 
 - 死活確認は `{ status: 'ok', version }` を返す。`version` は環境変数 `APP_VERSION`、なければ `unknown`
-- 認証は next-auth の GET だけを公開し、POST は公開しない。サインアウトは Auth サービスで行う。環境変数 `SKIP_AUTH_CHECK` が `true` のテスト用の設定では、`/api/auth/session` が認証せずにテスト用のセッションを返す。ロールを指定しなければ `livetalk-user`
+- 認証は next-auth の GET だけを公開し、POST は公開しない。サインアウトは Auth サービスで行う。環境変数 `SKIP_AUTH_CHECK` が `true` のテスト用の設定では、`/api/auth/session` が認証せずにテスト用のセッションを返す。ロールを指定しなければ、ロールを持たない
 
 ## エラー
 

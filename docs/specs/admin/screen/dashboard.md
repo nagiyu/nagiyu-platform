@@ -12,7 +12,7 @@ sources:
   - services/admin/web/src/middleware.ts
   - libs/browser/src/push.ts
   - libs/common/src/auth/roles.ts
-sources_hash: 0f2996698f481deb46b0e9ba29d38c2bf046dd074004f5402ba252cd8510a8c2
+sources_hash: 25d9862bb001763e815e350c86cb243c59eb6951aa4a4821a00dd72015583708
 terms: [admin/term/permission, admin/term/push-subscription, platform/term/role]
 related_cards: [admin/screen/errors, admin/api/notify, admin/api/system, admin/flow/push-subscription]
 ---

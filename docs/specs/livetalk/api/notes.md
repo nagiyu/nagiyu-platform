@@ -9,7 +9,7 @@ sources:
   - services/livetalk/web/src/app/api/notes/constants.ts
   - services/livetalk/web/src/lib/notes/serializer.ts
   - services/livetalk/web/src/lib/notes/note-id.ts
-sources_hash: 244192afe7c082e18b099fb8233f24c946b4cc8dcff236de27412c0042b3cd4c
+sources_hash: 018f5ca15af5f3edaa305d0df37aa81fc60f6004238949fd35793623131af35a
 terms: [livetalk/term/permission, livetalk/term/api-error, livetalk/term/note, livetalk/term/topic, livetalk/term/web-fact, livetalk/term/character]
 related_cards: [livetalk/screen/notes, livetalk/screen/note-detail, livetalk/batch/consolidate-conversations]
 related_adr:
@@ -25,8 +25,8 @@ related_adr:
 
 | メソッド | パス | 権限 |
 |---|---|---|
-| GET | `/api/notes` | `livetalk:chat` |
-| GET | `/api/notes/{id}` | `livetalk:chat` |
+| GET | `/api/notes` | ログインしていること |
+| GET | `/api/notes/{id}` | ログインしていること |
 
 ## 入力と出力
 
@@ -46,7 +46,7 @@ related_adr:
 | ノートがない (詳細) | 404 | `NOT_FOUND` |
 | 読み取りの失敗 | 500 | `FETCH_FAILED` |
 
-- 権限の不足は 401 / 403。形は [API のエラー応答](../term/api-error.md)
+- 未ログインは 401。形は [API のエラー応答](../term/api-error.md)
 
 ## つながり
 

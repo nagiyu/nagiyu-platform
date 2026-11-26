@@ -51,7 +51,7 @@ related_adr:
 
 ## 表示の条件
 
-- `livetalk:chat` を持つ利用者だけ ([権限とロール](../term/permission.md))。権限がなければ[権限なし画面](./forbidden.md)へ移る
+- ログインしている利用者なら誰でも ([権限とロール](../term/permission.md))
 - [同意](../term/consent.md)がない間は、同意のダイアログを出し、入力欄を使えなくする
 
 ## 表示するもの
@@ -246,7 +246,7 @@ related_adr:
 
 ### ヘッダーのメニュー
 
-`livetalk:chat` だけを持つ利用者。
+`livetalk:admin` を持たない利用者。
 
 | スマホ |
 |---|

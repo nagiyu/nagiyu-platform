@@ -21,7 +21,6 @@
 | SCR-009 | [ステータス画面](../../specs/livetalk/screen/status.md) | UC-008 | 運用者向け |
 | SCR-010 | [キャラクター選択](../../specs/livetalk/screen/home.md) | - | ホーム画面のダイアログ |
 | SCR-011 | [退会・データ削除](../../specs/livetalk/screen/home.md) | UC-007 | ホーム画面のダイアログ |
-| - | [権限なし画面](../../specs/livetalk/screen/forbidden.md) | - | - |
 
 ### 1.2 画面ごとの設計判断
 

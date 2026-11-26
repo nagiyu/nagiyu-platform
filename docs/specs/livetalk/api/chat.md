@@ -13,7 +13,7 @@ sources:
   - services/livetalk/core/src/repositories/chat-guard-counting.ts
   - services/livetalk/core/src/lib/chat-guard-window.ts
   - libs/aws/src/dynamodb/counter/try-increment-in-order.ts
-sources_hash: 260d853346a7da315f7da9311ded42a24f0606de4b41a74f9074367a84ff84cc
+sources_hash: 45fe4129073ab12d593a3d486b486565b968d3818faae354757990b60694e134
 terms: [livetalk/term/permission, livetalk/term/api-error, livetalk/term/consent, livetalk/term/chat-event, livetalk/term/safety, livetalk/term/character, livetalk/term/topic, livetalk/term/study-topic, livetalk/term/note, livetalk/term/lifecycle, livetalk/term/freshness-check-request]
 related_cards: [livetalk/screen/home, livetalk/flow/conversation, livetalk/batch/consolidate-conversations, livetalk/batch/acquire, admin/flow/error-notification]
 related_adr:
@@ -31,7 +31,7 @@ related_adr:
 
 | メソッド | パス | 権限 |
 |---|---|---|
-| POST | `/api/chat` | `livetalk:chat` ([権限とロール](../term/permission.md)) |
+| POST | `/api/chat` | ログインしていること ([権限とロール](../term/permission.md)) |
 
 ## 入力と出力
 
@@ -90,7 +90,7 @@ flowchart TD
 | 同じ利用者の別の呼び出しが処理中 | 429 | `CONCURRENT_REQUEST` |
 | 1 分または 1 時間の上限を超えた (ロックは外す) | 429 | `RATE_LIMIT_EXCEEDED` |
 
-- 権限の不足は 401 / 403。形は [API のエラー応答](../term/api-error.md)
+- 未ログインは 401。形は [API のエラー応答](../term/api-error.md)
 
 ## つながり
 

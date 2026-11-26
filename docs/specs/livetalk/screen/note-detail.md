@@ -25,7 +25,7 @@ related_adr:
 
 ## 表示の条件
 
-- `livetalk:chat` を持つ利用者だけ ([権限とロール](../term/permission.md))
+- ログインしている利用者なら誰でも ([権限とロール](../term/permission.md))
 
 ## 表示するもの
 

@@ -6,7 +6,7 @@ service: stock-tracker
 sources:
   - libs/common/src/auth/roles.ts
   - libs/nextjs/src/auth.ts
-sources_hash: d3b16e5bf261023707de56a6b06a92f099cd2f84be2aff070fff53e2e212e004
+sources_hash: a5e54ead124c3735e24ea0a15fec96e63c6e2a4990bff8ebb298f45afd883788
 terms: [stock-tracker/term/api-error]
 related_cards: [stock-tracker/api/system, stock-tracker/batch/summary]
 ---

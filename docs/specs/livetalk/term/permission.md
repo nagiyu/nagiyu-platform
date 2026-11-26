@@ -8,33 +8,30 @@ sources:
   - libs/nextjs/src/auth.ts
   - libs/nextjs/src/middleware.ts
   - services/livetalk/web/src/middleware.ts
-sources_hash: ac550ea169ed5b11748f8d234090b48b2e468b0ad2503390831198cc13aab07b
+sources_hash: 9f041c69e7d0bc4a7e58671649767d90a80c5bc1a4ee0fc5262f78b5d91531b1
 terms: [livetalk/term/api-error]
-related_cards: [livetalk/screen/forbidden, livetalk/screen/status, platform/term/role]
+related_cards: [livetalk/screen/status, platform/term/role]
 related_adr:
   - services/livetalk/architecture.md#2.8
 ---
 
 # 権限とロール
 
-リブトークの画面と API は、ログインした利用者のロールが持つ 2 つの権限で、使える操作を分ける。ロールの定義は[ロールと権限の定義](../../platform/term/role.md)にある。
+リブトークは、ログインしていれば誰でも使える。管理者向けの機能だけを、ログインした利用者のロールが持つ権限 `livetalk:admin` で分ける。ロールの定義は[ロールと権限の定義](../../platform/term/role.md)にある。
 
 ## 説明
 
-| 権限 | できること | 持つロール |
-|---|---|---|
-| `livetalk:chat` | 会話、記憶・ノートの閲覧、同意、通知の受け取り、退会など、利用者向けの機能すべて | `livetalk-user`、`livetalk-admin` |
-| `livetalk:admin` | ステータス画面、ステータス API、テスト通知の送信 | `livetalk-admin` |
+| 条件 | できること |
+|---|---|
+| ログインしていること | 会話、記憶・ノートの閲覧、同意、通知の受け取り、退会など、利用者向けの機能すべて |
+| `livetalk:admin` (ロール `livetalk-admin` が持つ) | ステータス画面、ステータス API、テスト通知の送信 |
 
-- `livetalk-admin` は `livetalk:chat` も持つ。利用者向けの機能も使える
-- ページはミドルウェアが `livetalk:chat` を要求する
+- ページはミドルウェアがログインだけを確かめ、権限は見ない
     - 未ログインは、Auth サービスのサインインへ移す
-    - ログイン済みで権限がなければ、`/forbidden?from={元のパス}` へ移す ([権限なし画面](../screen/forbidden.md))
-    - `/legal/` 配下と `/forbidden` は、権限の判定をしない
-- `/api` 配下はミドルウェアを通らず、各 API が自分で判定する。未ログインは 401 (`UNAUTHORIZED`)、権限がなければ 403 (`FORBIDDEN`)。本文の形は [API のエラー応答](./api-error.md)
+    - `/legal/` 配下は、ログインしていなくても開ける
+- `/api` 配下はミドルウェアを通らず、各 API が自分で判定する。未ログインは 401 (`UNAUTHORIZED`)、`livetalk:admin` を求める API で権限がなければ 403 (`FORBIDDEN`)。本文の形は [API のエラー応答](./api-error.md)
 - ステータス画面は、ミドルウェアが通したあと、画面自身が `livetalk:admin` を確かめる。持たなければ「アクセス権限がありません」を出す
 
 ## 関連するカード
 
-- [権限なし画面](../screen/forbidden.md)
 - [ステータス画面](../screen/status.md)

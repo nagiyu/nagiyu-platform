@@ -6,7 +6,7 @@ service: platform
 sources:
   - libs/common/src/auth/roles.ts
   - libs/common/src/auth/permissions.ts
-sources_hash: fbcaf32e34ff851ed55901e8627eb9471fcac35c84f22f06ca202782ee5a16c0
+sources_hash: 2f4327012f620bd60f9bbd4d676a78e1b080b0306229069b708b7f06d492eb05
 related_cards: [auth/screen/user-edit, auth/api/users, auth/term/plan-tier]
 ---
 
@@ -23,8 +23,7 @@ related_cards: [auth/screen/user-edit, auth/api/users, auth/term/plan-tier]
 | `stock-viewer` | Stock 閲覧者 | `stocks:read` | |
 | `stock-user` | Stock ユーザー | `stocks:read`、`stocks:write-own` | |
 | `stock-admin` | Stock 管理者 | `stocks:read`、`stocks:write-own`、`stocks:manage-data` | |
-| `livetalk-user` | LiveTalk ユーザー | `livetalk:chat` | |
-| `livetalk-admin` | LiveTalk 管理者 | `livetalk:chat`、`livetalk:admin` | |
+| `livetalk-admin` | LiveTalk 管理者 | `livetalk:admin` | |
 | `livetalk-standard` | LiveTalk スタンダード | `livetalk:standard` | 有料ロール |
 | `livetalk-operator` | LiveTalk 運営者 | `livetalk:operator` | 手動ロール。課金とは結びつけない |
 | `quick-clip-standard` | Quick Clip スタンダード | `quick-clip:standard` | 有料ロール (下の段) |
@@ -35,7 +34,7 @@ related_cards: [auth/screen/user-edit, auth/api/users, auth/term/plan-tier]
 - 権限の名前は `{リソース}:{操作}`。利用者の権限は、持っているロールの権限を足し合わせたもの。知らないロール ID は権限を持たないものとして扱う
 - 有料ロールは、サービスごとの[段](../../auth/term/plan-tier.md)を表し、課金の権利として付けられる。それ以外のロールは手動で付ける。有料ロールを手動ロールに入れることはできない
 - ロールの付け方は 2 つある。管理者が手動で付けるロールと、[課金の権利](../../auth/term/role-grant.md)として付くロール。利用者のロールは両方を合わせたものになる
-- 画面と API は、ロールではなく権限で通すかを決める。サービスごとの権限は、各サービスの権限のカード ([Admin](../../admin/term/permission.md)、[Stock Tracker](../../stock-tracker/term/permission.md)) と、Auth の画面・API のカードにある
+- 画面と API は、ロールではなく権限で通すかを決める。サービスごとの権限は、各サービスの権限のカード ([Admin](../../admin/term/permission.md)、[Stock Tracker](../../stock-tracker/term/permission.md)、[LiveTalk](../../livetalk/term/permission.md)) と、Auth の画面・API のカードにある
 
 ## 関連するカード
 

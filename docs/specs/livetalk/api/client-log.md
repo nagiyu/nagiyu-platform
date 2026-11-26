@@ -7,7 +7,7 @@ sources:
   - services/livetalk/web/src/app/api/client-log/route.ts
   - services/livetalk/web/src/app/api/client-log/constants.ts
   - services/livetalk/web/src/lib/client-logger.ts
-sources_hash: 90583ca50dda99a8dc5fbc83340b6b6e3637cd7afdad7c62246918365fb3e4a8
+sources_hash: a636812261b75a213bf50674425047dc528265d7eb2b43f1d372037cfc387e11
 terms: [livetalk/term/permission, livetalk/term/api-error]
 related_cards: [livetalk/screen/home, admin/flow/error-notification]
 ---
@@ -20,7 +20,7 @@ related_cards: [livetalk/screen/home, admin/flow/error-notification]
 
 | メソッド | パス | 権限 |
 |---|---|---|
-| POST | `/api/client-log` | `livetalk:chat` |
+| POST | `/api/client-log` | ログインしていること |
 
 ## 入力と出力
 
@@ -44,7 +44,7 @@ related_cards: [livetalk/screen/home, admin/flow/error-notification]
 |---|---|---|
 | 本文が JSON のオブジェクトでない、項目が条件に合わない | 400 | `INVALID_REQUEST` |
 
-- 権限の不足は 401 / 403。形は [API のエラー応答](../term/api-error.md)
+- 未ログインは 401。形は [API のエラー応答](../term/api-error.md)
 
 ## つながり
 

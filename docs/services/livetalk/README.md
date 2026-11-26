@@ -52,7 +52,7 @@ MVP（Phase 0〜5）が完成しており、描画・音声・AI 統合・記憶
 - **バッチ**: EventBridge Scheduler + Lambda（Topic 集約 / Web 取得 / 通知 / 活動時間学習、各独立）
 - **キャラ**: 桃瀬ひより（Live2D 公式サンプル）+ VOICEVOX 冥鳴ひまり（speaker=14）
 - **LLM**: OpenAI GPT-4o / GPT-4o-mini（用途別振り分け）、要約・分類は Structured Outputs
-- **認可**: 既存 RBAC（`livetalk:chat` / `livetalk:admin`）
+- **認可**: ログインしていれば誰でも使える。管理機能だけを既存 RBAC の `livetalk:admin` で分ける
 
 設計の理由は [architecture.md](./architecture.md)、今の挙動は[仕様カード](../../specs/README.md)を参照。
 

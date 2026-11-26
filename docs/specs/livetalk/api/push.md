@@ -8,7 +8,7 @@ sources:
   - services/livetalk/web/src/app/api/push/vapid-public-key/route.ts
   - libs/nextjs/src/push.ts
   - libs/common/src/push-subscription/endpoint.ts
-sources_hash: bd9fb60716caecceb6ae247fa787913aab8d6971c3c3af8229c42e5f64e8496f
+sources_hash: 9f5846f185e4b6f543c5815cd339d0d98b0ea14413371c5d7aba685f477b3228
 terms: [livetalk/term/permission, livetalk/term/api-error]
 related_cards: [livetalk/screen/home, livetalk/batch/notify, livetalk/api/push-notification]
 related_adr:
@@ -24,7 +24,7 @@ related_adr:
 | メソッド | パス | 権限 |
 |---|---|---|
 | GET | `/api/push/vapid-public-key` | なし |
-| POST | `/api/push/subscribe` | `livetalk:chat` |
+| POST | `/api/push/subscribe` | ログインしていること |
 
 ## 入力と出力
 
@@ -41,7 +41,7 @@ related_adr:
 | VAPID の鍵が設定されていない、保存の失敗 | 500 | `INTERNAL_ERROR` |
 | 公開鍵が設定されていない | 500 | `INTERNAL_ERROR` |
 
-- 権限の不足は 401 / 403。形は [API のエラー応答](../term/api-error.md)。これらの 500 は Admin へ報告する
+- 未ログインは 401。形は [API のエラー応答](../term/api-error.md)。これらの 500 は Admin へ報告する
 
 ## つながり
 

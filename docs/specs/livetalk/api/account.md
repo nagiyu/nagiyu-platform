@@ -7,7 +7,7 @@ sources:
   - services/livetalk/web/src/app/api/account/route.ts
   - services/livetalk/web/src/app/api/account/constants.ts
   - services/livetalk/core/src/repositories/dynamodb-account-deletion.repository.ts
-sources_hash: 7085fa97f68f0202c2e4e047caac7168adc37ed0bb3e5f5a566060c3e22ccca6
+sources_hash: e379ea1749491aacbb10ab5bdcbfecb9098cade30902d5630d4159409827c4a0
 terms: [livetalk/term/permission, livetalk/term/api-error, livetalk/term/safety]
 related_cards: [livetalk/screen/home]
 related_adr:
@@ -22,7 +22,7 @@ related_adr:
 
 | メソッド | パス | 権限 |
 |---|---|---|
-| DELETE | `/api/account` | `livetalk:chat` |
+| DELETE | `/api/account` | ログインしていること |
 
 ## 入力と出力
 
@@ -37,7 +37,7 @@ related_adr:
 |---|---|---|
 | 削除の失敗 | 500 | `DELETE_FAILED` |
 
-- 権限の不足は 401 / 403。形は [API のエラー応答](../term/api-error.md)
+- 未ログインは 401。形は [API のエラー応答](../term/api-error.md)
 
 ## つながり
 

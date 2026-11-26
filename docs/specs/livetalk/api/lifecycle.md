@@ -7,7 +7,7 @@ sources:
   - services/livetalk/web/src/app/api/lifecycle/route.ts
   - services/livetalk/core/src/lifecycle/state-resolver.ts
   - services/livetalk/core/src/constants.ts
-sources_hash: 028b12fb9f3069b6a014bf61f504a6f2cd3f44d1ee0616b380d5bc712b8da310
+sources_hash: fcae0a4562c8b0f7df48b44b3c8a2e02665243d64d2431bc661af4138a149905
 terms: [livetalk/term/permission, livetalk/term/api-error, livetalk/term/lifecycle, livetalk/term/character]
 related_cards: [livetalk/screen/home, livetalk/api/chat]
 related_adr:
@@ -22,7 +22,7 @@ related_adr:
 
 | メソッド | パス | 権限 |
 |---|---|---|
-| GET | `/api/lifecycle` | `livetalk:chat` |
+| GET | `/api/lifecycle` | ログインしていること |
 
 ## 入力と出力
 
@@ -32,7 +32,7 @@ related_adr:
 ## エラー
 
 - 読み取りに失敗しても 500 にせず、`awake` を返す。失敗は Admin へ報告する ([API のエラー応答](../term/api-error.md))
-- 権限の不足は 401 / 403
+- 未ログインは 401
 
 ## つながり
 

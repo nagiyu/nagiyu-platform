@@ -6,7 +6,7 @@ service: admin
 sources:
   - libs/common/src/auth/roles.ts
   - libs/common/src/auth/permissions.ts
-sources_hash: fbcaf32e34ff851ed55901e8627eb9471fcac35c84f22f06ca202782ee5a16c0
+sources_hash: 2f4327012f620bd60f9bbd4d676a78e1b080b0306229069b708b7f06d492eb05
 terms: [admin/term/api-error]
 related_cards: [admin/screen/dashboard, admin/screen/errors, admin/screen/error-detail, admin/api/errors, admin/api/notify]
 ---
