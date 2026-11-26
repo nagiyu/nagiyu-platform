@@ -13,7 +13,7 @@ sources: []
 - 承認済みのメンバーが、共有リストを削除できる。リストの ToDo も消える。削除すると、リストが一覧から消え、別のリストがあればそこへ移る
 - 承認済みのメンバーが、共有リストの中で ToDo を追加・タイトルの編集・完了と未完了の切り替え・削除できる。タイトルは 1〜200 文字。完了にした人が記録される
 - 操作の成功と失敗を、利用者に知らせる
-- 承認済みでない人が API を直接呼んでも、拒否する ([アクセス制御](../non-functional/access-control.md))
+- 承認済みでない人の扱いは[アクセス制御](../non-functional/access-control.md)にある
 - 個人リストと共有リストの操作を同じにして、利用者の体験を揃える ([個人リスト](personal-list.md))
 
 今の挙動は[共有リスト](../../specs/term/shared-list.md)、[共有リスト API](../../specs/api/group-lists.md)、[共有 ToDo API](../../specs/api/group-todos.md)、[リスト画面](../../specs/screen/lists.md)にある。

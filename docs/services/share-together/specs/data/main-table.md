@@ -9,8 +9,14 @@ sources:
   - services/share-together/core/src/repositories/todo/todo-item-mapper.ts
   - services/share-together/core/src/repositories/membership/dynamodb-membership-repository.ts
   - services/share-together/core/src/repositories/user/dynamodb-user-repository.ts
+  - services/share-together/core/src/repositories/list/dynamodb-list-repository.ts
+  - services/share-together/core/src/repositories/todo/dynamodb-todo-repository.ts
+  - services/share-together/core/src/repositories/group/dynamodb-group-repository.ts
   - libs/aws/src/dynamodb/validators.ts
-sources_hash: 2311088c5198cdb9c29250d6da4a224f2f7228ac9a4fa85aaeafdf1b0fa01b78
+  - libs/aws/src/dynamodb/batch.ts
+  - libs/aws/src/dynamodb/pagination.ts
+  - libs/aws/src/dynamodb/store/entity-store-support.ts
+sources_hash: 8499a259e9dbc2b4b188bf8a4f46b2556b998efeeb0753d3f8e2203b868634e5
 ---
 
 # Share Together のテーブル
@@ -33,7 +39,7 @@ Share Together のデータをすべて保存する DynamoDB の 1 つのテー�
 | prod | 残す |
 
 - 名前は[Web の実行環境](../resource/web-runtime.md)の環境変数 `DYNAMODB_TABLE_NAME` で渡す
-- prod は、スタックを削除してもテーブルとデータが残る。テーブルの名前は固定なので、残ったテーブルがあるままスタックを作り直すと、名前が衝突して失敗する。dev は、スタックを削除するとデータも消える
+- prod は、スタックを削除してもテーブルとデータが残る。dev は、スタックを削除するとデータも消える
 - スタックは `NagiyuShareTogetherDynamoDB{Env}`
 
 ## キー設計
@@ -61,7 +67,7 @@ Share Together のデータをすべて保存する DynamoDB の 1 つのテー�
 | 利用者の 1 件 | PK と SK を指定した GetItem。複数件は BatchGetItem |
 | メールアドレスから利用者 | `GSI2` の Query。`GSI2PK` が一致する 1 件 |
 | 利用者の個人リストの全件 | PK が `USER#{利用者 ID}` で、SK が `PLIST#` で始まるものの Query |
-| グループの 1 件 | PK と SK を指定した GetItem |
+| グループの 1 件 | PK と SK を指定した GetItem。複数件 (グループの一覧、招待の一覧) は BatchGetItem |
 | グループのメンバーシップの全件 | PK が `GROUP#{グループ ID}` で、SK が `MEMBER#` で始まるものの Query |
 | グループの共有リストの全件 | PK が `GROUP#{グループ ID}` で、SK が `GLIST#` で始まるものの Query |
 | リストの ToDo の全件 | PK が `LIST#{リスト ID}` で、SK が `TODO#` で始まるものの Query |
@@ -70,7 +76,7 @@ Share Together のデータをすべて保存する DynamoDB の 1 つのテー�
 
 - `GSI1` は `GSI1SK` を条件に使わない。利用者の全メンバーシップを引き、必要なら状態で絞る
 - `GSI2` はメールアドレスの完全一致だけで引く。名前の部分一致で引く手段は持たない
-- どの取得も Query か GetItem で、Scan は使わない
+- どの取得も GetItem、BatchGetItem、Query のいずれかで、Scan は使わない
 - 読むときは、現在の名前の属性がなければ、旧い形式の属性名 (先頭が小文字の `groupId` など) と、ISO 文字列の時刻も受け付ける。新しい名前と旧い名前が併存するときは、新しい名前を優先する。書くときは旧い名前の属性を消す
 
 ## 項目
@@ -147,7 +153,8 @@ Share Together のデータをすべて保存する DynamoDB の 1 つのテー�
 
 ## 理由
 
-- すべての種類を 1 つのテーブルに置き、インデックス 2 つですべての取得を満たす。取得は、親の ID (利用者・グループ・リスト) を PK に、種類を SK の接頭辞に持たせれば、1 回の Query で引ける。逆向きの取得は、利用者から所属グループと招待を引く `GSI1` と、メールアドレスから利用者を引く `GSI2` で足りる。3 つ目のインデックスは、PK と SK の形を工夫すれば要らない
+- プラットフォームの既存サービスと同じシングルテーブルの型にそろえ、すべての種類を 1 つのテーブルに置く。エンティティごとにテーブルを分ける案は、プラットフォームの標準から外れるため採らない
+- インデックス 2 つですべての取得を満たす。取得は、親の ID (利用者・グループ・リスト) を PK に、種類を SK の接頭辞に持たせれば、1 回の Query で引ける。逆向きの取得は、利用者から所属グループと招待を引く `GSI1` と、メールアドレスから利用者を引く `GSI2` で足りる。3 つ目のインデックスは、PK と SK の形を工夫すれば要らない
 - 招待を別の種類にせず、状態 `PENDING` のメンバーシップとして持つ ([招待](../term/invitation.md))。受け取った招待は `GSI1` で引ける
 - `GSI2PK` はメールアドレスを小文字にして作り、`Email` はログインのとき登録した表記のまま持つ。手で入れるアドレスは表記がゆれ、区別すると登録済みの利用者を見つけられないため ([グループメンバー API](../api/group-members.md))
 - `GSI2PK` は、ブラウザのセッションごとに行う利用者の登録の更新 ([起動時の流れ](../flow/session-start.md)) で、`Email` から付け直される。キーの作り方を変えるときは、既存の利用者のキーが付け直されるまで、新しいキーでは引けない。既存データの表記を確かめてから、移行が要るかを決める

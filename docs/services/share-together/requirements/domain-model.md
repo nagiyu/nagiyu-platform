@@ -31,14 +31,14 @@ flowchart TD
     todo[ToDo]
     user -- "持つ (1..多)" --> personal
     user -- "結び付く (0..多)" --> membership
-    group -- "持つ (1..5)" --> membership
+    group -- "持つ (0..多)" --> membership
     membership -- "招待中のとき" --> invitation
     group -- "持つ (0..多)" --> shared
     personal -- "持つ (0..多)" --> todo
     shared -- "持つ (0..多)" --> todo
 ```
 
-- 1 人の利用者は、デフォルトの個人リストを必ず 1 つ持つ。デフォルトのリストは削除できない ([個人リスト](functional/personal-list.md))
-- グループの人数は、オーナーを含めて 5 名まで。作った利用者が、承認済みのオーナーとして最初のメンバーシップになる ([グループ](functional/group.md))
+- 1 人の利用者は、デフォルトの個人リストを必ず 1 つ持つ ([個人リスト](functional/personal-list.md))
+- グループは、作った利用者を、承認済みのオーナーの最初のメンバーシップとして持つ。グループの人数は、オーナーを含めて 5 名までに制限する ([グループ](functional/group.md))。拒否済み・期限切れの招待の記録も、メンバーシップとして残りうる
 - 招待は独立したデータを持たず、招待中のメンバーシップが招待の役を務める。応じると承認済み、断ると拒否済みになる ([招待](functional/invitation.md))
-- 共有リストを操作できるのは、承認済みのメンバーシップを持つ利用者だけである。立場 (オーナーかメンバーか) による違いはない ([共有リスト](functional/shared-list.md))
+- 共有リストを使えるのは、承認済みのメンバーシップを持つ利用者である。操作の権限は[共有リスト](functional/shared-list.md)と[アクセス制御](non-functional/access-control.md)にある

@@ -25,7 +25,7 @@ sources_hash: 9731791da53c82fbd1cd41c91637215c4baa4331be80deb1dfeb196ad89eda22
 
 - 死活確認は `{ status: 'ok', service: 'share-together', version, timestamp }` を返す。`version` は環境変数 `APP_VERSION`、なければ `1.0.0`
 - 認証は next-auth の `handlers` の GET だけを公開する。POST は公開しない。サインアウトは Cookie の発行元である Auth が受ける
-    - GET は、`createClientSessionGetHandler` で包まず、`handlers` の GET をそのまま出す。[認証の規約](../../../../platform/rules/authentication.md)が、GET を包む決まりの例外として挙げている。そのため、環境変数 `SKIP_AUTH_CHECK` が `true` のテスト用の設定でも、この経路はテスト用のセッションを返さない
+    - GET は、`createClientSessionGetHandler` で包まず、`handlers` の GET をそのまま出す。そのため、環境変数 `SKIP_AUTH_CHECK` が `true` のテスト用の設定でも、この経路はテスト用のセッションを返さない。包まないことは[認証の規約](../../../../platform/rules/authentication.md)が例外として挙げている
 - テスト用の初期化は、環境変数 `USE_IN_MEMORY_DB` が `true` のときだけ動き、メモリ上のデータを空にする
     - POST は本文の `users`、`groups`、`memberships`、`personalLists`、`groupLists`、`todos` をこの順に登録し直す。本文がなければ空にするだけ
     - DELETE は空にするだけ
@@ -43,7 +43,7 @@ sources_hash: 9731791da53c82fbd1cd41c91637215c4baa4331be80deb1dfeb196ad89eda22
 
 ## 理由
 
-- POST を公開しない。サインアウトは Cookie の発行元である Auth に集約していて、Consumer が受けると内部ホスト名 (`ip-10-x-x-x.ec2.internal`) へのリダイレクトで `ERR_NAME_NOT_RESOLVED` になるため。GET は `/api/auth/session` を返すので残す
+- POST を公開しない。サインアウトは Cookie の発行元である Auth に集約する。理由は[認証の規約](../../../../platform/rules/authentication.md)にある。GET は `/api/auth/session` を返すので残す
 
 ## つながり
 

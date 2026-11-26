@@ -10,8 +10,8 @@ Auth の SSO でログインした人が、再ログインなしで Share Togeth
 
 - Auth でログイン済みの利用者が、Share Together で再ログインせずに使える
 - Share Together は、Auth が発行したログインの JWT を検証するだけで、ログインの仕組みを持たない ([認証の規約](../../../../platform/rules/authentication.md))
-- ログインしていない人が画面を開いたときは、Auth のサインインへ送る。API は 401 を返す ([API のエラー応答](../../specs/term/api-error.md))
-- 初めて使うときに、利用者として登録し、デフォルトの個人リストを 1 つ作る。登録は、ブラウザのセッションごとに画面を開いたときに行う ([ユーザー API](../../specs/api/users.md)、[起動時の流れ](../../specs/flow/session-start.md))
+- ログインしていない人の扱いは[アクセス制御](../non-functional/access-control.md)にある
+- 初めて使うときに、利用者として登録し、デフォルトの個人リストを 1 つ作る。登録の方法は[ユーザー API](../../specs/api/users.md)と[起動時の流れ](../../specs/flow/session-start.md)にある
 - 登録済みの利用者は、登録のたびにメールアドレス・名前・画像をログインの内容で更新する。リストは増やさない
 - 利用者として登録されると、メールアドレスでグループに招待される対象になる ([招待](invitation.md))
 
