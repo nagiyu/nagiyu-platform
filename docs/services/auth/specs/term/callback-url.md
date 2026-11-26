@@ -7,7 +7,7 @@ sources:
   - services/auth/web/src/lib/billing-urls.ts
   - services/auth/web/src/lib/auth/auth.ts
   - services/auth/web/src/app/signin/page.tsx
-sources_hash: 117a06e0e6306202618412d3b3b7fced1bc71fa4727960ca73f80df7099cabde
+sources_hash: 32d88e867531ab6cd8aec7a6d3e067e75820ff3693007d1e5566fc5cecd57984
 ---
 
 # 戻り先 (callbackUrl)
@@ -22,7 +22,7 @@ sources_hash: 117a06e0e6306202618412d3b3b7fced1bc71fa4727960ca73f80df7099cabde
 |---|---|
 | サインインのあと ([サインインの経路](../flow/sign-in.md)) | Auth のトップ |
 | [権限更新画面](../screen/refresh.md) | Auth のトップ |
-| ログイン済みで[サインイン画面](../screen/signin.md)を開いたとき | `/dashboard` (戻り先がサインイン画面自身のときも) |
+| ログイン済みで[サインイン画面](../screen/signin.md)を開いたとき (`error` が付いていれば移さない) | `/dashboard` (戻り先がサインイン画面自身のときも) |
 | [サインアウト確認画面](../screen/signout.md)のキャンセル | `/dashboard` |
 | [プラン画面](../screen/plans.md)と[課金 API](../api/billing.md) | 無いものとして扱う |
 

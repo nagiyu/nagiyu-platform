@@ -29,9 +29,21 @@ jest.mock('@nagiyu/nextjs', () => ({
 
 describe('PUT /api/holdings/[id]', () => {
   const mockUpdate = jest.fn();
+  const mockGetHoldingById = jest.fn();
   const mockGetTickerById = jest.fn();
 
   const holdingId = 'test-user#NSDQ:AAPL';
+
+  const existingHolding = {
+    userId: 'test-user',
+    tickerId: 'NSDQ:AAPL',
+    exchangeId: 'NSDQ',
+    quantity: 10,
+    averagePrice: 150,
+    currency: 'USD',
+    createdAt: 1704067200000,
+    updatedAt: 1704067200000,
+  };
 
   const createRequest = (rawBody: string) =>
     new NextRequest('http://localhost/api/holdings/test-user%23NSDQ%3AAAPL', {
@@ -44,7 +56,11 @@ describe('PUT /api/holdings/[id]', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    (createHoldingRepository as jest.Mock).mockReturnValue({ update: mockUpdate });
+    mockGetHoldingById.mockResolvedValue(existingHolding);
+    (createHoldingRepository as jest.Mock).mockReturnValue({
+      getById: mockGetHoldingById,
+      update: mockUpdate,
+    });
     (createTickerRepository as jest.Mock).mockReturnValue({ getById: mockGetTickerById });
   });
 
@@ -98,6 +114,58 @@ describe('PUT /api/holdings/[id]', () => {
     expect(body.message).toBe('保有株式が見つかりません');
     expect(mockGetTickerById).not.toHaveBeenCalled();
     expect(awsModule.reportErrorEvent).not.toHaveBeenCalled();
+  });
+
+  it('既存の保有株式が存在しない場合は 404 を返し、更新しない', async () => {
+    mockGetHoldingById.mockResolvedValue(null);
+
+    const response = await PUT(
+      createRequest(JSON.stringify({ quantity: 20 })),
+      createParams(holdingId)
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(404);
+    expect(body.error).toBe('NOT_FOUND');
+    expect(body.message).toBe('保有株式が見つかりません');
+    expect(mockGetHoldingById).toHaveBeenCalledWith('test-user', 'NSDQ:AAPL');
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['quantity が 0', { quantity: 0 }],
+    ['quantity が負', { quantity: -1 }],
+    ['quantity が上限超え', { quantity: 1000000000.0001 }],
+    ['averagePrice が 0', { averagePrice: 0 }],
+    ['averagePrice が負', { averagePrice: -1 }],
+    ['averagePrice が上限超え', { averagePrice: 1000000.01 }],
+    ['未対応の通貨', { currency: 'EUR' }],
+  ])('範囲外: %s の場合は 400 と details を返し、更新しない', async (_label, updates) => {
+    const response = await PUT(createRequest(JSON.stringify(updates)), createParams(holdingId));
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.error).toBe('INVALID_REQUEST');
+    expect(body.message).toBe('入力データが不正です');
+    expect(Array.isArray(body.details)).toBe(true);
+    expect(body.details.length).toBeGreaterThan(0);
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['quantity の下限 0.0001', { quantity: 0.0001 }],
+    ['quantity の上限 1,000,000,000', { quantity: 1000000000 }],
+    ['averagePrice の下限 0.01', { averagePrice: 0.01 }],
+    ['averagePrice の上限 1,000,000', { averagePrice: 1000000 }],
+    ['通貨 JPY', { currency: 'JPY' }],
+  ])('境界値: %s は更新できる', async (_label, updates) => {
+    mockUpdate.mockResolvedValue({ ...existingHolding, ...updates });
+    mockGetTickerById.mockResolvedValue({ symbol: 'AAPL', name: 'Apple Inc.' });
+
+    const response = await PUT(createRequest(JSON.stringify(updates)), createParams(holdingId));
+
+    expect(response.status).toBe(200);
+    expect(mockUpdate).toHaveBeenCalledWith('test-user', 'NSDQ:AAPL', updates);
   });
 
   it('更新する項目がない場合は 400 を返す', async () => {

@@ -36,7 +36,7 @@ sources_hash: ab239a18ac305c7201e196c7aac5b83c23e47704a5086c0d29bcd4fa27bb2ecc
 
 | 操作 | 結果 |
 |---|---|
-| サインアウト | CSRF トークンを付けて `/api/auth/signout` へ POST する。セッションの Cookie を消し、控えた戻り先へ移る ([システム系の API](../api/system.md)) |
+| サインアウト | CSRF トークンを付けて `/api/auth/signout` へ POST する。セッションの Cookie を消し、控えた戻り先へ移る ([システム系の API](../api/system.md))。CSRF トークンの照合に失敗したときは、サインアウトせずに[サインイン画面](./signin.md)へ `?error=MissingCSRF` を付けて戻す |
 | キャンセル | サインアウトせずに戻り先を開く |
 
 ## 画面の見た目

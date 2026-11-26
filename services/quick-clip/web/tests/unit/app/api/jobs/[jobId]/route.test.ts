@@ -72,6 +72,45 @@ describe('GET /api/jobs/[jobId]', () => {
     expect(batchSend).not.toHaveBeenCalled();
   });
 
+  it('正常系: ジョブに durationSec があるときだけ応答に含める', async () => {
+    mockGetJob.mockResolvedValue({
+      jobId: 'job-1',
+      originalFileName: 'movie.mp4',
+      fileSize: 100,
+      durationSec: 125.5,
+      createdAt: 1,
+      expiresAt: 2,
+    });
+
+    const response = await GET(mockRequest, {
+      params: Promise.resolve({ jobId: 'job-1' }),
+    });
+
+    expect(await response.json()).toEqual(expect.objectContaining({ durationSec: 125.5 }));
+  });
+
+  it('正常系: Batch 起動後のジョブでも durationSec を含め、無ければ含めない', async () => {
+    batchSend.mockResolvedValue({ jobs: [{ status: 'SUCCEEDED' }] });
+    const base = {
+      jobId: 'job-1',
+      batchJobId: 'batch-1',
+      originalFileName: 'movie.mp4',
+      fileSize: 100,
+      createdAt: 1,
+      expiresAt: 2,
+    };
+
+    mockGetJob.mockResolvedValue({ ...base, durationSec: 60 });
+    const withDuration = await GET(mockRequest, { params: Promise.resolve({ jobId: 'job-1' }) });
+    expect(await withDuration.json()).toEqual(expect.objectContaining({ durationSec: 60 }));
+
+    mockGetJob.mockResolvedValue(base);
+    const withoutDuration = await GET(mockRequest, {
+      params: Promise.resolve({ jobId: 'job-1' }),
+    });
+    expect(await withoutDuration.json()).not.toHaveProperty('durationSec');
+  });
+
   it('正常系: Batch状態がRUNNINGの場合はstatus=PROCESSINGとbatchStageを返す', async () => {
     mockGetJob.mockResolvedValue({
       jobId: 'job-2',

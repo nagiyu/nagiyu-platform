@@ -32,13 +32,10 @@ export async function fetchSelfFacts(characterId?: string): Promise<SelfFactList
 
 /**
  * SELF fact を決定的に削除する（忘却）。
- * characterId を渡すと選択中キャラの記憶に絞り込む（省略時は API 側既定）。
+ * 対象キャラクターは id に含まれるため、問い合わせでは指定しない。
  */
-export async function deleteSelfFact(id: string, characterId?: string): Promise<void> {
-  const params = new URLSearchParams();
-  if (characterId) params.set('characterId', characterId);
-  const query = params.size > 0 ? `?${params.toString()}` : '';
-  const res = await fetch(`/api/memory/${encodeURIComponent(id)}${query}`, {
+export async function deleteSelfFact(id: string): Promise<void> {
+  const res = await fetch(`/api/memory/${encodeURIComponent(id)}`, {
     method: 'DELETE',
   });
   if (!res.ok) {

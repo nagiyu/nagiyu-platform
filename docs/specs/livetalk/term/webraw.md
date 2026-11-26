@@ -6,7 +6,7 @@ service: livetalk
 sources:
   - services/livetalk/core/src/entities/webraw.entity.ts
   - services/livetalk/core/src/constants.ts
-sources_hash: 8ea70c1279c89f7a0c4c910abaef0b5a8e3e5dbce13ac847fae996f8b4348c60
+sources_hash: 76051eb785f068be493840e2964c1ba7c20a4ae0cb55a1dda4da0a4ad0d69b85
 terms: [livetalk/term/web-fact]
 related_cards: [livetalk/batch/acquire, livetalk/batch/consolidate-conversations]
 related_adr:

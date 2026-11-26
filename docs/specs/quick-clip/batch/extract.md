@@ -20,7 +20,7 @@ sources:
   - infra/quick-clip/lib/monitoring-stack.ts
   - libs/aws/src/error-events/with-error-reporting.ts
   - libs/aws/src/error-events/report.ts
-sources_hash: 67d7961599ce1ec1ef931b2212e85f260e0f7efd1b0dbc28618e0bc594ecbb60
+sources_hash: a4b1880107a0c56d34077c9b9e7c6113467e08da77d22c10a592e2f74f3a7f90
 terms: [quick-clip/term/job, quick-clip/term/highlight, quick-clip/term/job-definition-size, quick-clip/term/ai-analysis, quick-clip/term/transcript]
 related_cards: [quick-clip/api/jobs, quick-clip/flow/extraction, quick-clip/flow/usage-metering, quick-clip/screen/job-status, quick-clip/batch/clip-regenerate, admin/flow/error-notification, admin/batch/alarm-ingest]
 related_adr:
@@ -72,7 +72,7 @@ flowchart TD
 | 手順 | 内容 |
 |---|---|
 | ② 取得 | `uploads/{JOB_ID}/input.mp4` を `/tmp/quick-clip/{JOB_ID}/input.mp4` に保存する。S3 に見つからなければ、3 秒おきにやり直す。ほかの失敗は「動画ファイルのダウンロードに失敗しました」の前置きで例外 |
-| ③ 長さ | ジョブを読む (なければ例外)。FFmpeg の出力から動画の長さを読む。読めなければ 10 秒とする。ジョブに `maxDurationSec` があり、長さがそれを超えていれば、文字起こしの前に止める (下の「失敗したとき」)。続ける場合は、解析の内訳 (`analysisProgress`) の初期値を書く |
+| ③ 長さ | ジョブを読む (なければ例外)。FFmpeg の出力から動画の長さを読む。読めなければ解析には 10 秒を使う。ジョブに `maxDurationSec` があり、長さがそれを超えていれば、文字起こしの前に止める (下の「失敗したとき」)。続ける場合は、長さを読めていればジョブの `durationSec` をその長さで上書きし (見どころの時刻の上限に使うため。ジョブ定義は投入の前に選び済み。読めなかったときの 10 秒は書かない)、解析の内訳 (`analysisProgress`) の初期値を書く |
 | ④ 映像 | 10 分ごとのチャンクに分け、4 並列で FFmpeg の場面転換 (`scene` が 0.2 を超えるフレーム) を取る。1 点が (秒、場面転換の強さ)。暗転と白転 (`blackdetect`、画素のしきい値 0.10、継続時間の下限なし) の区間にある点は捨てる |
 | ④ 音量 | 10 分ごとのチャンクに分け、4 並列で FFmpeg の `astats` から、フレームごとの RMS を取る。振幅 (`10^(RMS/20)`) を強さとする。秒が取れないものは捨てる |
 | ④ 文字起こし | [AI 解析](../term/ai-analysis.md)のときだけ。音声を 16 kHz の mono、32 kbps の MP3 にし、FFmpeg の無音検出 (-35 dB 以下が 0.5 秒以上) で発話の区間に分ける。0.3 秒未満の区間は捨て、前後に 0.2 秒の余白を足し、30 秒を超える区間は等分する。区間ごとに `gpt-transcribe` (日本語) で行にし、区間の開始と終了を行の時刻にする ([文字起こし](../term/transcript.md))。同時に送るのは 5 区間まで。1 回の呼び出しは、タイムアウト 60 秒、再試行 3 回 (間隔は 1 秒から倍ずつ)。1 区間でも失敗したら、残りの区間は送らず、走っている区間の終わりを待って文字起こしを失敗にする |

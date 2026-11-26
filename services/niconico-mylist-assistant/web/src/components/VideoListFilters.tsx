@@ -94,7 +94,7 @@ export default function VideoListFilters({
           value={inputKeyword}
           onChange={(event) => setInputKeyword(event.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="動画タイトルで検索"
+          placeholder="タイトル・動画 ID で検索"
           fullWidth
         />
         <Button variant="solid" size="sm" onClick={handleSearch}>
