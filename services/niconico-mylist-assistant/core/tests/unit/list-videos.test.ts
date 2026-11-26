@@ -407,6 +407,104 @@ describe('listVideosWithSettings', () => {
     expect(result.videos[0].videoId).toBe('sm1');
   });
 
+  it('検索キーワードで動画IDの部分一致でも絞り込める', async () => {
+    const mockVideos = [
+      {
+        PK: 'VIDEO#sm12345',
+        SK: 'VIDEO#sm12345',
+        Type: 'VIDEO',
+        VideoID: 'sm12345',
+        Title: '曲A',
+        ThumbnailURL: 'https://example.com/x.jpg',
+        Length: '3:00',
+        CreatedAt: 1704067200000,
+      },
+      {
+        PK: 'VIDEO#sm99999',
+        SK: 'VIDEO#sm99999',
+        Type: 'VIDEO',
+        VideoID: 'sm99999',
+        Title: '曲B',
+        ThumbnailURL: 'https://example.com/x.jpg',
+        Length: '3:00',
+        CreatedAt: 1704067200000,
+      },
+    ];
+
+    ddbMock.on(QueryCommand).resolves({ Items: [] });
+    ddbMock.on(ScanCommand).resolves({ Items: mockVideos });
+
+    const result = await listVideosWithSettings('user123', { searchKeyword: '1234' });
+
+    expect(result.videos.map((v) => v.videoId)).toEqual(['sm12345']);
+    expect(result.total).toBe(1);
+  });
+
+  it('動画IDの検索は大文字小文字を区別しない', async () => {
+    const mockVideos = [
+      {
+        PK: 'VIDEO#sm12345',
+        SK: 'VIDEO#sm12345',
+        Type: 'VIDEO',
+        VideoID: 'sm12345',
+        Title: '曲A',
+        ThumbnailURL: 'https://example.com/x.jpg',
+        Length: '3:00',
+        CreatedAt: 1704067200000,
+      },
+      {
+        PK: 'VIDEO#sm99999',
+        SK: 'VIDEO#sm99999',
+        Type: 'VIDEO',
+        VideoID: 'sm99999',
+        Title: '曲B',
+        ThumbnailURL: 'https://example.com/x.jpg',
+        Length: '3:00',
+        CreatedAt: 1704067200000,
+      },
+    ];
+
+    ddbMock.on(QueryCommand).resolves({ Items: [] });
+    ddbMock.on(ScanCommand).resolves({ Items: mockVideos });
+
+    const result = await listVideosWithSettings('user123', { searchKeyword: 'SM12' });
+
+    expect(result.videos.map((v) => v.videoId)).toEqual(['sm12345']);
+  });
+
+  it('タイトルにも動画IDにも一致しない動画は除外される', async () => {
+    const mockVideos = [
+      {
+        PK: 'VIDEO#sm12345',
+        SK: 'VIDEO#sm12345',
+        Type: 'VIDEO',
+        VideoID: 'sm12345',
+        Title: '曲A',
+        ThumbnailURL: 'https://example.com/x.jpg',
+        Length: '3:00',
+        CreatedAt: 1704067200000,
+      },
+      {
+        PK: 'VIDEO#sm99999',
+        SK: 'VIDEO#sm99999',
+        Type: 'VIDEO',
+        VideoID: 'sm99999',
+        Title: '曲B',
+        ThumbnailURL: 'https://example.com/x.jpg',
+        Length: '3:00',
+        CreatedAt: 1704067200000,
+      },
+    ];
+
+    ddbMock.on(QueryCommand).resolves({ Items: [] });
+    ddbMock.on(ScanCommand).resolves({ Items: mockVideos });
+
+    const result = await listVideosWithSettings('user123', { searchKeyword: 'nomatch' });
+
+    expect(result.videos).toHaveLength(0);
+    expect(result.total).toBe(0);
+  });
+
   it('検索キーワードと既存フィルタをAND条件で適用できる', async () => {
     const mockSettings = [
       {
