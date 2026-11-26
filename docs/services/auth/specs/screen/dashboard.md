@@ -1,17 +1,12 @@
 ---
-id: auth/screen/dashboard
-title: ダッシュボード画面
-kind: screen
-service: auth
 sources:
   - services/auth/web/src/app/page.tsx
   - services/auth/web/src/app/dashboard/page.tsx
   - libs/common/src/auth/roles.ts
+  - libs/common/src/auth/permissions.ts
   - services/auth/web/src/lib/auth/session.ts
   - libs/nextjs/src/session.ts
-sources_hash: ec82571b0e77f32de29d4660ac0f98bd5f3bafce2a37fdf2262d95533167e811
-terms: [platform/term/role, auth/term/session-roles]
-related_cards: [auth/screen/users, auth/screen/plans, auth/screen/signin]
+sources_hash: 74fac4fe27e20a3f0754420bd092a06c8a80aa73cfaa43eca0762bd38d9fb152
 ---
 
 # ダッシュボード画面
@@ -27,7 +22,7 @@ related_cards: [auth/screen/users, auth/screen/plans, auth/screen/signin]
 ## 表示の条件
 
 - ログインしていれば、権限がなくても開ける
-- 「管理機能」のカードは `users:read` を持つ利用者にだけ出す ([ロールと権限](../../platform/term/role.md))
+- 「管理機能」のカードは `users:read` を持つ利用者にだけ出す ([ロールと権限](../../../../platform/specs/lib/common/roles-and-permissions.md))
 
 ## 表示するもの
 
@@ -55,7 +50,7 @@ related_cards: [auth/screen/users, auth/screen/plans, auth/screen/signin]
 
 | スマホ | PC |
 |---|---|
-| ![ダッシュボード画面 通常表示 (`admin`) (スマホ)](../../../images/specs/auth/screen/dashboard-default-mobile.png) | ![ダッシュボード画面 通常表示 (`admin`) (PC)](../../../images/specs/auth/screen/dashboard-default-desktop.png) |
+| ![ダッシュボード画面 通常表示 (`admin`) (スマホ)](../../../../images/specs/auth/screen/dashboard-default-mobile.png) | ![ダッシュボード画面 通常表示 (`admin`) (PC)](../../../../images/specs/auth/screen/dashboard-default-desktop.png) |
 
 ### ユーザー管理の権限がないとき (`stock-viewer`)
 
@@ -63,7 +58,7 @@ related_cards: [auth/screen/users, auth/screen/plans, auth/screen/signin]
 
 | スマホ | PC |
 |---|---|
-| ![ダッシュボード画面 ユーザー管理の権限がないとき (`stock-viewer`) (スマホ)](../../../images/specs/auth/screen/dashboard-no-admin-menu-mobile.png) | ![ダッシュボード画面 ユーザー管理の権限がないとき (`stock-viewer`) (PC)](../../../images/specs/auth/screen/dashboard-no-admin-menu-desktop.png) |
+| ![ダッシュボード画面 ユーザー管理の権限がないとき (`stock-viewer`) (スマホ)](../../../../images/specs/auth/screen/dashboard-no-admin-menu-mobile.png) | ![ダッシュボード画面 ユーザー管理の権限がないとき (`stock-viewer`) (PC)](../../../../images/specs/auth/screen/dashboard-no-admin-menu-desktop.png) |
 
 
 ## つながり

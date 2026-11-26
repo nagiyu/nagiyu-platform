@@ -1,8 +1,4 @@
 ---
-id: auth/flow/sign-in
-title: サインインの経路
-kind: flow
-service: auth
 sources:
   - libs/nextjs/src/middleware.ts
   - libs/nextjs/src/auth-config.ts
@@ -14,12 +10,6 @@ sources:
   - services/auth/web/src/app/signin/page.tsx
   - services/auth/web/src/app/auth/error/page.tsx
 sources_hash: ff9fb290cc2b98e3bee9ffead7e24e2d6cb1870d43a3c725fd3a4081a6cd0a7e
-terms: [auth/term/callback-url, auth/term/session-roles, platform/term/role]
-related_cards: [auth/screen/signin, auth/screen/auth-error, auth/screen/signout, auth/screen/refresh, auth/api/system, admin/flow/error-notification]
-related_adr:
-  - services/auth/architecture.md#4.1 OAuth 認証フロー
-  - services/auth/architecture.md#4.4 他サービスとの認証共有
-  - services/auth/architecture.md#5.2 ユーザーライフサイクル
 ---
 
 # サインインの経路
@@ -28,9 +18,9 @@ related_adr:
 
 ## 起点
 
-- ログインが要る画面を未ログインで開く。各サービスのミドルウェア (`createAuthMiddleware`) が、Auth のサインイン画面 (`NEXT_PUBLIC_AUTH_URL` の `/signin`) へ、`callbackUrl=<開いた画面>` を付けてリダイレクトする
-    - 戻り先の既定は、環境変数 `APP_URL` があれば `{APP_URL}{パス}{検索語}`、なければパスだけ。Auth 自身は常にパスと検索語 (相対パス)
-- ログインが任意のサービスは、画面の中の導線から `buildSignInUrl` で同じサインイン画面へ送る
+- ログインが要る画面を未ログインで開く。各サービスのミドルウェア ([認証ミドルウェア](../../../../platform/specs/lib/nextjs/auth-middleware.md)) が、Auth のサインイン画面 (`NEXT_PUBLIC_AUTH_URL` の `/signin`) へ、`callbackUrl=<開いた画面>` を付けてリダイレクトする
+    - 戻り先の既定は認証ミドルウェアの仕様にある。Auth 自身は常にパスと検索語 (相対パス)
+- ログインが任意のサービスは、画面の中の導線から `buildSignInUrl` ([auth サービスへの URL](../../../../platform/specs/lib/ui/auth-urls.md)) で同じサインイン画面へ送る
 - ログイン済みの利用者がサインイン画面を開いたときは、ボタンを出さず、検証した戻り先 (無い・許可されない値は `/dashboard`) へ移す。この検証は ④ と同じ規則で、画面の中で行う
 
 ## 経路
@@ -60,8 +50,8 @@ sequenceDiagram
 | ④ 戻り先の検証 | 同一オリジン、または nagiyu.com とそのサブドメインの絶対 URL と、Auth 内の相対パスを通す。相対パスは絶対 URL にする。通らない値は Auth のトップ (`/`。そこからダッシュボード) にする。[戻り先](../term/callback-url.md)を参照 |
 | ⑦ ユーザーの保存 | Google のアカウント ID で探す。いなければ手動ロールなしで作り、いれば名前と画像を更新する。メールアドレスと名前が Google から返らなければサインインを拒否する |
 | ⑧ ロールの取得 | 手動ロールと、有効な課金の権利のロールを合わせた[セッションのロール](../term/session-roles.md)を JWT に入れる。最終ログイン時刻も更新する |
-| ⑨ Cookie | `.nagiyu.com` (dev は `.dev.nagiyu.com`) 全体で共有する。戻り先の Cookie も同様で、環境ごとに名前を分ける |
-| ⑩ 再訪 | 各サービスは JWT の署名だけを検証してロールを読む。Auth へ問い合わせない |
+| ⑨ Cookie | `.nagiyu.com` (dev は `.dev.nagiyu.com`) 全体で共有する。戻り先の Cookie も同様で、環境ごとに名前を分ける ([NextAuth の設定](../../../../platform/specs/lib/nextjs/auth-config.md)) |
+| ⑩ 再訪 | 各サービスは JWT を `AUTH_SECRET` で復号して検証し、ロールを読む。Auth へ問い合わせない |
 
 - サインアウトは逆向きで、各サービスが `/api/auth/signout?callbackUrl=` へ送り、[サインアウト確認画面](../screen/signout.md)で確認してから Cookie を消す
 - 管理者がロールを変えても、利用者の JWT はすぐには変わらない。[権限更新画面](../screen/refresh.md)かセッションの再取得で受け取る
@@ -80,7 +70,7 @@ sequenceDiagram
 | ログイン時のユーザー情報の取得に失敗 | 例外が認証ライブラリに握られてログインに失敗する。Admin のエラー履歴へ報告する |
 | 戻り先が許可されない | Auth のトップへ戻す (失敗にはしない) |
 
-- 報告は[エラー通知の経路](../../admin/flow/error-notification.md)の「アプリの報告」にあたり、`serviceId` は `auth`
+- 報告は[エラー通知の経路](../../../../specs/admin/flow/error-notification.md)の「アプリの報告」にあたり、`serviceId` は `auth`
 
 ## つながり
 

@@ -1,18 +1,10 @@
 ---
-id: auth/screen/refresh
-title: 権限更新画面
-kind: screen
-service: auth
 sources:
   - services/auth/web/src/app/refresh/page.tsx
   - services/auth/web/src/lib/refresh-callback.ts
   - services/auth/web/src/lib/navigate.ts
   - services/auth/web/src/lib/auth/auth.ts
 sources_hash: 4ee3e91dcba4dcb67edd4b6b251ee9f63194303cb2651796a196f2869edb1536
-terms: [auth/term/session-roles, auth/term/callback-url]
-related_cards: [auth/flow/billing-entitlement, auth/screen/plans, auth/screen/users]
-related_adr:
-  - services/auth/architecture.md#ADR-008
 ---
 
 # 権限更新画面
@@ -22,7 +14,7 @@ related_adr:
 ## 入口
 
 - パスは `/refresh?callbackUrl=<戻る先>`。次のところから来る
-    - 各画面の「アクセス権限がありません」の「アクセスを更新」
+    - 各画面の「アクセス権限がありません」([共通の権限なしの画面](../../../../platform/specs/lib/ui/feedback-views.md)) の「アクセスを更新」
     - 決済を終えたあとのプラン画面 ([課金の経路](../flow/billing-entitlement.md))
 - ログインが要る (ミドルウェアが未ログインをサインインへ送る)
 
@@ -48,7 +40,7 @@ related_adr:
 
 | スマホ | PC |
 |---|---|
-| ![権限更新画面 更新中 (スマホ)](../../../images/specs/auth/screen/refresh-refreshing-mobile.png) | ![権限更新画面 更新中 (PC)](../../../images/specs/auth/screen/refresh-refreshing-desktop.png) |
+| ![権限更新画面 更新中 (スマホ)](../../../../images/specs/auth/screen/refresh-refreshing-mobile.png) | ![権限更新画面 更新中 (PC)](../../../../images/specs/auth/screen/refresh-refreshing-desktop.png) |
 
 ### 更新できたとき
 
@@ -56,7 +48,7 @@ related_adr:
 
 | スマホ | PC |
 |---|---|
-| ![権限更新画面 更新できたとき (スマホ)](../../../images/specs/auth/screen/refresh-done-mobile.png) | ![権限更新画面 更新できたとき (PC)](../../../images/specs/auth/screen/refresh-done-desktop.png) |
+| ![権限更新画面 更新できたとき (スマホ)](../../../../images/specs/auth/screen/refresh-done-mobile.png) | ![権限更新画面 更新できたとき (PC)](../../../../images/specs/auth/screen/refresh-done-desktop.png) |
 
 
 ## つながり
@@ -69,3 +61,9 @@ flowchart TD
     J --> D[(ユーザーテーブル)]
     R --> B[戻り先]
 ```
+
+## 理由
+
+- 認証ライブラリ (next-auth v5) の `update()` は、引数なしで呼ぶと GET になり、ロールを再取得させる `trigger: 'update'` が発火しない。引数つきで呼んで POST にする。引数の中身はサーバー側で読まない
+- `SessionProvider` の読み込み中 (`status === 'loading'`) に `update()` を呼ぶと、内部で即 return して何も起きない。そのため読み込みが終わってから呼ぶ。どちらかを欠くと再取得が効かず、ロールの TTL が切れるまで反映されない
+- 読み込み状態の変化で処理が複数回走っても更新は 1 回にするため、実行済みの印を持つ

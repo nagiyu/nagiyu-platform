@@ -1,8 +1,4 @@
 ---
-id: auth/flow/billing-entitlement
-title: 契約がロールになる経路
-kind: flow
-service: auth
 sources:
   - services/auth/web/src/app/plans/page.tsx
   - services/auth/web/src/app/api/billing/webhook/route.ts
@@ -15,13 +11,6 @@ sources:
   - services/auth/core/src/billing/checkout.ts
   - libs/common/src/auth/role-grants.ts
 sources_hash: db3df53829a683997a2ebea08c57c39b671ebdbd167951b57e8e29e771a89fec
-terms: [auth/term/role-grant, auth/term/plan-tier, auth/term/session-roles, platform/term/role]
-related_cards: [auth/screen/plans, auth/screen/refresh, auth/api/billing, auth/api/billing-webhook, auth/screen/user-edit]
-related_adr:
-  - services/auth/architecture.md#ADR-001
-  - services/auth/architecture.md#ADR-006
-  - services/auth/architecture.md#ADR-007
-  - services/auth/architecture.md#ADR-008
 ---
 
 # 契約がロールになる経路
@@ -55,7 +44,7 @@ flowchart TD
 | ⑤ 権利の期限 | 契約の今の請求期間の終わり + 3 日 |
 | ⑤ 権利の作り方 | 有料ロールごとに、期限が最も遅い契約 (同じなら契約 ID の小さい方) の 1 件にそろえる。今ある有効な Stripe 由来の権利は、契約が残っていれば期限と契約 ID を更新し、なければ取り消す。契約はあるが権利がなければ作る。手動の権利には触れない |
 | ⑤ 書き込み | 読んだときの更新日時を条件にして書く。競合したらユーザーも Stripe も読み直してやり直す (最大 3 回)。変化がなければ書かない |
-| ⑥ 再取得 | Auth がセッションを読むときに、ログイン時、前回から 5 分を過ぎたとき、`/refresh` の更新のときに DB から読み直す。[セッションのロール](../term/session-roles.md)を参照 |
+| ⑥ 再取得 | ログイン時、前回から 5 分を過ぎたとき、`/refresh` の更新のときに、Auth がセッションを読む際に DB から読み直す。[セッションのロール](../term/session-roles.md)を参照 |
 
 - 申し込み前に、Stripe の顧客がなければ作ってユーザーに保存する。顧客のメタデータにユーザー ID を持たせる ([課金 API](../api/billing.md))
 - 決済直後は、通知より先に戻ることがあるので、プラン画面が同期してから `/refresh` へ送る。戻り先は `callbackUrl` か、プラン画面
@@ -63,7 +52,7 @@ flowchart TD
 
 ## 届く先
 
-- ユーザーテーブルの課金の権利 (`roleGrants`)
+- ユーザーテーブルの課金の権利 (属性 `RoleGrants`。[ユーザーテーブル](../data/users.md))
 - 利用者の JWT のロール。各サービスは有料ロールの権限を確かめるだけで出し分ける
 
 ## 失敗・取りこぼしのとき
@@ -84,3 +73,14 @@ flowchart TD
     D --> J[Auth のセッション<br/>ロールの再取得]
     J --> O[各サービス<br/>JWT のロール]
 ```
+
+## 理由
+
+- 課金をロールの入口の一つとして扱う。Consumer (Auth 以外のサービス) は課金を知らず、有料ロールの権限を確かめるだけで機能を出し分ける。Stripe とやり取りするのは Auth だけになり、サービスごとに Stripe の状態の解釈がばらつかない。ロールの伝わり方の制約 (剥奪が遅れて反映される) は、課金もそのまま受ける ([セッションのロール](../term/session-roles.md))
+- Stripe の通知は合図としてだけ使い、毎回 Stripe から取り直して権利を上書きする。通知は配信の順序が保証されず、重複して届くことがあり、処理に失敗すると最大 3 日間再送される。中身を届いた順に適用すると、順序の入れ替わりや重複で Stripe の状態と食い違う。取り直せば、重複・順序の入れ替わり・取りこぼし後の再送のどれでも最終的に Stripe と一致し、通知の ID を記録して重複を除く仕組みが要らない。代わりに、通知のたびに Stripe への問い合わせが発生する。受け口は署名を検証してから処理する
+- どの有料ロールが付くかは、契約の品目の価格の `lookup_key` で決め、`lookup_key` を有料ロール ID と同じ文字列にそろえる。対応表を持たずに済み、プランと有料ロールの対応を Stripe の管理画面で変えられる。商品の機能 (Entitlements) は使わない。プランの画面の価格の取得も同じ `lookup_key` を使うので、ロールとの対応が 1 か所にまとまる
+- 通知の受け口を Auth に置く。利用者と課金の権利を持つのが Auth で、通知を受けて権利を書き換えるのも Auth の責務だから
+- 決済直後は、プラン画面が同期してから `/refresh` へ送る。直接 `/refresh` に戻すと、Stripe の通知より先に着いたとき、まだ権利がなくロールが切り替わらない
+- 通知の顧客 ID からユーザーを引く索引は持たない。Stripe の顧客のメタデータの `userId` でユーザーを引き、そのユーザーが同じ顧客 ID を持つかを照合する。同期のたびに顧客の取得が 1 回増えるだけで、ユーザーテーブルの定義を変えずに済む
+- 権利は、Stripe を読む前に読んだユーザーの更新日時を条件にして書く (楽観ロック。最大 `ROLES_AND_GRANTS_MAX_ATTEMPTS` 回)。競合したら、ユーザーと Stripe の両方を読み直してやり直す。Stripe を読んでいる間に別の通知が新しい状態を書いたとき、古い読み取りで上書きしないため
+- Stripe 由来の権利の期限を、請求期間の終わり + 3 日 (`GRACE_PERIOD_MS`、`services/auth/core/src/billing/sync.ts`) にする。期限がないと、解約の通知を取りこぼしたとき有料ロールが無期限に残り、「最終的に Stripe と一致する」を満たせない。猶予の 3 日は Stripe の通知の再送期間に合わせた。更新の通知を取りこぼすと払っている利用者の権利が期限で切れうるので、ログイン中の利用者がプラン画面を開いたときにも取り直して同期する

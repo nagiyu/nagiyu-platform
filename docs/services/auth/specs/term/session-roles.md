@@ -1,18 +1,9 @@
 ---
-id: auth/term/session-roles
-title: セッションのロール
-kind: term
-service: auth
 sources:
   - services/auth/web/src/lib/auth/auth.ts
   - libs/nextjs/src/auth-config.ts
   - libs/common/src/auth/role-grants.ts
 sources_hash: f088a5d1d9f3e4cff088edb670379dceb5e0dc1bd549be6eeee30502d7519163
-terms: [platform/term/role, auth/term/role-grant]
-related_cards: [auth/flow/sign-in, auth/flow/billing-entitlement, auth/screen/refresh, auth/screen/dashboard]
-related_adr:
-  - services/auth/architecture.md#ADR-008
-  - services/auth/architecture.md#4.3 セッション管理
 ---
 
 # セッションのロール
@@ -21,16 +12,18 @@ related_adr:
 
 ## 説明
 
-- ログイン時に、手動ロールと有効な[課金の権利](./role-grant.md)のロールを合わせて入れる (権利の期限は、この算出のときだけ判定する)
+- ログイン時に、手動ロールと有効な[課金の権利](./role-grant.md)のロールを合わせて入れる (権利の期限は、この算出のときだけ判定する。算出は[課金の権利 (共通ライブラリ)](../../../../platform/specs/lib/common/role-grants.md)にある)
 - Auth がセッションを読むとき、次のどれかで DB から読み直す
     - 前回の取得から 5 分を過ぎている
     - `/refresh` が更新を起こした ([権限更新画面](../screen/refresh.md))
 - 読み直したとき、ユーザーが DB にいなければロールを空にする。DB の読み取りが失敗したときは、今のロールを残して Admin のエラー履歴へ報告する
 - Auth 以外のサービスは、JWT を読むだけで DB を読み直さない。ロールの変更や権利の期限切れは、利用者が Auth を通る (再ログインや `/refresh`) まで、そのサービスに届かないことがある
-- セッションの有効期間は 30 日
+- セッションの有効期間は 30 日 ([NextAuth の設定](../../../../platform/specs/lib/nextjs/auth-config.md))
 
-## 関連するカード
+## 理由
 
-- [サインインの経路](../flow/sign-in.md): ログイン時に入れる
-- [契約がロールになる経路](../flow/billing-entitlement.md): 契約の変化が届くしくみ
-- [権限更新画面](../screen/refresh.md): 読み直しを起こす
+- ロールを JWT に入れる。各サービスが毎回 DB を参照せずに権限を判定でき、ステートレスで速い。代わりに、DB のロールの変更がすぐには反映されない。この欠点は、Auth が DB から読み直すことで補う
+- 読み直すのを Auth に集める。Auth 以外のサービスは DB を参照せず、共有 Cookie (同じドメイン・同じ `AUTH_SECRET`) を読むだけにする。読み直した最新のロールは Cookie に再発行され、全サービスに伝わる
+- ロールの降格 (剥奪) は即時に反映されない。降格されたユーザーの Cookie には権限が残るので、403 にならず、権限なしの画面も出ない。反映は、利用者が Auth のドメインを通る (`/refresh` を経由する、または 5 分を過ぎたあとに Auth へリクエストする) か、セッションの期限 (30 日) まで遅れる。課金の権利の期限切れ・解約も同じで、期限が過ぎた権利や取り消された権利のロールは、Auth が有効なロールを算出し直すまで JWT に残る
+- この遅れを許容する。漏れはおおむね「解約後にもう 1 か月使える」程度に収まり、そのために、全サービスが使う共通ライブラリのセッションの扱いを変えるほどではない。期限切れの判定は、Auth が有効なロールを算出するときだけ行い、JWT には期限を載せない
+- 付与の方向 (申し込み直後) は遅れない。プラン画面が Stripe から契約を取り直してから `/refresh` へ送るので、元のサービスへ戻った時点で反映されている ([契約がロールになる経路](../flow/billing-entitlement.md))

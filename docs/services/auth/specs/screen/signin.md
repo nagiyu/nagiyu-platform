@@ -1,18 +1,10 @@
 ---
-id: auth/screen/signin
-title: サインイン画面
-kind: screen
-service: auth
 sources:
   - services/auth/web/src/app/signin/page.tsx
   - services/auth/web/src/middleware.ts
   - services/auth/web/src/lib/auth/auth.ts
   - services/auth/web/src/lib/callback-url.ts
 sources_hash: 3d9b3127476426aa84795dabbefbbf95bba0aed358a3e9c266f0bae5b16dd4fb
-terms: [auth/term/callback-url]
-related_cards: [auth/flow/sign-in, auth/screen/auth-error, auth/screen/dashboard]
-related_adr:
-  - services/auth/architecture.md#4.1 OAuth 認証フロー
 ---
 
 # サインイン画面
@@ -47,7 +39,7 @@ Google アカウントでサインインするためのボタンを 1 つ置い�
 
 ## ログイン済みのとき
 
-有効なセッションの Cookie (期限内で署名が正しい JWT) があれば、画面を描かずに次の行き先へリダイレクトする。期限切れや壊れた Cookie は未ログインとして扱う。この判定は認証のスキップ設定 (E2E や撮影で使うもの) の影響を受けない。
+有効なセッションの Cookie (期限内で、`AUTH_SECRET` で復号・検証できる JWT) があれば、画面を描かずに次の行き先へリダイレクトする。期限切れや壊れた Cookie は未ログインとして扱う。この判定は認証のスキップ設定 (E2E や撮影で使うもの) の影響を受けない。
 
 | 戻り先 | 移す先 |
 |---|---|
@@ -66,7 +58,7 @@ Google でサインインするボタンだけの画面。
 
 | スマホ | PC |
 |---|---|
-| ![サインイン画面 通常表示 (スマホ)](../../../images/specs/auth/screen/signin-default-mobile.png) | ![サインイン画面 通常表示 (PC)](../../../images/specs/auth/screen/signin-default-desktop.png) |
+| ![サインイン画面 通常表示 (スマホ)](../../../../images/specs/auth/screen/signin-default-mobile.png) | ![サインイン画面 通常表示 (PC)](../../../../images/specs/auth/screen/signin-default-desktop.png) |
 
 
 ## つながり

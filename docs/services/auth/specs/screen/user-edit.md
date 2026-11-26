@@ -1,8 +1,4 @@
 ---
-id: auth/screen/user-edit
-title: ユーザー編集画面
-kind: screen
-service: auth
 sources:
   - services/auth/web/src/app/dashboard/users/[userId]/edit/page.tsx
   - services/auth/web/src/app/dashboard/users/[userId]/edit/user-edit-form.tsx
@@ -11,14 +7,12 @@ sources:
   - services/auth/web/src/lib/role-grant-editing.ts
   - services/auth/web/src/lib/stripe-customer-client.ts
   - libs/common/src/auth/roles.ts
+  - libs/common/src/auth/permissions.ts
+  - services/auth/web/src/lib/stripe-customer-unlink.ts
+  - services/auth/web/src/app/api/users/[userId]/stripe-customer/route.ts
   - services/auth/web/src/lib/manual-roles.ts
   - libs/common/src/auth/role-grants.ts
-sources_hash: fae0666194923c4814330241d5712726855ea221c9f6ba3a392aa69aa4b58272
-terms: [platform/term/role, auth/term/role-grant, auth/term/api-error]
-related_cards: [auth/screen/users, auth/api/users, auth/flow/billing-entitlement]
-related_adr:
-  - services/auth/architecture.md#ADR-002
-  - services/auth/architecture.md#ADR-003
+sources_hash: f895f6aa4944997e077ac080b47144e59a9d2c92975b5f9b3c61530fbe4925bb
 ---
 
 # ユーザー編集画面
@@ -32,7 +26,7 @@ related_adr:
 
 ## 表示の条件
 
-- `roles:assign` を持つ利用者だけ。権限がなければ URL を変えずに「アクセス権限がありません」を出し、ユーザーは読まない ([ロールと権限](../../platform/term/role.md))。`users:read` だけでは開けない
+- `roles:assign` を持つ利用者だけ。権限がなければ URL を変えずに「アクセス権限がありません」を出し、ユーザーは読まない ([ロールと権限](../../../../platform/specs/lib/common/roles-and-permissions.md))。`users:read` だけでは開けない
 
 ## 表示するもの
 
@@ -78,7 +72,7 @@ related_adr:
 
 | スマホ | PC |
 |---|---|
-| ![ユーザー編集画面 通常表示 (スマホ)](../../../images/specs/auth/screen/user-edit-default-mobile.png) | ![ユーザー編集画面 通常表示 (PC)](../../../images/specs/auth/screen/user-edit-default-desktop.png) |
+| ![ユーザー編集画面 通常表示 (スマホ)](../../../../images/specs/auth/screen/user-edit-default-mobile.png) | ![ユーザー編集画面 通常表示 (PC)](../../../../images/specs/auth/screen/user-edit-default-desktop.png) |
 
 ### 権利も Stripe の顧客もないとき
 
@@ -86,7 +80,7 @@ related_adr:
 
 | スマホ | PC |
 |---|---|
-| ![ユーザー編集画面 権利も Stripe の顧客もないとき (スマホ)](../../../images/specs/auth/screen/user-edit-no-grants-mobile.png) | ![ユーザー編集画面 権利も Stripe の顧客もないとき (PC)](../../../images/specs/auth/screen/user-edit-no-grants-desktop.png) |
+| ![ユーザー編集画面 権利も Stripe の顧客もないとき (スマホ)](../../../../images/specs/auth/screen/user-edit-no-grants-mobile.png) | ![ユーザー編集画面 権利も Stripe の顧客もないとき (PC)](../../../../images/specs/auth/screen/user-edit-no-grants-desktop.png) |
 
 ### 保存前の変更があるとき
 
@@ -94,7 +88,7 @@ related_adr:
 
 | スマホ | PC |
 |---|---|
-| ![ユーザー編集画面 保存前の変更があるとき (スマホ)](../../../images/specs/auth/screen/user-edit-pending-changes-mobile.png) | ![ユーザー編集画面 保存前の変更があるとき (PC)](../../../images/specs/auth/screen/user-edit-pending-changes-desktop.png) |
+| ![ユーザー編集画面 保存前の変更があるとき (スマホ)](../../../../images/specs/auth/screen/user-edit-pending-changes-mobile.png) | ![ユーザー編集画面 保存前の変更があるとき (PC)](../../../../images/specs/auth/screen/user-edit-pending-changes-desktop.png) |
 
 ### 権利の追加の入力が足りないとき
 
@@ -102,7 +96,7 @@ related_adr:
 
 | スマホ | PC |
 |---|---|
-| ![ユーザー編集画面 権利の追加の入力が足りないとき (スマホ)](../../../images/specs/auth/screen/user-edit-add-error-mobile.png) | ![ユーザー編集画面 権利の追加の入力が足りないとき (PC)](../../../images/specs/auth/screen/user-edit-add-error-desktop.png) |
+| ![ユーザー編集画面 権利の追加の入力が足りないとき (スマホ)](../../../../images/specs/auth/screen/user-edit-add-error-mobile.png) | ![ユーザー編集画面 権利の追加の入力が足りないとき (PC)](../../../../images/specs/auth/screen/user-edit-add-error-desktop.png) |
 
 ### 顧客との対応を外す確認
 
@@ -110,7 +104,7 @@ related_adr:
 
 | スマホ | PC |
 |---|---|
-| ![ユーザー編集画面 顧客との対応を外す確認 (スマホ)](../../../images/specs/auth/screen/user-edit-unlink-dialog-mobile.png) | ![ユーザー編集画面 顧客との対応を外す確認 (PC)](../../../images/specs/auth/screen/user-edit-unlink-dialog-desktop.png) |
+| ![ユーザー編集画面 顧客との対応を外す確認 (スマホ)](../../../../images/specs/auth/screen/user-edit-unlink-dialog-mobile.png) | ![ユーザー編集画面 顧客との対応を外す確認 (PC)](../../../../images/specs/auth/screen/user-edit-unlink-dialog-desktop.png) |
 
 ### 保存に失敗したとき
 
@@ -118,7 +112,7 @@ related_adr:
 
 | スマホ | PC |
 |---|---|
-| ![ユーザー編集画面 保存に失敗したとき (スマホ)](../../../images/specs/auth/screen/user-edit-save-error-mobile.png) | ![ユーザー編集画面 保存に失敗したとき (PC)](../../../images/specs/auth/screen/user-edit-save-error-desktop.png) |
+| ![ユーザー編集画面 保存に失敗したとき (スマホ)](../../../../images/specs/auth/screen/user-edit-save-error-mobile.png) | ![ユーザー編集画面 保存に失敗したとき (PC)](../../../../images/specs/auth/screen/user-edit-save-error-desktop.png) |
 
 ### ユーザーがいないとき
 
@@ -126,7 +120,7 @@ related_adr:
 
 | スマホ | PC |
 |---|---|
-| ![ユーザー編集画面 ユーザーがいないとき (スマホ)](../../../images/specs/auth/screen/user-edit-not-found-mobile.png) | ![ユーザー編集画面 ユーザーがいないとき (PC)](../../../images/specs/auth/screen/user-edit-not-found-desktop.png) |
+| ![ユーザー編集画面 ユーザーがいないとき (スマホ)](../../../../images/specs/auth/screen/user-edit-not-found-mobile.png) | ![ユーザー編集画面 ユーザーがいないとき (PC)](../../../../images/specs/auth/screen/user-edit-not-found-desktop.png) |
 
 ### 権限がないとき (`user-manager`)
 
@@ -134,7 +128,7 @@ related_adr:
 
 | スマホ | PC |
 |---|---|
-| ![ユーザー編集画面 権限がないとき (`user-manager`) (スマホ)](../../../images/specs/auth/screen/user-edit-access-denied-mobile.png) | ![ユーザー編集画面 権限がないとき (`user-manager`) (PC)](../../../images/specs/auth/screen/user-edit-access-denied-desktop.png) |
+| ![ユーザー編集画面 権限がないとき (`user-manager`) (スマホ)](../../../../images/specs/auth/screen/user-edit-access-denied-mobile.png) | ![ユーザー編集画面 権限がないとき (`user-manager`) (PC)](../../../../images/specs/auth/screen/user-edit-access-denied-desktop.png) |
 
 
 ## つながり
@@ -148,3 +142,14 @@ flowchart TD
     A --> D[(ユーザーテーブル)]
     E -->|保存成功・キャンセル| L
 ```
+
+## 理由
+
+- 課金の権利を手動ロールの編集と同じ画面に並べるのは、「このユーザーの有効なロールがなぜそうなっているか」を 1 画面で読めるようにするため。Stripe 由来の権利は表示だけにする (API も変更を断る)
+- 取得に失敗したときも、見出しと「ユーザー一覧へ戻る」は残す。画面の文脈と戻り道を失わせないため。ユーザーがいない場合とそれ以外の失敗は表示を分ける。再試行で直るかどうかが違うため
+
+## 手順
+
+### Stripe で顧客を削除したとき
+
+Stripe の管理画面で顧客を消したら、この画面の「顧客との対応を外す」を使う。外さないと、Auth に削除済みの顧客 ID が残り、その利用者の申し込みと契約の管理が失敗し続ける。外すと、Stripe 由来の有効な課金の権利も同じ書き込みで取り消される。対応が残ったままでは以降の通知で権利を書き換えられず、残した権利が期限まで有料ロールを与え続けるため。

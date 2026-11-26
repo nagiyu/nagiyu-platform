@@ -1,8 +1,4 @@
 ---
-id: auth/screen/plans
-title: プラン画面
-kind: screen
-service: auth
 sources:
   - services/auth/web/src/app/plans/page.tsx
   - services/auth/web/src/app/plans/plans-view.tsx
@@ -15,12 +11,6 @@ sources:
   - services/auth/core/src/billing/checkout-policy.ts
   - libs/common/src/auth/roles.ts
 sources_hash: c8aa86cd8364f0b6e515dec5e02263f2c68733dffa60cfa5f1b6dd6b76f83295
-terms: [auth/term/plan-tier, auth/term/role-grant, auth/term/callback-url, platform/term/role]
-related_cards: [auth/api/billing, auth/flow/billing-entitlement, auth/screen/refresh, auth/screen/tokushoho, auth/screen/signin]
-related_adr:
-  - services/auth/architecture.md#ADR-009
-  - services/auth/architecture.md#ADR-013
-  - services/auth/architecture.md#ADR-014
 ---
 
 # プラン画面
@@ -95,7 +85,7 @@ Stripe に価格がないので、準備中を出す。
 
 | スマホ | PC |
 |---|---|
-| ![プラン画面 出せる段がないとき (スマホ)](../../../images/specs/auth/screen/plans-preparing-mobile.png) | ![プラン画面 出せる段がないとき (PC)](../../../images/specs/auth/screen/plans-preparing-desktop.png) |
+| ![プラン画面 出せる段がないとき (スマホ)](../../../../images/specs/auth/screen/plans-preparing-mobile.png) | ![プラン画面 出せる段がないとき (PC)](../../../../images/specs/auth/screen/plans-preparing-desktop.png) |
 
 ### ユーザーが見つからないとき
 
@@ -103,7 +93,7 @@ Stripe に価格がないので、準備中を出す。
 
 | スマホ | PC |
 |---|---|
-| ![プラン画面 ユーザーが見つからないとき (スマホ)](../../../images/specs/auth/screen/plans-guest-mobile.png) | ![プラン画面 ユーザーが見つからないとき (PC)](../../../images/specs/auth/screen/plans-guest-desktop.png) |
+| ![プラン画面 ユーザーが見つからないとき (スマホ)](../../../../images/specs/auth/screen/plans-guest-mobile.png) | ![プラン画面 ユーザーが見つからないとき (PC)](../../../../images/specs/auth/screen/plans-guest-desktop.png) |
 
 ### 申し込みが制限されている環境 (`admin`)
 
@@ -111,7 +101,7 @@ Stripe に価格がないので、準備中を出す。
 
 | スマホ | PC |
 |---|---|
-| ![プラン画面 申し込みが制限されている環境 (`admin`) (スマホ)](../../../images/specs/auth/screen/plans-checkout-restricted-mobile.png) | ![プラン画面 申し込みが制限されている環境 (`admin`) (PC)](../../../images/specs/auth/screen/plans-checkout-restricted-desktop.png) |
+| ![プラン画面 申し込みが制限されている環境 (`admin`) (スマホ)](../../../../images/specs/auth/screen/plans-checkout-restricted-mobile.png) | ![プラン画面 申し込みが制限されている環境 (`admin`) (PC)](../../../../images/specs/auth/screen/plans-checkout-restricted-desktop.png) |
 
 ### 契約がないとき
 
@@ -119,7 +109,7 @@ Stripe に価格がないので、準備中を出す。
 
 | スマホ | PC |
 |---|---|
-| ![プラン画面 契約がないとき (スマホ)](../../../images/specs/auth/screen/plans-not-subscribed-mobile.png) | ![プラン画面 契約がないとき (PC)](../../../images/specs/auth/screen/plans-not-subscribed-desktop.png) |
+| ![プラン画面 契約がないとき (スマホ)](../../../../images/specs/auth/screen/plans-not-subscribed-mobile.png) | ![プラン画面 契約がないとき (PC)](../../../../images/specs/auth/screen/plans-not-subscribed-desktop.png) |
 
 ### 契約中
 
@@ -127,7 +117,7 @@ Stripe に価格がないので、準備中を出す。
 
 | スマホ | PC |
 |---|---|
-| ![プラン画面 契約中 (スマホ)](../../../images/specs/auth/screen/plans-subscribed-mobile.png) | ![プラン画面 契約中 (PC)](../../../images/specs/auth/screen/plans-subscribed-desktop.png) |
+| ![プラン画面 契約中 (スマホ)](../../../../images/specs/auth/screen/plans-subscribed-mobile.png) | ![プラン画面 契約中 (PC)](../../../../images/specs/auth/screen/plans-subscribed-desktop.png) |
 
 ### 下げの確認ダイアログ
 
@@ -135,7 +125,7 @@ Stripe に価格がないので、準備中を出す。
 
 | スマホ | PC |
 |---|---|
-| ![プラン画面 下げの確認ダイアログ (スマホ)](../../../images/specs/auth/screen/plans-downgrade-dialog-mobile.png) | ![プラン画面 下げの確認ダイアログ (PC)](../../../images/specs/auth/screen/plans-downgrade-dialog-desktop.png) |
+| ![プラン画面 下げの確認ダイアログ (スマホ)](../../../../images/specs/auth/screen/plans-downgrade-dialog-mobile.png) | ![プラン画面 下げの確認ダイアログ (PC)](../../../../images/specs/auth/screen/plans-downgrade-dialog-desktop.png) |
 
 ### 下げの予約中
 
@@ -143,7 +133,7 @@ Stripe に価格がないので、準備中を出す。
 
 | スマホ | PC |
 |---|---|
-| ![プラン画面 下げの予約中 (スマホ)](../../../images/specs/auth/screen/plans-downgrade-scheduled-mobile.png) | ![プラン画面 下げの予約中 (PC)](../../../images/specs/auth/screen/plans-downgrade-scheduled-desktop.png) |
+| ![プラン画面 下げの予約中 (スマホ)](../../../../images/specs/auth/screen/plans-downgrade-scheduled-mobile.png) | ![プラン画面 下げの予約中 (PC)](../../../../images/specs/auth/screen/plans-downgrade-scheduled-desktop.png) |
 
 ### 解約予約中
 
@@ -151,7 +141,7 @@ Stripe に価格がないので、準備中を出す。
 
 | スマホ | PC |
 |---|---|
-| ![プラン画面 解約予約中 (スマホ)](../../../images/specs/auth/screen/plans-canceling-mobile.png) | ![プラン画面 解約予約中 (PC)](../../../images/specs/auth/screen/plans-canceling-desktop.png) |
+| ![プラン画面 解約予約中 (スマホ)](../../../../images/specs/auth/screen/plans-canceling-mobile.png) | ![プラン画面 解約予約中 (PC)](../../../../images/specs/auth/screen/plans-canceling-desktop.png) |
 
 ### 支払いが遅れているとき
 
@@ -159,7 +149,7 @@ Stripe に価格がないので、準備中を出す。
 
 | スマホ | PC |
 |---|---|
-| ![プラン画面 支払いが遅れているとき (スマホ)](../../../images/specs/auth/screen/plans-payment-past-due-mobile.png) | ![プラン画面 支払いが遅れているとき (PC)](../../../images/specs/auth/screen/plans-payment-past-due-desktop.png) |
+| ![プラン画面 支払いが遅れているとき (スマホ)](../../../../images/specs/auth/screen/plans-payment-past-due-mobile.png) | ![プラン画面 支払いが遅れているとき (PC)](../../../../images/specs/auth/screen/plans-payment-past-due-desktop.png) |
 
 ### 運営による付与があるとき
 
@@ -167,7 +157,7 @@ Stripe の契約とは別に、付与の期限を出す。
 
 | スマホ | PC |
 |---|---|
-| ![プラン画面 運営による付与があるとき (スマホ)](../../../images/specs/auth/screen/plans-manual-grant-mobile.png) | ![プラン画面 運営による付与があるとき (PC)](../../../images/specs/auth/screen/plans-manual-grant-desktop.png) |
+| ![プラン画面 運営による付与があるとき (スマホ)](../../../../images/specs/auth/screen/plans-manual-grant-mobile.png) | ![プラン画面 運営による付与があるとき (PC)](../../../../images/specs/auth/screen/plans-manual-grant-desktop.png) |
 
 ### 価格を取得できなかったとき
 
@@ -175,7 +165,7 @@ Stripe の契約とは別に、付与の期限を出す。
 
 | スマホ | PC |
 |---|---|
-| ![プラン画面 価格を取得できなかったとき (スマホ)](../../../images/specs/auth/screen/plans-price-unavailable-mobile.png) | ![プラン画面 価格を取得できなかったとき (PC)](../../../images/specs/auth/screen/plans-price-unavailable-desktop.png) |
+| ![プラン画面 価格を取得できなかったとき (スマホ)](../../../../images/specs/auth/screen/plans-price-unavailable-mobile.png) | ![プラン画面 価格を取得できなかったとき (PC)](../../../../images/specs/auth/screen/plans-price-unavailable-desktop.png) |
 
 ### 申し込みの準備に失敗したとき
 
@@ -183,7 +173,7 @@ Stripe の契約とは別に、付与の期限を出す。
 
 | スマホ | PC |
 |---|---|
-| ![プラン画面 申し込みの準備に失敗したとき (スマホ)](../../../images/specs/auth/screen/plans-action-error-mobile.png) | ![プラン画面 申し込みの準備に失敗したとき (PC)](../../../images/specs/auth/screen/plans-action-error-desktop.png) |
+| ![プラン画面 申し込みの準備に失敗したとき (スマホ)](../../../../images/specs/auth/screen/plans-action-error-mobile.png) | ![プラン画面 申し込みの準備に失敗したとき (PC)](../../../../images/specs/auth/screen/plans-action-error-desktop.png) |
 
 
 ## つながり
@@ -198,3 +188,21 @@ flowchart TD
     P --> T[特定商取引法画面]
     P -->|ログインして申し込む| G[サインイン画面]
 ```
+
+## 理由
+
+- Auth に置くのは、申し込みに Auth のユーザーと Stripe の顧客を結びつける処理が要り、ユーザーを持つのが Auth だけだから。料金を見る画面と申し込む画面を分けると価格の表記が 2 か所になって食い違いやすいので、料金の画面も兼ねる
+- 価格と商品の説明は、開くたびに Stripe から読む。文言を Stripe の 1 か所で管理するため。段ごとに商品を分けているので、商品の説明が段の説明になる。説明が空なら出さない
+- 価格のない段を出さないのは、有料ロールはコードで定義するが、売るかどうかは Stripe に価格を作るかで決める作りだから。サービスを順に課金に載せるため、価格を作るまでは枠を出さない。ただし契約中か有効な手動の権利がある利用者には、状態を確かめられるよう枠を出す。価格の取得に失敗したときは売っているかが分からないので全部の枠を出し、取得できなかった旨を示す (Stripe の障害で画面が空にならないようにする)
+- サービスごとに見出しを置くのは、契約と更新日がサービス単位で、段はその中の選択肢だから。段を下から並べると、上げ下げの方向が読める
+- 上げは、Auth が行き先の価格を決めて Customer Portal の確認画面へ送る。Portal の一般のプラン変更に任せると、別サービスの商品へも切り替えられてしまう。日割りの表示・支払いの失敗・3D セキュアは Stripe が扱う ([課金 API](../api/billing.md))
+- 下げは Portal ではなく Auth が予約するので、切り替わる日と返金がないことをこの画面の確認ダイアログで示してから予約する
+- 下げの予約中と解約予約中は、段の切り替えを出さない。予約が付いている間は Portal で変更も解約もできない (Stripe の仕様) ので、予約をこの画面に表示し、Auth から取り消せるようにする。取り消すと契約は今の段のまま残る
+- 支払いを確認できていない契約 (`past_due`) では切り替えを出さない。上げると、未払いの請求に差額の請求が重なり、未払いのまま上の段が付きうるため
+- 「契約を管理」は画面に 1 つだけ置く。Customer Portal は顧客の単位で開くため、プランごとには置けない
+- 解約・支払い方法の変更・請求の履歴は、Stripe の Customer Portal に任せて自作しない。作る量を減らし、カード情報を Auth で扱わないため
+- 開くたびに契約を Stripe から取り直して同期するのは、更新の通知の取りこぼしへの保険。権利の期限は請求期間の終わりの 3 日後で、通知を取りこぼすと、払っている利用者の権利が期限で切れうる
+- `checkout=success` で戻ったときに同期してから `/refresh` へ送るのは、Stripe の通知より先に着くと、まだ権利がなくロールが切り替わらないため。通知の到着を待たずに反映する
+- 戻り先は nagiyu のサービスに限る。各サービスは戻り先を付けてこの画面へ案内するので、オープンリダイレクトを防ぐために検証する
+- 特定商取引法に基づく表記へのリンクは、準備中でも出す。決済事業者の審査が表記の URL を確かめるため
+- 申し込みの導線は、本番以外では `billing:test` を持つ利用者にだけ出し、それ以外にはテスト用の申し込みに限っている旨を示す。dev は Stripe のサンドボックスにつながり、誰でもログインできるので、テスト用のカードで無料のまま有料の段が付いてしまうため。契約の管理・段の切り替え・予約の取り消し・同期は、すでにある契約の操作なので制限しない。申し込みの可否の判定は、申し込みの API と画面が食い違わないよう 1 か所に置く ([課金 API](../api/billing.md))

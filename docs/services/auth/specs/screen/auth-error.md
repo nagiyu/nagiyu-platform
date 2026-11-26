@@ -1,14 +1,9 @@
 ---
-id: auth/screen/auth-error
-title: 認証エラー画面
-kind: screen
-service: auth
 sources:
   - services/auth/web/src/app/auth/error/page.tsx
   - services/auth/web/src/lib/auth-error-message.ts
   - services/auth/web/src/lib/auth/auth.ts
 sources_hash: 1c0e617b37d1dfec23e24991777999e4b3843c5ab98510fcf302c5d741210ddc
-related_cards: [auth/screen/signin, auth/flow/sign-in]
 ---
 
 # 認証エラー画面
@@ -56,7 +51,7 @@ related_cards: [auth/screen/signin, auth/flow/sign-in]
 
 | スマホ | PC |
 |---|---|
-| ![認証エラー画面 `Configuration` (スマホ)](../../../images/specs/auth/screen/auth-error-configuration-mobile.png) | ![認証エラー画面 `Configuration` (PC)](../../../images/specs/auth/screen/auth-error-configuration-desktop.png) |
+| ![認証エラー画面 `Configuration` (スマホ)](../../../../images/specs/auth/screen/auth-error-configuration-mobile.png) | ![認証エラー画面 `Configuration` (PC)](../../../../images/specs/auth/screen/auth-error-configuration-desktop.png) |
 
 ### `AccessDenied`
 
@@ -64,7 +59,7 @@ related_cards: [auth/screen/signin, auth/flow/sign-in]
 
 | スマホ | PC |
 |---|---|
-| ![認証エラー画面 `AccessDenied` (スマホ)](../../../images/specs/auth/screen/auth-error-access-denied-mobile.png) | ![認証エラー画面 `AccessDenied` (PC)](../../../images/specs/auth/screen/auth-error-access-denied-desktop.png) |
+| ![認証エラー画面 `AccessDenied` (スマホ)](../../../../images/specs/auth/screen/auth-error-access-denied-mobile.png) | ![認証エラー画面 `AccessDenied` (PC)](../../../../images/specs/auth/screen/auth-error-access-denied-desktop.png) |
 
 ### `Verification`
 
@@ -72,7 +67,7 @@ related_cards: [auth/screen/signin, auth/flow/sign-in]
 
 | スマホ | PC |
 |---|---|
-| ![認証エラー画面 `Verification` (スマホ)](../../../images/specs/auth/screen/auth-error-verification-mobile.png) | ![認証エラー画面 `Verification` (PC)](../../../images/specs/auth/screen/auth-error-verification-desktop.png) |
+| ![認証エラー画面 `Verification` (スマホ)](../../../../images/specs/auth/screen/auth-error-verification-mobile.png) | ![認証エラー画面 `Verification` (PC)](../../../../images/specs/auth/screen/auth-error-verification-desktop.png) |
 
 ### それ以外の値
 
@@ -80,7 +75,7 @@ related_cards: [auth/screen/signin, auth/flow/sign-in]
 
 | スマホ | PC |
 |---|---|
-| ![認証エラー画面 それ以外の値 (スマホ)](../../../images/specs/auth/screen/auth-error-default-mobile.png) | ![認証エラー画面 それ以外の値 (PC)](../../../images/specs/auth/screen/auth-error-default-desktop.png) |
+| ![認証エラー画面 それ以外の値 (スマホ)](../../../../images/specs/auth/screen/auth-error-default-mobile.png) | ![認証エラー画面 それ以外の値 (PC)](../../../../images/specs/auth/screen/auth-error-default-desktop.png) |
 
 
 ## つながり

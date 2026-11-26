@@ -1,8 +1,4 @@
 ---
-id: auth/api/billing-webhook
-title: Stripe 通知 API
-kind: api
-service: auth
 sources:
   - services/auth/web/src/app/api/billing/webhook/route.ts
   - services/auth/web/src/lib/api-error-reporting.ts
@@ -10,11 +6,6 @@ sources:
   - services/auth/core/src/billing/grant-diff.ts
   - services/auth/core/src/billing/stripe-client.ts
 sources_hash: b1c03f2488bfadd38c14110a5064dc17d0d94b82f7c82d1ef9b1850c0dd40689
-terms: [auth/term/role-grant, auth/term/api-error]
-related_cards: [auth/flow/billing-entitlement, auth/api/billing]
-related_adr:
-  - services/auth/architecture.md#ADR-006
-  - services/auth/architecture.md#ADR-007
 ---
 
 # Stripe 通知 API
@@ -55,3 +46,8 @@ flowchart TD
     A --> D[(ユーザーテーブル<br/>課金の権利)]
     A -.->|500| E[Admin のエラー履歴]
 ```
+
+## 理由
+
+- ログインではなく署名で守る。呼び出し元は Stripe で、利用者のセッションを持たないため。通知を合図として扱い、署名を検証する理由は[契約がロールになる経路](../flow/billing-entitlement.md)の理由にある
+- 同期に失敗したときだけ 500 を返す。Stripe は 500 を受けると通知を再送するので、取りこぼしを再送で埋められる。顧客が取れない・同期の対象がない通知は、再送しても結果が変わらないので成功として返す

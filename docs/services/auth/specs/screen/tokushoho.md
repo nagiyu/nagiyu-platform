@@ -1,17 +1,8 @@
 ---
-id: auth/screen/tokushoho
-title: 特定商取引法画面
-kind: screen
-service: auth
 sources:
   - services/auth/web/src/app/legal/tokushoho/page.tsx
-  - libs/ui/src/components/legal/CommercialTransactionsTable.tsx
-  - libs/ui/src/data/commercialTransactionsData.ts
-sources_hash: b389378f9d139ad53e107ee8c891129ef2c5b9d7a31131f7e95aab2a74db7ff8
-related_cards: [auth/screen/plans]
-related_adr:
-  - services/auth/architecture.md#ADR-011
-  - services/auth/architecture.md#ADR-012
+  - services/auth/web/src/app/layout.tsx
+sources_hash: 7da474c113b6a02d723831e560e951390b23be3cd4477a0f250e8ac17a82ca23
 ---
 
 # 特定商取引法画面
@@ -25,9 +16,8 @@ related_adr:
 
 ## 表示するもの
 
-- 見出し「特定商取引法に基づく表記」と、項目名と内容の表。表は共通の部品 (`CommercialTransactionsTable`) で描き、項目の文面は共通ライブラリが持つ
-- 表の中のプランへのリンクは `/plans`、連絡先は `mailto:` のリンク
-- 狭い画面では、項目名と内容を縦に積む
+- 見出し「特定商取引法に基づく表記」と、項目名と内容の表。表は共通の部品で描く。項目の文面と部品の振る舞いは[法務の文書](../../../../platform/specs/lib/ui/legal.md)にあり、この画面は部品を置いて `plansHref` に `/plans` を渡すだけ
+- 表の中のプランへのリンクは `/plans` を指す
 
 ## 操作
 
@@ -43,7 +33,7 @@ related_adr:
 
 | スマホ | PC |
 |---|---|
-| ![特定商取引法画面 通常表示 (スマホ)](../../../images/specs/auth/screen/tokushoho-default-mobile.png) | ![特定商取引法画面 通常表示 (PC)](../../../images/specs/auth/screen/tokushoho-default-desktop.png) |
+| ![特定商取引法画面 通常表示 (スマホ)](../../../../images/specs/auth/screen/tokushoho-default-mobile.png) | ![特定商取引法画面 通常表示 (PC)](../../../../images/specs/auth/screen/tokushoho-default-desktop.png) |
 
 
 ## つながり
@@ -54,3 +44,10 @@ flowchart TD
     P[プラン画面] --> T
     T -->|プランへのリンク| P
 ```
+
+## 理由
+
+- 公開ページを置くのは、定期課金では申し込みの最終確認の段階で、金額・更新の周期・解約の方法が分かる必要があるため (2022 年の特定商取引法の改正)。金額と周期は Stripe の決済画面が出し、解約の方法は[プラン画面](./plans.md)とこの表記で補う
+- 表記は金額を持たず、プラン画面 (税込) へ案内する。価格は Stripe の 1 か所で管理しており、表記にも書くと食い違うため
+- 課金を受けるサービスに置き、portal には置かない。portal は技術記事のブログで、サービスの料金や販売の情報を置くと宣伝サイトになってしまうため。今は申し込みの入口がある Auth に置く
+- Stripe の本番審査では、この表記のページの URL を登録する

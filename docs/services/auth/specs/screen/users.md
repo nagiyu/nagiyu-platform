@@ -1,16 +1,11 @@
 ---
-id: auth/screen/users
-title: ユーザー一覧画面
-kind: screen
-service: auth
 sources:
   - services/auth/web/src/app/dashboard/users/page.tsx
   - services/auth/web/src/app/dashboard/users/users-table.tsx
   - libs/common/src/auth/roles.ts
+  - libs/common/src/auth/permissions.ts
   - libs/ui/src/components/feedback/AccessDeniedView.tsx
-sources_hash: 497cfa6b47b0db8067060726fac940f76a3bd1256a9dcd24e5cb27988d674320
-terms: [platform/term/role, auth/term/api-error]
-related_cards: [auth/screen/user-edit, auth/screen/dashboard, auth/api/users]
+sources_hash: 5253f81ca91b64c4398f43f85f89a41d79c36442331e2ba0de2a5fb7033b4daa
 ---
 
 # ユーザー一覧画面
@@ -24,7 +19,7 @@ related_cards: [auth/screen/user-edit, auth/screen/dashboard, auth/api/users]
 
 ## 表示の条件
 
-- `users:read` を持つ利用者だけ。権限がなければ URL を変えずに「アクセス権限がありません」を出す ([ロールと権限](../../platform/term/role.md))。画面には「アクセスを更新」(`/refresh` へ) と「再ログイン」(サインアウトへ) のボタンが付く
+- `users:read` を持つ利用者だけ。権限がなければ URL を変えずに「アクセス権限がありません」(共通の [`AccessDeniedView`](../../../../platform/specs/lib/ui/feedback-views.md)) を出す ([ロールと権限](../../../../platform/specs/lib/common/roles-and-permissions.md))。画面には「アクセスを更新」([権限更新画面](./refresh.md)へ) と「再ログイン」(サインアウトへ) のボタンが付く
 
 ## 表示するもの
 
@@ -60,7 +55,7 @@ related_cards: [auth/screen/user-edit, auth/screen/dashboard, auth/api/users]
 
 | スマホ | PC |
 |---|---|
-| ![ユーザー一覧画面 通常表示 (`admin`) (スマホ)](../../../images/specs/auth/screen/users-default-mobile.png) | ![ユーザー一覧画面 通常表示 (`admin`) (PC)](../../../images/specs/auth/screen/users-default-desktop.png) |
+| ![ユーザー一覧画面 通常表示 (`admin`) (スマホ)](../../../../images/specs/auth/screen/users-default-mobile.png) | ![ユーザー一覧画面 通常表示 (`admin`) (PC)](../../../../images/specs/auth/screen/users-default-desktop.png) |
 
 ### `roles:assign` がないとき (`user-manager`)
 
@@ -68,7 +63,7 @@ related_cards: [auth/screen/user-edit, auth/screen/dashboard, auth/api/users]
 
 | スマホ | PC |
 |---|---|
-| ![ユーザー一覧画面 `roles:assign` がないとき (`user-manager`) (スマホ)](../../../images/specs/auth/screen/users-read-only-mobile.png) | ![ユーザー一覧画面 `roles:assign` がないとき (`user-manager`) (PC)](../../../images/specs/auth/screen/users-read-only-desktop.png) |
+| ![ユーザー一覧画面 `roles:assign` がないとき (`user-manager`) (スマホ)](../../../../images/specs/auth/screen/users-read-only-mobile.png) | ![ユーザー一覧画面 `roles:assign` がないとき (`user-manager`) (PC)](../../../../images/specs/auth/screen/users-read-only-desktop.png) |
 
 ### 取得に失敗したとき
 
@@ -76,7 +71,7 @@ related_cards: [auth/screen/user-edit, auth/screen/dashboard, auth/api/users]
 
 | スマホ | PC |
 |---|---|
-| ![ユーザー一覧画面 取得に失敗したとき (スマホ)](../../../images/specs/auth/screen/users-fetch-error-mobile.png) | ![ユーザー一覧画面 取得に失敗したとき (PC)](../../../images/specs/auth/screen/users-fetch-error-desktop.png) |
+| ![ユーザー一覧画面 取得に失敗したとき (スマホ)](../../../../images/specs/auth/screen/users-fetch-error-mobile.png) | ![ユーザー一覧画面 取得に失敗したとき (PC)](../../../../images/specs/auth/screen/users-fetch-error-desktop.png) |
 
 ### ユーザーがいないとき
 
@@ -84,7 +79,7 @@ related_cards: [auth/screen/user-edit, auth/screen/dashboard, auth/api/users]
 
 | スマホ | PC |
 |---|---|
-| ![ユーザー一覧画面 ユーザーがいないとき (スマホ)](../../../images/specs/auth/screen/users-empty-mobile.png) | ![ユーザー一覧画面 ユーザーがいないとき (PC)](../../../images/specs/auth/screen/users-empty-desktop.png) |
+| ![ユーザー一覧画面 ユーザーがいないとき (スマホ)](../../../../images/specs/auth/screen/users-empty-mobile.png) | ![ユーザー一覧画面 ユーザーがいないとき (PC)](../../../../images/specs/auth/screen/users-empty-desktop.png) |
 
 ### 権限がないとき (`stock-viewer`)
 
@@ -92,7 +87,7 @@ related_cards: [auth/screen/user-edit, auth/screen/dashboard, auth/api/users]
 
 | スマホ | PC |
 |---|---|
-| ![ユーザー一覧画面 権限がないとき (`stock-viewer`) (スマホ)](../../../images/specs/auth/screen/users-access-denied-mobile.png) | ![ユーザー一覧画面 権限がないとき (`stock-viewer`) (PC)](../../../images/specs/auth/screen/users-access-denied-desktop.png) |
+| ![ユーザー一覧画面 権限がないとき (`stock-viewer`) (スマホ)](../../../../images/specs/auth/screen/users-access-denied-mobile.png) | ![ユーザー一覧画面 権限がないとき (`stock-viewer`) (PC)](../../../../images/specs/auth/screen/users-access-denied-desktop.png) |
 
 
 ## つながり
@@ -104,3 +99,7 @@ flowchart TD
     U -->|編集| E[ユーザー編集画面]
     U -->|権限なし| R["/refresh"]
 ```
+
+## 理由
+
+- ロールは ID ではなく名前で出す。ID は管理者が読んでも意味を取りにくいため。定義にない ID は、表示が消えないよう ID のまま出す

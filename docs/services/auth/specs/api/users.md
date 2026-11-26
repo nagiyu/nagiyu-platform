@@ -1,8 +1,4 @@
 ---
-id: auth/api/users
-title: ユーザー API
-kind: api
-service: auth
 sources:
   - services/auth/web/src/app/api/users/route.ts
   - services/auth/web/src/app/api/users/schemas.ts
@@ -17,15 +13,7 @@ sources:
   - services/auth/web/src/lib/api-error-reporting.ts
   - services/auth/core/src/repositories/dynamodb-user-repository.ts
   - services/auth/core/src/repositories/user-repository.ts
-  - libs/nextjs/src/pagination.ts
-  - libs/common/src/auth/role-grants.ts
-sources_hash: 4d2ddf806fa5a3590505c571623e7fb0d89cecc3fea9fe55662cc2a3475d7c98
-terms: [platform/term/role, auth/term/role-grant, auth/term/api-error]
-related_cards: [auth/screen/users, auth/screen/user-edit, auth/flow/billing-entitlement]
-related_adr:
-  - services/auth/architecture.md#ADR-002
-  - services/auth/architecture.md#ADR-003
-  - services/auth/architecture.md#5.2 ユーザーライフサイクル
+sources_hash: 27f3ba821ed60c932374c5a88e5fb2b48cd3219ca1f9c70bde1c6ca40fd4b91a
 ---
 
 # ユーザー API
@@ -46,14 +34,9 @@ related_adr:
 
 ## 入力と出力
 
-一覧 (`GET /api/users`)
+一覧 (`GET /api/users`) のクエリ `limit` と `lastKey` は[ページネーション](../../../../platform/specs/lib/nextjs/pagination.md)に従う。`lastKey` が読めない値のときは、無視して先頭から返す。
 
-| 項目 | 条件 |
-|---|---|
-| `limit` | 任意。1〜100、省略すると 50。先頭の数字を読むので `10abc` は 10 |
-| `lastKey` | 任意。前の応答の `pagination.lastKey`。読めない値は無視して先頭から返す |
-
-- 出力は `{ users, pagination: { count, lastKey? } }`。並び順は決まっていない (DB の読み出し順)。`lastKey` は続きがあるときに付く (続きがなくても付くことがあり、次のページが空になる)
+- 出力は `{ users, pagination: { count, lastKey? } }` (`items` の代わりに `users`)。並び順は決まっていない (DB の読み出し順)。`lastKey` は続きがあるときに付く (続きがなくても付くことがあり、次のページが空になる)
 - `stripeCustomerId` を含めるのは、詳細 (`GET /api/users/{userId}`) と対応の解除の応答だけ (管理画面が対応の有無を出すため)。ほかの応答は含めない
 
 自分の情報 (`GET /api/users/me`)
@@ -73,7 +56,7 @@ related_adr:
 削除 (`DELETE /api/users/{userId}`)
 
 - 自分自身は消せない。成功すると `{ message: 'ユーザーが正常に削除されました' }`
-- Stripe の契約には触れない (契約中のユーザーを消すときは、先に Stripe で解約する運用)
+- Stripe の契約には触れない (契約中のユーザーを消すときの手順は下の「手順」)
 
 ロールと権利の変更 (`POST /api/users/{userId}/roles`)
 
@@ -120,7 +103,18 @@ related_adr:
 flowchart TD
     S1[ユーザー一覧画面] -->|一覧| A[ユーザー API]
     S2[ユーザー編集画面] -->|詳細・ロール変更・対応の解除| A
-    O[他サービス・外部の呼び出し元] -->|me| A
     A --> D[(ユーザーテーブル)]
     A -.->|500| E[Admin のエラー履歴]
 ```
+
+## 理由
+
+- ユーザーの削除は Stripe の契約に触れない。削除は整合を取るための管理者の操作で、利用者からは使えないので、契約の解約という課金の操作まで持たせない
+- 課金の権利を `PATCH` で変えられないようにし、手動ロール (`roles`) と分ける。有料ロールを手動ロールに入れられないのも同じで、課金の権利は期限と出どころを持つ ([課金の権利](../term/role-grant.md))
+- 手動ロールと権利の変更を、読み直した最新のユーザーに対する 1 回の書き込みにする。書き込みが重なったら読み直してやり直し、解けなければ競合として返す。失敗しても変更は失われず、管理者は再読み込みして保存し直せる
+
+## 手順
+
+### 契約中のユーザーを削除するとき
+
+先に Stripe で契約を解約してから、ユーザーを削除する。削除は Stripe の契約に触れないため、そのままだと請求が続く。

@@ -1,8 +1,4 @@
 ---
-id: auth/api/billing
-title: 課金 API
-kind: api
-service: auth
 sources:
   - services/auth/web/src/app/api/billing/checkout/route.ts
   - services/auth/web/src/app/api/billing/plan-change/route.ts
@@ -18,13 +14,6 @@ sources:
   - services/auth/core/src/billing/sync.ts
   - libs/common/src/auth/roles.ts
 sources_hash: 8dd9547af50a094ff362dfbc04b55dc62c9c79e5bb3deee2665a90d56cff205b
-terms: [auth/term/plan-tier, auth/term/callback-url, auth/term/api-error, platform/term/role]
-related_cards: [auth/screen/plans, auth/flow/billing-entitlement, auth/api/billing-webhook]
-related_adr:
-  - services/auth/architecture.md#ADR-005
-  - services/auth/architecture.md#ADR-009
-  - services/auth/architecture.md#ADR-013
-  - services/auth/architecture.md#ADR-014
 ---
 
 # 課金 API
@@ -33,7 +22,7 @@ related_adr:
 
 ## エンドポイント
 
-すべて POST で、ログインが要る。権限 (ロールの権限) は、申し込みの `billing:test` を除いて見ない。
+すべて POST で、ログインが要る。権限 ([ロールの権限](../../../../platform/specs/lib/common/roles-and-permissions.md)) は、申し込みの `billing:test` を除いて見ない。
 
 | パス | 内容 |
 |---|---|
@@ -93,3 +82,19 @@ flowchart TD
     A -->|顧客 ID の保存| D[(ユーザーテーブル)]
     A -.->|500| E[Admin のエラー履歴]
 ```
+
+## 理由
+
+- 上げは Customer Portal の確認画面で確定し、行き先の価格は Auth が決める。即時の請求で起きる支払いの失敗や 3D セキュアを、自作せずに Stripe に扱わせるため。行き先を Auth が決めるのは、Portal の一般のプラン変更に任せると、別のサービスが売り始めたとき、そのサービスの商品へも切り替えられてしまうため
+- 下げは Auth が請求期間の終わりに切り替わる予約を作り、日割りのクレジットも返金も出さない。Customer Portal の下げは、別の商品の間ではすぐに効いて日割りのクレジットが出るので、期末から・返金なしという案内と食い違うため。Auth が作った予約には印を付ける
+- 予約が付いている間は、Customer Portal で変更も解約もできない (Stripe の仕様)。そのため取り消しを Auth の API に持つ。取り消しても契約は今の段のまま残る
+- 解約を予約中・予約中の下げ・`past_due` では、段の切り替えを断る。`past_due` で上げると、未払いの請求に差額の請求が重なり、未払いのまま上の段が付きうるため。権利は、請求のやり直しの間も残る
+- 同じサービスで有効な契約は 1 つ。段が違う申し込みも断り、段の切り替えへ案内する
+- 本番以外では、申し込みを `billing:test` を持つ人に限る。dev は Stripe のサンドボックスにつながり、誰でもログインできるので、テスト用カードで無料のまま有料の段が付くのを防ぐため。`billing:test` は管理者の権限と分けたロール (`billing-tester`) に持たせ、テスト用の別アカウントへ管理者権限を渡さずに付けられるようにする
+    - 制限を外すのは、環境の値 (`NAGIYU_ENV`) が `prod` と明示されたときだけ。値が無い・想定外なら制限をかける側に倒す (fail-closed)。本番の誤設定なら誰も買えずすぐ気づくが、dev の誤設定で無料の段が付いても気づけないため。Cookie のドメイン判定は未設定を本番扱いにしていて向きが逆だが、あちらは本番で dev のドメインになる事故を避けるためのもので、守るものが違う
+    - 判定は 1 か所の関数 (`services/auth/core/src/billing/checkout-policy.ts`) に置く。API と画面が別々に判定すると、見えるのに押すと断られる、または見えないのに API は通る状態になるため
+    - 絞るのは新規の申し込みだけ。契約の管理・段の変更・予約の取り消し・同期は絞らない。制限前に申し込んだ人の解約や段の変更を妨げる理由がないため
+
+## 手順
+
+下げの予約が残っているときの対処は、[Stripe の運用](../resource/stripe.md)にある。

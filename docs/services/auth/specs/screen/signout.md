@@ -1,8 +1,4 @@
 ---
-id: auth/screen/signout
-title: サインアウト確認画面
-kind: screen
-service: auth
 sources:
   - services/auth/web/src/app/auth/signout/page.tsx
   - services/auth/web/src/app/auth/signout/signout-form.tsx
@@ -10,10 +6,6 @@ sources:
   - services/auth/web/src/lib/auth/auth.ts
   - libs/ui/src/utils/auth.ts
 sources_hash: ab239a18ac305c7201e196c7aac5b83c23e47704a5086c0d29bcd4fa27bb2ecc
-terms: [auth/term/callback-url]
-related_cards: [auth/flow/sign-in, auth/api/system]
-related_adr:
-  - services/auth/architecture.md#4.3 セッション管理
 ---
 
 # サインアウト確認画面
@@ -55,7 +47,7 @@ CSRF トークンを取れて、サインアウトを押せる。
 
 | スマホ | PC |
 |---|---|
-| ![サインアウト確認画面 通常表示 (スマホ)](../../../images/specs/auth/screen/signout-default-mobile.png) | ![サインアウト確認画面 通常表示 (PC)](../../../images/specs/auth/screen/signout-default-desktop.png) |
+| ![サインアウト確認画面 通常表示 (スマホ)](../../../../images/specs/auth/screen/signout-default-mobile.png) | ![サインアウト確認画面 通常表示 (PC)](../../../../images/specs/auth/screen/signout-default-desktop.png) |
 
 ### CSRF トークンを取れなかったとき
 
@@ -63,7 +55,7 @@ CSRF トークンを取れて、サインアウトを押せる。
 
 | スマホ | PC |
 |---|---|
-| ![サインアウト確認画面 CSRF トークンを取れなかったとき (スマホ)](../../../images/specs/auth/screen/signout-csrf-error-mobile.png) | ![サインアウト確認画面 CSRF トークンを取れなかったとき (PC)](../../../images/specs/auth/screen/signout-csrf-error-desktop.png) |
+| ![サインアウト確認画面 CSRF トークンを取れなかったとき (スマホ)](../../../../images/specs/auth/screen/signout-csrf-error-mobile.png) | ![サインアウト確認画面 CSRF トークンを取れなかったとき (PC)](../../../../images/specs/auth/screen/signout-csrf-error-desktop.png) |
 
 
 ## つながり
@@ -75,3 +67,7 @@ flowchart TD
     S -->|キャンセル| B[戻り先]
     A --> B
 ```
+
+## 理由
+
+- 確認を挟むのは、画面を開いただけでサインアウトする形にすると、リンクや埋め込まれた画像から利用者を勝手にサインアウトさせられるため。利用者がボタンを押したときだけサインアウトする
