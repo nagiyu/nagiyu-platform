@@ -533,7 +533,7 @@ describe('acquireAllUsers', () => {
 
       expect(used).toEqual({ 'op:hiyori': 20, 'std:hiyori': 20, 'trial:hiyori': 20 });
       expect(result.tierUsers).toEqual({ operator: 1, standard: 1, freeTrial: 1, freeExpired: 1 });
-      expect(result.trialExpiredUsers).toBe(1);
+      expect(result.tierUsers.freeExpired).toBe(1);
       expect(result.skippedUsers).toBe(1);
       expect(result.processedUsers).toBe(3);
     });
@@ -606,7 +606,7 @@ describe('acquireAllUsers', () => {
       expect(mockAcquireForUser).not.toHaveBeenCalled();
       expect(repoSpy).not.toHaveBeenCalled();
       expect(result.skippedUsers).toBe(1);
-      expect(result.trialExpiredUsers).toBe(1);
+      expect(result.tierUsers.freeExpired).toBe(1);
     });
 
     it('auth の読み取りに失敗した利用者は勉強せず失敗として数え、他の利用者は続く', async () => {

@@ -93,9 +93,7 @@ export interface AcquireAllUsersResult {
   counterFailedCharacters: number;
   /** research が実行した Web 検索 tool call の総回数（action の種別を問わない） */
   webSearchCalls: number;
-  /** お試しを過ぎて、1 日の上限が 0 のため勉強しなかった利用者の数 (skippedUsers にも含む) */
-  trialExpiredUsers: number;
-  /** 区分ごとの利用者数。区分を判定できなかった (失敗した) 利用者は含まない */
+  /** 区分ごとの利用者数。区分を判定できなかった (失敗した) 利用者は含まない。お試しを過ぎた無料の利用者 (freeExpired) は勉強せず、skippedUsers にも含む */
   tierUsers: StudyTierUserCounts;
 }
 
@@ -153,7 +151,6 @@ export async function acquireAllUsers(
     dailyLimitReachedCharacters: 0,
     counterFailedCharacters: 0,
     webSearchCalls: 0,
-    trialExpiredUsers: 0,
     tierUsers: { operator: 0, standard: 0, freeTrial: 0, freeExpired: 0 },
   };
 
@@ -175,7 +172,6 @@ export async function acquireAllUsers(
       );
       if (dailyLimit === 0) {
         // お試しを過ぎた無料の利用者は、キャラクターの走査もカウンタも触らない
-        result.trialExpiredUsers++;
         result.skippedUsers++;
         continue;
       }

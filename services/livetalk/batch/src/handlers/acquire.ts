@@ -77,7 +77,7 @@ export const handler = createScheduledHandler<ScheduledEvent, HandlerResponse>(
       ulidFactory: defaultUlidFactory,
     });
 
-    // dev で区分どおりに動いたかをログで確かめられるよう、結果の tierUsers・trialExpiredUsers もそのまま出す
+    // dev で区分どおりに動いたかをログで確かめられるよう、結果の tierUsers もそのまま出す
     logger.info('[acquire] バッチ完了', {
       eventId: event.id,
       ...result,
