@@ -16,6 +16,8 @@ unimplemented: true
 
 push や PR では動かない。`master` へのマージでも出さない。
 
+同時に起動されたときは、先の run が終わるまで後の run を待たせる。実行中の run は打ち切らない。途中で止めると、出た lib と出ていない lib が混ざったまま残るためである。
+
 ## 処理
 
 ```mermaid
