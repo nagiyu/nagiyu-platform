@@ -4,6 +4,7 @@ sources:
   - infra/stock-tracker/lib/policies/web-runtime-policy.ts
   - infra/stock-tracker/bin/stock-tracker.ts
   - services/stock-tracker/web/app/api/summaries/refresh/route.ts
+sources_hash: 97a88c949eb6ccfcf816ab6da0096655197ac696a3468cc28d7cb7b37faa3d0f
 ---
 
 # Web の実行環境
