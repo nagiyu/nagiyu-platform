@@ -3,7 +3,7 @@ sources:
   - libs/aws/src/testing/dynamodb-local.ts
   - libs/aws/src/testing/index.ts
   - libs/aws/package.json
-sources_hash: 564620ffa42b7ac6f75fde22bf91178b8418e5b76f94853400e7f1193fe92b8e
+sources_hash: 829cb74100b234070abbf4a90f7b6695272418c2cb91cafb32fbf0faff297dad
 ---
 
 # DynamoDB Local のテスト補助
