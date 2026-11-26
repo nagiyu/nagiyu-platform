@@ -15,7 +15,7 @@ sources:
   - services/livetalk/core/src/constants.ts
 sources_hash: f65e6d3f299e4d825b3fd228b2fd4652c3506106dfab6a0b5d968c8b225f4519
 terms: [livetalk/term/care, livetalk/term/topic, livetalk/term/web-fact, livetalk/term/lifecycle, livetalk/term/user-activity-profile, livetalk/term/study-pause, livetalk/term/freshness-check-request]
-related_cards: [admin/flow/error-notification, livetalk/batch/acquire, livetalk/batch/learn-user-activity, livetalk/flow/notification-open, livetalk/api/push-notification]
+related_cards: [livetalk/batch/acquire, livetalk/batch/learn-user-activity, livetalk/flow/notification-open, livetalk/api/push-notification]
 related_adr:
   - services/livetalk/architecture.md#2.11
   - services/livetalk/architecture.md#2.16
@@ -122,7 +122,7 @@ flowchart TD
 - キャラクターごとの評価の失敗は、ログに残してそのキャラクターを飛ばす
 - 利用者ごとの失敗は、ログに残して次の利用者へ進む。失敗した利用者がいても Lambda は失敗にしない
 - LLM の判定に失敗した Topic は、緊急ではないものとして次へ進む
-- Lambda 全体が例外で終わったときは、Admin にエラーとして届く ([エラー通知の経路](../../admin/flow/error-notification.md))
+- Lambda 全体が例外で終わったときは、Admin にエラーとして届く ([エラー通知の経路](../../../services/admin/specs/flow/error-notification.md))
 
 ## つながり
 

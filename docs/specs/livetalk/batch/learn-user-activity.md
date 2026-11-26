@@ -13,7 +13,7 @@ sources:
   - services/livetalk/core/src/repositories/dynamodb-lifecycle.repository.ts
 sources_hash: a3ed126b10ad141f4ac54fb4e82faf57d71511ead1ecd0c1429c069372bd3717
 terms: [livetalk/term/lifecycle, livetalk/term/user-activity-profile]
-related_cards: [admin/flow/error-notification, livetalk/batch/acquire, livetalk/batch/notify]
+related_cards: [livetalk/batch/acquire, livetalk/batch/notify]
 related_adr:
   - services/livetalk/architecture.md#2.6
   - services/livetalk/architecture.md#2.11
@@ -68,7 +68,7 @@ flowchart TD
 
 - キャラクターごとの失敗は、他のキャラクターを続けながらログに残し、その利用者を失敗として数える
 - 失敗した利用者がいても Lambda は失敗にしない
-- Lambda 全体が例外で終わったときは、Admin にエラーとして届く ([エラー通知の経路](../../admin/flow/error-notification.md))
+- Lambda 全体が例外で終わったときは、Admin にエラーとして届く ([エラー通知の経路](../../../services/admin/specs/flow/error-notification.md))
 
 ## つながり
 

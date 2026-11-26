@@ -9,7 +9,7 @@ sources:
   - services/livetalk/web/src/lib/client-logger.ts
 sources_hash: 90583ca50dda99a8dc5fbc83340b6b6e3637cd7afdad7c62246918365fb3e4a8
 terms: [livetalk/term/permission, livetalk/term/api-error]
-related_cards: [livetalk/screen/home, admin/flow/error-notification]
+related_cards: [livetalk/screen/home]
 ---
 
 # クライアントログ API

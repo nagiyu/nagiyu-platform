@@ -16,7 +16,7 @@ sources:
   - services/stock-tracker/core/src/services/trading-hours-checker.ts
 sources_hash: 6a70066022626335d26754a7e96a49f6523db88e66e00da4cf5632e1fc9c2784
 terms: [stock-tracker/term/trading-hours, stock-tracker/term/price-source, stock-tracker/term/push-subscription]
-related_cards: [admin/flow/error-notification, stock-tracker/flow/alert-notification, stock-tracker/batch/minute, stock-tracker/api/alerts, stock-tracker/api/exchanges, stock-tracker/screen/alerts]
+related_cards: [stock-tracker/flow/alert-notification, stock-tracker/batch/minute, stock-tracker/api/alerts, stock-tracker/api/exchanges, stock-tracker/screen/alerts]
 related_adr:
   - services/stock-tracker/architecture.md#2.3
   - services/stock-tracker/architecture.md#2.4
@@ -73,7 +73,7 @@ flowchart TD
 - アラート単位の失敗は、そのアラートだけを失敗に数えて次へ進む。取引所が見つからないときは警告ログだけを残す。それ以外 (価格の取得失敗、条件の評価や通知本文の作成の例外、購読が無効以外の送信失敗) は、Admin にも `warning` で「時間次バッチ: アラート処理エラー」を報告する (アラート ID と利用者 ID を添える)。再送出しないので、全件が失敗しても Lambda は成功で終わる
 - アラート一覧の読み込みなど、アラート単位でない例外は、共通の骨格が「時間次バッチ: 致命的エラー」を `error` で報告し、例外を再送出して Lambda を失敗にする
 - CloudWatch Alarm も Admin に届く。5 分間の Errors の平均が 10% を超える、実行時間の平均が 4 分を超える、スロットリングが 1 回以上起きる、のいずれか
-- Admin への経路は[エラー通知の経路](../../admin/flow/error-notification.md)
+- Admin への経路は[エラー通知の経路](../../../services/admin/specs/flow/error-notification.md)
 
 ## つながり
 
