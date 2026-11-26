@@ -1,8 +1,4 @@
 ---
-id: quick-clip/screen/upload
-title: アップロード画面
-kind: screen
-service: quick-clip
 sources:
   - services/quick-clip/web/src/app/page.tsx
   - services/quick-clip/web/src/lib/upload-validation.ts
@@ -15,18 +11,11 @@ sources:
   - libs/common/src/format/file-size.ts
   - libs/ui/src/utils/auth.ts
 sources_hash: f977ee1bb4cf50cf0efcabca953b1db5d0cd26fc3600fa1636538e06b556c029
-terms: [quick-clip/term/usage-tier, quick-clip/term/ai-analysis, quick-clip/term/job]
-related_cards: [quick-clip/api/jobs, quick-clip/api/usage, quick-clip/screen/job-status, quick-clip/flow/extraction, quick-clip/flow/usage-metering]
-related_adr:
-  - services/quick-clip/architecture.md#ADR-003
-  - services/quick-clip/architecture.md#ADR-012
-  - services/quick-clip/architecture.md#ADR-018
-  - services/quick-clip/external-design.md#1.2 画面の設計方針
 ---
 
 # アップロード画面
 
-動画 (MP4) を選び、[AI 解析](../term/ai-analysis.md)をするかを決めて、見どころの抽出を依頼する画面。ログインしなくても使える。対象は PC で、スマートフォンには対応しない。
+動画 (MP4) を選び、[AI 解析](../term/ai-analysis.md)をするかを決めて、見どころの抽出を依頼する画面。ログインしなくても使える。
 
 ## 入口
 
@@ -85,11 +74,11 @@ AI 解析なしだけ 0 でスイッチがオンのときは、送れるので�
 |---|---|
 | ジョブの作成 ([ジョブ API](../api/jobs.md)) が失敗した | API が返した `message`。なければ「アップロード処理の開始に失敗しました」 |
 | 上限で断られた (`AI_LIMIT_EXCEEDED`、`NO_AI_LIMIT_EXCEEDED`、`IP_LIMIT_EXCEEDED`、`DURATION_LIMIT_EXCEEDED`) | API の `message`。あわせてエラー表示の下にボタン (接続元の上限だけは案内なし)。断られた時点の残りを読み直す |
-| 動画の送信 (S3 への `PUT`) が失敗した | 動画ファイルのアップロードに失敗しました |
-| 分割アップロードの完了が失敗した | アップロード完了処理に失敗しました |
+| 動画の送信 (S3 への `PUT`) が失敗した。分割では、いずれかの部分が失敗するか、ETag が読めなかったとき。完了の呼び出しが例外になったときも同じ | 動画ファイルのアップロードに失敗しました |
+| 分割アップロードの完了が失敗の応答を返した | アップロード完了処理に失敗しました |
 | 分割の指定が不正 (分割の大きさが整数でない、URL の数が合わない) | アップロードパラメータが不正です |
 | 応答にアップロード先がない | アップロード処理の開始に失敗しました |
-| 通信など、想定外の例外 | 予期しないエラーが発生しました |
+| 動画の送信より前の例外 (ジョブの作成の呼び出しの通信など) | 予期しないエラーが発生しました |
 
 ## 操作
 
@@ -106,10 +95,10 @@ AI 解析なしだけ 0 でスイッチがオンのときは、送れるので�
 |---|---|
 | ① ジョブを作る | [ジョブ API](../api/jobs.md) の `POST /api/jobs`。ファイル名、サイズ、MIME タイプ (空でなければ)、動画の長さ (読めていれば)、AI 解析の希望 (残りを読めていれば) を送る |
 | ② 動画を S3 へ送る | 応答が `uploadUrl` のときは、その URL へ 1 回の `PUT` (進捗はバイト数)。`multipart` のときは、返された大きさで分け、すべての URL へ並列で `PUT` する (進捗は終わった数。ETag を使う) |
-| ③ 完了を伝える | 分割したときだけ。`POST /api/jobs/{jobId}/complete-upload` に、`uploadId` と各部分の ETag を送る。② が失敗したときは、先に `POST /api/jobs/{jobId}/abort-upload` を呼ぶ。中断の失敗は、利用者には出さない |
+| ③ 完了を伝える | 分割したときだけ。`POST /api/jobs/{jobId}/complete-upload` に、`uploadId` と各部分の ETag を送る。② (分割の `PUT`) が失敗したときは、先に `POST /api/jobs/{jobId}/abort-upload` に `uploadId` を送る。中断の失敗は、利用者には出さない |
 
 - 動画を送るときの `Content-Type` は、ファイルの種類にかかわらず `video/mp4`
-- 進捗は、バーと、「アップロード中... N%」の文で出す。100% になると、文は「処理開始中...」になる
+- 進捗は、バーと、「アップロード中... N%」の文で出す。100% になると、文は「処理開始中...」になる。ボタンの文字も、依頼の最中は同じ文になる
 
 ## 画面の見た目
 
@@ -119,7 +108,7 @@ AI 解析なしだけ 0 でスイッチがオンのときは、送れるので�
 
 | PC |
 |---|
-| ![アップロード画面 通常表示 (PC)](../../../images/specs/quick-clip/screen/upload-default-desktop.png) |
+| ![アップロード画面 通常表示 (PC)](../../../../images/specs/quick-clip/screen/upload-default-desktop.png) |
 
 ### ファイルを選んだ状態
 
@@ -127,7 +116,7 @@ AI 解析なしだけ 0 でスイッチがオンのときは、送れるので�
 
 | PC |
 |---|
-| ![アップロード画面 ファイルを選んだ状態 (PC)](../../../images/specs/quick-clip/screen/upload-file-selected-desktop.png) |
+| ![アップロード画面 ファイルを選んだ状態 (PC)](../../../../images/specs/quick-clip/screen/upload-file-selected-desktop.png) |
 
 ### AI 解析をオフにした状態
 
@@ -135,7 +124,7 @@ AI 解析なしだけ 0 でスイッチがオンのときは、送れるので�
 
 | PC |
 |---|
-| ![アップロード画面 AI 解析をオフにした状態 (PC)](../../../images/specs/quick-clip/screen/upload-ai-off-desktop.png) |
+| ![アップロード画面 AI 解析をオフにした状態 (PC)](../../../../images/specs/quick-clip/screen/upload-ai-off-desktop.png) |
 
 ### 未ログイン
 
@@ -143,7 +132,7 @@ AI 解析ありの上限が 0 回なので、スイッチを選べない。ロ�
 
 | PC |
 |---|
-| ![アップロード画面 未ログイン (PC)](../../../images/specs/quick-clip/screen/upload-anonymous-desktop.png) |
+| ![アップロード画面 未ログイン (PC)](../../../../images/specs/quick-clip/screen/upload-anonymous-desktop.png) |
 
 ### AI 解析ありを使い切った状態
 
@@ -151,7 +140,7 @@ AI 解析ありの上限が 0 回なので、スイッチを選べない。ロ�
 
 | PC |
 |---|
-| ![アップロード画面 AI 解析ありを使い切った状態 (PC)](../../../images/specs/quick-clip/screen/upload-ai-exhausted-desktop.png) |
+| ![アップロード画面 AI 解析ありを使い切った状態 (PC)](../../../../images/specs/quick-clip/screen/upload-ai-exhausted-desktop.png) |
 
 ### 残りを取得できなかった状態
 
@@ -159,7 +148,7 @@ AI 解析ありの上限が 0 回なので、スイッチを選べない。ロ�
 
 | PC |
 |---|
-| ![アップロード画面 残りを取得できなかった状態 (PC)](../../../images/specs/quick-clip/screen/upload-usage-unavailable-desktop.png) |
+| ![アップロード画面 残りを取得できなかった状態 (PC)](../../../../images/specs/quick-clip/screen/upload-usage-unavailable-desktop.png) |
 
 ### MP4 でないファイルを選んだとき
 
@@ -167,7 +156,7 @@ AI 解析ありの上限が 0 回なので、スイッチを選べない。ロ�
 
 | PC |
 |---|
-| ![アップロード画面 MP4 でないファイルを選んだとき (PC)](../../../images/specs/quick-clip/screen/upload-invalid-type-desktop.png) |
+| ![アップロード画面 MP4 でないファイルを選んだとき (PC)](../../../../images/specs/quick-clip/screen/upload-invalid-type-desktop.png) |
 
 ### 20 GiB を超えるファイルを選んだとき
 
@@ -175,7 +164,7 @@ AI 解析ありの上限が 0 回なので、スイッチを選べない。ロ�
 
 | PC |
 |---|
-| ![アップロード画面 20 GiB を超えるファイルを選んだとき (PC)](../../../images/specs/quick-clip/screen/upload-too-large-desktop.png) |
+| ![アップロード画面 20 GiB を超えるファイルを選んだとき (PC)](../../../../images/specs/quick-clip/screen/upload-too-large-desktop.png) |
 
 ### 動画が段の上限より長いとき
 
@@ -183,7 +172,7 @@ AI 解析ありの上限が 0 回なので、スイッチを選べない。ロ�
 
 | PC |
 |---|
-| ![アップロード画面 動画が段の上限より長いとき (PC)](../../../images/specs/quick-clip/screen/upload-duration-exceeded-desktop.png) |
+| ![アップロード画面 動画が段の上限より長いとき (PC)](../../../../images/specs/quick-clip/screen/upload-duration-exceeded-desktop.png) |
 
 ### アップロード中
 
@@ -191,7 +180,7 @@ AI 解析ありの上限が 0 回なので、スイッチを選べない。ロ�
 
 | PC |
 |---|
-| ![アップロード画面 アップロード中 (PC)](../../../images/specs/quick-clip/screen/upload-uploading-desktop.png) |
+| ![アップロード画面 アップロード中 (PC)](../../../../images/specs/quick-clip/screen/upload-uploading-desktop.png) |
 
 ### ジョブの作成に失敗したとき
 
@@ -199,7 +188,7 @@ API が返した「ジョブの作成に失敗しました」を出す。選ん�
 
 | PC |
 |---|
-| ![アップロード画面 ジョブの作成に失敗したとき (PC)](../../../images/specs/quick-clip/screen/upload-create-failed-desktop.png) |
+| ![アップロード画面 ジョブの作成に失敗したとき (PC)](../../../../images/specs/quick-clip/screen/upload-create-failed-desktop.png) |
 
 ### 今月の回数の上限で断られたとき
 
@@ -207,7 +196,7 @@ API が返したメッセージを出し、プランの画面を案内する。
 
 | PC |
 |---|
-| ![アップロード画面 今月の回数の上限で断られたとき (PC)](../../../images/specs/quick-clip/screen/upload-limit-exceeded-desktop.png) |
+| ![アップロード画面 今月の回数の上限で断られたとき (PC)](../../../../images/specs/quick-clip/screen/upload-limit-exceeded-desktop.png) |
 
 ### S3 へのアップロードに失敗したとき
 
@@ -215,7 +204,7 @@ API が返したメッセージを出し、プランの画面を案内する。
 
 | PC |
 |---|
-| ![アップロード画面 S3 へのアップロードに失敗したとき (PC)](../../../images/specs/quick-clip/screen/upload-upload-failed-desktop.png) |
+| ![アップロード画面 S3 へのアップロードに失敗したとき (PC)](../../../../images/specs/quick-clip/screen/upload-upload-failed-desktop.png) |
 
 ## つながり
 
@@ -228,3 +217,15 @@ flowchart TD
     J -->|再アップロード| S
     S -->|ログイン・プラン| X[Auth サービス]
 ```
+
+## 理由
+
+- 動画の送信は、Lambda を通さず、ブラウザから S3 へ直接送る。値と理由は[ジョブ API](../api/jobs.md)の「理由」にある
+- ファイルの検証は、選んだ時点で行う。送ってからサーバーに断られるのを待たせないため。画面とサーバーは同じ判定と文言を使い、画面で通ったファイルがサーバーで断られる食い違いを防ぐ
+- 動画の長さは、選んだ時点でブラウザが読む。段の上限を超えることを、送る前に知らせるため。長さを読めなかったときは、止めずにサーバーの判定に任せる。長さの分は、超過しているのに「60 分 / 上限 60 分」と見えないよう、動画の側を切り上げる
+- 残りを読めなかったときは、AI 解析の希望を送らず、サーバーの省略時の扱いに任せる (AI ありを試し、残りがなければ AI なし)
+- AI 解析のスイッチの初めの値は、初めて残りを読めたときだけ入れる。読み直しのたびに入れると、利用者がオフにした選択が戻るため
+- 誘導のボタンは画面に 1 組だけにする。長さの警告、サーバーのエラー、回数の案内のどれが出ていても、同じボタンが重ならないようにするため
+- 「プランを見る」は、一番上の段 (プロ、使い放題) には出さない。上げ先がないため。段の値の大小ではなく、一番上かどうかで決めるのは、上限の値が変わりうるため。接続元の上限には案内を出さない。利用者の操作では解消できないため
+- タブを閉じる・再読み込みの確認は、依頼を始めてから画面が移るまでの全体で出す。転送中だけだと、ジョブの作成や完了の処理の最中に閉じられて、中途半端なジョブが残るため
+- ログインとプランの画面の URL は、サーバーの実行時の環境変数から渡す。クライアントで環境変数を読むと、ビルドのときの空の値に固定されるため

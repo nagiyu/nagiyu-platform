@@ -1,8 +1,4 @@
 ---
-id: quick-clip/api/highlights
-title: 見どころ API
-kind: api
-service: quick-clip
 sources:
   - services/quick-clip/web/src/app/api/jobs/[jobId]/highlights/route.ts
   - services/quick-clip/web/src/app/api/jobs/[jobId]/highlights/recover/route.ts
@@ -15,11 +11,6 @@ sources:
   - services/quick-clip/core/src/libs/domain-error-messages.ts
   - libs/nextjs/src/request-body.ts
 sources_hash: 2d0545fd56f4c6a18ec9a687ec8f047c476efb79dca8d9d88d7d9ddd1abf8c7c
-terms: [quick-clip/term/highlight, quick-clip/term/job, quick-clip/term/api-error]
-related_cards: [quick-clip/screen/highlights, quick-clip/batch/clip-regenerate, quick-clip/batch/extract, quick-clip/api/download, quick-clip/api/jobs]
-related_adr:
-  - services/quick-clip/architecture.md#ADR-002
-  - services/quick-clip/architecture.md#ADR-017
 ---
 
 # 見どころ API
@@ -45,7 +36,7 @@ related_adr:
 
 復旧 (`POST .../recover`)。本文はない。
 
-- `GENERATING` のまま、`clipGeneratingStartedAt` から 360 秒を過ぎた見どころを `FAILED` にする。出力は 200 で `{ recoveredHighlightIds }`。対象がなければ空の配列
+- `GENERATING` のまま、`clipGeneratingStartedAt` から 360 秒を過ぎた見どころを `FAILED` にする。`clipGeneratingStartedAt` がない見どころは対象にしない。出力は 200 で `{ recoveredHighlightIds }`。対象がなければ空の配列
 - 画面は、一覧を取るたびに、先にこれを呼ぶ
 
 更新 (`PATCH`)。本文は JSON オブジェクトで、次の項目のうち 1 つ以上。
@@ -67,7 +58,7 @@ related_adr:
 
 作り直し (`POST .../regenerate`)。本文はない。
 
-- 見どころを読み、`clipStatus` が `GENERATING` でなければ、`GENERATING` にして `clipGeneratingStartedAt` を今にし、Lambda を非同期で起動する。渡すのは保存済みの `startSec` と `endSec`。出力は 200 で `GENERATING` になった見どころ
+- 見どころを読み、`clipStatus` が `GENERATING` なら 409。そうでなければ、起動より先に `GENERATING` にして `clipGeneratingStartedAt` を今にし、Lambda を非同期で起動する。渡すのは保存済みの `startSec` と `endSec`。出力は 200 で `GENERATING` になった見どころ
 - `clipStatus` が `GENERATED` のものでも作り直せる。採否は変えない
 - 起動に失敗したときは、`clipStatus` を `FAILED` にして、例外を 500 にする
 
@@ -90,7 +81,7 @@ related_adr:
 
 - 更新の 404 は、`status` だけの更新ではドメインの検査 (保存済みの見どころを読む) で、時刻を含む更新では先に見どころを読む段で返す。どちらも同じ本文
 - 「更新」は、ジョブが存在するかを確かめない。時刻を含む更新は、ジョブがあれば `durationSec` を読んで終了の上限にし、なければ上限を見ない。超過は作り直しの起動より前に断る。見どころは `jobId` と `highlightId` の組で探す
-- 作り直しの状態の見方は[見どころ](../term/highlight.md)にある。条件付きの書き込みにはしていないので、別のタブなどから同時に呼ぶと、重なりうる
+- 作り直しの状態の見方は[見どころとクリップの状態](../term/highlight.md)にある。`GENERATING` かの確認と書き込みは別々の操作で、条件付きの書き込みにはしていないので、別のタブなどから同時に呼ぶと、重なりうる
 
 ## つながり
 
@@ -104,3 +95,12 @@ flowchart TD
     L --> D
     A -.->|500 の報告| E[(error-events テーブル)]
 ```
+
+## 理由
+
+- 作り直しの最中の見どころには、時刻の更新も作り直しも重ねず、409 で断る。作り直しが重なると、同じ S3 のキーへの書き込みが競合し、古い内容が最後に残りうるため。採否だけの更新は、クリップを作り直さないので、作り直しの最中でも受ける
+- 作り直しの Lambda は、完了のときに `GENERATED` へ更新する。そのため、起動より先に `GENERATING` にする。起動のあとに更新すると、短い作り直しでは、Lambda の完了を `GENERATING` で上書きしかねない
+- Lambda の起動に失敗したときは、`FAILED` にする。`GENERATING` のまま残すと、誰も完了させず、以降の変更も 409 で受け付けられなくなるため。時刻の更新では、保存した見どころを 200 で返して Admin に報告し、作り直しでは 500 にする
+- 復旧の 360 秒は、Lambda のタイムアウト (300 秒) に 60 秒を足した値。非同期の起動はキューで待ってから動き出し、`GENERATING` の時刻は Web が起動を頼んだ時点で記録するため、Lambda が実際に動き始めるのはそれより後になる。タイムアウトちょうどで見切ると、まだ動いている作り直しを失敗扱いにしかねない
+- `clipGeneratingStartedAt` がない見どころは、復旧の対象にしない。いつから `GENERATING` なのか分からず、作り直しの最中のものを誤って失敗扱いにしかねないため
+- 終了を動かさない更新は、動画の長さの上限を見ない。長さを書き戻す前に作られた見どころは、終了が上限を超えていることがあり、その採否や開始の調整まで止めないため

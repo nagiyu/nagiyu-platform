@@ -1,8 +1,4 @@
 ---
-id: quick-clip/api/download
-title: ダウンロード API
-kind: api
-service: quick-clip
 sources:
   - services/quick-clip/web/src/app/api/jobs/[jobId]/download/route.ts
   - services/quick-clip/web/src/lib/server/domain-services.ts
@@ -10,11 +6,6 @@ sources:
   - services/quick-clip/web/src/lib/api-error-reporting.ts
   - services/quick-clip/core/src/libs/highlight.service.ts
 sources_hash: fc2d0ab396d03033b3c86f41922b0163bb27f4c738ed72952eb61696e24ed576
-terms: [quick-clip/term/highlight, quick-clip/term/api-error]
-related_cards: [quick-clip/screen/highlights, quick-clip/batch/zip-generate, quick-clip/api/highlights]
-related_adr:
-  - services/quick-clip/architecture.md#ADR-002
-  - services/quick-clip/architecture.md#ADR-015
 ---
 
 # ダウンロード API
@@ -72,3 +63,9 @@ flowchart TD
     Z --> S
     A -.->|500 の報告| E[(error-events テーブル)]
 ```
+
+## 理由
+
+- 失敗したクリップが採用されているときは、ZIP を作り始める前に 409 で断る。ZIP の生成は、失敗したクリップの動画を読めないため
+- 開始のときに、前の ZIP を消す。取得は ZIP の有無だけを見るので、前の ZIP が残っていると、作り直しの途中で前の ZIP を返してしまうため
+- ZIP の生成の失敗は、この API に伝わらない。取得は `PROCESSING` を返し続け、画面が 300 秒で待つのをやめる

@@ -1,8 +1,4 @@
 ---
-id: quick-clip/api/jobs
-title: ジョブ API
-kind: api
-service: quick-clip
 sources:
   - services/quick-clip/web/src/app/api/jobs/route.ts
   - services/quick-clip/web/src/app/api/jobs/[jobId]/route.ts
@@ -21,14 +17,6 @@ sources:
   - libs/nextjs/src/request-body.ts
   - libs/common/src/constants/error-messages.ts
 sources_hash: 3464dc18fbaeb84b92ac124d28ca316df5add2afa0afbe025a36292fd5d355b0
-terms: [quick-clip/term/job, quick-clip/term/job-definition-size, quick-clip/term/usage-tier, quick-clip/term/ai-analysis, quick-clip/term/api-error]
-related_cards: [quick-clip/screen/upload, quick-clip/screen/job-status, quick-clip/screen/highlights, quick-clip/batch/extract, quick-clip/flow/extraction, quick-clip/flow/usage-metering, quick-clip/api/usage]
-related_adr:
-  - services/quick-clip/architecture.md#ADR-003
-  - services/quick-clip/architecture.md#ADR-011
-  - services/quick-clip/architecture.md#ADR-012
-  - services/quick-clip/architecture.md#ADR-016
-  - services/quick-clip/architecture.md#ADR-018
 ---
 
 # ジョブ API
@@ -79,7 +67,7 @@ related_adr:
 取得 (`GET /api/jobs/{jobId}`)。
 
 - 出力は 200 で `{ jobId, status, originalFileName, fileSize, createdAt, expiresAt }` に、条件つきで `durationSec`、`batchStage`、`analysisProgress`、`errorMessage` を足したもの。`status` の求め方と、足す条件は[ジョブとステータス](../term/job.md)にある。`durationSec` はジョブに記録があるときだけ足す (見どころの時刻の上限として画面が使う)
-- 呼ぶたびに、Batch の `DescribeJobs` で状態を取る。書き込みはしない
+- ジョブに Batch のジョブ ID があるとき (投入済み) は、呼ぶたびに Batch の `DescribeJobs` で状態を取る。ないときは `PENDING` を返す。どちらも書き込みはしない
 
 ## 処理
 
@@ -144,3 +132,12 @@ flowchart TD
     A -->|回数を数える| C[(利用回数の記録)]
     A -.->|500 の報告| E[(error-events テーブル)]
 ```
+
+## 理由
+
+- 動画は、Lambda を通さず、ブラウザから S3 の署名付き URL へ直接送る。Next.js の Lambda を経由させると、Lambda のメモリとタイムアウトの制約に当たるため
+- 1 本の動画の上限は 20 GiB で、S3 の 1 回の `PUT` は 5 GB までなので、大きい動画は分割 (マルチパート) で送る。100 MiB 未満は、1 回の `PUT` で送り、ブラウザとサーバーの連携 (ETag の管理と完了の呼び出し) を要らなくする
+- 分割の閾値は 100 MiB、1 部分は 50 MiB にする。実測では、PoC の利用は 30 MB から数 GB が中心で、この閾値なら大半の動画で、並列に送る効果を受けられる。50 MiB は、1 部分あたりの転送時間と同時に走らせる数の釣り合いがよい大きさ
+- 分割した部分は、ブラウザがすべて並列で `PUT` する。逐次に送ると、大きい動画の転送時間が全体の足を引くため。並列の `PUT` は帯域を集中して使うので、細い回線では不安定になりうる
+- 部分の送信が失敗したら、中断の API で S3 の分割アップロードを中断する。呼ばないと、完了していない部分が S3 に残る。中断は同じ操作を繰り返しても結果が変わらないため、`uploadId` がそのジョブのものかは確かめない。中断の失敗は利用者の操作に影響しないので、画面は握って、ログだけを残す
+- 分割したときの Batch への投入は、完了のときに行う。作成の時点では動画が S3 に揃っていないため

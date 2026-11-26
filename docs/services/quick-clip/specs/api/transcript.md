@@ -1,16 +1,8 @@
 ---
-id: quick-clip/api/transcript
-title: 文字起こし API
-kind: api
-service: quick-clip
 sources:
   - services/quick-clip/web/src/app/api/jobs/[jobId]/transcript/route.ts
   - services/quick-clip/web/src/lib/api-error-reporting.ts
 sources_hash: f80cce5f3256b5edbdd326adfdcf256930007c3775bb22315233f6168889b8d3
-terms: [quick-clip/term/transcript, quick-clip/term/job, quick-clip/term/api-error]
-related_cards: [quick-clip/screen/highlights, quick-clip/batch/extract, quick-clip/api/jobs]
-related_adr:
-  - services/quick-clip/architecture.md#ADR-015
 ---
 
 # 文字起こし API
@@ -49,3 +41,7 @@ flowchart TD
     X[抽出バッチ] -->|保存| S
     A -.->|500 の報告| E[(error-events テーブル)]
 ```
+
+## 理由
+
+- 文字起こしのファイルは任意のものとして扱い、ないときは 404 にせず空の配列を返す。AI 解析をしなかったジョブには、ファイルがないため ([AI 解析](../term/ai-analysis.md))。画面は、文字起こしを読めなくても何も出さずに続ける ([見どころ確認画面](../screen/highlights.md))

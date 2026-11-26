@@ -1,8 +1,4 @@
 ---
-id: quick-clip/screen/highlights
-title: 見どころ確認画面
-kind: screen
-service: quick-clip
 sources:
   - services/quick-clip/web/src/app/jobs/[jobId]/highlights/page.tsx
   - services/quick-clip/web/src/lib/highlight-edit-lock.ts
@@ -13,18 +9,11 @@ sources:
   - libs/common/src/format/jst.ts
   - libs/common/src/constants/error-messages.ts
 sources_hash: 61c84a48960a59d623fe00394b8601b6fc9dac79d074aeae32928a13de42f225
-terms: [quick-clip/term/highlight, quick-clip/term/transcript, quick-clip/term/job]
-related_cards: [quick-clip/api/highlights, quick-clip/api/download, quick-clip/api/transcript, quick-clip/api/jobs, quick-clip/screen/job-status, quick-clip/batch/clip-regenerate, quick-clip/batch/zip-generate, quick-clip/flow/extraction]
-related_adr:
-  - services/quick-clip/architecture.md#ADR-014
-  - services/quick-clip/architecture.md#ADR-015
-  - services/quick-clip/architecture.md#ADR-017
-  - services/quick-clip/external-design.md#1.2 画面の設計方針
 ---
 
 # 見どころ確認画面
 
-抽出された[見どころ](../term/highlight.md)をプレビューして、採否を決め、開始・終了を調整し、採用したクリップを ZIP でダウンロードする画面。左に選んだ見どころの詳細、右に見どころの一覧を置く。対象は PC で、スマートフォンには対応しない。
+抽出された[見どころ](../term/highlight.md)をプレビューして、採否を決め、開始・終了を調整し、採用したクリップを ZIP でダウンロードする画面。左に選んだ見どころの詳細、右に見どころの一覧を置く。
 
 ## 入口
 
@@ -89,7 +78,7 @@ related_adr:
 
 ## 状態
 
-- 一覧を読む間は、回る輪と「見どころを取得しています...」を出す
+- ジョブの状態と一覧を読む間は、回る輪と「見どころを取得しています...」を出す
 - 読めて 0 件のときは、「見どころが検出されませんでした」を出す。読めなかったときは、これを出さず、エラーだけを出す
 - 一覧の取得に失敗したときは、「見どころ一覧の取得に失敗しました」を出す。次に取得に成功すると消える。ほかの操作のエラーは消さない
 - 文字起こしは、読めなくても何も出さず、続ける
@@ -102,7 +91,7 @@ related_adr:
 | 切り出し前、作り直し中 (`PENDING`、`GENERATING`) | 回る輪と「クリップ生成中...」 |
 | 失敗 (`FAILED`) | 赤い枠に「クリップ生成に失敗しました」。下に「リトライ」を出す |
 
-- 生成が終わっていない (`PENDING` か `GENERATING` の) 見どころがある間は、一覧を 3 秒ごとに取り直して、状態を追う。すべて終わる (`GENERATED` か `FAILED` になる) と止まる。取り直しの前に、止まった作り直しを失敗にする API を呼ぶ ([見どころ API](../api/highlights.md))
+- 生成が終わっていない (`PENDING` か `GENERATING` の) 見どころがある間は、一覧を 3 秒ごとに取り直して、状態を追う。すべて終わる (`GENERATED` か `FAILED` になる) と止まる。一覧を取るたびに、先に、止まった作り直しを失敗にする API を呼ぶ ([見どころ API](../api/highlights.md))。呼ぶのは最初の取得と、この 3 秒ごとの取り直しの両方
 - 作り直しの最中 (`GENERATING`) と、更新やリトライを送っている最中は、その見どころの開始・終了の入力欄と「リトライ」を操作できなくする。採否は変えられる
 - 開始・終了の入力欄を離れたとき、次のどれかなら、何も送らない
     - 表示の文字列が変わっていない
@@ -154,7 +143,7 @@ ZIP のダウンロードの手順。
 
 | PC |
 |---|
-| ![見どころ確認画面 通常表示 (PC)](../../../images/specs/quick-clip/screen/highlights-default-desktop.png) |
+| ![見どころ確認画面 通常表示 (PC)](../../../../images/specs/quick-clip/screen/highlights-default-desktop.png) |
 
 ### 見どころを選んだ状態
 
@@ -162,7 +151,7 @@ ZIP のダウンロードの手順。
 
 | PC |
 |---|
-| ![見どころ確認画面 見どころを選んだ状態 (PC)](../../../images/specs/quick-clip/screen/highlights-selected-desktop.png) |
+| ![見どころ確認画面 見どころを選んだ状態 (PC)](../../../../images/specs/quick-clip/screen/highlights-selected-desktop.png) |
 
 ### 列設定で抽出根拠を出した状態
 
@@ -170,7 +159,7 @@ ZIP のダウンロードの手順。
 
 | PC |
 |---|
-| ![見どころ確認画面 列設定で抽出根拠を出した状態 (PC)](../../../images/specs/quick-clip/screen/highlights-column-settings-desktop.png) |
+| ![見どころ確認画面 列設定で抽出根拠を出した状態 (PC)](../../../../images/specs/quick-clip/screen/highlights-column-settings-desktop.png) |
 
 ### 開始が終了以上の時刻を入れたとき
 
@@ -178,7 +167,7 @@ ZIP のダウンロードの手順。
 
 | PC |
 |---|
-| ![見どころ確認画面 開始が終了以上の時刻を入れたとき (PC)](../../../images/specs/quick-clip/screen/highlights-range-invalid-desktop.png) |
+| ![見どころ確認画面 開始が終了以上の時刻を入れたとき (PC)](../../../../images/specs/quick-clip/screen/highlights-range-invalid-desktop.png) |
 
 ### クリップを作り直している最中
 
@@ -186,7 +175,7 @@ ZIP のダウンロードの手順。
 
 | PC |
 |---|
-| ![見どころ確認画面 クリップを作り直している最中 (PC)](../../../images/specs/quick-clip/screen/highlights-regenerating-desktop.png) |
+| ![見どころ確認画面 クリップを作り直している最中 (PC)](../../../../images/specs/quick-clip/screen/highlights-regenerating-desktop.png) |
 
 ### クリップの作り直しに失敗したとき
 
@@ -194,7 +183,7 @@ ZIP のダウンロードの手順。
 
 | PC |
 |---|
-| ![見どころ確認画面 クリップの作り直しに失敗したとき (PC)](../../../images/specs/quick-clip/screen/highlights-clip-failed-desktop.png) |
+| ![見どころ確認画面 クリップの作り直しに失敗したとき (PC)](../../../../images/specs/quick-clip/screen/highlights-clip-failed-desktop.png) |
 
 ### ZIP を準備している状態
 
@@ -202,19 +191,19 @@ ZIP のダウンロードの手順。
 
 | PC |
 |---|
-| ![見どころ確認画面 ZIP を準備している状態 (PC)](../../../images/specs/quick-clip/screen/highlights-downloading-desktop.png) |
+| ![見どころ確認画面 ZIP を準備している状態 (PC)](../../../../images/specs/quick-clip/screen/highlights-downloading-desktop.png) |
 
 ### 見どころが 0 件
 
 | PC |
 |---|
-| ![見どころ確認画面 見どころが 0 件 (PC)](../../../images/specs/quick-clip/screen/highlights-empty-desktop.png) |
+| ![見どころ確認画面 見どころが 0 件 (PC)](../../../../images/specs/quick-clip/screen/highlights-empty-desktop.png) |
 
 ### 一覧の取得に失敗したとき
 
 | PC |
 |---|
-| ![見どころ確認画面 一覧の取得に失敗したとき (PC)](../../../images/specs/quick-clip/screen/highlights-load-failed-desktop.png) |
+| ![見どころ確認画面 一覧の取得に失敗したとき (PC)](../../../../images/specs/quick-clip/screen/highlights-load-failed-desktop.png) |
 
 ### 処理がまだ終わっていないとき
 
@@ -222,19 +211,19 @@ ZIP のダウンロードの手順。
 
 | PC |
 |---|
-| ![見どころ確認画面 処理がまだ終わっていないとき (PC)](../../../images/specs/quick-clip/screen/highlights-job-in-progress-desktop.png) |
+| ![見どころ確認画面 処理がまだ終わっていないとき (PC)](../../../../images/specs/quick-clip/screen/highlights-job-in-progress-desktop.png) |
 
 ### 処理に失敗したとき
 
 | PC |
 |---|
-| ![見どころ確認画面 処理に失敗したとき (PC)](../../../images/specs/quick-clip/screen/highlights-job-failed-desktop.png) |
+| ![見どころ確認画面 処理に失敗したとき (PC)](../../../../images/specs/quick-clip/screen/highlights-job-failed-desktop.png) |
 
 ### 指定したジョブがない
 
 | PC |
 |---|
-| ![見どころ確認画面 指定したジョブがない (PC)](../../../images/specs/quick-clip/screen/highlights-job-not-found-desktop.png) |
+| ![見どころ確認画面 指定したジョブがない (PC)](../../../../images/specs/quick-clip/screen/highlights-job-not-found-desktop.png) |
 
 ## つながり
 
@@ -250,3 +239,11 @@ flowchart TD
     H -->|クリップを再生・ZIP を取得| S[(S3 バケット)]
     H -->|処理状況を確認する| P
 ```
+
+## 理由
+
+- 左に選んだ見どころの詳細、右に見どころの一覧を置くマスター/ディテール構成にする。一覧で全体を見ながら、1 件ずつプレビューして採否を決められるようにするため
+- ジョブが完了していなければ、一覧を取得しない。URL を直接開いた場合に、見どころが無いと誤解させないため。完了前は「処理状況を確認する」へ案内する
+- 「見どころが検出されませんでした」は、一覧の取得に成功したときだけ出す。取得に失敗したときに、検出されなかったと誤解させないため
+- クリップを作り直している間 (`GENERATING`) と、更新や作り直しを送っている間は、その見どころの開始・終了とリトライを止める。作り直しが重なると、同じ S3 のキーへの書き込みが競合し、古い内容が最後に残りうるため ([見どころとクリップの状態](../term/highlight.md))。送っている間も止めるのは、サーバーの応答で状態が変わるまでに間があき、続けて送れてしまうため
+- ZIP を押せない理由は、失敗したクリップの方を先に伝える。失敗は利用者の操作 (リトライか、採用を外す) が要り、生成待ちは待てば済むため

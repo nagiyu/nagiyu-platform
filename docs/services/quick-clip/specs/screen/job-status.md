@@ -1,22 +1,10 @@
 ---
-id: quick-clip/screen/job-status
-title: 処理状況画面
-kind: screen
-service: quick-clip
 sources:
   - services/quick-clip/web/src/app/jobs/[jobId]/page.tsx
   - services/quick-clip/web/src/app/jobs/[jobId]/VideoAd.tsx
   - libs/common/src/format/jst.ts
   - libs/common/src/constants/error-messages.ts
 sources_hash: 46e21099a05298f252437b16ac984ad24ba1854c3812f2ccaf1f0f104215ba34
-terms: [quick-clip/term/job, quick-clip/term/ai-analysis]
-related_cards: [quick-clip/api/jobs, quick-clip/screen/upload, quick-clip/screen/highlights, quick-clip/batch/extract, quick-clip/flow/extraction]
-related_adr:
-  - services/quick-clip/architecture.md#ADR-005
-  - services/quick-clip/architecture.md#ADR-006
-  - services/quick-clip/architecture.md#ADR-011
-  - services/quick-clip/architecture.md#ADR-013
-  - services/quick-clip/external-design.md#1.2 画面の設計方針
 ---
 
 # 処理状況画面
@@ -66,9 +54,9 @@ related_adr:
 ### 広告
 
 - 広告は、Google の IMA SDK で出す。16:9 の黒い枠 (幅は 640px まで) で、広告はこの中に入る
-- 広告の URL (`NEXT_PUBLIC_VAST_TAG_URL`) は、ビルドのときに決まる。空なら広告は出さず、すぐ終わったものとして扱う
+- 広告の URL (`NEXT_PUBLIC_VAST_TAG_URL`) は、ビルドのときに決まる ([Web の実行環境](../resource/web-runtime.md))。空なら広告は出さず、すぐ終わったものとして扱う
 - 次のどれかになると、広告が終わったものとして枠を消す。広告の完了、スキップ、すべての広告の完了、広告のエラー、SDK の読み込みの失敗 (広告ブロッカーを含む)、SDK の読み込みが 10 秒で終わらないとき
-- 広告は、ジョブのステータスにかかわらず出す。処理が先に終わっても、広告が終わるまで「見どころを確認する」は出ない。広告が先に終わっても、処理中の表示はそのまま
+- 広告は、処理待ち・処理中・処理完了のあいだ続けて出す。ステータスが変わっても、枠は作り直さない。処理が先に終わっても、広告が終わるまで「見どころを確認する」は出ない。広告が先に終わっても、処理中の表示はそのまま
 - 処理が失敗すると、広告の枠は消え、広告が終わったかにかかわらず出さない
 
 ## 状態
@@ -97,7 +85,7 @@ Batch の投入後、動き出す前。広告の枠が出る。広告は、撮�
 
 | PC |
 |---|
-| ![処理状況画面 処理待ち (PC)](../../../images/specs/quick-clip/screen/job-status-pending-desktop.png) |
+| ![処理状況画面 処理待ち (PC)](../../../../images/specs/quick-clip/screen/job-status-pending-desktop.png) |
 
 ### 解析中
 
@@ -105,7 +93,7 @@ Batch の投入後、動き出す前。広告の枠が出る。広告は、撮�
 
 | PC |
 |---|
-| ![処理状況画面 解析中 (PC)](../../../images/specs/quick-clip/screen/job-status-analyzing-desktop.png) |
+| ![処理状況画面 解析中 (PC)](../../../../images/specs/quick-clip/screen/job-status-analyzing-desktop.png) |
 
 ### 文字起こしを飛ばした状態
 
@@ -113,7 +101,7 @@ Batch の投入後、動き出す前。広告の枠が出る。広告は、撮�
 
 | PC |
 |---|
-| ![処理状況画面 文字起こしを飛ばした状態 (PC)](../../../images/specs/quick-clip/screen/job-status-ai-skipped-desktop.png) |
+| ![処理状況画面 文字起こしを飛ばした状態 (PC)](../../../../images/specs/quick-clip/screen/job-status-ai-skipped-desktop.png) |
 
 ### クリップの切り出し中
 
@@ -121,7 +109,7 @@ Batch の投入後、動き出す前。広告の枠が出る。広告は、撮�
 
 | PC |
 |---|
-| ![処理状況画面 クリップの切り出し中 (PC)](../../../images/specs/quick-clip/screen/job-status-clipping-desktop.png) |
+| ![処理状況画面 クリップの切り出し中 (PC)](../../../../images/specs/quick-clip/screen/job-status-clipping-desktop.png) |
 
 ### 処理が終わり、広告が続いている状態
 
@@ -129,7 +117,7 @@ Batch の投入後、動き出す前。広告の枠が出る。広告は、撮�
 
 | PC |
 |---|
-| ![処理状況画面 処理が終わり、広告が続いている状態 (PC)](../../../images/specs/quick-clip/screen/job-status-completed-ad-playing-desktop.png) |
+| ![処理状況画面 処理が終わり、広告が続いている状態 (PC)](../../../../images/specs/quick-clip/screen/job-status-completed-ad-playing-desktop.png) |
 
 ### 処理完了
 
@@ -137,7 +125,7 @@ Batch の投入後、動き出す前。広告の枠が出る。広告は、撮�
 
 | PC |
 |---|
-| ![処理状況画面 処理完了 (PC)](../../../images/specs/quick-clip/screen/job-status-completed-desktop.png) |
+| ![処理状況画面 処理完了 (PC)](../../../../images/specs/quick-clip/screen/job-status-completed-desktop.png) |
 
 ### 処理失敗
 
@@ -145,19 +133,19 @@ Batch の投入後、動き出す前。広告の枠が出る。広告は、撮�
 
 | PC |
 |---|
-| ![処理状況画面 処理失敗 (PC)](../../../images/specs/quick-clip/screen/job-status-failed-desktop.png) |
+| ![処理状況画面 処理失敗 (PC)](../../../../images/specs/quick-clip/screen/job-status-failed-desktop.png) |
 
 ### 指定したジョブがない
 
 | PC |
 |---|
-| ![処理状況画面 指定したジョブがない (PC)](../../../images/specs/quick-clip/screen/job-status-not-found-desktop.png) |
+| ![処理状況画面 指定したジョブがない (PC)](../../../../images/specs/quick-clip/screen/job-status-not-found-desktop.png) |
 
 ### 取得に失敗したとき
 
 | PC |
 |---|
-| ![処理状況画面 取得に失敗したとき (PC)](../../../images/specs/quick-clip/screen/job-status-fetch-error-desktop.png) |
+| ![処理状況画面 取得に失敗したとき (PC)](../../../../images/specs/quick-clip/screen/job-status-fetch-error-desktop.png) |
 
 ### 読み込み中
 
@@ -165,7 +153,7 @@ Batch の投入後、動き出す前。広告の枠が出る。広告は、撮�
 
 | PC |
 |---|
-| ![処理状況画面 読み込み中 (PC)](../../../images/specs/quick-clip/screen/job-status-loading-desktop.png) |
+| ![処理状況画面 読み込み中 (PC)](../../../../images/specs/quick-clip/screen/job-status-loading-desktop.png) |
 
 ## つながり
 
@@ -179,3 +167,12 @@ flowchart TD
     S -->|再アップロードする| U
     H -->|処理状況を確認する| S
 ```
+
+## 理由
+
+- 広告は Google の IMA SDK で出す。SDK は npm のパッケージとして提供されていないため、`https://imasdk.googleapis.com/js/sdkloader/ima3.js` を CDN から読む。広告の在庫・ターゲティング・レポートは Google Ad Manager に任せ、広告のための自前のサーバーは持たない。SDK を外部の CDN から読むため、広告ブロッカーなどで読めない場合に備えて、読み込みの失敗を広告の終了として扱う
+- 広告の URL を空にすると広告を出さない。開発や E2E のテストでは、配信元を設定せず、広告を出さない
+- 「見どころを確認する」は、処理の完了と広告の終了の両方を待って出す。広告の再生と抽出の処理は別々に終わるため、片方だけを条件にすると、もう片方が終わる前に見どころの確認へ進めてしまう
+- 広告に関する失敗はすべて、広告が終わったものとして扱う。広告に起因して見どころの確認へ進めなくならないようにするため。SDK の配信元が応答しないと、読み込みの成功も失敗も通知されず、終了が伝わらないので、10 秒で打ち切る
+- 失敗したジョブには広告を見せない。失敗のうえにさらに広告を見せると、利用者の体験を著しく損なうため
+- 広告の枠は、処理待ちから処理完了まで消さずに出し続ける。5 秒ごとの取得でステータスが変わっても、広告の再生をやり直さないため

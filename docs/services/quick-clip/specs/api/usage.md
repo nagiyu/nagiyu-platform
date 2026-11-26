@@ -1,20 +1,13 @@
 ---
-id: quick-clip/api/usage
-title: 利用状況 API
-kind: api
-service: quick-clip
 sources:
   - services/quick-clip/web/src/app/api/usage/route.ts
   - services/quick-clip/web/src/lib/server/usage-context.ts
   - services/quick-clip/web/src/lib/api-error-reporting.ts
+  - services/quick-clip/web/src/lib/auth/session.ts
   - services/quick-clip/core/src/libs/usage.service.ts
   - services/quick-clip/core/src/libs/usage-plan.ts
   - libs/common/src/format/jst-period.ts
-sources_hash: 7154713cf5a9846c6e550cdf09b92855a08d4d48410c17335e720344da027ca6
-terms: [quick-clip/term/usage-tier, quick-clip/term/api-error]
-related_cards: [quick-clip/screen/upload, quick-clip/api/jobs, quick-clip/flow/usage-metering]
-related_adr:
-  - services/quick-clip/architecture.md#ADR-018
+sources_hash: 483959a8172279ead787a6b77a4f34a52e6ec6994efd0b0352bad9e1e6a0dc72
 ---
 
 # 利用状況 API
@@ -36,7 +29,7 @@ related_adr:
     - `used`: 今月に数えた `ai` と `noAi`
     - `remaining`: 残りの `ai` と `noAi`。上限なしは `null`。上限を超えた分は 0 で止める
 - 上限なしの段 (使い放題) は、記録を読まず、`used` を 0 とし、`remaining` を両方 `null` にする
-- 数える主体は、ログイン中はユーザー、未ログインは Cookie の匿名 ID。Cookie がない (または UUID の形でない) 未ログインの呼び出しでは、ここで匿名 ID を発行し、`Set-Cookie` で渡す ([利用回数の流れ](../flow/usage-metering.md))
+- 数える主体は、ログイン中はユーザー、未ログインは Cookie の匿名 ID。セッションの検証が例外になったときは、未ログインとして扱う ([システム系の API](./system.md))。端末情報からの推定は使わない。Cookie がない (または UUID の形でない) 未ログインの呼び出しでは、ここで匿名 ID を発行し、`Set-Cookie` で渡す ([利用回数の流れ](../flow/usage-metering.md))
     - Cookie の名前は `qc_anon_id`。有効期間は 365 日で、`Path=/`、`HttpOnly`、`SameSite=Lax`。`NODE_ENV` が `production` のときは `Secure` を付ける。ドメインは指定しない
     - 発行した匿名 ID は、500 を返すときにも Cookie で渡す
 
@@ -60,3 +53,8 @@ flowchart TD
     A -.->|匿名 ID の Cookie| U
     A -.->|500 の報告| E[(error-events テーブル)]
 ```
+
+## 理由
+
+- 回数の上限なしは、JSON にできない `Infinity` ではなく `null` で表す。応答にそのまま載せるため
+- 上限なしの段では、記録を読まない。カウンターは上限を守るためだけのものなので、上限のない段では触れず、記録も残さない
