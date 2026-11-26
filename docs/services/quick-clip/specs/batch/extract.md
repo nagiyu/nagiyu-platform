@@ -15,7 +15,7 @@ sources:
   - services/quick-clip/core/src/repositories/dynamodb-highlight.repository.ts
   - libs/aws/src/error-events/with-error-reporting.ts
   - libs/aws/src/error-events/report.ts
-sources_hash: 0000000000000000000000000000000000000000000000000000000000000000
+sources_hash: 5a82586b96f7123548224db920de931935fa2dc4cf27719ff9ac13e1d5741750
 ---
 
 # 抽出バッチ (extract)

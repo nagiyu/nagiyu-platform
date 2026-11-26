@@ -1,17 +1,8 @@
 ---
-id: quick-clip/term/job-definition-size
-title: Batch ジョブ定義のサイズ
-kind: term
-service: quick-clip
 sources:
   - services/quick-clip/core/src/libs/job-definition-selector.ts
   - services/quick-clip/web/src/lib/server/submit-extract-job.ts
-  - infra/quick-clip/lib/batch-stack.ts
-sources_hash: db3032f2b7239f1a954f620bcec2653a0e931fbadef4b52bb48463147bd2fbfb
-related_cards: [quick-clip/api/jobs, quick-clip/batch/extract, quick-clip/flow/extraction]
-related_adr:
-  - services/quick-clip/architecture.md#ADR-009
-  - services/quick-clip/architecture.md#ADR-016
+sources_hash: 0162fb02693d25c0c38299b32bdf1ba17de98d17a83e0a29ac8ef70aa1f8aee1
 ---
 
 # Batch ジョブ定義のサイズ
@@ -28,20 +19,17 @@ related_adr:
 | 動画の長さ | 90 分未満 | 90 分以上 180 分未満 | 180 分以上 |
 
 - 動画の長さを申告していないジョブは、長さの軸を `small` として扱い、ファイルサイズだけで決まる
-- 投入するジョブ定義の名前は `{BATCH_JOB_DEFINITION_PREFIX}-{サイズ}`。インフラのプレフィックスは `nagiyu-quick-clip-{env}`
+- 投入するジョブ定義の名前は `{BATCH_JOB_DEFINITION_PREFIX}-{サイズ}`
+- 各サイズの vCPU・メモリ・一時ストレージ・タイムアウト・試行・環境変数・ログの出力先・同時に動かせる大きさは、[Batch の実行環境](../resource/batch-runtime.md)にある
 
-ジョブ定義の中身。イメージ、ログ出力先 (`/aws/batch/nagiyu-quick-clip-{env}`、保持 1 週間)、環境変数は 3 つで共通。
+## 理由
 
-| サイズ | vCPU | メモリ | 一時ストレージ | タイムアウト | 試行 |
-|---|---|---|---|---|---|
-| `small` | 4 | 8,192 MiB | 指定なし (Fargate の既定) | 2 時間 | 1 回 |
-| `large` | 8 | 16,384 MiB | 30 GiB | 3 時間 | 1 回 |
-| `xlarge` | 8 | 16,384 MiB | 60 GiB | 8 時間 | 1 回 |
-
-- 共通の環境変数は `DYNAMODB_TABLE_NAME`、`S3_BUCKET`、`AWS_REGION`、`OPENAI_API_KEY`、`ERROR_EVENTS_TABLE_NAME`。起動ごとの値は、投入のときに別に渡す ([抽出バッチ](../batch/extract.md))
-- 実行基盤は Fargate。同時に動かせる大きさは、コンピュート環境の最大 32 vCPU で決まる
-
-## 関連するカード
-
-- [ジョブ API](../api/jobs.md): 投入のときにサイズを選ぶ
-- [抽出バッチ](../batch/extract.md)・[見どころを受け取るまでの経路](../flow/extraction.md)
+- **サイズと長さの 2 軸で選ぶ**: 必要なリソースは、メモリとストレージが動画のファイルサイズ (ダウンロードと展開)、CPU と処理時間が動画の長さで決まる。ファイルサイズだけで選ぶと、小さいファイルの長い動画で CPU が足りなくなる
+- **実測 (小さいファイルの長い動画)**: dev で、約 430 MB (1 GiB 未満) で 60 分を超える低ビットレートの動画が、1 vCPU・タイムアウト 1 時間のジョブで 1 時間に収まらず、タイムアウトの SIGKILL (exit 137) で失敗した。長さの軸は、これを救うためにある
+- **実測 (大きいファイル)**: 7.76 GB の動画が、2 vCPU・タイムアウト 3 時間のジョブで、3 時間のタイムアウトで失敗した。FFmpeg が複数のプロセスを並べて動かすので、vCPU が少ないと 1 本あたりの CPU が足りなくなり、処理時間が大幅に延びる
+- **FFmpeg が最大 10 本並ぶ**: 映像のチャンクが 4 本、暗転・白転の検出が 2 本、音量のチャンクが 4 本。動画が長いほど、チャンクが増えて、この本数に近づく。長い動画のサイズは、この本数に対して CPU を絞りすぎない大きさにする
+- **Fargate の組み合わせの制約**: vCPU に応じて、メモリの下限が決まる。4 vCPU は 8 GiB 以上、8 vCPU は 16 GiB 以上のメモリが要る。vCPU を上げるときは、メモリも合わせて上げる
+- **2 軸の重いほうを採る**: `small`、`large`、`xlarge` は、すべてのリソース (vCPU・メモリ・一時ストレージ・タイムアウト) で、後ろのサイズほど同じか大きい。2 軸の重いほうを採れば、どのリソースも足りなくならない。`large` と `xlarge` の vCPU は同じなので、長さの軸で `xlarge` になる主な効果は、タイムアウトの延長
+- **長さは利用者の申告**: ブラウザが動画から読んだ値を、ジョブの作成で送る。信頼性は、これも申告のファイルサイズと同程度。誤っていても、選ぶサイズがずれるだけ。読めないときは送らず、ファイルサイズだけで決める。実際の長さは、Batch が測って、段ごとの上限と照合する ([利用回数の流れ](../flow/usage-metering.md))
+- **長さのしきい値 (90 分、180 分) は暫定の値**: dev の実測で調整する前提
+- **`small` も 4 vCPU 以上にする**: 90 分未満の短い動画のジョブも、費用が増える。4 vCPU は処理が速く終わるので、費用は単純に 4 倍にはならない。処理の信頼性を優先する

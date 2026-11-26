@@ -1,8 +1,4 @@
 ---
-id: quick-clip/flow/usage-metering
-title: 利用回数の数え方と戻し
-kind: flow
-service: quick-clip
 sources:
   - services/quick-clip/web/src/app/api/jobs/route.ts
   - services/quick-clip/web/src/app/api/jobs/[jobId]/complete-upload/route.ts
@@ -23,10 +19,6 @@ sources:
   - infra/quick-clip/lib/cloudfront-stack.ts
   - libs/aws/src/dynamodb/counter/try-increment-in-order.ts
 sources_hash: ab883ecccffdff699f1e152315988f79864d40ecc9259dd9a7c3f0e09680aa89
-terms: [quick-clip/term/usage-tier, quick-clip/term/ai-analysis, quick-clip/term/job]
-related_cards: [quick-clip/api/jobs, quick-clip/api/usage, quick-clip/batch/extract, quick-clip/screen/upload, quick-clip/flow/extraction]
-related_adr:
-  - services/quick-clip/architecture.md#ADR-018
 ---
 
 # 利用回数の数え方と戻し
@@ -53,11 +45,12 @@ flowchart TD
 ```
 
 1. **主体**: ログイン中はユーザー ID (`USER#{ID}`)、未ログインは Cookie `qc_anon_id` の匿名 ID (`ANON#{ID}`)。Cookie がなければ、UUID を新しく発行して、レスポンスで渡す。端末の情報からの推定は使わない
+    - Cookie は `HttpOnly`、`SameSite=Lax`、有効期間 1 年。本番では `Secure` を付ける。`Domain` は付けず、Quick Clip のホストだけに置く
 2. **上限**
     - 動画の長さ: ブラウザが申告した長さが、段の上限を超えていれば断る (400)。申告がなければ判定しない
     - 月の回数: AI 解析ありとなしを別々に数える。上限なしの段 (使い放題) は、数えず、記録も残さない
     - 接続元 (未ログインだけ): 同じ接続元から、日本時間の 1 日に作れるジョブは 20 件まで
-3. **数える**: 月の記録 (キー `USAGE#{主体}`、`MONTH#{YYYYMM}`、属性 `AiCount`、`NoAiCount`) に、上限を超えないときだけ 1 を足す。上限が 0 回なら通さない。どちらを数えるかは次のとおり
+3. **数える**: 月の記録 (キー `USAGE#{主体}`、`MONTH#{YYYYMM}`、属性 `AiCount`、`NoAiCount`) に、上限を超えないときだけ 1 を足す ([回数カウンター](../../../../platform/specs/lib/aws/usage-counter.md)。月の区切りは[日本時間の期間](../../../../platform/specs/lib/common/jst-period.md))。上限が 0 回なら通さない。どちらを数えるかは次のとおり
 
 | `aiAnalysis` | 数え方 |
 |---|---|
@@ -65,7 +58,7 @@ flowchart TD
 | `true` | AI 解析ありだけ。なければ断る |
 | 省略 | AI 解析あり。なければ AI 解析なし。両方なければ断る |
 
-4. **記録**: 数えた主体、月、種類、AI 解析なしの月の上限を、ジョブに保存する。戻すときの手がかりになる
+4. **記録**: 数えた主体、月、種類、AI 解析なしの月の上限を、ジョブに保存する。戻すときの手がかりになる。回数の記録は、ジョブと同じテーブルに置く ([ジョブのテーブル](../data/jobs-table.md))
 5. **結果**: 次の表のとおり。戻しと付け替えは、ジョブの戻し済み・付け替え済みの印を、条件つきの書き込みで先に付けられた側だけが行う。API と Batch が重なっても、二重には戻らない。戻す対象の月は、数えた月
 
 | 事象 | 扱い |
@@ -86,6 +79,7 @@ flowchart TD
 - IPv6 は先頭 64 ビットにまとめる。IPv4 を写した IPv6 (`::ffff:a.b.c.d`) は IPv4 にする
 - IP はそのまま保存しない。日ごとに作る乱数 (塩) との HMAC-SHA256 で記録する。塩は日付ごとに 1 つ (`USAGE_SALT#{日付}`)、接続元の数は日付ごとのアイテム (`USAGE_IP#{日付}`) に持つ
 - 回数を数えたあとに接続元を確かめる。断った申し込みが、接続元の数を使わないようにするため。接続元で断るときは、数えた回数を戻す
+- Function URL は CloudFront の署名つきの呼び出しだけを受け、直接呼ぶと 403 になる ([Lambda 関数の共通部品](../../../../platform/specs/resource/lambda-function.md))。このため、専用のヘッダーは、必ず CloudFront の Function が書いた値になる
 
 ## 届く先
 
@@ -97,7 +91,7 @@ flowchart TD
 - 記録先 (DynamoDB) の障害で数えられないときは、報告 (error、題名は「Web API: 利用回数の確認エラー (バイパス)」) して、数えずに通す。このとき AI 解析はなしにする
 - 月の記録は、翌月末から 7 日後に TTL で消える。日ごとの記録 (塩と接続元) は、その日の終わりから 1 日後に消える。DynamoDB の削除は遅れることがあるので、削除を前提にした判定はしない
 - Batch のプロセスが即死する失敗 (タイムアウトなど) は、戻す処理に入らず、回数は戻らない ([抽出バッチ](../batch/extract.md))
-- Lambda の Function URL を CloudFront を通さずに直接呼ばれると、接続元のヘッダーを偽れる。未ログインの AI 解析ありは 0 回なので、費用が増えるのは Batch の分に限られる
+- 分割アップロードの途中でブラウザを閉じるなど、中断も完了も呼ばれなかったときは、戻す処理が走らず、回数は戻らない。Batch への投入は完了の API だけが行うので、この動画は処理されない
 
 ## つながり
 
@@ -111,3 +105,14 @@ flowchart TD
     R --> U
     C[CloudFront の Function] -->|接続元のヘッダー| A
 ```
+
+## 理由
+
+- **ジョブを作るとき (アップロードの前) に数える**: 大きな動画をアップロードさせてから断らないため。長さは、そのときにはブラウザの申告値で判定する。申告は偽れるので、Batch が測った実際の長さで照合し、超えていれば文字起こしの前に止める。申告を偽っても、費用の高い OpenAI の呼び出しは発生しない
+- **失敗は理由を問わず戻す**: アップロードを途中でやめた場合も含む。わざと失敗させて回数を増やしても、こちらの損はほぼない。失敗の原因を切り分ける仕組みより単純にできる。AI 解析が失敗したときは、AI 解析なしの 1 回に付け替える
+- **戻しと付け替えは、印を先に付けた側だけが行う**: 条件つきの書き込みで先に印を付けられた側だけが行うので、API と Batch が重なっても、二重に戻さない。印を先に付けるので、戻す処理の途中で失敗したときは、戻し損ねる側に倒れる
+- **回数の記録が使えないときは、数えずに通す**: 記録の障害で全員が使えなくなるより、AI 解析なしの Batch の分の費用だけを許容するほうがよい。ただし AI 解析ありの申し込みも、AI 解析なしとして処理する。障害の間に、OpenAI の費用が上限なしにかかるのを避けるため
+- **未ログインは、Cookie の匿名 ID で数える**: サーバーが発行する、推測できないランダムな ID を、`HttpOnly` の Cookie で渡す。シークレットモードやブラウザを変えた回避は許容する。端末の情報からのハッシュ (フィンガープリント) は、精度の割にプライバシー上の負担が大きいため使わない。未ログインは AI 解析ありが 0 回なので、回避されても、費用は Batch の分に限られる
+- **接続元の上限を補助に置き、緩くする**: 携帯回線では大勢が同じ IP になるため。IPv6 を先頭 64 ビットでまとめるのは、同じ回線の中でアドレスを変えられるため。IP は塩との HMAC で記録し、数日で消える。そのまま保存しない
+- **接続元は、専用のヘッダーで取る**: `X-Forwarded-For` は、先頭を利用者が偽れるので使わない。ディストリビューションの管理ポリシー (`AllViewerExceptHostHeader`) は、CloudFront が付ける `CloudFront-Viewer-Address` をオリジンへ送らない。そこで、viewer-request の Function で、利用者の IP を専用のヘッダーに載せる
+- **回数を数える部分を、LiveTalk の勉強の上限と共通にする**: 条件つきの加算と戻し (DynamoDB) は `@nagiyu/aws`、日本時間の日・月のキーと TTL の計算は `@nagiyu/common` に置く。段・AI 解析あり / なし・IP・塩は Quick Clip に持つ ([回数カウンター](../../../../platform/specs/lib/aws/usage-counter.md))

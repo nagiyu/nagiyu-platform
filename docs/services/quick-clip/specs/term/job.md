@@ -1,24 +1,15 @@
 ---
-id: quick-clip/term/job
-title: ジョブとステータス
-kind: term
-service: quick-clip
 sources:
   - services/quick-clip/core/src/types.ts
   - services/quick-clip/core/src/mappers/job.mapper.ts
   - services/quick-clip/core/src/libs/job.service.ts
   - services/quick-clip/web/src/app/api/jobs/[jobId]/route.ts
 sources_hash: d91a7bae40cfa680b17ec58f681d6fa10298495453aaa2dc6fc2dc8dab9f09c7
-terms: [quick-clip/term/ai-analysis]
-related_cards: [quick-clip/api/jobs, quick-clip/batch/extract, quick-clip/flow/extraction, quick-clip/screen/upload, quick-clip/screen/job-status, quick-clip/screen/highlights, quick-clip/term/highlight]
-related_adr:
-  - services/quick-clip/architecture.md#ADR-011
-  - services/quick-clip/architecture.md#ADR-013
 ---
 
 # ジョブとステータス
 
-1 本の動画のアップロードと見どころ抽出を表す記録。DynamoDB に 1 件で持つ。ステータスは保存せず、AWS Batch の状態から求める。
+1 本の動画のアップロードと見どころ抽出を表す記録。DynamoDB に 1 件で持つ ([ジョブのテーブル](../data/jobs-table.md))。ステータスは保存せず、AWS Batch の状態から求める。
 
 ## 説明
 
@@ -55,7 +46,10 @@ related_adr:
 - `batchStage` は `PROCESSING` のときだけ返す。`analysisProgress` は、さらに `batchStage` が `analyzing` のときだけ返す。`errorMessage` は `FAILED` のときだけ返す
 - Batch が成功で終えても失敗に見せるのは、動画の長さが上限を超えたジョブのように、障害ではなく利用者側の理由で止めたものがあるため
 
-## 関連するカード
+## 理由
 
-- [ジョブ API](../api/jobs.md)・[抽出バッチ](../batch/extract.md)・[見どころを受け取るまでの経路](../flow/extraction.md)
-- [アップロード画面](../screen/upload.md)・[処理状況画面](../screen/job-status.md)・[見どころ確認画面](../screen/highlights.md)
+- **ステータスを保存せず、Batch の状態から求める**: Batch のコンテナが OOM やスポットの中断で強制終了されると、コンテナはステータスを書き換えられない。ステータスを DynamoDB に持つと、`PROCESSING` のまま残り、画面が処理中を示し続けて、失敗に気づけない。強制終了しても、Batch 側の状態は `FAILED` になるので、その状態を正にすれば、失敗を見つけられる
+- **取得 (`GET`) は何も書かない**: ステータスは、読むたびに Batch の状態から求め、DynamoDB へは書かない。Batch のコンテナもステータスを更新しないので、書き込みの責務が減り、コンテナのコードが単純になる
+- **ポーリングのたびに、Batch の状態を問い合わせる**: 処理状況画面は 5 秒ごとに取得し、そのたびに Batch の `DescribeJobs` を呼ぶ。Batch の API のレート制限に対して、問題のない量
+- **`analysisProgress` を持つ**: 解析に時間がかかるので、処理状況画面が、映像・音量・文字起こし・感情分析のそれぞれの現在地を示せるようにするため
+

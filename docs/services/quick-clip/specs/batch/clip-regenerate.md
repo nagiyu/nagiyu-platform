@@ -5,7 +5,7 @@ sources:
   - infra/quick-clip/lib/monitoring-stack.ts
   - libs/aws/src/error-events/with-error-reporting.ts
   - libs/aws/src/error-events/report.ts
-sources_hash: 0000000000000000000000000000000000000000000000000000000000000000
+sources_hash: 9dc158bcb979a6b0def552b9076eb57e34d5c3155dfc1ff5e3b15eda64dd0a78
 ---
 
 # クリップ再生成 (clip-regenerate)

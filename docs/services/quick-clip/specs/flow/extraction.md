@@ -1,8 +1,4 @@
 ---
-id: quick-clip/flow/extraction
-title: 見どころを受け取るまでの経路
-kind: flow
-service: quick-clip
 sources:
   - services/quick-clip/web/src/app/page.tsx
   - services/quick-clip/web/src/app/jobs/[jobId]/page.tsx
@@ -16,13 +12,6 @@ sources:
   - infra/quick-clip/lib/storage-stack.ts
   - infra/quick-clip/lib/dynamodb-stack.ts
 sources_hash: c63fdbca214cf06652dd1becc598fa996d9c7a7109b510be895994e0f2f62c55
-terms: [quick-clip/term/job, quick-clip/term/highlight, quick-clip/term/job-definition-size]
-related_cards: [quick-clip/screen/upload, quick-clip/screen/job-status, quick-clip/screen/highlights, quick-clip/api/jobs, quick-clip/api/highlights, quick-clip/batch/extract, quick-clip/flow/usage-metering]
-related_adr:
-  - services/quick-clip/architecture.md#ADR-003
-  - services/quick-clip/architecture.md#ADR-011
-  - services/quick-clip/architecture.md#ADR-012
-  - services/quick-clip/architecture.md#ADR-014
 ---
 
 # 見どころを受け取るまでの経路
@@ -87,3 +76,10 @@ flowchart TD
     K --> D
     H -->|クリップを再生| S
 ```
+
+## 理由
+
+- 動画の転送は、サーバー (Lambda) を通さず、ブラウザと S3 の間で直接行う。上限が 20 GiB と大きく、Lambda を通すとメモリとタイムアウトの制約に触れるため
+- ジョブの状態は、抽出バッチが書かず、Batch の状態から求める。OOM や中断で `PROCESSING` のまま残らず、処理状況画面が失敗を見つけられる ([ジョブとステータス](../term/job.md)の「理由」)
+- 初回のクリップは抽出の中で切り出す。見どころ確認画面を開いた時点で、全クリップが再生できる ([抽出バッチ](../batch/extract.md)の「理由」)
+

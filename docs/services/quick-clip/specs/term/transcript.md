@@ -1,17 +1,11 @@
 ---
-id: quick-clip/term/transcript
-title: 文字起こし
-kind: term
-service: quick-clip
 sources:
   - services/quick-clip/core/src/libs/transcription.service.ts
+  - services/quick-clip/core/src/libs/quick-clip-batch-runner.ts
   - services/quick-clip/web/src/app/api/jobs/[jobId]/transcript/route.ts
   - services/quick-clip/web/src/app/jobs/[jobId]/highlights/page.tsx
   - services/quick-clip/lambda/zip/src/handler.ts
-sources_hash: cfac8b5826205aed76e19227e5e00180ea3116d0a6a24d94ba1e6d5ad638a6bf
-related_cards: [quick-clip/batch/extract, quick-clip/batch/zip-generate, quick-clip/api/transcript, quick-clip/screen/highlights, quick-clip/term/ai-analysis]
-related_adr:
-  - services/quick-clip/architecture.md#ADR-015
+sources_hash: 4bc77a6ae974b6dbe59ad1c2f254cf48945340b5fd86ed804069db2c61ddc911
 ---
 
 # 文字起こし
@@ -26,11 +20,13 @@ related_adr:
     - 見どころ確認画面は、選んだ見どころの重なる行を改行で並べて出す。重なる行がなければ出さない。時刻を調整すると、重なる行も変わる
     - [ZIP の生成](../batch/zip-generate.md)は、重なる行を改行でつないだテキストを `clip-NN.txt` にして入れる。空なら入れない
 - 1 行は、音声を無音で区切った 1 区間にあたる ([抽出バッチ](../batch/extract.md)の④)。`start` と `end` は区間の端で、話し始めと話し終わりの時刻とは限らない。無音が少ない動画では、1 行が最長 30 秒になる
-- 無音の区間は送らない。テキストが空の区間は行にしない。文字起こしの結果の信頼度による行の除外はしない (モデルが信頼度を返さないため)
+- 無音の区間は送らない。テキストが空の区間は行にしない。文字起こしの結果に対する、信頼度や反復のパターンによる行の除外はしない
 - ファイルは、生成したクリップと同じく作成の 24 時間後に消える
 
-## 関連するカード
+## 理由
 
-- [抽出バッチ](../batch/extract.md)・[ZIP 生成](../batch/zip-generate.md)
-- [文字起こし API](../api/transcript.md)・[見どころ確認画面](../screen/highlights.md)
-- [AI 解析](./ai-analysis.md)
+- **文字起こしを保存して再利用する**: 文字起こしは、感情分析のために取る。すでに時刻つきの行として取れているので、保存して画面と ZIP に出せば、切り抜きのテロップや編集に使える。追加の費用はかからない
+- **重なりは、表示や ZIP の組み立てのたびに判定する**: 見どころの区間と行の重なりを保存せず、そのつど求める。時間の調整に、いつも追従できる
+- **ZIP の中のファイル名を、見どころの番号にそろえる**: 動画とテキストは、同じ `clip-NN` の拡張子違いにする。ファイル名だけで、対応がわかる
+- **誤認識は、そのまま出る (既知の制約)**: 無音の区間での定型文の聞き間違い (ハルシネーション) などが、そのまま表示と ZIP に出る。誤認識を除く仕組みは持っていない
+

@@ -5,7 +5,7 @@ sources:
   - infra/quick-clip/lib/monitoring-stack.ts
   - libs/aws/src/error-events/with-error-reporting.ts
   - libs/aws/src/error-events/report.ts
-sources_hash: 0000000000000000000000000000000000000000000000000000000000000000
+sources_hash: a53be08a6435ee6c703b753bcd7ef3adf49829115924ee8f4a39c42d37260338
 ---
 
 # ZIP 生成 (zip-generate)
