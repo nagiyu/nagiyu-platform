@@ -6,8 +6,10 @@ service: livetalk
 sources:
   - services/livetalk/web/src/app/api/status/route.ts
   - services/livetalk/web/src/app/api/status/constants.ts
+  - services/livetalk/web/src/lib/study/admin-study-status.ts
+  - services/livetalk/core/src/repositories/study-usage-counting.ts
   - services/livetalk/core/src/notification/decision.ts
-sources_hash: 48c00eac2e4e7540400b9bbb94a36c74bdc9cfc9bdfd7bff08af5c13c8f4b8ab
+sources_hash: 455c2353e31dbd4fa7768d3a4d1339d5e9cfad6731948deb2d289ea90606349f
 terms: [livetalk/term/permission, livetalk/term/api-error, livetalk/term/lifecycle, livetalk/term/notification-event, livetalk/term/user-activity-profile, livetalk/term/character]
 related_cards: [livetalk/screen/status, livetalk/batch/notify]
 related_adr:
@@ -35,6 +37,7 @@ related_adr:
 | `recentNotifications` | 直近 5 件の[通知の記録](../term/notification-event.md)。本文は 100 文字まで、消化の日時はなければ null |
 | `notifyDecision` | 今この時刻に平常通知を出せるかの判定。出せないときは理由 (`not_due`、`outside_window`、`sleeping`、`daily_cap`、`inactive_stopped`、`no_content`)。`not_due` のときは、間隔が解ける目安の時刻 `nextEarliestAt` が付く |
 | `studyTopicPendingCount` | 勉強の待ちの件数 |
+| `study` | 開いた利用者の勉強の区分と今日の回数。`tier` (`operator`・`standard`・`free`)、`trial` (運営者・スタンダードは null。無料は `{ state: 'not_started' }` か、`{ state: 'active' \| 'ended', endsAt }`)、`user` と `global` (それぞれ `{ used, limit, reached }`。`reached` は `used >= limit`)。無料でお試しが終わったときと、Profile がないときは、`user.limit` が 0 になる |
 
 - 判定と `recentNotifications` は、表示キャラクターの通知の記録だけを使う。通知の記録は利用者の直近 60 件 (通知バッチと同じ件数) を読み、そこから表示キャラクターのものに絞る。他のキャラクターの通知は、1 日の上限・無視の回数・基準時刻にも一覧にも効かない
 - 判定は[通知バッチ](../batch/notify.md)の平常通知の判定と同じ関数を使う。重要通知の判定 (話題の指定) と、複数のキャラクターの調停は含まない

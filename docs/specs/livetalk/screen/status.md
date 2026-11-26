@@ -8,9 +8,10 @@ sources:
   - services/livetalk/web/src/app/(protected)/layout.tsx
   - services/livetalk/web/src/components/StatusCharacterSwitcher.tsx
   - services/livetalk/web/src/components/StatusTestPush.tsx
+  - services/livetalk/web/src/lib/study/admin-study-status.ts
   - services/livetalk/core/src/notification/decision.ts
   - services/livetalk/core/src/constants.ts
-sources_hash: af530916cfbfea081ac91785d0aff21bbb31c86682abf41723246fafe5bb65a7
+sources_hash: ca1995f878d17c49fdbc9807a8feccb2d4aeae08c092ade2bdb41763166b3933
 terms: [livetalk/term/permission, livetalk/term/lifecycle, livetalk/term/notification-event, livetalk/term/user-activity-profile, livetalk/term/safety, livetalk/term/character]
 related_cards: [livetalk/api/status, livetalk/api/push-notification, livetalk/batch/notify, livetalk/screen/home]
 related_adr:
@@ -40,6 +41,7 @@ related_adr:
 | 通知判定 (現時刻) | 今この時刻に平常通知を出せるか。出せるときは種別と口調の区分、出せないときは理由 (インターバル未経過、活動時間帯外、睡眠帯、本日の上限到達、長期不在 (通知停止)、コンテンツなし)。インターバル未経過のときは、解除される目安の日時 (活動時間帯と睡眠帯は別) |
 | 直近通知履歴 | 最新 5 件の[通知の記録](../term/notification-event.md)。日時 (日本時間、秒まで)、種別、消化の有無、本文の先頭 100 文字 |
 | コンテンツ | 勉強の待ちの件数 |
+| 勉強 | 開いた管理者自身の区分 (運営者・スタンダード・無料)。無料なら、お試しの状態 (まだ始まっていない・お試し中・終わった) と終わる日時 (日本時間)。今日の回数を「今日の回数 (あなた): 使った回数 / 1 日の上限」と「今日の回数 (全利用者): 使った回数 / 200」で出し、上限に達していれば「(上限に達している)」を添える。区分とお試しの決め方は[勉強バッチ](../batch/acquire.md)と同じ |
 | テスト通知送信 | キャラクターごとのボタン。判定を介さず、その場で送る |
 | セーフティ横断レビュー | 直近 50 件の検出を、全利用者を横断して新しい順に並べる。日時、トリガー (キーワード検出か Moderation)、キャラクター、検出したパターン、利用者の ID。入力の文と応答の文は出さない |
 
