@@ -1,0 +1,87 @@
+---
+sources:
+  - services/admin/web/src/app/(protected)/errors/[eventId]/page.tsx
+  - services/admin/web/src/lib/errors/occurred-at.ts
+  - services/admin/web/src/app/error.tsx
+  - services/admin/web/src/app/not-found.tsx
+  - services/admin/core/src/errors/dynamodb-reader.ts
+  - libs/aws/src/error-events/mapper.ts
+sources_hash: faf37dd610d78a59f0a5143960ac68f0d2708bfacf5bf2667db447892a174e8a
+---
+
+# エラー詳細画面
+
+[エラーイベント](../../../../platform/specs/term/error-event.md) 1 件の、メタ情報・本文・コンテキストを見る。
+
+## 入口
+
+- パスは `/errors/{eventId}`。問い合わせに `at` (発生時刻) と `serviceId` が要る ([エラー詳細のキー](../term/error-event-key.md))
+- 一覧の「詳細」と、エラーの Web Push 通知のタップから来る ([stream-handler](../batch/stream-handler.md))
+- 未ログインのとき (セッションが取れないとき) は、画面自身が Auth サービスのサインイン画面 (`/signin`) へリダイレクトする。戻り先は付かない。サインイン画面の場所は環境変数 `NEXT_PUBLIC_AUTH_URL`、なければ `NEXTAUTH_URL` で、どちらもなければ相対の `/signin` へ移る
+
+## 表示の条件
+
+- `errors:read` を持つ利用者だけ。権限がなければ「アクセス権限がありません」を出し、履歴は読まない ([権限とロール](../term/permission.md)、[エラー画面](../../../../platform/specs/lib/ui/feedback-views.md))
+- `at` が読めない (数字だけの文字列でなく、日時としても解釈できない)、または `serviceId` がないときは、履歴を読まずに「ページが見つかりません」を出す。「トップページへ戻る」のボタンが付く
+
+## 表示するもの
+
+| 部分 | 内容 |
+|---|---|
+| 見出し | 重大度のバッジと、タイトル |
+| メタ情報 | `eventId`、`serviceId`、`source` (`application` など)、発生時刻 (JST。秒まで)、発生時刻 (UTC。ISO 8601) |
+| 本文 | メッセージ。改行はそのまま出し、長い文は折り返す |
+| コンテキスト | JSON として読めれば、2 スペースで整形して出す。読めなければ、文字列のまま出す |
+
+- 重大度の色は一覧と同じ (`info` は青、`warning` は橙、`error` と `critical` は赤)
+- 上に「← エラー履歴に戻る」がある
+
+## 状態
+
+- 該当の履歴がないとき (期限の 180 日を過ぎて消えたものを含む) は、「ページが見つかりません」を出す
+- 履歴の読み込みが失敗したとき (保存された項目が読めない、テーブル名の環境変数がない、`at` が数字だけで日時の範囲を超えているなど) は、共通のエラー画面「エラーが発生しました」を出す ([エラー画面](../../../../platform/specs/lib/ui/feedback-views.md))
+
+## 操作
+
+| 操作 | 結果 |
+|---|---|
+| エラー履歴に戻る | [エラー履歴一覧画面](./errors.md)を開く。絞り込みは引き継がない |
+
+- 画面は [エラー履歴 API](../api/errors.md) を呼ばず、API と同じ読み取りの部品をサーバーで直接使う
+
+## 画面の見た目
+
+### 通常表示
+
+CloudWatch Alarm 由来の例。コンテキストは JSON を整形して出す。
+
+| スマホ | PC |
+|---|---|
+| ![エラー詳細画面 通常表示 (スマホ)](../../../../images/specs/admin/screen/error-detail-default-mobile.png) | ![エラー詳細画面 通常表示 (PC)](../../../../images/specs/admin/screen/error-detail-default-desktop.png) |
+
+### 指定した履歴がないとき
+
+「ページが見つかりません」を出す。リンクの `at` や `serviceId` が足りないときも同じ。
+
+| スマホ | PC |
+|---|---|
+| ![エラー詳細画面 指定した履歴がないとき (スマホ)](../../../../images/specs/admin/screen/error-detail-not-found-mobile.png) | ![エラー詳細画面 指定した履歴がないとき (PC)](../../../../images/specs/admin/screen/error-detail-not-found-desktop.png) |
+
+### 権限がないとき (`user-manager`)
+
+「アクセス権限がありません」を出し、履歴は読まない。
+
+| スマホ | PC |
+|---|---|
+| ![エラー詳細画面 権限がないとき (`user-manager`) (スマホ)](../../../../images/specs/admin/screen/error-detail-access-denied-mobile.png) | ![エラー詳細画面 権限がないとき (`user-manager`) (PC)](../../../../images/specs/admin/screen/error-detail-access-denied-desktop.png) |
+
+## つながり
+
+```mermaid
+flowchart TD
+    L[エラー履歴一覧画面] -->|詳細| S[エラー詳細画面]
+    P[Web Push 通知のタップ] --> S
+    S -->|同じ読み取りの部品| T[(error-events テーブル)]
+    A[エラー履歴 API] --> T
+    S -->|戻る| L
+```
