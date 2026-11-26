@@ -7,6 +7,7 @@ export interface JobRepository {
   updateBatchStage(jobId: string, batchStage: BatchStage): Promise<void>;
   updateErrorMessage(jobId: string, errorMessage: string): Promise<void>;
   updateAnalysisProgress(jobId: string, progress: AnalysisProgress): Promise<void>;
+  updateDurationSec(jobId: string, durationSec: number): Promise<void>;
   /**
    * 戻し済みの印を、まだ付いていないときだけ付ける。
    *

@@ -109,11 +109,13 @@ type TimeInputProps = {
   label: string;
   value: number;
   min?: number;
+  /** 上限。無いときは上限を見ない */
+  max?: number;
   disabled?: boolean;
   onCommit: (value: number) => Promise<void>;
 };
 
-function TimeInput({ label, value, min = 0, disabled = false, onCommit }: TimeInputProps) {
+function TimeInput({ label, value, min = 0, max, disabled = false, onCommit }: TimeInputProps) {
   const [draft, setDraft] = useState(formatHighlightTime(value));
 
   useEffect(() => {
@@ -126,7 +128,7 @@ function TimeInput({ label, value, min = 0, disabled = false, onCommit }: TimeIn
       return;
     }
     const parsed = parseHighlightTime(draft);
-    if (parsed === null || parsed < min) {
+    if (parsed === null || parsed < min || (max !== undefined && parsed > max)) {
       setDraft(formatHighlightTime(value));
       return;
     }
@@ -172,6 +174,8 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
   // 0 件の表示は一覧の取得に成功したときだけにする。失敗時に「検出されなかった」と誤らせない
   const [hasLoadedHighlights, setHasLoadedHighlights] = useState(false);
   const [expiresAt, setExpiresAt] = useState<number | null>(null);
+  // 見どころの時刻の上限。ジョブに動画の長さが無いときは上限を設けない
+  const [videoDurationSec, setVideoDurationSec] = useState<number | undefined>(undefined);
   const [transcriptSegments, setTranscriptSegments] = useState<TranscriptSegment[]>([]);
   const isFetchingRef = useRef(false);
   const { visibilityMap, toggleColumn } = useColumnVisibility(COLUMN_DEFINITIONS);
@@ -282,10 +286,17 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
           setIsLoading(false);
           return;
         }
-        const data = (await res.json()) as { status: JobStatus; expiresAt?: number };
+        const data = (await res.json()) as {
+          status: JobStatus;
+          expiresAt?: number;
+          durationSec?: number;
+        };
         if (!active) return;
         if (typeof data.expiresAt === 'number') {
           setExpiresAt(data.expiresAt);
+        }
+        if (typeof data.durationSec === 'number') {
+          setVideoDurationSec(data.durationSec);
         }
         setJobStatus(data.status);
         // 一覧を取りに行かない状態では、一覧取得の完了で下ろされる読み込み表示をここで止める
@@ -770,6 +781,7 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
                         label="開始"
                         value={selectedHighlight.startSec}
                         min={0}
+                        max={videoDurationSec}
                         disabled={isSelectedClipEditLocked}
                         onCommit={(value) => onUpdateRange(selectedHighlight, 'startSec', value)}
                       />
@@ -782,6 +794,7 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
                         label="終了"
                         value={selectedHighlight.endSec}
                         min={1}
+                        max={videoDurationSec}
                         disabled={isSelectedClipEditLocked}
                         onCommit={(value) => onUpdateRange(selectedHighlight, 'endSec', value)}
                       />

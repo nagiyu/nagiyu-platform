@@ -92,12 +92,14 @@ describe('InMemoryJobRepository', () => {
       motion: { status: 'done' },
       volume: { status: 'in_progress', completed: 1, total: 2 },
     });
+    await repository.updateDurationSec('job-1', 125.5);
 
     expect(await repository.getById('job-1')).toEqual(
       buildJob({
         batchJobId: 'batch-1',
         batchStage: 'analyzing',
         errorMessage: 'エラー',
+        durationSec: 125.5,
         analysisProgress: {
           motion: { status: 'done' },
           volume: { status: 'in_progress', completed: 1, total: 2 },
