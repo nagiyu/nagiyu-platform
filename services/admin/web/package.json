@@ -19,12 +19,12 @@
   },
   "dependencies": {
     "@nagiyu/admin-core": "*",
-    "@nagiyu/aws": "*",
-    "@nagiyu/browser": "*",
-    "@nagiyu/common": "*",
-    "@nagiyu/nextjs": "*",
-    "@nagiyu/react": "*",
-    "@nagiyu/ui": "*",
+    "@nagiyu/aws": "^0.1.0",
+    "@nagiyu/browser": "^0.1.0",
+    "@nagiyu/common": "^0.1.0",
+    "@nagiyu/nextjs": "^0.1.0",
+    "@nagiyu/react": "^0.1.0",
+    "@nagiyu/ui": "^0.1.0",
     "next-auth": "^5.0.0-beta.32"
   }
 }

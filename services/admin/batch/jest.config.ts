@@ -1,17 +1,18 @@
 import type { Config } from 'jest';
+import nagiyuLib from '../../../configs/jest/nagiyu-lib.cjs';
 
 const config: Config = {
   preset: 'ts-jest/presets/default-esm',
   testEnvironment: 'node',
   extensionsToTreatAsEsm: ['.ts'],
+  resolver: nagiyuLib.resolver,
+  transformIgnorePatterns: nagiyuLib.transformIgnorePatterns,
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
     '^@nagiyu/admin-core$': '<rootDir>/../core/src/index.ts',
-    '^@nagiyu/aws$': '<rootDir>/../../../libs/aws/src/index.ts',
-    '^@nagiyu/common$': '<rootDir>/../../../libs/common/src/index.ts',
-    '^@nagiyu/common/push$': '<rootDir>/../../../libs/common/src/push/index.ts',
   },
   transform: {
+    [nagiyuLib.libsDistPattern]: nagiyuLib.transform[nagiyuLib.libsDistPattern],
     '^.+\\.tsx?$': [
       'ts-jest',
       {

@@ -1,4 +1,5 @@
 import type { Config } from 'jest';
+import nagiyuLib from '../../../configs/jest/nagiyu-lib.cjs';
 
 const config: Config = {
   preset: 'ts-jest',
@@ -7,10 +8,10 @@ const config: Config = {
   testMatch: ['**/*.test.ts'],
   testPathIgnorePatterns: ['/node_modules/', '<rootDir>/tests/contract/'],
   moduleFileExtensions: ['ts', 'js'],
+  resolver: nagiyuLib.resolver,
+  transform: nagiyuLib.transform,
+  transformIgnorePatterns: nagiyuLib.transformIgnorePatterns,
   moduleNameMapper: {
-    '^@nagiyu/aws$': '<rootDir>/../../../libs/aws/src/index.ts',
-    '^@nagiyu/common$': '<rootDir>/../../../libs/common/src/index.ts',
-    '^@nagiyu/common/push$': '<rootDir>/../../../libs/common/src/push/index.ts',
     '^(\\.{1,2}/.*)\\.js$': '$1',
   },
   collectCoverageFrom: ['src/**/*.ts', '!src/**/*.d.ts', '!src/index.ts'],

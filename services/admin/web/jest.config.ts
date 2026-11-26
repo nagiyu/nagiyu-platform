@@ -1,5 +1,6 @@
 import type { Config } from 'jest';
 import nextJest from 'next/jest.js';
+import nagiyuLib from '../../../configs/jest/nagiyu-lib.cjs';
 
 const createJestConfig = nextJest({
   // Provide the path to your Next.js app to load next.config.js and .env files in your test environment
@@ -12,18 +13,11 @@ const config: Config = {
   testEnvironment: 'jsdom',
   // Add more setup options before each test is run
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
+  resolver: nagiyuLib.resolver,
   moduleNameMapper: {
     // @nagiyu/ui の CSS Modules import をスタブ化（クラス名そのものを返す）
     '\\.module\\.css$': 'identity-obj-proxy',
     '^@/(.*)$': '<rootDir>/src/$1',
-    '^@nagiyu/ui/session-provider$': '<rootDir>/../../../libs/ui/src/session-provider.ts',
-    '^@nagiyu/ui$': '<rootDir>/../../../libs/ui/src/index.ts',
-    '^@nagiyu/browser$': '<rootDir>/../../../libs/browser/src/index.ts',
-    '^@nagiyu/react$': '<rootDir>/../../../libs/react/src/index.ts',
-    '^@nagiyu/aws$': '<rootDir>/../../../libs/aws/src/index.ts',
-    '^@nagiyu/common$': '<rootDir>/../../../libs/common/src/index.ts',
-    '^@nagiyu/nextjs$': '<rootDir>/../../../libs/nextjs/src/index.ts',
-    '^@nagiyu/nextjs/(.*)$': '<rootDir>/../../../libs/nextjs/src/$1.ts',
     '^(\\.{1,2}/.*)\\.js$': '$1',
   },
   // Exclude E2E tests from Jest (they use Playwright)
@@ -44,5 +38,22 @@ const config: Config = {
   },
 };
 
-// createJestConfig is exported this way to ensure that next/jest can load the Next.js config which is async
-export default createJestConfig(config);
+const createConfig = createJestConfig(config);
+
+// next/jest は node_modules を変換対象から外し、カスタム設定の transformIgnorePatterns は追加しかできない
+// (どれか 1 つに一致すれば除外される)。そのままでは公開版の @nagiyu/* (ESM) が変換されないため、
+// 解決済みの設定のうち node_modules 全体を除外するパターンだけ @nagiyu/* を除いた形に差し替える。
+// 変換には next/jest 既定の SWC が使われ、ESM は CJS に変換される。
+const resolveConfig = async (): Promise<Config> => {
+  const resolved = await createConfig();
+  return {
+    ...resolved,
+    transformIgnorePatterns: (resolved.transformIgnorePatterns ?? []).map((pattern) =>
+      pattern.startsWith('/node_modules/(?!')
+        ? pattern.replace('/node_modules/(?!', '/node_modules/(?!@nagiyu/)(?!')
+        : pattern
+    ),
+  };
+};
+
+export default resolveConfig;
