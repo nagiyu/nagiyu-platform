@@ -1,8 +1,9 @@
 ---
 sources:
+  - infra/shared/lib/route53-records-stack.ts
   - services/portal/web/src/app/sitemap.ts
   - services/portal/web/src/lib/content.ts
-sources_hash: f95b55a25f1425e738410730fae41fdd71c1eb9ae02a53d66ad8090aba65b7c0
+sources_hash: 75f7441922cce6c85c59ab0ce69907a499c323c6b6df8be87d56cd347df2e68b
 ---
 
 # サイトマップ
@@ -45,3 +46,34 @@ flowchart TD
     R["/robots.txt"] -->|場所を示す| S
     D[(記事の Markdown<br/>ビルド時に読み込む)] --> S
 ```
+
+## 手順
+
+Google Search Console に、サイトマップを登録して検索エンジンへ渡す手順。Claude は Search Console を操作できないので、人が行う。
+
+### ドメインプロパティの確認
+
+Search Console には、`nagiyu.com` をドメインプロパティとして登録してある。ドメインプロパティは、サブドメインと HTTP / HTTPS をまとめて 1 つのプロパティで扱う。
+
+所有権は、Google が指定した CNAME レコードで確かめている。レコードは `infra/shared/lib/route53-records-stack.ts` の `GOOGLE_SEARCH_CONSOLE_CNAME` がコードで持ち、`nagiyu.com` のゾーンに作る ([ドメインと証明書](../../../../platform/specs/resource/dns-certificate.md))。このレコードを消すと、所有権の確認が外れる。
+
+登録し直すとき (プロパティを作り直した、確認の値が変わったなど) は、次のように行う。
+
+1. [Google Search Console](https://search.google.com/search-console) で「プロパティを追加」を選び、「ドメイン」に `nagiyu.com` を入れる
+2. 表示された確認用のレコードを、`route53-records-stack.ts` に反映して shared をデプロイする
+3. DNS に反映されたあと、Search Console で「確認」を押す
+
+### サイトマップの送信
+
+1. Search Console でプロパティを選び、左のメニューの「サイトマップ」を開く
+2. 「新しいサイトマップの追加」に `sitemap.xml` と入れて「送信」する。プロパティの URL に連結され、`https://nagiyu.com/sitemap.xml` として送られる
+
+### 新しい記事のインデックス登録のリクエスト
+
+記事を公開したら、Search Console の「URL 検査」に記事の URL (`https://nagiyu.com/tech/{slug}`) を入れ、まだインデックスされていなければ「インデックス登録をリクエスト」を押す。サイトマップの内容はビルド時に決まるので、記事を公開 (デプロイ) してから行う。
+
+### 確かめること
+
+- サイトマップのステータスが「成功しました」になっている
+- 検出された URL の数が 0 でない
+- `https://nagiyu.com/sitemap.xml` を開くと、XML が返る

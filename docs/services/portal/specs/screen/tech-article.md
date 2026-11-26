@@ -84,3 +84,7 @@ flowchart TD
     A -->|著者名| B[About 画面]
     X[存在しない slug] --> N[404 画面]
 ```
+
+## 理由
+
+- [タグ](../term/tag.md)と[カテゴリ](../term/category.md)は、記事の分類を示す非リンクのラベルにする。専用の集約ページへはリンクしない。集約ページを持たない理由は[目的](../../requirements/purpose.md)にある

@@ -20,12 +20,10 @@ sources_hash: 4df32798070beff61fc535c7e718a42ff23a40f638df2c5695a2b39aefd3b2c1
 | `dev-stack` | 開発スタック |
 
 - 表の外の slug は、slug の文字列のまま表示する
-- ラベルは技術記事一覧のカードと、記事詳細に出る。トップページのカードには出ない
+- ラベルは[技術記事一覧画面](../screen/tech.md)のカードと、[記事詳細画面](../screen/tech-article.md)に出る。トップページのカードには出ない
 - チップは押せない。カテゴリ別の画面はなく、`/tech/category/...` の URL は `/tech` へリダイレクトする
 - 記事の `categories` は任意。なければラベルの欄ごと出ない
 
-## 関連するカード
+## 理由
 
-- [技術記事一覧画面](../screen/tech.md)
-- [記事詳細画面](../screen/tech-article.md)
-- [記事が公開されるまで](../flow/article-publishing.md)
+- 押せないラベルにして集約ページを持たない理由は、[目的](../../requirements/purpose.md)にある

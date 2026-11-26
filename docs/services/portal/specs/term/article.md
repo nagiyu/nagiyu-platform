@@ -23,11 +23,6 @@ Portal が載せる技術記事 1 本。Markdown ファイル 1 つで、先頭�
 | `featured` | 任意 | `true` なら[特集記事](./featured.md) |
 | `slug` | (書くが使わない) | URL の識別子はファイル名で決まり、フロントマターの値は使わない |
 
-- 記事は `services/portal/web/src/content/tech/` の `{slug}.md`。URL は `/tech/{slug}`。slug はファイル名から `.md` を除いたもの
+- 記事は `services/portal/web/src/content/tech/` の `{slug}.md`。URL は `/tech/{slug}` ([記事詳細画面](../screen/tech-article.md))。slug はファイル名から `.md` を除いたもの。公開までの経路は[記事が公開されるまで](../flow/article-publishing.md)
 - 本文は Markdown。表などの GFM が使え、生の HTML タグは出力に残らない。変換した HTML は DOMPurify でサニタイズしてから描画する
 - フロントマターの必須項目を検査する仕組みはない
-
-## 関連するカード
-
-- [記事が公開されるまで](../flow/article-publishing.md)
-- [記事詳細画面](../screen/tech-article.md)

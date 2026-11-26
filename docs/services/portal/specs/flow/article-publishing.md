@@ -6,7 +6,10 @@ sources:
   - services/portal/web/src/app/tech/page.tsx
   - services/portal/web/src/app/tech/[slug]/page.tsx
   - services/portal/web/src/app/sitemap.ts
-sources_hash: c69d0adfd184465a1bc1436eba0b235fd3ce30ac22d3e80fe0749bf24ab33220
+  - services/portal/web/scripts/check-internal-links.mjs
+  - services/portal/web/src/lib/linkChecker.ts
+  - .github/workflows/portal-verify.yml
+sources_hash: 61e4615931fea301e4f1c624a1e1fc0caf17f1e39d2032e0319ca4353e4053b4
 ---
 
 # 記事が公開されるまで
@@ -55,6 +58,10 @@ flowchart TD
 
 - フロントマターの必須項目 (題名、公開日、タグなど) の欠けを検査する仕組みはない
 - 読み込めない記事を飛ばす仕組みもない。例外はそのままビルドの失敗になる
+- 記事とページの内部リンクの切れは、公開の前に CI が止める。プルリクエストごとに、`.github/workflows/portal-verify.yml` の `internal-links` ジョブが、下の「手順」の内部リンクの検査を流す。切れが 1 件でもあると、ジョブが失敗する
+    - ジョブは、共通の CI イメージの上で、`npm ci` のあとに `npm run check:internal-links --workspace @nagiyu/portal-web` を流す
+    - 再利用ワークフローに含めず、Portal のワークフローに置く。サービス固有の検査のため
+    - 検査するのは静的に書かれたリンクだけ。外部リンク (`https://` など) と、実行時にテンプレートリテラルで組み立てるリンク は検査しない
 
 ## つながり
 
@@ -66,3 +73,36 @@ flowchart TD
     B --> A[記事詳細画面]
     B --> S[サイトマップ]
 ```
+
+## 理由
+
+- 記事は、プレーンな Markdown (`gray-matter` でフロントマターを読み、`remark` と `rehype` で HTML に変換) で書く。MDX は採らない。技術記事に JSX を混ぜる必要がなく、MDX より依存するライブラリが少なく、書き手が Markdown の知識だけで書けるため
+
+## 手順
+
+記事を足す・直すとき、またはページのリンクを変えたときは、公開の前に内部リンクの切れを手元で確かめられる。CI の `internal-links` ジョブと同じ検査である。
+
+```bash
+npm run check:internal-links --workspace @nagiyu/portal-web
+```
+
+切れがなければ「内部リンク切れなし」と出て、終了コードは 0。切れがあれば、件数と、切れたリンクごとの `ファイル:行  リンク` と理由を出し、終了コードは 1。
+
+検査の内容は次のとおり。
+
+| 項目 | 内容 |
+|---|---|
+| 対象のファイル | `src/content/` 配下の `.md` と `.mdx`、`src/app/` 配下の `.tsx` |
+| 拾うリンク | Markdown の `[文字](/パス)` と、`href="/パス"` (シングルクォート、バッククォートも同じ)。`/` で始まり、`//` で始まらず、`://` を含まないものだけ。`#` 以降は除く |
+
+拾ったリンクは、次のどれかに当たれば有効で、どれにも当たらなければ切れとする。
+
+| 順 | 規則 |
+|---|---|
+| ① | `/tech/{slug}` の形なら、`src/content/tech/{slug}.md` がある。ない場合は、ほかの規則を見ず、切れとする |
+| ② | `/`、`/about`、`/privacy`、`/terms`、`/tech` のどれか |
+| ③ | `src/app/{パス}/page.tsx` がある |
+| ④ | `public/` の下にファイルがある。`?` 以降は除いて探す。`public/` の外へ出るパスは切れとする |
+
+- 新しい形のルートを足したときは、`src/lib/linkChecker.ts` の `validateHref` の規則を見直す。① から ④ のどれにも当たらない形は、切れと判定される
+- 入口の `scripts/check-internal-links.mjs` は、共通ライブラリをビルドしない CI で動かす。ビルドせず Node の型除去で `src/lib/linkChecker.ts` を直接読むため、`linkChecker.ts` は `@nagiyu/*` と、拡張子を省いた相対 import を使わない。使うと、解決できずに CI が落ちる
