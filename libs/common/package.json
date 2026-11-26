@@ -1,21 +1,24 @@
 {
   "name": "@nagiyu/common",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
-  "main": "dist/src/index.js",
+  "main": "dist/cjs/index.js",
   "types": "dist/src/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/src/index.d.ts",
-      "import": "./dist/src/index.js"
+      "import": "./dist/src/index.js",
+      "require": "./dist/cjs/index.js"
     },
     "./push": {
       "types": "./dist/src/push/index.d.ts",
-      "import": "./dist/src/push/index.js"
+      "import": "./dist/src/push/index.js",
+      "require": "./dist/cjs/push/index.js"
     }
   },
   "files": [
-    "dist/src"
+    "dist/src",
+    "dist/cjs"
   ],
   "repository": {
     "type": "git",
@@ -23,7 +26,7 @@
     "directory": "libs/common"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && tsc -p tsconfig.cjs.json && node ../write-cjs-marker.mjs",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
