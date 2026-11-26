@@ -8,7 +8,6 @@ on:
       - master
     paths:
       - 'services/auth/**'
-      - 'libs/**'
       - 'configs/**'
       - 'infra/auth/**'
       - 'infra/common/**'

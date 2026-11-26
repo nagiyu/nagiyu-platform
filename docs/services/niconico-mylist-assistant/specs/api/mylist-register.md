@@ -6,7 +6,7 @@ sources:
   - services/niconico-mylist-assistant/web/src/lib/niconico-session/index.ts
   - services/niconico-mylist-assistant/core/src/job-input/job-input.ts
   - services/niconico-mylist-assistant/core/src/db/videos.ts
-sources_hash: 0a79aef66a0b5cc6375800c6af44b87b8ede6497d999a3980f285d1b22d7b780
+sources_hash: 1727ede70d27c7aee2f76c9bbccbf50bf235749d7a319999127ba547837b318f
 ---
 
 # マイリスト登録 API
@@ -72,7 +72,7 @@ flowchart TD
 | ジョブの記録の作成に失敗 | 500 | `DATABASE_ERROR` |
 | 投入の失敗などの想定外の失敗 | 500 | `BATCH_ERROR` |
 
-- 500 は [ErrorEvent](../../../../platform/specs/term/error-event.md) として Admin に報告する。題名は、動画の取得の失敗が「DynamoDB 動画取得失敗」、ジョブ ID がないときが「Batch ジョブ ID 未取得」、記録の作成の失敗が「DynamoDB バッチジョブレコード作成失敗」、それ以外が「Batch ジョブ投入エラー」 ([エラー通知の経路](../../../../specs/admin/flow/error-notification.md))
+- 500 は [ErrorEvent](../../../../platform/specs/term/error-event.md) として Admin に報告する。題名は、動画の取得の失敗が「DynamoDB 動画取得失敗」、ジョブ ID がないときが「Batch ジョブ ID 未取得」、記録の作成の失敗が「DynamoDB バッチジョブレコード作成失敗」、それ以外が「Batch ジョブ投入エラー」 ([エラー通知の経路](../../../admin/specs/flow/error-notification.md))
 
 ## つながり
 

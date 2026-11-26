@@ -10,7 +10,6 @@ on:
       - 'services/codec-converter/**'
       - 'infra/codec-converter/**'
       - 'infra/common/**'
-      - 'libs/**'
       - 'configs/**'
       - 'package.json'
       - 'package-lock.json'

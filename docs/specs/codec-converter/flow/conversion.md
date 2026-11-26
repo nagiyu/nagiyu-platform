@@ -12,7 +12,7 @@ sources:
   - services/codec-converter/batch/src/index.ts
   - services/codec-converter/core/src/constants.ts
   - infra/codec-converter/lib/codec-converter-stack.ts
-sources_hash: 0b65ca68f0f1ff3d09633c79b2b7fe8a89a7ad5587365150586c89900b66421e
+sources_hash: 336805960a80389c1ebbf4bba4dd6c4a86f6b2a919a18ce2ffc7b9aaa3e8ec7d
 terms: [codec-converter/term/job, codec-converter/term/output-codec, codec-converter/term/job-definition-size]
 related_cards: [codec-converter/screen/upload, codec-converter/screen/job-detail, codec-converter/api/jobs, codec-converter/batch/convert, codec-converter/flow/error-reporting]
 related_adr:
@@ -48,7 +48,7 @@ flowchart TD
 2. **アップロード**: 画面が、返された URL へ動画を `PUT` する
 3. **投入**: 画面が `POST /api/jobs/{jobId}/submit` を呼ぶ。API は、ジョブが `PENDING` で、入力が S3 にあることを確かめ、サイズとコーデックから[ジョブ定義のサイズ](../term/job-definition-size.md)を選び、Batch に投入する。ステータスは `PENDING` のまま。成功すると、画面は `/jobs/{jobId}` に移る
 4. **変換**: Batch がコンテナを起動する。[変換バッチ](../batch/convert.md)が `PROCESSING` にし、入力を取って FFmpeg で変換する
-5. **結果**: 成功すると出力を `outputs/{jobId}/output.{mp4 か webm}` に書き、`COMPLETED` にして `outputFile` を保存する。失敗すると `FAILED` にして `errorMessage` を保存する
+5. **結果**: 成功すると出力を `outputs/{jobId}/output.{mp4 か webm}` に書き、`COMPLETED` にして `outputFile` を保存する。失敗すると `FAILED` にして、利用者向けの決まった文言を `errorMessage` に保存する
 6. **確認**: 利用者が「ステータス確認」を押すと、画面が `GET /api/jobs/{jobId}` を呼ぶ。自動での更新 (ポーリング) はない
 7. **ダウンロード**: `COMPLETED` なら、API が出力の署名付き URL (有効 86,400 秒) を返す。「ダウンロード」でその URL を新しいタブで開く
 

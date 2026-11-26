@@ -3,7 +3,7 @@ sources:
   - infra/niconico-mylist-assistant/bin/niconico-mylist-assistant.ts
   - infra/niconico-mylist-assistant/lib/cloudfront-stack.ts
   - .github/workflows/niconico-mylist-assistant-deploy.yml
-sources_hash: 95099558f28f8090dda0a672269dd59bacee35d9e5cc7bc9b8791b1097deed86
+sources_hash: fe068939888bd7c60b269e757fdaa748a39b1bb9d0f3be374ab8697861df14bb
 ---
 
 # niconico-mylist-assistant のデプロイ先
@@ -42,7 +42,7 @@ CloudFront のスタックは `us-east-1` に固定する (CloudFront の制約)
 
 | 項目 | 内容 |
 |---|---|
-| トリガー | develop・`integration/**`・master への push (`services/niconico-mylist-assistant/**`、`infra/niconico-mylist-assistant/**`、`infra/common/**`、`infra/tsconfig.json`、`libs/**`、`configs/**`、`package.json`、`package-lock.json`、`.node-version`、このワークフローと、使う composite action・それが呼ぶスクリプトが変わったとき)。手動実行 (dev か prod を選ぶ) |
+| トリガー | develop・`integration/**`・master への push (`services/niconico-mylist-assistant/**`、`infra/niconico-mylist-assistant/**`、`infra/common/**`、`infra/tsconfig.json`、`configs/**`、`package.json`、`package-lock.json`、`.node-version`、このワークフローと、使う composite action・それが呼ぶスクリプトが変わったとき)。手動実行 (dev か prod を選ぶ) |
 | デプロイ先の環境 | [dev と prod の切り替え](../../../platform/specs/deploy.md#dev-と-prod-の切り替え) の規則 |
 | 並行実行 | 環境ごとに直列化する。実行中の run は止めず、待機中は最新だけ残す |
 | イメージのタグ | コミットの SHA |

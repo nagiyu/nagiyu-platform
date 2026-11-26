@@ -15,7 +15,7 @@ sources:
   - services/stock-tracker/core/src/forecast/preprocessing.ts
 sources_hash: a9a946ce5c7134e206ebb35e41d0ad178d07d1a73e977190823cc65b7551921c
 terms: [stock-tracker/term/forecast, stock-tracker/term/axis, stock-tracker/term/question, stock-tracker/term/daily-summary]
-related_cards: [admin/flow/error-notification, stock-tracker/batch/summary, stock-tracker/api/forecasts, stock-tracker/api/summaries, stock-tracker/api/axis-performance, stock-tracker/screen/summaries, stock-tracker/screen/axis-performance]
+related_cards: [stock-tracker/batch/summary, stock-tracker/api/forecasts, stock-tracker/api/summaries, stock-tracker/api/axis-performance, stock-tracker/screen/summaries, stock-tracker/screen/axis-performance]
 related_adr:
   - services/stock-tracker/architecture.md#2.22
   - services/stock-tracker/architecture.md#2.23
@@ -106,7 +106,7 @@ flowchart TD
 - 取引所一覧の読み込みなど、これら以外の例外は、骨格が「確度算出バッチ: 致命的エラー」を `error` で報告し、例外を再送出して Lambda を失敗にする
 - サマリーバッチからの起動に失敗しても、毎時の実行が拾う
 - CloudWatch Alarm も Admin に届く。5 分間の Errors の平均が 10% を超えたとき。実行時間とスロットリングのアラームはない
-- Admin への経路は[エラー通知の経路](../../admin/flow/error-notification.md)
+- Admin への経路は[エラー通知の経路](../../../services/admin/specs/flow/error-notification.md)
 
 ## つながり
 

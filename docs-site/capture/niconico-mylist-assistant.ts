@@ -605,15 +605,7 @@ export const niconicoMylistAssistant: ServiceCapture = {
     port: 3404,
     healthPath: '/api/health',
     envFile: 'services/niconico-mylist-assistant/web/.env.test',
-    requiredBuilds: [
-      'libs/ui/dist',
-      'libs/nextjs/dist',
-      'libs/aws/dist',
-      'libs/common/dist',
-      'libs/browser/dist',
-      'libs/react/dist',
-      'services/niconico-mylist-assistant/core/dist',
-    ],
+    requiredBuilds: ['services/niconico-mylist-assistant/core/dist'],
     // E2E の環境変数ファイルは 3000 番を前提にしているため、撮影用のポートに合わせる
     extraEnv: {
       BASE_URL: 'http://localhost:3404',
