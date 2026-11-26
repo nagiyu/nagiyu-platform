@@ -7,12 +7,13 @@ const mockPipeline = jest.fn();
 const mockUpdateBatchStage = jest.fn();
 const mockUpdateErrorMessage = jest.fn();
 const mockUpdateAnalysisProgress = jest.fn();
+const mockUpdateDurationSec = jest.fn();
 const mockGetJob = jest.fn();
 const mockReleaseForJob = jest.fn();
 const mockSwitchToNoAiForJob = jest.fn();
 const mockCreateMany = jest.fn();
 const mockAggregate = jest.fn();
-const mockGetDurationSec = jest.fn();
+const mockMeasureDuration = jest.fn();
 const mockAnalyzeMotion = jest.fn();
 const mockAnalyzeVolume = jest.fn();
 const mockTranscribe = jest.fn();
@@ -87,6 +88,7 @@ jest.mock('../../../src/libs/job.service.js', () => ({
     updateBatchStage: mockUpdateBatchStage,
     updateErrorMessage: mockUpdateErrorMessage,
     updateAnalysisProgress: mockUpdateAnalysisProgress,
+    updateDurationSec: mockUpdateDurationSec,
     getJob: mockGetJob,
   })),
 }));
@@ -111,7 +113,7 @@ jest.mock('../../../src/libs/volume-highlight.service.js', () => ({
 
 jest.mock('../../../src/libs/ffmpeg-video-analyzer.js', () => ({
   FfmpegVideoAnalyzer: jest.fn().mockImplementation(() => ({
-    getDurationSec: mockGetDurationSec,
+    measureDuration: mockMeasureDuration,
   })),
 }));
 
@@ -171,12 +173,13 @@ describe('runQuickClipBatch', () => {
     mockPipeline.mockResolvedValue(undefined);
     mockCreateMany.mockResolvedValue(undefined);
     mockAggregate.mockReturnValue([]);
-    mockGetDurationSec.mockResolvedValue(120);
+    mockMeasureDuration.mockResolvedValue({ durationSec: 120, measured: true });
     mockAnalyzeMotion.mockResolvedValue([]);
     mockAnalyzeVolume.mockResolvedValue([]);
     mockUpdateBatchStage.mockResolvedValue(undefined);
     mockUpdateErrorMessage.mockResolvedValue(undefined);
     mockUpdateAnalysisProgress.mockResolvedValue(undefined);
+    mockUpdateDurationSec.mockResolvedValue(undefined);
     mockGetJob.mockResolvedValue({ expiresAt: JOB_EXPIRES_AT });
     mockReleaseForJob.mockResolvedValue(undefined);
     mockSwitchToNoAiForJob.mockResolvedValue(undefined);
@@ -194,12 +197,31 @@ describe('runQuickClipBatch', () => {
 
   it('analyzeMotion と analyzeVolume に duration が渡されること', async () => {
     mockS3Send.mockResolvedValue({ Body: { pipe: jest.fn() } });
-    mockGetDurationSec.mockResolvedValue(1200);
+    mockMeasureDuration.mockResolvedValue({ durationSec: 1200, measured: true });
 
     await expect(runQuickClipBatch(input)).resolves.toBeUndefined();
 
     expect(mockAnalyzeMotion).toHaveBeenCalledWith('/tmp/quick-clip/job-1/input.mp4', 1200);
     expect(mockAnalyzeVolume).toHaveBeenCalledWith('/tmp/quick-clip/job-1/input.mp4', 1200);
+  });
+
+  it('計った実際の長さをジョブの durationSec に書き戻す', async () => {
+    mockS3Send.mockResolvedValue({ Body: { pipe: jest.fn() } });
+    mockMeasureDuration.mockResolvedValue({ durationSec: 1234.5, measured: true });
+
+    await expect(runQuickClipBatch(input)).resolves.toBeUndefined();
+
+    expect(mockUpdateDurationSec).toHaveBeenCalledWith('job-1', 1234.5);
+  });
+
+  it('長さを読めず仮の値になったときは、解析には使うが保存しない', async () => {
+    mockS3Send.mockResolvedValue({ Body: { pipe: jest.fn() } });
+    mockMeasureDuration.mockResolvedValue({ durationSec: 10, measured: false });
+
+    await expect(runQuickClipBatch(input)).resolves.toBeUndefined();
+
+    expect(mockAnalyzeMotion).toHaveBeenCalledWith('/tmp/quick-clip/job-1/input.mp4', 10);
+    expect(mockUpdateDurationSec).not.toHaveBeenCalled();
   });
 
   it('NoSuchKey が一時的に発生してもリトライで取得できれば処理を継続する', async () => {
@@ -220,7 +242,7 @@ describe('runQuickClipBatch', () => {
     expect(mockUpdateBatchStage).toHaveBeenCalledWith('job-1', 'clipping');
     expect(mockUpdateBatchStage).toHaveBeenCalledWith('job-1', 'aggregating');
     expect(mockUpdateErrorMessage).not.toHaveBeenCalled();
-    expect(mockGetDurationSec).toHaveBeenCalledWith('/tmp/quick-clip/job-1/input.mp4');
+    expect(mockMeasureDuration).toHaveBeenCalledWith('/tmp/quick-clip/job-1/input.mp4');
     expect(mockAggregate).toHaveBeenCalledWith([], [], 120);
   });
 
@@ -289,7 +311,7 @@ describe('runQuickClipBatch', () => {
 
   it('実際の長さがジョブの上限を超えていたら、文字起こしより前に止めて失敗にし、回数を戻す', async () => {
     mockS3Send.mockResolvedValue({ Body: { pipe: jest.fn() } });
-    mockGetDurationSec.mockResolvedValue(3601);
+    mockMeasureDuration.mockResolvedValue({ durationSec: 3601, measured: true });
     mockGetJob.mockResolvedValue({ expiresAt: JOB_EXPIRES_AT, maxDurationSec: 3600 });
 
     await expect(
@@ -310,7 +332,7 @@ describe('runQuickClipBatch', () => {
 
   it('実際の長さが上限ちょうどなら処理を続ける。上限の記録が無いジョブも続ける', async () => {
     mockS3Send.mockResolvedValue({ Body: { pipe: jest.fn() } });
-    mockGetDurationSec.mockResolvedValue(3600);
+    mockMeasureDuration.mockResolvedValue({ durationSec: 3600, measured: true });
     mockGetJob.mockResolvedValue({ expiresAt: JOB_EXPIRES_AT, maxDurationSec: 3600 });
 
     await expect(runQuickClipBatch(input)).resolves.toBeUndefined();

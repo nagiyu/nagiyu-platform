@@ -92,6 +92,57 @@ describe('HighlightService', () => {
     );
   });
 
+  it('更新後の終了が動画の長さを超える場合はエラー。ちょうどなら通る', async () => {
+    const repository = createRepositoryMock();
+    const service = new HighlightService(repository);
+    repository.getById.mockResolvedValue(baseHighlight);
+    repository.update.mockResolvedValue({ ...baseHighlight, endSec: 100 });
+
+    await expect(service.updateHighlight('job-1', 'h1', { endSec: 100.5 }, 100)).rejects.toThrow(
+      '終了時刻は動画の長さ以下にしてください'
+    );
+    expect(repository.update).not.toHaveBeenCalled();
+
+    await service.updateHighlight('job-1', 'h1', { endSec: 100 }, 100);
+    expect(repository.update).toHaveBeenCalledWith('job-1', 'h1', { endSec: 100 });
+  });
+
+  it('動画の長さが分からないときは終了の上限を見ない', async () => {
+    const repository = createRepositoryMock();
+    const service = new HighlightService(repository);
+    repository.getById.mockResolvedValue(baseHighlight);
+    repository.update.mockResolvedValue({ ...baseHighlight, endSec: 1e9 });
+
+    await service.updateHighlight('job-1', 'h1', { endSec: 1e9 });
+
+    expect(repository.update).toHaveBeenCalledWith('job-1', 'h1', { endSec: 1e9 });
+  });
+
+  it('時刻を変えない更新は動画の長さを見ない', async () => {
+    const repository = createRepositoryMock();
+    const service = new HighlightService(repository);
+    repository.getById.mockResolvedValue({ ...baseHighlight, endSec: 500 });
+    repository.update.mockResolvedValue({ ...baseHighlight, status: 'accepted' });
+
+    await service.updateHighlight('job-1', 'h1', { status: 'accepted' }, 100);
+
+    expect(repository.update).toHaveBeenCalledWith('job-1', 'h1', { status: 'accepted' });
+  });
+
+  it('保存済みの終了が動画の長さを超えていても、終了を動かさない更新は通る', async () => {
+    const repository = createRepositoryMock();
+    const service = new HighlightService(repository);
+    repository.getById.mockResolvedValue({ ...baseHighlight, startSec: 10, endSec: 120 });
+    repository.update.mockResolvedValue({ ...baseHighlight, startSec: 15, endSec: 120 });
+
+    await service.updateHighlight('job-1', 'h1', { startSec: 15, endSec: 120 }, 100);
+    expect(repository.update).toHaveBeenCalledWith('job-1', 'h1', { startSec: 15, endSec: 120 });
+
+    await expect(service.updateHighlight('job-1', 'h1', { endSec: 110 }, 100)).rejects.toThrow(
+      '終了時刻は動画の長さ以下にしてください'
+    );
+  });
+
   it('見どころを更新して返す', async () => {
     const repository = createRepositoryMock();
     const service = new HighlightService(repository);

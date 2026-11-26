@@ -270,4 +270,38 @@ describe('FfmpegVideoAnalyzer', () => {
       { start: 20, end: 21 },
     ]);
   });
+
+  it('measureDuration: Duration 行から実際の長さを読む', async () => {
+    spawnMock.mockReturnValue(
+      createFfmpegProcessMock('  Duration: 01:02:03.50, start: 0.000000, bitrate: 1000 kb/s', 1)
+    );
+
+    const analyzer = new FfmpegVideoAnalyzer();
+
+    await expect(analyzer.measureDuration('/tmp/input.mp4')).resolves.toEqual({
+      durationSec: 3723.5,
+      measured: true,
+    });
+  });
+
+  it('measureDuration: 長さを読めないときは仮の 10 秒を、読めていない印つきで返す', async () => {
+    spawnMock.mockReturnValue(createFfmpegProcessMock('Duration: N/A', 1));
+
+    const analyzer = new FfmpegVideoAnalyzer();
+
+    await expect(analyzer.measureDuration('/tmp/input.mp4')).resolves.toEqual({
+      durationSec: 10,
+      measured: false,
+    });
+  });
+
+  it('getDurationSec: 読めたときは実際の長さ、読めないときは仮の 10 秒を返す', async () => {
+    const analyzer = new FfmpegVideoAnalyzer();
+
+    spawnMock.mockReturnValueOnce(createFfmpegProcessMock('Duration: 00:02:05.00, start: 0', 1));
+    await expect(analyzer.getDurationSec('/tmp/input.mp4')).resolves.toBe(125);
+
+    spawnMock.mockReturnValueOnce(createFfmpegProcessMock('', 1));
+    await expect(analyzer.getDurationSec('/tmp/input.mp4')).resolves.toBe(10);
+  });
 });

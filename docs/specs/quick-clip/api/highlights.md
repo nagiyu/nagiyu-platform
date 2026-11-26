@@ -14,7 +14,7 @@ sources:
   - services/quick-clip/core/src/libs/highlight.service.ts
   - services/quick-clip/core/src/libs/domain-error-messages.ts
   - libs/nextjs/src/request-body.ts
-sources_hash: 1f6b0b30750a83f1efdcef028d4125be6208d976bd209f32212b26f5172966dc
+sources_hash: 2d0545fd56f4c6a18ec9a687ec8f047c476efb79dca8d9d88d7d9ddd1abf8c7c
 terms: [quick-clip/term/highlight, quick-clip/term/job, quick-clip/term/api-error]
 related_cards: [quick-clip/screen/highlights, quick-clip/batch/clip-regenerate, quick-clip/batch/extract, quick-clip/api/download, quick-clip/api/jobs]
 related_adr:
@@ -53,7 +53,7 @@ related_adr:
 | 項目 | 条件 |
 |---|---|
 | `status` | `accepted`、`unconfirmed`、`rejected` のどれか |
-| `startSec`、`endSec` | 数値。0 以上の有限の数。更新後の開始が終了より小さい |
+| `startSec`、`endSec` | 数値。0 以上の有限の数。更新後の開始が終了より小さい。終了を保存済みの値から動かすときは、ジョブの `durationSec` 以下 (ジョブに `durationSec` がないときは、上限を見ない) |
 
 - 出力は 200 で更新後の見どころ。`clipUrl` は付かない
 - `status` だけの更新は、そのまま保存する。作り直し中 (`GENERATING`) でも受ける
@@ -81,7 +81,7 @@ related_adr:
 | 更新、作り直し: 見どころがない | 404 | `HIGHLIGHT_NOT_FOUND` | 指定された見どころが見つかりません |
 | 更新: 本文が JSON のオブジェクトでない、項目の型が違う、`status` が許可外 | 400 | `INVALID_REQUEST` | 更新内容が不正です |
 | 更新: `startSec` と `endSec` が両方あり、開始が終了以上 | 400 | `INVALID_REQUEST` | 更新内容が不正です |
-| 更新: 項目が 1 つもない、時刻が負か有限でない、保存済みの時刻と合わせて開始が終了以上 | 400 | `INVALID_REQUEST` | 更新内容が不正です |
+| 更新: 項目が 1 つもない、時刻が負か有限でない、保存済みの時刻と合わせて開始が終了以上、終了を動かして動画の長さを超える | 400 | `INVALID_REQUEST` | 更新内容が不正です |
 | 更新、作り直し: すでに作り直している最中 (時刻の更新と作り直しだけ) | 409 | `CLIP_GENERATING` | クリップを作り直している最中のため、変更できません |
 | 一覧: 想定外の例外 | 500 | `INTERNAL_SERVER_ERROR` | 見どころ一覧の取得に失敗しました |
 | 復旧: 想定外の例外 | 500 | `INTERNAL_SERVER_ERROR` | 見どころの復旧に失敗しました |
@@ -89,7 +89,7 @@ related_adr:
 | 作り直し: 想定外の例外 (起動の失敗を含む) | 500 | `INTERNAL_SERVER_ERROR` | クリップ再生成の開始に失敗しました |
 
 - 更新の 404 は、`status` だけの更新ではドメインの検査 (保存済みの見どころを読む) で、時刻を含む更新では先に見どころを読む段で返す。どちらも同じ本文
-- 「更新」は、ジョブが存在するかを確かめない。見どころの `jobId` と `highlightId` の組で探す
+- 「更新」は、ジョブが存在するかを確かめない。時刻を含む更新は、ジョブがあれば `durationSec` を読んで終了の上限にし、なければ上限を見ない。超過は作り直しの起動より前に断る。見どころは `jobId` と `highlightId` の組で探す
 - 作り直しの状態の見方は[見どころ](../term/highlight.md)にある。条件付きの書き込みにはしていないので、別のタブなどから同時に呼ぶと、重なりうる
 
 ## つながり

@@ -1,4 +1,4 @@
-import { createHighlightRepository } from '@nagiyu/quick-clip-core';
+import { createHighlightRepository, createJobRepository } from '@nagiyu/quick-clip-core';
 import { readJsonObjectBody } from '@nagiyu/nextjs';
 import { NextResponse } from 'next/server';
 import { InvokeCommand } from '@aws-sdk/client-lambda';
@@ -7,6 +7,7 @@ import { errorReporter, withApiErrorReporting } from '@/lib/api-error-reporting'
 import {
   DOMAIN_ERROR_MESSAGES,
   HighlightDomainService,
+  JobDomainService,
   isHighlightStatus,
 } from '@/lib/server/domain-services';
 import type { Highlight, UpdateHighlightInput } from '@/types/quick-clip';
@@ -36,6 +37,7 @@ const VALIDATION_ERROR_MESSAGES: ReadonlySet<string> = new Set([
   DOMAIN_ERROR_MESSAGES.UPDATE_FIELDS_REQUIRED,
   DOMAIN_ERROR_MESSAGES.SECOND_VALUE_INVALID,
   DOMAIN_ERROR_MESSAGES.RANGE_INVALID,
+  DOMAIN_ERROR_MESSAGES.END_EXCEEDS_DURATION,
 ]);
 
 /**
@@ -154,7 +156,14 @@ export const PATCH = withApiErrorReporting(
         clipGeneratingStartedAt: Date.now(),
       };
 
-      let updated = await highlightService.updateHighlight(jobId, highlightId, updates);
+      // 動画の長さはジョブにあるときだけ上限にする。作り直しの起動より前に検証を通すため、ここで渡す
+      const job = await new JobDomainService(createJobRepository()).getJob(jobId);
+      let updated = await highlightService.updateHighlight(
+        jobId,
+        highlightId,
+        updates,
+        job?.durationSec
+      );
 
       try {
         await invokeClipRegenerate(jobId, updated);

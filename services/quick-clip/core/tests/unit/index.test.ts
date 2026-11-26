@@ -114,6 +114,7 @@ describe('quick-clip core exports', () => {
       updateBatchStage: async () => undefined,
       updateErrorMessage: async () => undefined,
       updateAnalysisProgress: async () => undefined,
+      updateDurationSec: async () => undefined,
       markUsageReleased: async () => true,
       markUsageSwitched: async () => true,
       updateUsage: async () => undefined,

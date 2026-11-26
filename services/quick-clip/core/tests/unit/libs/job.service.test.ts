@@ -9,6 +9,7 @@ const createJobRepositoryMock = (): jest.Mocked<JobRepository> => ({
   updateBatchStage: jest.fn(),
   updateErrorMessage: jest.fn(),
   updateAnalysisProgress: jest.fn(),
+  updateDurationSec: jest.fn(),
   markUsageReleased: jest.fn(),
   markUsageSwitched: jest.fn(),
   updateUsage: jest.fn(),
@@ -237,5 +238,29 @@ describe('JobService', () => {
     await service.updateAnalysisProgress('job-1', progress);
 
     expect(repository.updateAnalysisProgress).toHaveBeenCalledWith('job-1', progress);
+  });
+
+  it('updateDurationSec: ジョブIDが空、または長さが 0 以下・非有限の場合はエラー', async () => {
+    const repository = createJobRepositoryMock();
+    const service = new JobService(repository);
+
+    await expect(service.updateDurationSec('   ', 10)).rejects.toThrow('ジョブIDは必須です');
+    await expect(service.updateDurationSec('job-1', 0)).rejects.toThrow(
+      '動画の再生時間は0より大きい数値で指定してください'
+    );
+    await expect(service.updateDurationSec('job-1', Number.NaN)).rejects.toThrow(
+      '動画の再生時間は0より大きい数値で指定してください'
+    );
+    expect(repository.updateDurationSec).not.toHaveBeenCalled();
+  });
+
+  it('updateDurationSec: リポジトリの updateDurationSec を呼ぶ', async () => {
+    const repository = createJobRepositoryMock();
+    const service = new JobService(repository);
+    repository.updateDurationSec.mockResolvedValue(undefined);
+
+    await service.updateDurationSec('job-1', 125.5);
+
+    expect(repository.updateDurationSec).toHaveBeenCalledWith('job-1', 125.5);
   });
 });
