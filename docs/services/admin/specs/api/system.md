@@ -31,8 +31,8 @@ sources_hash: 624719caaa3e5783c815bbcd24d5eb853fdbb7c8d56fa8af8d8ebae7f36f4e36
 ## エラー
 
 - どちらも、ここで返すエラーを決めていない
-- ミドルウェアは `/api` 配下、`_next/static`、`_next/image`、`favicon.ico` を対象にしない。それ以外の画面は、未ログインだと Auth サービスのサインイン画面 (`/signin`) へリダイレクトされる ([認証ミドルウェア](../../../../platform/specs/lib/nextjs/auth-middleware.md))。`/api` 配下はこのリダイレクトを受けず、各 API が自分で 401 を返す。`SKIP_AUTH_CHECK` が `true` のときは、画面もリダイレクトしない
-- サインイン画面の場所は、環境変数 `NEXT_PUBLIC_AUTH_URL`、なければ `NEXTAUTH_URL`。どちらもなければ、設定の誤りとして 500 を返す
+- ミドルウェアは `/api` 配下を対象にしない。`/api` 配下は、未ログインでもリダイレクトされず、各 API が自分で 401 を返す。画面の未ログインのリダイレクトは[ダッシュボード画面](../screen/dashboard.md)の入口にある
+- サインイン画面の場所の環境変数 (`NEXT_PUBLIC_AUTH_URL`、`NEXTAUTH_URL`) がどちらもなければ、ミドルウェアは画面のリクエストに 500 を返す。本文は `{ error: 'Authentication configuration error' }` で、`message` を持たず、[API のエラー応答](../term/api-error.md)の形ではない
 
 ## つながり
 

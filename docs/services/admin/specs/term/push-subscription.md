@@ -15,9 +15,9 @@ sources_hash: c5447c5016aad0ceafe5f3c8271c4ccb4bf09a2bbe7086d3732c1977467de501
 | 項目 | 内容 |
 |---|---|
 | `subscriptionId` | `endpoint` から決まる ID。同じ端末が登録し直しても、同じ項目を上書きする ([Web Push](../../../../platform/specs/lib/common/web-push.md)) |
-| `userId` | 登録した利用者の ID (セッションの利用者) |
+| `userId` | 最後に登録した利用者の ID (セッションの利用者)。同じ端末が別の利用者で登録し直すと置き換わる |
 | `endpoint`、`keys` | ブラウザが発行した宛先と鍵 |
-| `createdAt`、`updatedAt` | 登録と更新の時刻 (epoch ミリ秒) |
+| `createdAt`、`updatedAt` | 最後に登録した時刻 (epoch ミリ秒)。登録のたびに、どちらも同じ値で書き直される |
 
 - 通知を出すときは、保存されている購読を全件読み、すべてに順に送る。利用者や権限では絞らない。送る側は[stream-handler](../batch/stream-handler.md)と [SNS 受信 API](../api/notify-sns.md)
 - 送り方と、購読が「無効」になる条件 (送り先の 404 / 410、許可されない `endpoint`) は [Web Push](../../../../platform/specs/lib/common/web-push.md) にある。無効な購読は、送信の直後に削除する。削除は `endpoint` で引き、同じ `endpoint` の項目をすべて消す

@@ -23,7 +23,7 @@ sources_hash: 1246067ab38ce292974f2c6def56450e752118385db0a6936f52bbbbf1de60c5
 | `admin-error-events-system-errors-{env}` | CloudWatch アラーム | エラー履歴のテーブルの `SystemErrors` |
 | `admin-error-events-throttled-{env}` | CloudWatch アラーム | エラー履歴のテーブルの `ThrottledRequests` |
 
-`{env}` は `dev` か `prod`。トピックと購読のスタックは `NagiyuAdminInfra{Env}`、アラームのスタックは `NagiyuAdminSelfMonitoring{Env}`。タグは `Application` が `nagiyu`、`Service` が `admin`、`Environment` が環境名。アラームは、さらに `Component` が `self-monitoring`。
+`{env}` は `dev` か `prod`。トピックと購読のスタック (データと通知の基盤) と、アラームのスタック (バッチ系の自己監視) は[デプロイ先](../deploy.md)の「スタック」にある。タグは `Application` が `nagiyu`、`Service` が `admin`、`Environment` が環境名。アラームは、さらに `Component` が `self-monitoring`。
 
 ## 設定値
 
@@ -58,6 +58,7 @@ sources_hash: 1246067ab38ce292974f2c6def56450e752118385db0a6936f52bbbbf1de60c5
 | `admin-error-events-system-errors-{env}` | `AWS/DynamoDB` の `SystemErrors` (テーブル `nagiyu-error-events-{env}`) | 合計 | 5 分 |
 | `admin-error-events-throttled-{env}` | `AWS/DynamoDB` の `ThrottledRequests` (テーブル `nagiyu-error-events-{env}`) | 合計 | 5 分 |
 
+- DLQ の滞留のアラームは、DynamoDB Streams からの呼び出しの失敗では鳴らない。stream-handler の Streams の失敗を知らせるのは、`admin-stream-handler-errors-{env}` である ([バッチの実行環境](./batch-runtime.md)の「DLQ」)
 - 対象の Lambda と DLQ は[バッチの実行環境](./batch-runtime.md)、テーブルは[エラーイベントのテーブル](../../../../platform/specs/data/error-events.md)
 - アクションは、アラームになったときだけ。正常に戻ったときと、データ不足のときは通知しない
 

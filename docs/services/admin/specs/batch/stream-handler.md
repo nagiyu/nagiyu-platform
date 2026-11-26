@@ -16,7 +16,7 @@ error-events テーブルに新しく書かれた [ErrorEvent](../../../../platf
 - error-events テーブルの DynamoDB Streams (イベントソース)。スケジュールはない
     - 受け取りの単位は最大 100 件、または 5 秒の窓
     - 読み始めは最新の位置 (`LATEST`)。再試行は 2 回で、失敗したバッチは二分割して再試行する
-- 関数に SQS の DLQ を付けている
+- 関数に SQS の DLQ を付けているが、Streams の失敗では使われない ([バッチの実行環境](../resource/batch-runtime.md)の「DLQ」)
 - メモリ、タイムアウト、DLQ の保持期間、権限は[バッチの実行環境](../resource/batch-runtime.md)にある。環境変数は `APP_URL` (Admin 自身の URL)、`DYNAMODB_TABLE_NAME` (Admin のテーブル)、VAPID 鍵。この関数は error-events に書かないので、書き込みの環境変数と権限は付けない
 
 ## 対象から外れる条件
@@ -30,7 +30,7 @@ error-events テーブルに新しく書かれた [ErrorEvent](../../../../platf
 
 ```mermaid
 flowchart TD
-    S[① APP_URL を確認<br/>送信の部品を作る] --> R[② レコードを 1 件ずつ処理]
+    S[① APP_URL・テーブル名・VAPID 鍵を確認<br/>送信の部品を作る] --> R[② レコードを 1 件ずつ処理]
     R --> A{③ 新しく書かれた<br/>項目か}
     A -->|いいえ| K[skipped に数える]
     A -->|はい| B[④ 項目を ErrorEvent に戻す]
@@ -41,9 +41,9 @@ flowchart TD
 
 | 段 | 内容 |
 |---|---|
-| ① | `APP_URL` がなければ例外。VAPID 鍵が空でも、送信の部品を作る時点で例外 |
-| ④ | 必須の項目がない、`source` や `severity` が許可外のときは例外にする (読み飛ばすと、通知が出ないまま気づけないため) |
-| ⑤ | 題名は `title`、本文は `message` (空なら「エラー通知を受信しました」)、アイコンは `/icon-192x192.png`。`data` に `url`、`eventId`、`tag` (`eventId` と同じ値) を入れる |
+| ① | `APP_URL` がなければ例外。次に `DYNAMODB_TABLE_NAME` がなければ例外。そのあと、VAPID 鍵が空でも、送信の部品を作る時点で例外 |
+| ④ | 必須の項目がない、`source` や `severity` が許可外のときは例外にする (理由は下の「理由」) |
+| ⑤ | 題名は `title`、本文は `message` (空なら「エラー通知を受信しました」)、アイコンは `/icon-192x192.png`。このファイルは `services/admin/web/public/` になく、Admin には今ない。`data` に `url`、`eventId`、`tag` (`eventId` と同じ値) を入れる |
 | ⑥ | 通知の `data.url` は `{APP_URL}/errors/{eventId}?at={発生時刻のミリ秒}&serviceId={serviceId}` ([エラー詳細のキー](../term/error-event-key.md))。購読がなければ何も送らない |
 
 - 送り方と、無効な購読 (購読の失効、許可されない `endpoint`) の判定は [Web Push](../../../../platform/specs/lib/common/web-push.md) にある。無効と分かった購読は、送ったあとに削除する。削除に失敗しても、警告ログに残して続ける。それ以外の送信の失敗も、警告ログに残して次の購読へ進む
@@ -54,8 +54,8 @@ flowchart TD
 
 - 例外を投げると、バッチ全体が失敗になり、Streams が再試行する。先に送った分の通知は取り消せないので、再試行で同じ通知が重ねて届くことがある。Streams は少なくとも 1 回の配信なので、再試行がなくても、まれに重なる
 - 購読の読み取りに失敗したときも、例外になる。読めない購読の項目は除いて続ける ([Web Push の購読](../term/push-subscription.md))
-- 関数に DLQ を付けているが、再試行を使い切ったレコードの送り先 (`onFailure`) は設定していない
-- Errors と DLQ の滞留は、自己監視アラームが別のトピックに送り、[SNS 受信 API](../api/notify-sns.md) から Web Push になる ([自己監視](../resource/self-monitoring.md))
+- 再試行を使い切ったレコードは捨てられる。送り先 (`onFailure`) を設定しておらず、関数に付けた DLQ は Streams の失敗では使われない ([バッチの実行環境](../resource/batch-runtime.md)の「DLQ」)
+- 失敗は、`Errors` の自己監視アラームが別のトピックに送り、[SNS 受信 API](../api/notify-sns.md) から Web Push になる ([自己監視](../resource/self-monitoring.md))。DLQ の滞留のアラームは、Streams の失敗では鳴らない
 - この Lambda の失敗は、Admin の履歴には報告されない
 
 ## つながり
@@ -66,7 +66,7 @@ flowchart TD
     SUB[(購読<br/>Admin のテーブル)] --> L
     L --> P[Web Push<br/>購読すべて]
     P -->|タップ| D[エラー詳細画面]
-    L -.->|Errors アラーム・DLQ| SM[自己監視の通知]
+    L -.->|Errors アラーム| SM[自己監視の通知]
 ```
 
 ## 理由

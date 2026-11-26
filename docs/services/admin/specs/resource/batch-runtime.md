@@ -34,7 +34,7 @@ sources_hash: a21da2b829cc7ea28f15f912100c24336e701096a4a58d83c5e5861e67ed3bee
 - メモリは既定 (512 MB) から 256 MB に下げている。タイムアウトと、表にない項目 (アーキテクチャ、X-Ray、ログの保持期間、イメージのタグ) は、[Lambda 関数の共通部品](../../../../platform/specs/resource/lambda-function.md)の既定値のまま
 - タグの `Service` は、どちらも `admin-batch`
 - ロググループは、どちらも新しく作らず、既存のものを引き継ぐ (`adoptExistingLogGroup`。[Lambda 関数の共通部品](../../../../platform/specs/resource/lambda-function.md)の「ロググループ」)
-- 2 つのロールは、AWS 管理ポリシー `AWSLambdaBasicExecutionRole` を持つ
+- 2 つのロールは、このスタックが自分で作り、AWS 管理ポリシー `AWSLambdaBasicExecutionRole` を付ける。共通部品の既定ではない。ログの書き込みの権限は、このポリシーによる
 
 ### イベントソース
 
@@ -47,14 +47,14 @@ stream-handler の DynamoDB Streams の設定。
 
 | 項目 | 値 |
 |---|---|
-| 読み始める位置 | `LATEST` (関数を作った時点より後に追加された変更から) |
+| 読み始める位置 | `LATEST` (イベントソースのマッピングを作った時点より後に追加された変更から) |
 | バッチの最大件数 | 100 |
 | バッチの最大待ち時間 | 5 秒 |
 | 再試行の回数 | 2 |
 | 失敗したバッチの分割 | する (`bisectBatchOnError`) |
 | 再試行を使い切ったレコードの送り先 (`onFailure`) | なし |
 
-- 再試行を使い切ったレコードは、どこにも送られずに捨てられる。DLQ はこの送り先ではない (下の「理由」)
+- 再試行を使い切ったレコードは、どこにも送られずに捨てられる。DLQ はこの送り先ではない (下の「DLQ」)
 - Streams のストリームの ARN は、エラーイベントのテーブルのスタックの Export `nagiyu-error-events-table-stream-arn-{env}` から取る
 
 ### DLQ
@@ -65,6 +65,9 @@ stream-handler の DynamoDB Streams の設定。
 | メッセージの保持期間 | 14 日 |
 
 DLQ にメッセージが残ると、[自己監視のアラーム](./self-monitoring.md)が通知する。
+
+- DLQ は、関数自体に付けた `deadLetterQueue` で、DynamoDB Streams のイベントソースの失敗の送り先 (`onFailure`) ではない。Lambda の関数に付ける DLQ は、非同期の呼び出しの失敗にしか使われない (AWS Lambda の仕様。https://docs.aws.amazon.com/lambda/latest/dg/invocation-async-retain-records.html)。Streams からの呼び出しは非同期の呼び出しではないので、再試行 (2 回) を使い切ったレコードは、この DLQ に入らず捨てられる
+- そのため、DLQ の滞留のアラームは、Streams の失敗では鳴らない。stream-handler の Streams の失敗を知らせるのは、`Errors` のアラームである
 
 ## 環境変数
 
@@ -82,7 +85,7 @@ DLQ にメッセージが残ると、[自己監視のアラーム](./self-monito
 
 ## 権限
 
-実行ロールの権限のうち、共通部品の既定で付くもの (ログの書き込み、X-Ray など) は[Lambda 関数の共通部品](../../../../platform/specs/resource/lambda-function.md)に従う。
+実行ロールの権限のうち、共通部品の既定で付くもの (X-Ray など) は[Lambda 関数の共通部品](../../../../platform/specs/resource/lambda-function.md)に従う。
 
 | ロール | 対象 | 許可する操作 |
 |---|---|---|
@@ -97,5 +100,4 @@ DLQ にメッセージが残ると、[自己監視のアラーム](./self-monito
 ## 理由
 
 - 再試行を使い切ったレコードは残らず、あとから再処理できない。stream-handler の失敗は、`Errors` の[自己監視のアラーム](./self-monitoring.md)で検知する
-- DLQ は関数自体の `deadLetterQueue` として設定していて、DynamoDB Streams のイベントソースの失敗の送り先ではない。Lambda の DLQ は非同期の呼び出し (SNS や直接の非同期呼び出し) の失敗にだけ使われる。Streams からの呼び出しは同期のため、Streams の再試行を使い切っても DLQ にメッセージは入らない
 - stream-handler がエラー履歴の書き込みを持たないのは、この関数が履歴を書かないため。持たせると、使わない権限と環境変数が増える

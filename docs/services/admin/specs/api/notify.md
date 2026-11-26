@@ -27,6 +27,7 @@ sources_hash: c34b65977519705f8623060117a527685cbfd0d9b40a0d2a2067378d1fc27b9b
     - 通ると、セッションの利用者 ID を付けて保存し、200 で `{ success: true, subscriptionId }` を返す。同じ `endpoint` はすでにあれば上書きで、件数は増えない
 - 解除 (DELETE) の入力は `{ endpoint }` (空でない文字列)。その `endpoint` の購読をすべて消し、200 で `{ success: true, deletedCount }` を返す。該当がなければ `deletedCount` は 0 で、エラーにはならない
 - 登録も解除も、購読は利用者に関係なく全体で 1 つの集まりとして扱う。解除は、登録した利用者かどうかを確かめない
+- 解除を呼ぶ画面はない。API だけがある
 
 ## エラー
 
@@ -49,7 +50,6 @@ sources_hash: c34b65977519705f8623060117a527685cbfd0d9b40a0d2a2067378d1fc27b9b
 flowchart TD
     S[ダッシュボード画面<br/>通知を有効にする] -->|公開鍵| A[Push 購読 API]
     S -->|購読の登録| A
-    X[解除を呼ぶ画面はない] -.->|購読の解除| A
     A --> D[(購読<br/>Admin のテーブル)]
     D --> H[stream-handler]
     D --> N[SNS 受信 API]

@@ -28,7 +28,7 @@ sources_hash: b67b7b174e9346071ea09b0fb816e9e735494bc645970a76f2e9f382872d715b
 flowchart TD
     A[① 通知を有効にする] --> B{② 対応と許可}
     B -->|満たさない| X([エラーを表示])
-    B -->|満たす| C[③ Service Worker を登録<br/>/sw-push.js]
+    B -->|満たす| C[③ 既存の Service Worker の登録を使う<br/>なければ /sw-push.js を登録]
     C --> D{④ 既存の購読がある}
     D -->|いいえ| E[⑤ 公開鍵を取得して購読を作る]
     D -->|はい| F[⑥ 購読を Admin に登録]
@@ -61,7 +61,7 @@ Admin が共通部品に渡す設定は次のとおり。
     - 中身が JSON として読めなければ、題名は「Admin 通知」のまま、本文に受け取った文字列を出す
     - タップすると、通知の `data.url` を開く。`data.url` がなければ `/dashboard`
     - URL が相対のパス (SNS 受信 API の通知の `/dashboard`) で、同じパスのタブがあれば、そのタブを前面に出す
-    - エラー通知の URL は絶対 URL なので、同じパスのタブがあっても、毎回新しく開く
+    - エラー通知の URL は絶対 URL で、この照合に一致しない ([エラー詳細のキー](../term/error-event-key.md))
 
 ## 失敗・取りこぼしのとき
 

@@ -5,7 +5,8 @@ sources:
   - services/admin/web/src/app/error.tsx
   - services/admin/web/src/app/not-found.tsx
   - services/admin/core/src/errors/dynamodb-reader.ts
-sources_hash: e3ccbe93a437bfcbb072d52b93178764721f0f4a869eff4854d1f0705c95f038
+  - libs/aws/src/error-events/mapper.ts
+sources_hash: faf37dd610d78a59f0a5143960ac68f0d2708bfacf5bf2667db447892a174e8a
 ---
 
 # エラー詳細画面
@@ -16,6 +17,7 @@ sources_hash: e3ccbe93a437bfcbb072d52b93178764721f0f4a869eff4854d1f0705c95f038
 
 - パスは `/errors/{eventId}`。問い合わせに `at` (発生時刻) と `serviceId` が要る ([エラー詳細のキー](../term/error-event-key.md))
 - 一覧の「詳細」と、エラーの Web Push 通知のタップから来る ([stream-handler](../batch/stream-handler.md))
+- 未ログインのとき (セッションが取れないとき) は、画面自身が Auth サービスのサインイン画面 (`/signin`) へリダイレクトする。戻り先は付かない。サインイン画面の場所は環境変数 `NEXT_PUBLIC_AUTH_URL`、なければ `NEXTAUTH_URL` で、どちらもなければ相対の `/signin` へ移る
 
 ## 表示の条件
 
@@ -37,7 +39,7 @@ sources_hash: e3ccbe93a437bfcbb072d52b93178764721f0f4a869eff4854d1f0705c95f038
 ## 状態
 
 - 該当の履歴がないとき (期限の 180 日を過ぎて消えたものを含む) は、「ページが見つかりません」を出す
-- 履歴の読み込みが失敗したとき (保存された項目が読めない、テーブル名の環境変数がないなど) は、共通のエラー画面「エラーが発生しました」を出す ([エラー画面](../../../../platform/specs/lib/ui/feedback-views.md))
+- 履歴の読み込みが失敗したとき (保存された項目が読めない、テーブル名の環境変数がない、`at` が数字だけで日時の範囲を超えているなど) は、共通のエラー画面「エラーが発生しました」を出す ([エラー画面](../../../../platform/specs/lib/ui/feedback-views.md))
 
 ## 操作
 

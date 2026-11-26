@@ -6,7 +6,8 @@ sources:
   - services/admin/web/src/components/notify/NotifyButton.tsx
   - services/admin/web/src/app/layout.tsx
   - services/admin/web/src/middleware.ts
-sources_hash: 7f1a97f6aee191a356e078c928b6cd95d88b142807824759676359a8aefb0a2c
+  - libs/react/src/hooks/usePushSubscription.ts
+sources_hash: 263882025d29b2a5a92c6b414c1a93a2e217e10e7c94f299133acb189c295f54
 ---
 
 # ダッシュボード画面
@@ -17,7 +18,7 @@ sources_hash: 7f1a97f6aee191a356e078c928b6cd95d88b142807824759676359a8aefb0a2c
 
 - パスは `/dashboard`。`/` を開くと、ここへリダイレクトする
 - ヘッダーの「Admin」(ホームに戻るリンク) から来る
-- 未ログインのときは、Auth サービスのサインイン画面 (`/signin`) へリダイレクトされ、ログイン後に戻る ([システム系の API](../api/system.md))。ミドルウェアを通ったあとにセッションが取れなかったときも、画面自身が `/signin` へリダイレクトする (戻り先は付かない)
+- 未ログインのときは、ミドルウェアが Auth サービスのサインイン画面 (`/signin`) へリダイレクトし、ログイン後に戻る ([認証ミドルウェア](../../../../platform/specs/lib/nextjs/auth-middleware.md))。`SKIP_AUTH_CHECK` が `true` のときは、リダイレクトしない。ミドルウェアを通ったあとにセッションが取れなかったときも、画面自身が `/signin` へリダイレクトする (戻り先は付かない)。サインイン画面の場所の環境変数 (`NEXT_PUBLIC_AUTH_URL`、`NEXTAUTH_URL`) がどちらもなければ、相対の `/signin` へ移る
 
 ## 表示の条件
 
@@ -42,7 +43,7 @@ sources_hash: 7f1a97f6aee191a356e078c928b6cd95d88b142807824759676359a8aefb0a2c
 - 「通知を有効にする」を押している間は、ボタンに読み込みの表示を出す
 - 結果は、ボタンの下に出す
     - 成功は「通知を有効化しました」(成功の表示)
-    - 失敗は、エラーの表示。文言は、購読の手続きが投げたエラーのメッセージをそのまま出す ([Web Push (ブラウザ側)](../../../../platform/specs/lib/browser/web-push.md)の失敗したとき)。ブラウザが対応していないなら「このブラウザはプッシュ通知に対応していません」、拒否されたなら「通知が拒否されました。ブラウザ設定から通知を許可してください」、公開鍵の取得が失敗したなら「VAPID公開鍵の取得に失敗しました」、登録 API の失敗なら「サブスクリプションの登録に失敗しました」など。`Error` でない値が投げられたときだけ「通知設定中にエラーが発生しました」
+    - 失敗は、エラーの表示。文言は、購読の手続きが投げたエラーのメッセージをそのまま出す ([Web Push (ブラウザ側)](../../../../platform/specs/lib/browser/web-push.md)の失敗したとき)。ブラウザが対応していないなら「このブラウザはプッシュ通知に対応していません」、拒否されたなら「通知が拒否されました。ブラウザ設定から通知を許可してください」、公開鍵の取得が失敗したなら「VAPID公開鍵の取得に失敗しました」、登録 API の失敗なら「サブスクリプションの登録に失敗しました」など。`Error` でない値が投げられても、hook が `Error` に包んで投げ直す ([Push 購読の React 部品](../../../../platform/specs/lib/react/push-subscription.md))ので、その値の文字列がそのまま出る。画面の既定の文言「通知設定中にエラーが発生しました」は出ない
 - 押すたびに、前の結果は消える。有効にしたあとも、ボタンは「通知を有効にする」のままで、購読済みの表示や解除の操作はない
 
 ## 操作

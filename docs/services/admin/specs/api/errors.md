@@ -6,7 +6,8 @@ sources:
   - services/admin/web/src/lib/api-error-reporting.ts
   - services/admin/core/src/errors/reader.ts
   - services/admin/core/src/errors/dynamodb-reader.ts
-sources_hash: fcd8e22b1d409b7c0d922218c3d56bbbdcf1fba6ec4193cd55465a9ab221cc67
+  - libs/aws/src/error-events/mapper.ts
+sources_hash: e4c272cac2a99e13d88dd819a83694f5f72d2cb817deb3e7b17885765b9bd26c
 ---
 
 # エラー履歴 API
@@ -27,8 +28,8 @@ error-events テーブルに保存された [ErrorEvent](../../../../platform/sp
 | 項目 | 条件 |
 |---|---|
 | `serviceId` | 任意。指定すると、そのサービスの履歴だけを返す。空なら指定なし |
-| `from`、`to` | 任意。ISO 8601 で読める日時。その時刻を含む範囲に絞る。`from` が `to` より後ならエラー |
-| `limit` | 任意。1〜100、省略すると 50 |
+| `from`、`to` | 任意。`Date.parse` で読める日時 (ISO 8601 を想定)。その時刻を含む範囲に絞る。`from` が `to` より後ならエラー |
+| `limit` | 任意。1〜100、省略するか空 (`limit=`) なら 50 |
 | `lastKey` | 任意。前のページの応答でもらった `pagination.lastKey` をそのまま渡す。空なら指定なし |
 
 - `limit` と `lastKey` の読み方と応答の形は[ページネーション](../../../../platform/specs/lib/nextjs/pagination.md)に従う
@@ -58,11 +59,11 @@ error-events テーブルに保存された [ErrorEvent](../../../../platform/sp
 | `limit` が数字として読めない、または 1〜100 の範囲外 | 400 | `INVALID_REQUEST` (本文は「limit は 1 から 100 の間で指定してください」) |
 | `lastKey` が読めない (前のページの応答の値をデコードできない) | 400 | `INVALID_REQUEST` |
 | 詳細で `at` が読めない、`serviceId` がない | 400 | `INVALID_REQUEST` |
+| 詳細で `at` が数字だけで、日時の範囲を超える (20 桁など) | 500 | `INTERNAL_ERROR` |
 | 詳細で該当の履歴がない (期限切れで消えたものを含む) | 404 | `NOT_FOUND` |
 | 取得の失敗 (テーブル名の環境変数がない、保存データが読めないなど) | 500 | `INTERNAL_ERROR` |
 
 - 500 の本文は、一覧が「エラー履歴の取得に失敗しました」、詳細が「エラー詳細の取得に失敗しました」。形は[API のエラー応答](../term/api-error.md)
-- `limit` は先頭の数字を読むので、`10abc` は 10 として通る (ページネーションの仕様どおり)
 - `lastKey` は、base64url の JSON としてデコードできるかだけを確かめる。デコードできても保存先が受け付けない値は 500 になる
 
 ## つながり

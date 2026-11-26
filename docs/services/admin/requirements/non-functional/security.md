@@ -12,7 +12,7 @@ Admin 固有の保護の水準。Cookie の属性は[NextAuth の設定](../../.
 - VAPID の秘密鍵は、サーバーだけが持つ。ブラウザへ渡すのは公開鍵だけ ([シークレット](../../specs/resource/secrets.md))
 - 通知の購読の登録と解除は、`notifications:write` 権限を持つ利用者だけが行える ([アクセス制御](../functional/access-control.md))
 - エラーの履歴の閲覧は、`errors:read` 権限を持つ利用者だけに許す ([アクセス制御](../functional/access-control.md))
-- Admin は、ログインの JWT を検証するだけで、JWT もクッキーも発行しない ([サインイン](../functional/sign-in.md))
+- ログインの JWT とクッキーは Admin では発行しない ([サインイン](../functional/sign-in.md))
 
 ## やらないこと
 

@@ -25,4 +25,4 @@ Admin の画面と API は、ログインした利用者のロールが持つ 2 
 - ダッシュボード自体は、ログインしていれば権限がなくても開ける。権限のないカードは出さない
 - 画面は、権限がなければ「アクセス権限がありません」を出す。対象は[エラー履歴一覧](../screen/errors.md)と[エラー詳細](../screen/error-detail.md)
 - API は、未ログインなら 401 (`UNAUTHORIZED`)、権限がなければ 403 (`FORBIDDEN`) を返す。本文の形は [API のエラー応答](./api-error.md)。対象は[エラー履歴 API](../api/errors.md)と [Push 購読 API](../api/notify.md) (登録と解除)
-- `/api/health`、`/api/notify/vapid-key`、`/api/notify/sns` は権限を見ない。`/api/notify/sns` は、ログインの代わりに SNS の署名と送信元のトピックを確かめる ([SNS 受信 API](../api/notify-sns.md))
+- `/api/health`、`/api/auth/*` ([システム系の API](../api/system.md))、`/api/notify/vapid-key` ([Push 購読 API](../api/notify.md))、`/api/notify/sns` は権限を見ない。`/api/notify/sns` は、ログインの代わりに SNS の署名と送信元のトピックを確かめる ([SNS 受信 API](../api/notify-sns.md))

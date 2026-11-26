@@ -8,7 +8,9 @@ sources:
   - services/admin/core/src/notify/web-push-sender.ts
   - libs/common/src/push/client.ts
   - libs/common/src/push/config.ts
-sources_hash: 15ea19a6e3683aaf955e681ac5542de52c673d8945eaa226fe618afbd03b372e
+  - libs/browser/src/push.ts
+  - services/admin/web/src/components/notify/NotifyButton.tsx
+sources_hash: 3e2afc9638ec48d84a056ec07983e55e101a642047f9216c804888f0a80d580e
 ---
 
 # シークレット
@@ -75,10 +77,10 @@ gh workflow run admin-deploy.yml --ref <dev に載っているブランチ> -f e
 
 初回のデプロイでは、シークレットが `REPLACE_ME` で作られる。実際の鍵で上書きしてから、Admin を再デプロイする。
 
-1. 鍵のペアを作る。Tools の VAPID キー生成画面 (`/vapid-generator`。ホストは[Tools のデプロイ先](../../../tools/specs/deploy.md)) で作る (`publicKey` と `privateKey` を返すので、そのままシークレットの値に使える)。コマンドで作るときは、`web-push` を使う
+1. 鍵のペアを作る。Tools の VAPID キー生成画面 (`/vapid-generator`。ホストは[Tools のデプロイ先](../../../tools/specs/deploy.md)) で作る (`publicKey` と `privateKey` を返すので、そのままシークレットの値に使える)。コマンドで作るときは、`web-push` を `--json` 付きで使う。`{"publicKey":"...","privateKey":"..."}` の形で出るので、そのままシークレットの値に使える
 
     ```bash
-    npx web-push generate-vapid-keys
+    npx web-push generate-vapid-keys --json
     ```
 
 2. シークレットの値を上書きする
@@ -95,6 +97,6 @@ gh workflow run admin-deploy.yml --ref <dev に載っているブランチ> -f e
 
 鍵を作り直すときは、既存の購読の扱いに注意する。
 
-- 購読はブラウザが公開鍵を指定して作る。Admin は、送信が 404 か 410 で拒否された購読だけを無効と判定して消す。それ以外の失敗は購読を残し、警告ログに出す
-- 鍵が合わない送信にどの応答が返るかは、Push サービスが決める。404 と 410 以外なら、古い購読は残ったまま、通知が届かない
+- 購読はブラウザが公開鍵を指定して作る。送信が拒否された購読を無効と判定して消す条件は [Web Push](../../../../platform/specs/lib/common/web-push.md) にある。無効と判定されない失敗は購読を残し、警告ログに出す
+- 鍵が合わない送信にどの応答が返るかは、Push サービスが決める。無効と判定される応答でなければ、古い購読は残ったまま、通知が届かない
 - 「通知を有効にする」は、ブラウザに購読が残っていればそれを使い回し、新しい公開鍵では作り直さない。購読の解除を呼ぶ画面もない ([Push 購読の経路](../flow/push-subscription.md))。鍵を変えたあとに通知を受けたいブラウザは、ブラウザ側で購読を解除してから、「通知を有効にする」を押し直す

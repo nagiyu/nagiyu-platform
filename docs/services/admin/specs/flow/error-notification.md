@@ -59,10 +59,9 @@ flowchart TD
 - 報告の書き込みに失敗しても、アプリの本処理は止めない ([エラーの報告](../../../../platform/specs/lib/aws/error-reporting.md))
 - 同じ失敗が、別の serviceId で 2 件届くことがある。アプリの報告 (serviceId は報告する側が指定する) と、同じ失敗を拾ったアラーム (serviceId はアラーム名から決まる) が、別の項目として記録されるため。どちらも Push になる
 - プロセスが即死してアプリが報告できない失敗 (タイムアウトなど) は、アラームか Batch のイベントの経路が拾う
-- Streams は少なくとも 1 回の配信で、まれに同じ通知が 2 通届く
-- stream-handler の再試行と DLQ は[stream-handler](../batch/stream-handler.md)にある。再試行を使い切ったレコードの送り先 (`onFailure`) は設定していない
+- stream-handler の失敗時の再試行、同じ通知が重なって届くこと、再試行を使い切ったレコードの扱い (DLQ に入らず捨てられる) は[stream-handler](../batch/stream-handler.md)の「失敗したとき」にある
 - Admin に購読がなければ、Push は送られない。テーブルと画面には残る
-- 通知の仕組み自身の障害は、別のトピックで知らせる。このトピックは Admin の `/api/notify/sns` に HTTPS で送り、そこから Push を出す。記録は残さない。受け付けるのはこのトピックからのメッセージだけ。アラームとトピックは[自己監視](../resource/self-monitoring.md)にある
+- 通知の仕組み自身の障害は、別のトピックで知らせる。このトピックは Admin の `/api/notify/sns` に HTTPS で送り、そこから Push を出す。記録は残さない。受け付ける条件は [SNS 受信 API](../api/notify-sns.md)、アラームとトピックは[自己監視](../resource/self-monitoring.md)にある
 
 ## つながり
 
@@ -81,7 +80,6 @@ flowchart TD
     T -->|"Streams: 新規のみ"| SH["stream-handler Lambda"]
     SH --> PUSH["Web Push: Admin の購読者"]
     T --> UI["Admin 画面: /errors"]
-    SH -.->|"関数の DLQ"| DLQ[("DLQ")]
     SELF["自己監視アラーム"] --> SNS2["SNS: 自己監視のトピック"]
     SNS2 -->|"HTTPS"| API["Admin /api/notify/sns"]
     API --> PUSH
@@ -89,7 +87,7 @@ flowchart TD
 
 ## 理由
 
-- **Push を Streams から出す**。alarm-ingest が書いた直後に Push まで送る形にしない。書き込みと通知を切り離して、書き込みを軽くするため。通知が失敗しても書き込みには響かない。書く経路が増えても (アプリが直接書く経路など)、通知を出す所が stream-handler 1 つで済む。代わりに、書いてから Push までの段が 1 つ増える。Streams は少なくとも 1 回の配信なので、同じ通知がまれに 2 通届く
+- **Push を Streams から出す**。alarm-ingest が書いた直後に Push まで送る形にしない。書き込みと通知を切り離して、書き込みを軽くするため。通知が失敗しても書き込みには響かない。書く経路が増えても (アプリが直接書く経路など)、通知を出す所が stream-handler 1 つで済む。代わりに、書いてから Push までの段が 1 つ増える
 - **AWS Batch の失敗を EventBridge で拾う**。タイムアウトなどでプロセスが即死すると、アプリの `try/catch` が走らず、アプリの報告は出ない。この失敗は CloudWatch Alarm でも拾えない。Batch はジョブの成否の CloudWatch メトリクスを持たず、タイムアウトはログにも何も残さないため。EventBridge のジョブ状態の変化は、プロセスの生死に依らず届く
 - **検知のルールはサービスが持ち、変換は alarm-ingest が持つ**。ルールは、そのサービスのジョブキューに絞って、サービスの infra に置く。変換は、特定のサービスに依らない形で alarm-ingest が受け持つ。Batch を使うサービスは、ルールを 1 本足せば同じ経路に乗れる
 - **同じ失敗が 2 件記録されるのを許す**。アプリが拾える失敗では、アプリの報告と Batch の失敗の 2 件が記録され、Push も 2 通になる。取りこぼすより 2 通届くほうがよいため
