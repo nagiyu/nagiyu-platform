@@ -11,7 +11,7 @@ sources:
   - services/livetalk/core/src/lifecycle/histogram.ts
   - services/livetalk/core/src/lifecycle/adaptation.ts
   - services/livetalk/core/src/repositories/dynamodb-lifecycle.repository.ts
-sources_hash: a3ed126b10ad141f4ac54fb4e82faf57d71511ead1ecd0c1429c069372bd3717
+sources_hash: eb71a21160b6073f64d6309c1b961efa442ac224fd2bf91f6cd4aac650daecc8
 terms: [livetalk/term/lifecycle, livetalk/term/user-activity-profile]
 related_cards: [admin/flow/error-notification, livetalk/batch/acquire, livetalk/batch/notify]
 related_adr:

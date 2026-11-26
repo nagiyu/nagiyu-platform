@@ -8,7 +8,7 @@ sources:
   - services/livetalk/core/src/study/freshness-check.ts
   - services/livetalk/core/src/knowledge/recent-web-facts.ts
   - services/livetalk/core/src/constants.ts
-sources_hash: 7941bf0652c0fffee0f775be1a6c543d2d8094a953e0e4a4352cf54019e214ea
+sources_hash: 90c49c680fa6978d9ab5648dc04c10e0cf4a1cfcea8d82cde8030e35f1a43ed9
 terms: [livetalk/term/topic, livetalk/term/freshness-check-request]
 related_cards: [livetalk/batch/consolidate-conversations, livetalk/batch/acquire]
 related_adr:

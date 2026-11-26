@@ -8,7 +8,7 @@ sources:
   - services/livetalk/core/src/constants.ts
   - services/livetalk/web/src/app/api/push/first-word/route.ts
   - services/livetalk/web/src/app/api/push/pending/route.ts
-sources_hash: 22949358f95630fa11a1cd14254d8aacfa2ea65545e2dc654de65dcd5b758277
+sources_hash: d99b3f5f18d8a58a2a058488a963cc2d0bd560482af65011b7cf3f8d3548d3eb
 related_cards: [livetalk/batch/notify, livetalk/api/push-notification, livetalk/screen/home, livetalk/screen/status, livetalk/flow/notification-open]
 ---
 

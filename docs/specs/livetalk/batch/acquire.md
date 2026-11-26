@@ -10,15 +10,17 @@ sources:
   - services/livetalk/core/src/usecases/acquire.usecase.ts
   - services/livetalk/core/src/study/active-window.ts
   - services/livetalk/core/src/study/research-allowance.ts
+  - services/livetalk/core/src/study/study-plan.ts
   - services/livetalk/core/src/study/freshness-check.ts
   - services/livetalk/core/src/repositories/study-usage-counting.ts
   - services/livetalk/core/src/lifecycle/state-resolver.ts
   - services/livetalk/core/src/constants.ts
   - libs/aws/src/dynamodb/counter/try-increment-in-order.ts
-sources_hash: 171bb05e379ba9a9ea681a1718b10a7372f6df28259d541a1c17fbb3907b5183
+sources_hash: b68802ca20a0442e5453ba8b82cd9b3549708f0b127ed05a0b52cdf02646a0db
 terms: [livetalk/term/care, livetalk/term/topic, livetalk/term/web-fact, livetalk/term/webraw, livetalk/term/lifecycle, livetalk/term/user-activity-profile, livetalk/term/study-pause, livetalk/term/study-topic, livetalk/term/freshness-check-request, livetalk/term/exploration]
 related_cards: [admin/flow/error-notification, livetalk/batch/consolidate-conversations, livetalk/batch/notify, livetalk/flow/conversation]
 related_adr:
+  - services/livetalk/architecture.md#2.8
   - services/livetalk/architecture.md#2.12
   - services/livetalk/architecture.md#2.24
   - services/livetalk/architecture.md#2.25
@@ -35,12 +37,14 @@ related_adr:
 - 毎時 45 分 (EventBridge: `cron(45 * * * ? *)`)
 - 全利用者 × 全キャラクター (hiyori、ageha) を順に処理する
 - Lambda は最長 15 分。時刻の判定は日本時間
+- 利用者の区分を決めるため、auth のユーザーのテーブル (`nagiyu-auth-users-{env}`) を読む。テーブル名は環境変数 `AUTH_USERS_TABLE_NAME` で渡し、許す操作は `GetItem` だけ。読むのはロールの属性だけ ([auth のユーザー](../../../platform/specs/lib/aws/auth-users.md))
 - 会話から登録される勉強の依頼と鮮度確認の依頼は、[会話の経路](../flow/conversation.md)にある
 
 ## 対象から外れる条件
 
 | 条件 | 外れる範囲 |
 |---|---|
+| 1 日の回数が 0 回の区分 (お試しを過ぎた無料の利用者) | その利用者の全部。キャラクターを見ず、回数も数えない |
 | [lifecycle](../term/lifecycle.md) がない (週次の活動時間学習バッチが作る) | 全部。勉強中の人数にも数えない |
 | [勉強の停止](../term/study-pause.md) (利用者の最後の発話から 72 時間以上、または発話なし) | 全部。勉強中の人数にも数えない |
 | キャラクターが就寝中 | その回の全部。勉強中の人数には数える |
@@ -48,11 +52,14 @@ related_adr:
 
 ## 処理
 
-利用者 × キャラクターごとに、次の流れで進む。
+利用者ごとに、まず区分と 1 日の回数を決める ([上限](#上限))。そのあと利用者 × キャラクターごとに、次の流れで進む。
 
 ```mermaid
 flowchart TD
-    S([利用者 × キャラクター]) --> A{lifecycle があり<br/>勉強の停止でない}
+    U([利用者]) --> Z{区分の 1 日の回数が<br/>0 回}
+    Z -->|はい| X0([その利用者は対象外])
+    Z -->|いいえ| S([利用者 × キャラクター])
+    S --> A{lifecycle があり<br/>勉強の停止でない}
     A -->|いいえ| X([対象外])
     A -->|はい| B{就寝中}
     B -->|はい| Y([この回はスキップ])
@@ -68,6 +75,7 @@ flowchart TD
 - 就寝中のキャラクターも、勉強中の人数には数える
 - ピーク前後の判定は、活動時間プロファイルが学習済みのときだけ行う
 - 調べた結果は WebRaw に書く。Topic への畳み込みは集約バッチが行う
+- バッチの結果と完了のログに、区分ごとの人数 (`tierUsers`: 運営者 `operator`、スタンダード `standard`、お試し中の無料 `freeTrial`、お試しのあとの無料 `freeExpired`) を出す。区分を判定できなかった利用者は含まない。お試しのあとの無料の利用者は、スキップした利用者 (`skippedUsers`) にも数える
 
 | 段 | 対象 | 検索語 | 書くもの |
 |---|---|---|---|
@@ -91,19 +99,32 @@ flowchart TD
 | 上限 | 値 |
 |---|---|
 | 1 回の実行・1 キャラクターあたりの検索 | 3 回 (①②③の合計。失敗した検索も 1 回に数える) |
-| 1 日・利用者 1 人あたり | 20 回 (日本時間の暦日。全キャラクターの合計) |
-| 1 日・キャラクターあたり | 20 ÷ 勉強中のキャラクター数 (切り捨て) |
+| 1 日・利用者 1 人あたり | 区分ごとの回数 (下の表。日本時間の暦日。全キャラクターの合計) |
+| 1 日・キャラクターあたり | 利用者の 1 日の回数 ÷ 勉強中のキャラクター数 (切り捨て) |
+| 1 日・全利用者の合計 | 200 回 (日本時間の暦日) |
 
+利用者の区分と 1 日の回数は、次のとおり。
+
+| 区分 | 決め方 | 1 日の回数 |
+|---|---|---|
+| 運営者 | 有効なロールが権限 `livetalk:operator` を持つ。`livetalk:standard` も持つときも運営者 | 20 回 |
+| スタンダード | 有効なロールが権限 `livetalk:standard` を持つ | 20 回 |
+| 無料 (お試し中) | それ以外で、Profile の作成時刻から 7 日 (168 時間) たっていない | 20 回 |
+| 無料 (お試しのあと) | それ以外で、Profile の作成時刻からちょうど 7 日たった時刻以降 | 0 回 (勉強しない) |
+
+- 有効なロールは、auth のユーザーの手動のロールと課金の権利から、実行の時刻で求める ([ロールと権限の定義](../../platform/term/role.md))。auth にユーザーがいなければ、ロールなし (無料) として扱う
 - 勉強中のキャラクターは、lifecycle があり、勉強の停止になっていないもの。就寝中も数える
 - 枠は検索の直前に 1 回分ずつ数え、失敗しても戻さない。枠を使い切ったら、その組はその回の残りの検索を止める
+- 枠はキャラクターあたり → 利用者 1 人あたり → 全利用者の合計の順に数える。あとの枠で断られたら、通った前の枠を 1 回ずつ戻す。戻せなければ、その枠を 1 回多く数えたまま続け、報告する (warning、題名は「勉強回数を戻せませんでした (1 回分多く数えたまま)」)
 - 回数の記録に失敗したときも、上限を守れないので勉強を止める
-- キャラクターあたりの枠を数えたあとに 1 日・利用者の枠で断られたら、キャラクターあたりの 1 回を戻す。戻せなければ、その枠を 1 回多く数えたまま続け、報告する (warning、題名は「勉強回数のキャラクター別の回数を戻せませんでした (1 回分多く数えたまま)」)
 
 ## 失敗したとき
 
 - 個々の検索の失敗は握って次へ進む。Lambda は失敗にしない
+- 区分を判定できないとき (auth のユーザーや Profile の読み取りに失敗したとき、無料なのに Profile がないとき) は、その利用者を勉強させず、失敗として数える。他の利用者は続ける
 - キャラクターごとの処理が例外で終わったときと、回数の記録に失敗したときは、その利用者を失敗として数える。他のキャラクターと他の利用者は続ける
 - 失敗した利用者が 1 人でもいると、最後に Lambda を失敗にする。1 日の上限に達しただけでは失敗にしない
+- 環境変数 `AUTH_USERS_TABLE_NAME` がないときは、どの利用者も勉強せず、起動の時点で Lambda を失敗にする
 - 失敗は Admin にエラーとして届く ([エラー通知の経路](../../admin/flow/error-notification.md))
 
 ## つながり
@@ -115,6 +136,7 @@ flowchart TD
     C -->|使った話題| F[(鮮度確認の依頼)]
     N[通知バッチ] -->|使った話題| F
     Q & F --> L
+    AU[(auth のユーザー<br/>ロールの属性)] -->|区分| L
     L --> W[(WebRaw)]
     W -->|毎時 15 分| CO[集約バッチ]
     CO --> T[(Topic の WEB fact)]

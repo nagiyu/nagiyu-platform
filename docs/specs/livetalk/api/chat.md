@@ -13,7 +13,7 @@ sources:
   - services/livetalk/core/src/repositories/chat-guard-counting.ts
   - services/livetalk/core/src/lib/chat-guard-window.ts
   - libs/aws/src/dynamodb/counter/try-increment-in-order.ts
-sources_hash: 45fe4129073ab12d593a3d486b486565b968d3818faae354757990b60694e134
+sources_hash: 533f96dda2ed9ba512865b2295c9f0b8fda7ba2a4fd4797c7518b5af81ce7ed5
 terms: [livetalk/term/permission, livetalk/term/api-error, livetalk/term/consent, livetalk/term/chat-event, livetalk/term/safety, livetalk/term/character, livetalk/term/topic, livetalk/term/study-topic, livetalk/term/note, livetalk/term/lifecycle, livetalk/term/freshness-check-request]
 related_cards: [livetalk/screen/home, livetalk/flow/conversation, livetalk/batch/consolidate-conversations, livetalk/batch/acquire, admin/flow/error-notification]
 related_adr:

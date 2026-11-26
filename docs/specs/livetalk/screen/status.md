@@ -10,7 +10,7 @@ sources:
   - services/livetalk/web/src/components/StatusTestPush.tsx
   - services/livetalk/core/src/notification/decision.ts
   - services/livetalk/core/src/constants.ts
-sources_hash: e4a4b99625fa8713e85e9b41992e085c178e9765946a029326352d7f3fc657b1
+sources_hash: af530916cfbfea081ac91785d0aff21bbb31c86682abf41723246fafe5bb65a7
 terms: [livetalk/term/permission, livetalk/term/lifecycle, livetalk/term/notification-event, livetalk/term/user-activity-profile, livetalk/term/safety, livetalk/term/character]
 related_cards: [livetalk/api/status, livetalk/api/push-notification, livetalk/batch/notify, livetalk/screen/home]
 related_adr:

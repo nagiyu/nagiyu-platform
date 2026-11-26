@@ -9,7 +9,7 @@ sources:
   - services/livetalk/core/src/usecases/chat-usecase.ts
   - services/livetalk/batch/src/handlers/consolidate-conversations.ts
   - services/livetalk/batch/src/handlers/acquire.ts
-sources_hash: f5b396796cabca03bd46ba6663821de8a108c4e8553081f965ba362e4d7ce674
+sources_hash: dc4cf8235e6ae409389239f8658424cd2d55343b7dd82a285bdbe02408976843
 terms: [livetalk/term/consent, livetalk/term/chat-event, livetalk/term/safety, livetalk/term/topic, livetalk/term/study-topic, livetalk/term/freshness-check-request, livetalk/term/character]
 related_cards: [livetalk/screen/home, livetalk/api/chat, livetalk/batch/consolidate-conversations, livetalk/batch/acquire, livetalk/screen/memory, livetalk/screen/notes]
 related_adr:
