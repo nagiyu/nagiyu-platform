@@ -29,7 +29,7 @@ for (const { from, to } of fixedAssets) {
 }
 
 /**
- * src/ 配下を再帰的に走査し、`*.module.css` を dist/src/ に複製する。
+ * src/ 配下を再帰的に走査し、`*.module.css` を dist/src/ (ESM) と dist/cjs/ (CJS) に複製する。
  */
 function copyModuleCss(currentDir) {
   const entries = readdirSync(currentDir);
@@ -42,10 +42,13 @@ function copyModuleCss(currentDir) {
     }
     if (!entry.endsWith('.module.css')) continue;
     const rel = relative(root, fullPath);
-    const dest = resolve(root, 'dist', rel);
-    mkdirSync(dirname(dest), { recursive: true });
-    copyFileSync(fullPath, dest);
-    console.log(`copied: ${rel} -> ${relative(root, dest)}`);
+    // ESM は dist/src/、CJS は dist/cjs/ に出力され、どちらも同じ相対パスで CSS を import / require する
+    const cjsRel = relative(resolve(root, 'src'), fullPath);
+    for (const dest of [resolve(root, 'dist', rel), resolve(root, 'dist/cjs', cjsRel)]) {
+      mkdirSync(dirname(dest), { recursive: true });
+      copyFileSync(fullPath, dest);
+      console.log(`copied: ${rel} -> ${relative(root, dest)}`);
+    }
   }
 }
 

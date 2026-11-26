@@ -3,8 +3,8 @@
  * Portal 内部リンクチェックスクリプトの入口
  *
  * 検査ロジックは src/lib/linkChecker.ts にあり、ここでは対象ディレクトリの解決と
- * 結果の出力・終了コードだけを担う。CI が共通ライブラリのビルド無し (npm ci のみ) で
- * 動かすため、TypeScript はビルドせず Node の型除去で直接読み込む。
+ * 結果の出力・終了コードだけを担う。CI が npm ci だけで動かすため、TypeScript はビルドせず
+ * Node の型除去で直接読み込む。
  *
  * 使用方法: node scripts/check-internal-links.mjs
  */

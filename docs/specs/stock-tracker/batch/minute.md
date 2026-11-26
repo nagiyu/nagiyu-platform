@@ -15,7 +15,7 @@ sources:
   - services/stock-tracker/core/src/services/trading-hours-checker.ts
 sources_hash: 5c5810c0922771624f9b8a06432a9193359c52523858c97bad99042772dfae75
 terms: [stock-tracker/term/trading-hours, stock-tracker/term/price-source, stock-tracker/term/push-subscription]
-related_cards: [admin/flow/error-notification, stock-tracker/flow/alert-notification, stock-tracker/batch/hourly, stock-tracker/api/alerts, stock-tracker/api/exchanges, stock-tracker/screen/alerts]
+related_cards: [stock-tracker/flow/alert-notification, stock-tracker/batch/hourly, stock-tracker/api/alerts, stock-tracker/api/exchanges, stock-tracker/screen/alerts]
 related_adr:
   - services/stock-tracker/architecture.md#2.3
   - services/stock-tracker/architecture.md#2.4
@@ -84,7 +84,7 @@ flowchart TD
 - 失敗が 1 件以上あった回は、全アラートを処理して接続を閉じたあと、プロセスを終了コード 1 で終了する。Lambda の実行環境が捨てられ、次の回は新しい環境で始まる。この呼び出しは Lambda の失敗になる (件数の閾値は環境変数で変えられ、デプロイでは 1 を設定している)
 - アラート一覧の読み込みなど、アラート単位でない例外は、共通の骨格が「分次バッチ: 致命的エラー」を `error` で報告し、例外を再送出して Lambda を失敗にする
 - CloudWatch Alarm も Admin に届く。5 分間の Errors の平均が 10% を超える、実行時間の平均が 40 秒を超える、スロットリングが 1 回以上起きる、のいずれか
-- Admin への経路は[エラー通知の経路](../../admin/flow/error-notification.md)
+- Admin への経路は[エラー通知の経路](../../../services/admin/specs/flow/error-notification.md)
 
 ## つながり
 

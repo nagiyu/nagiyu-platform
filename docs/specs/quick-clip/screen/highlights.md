@@ -12,7 +12,7 @@ sources:
   - services/quick-clip/web/src/components/highlights/ColumnVisibilityButton.tsx
   - libs/common/src/format/jst.ts
   - libs/common/src/constants/error-messages.ts
-sources_hash: 4b9c7449c7777af31ddf137d4d2bd5fcec2a8ebc09bc080f91627b2bb0132ecc
+sources_hash: 61c84a48960a59d623fe00394b8601b6fc9dac79d074aeae32928a13de42f225
 terms: [quick-clip/term/highlight, quick-clip/term/transcript, quick-clip/term/job]
 related_cards: [quick-clip/api/highlights, quick-clip/api/download, quick-clip/api/transcript, quick-clip/api/jobs, quick-clip/screen/job-status, quick-clip/batch/clip-regenerate, quick-clip/batch/zip-generate, quick-clip/flow/extraction]
 related_adr:
@@ -109,6 +109,7 @@ related_adr:
     - 読んだ値が、今の値と同じ
     - 時刻として読めない。読めるのは、「分:秒」「時:分:秒」と、コロンのない秒の数値 (小数も可)。分と秒は 60 未満でなければならない。「分:秒」の形では 59 分まで
     - 開始が 0 秒未満、終了が 1 秒未満
+    - 開始・終了が動画の長さ (ジョブ取得の `durationSec`) を超える。長さがないジョブでは上限を設けない
 - 読めないときと、範囲外のときは、入力を元の値に戻す
 - 採用した見どころに生成が終わっていないものがあるときは、「ZIP ダウンロード」を押せなくし、下に理由を出す。失敗と生成待ちの両方があるときは、失敗の理由を出す
 

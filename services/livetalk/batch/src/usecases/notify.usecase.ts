@@ -32,7 +32,8 @@ import {
   defaultUlidFactory,
   NOTIFICATION_EVENT_TTL_SECONDS,
   NOTIFY_CRITICAL_CARE_THRESHOLD,
-  NOTIFY_INTENSITY_WINDOW_DAYS,
+  NOTIFY_EVENT_READ_LIMIT,
+  resolveNotifyMessageSinceMs,
   NOTIFY_SESSION_GAP_MINUTES,
 } from '@nagiyu/livetalk-core';
 
@@ -183,7 +184,7 @@ async function processUser(params: ProcessUserParams): Promise<boolean> {
 
   // ユーザー全キャラの通知履歴を一括取得（直近 60 件）
   // 総量調停（userDailyNormalCap チェック）はここで取得した全履歴を使う
-  const allUserEvents = await notifEventRepo.listByUser(userId, 60);
+  const allUserEvents = await notifEventRepo.listByUser(userId, NOTIFY_EVENT_READ_LIMIT);
 
   // 全キャラを走査して発火候補を収集する
   const criticalCandidates: { characterId: string }[] = [];
@@ -373,9 +374,8 @@ async function evaluateCharacter(params: {
     getCharacterDefinitionById(DEFAULT_CHARACTER_ID)?.notificationName ??
     'ひより';
 
-  // 直近 NOTIFY_INTENSITY_WINDOW_DAYS 日のメッセージを時刻範囲で取得（強度サンプリング用）
-  const intensityWindowMs = NOTIFY_INTENSITY_WINDOW_DAYS * 24 * 60 * 60 * 1000;
-  const sinceMs = now.getTime() - intensityWindowMs;
+  // 判定は直近の会話だけを前提にしているため、読む期間は判定側が決めたものに従う
+  const sinceMs = resolveNotifyMessageSinceMs(now);
   const recentMessages = await messageRepo.listSince(userId, characterId, sinceMs);
   const userMessages = recentMessages.filter((m) => m.role === 'user');
 
@@ -576,8 +576,7 @@ async function computeUserDailyNormalCap(params: {
   const { userId, allCharacterIds, messageRepo, now } = params;
 
   const sessionGapMs = NOTIFY_SESSION_GAP_MINUTES * 60 * 1000;
-  const intensityWindowMs = NOTIFY_INTENSITY_WINDOW_DAYS * 24 * 60 * 60 * 1000;
-  const sinceMs = now.getTime() - intensityWindowMs;
+  const sinceMs = resolveNotifyMessageSinceMs(now);
 
   let maxFactor = 1;
 

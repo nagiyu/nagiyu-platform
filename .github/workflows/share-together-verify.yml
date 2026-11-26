@@ -12,7 +12,6 @@ on:
     paths:
       - 'services/share-together/**'
       - 'infra/share-together/**'
-      - 'libs/**'
       - 'infra/common/**'
       - 'infra/tsconfig.json'
       - 'configs/**'
@@ -74,9 +73,6 @@ jobs:
           cache-dependency-path: './package-lock.json'
           # Node はイメージに入っているものを使う
           skip-setup-node: 'true'
-
-      - name: Build shared libraries
-        run: npm run build:libs
 
       - name: Build core package
         run: npm run build --workspace=@nagiyu/share-together-core

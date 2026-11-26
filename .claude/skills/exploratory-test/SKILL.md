@@ -15,7 +15,6 @@ description: 探索的テストを回す。探索的テストの Issue を進め
 
 ```bash
 npm ci                                                    # 約 60 秒
-npm run build:libs                                        # 共通ライブラリ
 .claude/skills/playwright-setup/scripts/install.sh        # chromium。約 34 秒
 ```
 

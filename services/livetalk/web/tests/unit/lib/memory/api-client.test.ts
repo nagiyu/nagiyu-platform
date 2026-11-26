@@ -43,13 +43,11 @@ describe('deleteSelfFact', () => {
     );
   });
 
-  it('characterId を指定するとクエリに付与される', async () => {
+  it('削除のリクエスト URL にクエリが付かない', async () => {
     mockFetch.mockResolvedValueOnce({ ok: true });
-    await deleteSelfFact('abc', 'ageha');
-    expect(mockFetch).toHaveBeenCalledWith(
-      '/api/memory/abc?characterId=ageha',
-      expect.objectContaining({ method: 'DELETE' })
-    );
+    await deleteSelfFact('ageha#abc');
+    const url = mockFetch.mock.calls[0][0] as string;
+    expect(url).not.toContain('?');
   });
 
   it('失敗時は DELETE_FAILED', async () => {
