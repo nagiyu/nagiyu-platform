@@ -1,16 +1,8 @@
 ---
-id: tools/api/vapid
-title: VAPID キー API
-kind: api
-service: tools
 sources:
   - services/tools/src/app/api/vapid/route.ts
   - services/tools/src/lib/vapid.ts
 sources_hash: 9f6fcc36e02d4562d34175f18dac77004f221fcab6c3c1c7551f4b2116813b33
-terms: [tools/term/vapid-key]
-related_cards: [tools/screen/vapid-generator]
-related_adr:
-  - services/tools/architecture.md#Next.js API Routes
 ---
 
 # VAPID キー API

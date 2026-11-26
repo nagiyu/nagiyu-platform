@@ -1,17 +1,9 @@
 ---
-id: tools/screen/json-formatter
-title: JSON 整形ツール
-kind: screen
-service: tools
 sources:
   - services/tools/src/app/json-formatter/JsonFormatterClient.tsx
   - services/tools/src/lib/formatters/jsonFormatter.ts
   - libs/browser/src/clipboard.ts
 sources_hash: ac3a8aa0ad4e80fe5bddbf368349ece87e163d12d224bfc104959f3a7904c8e8
-terms: [tools/term/snackbar, tools/term/clipboard-actions, tools/term/migration-dialog]
-related_cards: [tools/screen/home]
-related_adr:
-  - services/tools/requirements.md#F-008: JSON Formatter
 ---
 
 # JSON 整形ツール

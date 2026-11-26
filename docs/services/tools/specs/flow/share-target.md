@@ -1,17 +1,8 @@
 ---
-id: tools/flow/share-target
-title: 共有シートからの取り込み
-kind: flow
-service: tools
 sources:
   - services/tools/public/manifest.json
   - services/tools/src/app/transit-converter/page.tsx
 sources_hash: b6604e2c49c8f1bacb4edb44a816cf09ce7f2cd7fdffa5236f0f0656af2c5667
-terms: [tools/term/snackbar]
-related_cards: [tools/screen/transit-converter]
-related_adr:
-  - services/tools/requirements.md#F-005: PWA対応
-  - services/tools/architecture.md#PWA 構成
 ---
 
 # 共有シートからの取り込み

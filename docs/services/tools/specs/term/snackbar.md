@@ -1,8 +1,4 @@
 ---
-id: tools/term/snackbar
-title: 通知バー (スナックバー)
-kind: term
-service: tools
 sources:
   - services/tools/src/app/transit-converter/page.tsx
   - services/tools/src/app/json-formatter/JsonFormatterClient.tsx
@@ -12,7 +8,6 @@ sources:
   - services/tools/src/app/timestamp-converter/TimestampConverterClient.tsx
   - services/tools/src/app/vapid-generator/page.tsx
 sources_hash: 8d0ba4f0039c7fefa92937170d8fc2d4952940bff5ca3b43f07cc3ab45995378
-related_cards: [tools/screen/transit-converter, tools/screen/json-formatter, tools/screen/base64, tools/screen/url-encoder, tools/screen/hash-generator, tools/screen/timestamp-converter, tools/screen/vapid-generator]
 ---
 
 # 通知バー (スナックバー)

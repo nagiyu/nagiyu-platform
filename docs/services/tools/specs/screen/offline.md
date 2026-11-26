@@ -1,16 +1,7 @@
 ---
-id: tools/screen/offline
-title: オフライン画面
-kind: screen
-service: tools
 sources:
   - services/tools/src/app/offline/page.tsx
 sources_hash: 8193952d1dab6fcd1e314b594854d9d4dc0f06502c3e359f221922aa3b441d76
-terms: [tools/term/migration-dialog]
-related_cards: [tools/screen/home, tools/flow/share-target]
-related_adr:
-  - services/tools/architecture.md#PWA 構成
-  - services/tools/requirements.md#F-005: PWA対応
 ---
 
 # オフライン画面

@@ -1,18 +1,9 @@
 ---
-id: tools/screen/timestamp-converter
-title: タイムスタンプ変換ツール
-kind: screen
-service: tools
 sources:
   - services/tools/src/app/timestamp-converter/TimestampConverterClient.tsx
   - services/tools/src/lib/timestamp.ts
   - libs/browser/src/clipboard.ts
 sources_hash: d274729b829d74c7d7b6c1f8cd3cdb240f23e12a73b28991d7a7c7d9b53a5b76
-terms: [tools/term/snackbar, tools/term/clipboard-actions, tools/term/migration-dialog]
-related_cards: [tools/screen/home]
-related_adr:
-  - services/tools/tools-catalog.md#置くツールの方針
-  - services/tools/requirements.md#フェーズ3: 追加ツール（実装済み）
 ---
 
 # タイムスタンプ変換ツール

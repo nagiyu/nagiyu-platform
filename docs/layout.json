@@ -235,22 +235,6 @@
     "specs/stock-tracker/term/question.md",
     "specs/stock-tracker/term/temporary-alert.md",
     "specs/stock-tracker/term/ticker-id.md",
-    "specs/stock-tracker/term/trading-hours.md",
-    "specs/tools/api/system.md",
-    "specs/tools/api/vapid.md",
-    "specs/tools/flow/share-target.md",
-    "specs/tools/screen/base64.md",
-    "specs/tools/screen/hash-generator.md",
-    "specs/tools/screen/home.md",
-    "specs/tools/screen/json-formatter.md",
-    "specs/tools/screen/offline.md",
-    "specs/tools/screen/timestamp-converter.md",
-    "specs/tools/screen/transit-converter.md",
-    "specs/tools/screen/url-encoder.md",
-    "specs/tools/screen/vapid-generator.md",
-    "specs/tools/term/clipboard-actions.md",
-    "specs/tools/term/migration-dialog.md",
-    "specs/tools/term/snackbar.md",
-    "specs/tools/term/vapid-key.md"
+    "specs/stock-tracker/term/trading-hours.md"
   ]
 }

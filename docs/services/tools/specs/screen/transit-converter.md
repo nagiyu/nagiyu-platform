@@ -1,8 +1,4 @@
 ---
-id: tools/screen/transit-converter
-title: 乗り換え変換ツール
-kind: screen
-service: tools
 sources:
   - services/tools/src/app/transit-converter/page.tsx
   - services/tools/src/components/tools/DisplaySettingsSection.tsx
@@ -12,10 +8,6 @@ sources:
   - libs/browser/src/clipboard.ts
   - libs/browser/src/localStorage.ts
 sources_hash: ca51dcd5e23a41154376a6de317b668ae09fbc89a20ce7170b55f75c4a7d1f58
-terms: [tools/term/snackbar, tools/term/clipboard-actions, tools/term/migration-dialog]
-related_cards: [tools/flow/share-target, tools/screen/home]
-related_adr:
-  - services/tools/requirements.md#F-001: 乗り換え変換ツール
 ---
 
 # 乗り換え変換ツール

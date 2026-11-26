@@ -1,15 +1,8 @@
 ---
-id: tools/term/migration-dialog
-title: 初回訪問ダイアログ
-kind: term
-service: tools
 sources:
   - services/tools/src/components/dialogs/MigrationDialog.tsx
   - services/tools/src/app/layout.tsx
 sources_hash: 0d68d9f5075a6c26b30c1453ab58e492aa36e6708883f7242bcfada52058db17
-related_cards: [tools/screen/home]
-related_adr:
-  - services/tools/requirements.md#F-006: 初回訪問ダイアログ
 ---
 
 # 初回訪問ダイアログ

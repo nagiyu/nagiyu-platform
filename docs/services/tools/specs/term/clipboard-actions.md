@@ -1,8 +1,4 @@
 ---
-id: tools/term/clipboard-actions
-title: クリップボード操作
-kind: term
-service: tools
 sources:
   - libs/browser/src/clipboard.ts
   - services/tools/src/app/transit-converter/page.tsx
@@ -13,8 +9,6 @@ sources:
   - services/tools/src/app/timestamp-converter/TimestampConverterClient.tsx
   - services/tools/src/app/vapid-generator/page.tsx
 sources_hash: 98166e16ab9e8b1c81ccef2da622f193c6a19e401008a7494911c038a9467cef
-terms: [tools/term/snackbar]
-related_cards: [tools/screen/transit-converter, tools/screen/json-formatter, tools/screen/base64, tools/screen/url-encoder, tools/screen/hash-generator, tools/screen/timestamp-converter, tools/screen/vapid-generator]
 ---
 
 # クリップボード操作

@@ -1,14 +1,8 @@
 ---
-id: tools/api/system
-title: システム系の API
-kind: api
-service: tools
 sources:
   - services/tools/src/app/api/health/route.ts
   - libs/nextjs/src/health.ts
 sources_hash: 720ffcaf2e42d28cb0a196734ae5c0d33e2d5c664f1d1bd1876931dacc88621b
-related_adr:
-  - services/tools/architecture.md#Health API
 ---
 
 # システム系の API
