@@ -31,7 +31,7 @@ Web Push の VAPID 鍵と、Finnhub の API キーを持つ Secrets Manager の�
 | Finnhub | JSON `{"apiKey": "..."}` | `PLACEHOLDER`。実際のキーで上書きする (下の「手順」) |
 
 - VAPID 鍵は環境ごとに別の鍵を使う
-- Web と、バッチの minute・hourly ([Web の実行環境](./web-runtime.md)、[バッチの実行環境](./batch-runtime.md)) が、同じ VAPID 鍵を使う。Web が返す公開鍵で作られた購読に、バッチが別の鍵で送ることになると、Push が届かなくなるため
+- Web と、バッチの minute・hourly ([Web の実行環境](./web-runtime.md)、[バッチの実行環境](./batch-runtime.md)) が、同じ VAPID 鍵を使う
 - Finnhub のキーは、`priceSource` が `finnhub` の取引所の現在価格の取得に使う ([価格の取得元](../term/price-source.md))。使うのはバッチの minute と hourly だけで、Web には渡さない
 
 ## 環境変数
@@ -53,7 +53,6 @@ Web Push の VAPID 鍵と、Finnhub の API キーを持つ Secrets Manager の�
 ## 理由
 
 - Finnhub のキーは、仮の値 `PLACEHOLDER` でシークレットを作り、デプロイのときに環境変数へ渡す。実行時に Secrets Manager を読まず、実行ロールにも読み取りの権限を付けない。キーを入れる前でもデプロイは失敗せず、入れたあとは再デプロイで有効になる
-- VAPID 鍵をシークレットに置くのは、秘密鍵をコードやリポジトリに置かないため。公開鍵はブラウザに渡すので隠す必要はないが、対になる鍵として同じシークレットで持つ
 
 ## 手順
 

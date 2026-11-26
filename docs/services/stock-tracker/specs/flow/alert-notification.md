@@ -102,7 +102,7 @@ Service Worker (`public/sw.js`)
 |---|---|
 | `install` | すぐに有効化する (待機しない) |
 | `activate` | 開いているページを、そのまま制御下に置く |
-| `push` | ペイロードを JSON として読み、通知を表示する。タイトルがなければ `Stock Tracker`、本文がなければ `アラート通知`、`tag` がなければ `stock-alert`。JSON として読めなければ、本文をそのまま通知の本文にする。操作するまで消えない (`requireInteraction`)。ペイロードの `data` を通知に持たせる |
+| `push` | ペイロードを JSON として読み、通知を表示する。タイトルがなければ `Stock Tracker`、本文がなければ `アラート通知`、`tag` がなければ `stock-alert`。JSON として読めなければ、本文をそのまま通知の本文にする。`requireInteraction` は既定で `true` (操作するまで消えない) で、ペイロードの値で上書きできる。ペイロードの `data` を通知に持たせる |
 | `notificationclick` | 通知を閉じ、`data.url` (なければ `/alerts`) を開く。同じサービスのウィンドウがあればそこを移動して前面に出し、なければ新しいウィンドウを開く |
 | `notificationclose` | ログを出すだけ |
 
@@ -121,4 +121,3 @@ Service Worker (`public/sw.js`)
 
 - **Web Push を使う**: ブラウザの標準の機能なので、利用者は追加のアプリを入れずに、スマートフォンでもデスクトップでも通知を受けられる。Service Worker が受けるので、ブラウザを閉じた状態でも届く。VAPID 認証で、通知の送り元を確かめられる
 - **iOS Safari の対応が限られることは、既知のトレードオフである**
-- **通知のタップで、取引所とティッカーを選んだチャート画面を開く**: 通知の URL に `exchangeId` と `tickerId` を付ける

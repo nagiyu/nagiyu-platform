@@ -46,7 +46,7 @@ Lambda 関数と DynamoDB テーブルを監視する CloudWatch アラーム 17
 | `dynamodb-write-throttle-{env}` | [メインのテーブル](../data/main-table.md) | `SystemErrors` (`PutItem`、`UpdateItem`、`DeleteItem`) | 合計 | 1 以上 |
 
 - `Errors` の平均は、呼び出しあたりの失敗の割合になる
-- 実行時間のしきい値は、関数のタイムアウトに近づいたことを知らせる値で、minute (タイムアウト 50 秒) は 40 秒、hourly (5 分) は 4 分、daily (10 分) は 8 分
+- 実行時間のしきい値は、minute (タイムアウト 50 秒) は 40 秒、hourly (5 分) は 4 分、daily (10 分) は 8 分
 - summary、temporary-alert-expiry、forecast には、エラーのアラームだけがある。forecast は、リプレイ (手動の初期値算出) を流したときに所要時間が大きく変わるため、実行時間とスロットリングのアラームを置かない
 - DynamoDB のアラームは、スロットリングの名前だが、メトリクスはテーブルのシステムエラー (`SystemErrors`) を数える
 
@@ -58,7 +58,7 @@ Lambda 関数と DynamoDB テーブルを監視する CloudWatch アラーム 17
 | Admin のアラームのトピック | 17 個すべてが、アラームの発生 (`ALARM` への遷移) をここにも送る。トピックの名前と ARN は `infra/common` の `getAdminAlarmTopicArn` で決まる。購読と、エラー履歴への取り込みは [アラームのトピック](../../../admin/specs/resource/alarm-topic.md)にある |
 
 - アラームのアクションは、`ALARM` への遷移だけに付ける。`OK` への復帰と、データ不足の通知は付けない
-- DLQ は持たない。バッチの関数にも付けていない ([バッチの実行環境](./batch-runtime.md))
+- DLQ は持たない ([バッチの実行環境](./batch-runtime.md)の設定値)
 
 ## 理由
 
