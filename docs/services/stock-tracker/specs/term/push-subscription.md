@@ -19,11 +19,4 @@ sources_hash: 260ba3b2f7886e1f4ac4a9a719f78782b492b0e14e76557ed61570de9edb734e
 - 入力の検証は、`endpoint` が https の URL で、ホストが既知の Push サービス (`fcm.googleapis.com`・`updates.push.services.mozilla.com`・`web.push.apple.com`、または `.notify.windows.com` で終わるもの) であり、ポートの指定がないことと、`keys.p256dh`・`keys.auth` が空でない文字列であること
 - 送信したとき、通知の送り先のサービスが 404 か 410 を返した購読は「無効」になる。`endpoint` が既知の Push サービスの https URL でない購読は、送らずに無効とする。無効はエラーではなく、送信の結果として「送れなかった」を返す。アラートも購読も消えない
 - 無効以外の送信の失敗 (VAPID 鍵がないなど) は例外になる
-
-## 関連するカード
-
-- [アラート通知の経路](../flow/alert-notification.md): 購読の宛先へ送り、端末に表示するまで
-- [Push 通知 API](../api/push.md): 購読の登録と書き換え
-- [アラート API](../api/alerts.md): アラートの作成で購読を受け取る
-- [分次バッチ](../batch/minute.md)・[時間次バッチ](../batch/hourly.md): 条件を満たしたアラートの購読へ送る
-- [日次バッチ](../batch/daily.md): 保存されている購読の形を点検する
+- 購読は[アラート通知の経路](../flow/alert-notification.md)で宛先として使う。[分次バッチ](../batch/minute.md)・[時間次バッチ](../batch/hourly.md)が条件を満たしたアラートの購読へ送り、[日次バッチ](../batch/daily.md)が保存されている購読の形を点検する
