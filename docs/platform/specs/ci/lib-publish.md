@@ -37,7 +37,7 @@ flowchart TD
 | 権限 | `contents: read`、`id-token: write`。`id-token: write` は trusted publishing (OIDC) の認証に要る |
 | Node と npm | `.node-version` の Node を使い、registry に `https://registry.npmjs.org` を設定する。trusted publishing には npm CLI 11.5.1 以上が要るため、npm の版を確かめ、足りなければ上げる |
 | install | `libs/` で `npm ci` する。ルートの install は行わない |
-| ビルド | `libs/` の全 lib を、依存される側から順に (`common`、`aws`、`browser`、`nextjs`、`react`、`ui`) ビルドする |
+| ビルド | `libs/` の全 lib を、依存される側から順に (`common`、`aws`、`browser`、`nextjs`、`react`、`ui`) ビルドする。各 lib の `build` が、ESM 版 (`dist/src`) と CJS 版 (`dist/cjs`) の両方を出す |
 | 判定 | lib ごとに `package.json` の名前と版を読み、`npm view <名前>@<版>` で registry にあるかを確かめる。ある版は飛ばす。同じ版の再 publish は registry が拒むためである |
 | publish | ない版を `npm publish --access public` で出す。版に `-` を含む (プレリリース) ときは `--tag next` を付け、`latest` を動かさない |
 
@@ -51,7 +51,7 @@ flowchart TD
 
 | lib | 含めるもの |
 |---|---|
-| すべて | `dist/src` (ビルドの成果物)、`package.json` |
+| すべて | `dist/src` (ESM 版と型定義)、`dist/cjs` (CJS 版。`{"type": "commonjs"}` の `package.json` を含む)、`package.json` |
 | `@nagiyu/nextjs` | 上に加えて、`exports` の `./types/next-auth` が指す `src/types/next-auth.d.ts` |
 
 テストのビルド成果物 (`dist/tests`) とソースは含めない。provenance がリポジトリと突き合わせるため、各 lib の `package.json` の `repository` に、このリポジトリの URL と lib のディレクトリ (`libs/<name>`) を書く。

@@ -11,7 +11,7 @@ sources:
   - libs/common/src/push-subscription/subscription-id.ts
   - libs/browser/src/push.ts
   - libs/nextjs/src/push.ts
-sources_hash: 77e4dc901cbb37faa451be1205ed82d35bca5117c0aba3a7a0e82bacae29630e
+sources_hash: 40feabfd0ca77037fac540afdbd6b676eefc6fdf263b9777dee20b2aa706394b
 ---
 
 # Web Push
