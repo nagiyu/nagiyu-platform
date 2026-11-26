@@ -5,7 +5,7 @@ sources:
   - services/livetalk/web/src/lib/server/consent.ts
   - services/livetalk/core/src/lib/consent.ts
   - services/livetalk/core/src/constants.ts
-sources_hash: a8a860b6bb19f051857fa0b581ef6f86e9ecf496ff0b95947c1a60f08c9dfad8
+sources_hash: 665e0f187210ff28e399d2c35a372eb46428a8f89011192eeb7f40bc38b03ac8
 ---
 
 # 同意 API

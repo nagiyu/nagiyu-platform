@@ -3,7 +3,7 @@ sources:
   - services/livetalk/web/src/app/api/messages/route.ts
   - services/livetalk/web/src/app/api/messages/constants.ts
   - services/livetalk/core/src/constants.ts
-sources_hash: f83400ce24755afdd815dbe46e46342fc437ee5272ca082c866e8bdfee08e8f5
+sources_hash: 3aaf3dafdb5fadb015635871efd68cac8ae0d39d271674f2ea4c73c6a3818332
 ---
 
 # メッセージ API

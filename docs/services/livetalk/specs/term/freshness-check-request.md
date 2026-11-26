@@ -3,7 +3,7 @@ sources:
   - services/livetalk/core/src/entities/freshness-check-request.entity.ts
   - services/livetalk/core/src/study/freshness-check.ts
   - services/livetalk/core/src/constants.ts
-sources_hash: f1588cc08ace1d24813e77b6c6af603f7d328176da8a258a4ecdab3d6f5bcfc6
+sources_hash: 505947e5be42231f88cb601ecf61fb48a481704698f74c42e0bab72ae8ea8232
 ---
 
 # 鮮度確認の依頼
