@@ -12,7 +12,7 @@ sources:
   - services/livetalk/core/src/constants.ts
 sources_hash: 456ba7668ce078a66d8247339780df740b9b5da93dd00abce89b533b8430a051
 terms: [livetalk/term/topic, livetalk/term/care, livetalk/term/self-fact, livetalk/term/web-fact, livetalk/term/webraw, livetalk/term/note]
-related_cards: [admin/flow/error-notification, livetalk/batch/acquire, livetalk/flow/conversation, livetalk/screen/memory, livetalk/screen/notes]
+related_cards: [livetalk/batch/acquire, livetalk/flow/conversation, livetalk/screen/memory, livetalk/screen/notes]
 related_adr:
   - services/livetalk/architecture.md#2.24
   - services/livetalk/architecture.md#2.26
@@ -108,7 +108,7 @@ flowchart TD
 ## 失敗したとき
 
 - 組ごとの処理が例外で終わったときは、カーソルを進めず、次の回で同じ内容をやり直す。その利用者を失敗として数え、他のキャラクターと他の利用者は続ける
-- 失敗した利用者が 1 人でもいると、最後に Lambda を失敗にする。失敗は Admin にエラーとして届く ([エラー通知の経路](../../admin/flow/error-notification.md))
+- 失敗した利用者が 1 人でもいると、最後に Lambda を失敗にする。失敗は Admin にエラーとして届く ([エラー通知の経路](../../../services/admin/specs/flow/error-notification.md))
 - WEB fact の件数削減の失敗と、ノートの生成の失敗は、ログに残して続ける
 
 ## つながり

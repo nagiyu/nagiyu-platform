@@ -1,0 +1,77 @@
+---
+sources:
+  - services/admin/web/src/app/api/errors/route.ts
+  - services/admin/web/src/app/api/errors/[eventId]/route.ts
+  - services/admin/web/src/lib/errors/occurred-at.ts
+  - services/admin/web/src/lib/api-error-reporting.ts
+  - services/admin/core/src/errors/reader.ts
+  - services/admin/core/src/errors/dynamodb-reader.ts
+  - libs/aws/src/error-events/mapper.ts
+sources_hash: e4c272cac2a99e13d88dd819a83694f5f72d2cb817deb3e7b17885765b9bd26c
+---
+
+# エラー履歴 API
+
+error-events テーブルに保存された [ErrorEvent](../../../../platform/specs/term/error-event.md) の一覧と、1 件の取得。読み取り専用で、書き込みと削除はない。
+
+## エンドポイント
+
+| メソッド | パス | 権限 |
+|---|---|---|
+| GET | `/api/errors` | `errors:read` |
+| GET | `/api/errors/{eventId}` | `errors:read` |
+
+## 入力と出力
+
+一覧 (`GET /api/errors`) の問い合わせ。
+
+| 項目 | 条件 |
+|---|---|
+| `serviceId` | 任意。指定すると、そのサービスの履歴だけを返す。空なら指定なし |
+| `from`、`to` | 任意。`Date.parse` で読める日時 (ISO 8601 を想定)。その時刻を含む範囲に絞る。`from` が `to` より後ならエラー |
+| `limit` | 任意。1〜100、省略するか空 (`limit=`) なら 50 |
+| `lastKey` | 任意。前のページの応答でもらった `pagination.lastKey` をそのまま渡す。空なら指定なし |
+
+- `limit` と `lastKey` の読み方と応答の形は[ページネーション](../../../../platform/specs/lib/nextjs/pagination.md)に従う
+
+- 発生時刻の新しい順に返す。同じ時刻のものは並びキー (`OCCURRED#{ISO 8601}#{eventId}`) の降順。`serviceId` を指定すると、そのサービスのパーティションを、指定しなければ全サービスを横断する索引を引く ([エラーイベントのテーブル](../../../../platform/specs/data/error-events.md))
+- 出力は `{ items, pagination: { count, lastKey? } }`。`items` は ErrorEvent (`eventId`、`serviceId`、`source`、`severity`、`title`、`message`、`context`、`occurredAt`)。`context` は JSON の文字列で、`occurredAt` は epoch ミリ秒 ([ErrorEvent](../../../../platform/specs/term/error-event.md))
+- `lastKey` は、`limit` 件に達したときに付く。ちょうど `limit` 件で終わるときも付くことがあり、その次のページは空になる
+- 保存されている項目が読めない (必須の項目がない、`source` や `severity` が許可外) と、除外せずに、そのページの取得全体が 500 になる ([エラーイベントのテーブル](../../../../platform/specs/data/error-events.md))
+
+詳細 (`GET /api/errors/{eventId}`) の問い合わせ。
+
+| 項目 | 条件 |
+|---|---|
+| `at` | 必須。発生時刻。数字だけなら epoch ミリ秒、そうでなければ日時の文字列 (ISO 8601 を想定) として読む ([エラー詳細のキー](../term/error-event-key.md)) |
+| `serviceId` | 必須 |
+
+- 3 つ組で 1 件を引き、ErrorEvent をそのまま返す
+
+## エラー
+
+| 条件 | 状態 | `error` |
+|---|---|---|
+| 未ログイン | 401 | `UNAUTHORIZED` |
+| 権限がない | 403 | `FORBIDDEN` |
+| `from` か `to` が日時として読めない (空文字を含む) | 400 | `INVALID_REQUEST` |
+| `from` が `to` より後 | 400 | `INVALID_REQUEST` |
+| `limit` が数字として読めない、または 1〜100 の範囲外 | 400 | `INVALID_REQUEST` (本文は「limit は 1 から 100 の間で指定してください」) |
+| `lastKey` が読めない (前のページの応答の値をデコードできない) | 400 | `INVALID_REQUEST` |
+| 詳細で `at` が読めない、`serviceId` がない | 400 | `INVALID_REQUEST` |
+| 詳細で `at` が数字だけで、日時の範囲を超える (20 桁など) | 500 | `INTERNAL_ERROR` |
+| 詳細で該当の履歴がない (期限切れで消えたものを含む) | 404 | `NOT_FOUND` |
+| 取得の失敗 (テーブル名の環境変数がない、保存データが読めないなど) | 500 | `INTERNAL_ERROR` |
+
+- 500 の本文は、一覧が「エラー履歴の取得に失敗しました」、詳細が「エラー詳細の取得に失敗しました」。形は[API のエラー応答](../term/api-error.md)
+- `lastKey` は、base64url の JSON としてデコードできるかだけを確かめる。デコードできても保存先が受け付けない値は 500 になる
+
+## つながり
+
+```mermaid
+flowchart TD
+    C[外部の呼び出し元] -->|一覧・詳細| A[エラー履歴 API]
+    A --> D[(error-events テーブル)]
+    S1[エラー履歴一覧画面] -.->|同じ読み取りの部品を直接使う| D
+    S2[エラー詳細画面] -.->|同じ読み取りの部品を直接使う| D
+```

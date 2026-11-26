@@ -15,7 +15,7 @@ sources:
   - libs/aws/src/dynamodb/counter/try-increment-in-order.ts
 sources_hash: 1bda4654c984012f410d91a47d9b7cb5fcc7c0078f94eb1ec2eb4ee6318b7e65
 terms: [livetalk/term/permission, livetalk/term/api-error, livetalk/term/consent, livetalk/term/chat-event, livetalk/term/safety, livetalk/term/character, livetalk/term/topic, livetalk/term/study-topic, livetalk/term/note, livetalk/term/lifecycle, livetalk/term/freshness-check-request]
-related_cards: [livetalk/screen/home, livetalk/flow/conversation, livetalk/batch/consolidate-conversations, livetalk/batch/acquire, admin/flow/error-notification]
+related_cards: [livetalk/screen/home, livetalk/flow/conversation, livetalk/batch/consolidate-conversations, livetalk/batch/acquire]
 related_adr:
   - services/livetalk/architecture.md#2.20
   - services/livetalk/architecture.md#2.9

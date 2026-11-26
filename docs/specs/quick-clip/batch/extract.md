@@ -22,7 +22,7 @@ sources:
   - libs/aws/src/error-events/report.ts
 sources_hash: a4b1880107a0c56d34077c9b9e7c6113467e08da77d22c10a592e2f74f3a7f90
 terms: [quick-clip/term/job, quick-clip/term/highlight, quick-clip/term/job-definition-size, quick-clip/term/ai-analysis, quick-clip/term/transcript]
-related_cards: [quick-clip/api/jobs, quick-clip/flow/extraction, quick-clip/flow/usage-metering, quick-clip/screen/job-status, quick-clip/batch/clip-regenerate, admin/flow/error-notification, admin/batch/alarm-ingest]
+related_cards: [quick-clip/api/jobs, quick-clip/flow/extraction, quick-clip/flow/usage-metering, quick-clip/screen/job-status, quick-clip/batch/clip-regenerate]
 related_adr:
   - services/quick-clip/architecture.md#ADR-001
   - services/quick-clip/architecture.md#ADR-007
@@ -111,7 +111,7 @@ flowchart TD
 
 - 動画の長さの超過は、利用者の側の理由で、障害ではない。メッセージは「動画の長さがご利用の上限を超えているため、処理できませんでした」。Batch は成功で終えるが、`errorMessage` があるので、画面は失敗として見せる ([ジョブとステータス](../term/job.md))
 - 例外を投げ直したあと、起動の骨格がもう一度報告 (critical、題名は「QuickClip バッチ処理が失敗しました」) し、終了コード 1 でプロセスを終える。このため、1 回の失敗につき、アプリの報告が 2 件 (error と critical) 残る。起動時の検証の失敗 (環境変数の不足など) は、後者だけで、`errorMessage` は保存しない
-- 終了コードが 1 になった Batch ジョブは `FAILED` になり、インフラの EventBridge のルールが検知して、Admin の集約 SNS に流す。Admin には `batch-event` (critical) の履歴も残る ([エラー通知の経路](../../admin/flow/error-notification.md))
+- 終了コードが 1 になった Batch ジョブは `FAILED` になり、インフラの EventBridge のルールが検知して、Admin の集約 SNS に流す。Admin には `batch-event` (critical) の履歴も残る ([エラー通知の経路](../../../services/admin/specs/flow/error-notification.md))
 - タイムアウトによる停止など、プロセスが即死する失敗は、例外の処理に入らない。`errorMessage` は保存されず、数えた利用回数も戻らない。報告は Batch の失敗を拾うルールだけが行う
 - 文字起こしの失敗は、ログだけで飛ばす。感情分析の失敗は、報告 (warning、題名は「QuickClip 感情分析に失敗しスキップしました」) を残して飛ばす。`transcript.json` の保存の失敗は、警告のログだけで続ける
 - 報告の書き込みに失敗しても、例外は伝えない。ログだけを残す

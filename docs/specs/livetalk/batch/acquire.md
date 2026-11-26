@@ -17,7 +17,7 @@ sources:
   - libs/aws/src/dynamodb/counter/try-increment-in-order.ts
 sources_hash: 49cbcfd6e2485e83271398e4a20fc143f35327a705b73c0dc47f27eb33db601b
 terms: [livetalk/term/care, livetalk/term/topic, livetalk/term/web-fact, livetalk/term/webraw, livetalk/term/lifecycle, livetalk/term/user-activity-profile, livetalk/term/study-pause, livetalk/term/study-topic, livetalk/term/freshness-check-request, livetalk/term/exploration]
-related_cards: [admin/flow/error-notification, livetalk/batch/consolidate-conversations, livetalk/batch/notify, livetalk/flow/conversation]
+related_cards: [livetalk/batch/consolidate-conversations, livetalk/batch/notify, livetalk/flow/conversation]
 related_adr:
   - services/livetalk/architecture.md#2.12
   - services/livetalk/architecture.md#2.24
@@ -104,7 +104,7 @@ flowchart TD
 - 個々の検索の失敗は握って次へ進む。Lambda は失敗にしない
 - キャラクターごとの処理が例外で終わったときと、回数の記録に失敗したときは、その利用者を失敗として数える。他のキャラクターと他の利用者は続ける
 - 失敗した利用者が 1 人でもいると、最後に Lambda を失敗にする。1 日の上限に達しただけでは失敗にしない
-- 失敗は Admin にエラーとして届く ([エラー通知の経路](../../admin/flow/error-notification.md))
+- 失敗は Admin にエラーとして届く ([エラー通知の経路](../../../services/admin/specs/flow/error-notification.md))
 
 ## つながり
 
