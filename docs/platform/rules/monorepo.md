@@ -26,7 +26,7 @@ npm workspaces によるモノレポの、ディレクトリ・パッケージ�
 
 ### `libs/` は、ルートの `workspaces` に載せない
 
-`libs/` は、`libs/package.json` と `libs/package-lock.json` を持つ独立した npm プロジェクトである。libs を変えても、サービスの lockfile とビルドの入力が変わらないようにするためである。サービスは registry の `@nagiyu/*` に、`^` の範囲で依存する ([共通ライブラリの公開と版の規約](./lib-packages.md))。lib のビルド・テスト・Storybook は、`libs/` で `npm ci` してから流す。
+`libs/` は、`libs/package.json` と `libs/package-lock.json` を持つ独立した npm プロジェクトである。libs を変えても、サービスの lockfile とビルドの入力が変わらないようにするためである。サービスは registry の `@nagiyu/*` に、`^` の範囲で依存する ([共通ライブラリの公開と版の規約](./lib-packages.md))。lib のビルド・テスト・Storybook は、`libs/` で `npm ci` してから流す。Storybook は libs どうしのリンクを `dist` で読むため、先に `libs/` の `npm run build` を流す。
 
 ## ディレクトリ名
 

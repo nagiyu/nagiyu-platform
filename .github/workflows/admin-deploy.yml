@@ -491,12 +491,6 @@ jobs:
   #     - name: Install dependencies
   #       run: npm ci
   #
-  #     - name: Build shared libraries
-  #       run: |
-  #         npm run build --workspace @nagiyu/common
-  #         npm run build --workspace @nagiyu/browser
-  #         npm run build --workspace @nagiyu/ui
-  #
   #     - name: Install Playwright Browsers
   #       run: npx playwright install --with-deps chromium
   #       working-directory: ./services/admin/web

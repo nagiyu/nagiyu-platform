@@ -71,9 +71,12 @@ jobs:
         run: npm run build --workspace=@nagiyu/infra-common
 
       # libs はルートのワークスペースではなく独立した npm プロジェクトのため、libs の中で入れてビルドする
-      - name: Install libs dependencies
+      # Storybook は @nagiyu/common などを libs の中のリンクから dist で読むため、先に libs をビルドする
+      - name: Install and build libs
         working-directory: libs
-        run: npm ci
+        run: |
+          npm ci
+          npm run build
 
       - name: Build Storybook static site
         working-directory: libs

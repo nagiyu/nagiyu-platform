@@ -6,7 +6,7 @@ sources:
   - .github/actions/report-verify-results/action.yml
   - .github/actions/report-verify-results/report.js
   - .github/actions/build-web-app/action.yml
-sources_hash: e500d57bd39b539cd2c34d2b8cc89d20a682842fe32a6dd74d43208d222a4b40
+sources_hash: 12eee8161152b7f2551cbe7984151aa78a058e8c2ad387150d3f13b99336fd50
 ---
 
 # サービスの PR 検証

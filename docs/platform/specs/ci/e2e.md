@@ -2,7 +2,7 @@
 sources:
   - .github/workflows/reusable-e2e.yml
   - .github/actions/build-web-app/action.yml
-sources_hash: 32959019163213a482e4e4da29a401dfdf5305c7caf3f1ad78456710fa5a8152
+sources_hash: 0f4b557cf6bbb50cd8e3c3deb5a62326297aef0a2f75596b5e7300cfb1618987
 ---
 
 # E2E

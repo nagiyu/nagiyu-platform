@@ -1,5 +1,5 @@
 name: Build Web App
-description: Setup Node.js, install dependencies, build shared libs, shared workspaces and target web workspace
+description: Setup Node.js, install dependencies, build shared workspaces and target web workspace
 
 inputs:
   workspace:

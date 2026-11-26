@@ -21,7 +21,7 @@ on:
       pre-synth-scripts:
         description: >-
           synth の前に流す npm script (複数行)。1 行が "<ワークスペース名> <npm script 名>"。
-          libs は独立した npm プロジェクトのため、libs で npm ci してから、libs のワークスペースで流す
+          libs は独立した npm プロジェクトのため、libs で npm ci と npm run build を済ませてから、libs のワークスペースで流す
         required: false
         type: string
         default: ''
@@ -113,6 +113,8 @@ jobs:
         run: |
           set -euo pipefail
           npm ci
+          # Storybook などは libs どうしのリンクを dist で読むため、先に libs をビルドする
+          npm run build
           while IFS= read -r line || [ -n "$line" ]; do
             read -r -a fields <<< "$line"
             if [ "${#fields[@]}" -eq 0 ]; then
