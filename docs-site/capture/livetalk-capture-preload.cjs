@@ -7,13 +7,32 @@
  * - 時計: 画面の生活サイクル (就寝中か) や通知の判定、履歴の時刻は、サーバーの実時間で決まる。
  *   撮影のたびに画像が変わらないよう、`next start` のプロセスの Date を撮影の固定時刻に止める。
  *   ビルドや npm 自身の Date には触れない
- * - Web Push: web-push は https.request で購読の宛先へ送る。宛先の名前 (`push-capture.notify.windows.com`。撮影のデータの購読先と同じ) への
- *   送信だけを、偽の Push サーバー (http) への通信に置き換える。他の通信には触れない
+ * - Web Push: web-push は https.request で購読の宛先へ送る。宛先の名前
+ *   (`push-capture.notify.windows.com`。撮影のデータの購読先と同じ) への送信だけを、
+ *   偽の Push サーバー (http) への通信に置き換える。実在の Push サービス宛ては例外で止め、
+ *   撮影のサーバーから外へ出さない。それ以外の通信には触れない
  */
 const http = require('node:http');
 const https = require('node:https');
 
 const PUSH_HOST = 'push-capture.notify.windows.com';
+
+/** 実在の Push サービスのホスト。購読の登録を受け付ける許可リストと同じ */
+const REAL_PUSH_HOSTS = [
+  'fcm.googleapis.com',
+  'updates.push.services.mozilla.com',
+  'web.push.apple.com',
+];
+const REAL_PUSH_HOST_SUFFIXES = ['.notify.windows.com'];
+
+function isRealPushHost(host) {
+  if (typeof host !== 'string') return false;
+  const name = host.toLowerCase();
+  return (
+    REAL_PUSH_HOSTS.includes(name) ||
+    REAL_PUSH_HOST_SUFFIXES.some((suffix) => name.endsWith(suffix))
+  );
+}
 
 const fixedNow = Date.parse(process.env.CAPTURE_SERVER_NOW ?? '');
 const isNextStart = process.argv.some((arg) =>
@@ -42,12 +61,13 @@ if (pushPort) {
   const original = https.request;
   https.request = function request(...args) {
     const options = args[0];
-    const isPush =
-      options !== null &&
-      typeof options === 'object' &&
-      !(options instanceof URL) &&
-      (options.host === PUSH_HOST || options.hostname === PUSH_HOST);
+    const isObject = options !== null && typeof options === 'object' && !(options instanceof URL);
+    const isPush = isObject && (options.host === PUSH_HOST || options.hostname === PUSH_HOST);
     if (!isPush) {
+      const host = isObject ? (options.hostname ?? options.host) : options?.hostname;
+      if (isRealPushHost(host)) {
+        throw new Error(`撮影の差し替えから外れた Push サービス宛ての通信を止めました: ${host}`);
+      }
       return original.apply(this, args);
     }
     // https 用の agent と暗号スイートの指定は、http の通信では使えない
