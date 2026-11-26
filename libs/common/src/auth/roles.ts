@@ -97,6 +97,14 @@ export const ROLES = {
     permissions: ['livetalk:standard'],
     billing: { service: 'livetalk', rank: 1 },
   },
+  'livetalk-operator': {
+    id: 'livetalk-operator',
+    name: 'LiveTalk 運営者',
+    // 売らず課金とも結びつけないため billing を持たない
+    description:
+      '運営者が自分で使うためのロール。有料プランと同じ量の勉強 (キャラクターが Web で調べものをすること) ができ、期限もない',
+    permissions: ['livetalk:operator'],
+  },
   'quick-clip-standard': {
     id: 'quick-clip-standard',
     name: 'Quick Clip スタンダード',

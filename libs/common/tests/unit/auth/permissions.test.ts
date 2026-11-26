@@ -350,6 +350,17 @@ describe('Permission Functions', () => {
       });
     });
 
+    describe('livetalk-operator role', () => {
+      it('should have livetalk:operator permission', () => {
+        expect(hasPermission(['livetalk-operator'], 'livetalk:operator')).toBe(true);
+      });
+
+      it('should not have livetalk:standard or livetalk:chat permission', () => {
+        expect(hasPermission(['livetalk-operator'], 'livetalk:standard')).toBe(false);
+        expect(hasPermission(['livetalk-operator'], 'livetalk:chat')).toBe(false);
+      });
+    });
+
     describe('livetalk:admin permission', () => {
       it('livetalk-admin should have livetalk:admin', () => {
         expect(hasPermission(['livetalk-admin'], 'livetalk:admin')).toBe(true);

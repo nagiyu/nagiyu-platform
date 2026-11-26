@@ -210,6 +210,24 @@ describe('quick-clip-unlimited ロール', () => {
   });
 });
 
+describe('livetalk-operator ロール', () => {
+  it('手動ロールとして VALID_ROLES に含まれ、livetalk:operator だけを持つべき', () => {
+    expect(VALID_ROLES).toContain('livetalk-operator');
+    expect(ROLES['livetalk-operator']).toMatchObject({
+      id: 'livetalk-operator',
+      name: 'LiveTalk 運営者',
+      permissions: ['livetalk:operator'],
+    });
+  });
+
+  it('billing を持たず、PAID_ROLES に入らないべき', () => {
+    expect('billing' in ROLES['livetalk-operator']).toBe(false);
+    expect(PAID_ROLES).not.toContain('livetalk-operator');
+    expect(getBillingServiceId('livetalk-operator')).toBeUndefined();
+    expect(getBillingTierRoleIds('livetalk')).not.toContain('livetalk-operator');
+  });
+});
+
 describe('billing-tester ロール', () => {
   it('手動ロールとして VALID_ROLES に含まれ、billing:test だけを持つべき', () => {
     expect(VALID_ROLES).toContain('billing-tester');
