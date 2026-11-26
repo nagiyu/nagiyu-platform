@@ -25,7 +25,7 @@ sources: []
 | ノート | キャラクターが利用者に贈る手紙。Topic を参照する ([ノート](../specs/term/note.md)) |
 | 生活サイクル | キャラクターの就寝・起床時刻。利用者の活動時間に合わせて寄る ([生活サイクル](../specs/term/lifecycle.md)) |
 | 活動時間プロファイル | 利用者がよく話しかける時間帯 ([活動時間プロファイル](../specs/term/user-activity-profile.md)) |
-| 親密度 | 利用者とキャラクターの接触量の累積。上がるだけで、今は体験に使っていない ([親密度](../specs/term/affection.md)) |
+| 親密度 | 利用者とキャラクターの接触量の累積。上がるだけで下がらない ([親密度](../specs/term/affection.md)) |
 | Push の購読 | 利用者の端末が Push 通知を受け取るために登録するもの ([購読の API](../specs/api/push.md)) |
 | 通知の記録 | キャラクターから送った通知の記録。開いたときの第一声になる ([通知の記録](../specs/term/notification-event.md)) |
 | セーフティの記録 | 危険な発言を検出した記録 ([セーフティ](../specs/term/safety.md)) |
