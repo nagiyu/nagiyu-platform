@@ -79,7 +79,7 @@ export const LIST_USERS: SeedUser[] = [
     userId: 'u-004',
     name: '高橋 美咲',
     email: 'misaki.takahashi-with-a-very-long-address@example.com',
-    roles: ['livetalk-user', 'quick-clip-standard', 'billing-tester'],
+    roles: ['livetalk-operator', 'quick-clip-standard', 'billing-tester'],
   }),
 ];
 
