@@ -5,7 +5,7 @@ sources:
   - services/livetalk/web/src/lib/legal/revisions.ts
   - services/livetalk/web/src/components/LegalRevisionHistory.tsx
   - libs/ui/src/components/legal/LegalSections.tsx
-sources_hash: e56e348c0452952307c81e8471c3d06ec5153e432e766a019a6ee8defcd1e154
+sources_hash: d9c150923b0a1c19fa6f2bc294f4e176190e889d79822dbc9a3c3ec8d43ae40f
 ---
 
 # プライバシーポリシー画面

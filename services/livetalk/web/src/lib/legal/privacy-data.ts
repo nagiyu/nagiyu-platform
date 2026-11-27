@@ -57,6 +57,12 @@ export const liveTalkPrivacySections: LegalSection[] = [
             ],
           },
           {
+            subContent: '有料プランの契約情報',
+            subItems: [
+              '決済代行事業者（Stripe）から受け取る契約の状態（プラン、更新日、支払いの成否）',
+            ],
+          },
+          {
             subContent: 'プッシュ通知の購読情報',
             subItems: ['通知を許可したブラウザの購読情報（送信先 URL・暗号鍵）'],
           },
@@ -208,7 +214,7 @@ export const liveTalkPrivacySections: LegalSection[] = [
       },
       {
         mainContent:
-          '上記以外の第三者にユーザーの個人情報を提供することはありません。ただし、法令に基づく開示要求があった場合はこの限りではありません。',
+          '本ポリシーに定める場合を除き、第三者にユーザーの個人情報を提供することはありません。ただし、法令に基づく開示要求があった場合はこの限りではありません。',
       },
     ],
   },
