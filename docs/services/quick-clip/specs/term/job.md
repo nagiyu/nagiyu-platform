@@ -1,0 +1,55 @@
+---
+sources:
+  - services/quick-clip/core/src/types.ts
+  - services/quick-clip/core/src/mappers/job.mapper.ts
+  - services/quick-clip/core/src/libs/job.service.ts
+  - services/quick-clip/web/src/app/api/jobs/[jobId]/route.ts
+sources_hash: d91a7bae40cfa680b17ec58f681d6fa10298495453aaa2dc6fc2dc8dab9f09c7
+---
+
+# ジョブとステータス
+
+1 本の動画のアップロードと見どころ抽出を表す記録。DynamoDB に 1 件で持つ ([ジョブのテーブル](../data/jobs-table.md))。ステータスは保存せず、AWS Batch の状態から求める。
+
+## 説明
+
+| 項目 | 内容 |
+|---|---|
+| `jobId` | UUID v4。テーブルのキーは[ジョブのテーブル](../data/jobs-table.md)にある |
+| `originalFileName`、`fileSize` | 元のファイル名 (前後の空白を除く) と、申告されたバイト数 |
+| `durationSec` | 動画の長さ (秒)。作成のときはブラウザが申告した値 (読めなかったときはない)。Batch が FFmpeg で実際の長さを読めたときは、その値で上書きする。見どころの時刻の上限になる |
+| `createdAt`、`expiresAt` | epoch ミリ秒。`expiresAt` は作成の 24 時間後。保存するときは TTL 属性 (`TTL`、epoch 秒) に書く |
+| `batchJobId` | 投入した Batch ジョブの ID。投入するまではない |
+| `batchStage` | Batch が今いる段階。`downloading`、`analyzing`、`clipping`、`aggregating` |
+| `analysisProgress` | 解析の内訳。`motion`、`volume`、`transcription`、`emotionScoring` それぞれが `in_progress`、`done`、`failed` と、チャンクの `completed`、`total` を持つ。文字起こしと感情分析は [AI 解析](./ai-analysis.md)をしたときだけある |
+| `errorMessage` | 失敗の内容 |
+| `aiAnalysis`、`maxDurationSec` | 作成のときに決めた、AI 解析をするかと、許される動画の長さの上限 (秒)。ないジョブは、AI 解析をするもの、長さを照合しないものとして扱う |
+| `usage`、`usageReleased`、`usageSwitched` | 数えた利用回数の記録と、戻し済み、付け替え済みの印 ([利用回数の流れ](../flow/usage-metering.md)) |
+
+- 見どころは同じ `PK` の `HIGHLIGHT#{highlightId}` として、同じテーブルに入る ([見どころ](./highlight.md))
+- 旧形式の小文字始まりの属性名も読む。必須項目が欠けたり、`batchStage` が許可外の値だったりすると、読む側が例外にする
+- `analysisProgress` と `batchStage` は Batch が書く。`errorMessage` は Batch の失敗か、動画の長さの超過で書く
+
+## ステータスの求め方
+
+`status` は API が、Batch の状態とジョブの記録から返す ([ジョブ API](../api/jobs.md))。
+
+| 条件 | ステータス |
+|---|---|
+| `batchJobId` がない | `PENDING` |
+| Batch が `SUBMITTED`、`PENDING`、`RUNNABLE`、`STARTING` | `PENDING` |
+| Batch が `RUNNING` | `PROCESSING` |
+| Batch が `SUCCEEDED` で、`errorMessage` がない | `COMPLETED` |
+| Batch が `SUCCEEDED` だが、`errorMessage` がある | `FAILED` |
+| Batch が `FAILED`、ほかの状態、ジョブを返さない | `FAILED` |
+
+- `batchStage` は `PROCESSING` のときだけ返す。`analysisProgress` は、さらに `batchStage` が `analyzing` のときだけ返す。`errorMessage` は `FAILED` のときだけ返す
+- Batch が成功で終えても失敗に見せるのは、動画の長さが上限を超えたジョブのように、障害ではなく利用者側の理由で止めたものがあるため
+
+## 理由
+
+- **ステータスを保存せず、Batch の状態から求める**: Batch のコンテナが OOM やスポットの中断で強制終了されると、コンテナはステータスを書き換えられない。ステータスを DynamoDB に持つと、`PROCESSING` のまま残り、画面が処理中を示し続けて、失敗に気づけない。強制終了しても、Batch 側の状態は `FAILED` になるので、その状態を正にすれば、失敗を見つけられる
+- **取得 (`GET`) は何も書かない**: ステータスは、読むたびに Batch の状態から求め、DynamoDB へは書かない。Batch のコンテナもステータスを更新しないので、書き込みの責務が減り、コンテナのコードが単純になる
+- **ポーリングのたびに、Batch の状態を問い合わせる**: 処理状況画面は 5 秒ごとに取得し、そのたびに Batch の `DescribeJobs` を呼ぶ。Batch の API のレート制限に対して、問題のない量
+- **`analysisProgress` を持つ**: 解析に時間がかかるので、処理状況画面が、映像・音量・文字起こし・感情分析のそれぞれの現在地を示せるようにするため
+
