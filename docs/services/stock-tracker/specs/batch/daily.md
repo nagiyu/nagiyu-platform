@@ -6,7 +6,7 @@ sources:
   - services/stock-tracker/batch/src/daily.ts
   - libs/aws/src/lambda/scheduled-handler.ts
   - services/stock-tracker/core/src/repositories/dynamodb-alert.repository.ts
-sources_hash: aba93ccf42a5ffb5ec4384bd70e5f124d4a5ded7c0fc3418a739194a876fcd3b
+sources_hash: 21c62f71ca7583796f273c2507bcab0c4a540e1b14f6ef6252e2f0f56375f4cb
 ---
 
 # 日次バッチ (daily)
@@ -38,7 +38,7 @@ flowchart TD
 | ③ | 読めないアラートは、購読を確かめる以前に壊れているので、無効に数える |
 | ④ | 全件数、有効、無効の件数を情報ログに出す。無効があれば、手動で削除するための識別情報 (アラート ID、利用者 ID。読めないものは保存キーも) を一覧にして出す |
 
-- 無効な購読の警告ログには、アラート ID、利用者 ID、ティッカー ID、`endpoint` (空なら `(empty)`) を出す。読めないアラートには保存キーと理由を出す
+- 無効な購読の警告ログには、アラート ID、利用者 ID、ティッカー ID を出す。購読の `endpoint` は個人情報にあたるため出さない。読めないアラートには保存キーと理由を出す
 - 自動では削除しない。送信時に 404、410 になる無効な購読は、この点検の対象ではない ([アラート通知の経路](../flow/alert-notification.md))
 
 ## 失敗したとき
