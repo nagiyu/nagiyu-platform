@@ -88,7 +88,7 @@ export const STUDY_PAUSE_AFTER_HOURS = 72;
 export const STUDY_DAILY_RESEARCH_LIMIT_PER_USER = 20;
 
 /**
- * 無料の利用者が勉強できるお試しの長さ (日)。利用者の Profile の作成時刻 (最初に LiveTalk を開いた時刻) から数える。
+ * 無料の利用者が勉強できるお試しの長さ (日)。利用者の Profile の作成時刻 (最初に同意した時刻。Profile は同意のときに作る) から数える。
  * お試しは新しい登録ごとに原価がかかるため、期限を設けて原価を有限にする。
  */
 export const STUDY_FREE_TRIAL_DAYS = 7;

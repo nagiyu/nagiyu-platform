@@ -2,7 +2,7 @@
 sources:
   - services/livetalk/core/src/entities/webraw.entity.ts
   - services/livetalk/core/src/constants.ts
-sources_hash: 47254d46c154246ffa8163686762056952a346e794b58fbe385a410eec5c3418
+sources_hash: 99389fca7345f780ac49b002d76b83813efbaf346ef0dedb40d9e1c6527e56d5
 ---
 
 # WebRaw (Web 取得の生データ)

@@ -27,7 +27,7 @@ sources:
   - services/livetalk/core/src/mappers/safety-event.mapper.ts
   - services/livetalk/core/src/mappers/notification-event.mapper.ts
   - services/livetalk/core/src/mappers/push-subscription.mapper.ts
-sources_hash: a9675319d33b56addfdcfb6af9b1f9ed7ed36e95ebc849bbbb36f2c7701bee3d
+sources_hash: 9915c2fb4ce136fead84903651fcfbefef05d45a02dee6b9d112e05fe3b2c391
 ---
 
 # LiveTalk のテーブル
