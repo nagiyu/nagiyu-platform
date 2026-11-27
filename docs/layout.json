@@ -4,6 +4,7 @@
     "package": "libs"
   },
   "patterns": [
+    "README.md",
     "services/<service>/requirements/purpose.md",
     "services/<service>/requirements/domain-model.md",
     "services/<service>/requirements/use-cases/<name>.md",
@@ -47,12 +48,5 @@
     "lib": "ライブラリ",
     "ci": "CI",
     "rules": "規約"
-  },
-  "legacy": [
-    "README.md",
-    "agents/docs.write.README.md",
-    "agents/task.implement.README.md",
-    "agents/task.proposal.README.md",
-    "specs/README.md"
-  ]
+  }
 }

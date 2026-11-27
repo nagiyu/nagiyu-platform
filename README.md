@@ -32,11 +32,9 @@ libs/                   # 共通ライブラリ
 |
 docs/                   # ドキュメント関連
 |   |
-|   +-- infra/          # インフラドキュメント
-|   |   |
-|   |   +-- shared/     # 共通インフラのドキュメント
+|   +-- services/       # サービスごとの要件と仕様
 |   |
-|   +-- development/    # 開発ガイドライン
+|   +-- platform/       # 共通基盤の仕様 (specs/) と開発の規約 (rules/)
 ```
 
-詳細は [docs/development/](docs/development/) を参照。
+開発の規約は [docs/platform/rules/](docs/platform/rules/) を参照。

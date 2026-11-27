@@ -30,7 +30,7 @@
 - 同じ原因が複数のサービスにあるものに限り、横断の 1 本にまとめてよい。まとめるか迷うときは、人に聞いて決める
 - Issue には、現象・再現手順・原因 (該当ファイル) を書く。直し方は書かない
 - 仕様が決まっていないために判断できないものは、「決まっていないこと」として書く
-- タイトルとラベルは [Issue の分類](docs/development/issue-classification.md) に従う
+- タイトルとラベルは [Issue の分類](docs/platform/rules/issues-and-prs.md) に従う
 
 ---
 
@@ -42,8 +42,8 @@
 
 ## 📚 参考ドキュメント
 
-- [Issue の分類](docs/development/issue-classification.md)
-- [テスト戦略](docs/development/testing.md)
+- [Issue の分類](docs/platform/rules/issues-and-prs.md)
+- [テスト戦略](docs/platform/rules/testing.md)
 
 ---
 
