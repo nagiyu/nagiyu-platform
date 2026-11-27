@@ -416,13 +416,7 @@ export const auth: ServiceCapture = {
     port: 3203,
     healthPath: '/api/health',
     envFile: 'services/auth/web/.env.test',
-    requiredBuilds: [
-      'libs/ui/dist',
-      'libs/nextjs/dist',
-      'libs/aws/dist',
-      'libs/common/dist',
-      'services/auth/core/dist',
-    ],
+    requiredBuilds: ['services/auth/core/dist'],
     extraEnv: {
       AUTH_URL: 'http://localhost:3203',
       NEXTAUTH_URL: 'http://localhost:3203',

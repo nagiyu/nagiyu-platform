@@ -11,7 +11,6 @@ on:
       - develop
     paths:
       - 'services/stock-tracker/**'
-      - 'libs/**'
       - 'infra/stock-tracker/**'
       - 'infra/common/**'
       - 'infra/tsconfig.json'
@@ -101,9 +100,6 @@ jobs:
           # Node はイメージに入っているものを使う
           skip-setup-node: 'true'
 
-      - name: Build shared libraries
-        run: npm run build:libs
-
       - name: Build Core package
         run: npm run build --workspace @nagiyu/stock-tracker-core
 
@@ -131,9 +127,6 @@ jobs:
           cache-dependency-path: './package-lock.json'
           # Node はイメージに入っているものを使う
           skip-setup-node: 'true'
-
-      - name: Build shared libraries
-        run: npm run build:libs
 
       - name: Build core package
         run: npm run build --workspace @nagiyu/stock-tracker-core

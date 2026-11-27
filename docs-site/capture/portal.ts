@@ -137,7 +137,7 @@ export const portal: ServiceCapture = {
     command: ['npm', 'run', 'start', '--'],
     port: 3403,
     healthPath: '/api/health',
-    requiredBuilds: ['libs/ui/dist', 'libs/nextjs/dist', 'libs/common/dist', 'libs/browser/dist'],
+    requiredBuilds: [],
   },
   // 認証もロールもないサービス
   defaultRoles: [],
