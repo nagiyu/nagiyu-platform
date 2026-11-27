@@ -8,6 +8,7 @@ sources: []
 
 ## 要件
 
+- Admin の画面は、`users:read` を持つ利用者だけが開ける。現在、`admin` と `user-manager` ロールが持つ。権限がなければ、権限がない旨の画面へ移す ([権限なし画面](../../specs/screen/forbidden.md))
 - 機能ごとに、要る権限で分ける。通知の購読の登録と解除は `notifications:write`、エラー履歴の一覧と詳細は `errors:read` が要る。現在、どちらも `admin` ロールだけが持つ ([権限とロール](../../specs/term/permission.md))
 - 権限がないときは、その機能の画面と API を使えない。画面は権限がない旨を示し、API は拒否する ([API のエラー応答](../../specs/term/api-error.md))
 - 権限が要る機能の API は、ログインしていない利用者を拒否する。`/api/health`、`/api/notify/vapid-key`、`/api/notify/sns` は権限を見ない ([権限とロール](../../specs/term/permission.md))
