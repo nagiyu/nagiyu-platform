@@ -40,7 +40,7 @@ export function resolveStudyTier(effectiveRoles: readonly string[]): StudyTier {
 /**
  * 無料のお試しが続いているか。ちょうどお試しの長さが経った時刻で終わる。
  *
- * @param createdAt - Profile の作成時刻 (Unix ms。最初に LiveTalk を開いた時刻)
+ * @param createdAt - Profile の作成時刻 (Unix ms。最初に同意した時刻)
  * @param nowMs - 現在時刻 (Unix ms)
  */
 export function isStudyTrialActive(createdAt: number, nowMs: number): boolean {

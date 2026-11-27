@@ -6,7 +6,7 @@ sources:
   - services/livetalk/web/src/lib/server/consent.ts
   - services/livetalk/web/src/lib/consent/notice.ts
   - services/livetalk/web/src/lib/legal/revisions.ts
-sources_hash: 1640dca1ecbb5c9e238bfa67fea633d709f2096d9c6889116c661fc1073d7544
+sources_hash: 73dc46b479c44c87b9272f3274f0023167178d7608da5bd5bbf606c27894093e
 ---
 
 # 同意
