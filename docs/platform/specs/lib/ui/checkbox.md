@@ -2,7 +2,7 @@
 sources:
   - libs/ui/src/components/Checkbox/Checkbox.tsx
   - libs/ui/src/components/Checkbox/Checkbox.module.css
-sources_hash: 488da349a604ad8726fd4aa806a4c4faece957c59b64e159d180a9316be38d5f
+sources_hash: 4f0fc7b2f86458d343ea17b52ce7fb24e4b093a74ee6a137b7dd139c093010c7
 ---
 
 # Checkbox

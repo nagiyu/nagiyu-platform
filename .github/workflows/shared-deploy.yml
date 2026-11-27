@@ -15,6 +15,7 @@ on:
       - 'package-lock.json'
       - '.node-version'
       - '.github/workflows/shared-deploy.yml'
+      - '.github/actions/setup-cdk/**'
       - '.github/actions/setup-environment/**'
       - '.github/actions/setup-node/**'
   workflow_dispatch:
@@ -55,22 +56,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js and install dependencies
-        uses: ./.github/actions/setup-node
-        with:
-          # Node はイメージに入っているものを使う
-          skip-setup-node: 'true'
-          cache-dependency-path: package-lock.json
-
-      # shared は ts-node で動き、infra-common はビルド成果物 (dist) を参照するため、先にビルドする。
-      - name: Build common infrastructure package
-        run: npm run build --workspace=@nagiyu/infra-common
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      # shared は ts-node で動くため、サービスの infra のビルドは要らない
+      - name: Setup CDK
+        uses: ./.github/actions/setup-cdk
         with:
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
-          aws-region: us-east-1
 
       - name: Setup deployment environment
         id: setup-environment

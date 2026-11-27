@@ -5,7 +5,7 @@ sources:
   - .github/workflows/docs-pages-deploy.yml
   - .github/workflows/scripts/docs-structure.mjs
   - .github/workflows/scripts/check-doc-links.py
-sources_hash: 71ef8917d169d09a7933f98c310b9005d03cfc438486862a9496021200fadd59
+sources_hash: 539b79946e9cd89828b478c6d632d55a893c3316b3c15864b2f55d58cf995bfd
 ---
 
 # docs の検査と公開

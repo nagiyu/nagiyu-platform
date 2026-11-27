@@ -90,8 +90,6 @@ export type ButtonProps = ButtonRegularProps | ButtonAsChildProps;
  * - `loading` でスピナー表示（`aria-busy` 自動設定）
  * - `startIcon` で左側装飾アイコン（`aria-hidden` 自動付与）
  * - `asChild` でリンク等への変身に対応（Radix Slot パターン、`startIcon` とは排他）
- *
- * @see docs/development/shared-ui-components.md
  */
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function Button(props, ref) {
   const {

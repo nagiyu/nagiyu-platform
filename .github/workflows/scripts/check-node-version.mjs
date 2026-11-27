@@ -36,7 +36,7 @@ const MESSAGES = {
   MISMATCH: (found, expected) =>
     `Node のメジャー版が ${found} ですが、${NODE_VERSION_FILE} は ${expected} です。` +
     `Node を上げるときは ${NODE_VERSION_FILE} と全 Dockerfile のメジャーをそろえてください。` +
-    'CI 共通イメージ (.github/ci-image/Dockerfile) は VERSION を上げて作り直します (手順は docs/development/ci-image.md)',
+    'CI 共通イメージ (.github/ci-image/Dockerfile) は VERSION を上げて作り直します (手順は docs/platform/specs/ci/ci-image-build.md)',
   UNKNOWN_FROM: (image) =>
     `FROM ${image} から Node の版を読めません。` +
     'Node の版をタグに持つイメージなら check-node-version.mjs の KNOWN_NODE_IMAGES に足してください。' +

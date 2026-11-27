@@ -7,7 +7,7 @@ sources:
   - services/quick-clip/web/src/app/api/jobs/[jobId]/highlights/[highlightId]/route.ts
   - services/quick-clip/web/src/app/api/jobs/[jobId]/highlights/[highlightId]/regenerate/route.ts
   - services/quick-clip/web/src/app/api/jobs/[jobId]/download/route.ts
-sources_hash: ea863855a7465056e779c6b6c26f9ec30021f2c6c2059d498ba8c04f400ac454
+sources_hash: 254a37d961443e7cc9317cda15e6ebd73a434ff828978ee61bcec26ac42e92d5
 ---
 
 # ワーカーの実行環境

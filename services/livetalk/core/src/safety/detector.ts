@@ -5,12 +5,12 @@
  * 自殺・自傷・希死念慮に関する発言を検出する。
  *
  * 方針:
+ * - LLM の安全機構だけでは不十分なため、LLM に渡す前に自前で検出する
  * - false negative ゼロを目指す（LLM の判断に依存しない）
  * - false positive は許容（安全側に倒す）
  * - 慣用句・比喩表現は除外リストで対処
  *
  * @see Issue #3250
- * @see docs/services/livetalk/architecture.md §2.9（セーフティ自前実装）
  */
 
 import { KEYWORD_PATTERNS, shouldExclude } from './keywords.js';

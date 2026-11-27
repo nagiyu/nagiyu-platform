@@ -58,6 +58,11 @@ jest.mock('@aws-sdk/client-lambda', () => ({
   InvokeCommand: jest.fn().mockImplementation((input: unknown) => input),
 }));
 
+// 期限を過ぎていないことを示す、十分に先の時刻 (ミリ秒)
+const FUTURE_EXPIRES_AT = 4102444800000;
+// 期限を過ぎていることを示す、過去の時刻 (ミリ秒)
+const PAST_EXPIRES_AT = 1;
+
 describe('PATCH /api/jobs/[jobId]/highlights/[highlightId]', () => {
   const mockedGetLambdaClient = getLambdaClient as jest.MockedFunction<typeof getLambdaClient>;
   const mockedGetClipRegenerateFunctionName = getClipRegenerateFunctionName as jest.MockedFunction<
@@ -73,7 +78,11 @@ describe('PATCH /api/jobs/[jobId]/highlights/[highlightId]', () => {
     } as unknown as ReturnType<typeof getLambdaClient>);
     mockedGetClipRegenerateFunctionName.mockReturnValue('clip-regenerate');
     mockLambdaSend.mockResolvedValue({});
-    mockJobGetById.mockResolvedValue({ jobId: 'job-1', durationSec: 100 });
+    mockJobGetById.mockResolvedValue({
+      jobId: 'job-1',
+      durationSec: 100,
+      expiresAt: FUTURE_EXPIRES_AT,
+    });
     consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
   });
 
@@ -502,7 +511,7 @@ describe('PATCH /api/jobs/[jobId]/highlights/[highlightId]', () => {
   });
 
   it('正常系: ジョブに動画の長さが無いときは終了の上限を見ない', async () => {
-    mockJobGetById.mockResolvedValue({ jobId: 'job-1' });
+    mockJobGetById.mockResolvedValue({ jobId: 'job-1', expiresAt: FUTURE_EXPIRES_AT });
     const current = {
       highlightId: 'h1',
       jobId: 'job-1',
@@ -522,6 +531,73 @@ describe('PATCH /api/jobs/[jobId]/highlights/[highlightId]', () => {
 
     expect(response.status).toBe(200);
     expect(mockLambdaSend).toHaveBeenCalledTimes(1);
+  });
+
+  describe('ジョブが見つからない場合', () => {
+    const jobNotFound = {
+      error: 'JOB_NOT_FOUND',
+      message: '指定されたジョブが見つかりません',
+    };
+
+    it.each([
+      ['TTL で消えた', null],
+      ['期限を過ぎた', { jobId: 'job-1', durationSec: 100, expiresAt: PAST_EXPIRES_AT }],
+    ])(
+      '異常系: %sジョブへの時間更新は404を返し、更新も Lambda 起動もしない',
+      async (_label, job) => {
+        mockJobGetById.mockResolvedValue(job);
+
+        const response = await PATCH(createRequest({ endSec: 5000 }), {
+          params: Promise.resolve({ jobId: 'job-1', highlightId: 'h1' }),
+        });
+
+        expect(response.status).toBe(404);
+        expect(await response.json()).toEqual(jobNotFound);
+        expect(mockUpdate).not.toHaveBeenCalled();
+        expect(mockLambdaSend).not.toHaveBeenCalled();
+      }
+    );
+
+    it.each([
+      ['TTL で消えた', null],
+      ['期限を過ぎた', { jobId: 'job-1', durationSec: 100, expiresAt: PAST_EXPIRES_AT }],
+    ])('異常系: %sジョブへの採否だけの更新も404を返し、更新しない', async (_label, job) => {
+      mockJobGetById.mockResolvedValue(job);
+
+      const response = await PATCH(createRequest({ status: 'accepted' }), {
+        params: Promise.resolve({ jobId: 'job-1', highlightId: 'h1' }),
+      });
+
+      expect(response.status).toBe(404);
+      expect(await response.json()).toEqual(jobNotFound);
+      expect(mockUpdate).not.toHaveBeenCalled();
+    });
+  });
+
+  it('異常系: 期限を過ぎた見どころは404を返す', async () => {
+    mockGetById.mockResolvedValue({
+      highlightId: 'h1',
+      jobId: 'job-1',
+      order: 1,
+      startSec: 10,
+      endSec: 20,
+      source: 'motion',
+      status: 'unconfirmed',
+      clipStatus: 'GENERATED',
+      expiresAt: PAST_EXPIRES_AT,
+    });
+
+    const response = await PATCH(createRequest({ startSec: 11, endSec: 21 }), {
+      params: Promise.resolve({ jobId: 'job-1', highlightId: 'h1' }),
+    });
+
+    expect(response.status).toBe(404);
+    expect(await response.json()).toEqual({
+      error: 'HIGHLIGHT_NOT_FOUND',
+      message: '指定された見どころが見つかりません',
+    });
+    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(mockLambdaSend).not.toHaveBeenCalled();
   });
 
   it('異常系: 見どころが存在しない場合は404を返す', async () => {
