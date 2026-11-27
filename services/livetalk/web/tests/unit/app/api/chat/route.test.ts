@@ -59,8 +59,8 @@ const mockGetChatGuardRepository = createChatGuardRepository as jest.Mock;
 const mockGetProfileRepository = createProfileRepository as jest.Mock;
 
 const consentedConsents = {
-  termsAgreed: { version: '1.1.0', agreedAt: 0 },
-  privacyAgreed: { version: '1.1.0', agreedAt: 0 },
+  termsAgreed: { version: '1.2.0', agreedAt: 0 },
+  privacyAgreed: { version: '1.2.0', agreedAt: 0 },
   ageVerified: { value: true, verifiedAt: 0 },
 };
 

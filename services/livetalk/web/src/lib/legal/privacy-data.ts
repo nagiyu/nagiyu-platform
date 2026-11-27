@@ -1,8 +1,8 @@
 /**
  * LiveTalk 専用 プライバシーポリシーテキストデータ
  *
- * バージョン: 1.1.0
- * 施行日: 2026年11月15日
+ * バージョン: 1.2.0
+ * 施行日: 2026年11月27日
  */
 
 import type { LegalSection } from '@nagiyu/ui';
@@ -115,6 +115,10 @@ export const liveTalkPrivacySections: LegalSection[] = [
             subContent: '同意の記録の利用目的',
             subItems: ['規約・ポリシーへの同意状況の確認'],
           },
+          {
+            subContent: '有料プランの利用目的',
+            subItems: ['有料サービスにおいて利用料金を請求するため'],
+          },
         ],
       },
     ],
@@ -151,6 +155,24 @@ export const liveTalkPrivacySections: LegalSection[] = [
       {
         mainContent:
           'ホーム画面の「退会・データ削除」から退会すると、上記のデータはただちにすべて削除されます。ただし、セーフティログは、あなたを特定する情報を切り離した匿名の記録として残り、削除期限（検出から3年）は退会しても変わりません。',
+      },
+    ],
+  },
+  {
+    title: '決済に関する情報の取り扱い',
+    contents: [
+      {
+        mainContent:
+          '有料プランの決済は、Stripe, Inc.が提供する決済サービスで行います。クレジットカード番号などの決済情報は、Stripeが直接取得し、当社は受け取らず、保存しません。',
+      },
+      {
+        mainContent:
+          '当社は、決済の処理と契約の管理のため、ユーザーの識別子、メールアドレスおよび表示名をStripeに提供し、Stripeから契約の状態（プラン、更新日、支払いの成否）を受け取ります。',
+      },
+      {
+        mainContent:
+          'Stripeは米国の事業者であり、提供した情報は米国その他の国で取り扱われることがあります。Stripeにおける取り扱いは、Stripeのプライバシーポリシーをご確認ください。',
+        link: 'https://stripe.com/jp/privacy',
       },
     ],
   },
@@ -319,7 +341,7 @@ export const liveTalkPrivacySections: LegalSection[] = [
           '変更後のプライバシーポリシーは、本サービス内に掲示した時点から効力を生じます。',
       },
       {
-        mainContent: '施行日: 2026年11月15日\nバージョン: 1.1.0',
+        mainContent: '施行日: 2026年11月27日\nバージョン: 1.2.0',
       },
     ],
   },

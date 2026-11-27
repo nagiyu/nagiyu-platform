@@ -24,6 +24,7 @@ describe('isPublicPath', () => {
     expect(isPublicPath('/legal/')).toBe(true);
     expect(isPublicPath('/legal/terms')).toBe(true);
     expect(isPublicPath('/legal/privacy')).toBe(true);
+    expect(isPublicPath('/legal/tokushoho')).toBe(true);
   });
 
   it('その他のパスは公開パスではない', () => {
