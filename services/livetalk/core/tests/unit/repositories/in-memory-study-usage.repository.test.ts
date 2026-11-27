@@ -161,4 +161,32 @@ describe('InMemoryStudyUsageRepository', () => {
       expect(item?.['TTL']).toBe(Date.parse('2026-11-06T15:00:00Z') / 1000);
     });
   });
+
+  describe('readToday', () => {
+    it('記録がない日は 0 を返す', async () => {
+      expect(await repo.readToday('u1', NOW_MS)).toEqual({ userTotal: 0, globalTotal: 0 });
+    });
+
+    it('数えた回数を、利用者の合計と全体の合計で返す', async () => {
+      await consume();
+      await consume({ characterId: 'ageha' });
+      await consume({ userId: 'u2' });
+
+      expect(await repo.readToday('u1', NOW_MS)).toEqual({ userTotal: 2, globalTotal: 3 });
+      expect(await repo.readToday('u2', NOW_MS)).toEqual({ userTotal: 1, globalTotal: 3 });
+    });
+
+    it('日本時間の 0 時で日が変わり、前の日の回数は含めない', async () => {
+      await consume({ nowMs: Date.parse('2026-11-05T14:59:59Z') });
+      expect(await repo.readToday('u1', Date.parse('2026-11-05T15:00:00Z'))).toEqual({
+        userTotal: 0,
+        globalTotal: 0,
+      });
+    });
+
+    it('読むだけでは数えない', async () => {
+      await repo.readToday('u1', NOW_MS);
+      expect(store.get('USER#u1', 'STUDYUSAGE#20261105')).toBeUndefined();
+    });
+  });
 });

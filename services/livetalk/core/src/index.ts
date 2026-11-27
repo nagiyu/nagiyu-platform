@@ -258,6 +258,7 @@ export {
 export type {
   StudyUsageRepository,
   StudyUsageDeniedScope,
+  StudyUsageToday,
   TryConsumeStudyUsageInput,
   TryConsumeStudyUsageResult,
 } from './repositories/study-usage.repository.interface.js';
