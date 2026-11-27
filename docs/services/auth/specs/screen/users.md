@@ -5,7 +5,7 @@ sources:
   - libs/common/src/auth/roles.ts
   - libs/common/src/auth/permissions.ts
   - libs/ui/src/components/feedback/AccessDeniedView.tsx
-sources_hash: 5253f81ca91b64c4398f43f85f89a41d79c36442331e2ba0de2a5fb7033b4daa
+sources_hash: c98fe92ee26979c5422d91977e78ae822a8b16d18721786ffeffecfd98a3184f
 ---
 
 # ユーザー一覧画面

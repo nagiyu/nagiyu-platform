@@ -13,7 +13,7 @@ sources:
   - services/auth/core/src/billing/stripe-client.ts
   - services/auth/core/src/billing/sync.ts
   - libs/common/src/auth/roles.ts
-sources_hash: 8dd9547af50a094ff362dfbc04b55dc62c9c79e5bb3deee2665a90d56cff205b
+sources_hash: 38f65a40af62257db0bd4f46ae5cd63a76dc93c11e5e7bb040d2ff5c40730460
 ---
 
 # 課金 API
