@@ -9,6 +9,7 @@
  *   - 現時点の通知判定結果（shouldNotifyNow の reason / toneBucket 等）
  *   - インターバル解除予測時刻（reason が not_due の場合のみ）
  *   - STUDY_TOPIC pending 件数
+ *   - 勉強の区分・お試し・今日の回数 (study)
  *
  * chat metrics（promptTokens / latencyMs）は DynamoDB 未永続のため本 Issue のスコープ外。
  * CloudWatch Logs Insights で確認する。
@@ -20,6 +21,7 @@ import { DEFAULT_CHARACTER_ID } from '@nagiyu/livetalk-core';
 import { getSession } from '@/lib/server/session';
 import { withApiErrorReporting } from '@/lib/server/api-error-reporting';
 import { loadStatusSnapshot } from '@/lib/server/status';
+import { loadAdminStudyStatus } from '@/lib/study/admin-study-status';
 import { STATUS_ERROR_MESSAGES } from './constants';
 import { hasCharacter } from '@/lib/characters/registry';
 
@@ -30,7 +32,11 @@ export const GET = withApiErrorReporting(
     const url = new URL(request.url);
     const queriedId = url.searchParams.get('characterId');
     const characterId = queriedId && hasCharacter(queriedId) ? queriedId : DEFAULT_CHARACTER_ID;
-    const snapshot = await loadStatusSnapshot(userId, characterId, new Date());
+    const now = new Date();
+    const [snapshot, study] = await Promise.all([
+      loadStatusSnapshot(userId, characterId, now),
+      loadAdminStudyStatus(userId, session.user.roles, now.getTime()),
+    ]);
     const { notifyDecision, nextEarliestAt } = snapshot;
 
     return NextResponse.json({
@@ -48,6 +54,7 @@ export const GET = withApiErrorReporting(
         ...(nextEarliestAt !== undefined ? { nextEarliestAt } : {}),
       },
       studyTopicPendingCount: snapshot.studyTopicPendingCount,
+      study,
     });
   }),
   { error: 'FETCH_FAILED', message: STATUS_ERROR_MESSAGES.FETCH_FAILED }

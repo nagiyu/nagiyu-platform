@@ -9,9 +9,10 @@
 
 import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { DynamoDBUsageCounter } from '@nagiyu/aws';
-import { tryConsumeStudyUsage } from './study-usage-counting.js';
+import { readStudyUsageToday, tryConsumeStudyUsage } from './study-usage-counting.js';
 import type {
   StudyUsageRepository,
+  StudyUsageToday,
   TryConsumeStudyUsageInput,
   TryConsumeStudyUsageResult,
 } from './study-usage.repository.interface.js';
@@ -25,5 +26,9 @@ export class DynamoDBStudyUsageRepository implements StudyUsageRepository {
 
   public async tryConsume(input: TryConsumeStudyUsageInput): Promise<TryConsumeStudyUsageResult> {
     return tryConsumeStudyUsage(this.counter, input);
+  }
+
+  public async readToday(userId: string, nowMs: number): Promise<StudyUsageToday> {
+    return readStudyUsageToday(this.counter, userId, nowMs);
   }
 }
