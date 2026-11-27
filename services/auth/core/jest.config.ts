@@ -7,8 +7,6 @@ const config: Config = {
   testMatch: ['**/*.test.ts'],
   testPathIgnorePatterns: ['/node_modules/', '<rootDir>/tests/contract/'],
   moduleNameMapper: {
-    '^@nagiyu/common$': '<rootDir>/../../../libs/common/src/index.ts',
-    '^@nagiyu/aws$': '<rootDir>/../../../libs/aws/src/index.ts',
     '^(\\.{1,2}/.*)\\.js$': '$1',
   },
   coverageDirectory: 'coverage',
