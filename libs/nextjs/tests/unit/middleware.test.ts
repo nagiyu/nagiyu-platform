@@ -108,11 +108,11 @@ describe('createAuthMiddleware', () => {
   describe('requiredPermission', () => {
     it('指定 permission を保持する role があれば通過する', () => {
       const middleware = createAuthMiddleware({
-        requiredPermission: 'livetalk:chat',
+        requiredPermission: 'stocks:write-own',
       });
 
       const response = middleware(
-        createRequest('https://example.com/chat', createSession(['livetalk-user']))
+        createRequest('https://example.com/chat', createSession(['stock-user']))
       );
 
       expect(response).toEqual({ type: 'next' });
@@ -120,7 +120,7 @@ describe('createAuthMiddleware', () => {
 
     it('認証済みでも permission がなければページは元のパスを from に付けて /forbidden へリダイレクトする', () => {
       const middleware = createAuthMiddleware({
-        requiredPermission: 'livetalk:chat',
+        requiredPermission: 'stocks:write-own',
       });
 
       const response = middleware(
@@ -136,7 +136,7 @@ describe('createAuthMiddleware', () => {
     it('APP_URL があればそのオリジンへリダイレクトする', () => {
       process.env.APP_URL = 'https://app.example.com';
       const middleware = createAuthMiddleware({
-        requiredPermission: 'livetalk:chat',
+        requiredPermission: 'stocks:write-own',
       });
 
       const response = middleware(
@@ -151,7 +151,7 @@ describe('createAuthMiddleware', () => {
 
     it('roles が空配列でもページは /forbidden へリダイレクトする', () => {
       const middleware = createAuthMiddleware({
-        requiredPermission: 'livetalk:chat',
+        requiredPermission: 'stocks:write-own',
       });
 
       const response = middleware(createRequest('https://example.com/chat', createSession([])));
@@ -164,7 +164,7 @@ describe('createAuthMiddleware', () => {
 
     it('forbiddenPath を指定すればその path へリダイレクトする', () => {
       const middleware = createAuthMiddleware({
-        requiredPermission: 'livetalk:chat',
+        requiredPermission: 'stocks:write-own',
         forbiddenPath: '/denied',
       });
 
@@ -182,7 +182,7 @@ describe('createAuthMiddleware', () => {
       '%s は permission がなければ JSON 403 を返す',
       (pathname) => {
         const middleware = createAuthMiddleware({
-          requiredPermission: 'livetalk:chat',
+          requiredPermission: 'stocks:write-own',
         });
 
         const response = middleware(
@@ -199,7 +199,7 @@ describe('createAuthMiddleware', () => {
 
     it('/api で始まるだけのページ path は API として扱わずリダイレクトする', () => {
       const middleware = createAuthMiddleware({
-        requiredPermission: 'livetalk:chat',
+        requiredPermission: 'stocks:write-own',
       });
 
       const response = middleware(
@@ -215,7 +215,7 @@ describe('createAuthMiddleware', () => {
     it('onForbidden を指定すればその戻り値を返す', () => {
       process.env.APP_URL = 'https://app.example.com';
       const middleware = createAuthMiddleware({
-        requiredPermission: 'livetalk:chat',
+        requiredPermission: 'stocks:write-own',
         onForbidden: () =>
           ({ type: 'redirect', url: 'https://auth.example.com/signin' }) as unknown as never,
       });
@@ -232,7 +232,7 @@ describe('createAuthMiddleware', () => {
 
     it('onForbidden は API パスでも forbiddenPath より優先される', () => {
       const middleware = createAuthMiddleware({
-        requiredPermission: 'livetalk:chat',
+        requiredPermission: 'stocks:write-own',
         forbiddenPath: '/denied',
         onForbidden: () => ({ type: 'custom' }) as unknown as never,
       });
@@ -247,7 +247,7 @@ describe('createAuthMiddleware', () => {
     it('未認証の場合は permission チェックを経由せずサインインへリダイレクトする', () => {
       process.env.APP_URL = 'https://app.example.com';
       const middleware = createAuthMiddleware({
-        requiredPermission: 'livetalk:chat',
+        requiredPermission: 'stocks:write-own',
         getSignInBaseUrl: () => 'https://auth.example.com',
       });
 
@@ -262,7 +262,7 @@ describe('createAuthMiddleware', () => {
     it('publicPaths は permission チェックなしで通過する', () => {
       const middleware = createAuthMiddleware({
         publicPaths: ['/'],
-        requiredPermission: 'livetalk:chat',
+        requiredPermission: 'stocks:write-own',
       });
 
       const response = middleware(createRequest('https://example.com/'));

@@ -56,7 +56,7 @@ describe('SessionHeader', () => {
     it('roles が渡らないため requiredPermission を持つ項目は表示されない', () => {
       mockUseSession.mockReturnValue({ data: null, status: 'unauthenticated' });
       const items: NavigationItem[] = [
-        { label: 'チャット', href: '/chat', requiredPermission: 'livetalk:chat' },
+        { label: 'チャット', href: '/chat', requiredPermission: 'stocks:read' },
       ];
       render(<SessionHeader authUrl={AUTH_URL} navigationItems={items} />);
 
@@ -146,9 +146,9 @@ describe('SessionHeader', () => {
     });
 
     it('session.user.roles を requiredPermission の判定に使う', () => {
-      mockUseSession.mockReturnValue(authenticated({ name: 'a', roles: ['livetalk-user'] }));
+      mockUseSession.mockReturnValue(authenticated({ name: 'a', roles: ['stock-user'] }));
       const items: NavigationItem[] = [
-        { label: 'チャット', href: '/chat', requiredPermission: 'livetalk:chat' },
+        { label: 'チャット', href: '/chat', requiredPermission: 'stocks:read' },
         { label: 'ステータス', href: '/status', requiredPermission: 'livetalk:admin' },
       ];
       render(<SessionHeader authUrl={AUTH_URL} navigationItems={items} />);
@@ -158,9 +158,9 @@ describe('SessionHeader', () => {
     });
 
     it('roles が配列でないとき権限なしとして扱う', () => {
-      mockUseSession.mockReturnValue(authenticated({ name: 'a', roles: 'livetalk-user' }));
+      mockUseSession.mockReturnValue(authenticated({ name: 'a', roles: 'stock-user' }));
       const items: NavigationItem[] = [
-        { label: 'チャット', href: '/chat', requiredPermission: 'livetalk:chat' },
+        { label: 'チャット', href: '/chat', requiredPermission: 'stocks:read' },
       ];
       render(<SessionHeader authUrl={AUTH_URL} navigationItems={items} />);
 
@@ -170,7 +170,7 @@ describe('SessionHeader', () => {
     it('roles が未設定のとき権限なしとして扱う', () => {
       mockUseSession.mockReturnValue(authenticated({ name: 'a' }));
       const items: NavigationItem[] = [
-        { label: 'チャット', href: '/chat', requiredPermission: 'livetalk:chat' },
+        { label: 'チャット', href: '/chat', requiredPermission: 'stocks:read' },
       ];
       render(<SessionHeader authUrl={AUTH_URL} navigationItems={items} />);
 

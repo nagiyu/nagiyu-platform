@@ -42,7 +42,7 @@ export function hasPermission(roles: string[], permission: Permission): boolean 
  *
  * @example
  * ```typescript
- * const canChat = hasUserPermission(session?.user, 'livetalk:chat');
+ * const canRead = hasUserPermission(session?.user, 'stocks:read');
  * ```
  */
 export function hasUserPermission(

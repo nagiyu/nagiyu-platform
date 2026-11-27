@@ -5,7 +5,7 @@ sources:
   - services/quick-clip/web/src/lib/auth/session.ts
   - libs/common/src/auth/roles.ts
   - libs/common/src/auth/permissions.ts
-sources_hash: f99315f9c25c96adf6bc48b7a78413d15fb062049f24a3ce23710468edef423a
+sources_hash: 976ee06d791b99810ae57bf2f0e56680d52a800f874a1d0db3bd4a00c9592679
 ---
 
 # 利用の段と上限
