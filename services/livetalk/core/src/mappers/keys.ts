@@ -230,6 +230,15 @@ export function buildStudyUsageCountAttribute(characterId: string): string {
   return `Count#${characterId}`;
 }
 
+/**
+ * 全利用者の勉強の合計を数えるアイテムの PK。
+ * SK は利用者別と同じ {@link buildStudyUsageSK}、属性は {@link buildStudyUsageTotalAttribute} を使う。
+ * `USER#` 配下に置かないため、アカウント削除で消えることも、利用者の回数と混ざることもない。
+ */
+export function buildGlobalStudyUsagePK(): string {
+  return 'GLOBAL#STUDYUSAGE';
+}
+
 /** 勉強の回数アイテム内の、利用者の全キャラクター合計の回数の属性名 */
 export function buildStudyUsageTotalAttribute(): string {
   return 'Count#total';
