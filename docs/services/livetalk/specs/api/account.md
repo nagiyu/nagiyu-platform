@@ -3,7 +3,7 @@ sources:
   - services/livetalk/web/src/app/api/account/route.ts
   - services/livetalk/web/src/app/api/account/constants.ts
   - services/livetalk/core/src/repositories/dynamodb-account-deletion.repository.ts
-sources_hash: 7085fa97f68f0202c2e4e047caac7168adc37ed0bb3e5f5a566060c3e22ccca6
+sources_hash: e379ea1749491aacbb10ab5bdcbfecb9098cade30902d5630d4159409827c4a0
 ---
 
 # アカウント API
@@ -14,7 +14,7 @@ sources_hash: 7085fa97f68f0202c2e4e047caac7168adc37ed0bb3e5f5a566060c3e22ccca6
 
 | メソッド | パス | 権限 |
 |---|---|---|
-| DELETE | `/api/account` | `livetalk:chat` |
+| DELETE | `/api/account` | ログインしていること |
 
 ## 入力と出力
 
@@ -29,7 +29,7 @@ sources_hash: 7085fa97f68f0202c2e4e047caac7168adc37ed0bb3e5f5a566060c3e22ccca6
 |---|---|---|
 | 削除の失敗 | 500 | `DELETE_FAILED` |
 
-- 権限の不足は 401 / 403。形は [API のエラー応答](../term/api-error.md)
+- 未ログインは 401。形は [API のエラー応答](../term/api-error.md)
 
 ## つながり
 
@@ -51,7 +51,3 @@ flowchart TD
 - **匿名にしても保持期間は引き継ぐ**。保持は検出から 3 年で、退会の時点から数え直さない。ステータス画面の横断レビューでは、匿名にした記録も同じ並びで読める ([ステータス画面](../screen/status.md))
 - **サインアウトは Auth の側で行う**。Cookie を発行するのは Auth で、リブトークはサインアウトを受け付けない。退会に成功したら、画面が Auth のサインアウトへ移る ([サインアウト画面](../../../auth/specs/screen/signout.md))
 - 退会の対象は、リブトークのデータだけ。Google アカウントや、ほかのサービスのデータは消さない
-
-## 手順
-
-退会しても、利用者のロール (`livetalk-user`) は外れない。外すときは、Auth のユーザー編集画面で人が行う ([ユーザー編集画面](../../../auth/specs/screen/user-edit.md))。
