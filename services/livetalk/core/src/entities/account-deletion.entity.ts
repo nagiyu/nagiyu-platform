@@ -3,8 +3,8 @@
  *
  * ADR-2.21 に従い、`PK = USER#<userId>` 配下の全アイテムを削除するが、
  * SafetyEvent（SK が `SAFETY#` で始まる）のみは匿名化して残す。
- *
- * @see docs/services/livetalk/architecture.md §2.21（ADR-2.21）
+ * セーフティ検出の記録は、LLM に任せず自前で介入した証跡として残す必要があり、
+ * 個人を識別できる値だけを切り離して保持する。
  */
 
 export interface AccountDeletionResult {

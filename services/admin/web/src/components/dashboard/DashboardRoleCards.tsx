@@ -13,8 +13,7 @@ interface DashboardRoleCardsProps {
  *
  * 権限判定は page.tsx（Server Component）側に寄せ、このコンポーネントは
  * その判定結果（boolean）だけを props で受け取って表示を出し分ける。
- * docs/development/testing.md の「権限判定をサーバー側へ寄せ、結果を props で渡す」
- * 推奨に沿った設計であり、hasPermission はこのコンポーネントからは呼ばない。
+ * hasPermission はこのコンポーネントからは呼ばない。
  */
 export default function DashboardRoleCards({
   canManageNotifications,

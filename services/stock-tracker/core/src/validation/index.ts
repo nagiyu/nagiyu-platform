@@ -2,7 +2,7 @@
  * Stock Tracker Core - Validation Functions
  *
  * 入力データのバリデーション関数
- * architecture.md のバリデーションルールに準拠
+ * 戻り値は共通の `ValidationResult` にそろえ、呼び出し側が結果の扱い方を覚え直さずに済むようにする
  */
 
 import type { ValidationResult } from '@nagiyu/common';

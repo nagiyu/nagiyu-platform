@@ -5,7 +5,6 @@
  * キーワード検出が主防衛線で、Moderation API は補助チェック。
  *
  * @see Issue #3250
- * @see docs/services/livetalk/architecture.md §2.9（セーフティ自前実装）
  */
 
 import OpenAI from 'openai';
