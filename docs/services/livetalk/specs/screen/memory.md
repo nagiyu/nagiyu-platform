@@ -19,7 +19,7 @@ sources_hash: a7a521b37f5c91503708f92688794c42d3e6ae4e81f41be27a006cc5b216f98c
 
 ## 表示の条件
 
-- `livetalk:chat` を持つ利用者だけ ([権限とロール](../term/permission.md))
+- ログインしている利用者なら誰でも ([権限とロール](../term/permission.md))
 - 選んでいる[キャラクター](../term/character.md)の記憶だけを出す。キャラクターを切り替えると読み直す
 
 ## 表示するもの

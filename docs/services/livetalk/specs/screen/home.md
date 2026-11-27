@@ -41,7 +41,7 @@ sources_hash: 8997d80bcc913cd1e76658b498c913d6c1592d49ea9158352687f015c5279f20
 
 ## 表示の条件
 
-- `livetalk:chat` を持つ利用者だけ ([権限とロール](../term/permission.md))。権限がなければ[権限なし画面](./forbidden.md)へ移る
+- ログインしている利用者なら誰でも ([権限とロール](../term/permission.md))
 - [同意](../term/consent.md)がない間は、同意のダイアログを出し、入力欄を使えなくする
 
 ## 表示するもの
@@ -236,7 +236,7 @@ sources_hash: 8997d80bcc913cd1e76658b498c913d6c1592d49ea9158352687f015c5279f20
 
 ### ヘッダーのメニュー
 
-`livetalk:chat` だけを持つ利用者。
+`livetalk:admin` を持たない利用者。
 
 | スマホ |
 |---|
