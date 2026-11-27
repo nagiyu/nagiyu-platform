@@ -1,17 +1,10 @@
 ---
-id: portal/screen/legal
-title: 利用規約・プライバシーポリシー画面
-kind: screen
-service: portal
 sources:
   - services/portal/web/src/app/terms/page.tsx
   - services/portal/web/src/app/privacy/page.tsx
   - services/portal/web/src/lib/pageMetadata.ts
   - libs/ui/src/components/legal/LegalSections.tsx
 sources_hash: caf7578ab9c918ee33aeb879c6fcb7ab444c72d2853aa9999284183a80c3b799
-related_cards: [portal/screen/home, portal/screen/about]
-related_adr:
-  - services/portal/external-design.md#1.1 画面一覧
 ---
 
 # 利用規約・プライバシーポリシー画面
@@ -48,13 +41,13 @@ related_adr:
 
 | スマホ | PC |
 |---|---|
-| ![利用規約・プライバシーポリシー画面 利用規約 (スマホ)](../../../images/specs/portal/screen/legal-terms-mobile.png) | ![利用規約・プライバシーポリシー画面 利用規約 (PC)](../../../images/specs/portal/screen/legal-terms-desktop.png) |
+| ![利用規約・プライバシーポリシー画面 利用規約 (スマホ)](../../../../images/specs/portal/screen/legal-terms-mobile.png) | ![利用規約・プライバシーポリシー画面 利用規約 (PC)](../../../../images/specs/portal/screen/legal-terms-desktop.png) |
 
 ### プライバシーポリシー
 
 | スマホ | PC |
 |---|---|
-| ![利用規約・プライバシーポリシー画面 プライバシーポリシー (スマホ)](../../../images/specs/portal/screen/legal-privacy-mobile.png) | ![利用規約・プライバシーポリシー画面 プライバシーポリシー (PC)](../../../images/specs/portal/screen/legal-privacy-desktop.png) |
+| ![利用規約・プライバシーポリシー画面 プライバシーポリシー (スマホ)](../../../../images/specs/portal/screen/legal-privacy-mobile.png) | ![利用規約・プライバシーポリシー画面 プライバシーポリシー (PC)](../../../../images/specs/portal/screen/legal-privacy-desktop.png) |
 
 ## つながり
 

@@ -1,14 +1,9 @@
 ---
-id: portal/screen/not-found
-title: 404 画面
-kind: screen
-service: portal
 sources:
   - services/portal/web/src/app/not-found.tsx
   - services/portal/web/src/app/tech/[slug]/page.tsx
   - libs/ui/src/components/feedback/NotFoundView.tsx
 sources_hash: 7910472227f5d9f52ac335bdf0e47b31c3cecbb599e705f689a1ac2bec4da6df
-related_cards: [portal/screen/home, portal/screen/tech-article, portal/screen/tech]
 ---
 
 # 404 画面
@@ -49,7 +44,7 @@ related_cards: [portal/screen/home, portal/screen/tech-article, portal/screen/te
 
 | スマホ | PC |
 |---|---|
-| ![404 画面 通常表示 (スマホ)](../../../images/specs/portal/screen/not-found-default-mobile.png) | ![404 画面 通常表示 (PC)](../../../images/specs/portal/screen/not-found-default-desktop.png) |
+| ![404 画面 通常表示 (スマホ)](../../../../images/specs/portal/screen/not-found-default-mobile.png) | ![404 画面 通常表示 (PC)](../../../../images/specs/portal/screen/not-found-default-desktop.png) |
 
 ## つながり
 

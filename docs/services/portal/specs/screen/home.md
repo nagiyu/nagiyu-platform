@@ -1,8 +1,4 @@
 ---
-id: portal/screen/home
-title: ホーム画面
-kind: screen
-service: portal
 sources:
   - services/portal/web/src/app/page.tsx
   - services/portal/web/src/components/HomeHeroSection.tsx
@@ -14,11 +10,6 @@ sources:
   - services/portal/web/src/lib/author.ts
   - services/portal/web/src/lib/jsonLd.ts
 sources_hash: 637a10fbba1e98bd266fdab53871386f177c672592d723a7c77e58118149022b
-terms: [portal/term/article, portal/term/featured, portal/term/tag]
-related_cards: [portal/screen/tech, portal/screen/tech-article, portal/screen/about, portal/flow/article-publishing]
-related_adr:
-  - services/portal/external-design.md#SCR-001: トップページ
-  - services/portal/architecture.md#ADR-004: 技術メディアへの単一目的化（サービスハブの撤去）を採択した理由
 ---
 
 # ホーム画面
@@ -48,13 +39,7 @@ related_adr:
 - 記事の並びはビルド時に決まる ([記事が公開されるまで](../flow/article-publishing.md))
 - ページに `WebSite` と `Organization` の構造化データ (JSON-LD) を埋め込む。ページのタイトルは「nagiyu - AWS と個人開発の実運用ノート」、canonical は `https://nagiyu.com`
 
-## 状態
-
-- 特集の記事が 0 件のときは、「特集記事」の枠ごと出さない
-- 記事が 0 件のときは、「最新の技術記事」の枠も出さず、ヒーローだけになる
-- 読み込み中の表示はない。記事はビルド時に取り込まれる
-
-## 全画面で共通の部分
+### 全画面で共通の部分
 
 Portal の全画面は、同じヘッダーとフッターの内側に描かれる。
 
@@ -66,6 +51,12 @@ Portal の全画面は、同じヘッダーとフッターの内側に描かれ�
 - バージョンは環境変数 `APP_VERSION`、なければ `1.0.0`。著作権表記は「© 2026」で、ビルドした年が 2026 年より後なら「© 2026–{ビルドした年}」になる
 - Google AdSense のスクリプトは、ビルド時の環境変数 `NAGIYU_ENV` が `prod` と完全に一致するときだけ読み込む。未設定や `dev` では読み込まない
 - ログイン・ロールの出し分けはない
+
+## 状態
+
+- 特集の記事が 0 件のときは、「特集記事」の枠ごと出さない
+- 記事が 0 件のときは、「最新の技術記事」の枠も出さず、ヒーローだけになる
+- 読み込み中の表示はない。記事はビルド時に取り込まれる
 
 ## 操作
 
@@ -85,7 +76,7 @@ Portal の全画面は、同じヘッダーとフッターの内側に描かれ�
 
 | スマホ | PC |
 |---|---|
-| ![ホーム画面 通常表示 (スマホ)](../../../images/specs/portal/screen/home-default-mobile.png) | ![ホーム画面 通常表示 (PC)](../../../images/specs/portal/screen/home-default-desktop.png) |
+| ![ホーム画面 通常表示 (スマホ)](../../../../images/specs/portal/screen/home-default-mobile.png) | ![ホーム画面 通常表示 (PC)](../../../../images/specs/portal/screen/home-default-desktop.png) |
 
 ### 特集記事
 
@@ -93,7 +84,7 @@ Portal の全画面は、同じヘッダーとフッターの内側に描かれ�
 
 | スマホ | PC |
 |---|---|
-| ![ホーム画面 特集記事 (スマホ)](../../../images/specs/portal/screen/home-featured-mobile.png) | ![ホーム画面 特集記事 (PC)](../../../images/specs/portal/screen/home-featured-desktop.png) |
+| ![ホーム画面 特集記事 (スマホ)](../../../../images/specs/portal/screen/home-featured-mobile.png) | ![ホーム画面 特集記事 (PC)](../../../../images/specs/portal/screen/home-featured-desktop.png) |
 
 ### 最新の技術記事
 
@@ -101,7 +92,7 @@ Portal の全画面は、同じヘッダーとフッターの内側に描かれ�
 
 | スマホ | PC |
 |---|---|
-| ![ホーム画面 最新の技術記事 (スマホ)](../../../images/specs/portal/screen/home-latest-mobile.png) | ![ホーム画面 最新の技術記事 (PC)](../../../images/specs/portal/screen/home-latest-desktop.png) |
+| ![ホーム画面 最新の技術記事 (スマホ)](../../../../images/specs/portal/screen/home-latest-mobile.png) | ![ホーム画面 最新の技術記事 (PC)](../../../../images/specs/portal/screen/home-latest-desktop.png) |
 
 ## つながり
 
@@ -112,3 +103,7 @@ flowchart TD
     H -->|技術記事を読む| L[技術記事一覧画面]
     H -->|nagiyu について| B[About 画面]
 ```
+
+## 理由
+
+- ヒーロー・特集記事・最新記事だけで構成し、サービスのカタログを持たない。サイトが技術メディアであることを数秒で伝えるため。サイト全体を技術メディアに絞った理由は[目的](../../requirements/purpose.md)にある
