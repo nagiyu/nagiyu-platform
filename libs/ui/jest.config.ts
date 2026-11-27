@@ -34,7 +34,7 @@ const config: Config.InitialOptions = {
   // 共通 UI ライブラリは品質要求が高いためデフォルト 80% より厳しめに設定する。
   // 最終目標は branches 85%・functions 90%・lines/statements 90%（spec）。
   // 現状は branches 84.5%・functions 85.1% のため、安全な閾値で段階的に
-  // 引き上げる方針。詳細: docs/development/shared-ui-components.md
+  // 引き上げる方針。
   coverageThreshold: {
     global: {
       branches: 80,

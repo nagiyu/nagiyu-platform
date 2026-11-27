@@ -9,8 +9,6 @@
  * - SafetyEvent 以外: ストアからハード削除する。
  * - SafetyEvent: 匿名トークン（`ANON#<ulid>`）を 1 つ発行し、
  *   新 PK への書き込みと旧 PK の削除で re-key する。
- *
- * @see docs/services/livetalk/architecture.md §2.21（ADR-2.21）
  */
 
 import { InMemorySingleTableStore, type DynamoDBAttributes } from '@nagiyu/aws';

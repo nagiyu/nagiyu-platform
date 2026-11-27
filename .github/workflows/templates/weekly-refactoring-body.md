@@ -28,7 +28,7 @@
 調査対象のディレクトリ一覧は都度確認すること。
 
 1. 重複実装の候補 (サービス間・ライブラリ間) を具体的なファイルパス付きで列挙する
-2. `libs/` への切り出し可否を判断し、`docs/development/architecture.md` の依存関係ルールを守る構成案を示す
+2. `libs/` への切り出し可否を判断し、`docs/platform/rules/architecture.md` の依存関係ルールを守る構成案を示す
 3. 既存ライブラリで代替可能な独自実装があれば統合案を提示する
 4. 型定義の重複がある場合は共通化案を提示する
 
@@ -50,7 +50,7 @@
 
 - 各 Issue は、いつ、どの順番で着手されても成り立つ単位にする。Issue 同士の依存は本文に書かない。
 - 本文には、何がどう重複しているか (ファイルパス付き) と、共通化の方針を書く。
-- タイトルとラベルは [Issue の分類](docs/development/issue-classification.md) に従う。
+- タイトルとラベルは [Issue の分類](docs/platform/rules/issues-and-prs.md) に従う。
 
 ---
 
@@ -71,15 +71,15 @@
 - `libs/` に切り出し可能なユーティリティ関数・コンポーネントがないか
 - `libs/` 配下の既存機能を各サービスが独自実装していないか
 - 複数サービスで同一インターフェース / 型定義が重複していないか
-- 共通化時に `docs/development/architecture.md` に定義された依存関係ルールを維持できるか
+- 共通化時に `docs/platform/rules/architecture.md` に定義された依存関係ルールを維持できるか
 
 ---
 
 ## 📚 参考ドキュメント
 
-- [コーディング規約](docs/development/rules.md)
-- [アーキテクチャ方針](docs/development/architecture.md)
-- [Issue の分類](docs/development/issue-classification.md)
+- [コーディング規約](docs/platform/rules/coding.md)
+- [アーキテクチャ方針](docs/platform/rules/architecture.md)
+- [Issue の分類](docs/platform/rules/issues-and-prs.md)
 
 ---
 

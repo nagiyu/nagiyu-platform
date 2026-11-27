@@ -32,6 +32,7 @@ type GroupDetailClientProps = {
   isOwner: boolean;
   currentUserId: string;
   members: readonly Member[];
+  pendingInvitationCount?: number;
   groupLists?: readonly { listId: string; name: string }[];
 };
 
@@ -48,9 +49,13 @@ export function GroupDetailClient({
   isOwner,
   currentUserId,
   members: initialMembers,
+  pendingInvitationCount: initialPendingInvitationCount = 0,
   groupLists: initialGroupLists = [],
 }: GroupDetailClientProps) {
   const [members, setMembers] = useState<Member[]>([...initialMembers]);
+  const [pendingInvitationCount, setPendingInvitationCount] = useState(
+    initialPendingInvitationCount
+  );
   const [groupLists, setGroupLists] = useState<{ listId: string; name: string }[]>([
     ...initialGroupLists,
   ]);
@@ -299,7 +304,13 @@ export function GroupDetailClient({
             <Typography variant="h6" component="h3" gutterBottom>
               メンバー招待フォーム
             </Typography>
-            <InviteForm groupId={groupId} isOwner={isOwner} memberCount={members.length} />
+            <InviteForm
+              groupId={groupId}
+              isOwner={isOwner}
+              memberCount={members.length}
+              pendingInvitationCount={pendingInvitationCount}
+              onInvited={() => setPendingInvitationCount((prev) => prev + 1)}
+            />
           </CardContent>
         </Card>
       </Stack>

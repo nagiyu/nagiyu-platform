@@ -7,7 +7,7 @@ sources:
   - services/livetalk/core/src/repositories/study-usage-counting.ts
   - services/livetalk/core/src/constants.ts
   - services/livetalk/core/src/notification/decision.ts
-sources_hash: c9dd6d1a50f317f858b2e52c15a720338cd5093d2b5c5dd36b8e729364653918
+sources_hash: 577cd8bacd787c073085e5c9c7004ed725f993452cb79cbd2e07c317567364a0
 ---
 
 # ステータス API

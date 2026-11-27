@@ -6,7 +6,7 @@ sources:
   - infra/livetalk/bin/livetalk.ts
   - infra/common/src/utils/secrets.ts
   - .github/workflows/livetalk-deploy.yml
-sources_hash: 28f8482786d59f8bc05413d2723b3e8e17b90f5f1deb9b7df00100ad93380c87
+sources_hash: 7e833ca2c76deb3df9738b45f547229396871d1e7ed422d1ad73e0f79aaf68e8
 ---
 
 # シークレット

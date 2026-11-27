@@ -29,8 +29,6 @@ export interface SafetyModalProps {
  * - キャラ（桃瀬ひより）の口調で心配を伝えるメッセージは chat-usecase 側で
  *   テキスト/音声として送出済み。このモーダルはリソース案内専用。
  * - 閉じるボタンで通常会話に戻れる（リソースを確認した上で）。
- *
- * @see docs/services/livetalk/external-design.md SCR-008
  */
 export default function SafetyModal({ open, resources, onClose }: SafetyModalProps) {
   const emergencyResource = resources.find((r) => r.phone === '119');

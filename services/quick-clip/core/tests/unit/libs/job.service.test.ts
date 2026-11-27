@@ -146,6 +146,62 @@ describe('JobService', () => {
     await expect(service.getJob('   ')).rejects.toThrow('ジョブIDは必須です');
   });
 
+  describe('getActiveJob', () => {
+    const EXPIRES_AT = 1700000000000;
+    const job: Job = {
+      jobId: 'job-1',
+      originalFileName: 'movie.mp4',
+      fileSize: 1024,
+      createdAt: EXPIRES_AT - 24 * 60 * 60 * 1000,
+      expiresAt: EXPIRES_AT,
+    };
+
+    it.each([
+      ['期限の前', EXPIRES_AT - 1, job],
+      ['ちょうど期限', EXPIRES_AT, null],
+      ['期限の後', EXPIRES_AT + 1, null],
+    ])('%sは、取得結果が一致する', async (_label, now, expected) => {
+      const repository = createJobRepositoryMock();
+      const service = new JobService(repository, () => now);
+      repository.getById.mockResolvedValue(job);
+
+      await expect(service.getActiveJob('job-1')).resolves.toEqual(expected);
+    });
+
+    it('存在しないジョブは null を返す', async () => {
+      const repository = createJobRepositoryMock();
+      const service = new JobService(repository, () => EXPIRES_AT);
+      repository.getById.mockResolvedValue(null);
+
+      await expect(service.getActiveJob('missing')).resolves.toBeNull();
+    });
+
+    it('ジョブIDが空の場合はエラー', async () => {
+      const service = new JobService(createJobRepositoryMock());
+
+      await expect(service.getActiveJob('   ')).rejects.toThrow('ジョブIDは必須です');
+    });
+
+    it('getJob は期限を過ぎたジョブも返す', async () => {
+      const repository = createJobRepositoryMock();
+      const service = new JobService(repository, () => EXPIRES_AT + 1);
+      repository.getById.mockResolvedValue(job);
+
+      await expect(service.getJob('job-1')).resolves.toEqual(job);
+    });
+  });
+
+  it('createJob: 作成時刻と期限は差し替えた時刻から決まる', async () => {
+    const repository = createJobRepositoryMock();
+    const service = new JobService(repository, () => 1700000000000);
+    repository.create.mockImplementation(async (job) => job);
+
+    const result = await service.createJob({ originalFileName: 'movie.mp4', fileSize: 1024 });
+
+    expect(result.createdAt).toBe(1700000000000);
+    expect(result.expiresAt).toBe(1700000000000 + 24 * 60 * 60 * 1000);
+  });
+
   it('updateBatchJobId: ジョブIDが空の場合はエラー', async () => {
     const repository = createJobRepositoryMock();
     const service = new JobService(repository);

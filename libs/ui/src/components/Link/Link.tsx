@@ -54,8 +54,6 @@ export interface LinkProps extends Omit<React.AnchorHTMLAttributes<HTMLAnchorEle
  * - `color` × `underline` で見た目を制御
  * - `asChild` で `next/link` の `<Link>` 等への変身に対応（Radix Slot パターン）
  * - `target="_blank"` などの HTML 属性は素通し
- *
- * @see docs/development/shared-ui-components.md
  */
 const Link = React.forwardRef<HTMLAnchorElement, LinkProps>(function Link(
   { color = 'primary', underline = 'hover', asChild = false, className, children, ...rest },
