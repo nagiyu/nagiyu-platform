@@ -61,12 +61,18 @@ const buildHighlight = (highlightId: string, overrides: Record<string, unknown> 
   ...overrides,
 });
 
+// 期限を過ぎていないことを示す、十分に先の時刻 (ミリ秒)
+const FUTURE_EXPIRES_AT = 4102444800000;
+
+// 期限を過ぎていることを示す、過去の時刻 (ミリ秒)
+const PAST_EXPIRES_AT = 1;
+
 describe('POST /api/jobs/[jobId]/highlights/recover', () => {
   let nowSpy: jest.SpyInstance;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockGetJob.mockResolvedValue({ jobId: 'job-1' });
+    mockGetJob.mockResolvedValue({ jobId: 'job-1', expiresAt: FUTURE_EXPIRES_AT });
     mockGetHighlightById.mockImplementation(async (_jobId: string, highlightId: string) =>
       buildHighlight(highlightId)
     );
@@ -116,6 +122,18 @@ describe('POST /api/jobs/[jobId]/highlights/recover', () => {
     mockGetJob.mockResolvedValue(null);
 
     const response = await callPost('missing');
+    const body = await response.json();
+
+    expect(response.status).toBe(404);
+    expect(body).toEqual(expect.objectContaining({ error: 'JOB_NOT_FOUND' }));
+    expect(mockGetHighlights).not.toHaveBeenCalled();
+    expect(mockUpdateHighlight).not.toHaveBeenCalled();
+  });
+
+  it('異常系: 期限を過ぎたジョブは、削除前でも存在しない場合と同じ 404 を返し、更新しない', async () => {
+    mockGetJob.mockResolvedValue({ jobId: 'job-1', expiresAt: PAST_EXPIRES_AT });
+
+    const response = await callPost('job-1');
     const body = await response.json();
 
     expect(response.status).toBe(404);

@@ -7,9 +7,14 @@ const JOB_TTL_MS = 24 * 60 * 60 * 1000;
 
 export class JobService {
   private readonly jobRepository: JobRepository;
+  private readonly now: () => number;
 
-  constructor(jobRepository: JobRepository) {
+  /**
+   * @param now - 現在時刻 (ミリ秒) を返す関数。期限の判定を時刻に依存させずに確かめるため、差し替えられる
+   */
+  constructor(jobRepository: JobRepository, now: () => number = () => Date.now()) {
     this.jobRepository = jobRepository;
+    this.now = now;
   }
 
   public async createJob(input: CreateJobInput): Promise<Job> {
@@ -27,7 +32,7 @@ export class JobService {
       throw new Error(DOMAIN_ERROR_MESSAGES.DURATION_INVALID);
     }
 
-    const createdAt = Date.now();
+    const createdAt = this.now();
     const job: Job = {
       jobId: randomUUID(),
       originalFileName,
@@ -48,6 +53,20 @@ export class JobService {
       throw new Error(DOMAIN_ERROR_MESSAGES.JOB_ID_REQUIRED);
     }
     return this.jobRepository.getById(jobId);
+  }
+
+  /**
+   * 期限 (expiresAt) を過ぎていないジョブを取得する。期限を過ぎたジョブは null を返す。
+   *
+   * TTL による削除は期限から遅れるため、削除の前後で見え方を変えないよう、利用者向けの参照はこちらを使う。
+   * 処理中のジョブの記録や回数の戻しを期限で止めないため、Batch は getJob を使う
+   */
+  public async getActiveJob(jobId: string): Promise<Job | null> {
+    const job = await this.getJob(jobId);
+    if (job === null || job.expiresAt <= this.now()) {
+      return null;
+    }
+    return job;
   }
 
   public async updateBatchJobId(jobId: string, batchJobId: string): Promise<void> {
