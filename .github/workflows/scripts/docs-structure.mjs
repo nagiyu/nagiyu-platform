@@ -2,16 +2,15 @@
  * docs/ の配置と出典を検査するスクリプト。
  *
  * docs/ の文書は、docs/layout.json の patterns のどれかに置く。
- * 旧配置 (legacy) の文書は、移すまで従来どおりの検査だけを受ける。
  * 文書はコードの写しになりうるため、frontmatter の sources に挙げたファイルの
  * 中身のハッシュで、今のコードと食い違っていないかを機械的に確かめる。
  * npm の依存を増やさないため、Node の標準モジュールだけで書く。
  *
  * 使い方:
- *   node .github/workflows/scripts/docs-structure.mjs update [path|id...]
+ *   node .github/workflows/scripts/docs-structure.mjs update [path...]
  *   node .github/workflows/scripts/docs-structure.mjs check [--forbid-unimplemented]
  *
- * update の引数には文書のファイルのパスか、旧カードの id (例: livetalk/batch/acquire) を渡す。
+ * update の引数には文書のファイルのパスを渡す。
  */
 import { createHash } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
@@ -22,17 +21,13 @@ const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 // 実行場所に依存せず、sources のパスをリポジトリルートから解決するため
 const REPO_ROOT = resolve(SCRIPT_DIR, '..', '..', '..');
 const DOCS_DIR = join(REPO_ROOT, 'docs');
-const SPECS_DIR = join(DOCS_DIR, 'specs');
 const LAYOUT_FILE = join(DOCS_DIR, 'layout.json');
-
-const KINDS = ['batch', 'flow', 'term', 'screen', 'api'];
-const REQUIRED_FIELDS = ['id', 'title', 'kind', 'service', 'sources', 'sources_hash'];
 
 const NEW_DOC_KEYS = ['sources', 'sources_hash', 'unimplemented'];
 
 const MESSAGES = {
   USAGE:
-    '使い方: node .github/workflows/scripts/docs-structure.mjs <update [path|id...] | check [--forbid-unimplemented]>\n' +
+    '使い方: node .github/workflows/scripts/docs-structure.mjs <update [path...] | check [--forbid-unimplemented]>\n' +
     '  update: sources_hash を計算して書き戻す (引数省略時は出典を持つ全文書)\n' +
     '  check : docs の配置と出典の整合を確かめる (ずれがあれば exit 1)\n' +
     '          --forbid-unimplemented: unimplemented: true の文書もエラーにする',
@@ -40,8 +35,7 @@ const MESSAGES = {
   INVALID_LINE: (line) => `frontmatter の行を解釈できません: ${line}`,
   DOC_NOT_FOUND: (arg) => `文書が見つかりません: ${arg}`,
   NOT_IN_LAYOUT:
-    'docs/layout.json の配置に当たらず、legacy にも載っていません (配置の patterns に沿った場所に置いてください)',
-  LEGACY_MISSING: (path) => `legacy に載っていますがファイルがありません (行を消してください): ${path}`,
+    'docs/layout.json の配置に当たりません (配置の patterns に沿った場所に置いてください)',
   PLACEHOLDER_DIR_MISSING: (dir, value) =>
     `配置の ${dir}/${value} に対応するディレクトリがリポジトリにありません`,
   NO_FRONTMATTER: 'frontmatter がありません (sources が必須です)',
@@ -159,7 +153,7 @@ function parseInlineArray(raw) {
 }
 
 /**
- * カードの frontmatter を読む。対応するのはスカラー・`[a, b]`・`- ` のブロック配列だけ。
+ * 文書の frontmatter を読む。対応するのはスカラー・`[a, b]`・`- ` のブロック配列だけ。
  *
  * @returns fields (キー → 値)、lines (全行)、bodyStart (frontmatter 直後の行番号)、
  *   keyRanges (キー → [開始行, 終了行の次]。書き戻し位置の特定に使う)
@@ -211,38 +205,19 @@ function computeSourcesHash(sources) {
   return hash.digest('hex');
 }
 
-/** カードのファイルパスから、docs/specs/ からの相対パス (.md なし) を求める */
-function expectedId(file) {
-  return relative(SPECS_DIR, file).split(sep).join('/').replace(/\.md$/, '');
-}
-
 /**
- * 文書を種別に仕分けして読む。
- * legacyCards: legacy のうち docs/specs/ 配下で frontmatter を持つもの (旧カード)
- * newDocs: 新しい配置の文書 (雛形を除く)
+ * 文書を読み、配置の問題を集める。
+ * newDocs: 配置に当たる文書 (雛形を除く)
  * errors: 配置・読み取りの問題
  */
 function loadDocs(layout) {
-  const legacy = new Set(layout.legacy);
-  const legacyCards = [];
   const newDocs = [];
   const errors = [];
-
-  for (const path of layout.legacy) {
-    if (!existsSync(join(DOCS_DIR, path))) errors.push(`docs/${path}: ${MESSAGES.LEGACY_MISSING(path)}`);
-  }
 
   for (const path of listDocFiles()) {
     const file = join(DOCS_DIR, path);
     const label = `docs/${path}`;
     try {
-      if (legacy.has(path)) {
-        if (!path.startsWith('specs/')) continue;
-        const text = readFileSync(file, 'utf8');
-        if (!normalizeNewlines(text).startsWith('---\n')) continue;
-        legacyCards.push({ file, label, ...parseFrontmatter(text) });
-        continue;
-      }
       const { matched, isTemplate, problem } = matchLayout(path, layout);
       if (!matched) {
         errors.push(`${label}: ${problem ?? MESSAGES.NOT_IN_LAYOUT}`);
@@ -254,32 +229,12 @@ function loadDocs(layout) {
       errors.push(`${label}: ${error.message}`);
     }
   }
-  return { legacyCards, newDocs, errors };
+  return { newDocs, errors };
 }
 
 function asArray(value) {
   if (value === undefined) return [];
   return Array.isArray(value) ? value : [value];
-}
-
-/**
- * related_adr (docs/ からの相対パス + アンカー) が実在する節を指しているかを確かめる。
- * アンカーは見出しの先頭の語 (節番号 2.24 や ADR-003) で、見出しの全文ではない。
- * 見出しの文言を直しても参照が壊れないようにするため。
- *
- * @returns 問題の説明。問題がなければ null
- */
-function validateAdrRef(ref) {
-  const [path, anchor] = ref.split('#');
-  const file = join(DOCS_DIR, path);
-  if (!existsSync(file) || statSync(file).isDirectory()) return 'ファイルがありません';
-  if (anchor === undefined || anchor === '') return null;
-  const escaped = anchor.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const heading = new RegExp(`^#{1,6}\\s+${escaped}(?=[\\s:]|$)`, 'm');
-  if (!heading.test(normalizeNewlines(readFileSync(file, 'utf8')))) {
-    return `見出しが ${anchor} で始まる節がありません`;
-  }
-  return null;
 }
 
 /**
@@ -307,52 +262,6 @@ function validateSources(fields, hashMismatch) {
     if (actual !== fields.sources_hash) problems.push(hashMismatch(fields.sources_hash, actual));
   }
   return problems;
-}
-
-/** 1 枚のカードの問題を日本語で列挙する。問題がなければ空配列 */
-function validateCard(card, knownIds) {
-  const { fields, label, file } = card;
-  const problems = [];
-
-  for (const key of REQUIRED_FIELDS) {
-    const value = fields[key];
-    const missing = value === undefined || (key !== 'sources' && value === '');
-    if (missing) problems.push(`必須項目 ${key} がありません`);
-  }
-
-  const id = expectedId(file);
-  if (fields.id && fields.id !== id) {
-    problems.push(`id (${fields.id}) がファイルの位置 (${id}) と一致しません`);
-  }
-  const segments = id.split('/');
-  if (segments.length !== 3) {
-    problems.push(`配置は docs/specs/{service}/{kind}/{name}.md にしてください (今: ${id})`);
-  } else {
-    if (fields.service && fields.service !== segments[0]) {
-      problems.push(`service (${fields.service}) がディレクトリ (${segments[0]}) と一致しません`);
-    }
-    if (fields.kind && fields.kind !== segments[1]) {
-      problems.push(`kind (${fields.kind}) がディレクトリ (${segments[1]}) と一致しません`);
-    }
-  }
-  if (fields.kind && !KINDS.includes(fields.kind)) {
-    problems.push(`kind (${fields.kind}) は ${KINDS.join(' / ')} のいずれかにしてください`);
-  }
-
-  for (const key of ['terms', 'related_cards']) {
-    for (const ref of asArray(fields[key])) {
-      if (!knownIds.has(ref)) problems.push(`${key} の ${ref} に対応するカードがありません`);
-    }
-  }
-
-  for (const ref of asArray(fields.related_adr)) {
-    const problem = validateAdrRef(ref);
-    if (problem) problems.push(`related_adr の ${ref}: ${problem}`);
-  }
-
-  problems.push(...validateSources(fields, MESSAGES.HASH_MISMATCH));
-
-  return problems.map((message) => `${label}: ${message}`);
 }
 
 /** 新しい配置の文書の問題を日本語で列挙する。問題がなければ空配列 */
@@ -386,10 +295,8 @@ function validateNewDoc(doc, forbidUnimplemented) {
 function runCheck(args) {
   const forbidUnimplemented = args.includes('--forbid-unimplemented');
   const layout = loadLayout();
-  const { legacyCards, newDocs, errors } = loadDocs(layout);
-  const knownIds = new Set(legacyCards.map((card) => expectedId(card.file)));
+  const { newDocs, errors } = loadDocs(layout);
   const problems = [...errors];
-  for (const card of legacyCards) problems.push(...validateCard(card, knownIds));
   for (const doc of newDocs) problems.push(...validateNewDoc(doc, forbidUnimplemented));
 
   if (problems.length > 0) {
@@ -397,32 +304,26 @@ function runCheck(args) {
     for (const problem of problems) console.error(`❌ ${problem}`);
     return 1;
   }
-  const legacyCount = layout.legacy.length;
-  console.log(`✅ docs ${legacyCount + newDocs.length} 本 (うち旧配置 ${legacyCount} 本)、問題なし`);
+  console.log(`✅ docs ${newDocs.length} 本、問題なし`);
   return 0;
 }
 
-/** 引数 (パスか旧カードの id) を更新対象の文書に解決する */
+/** 引数 (文書のパス) を更新対象の文書に解決する */
 function resolveDocArg(arg, targets) {
-  const byId = targets.find((t) => t.id !== undefined && t.id === arg.replace(/\.md$/, ''));
-  if (byId) return byId;
   const absolute = [resolve(process.cwd(), arg), resolve(REPO_ROOT, arg)];
   return targets.find((t) => absolute.includes(t.file));
 }
 
 function runUpdate(args) {
   const layout = loadLayout();
-  const { legacyCards, newDocs, errors } = loadDocs(layout);
+  const { newDocs, errors } = loadDocs(layout);
   if (errors.length > 0) {
     for (const error of errors) console.error(`❌ ${error}`);
     return 1;
   }
 
   // 新しい配置で frontmatter のない文書は検査で別途落ちるため、ここでは対象外にする
-  const all = [
-    ...legacyCards.map((card) => ({ ...card, id: expectedId(card.file) })),
-    ...newDocs.filter((doc) => doc.parsed !== null).map((doc) => ({ ...doc, ...doc.parsed })),
-  ];
+  const all = newDocs.filter((doc) => doc.parsed !== null).map((doc) => ({ ...doc, ...doc.parsed }));
 
   const targets = [];
   let failed = false;

@@ -52,7 +52,7 @@ export function imageRepoPath(service: string, kind: string, fileName: string): 
 }
 
 /**
- * カード (`docs/specs/<service>/<kind>/<name>.md`) から画像への相対リンク。
+ * カード (`docs/services/<service>/specs/<kind>/<name>.md`) から画像への相対リンク。
  * カードの深さは種別ごとに同じなので、固定の段数で上がる。
  */
 export function cardImageLink(service: string, kind: string, fileName: string): string {
