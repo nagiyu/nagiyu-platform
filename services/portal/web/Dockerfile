@@ -16,15 +16,13 @@ ENV NAGIYU_ENV=${NAGIYU_ENV}
 # モノレポ全体のファイルをコピー
 COPY package*.json ./
 COPY configs ./configs/
-COPY libs ./libs/
 COPY services/portal/web ./services/portal/web/
 
 # 依存関係をインストール（ソースコード存在下で実行）
 RUN npm ci
 
-# 共通ライブラリ、web の順にビルドする
+# web をビルドする
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN npm run build:libs
 RUN npm run build --workspace=@nagiyu/portal-web
 
 # 本番ステージ
