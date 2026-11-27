@@ -1,12 +1,7 @@
 ---
-id: portal/api/system
-title: システム系の API
-kind: api
-service: portal
 sources:
   - services/portal/web/src/app/api/health/route.ts
 sources_hash: 78cd1bf57722f563302988e0fe0fed6f3be726eb44640b43159cfa6c87a458f8
-related_cards: [portal/api/sitemap]
 ---
 
 # システム系の API

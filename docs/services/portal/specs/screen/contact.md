@@ -1,16 +1,9 @@
 ---
-id: portal/screen/contact
-title: お問い合わせ画面
-kind: screen
-service: portal
 sources:
   - services/portal/web/src/app/contact/page.tsx
   - services/portal/web/src/lib/contact.ts
   - services/portal/web/src/lib/pageMetadata.ts
 sources_hash: 1a79e9e3b3e17447cdf4deb79c1a515d90d42ff8a8cdddaae96283d4b23d9f55
-related_cards: [portal/screen/about, portal/screen/home]
-related_adr:
-  - services/portal/external-design.md#SCR-005: お問い合わせ
 ---
 
 # お問い合わせ画面
@@ -54,7 +47,7 @@ related_adr:
 
 | スマホ | PC |
 |---|---|
-| ![お問い合わせ画面 通常表示 (スマホ)](../../../images/specs/portal/screen/contact-default-mobile.png) | ![お問い合わせ画面 通常表示 (PC)](../../../images/specs/portal/screen/contact-default-desktop.png) |
+| ![お問い合わせ画面 通常表示 (スマホ)](../../../../images/specs/portal/screen/contact-default-mobile.png) | ![お問い合わせ画面 通常表示 (PC)](../../../../images/specs/portal/screen/contact-default-desktop.png) |
 
 ### 注意事項
 
@@ -62,7 +55,7 @@ related_adr:
 
 | スマホ | PC |
 |---|---|
-| ![お問い合わせ画面 注意事項 (スマホ)](../../../images/specs/portal/screen/contact-notes-mobile.png) | ![お問い合わせ画面 注意事項 (PC)](../../../images/specs/portal/screen/contact-notes-desktop.png) |
+| ![お問い合わせ画面 注意事項 (スマホ)](../../../../images/specs/portal/screen/contact-notes-mobile.png) | ![お問い合わせ画面 注意事項 (PC)](../../../../images/specs/portal/screen/contact-notes-desktop.png) |
 
 ## つながり
 
@@ -72,3 +65,4 @@ flowchart TD
     C -->|フォームを開く| G[Google フォーム]
     C -->|技術者の方へ| I[GitHub Issues]
 ```
+
