@@ -61,6 +61,13 @@ jobs:
           NEXT_SATURDAY=$(TZ=Asia/Tokyo date -d "next saturday" +%Y-%m-%d)
           echo "next_date=$NEXT_SATURDAY" >> $GITHUB_OUTPUT
 
+      # libs/ はルートの workspaces から外れた別の npm プロジェクトなので、別に入れる
+      - name: Install libs dependencies
+        uses: ./.github/actions/setup-node
+        with:
+          cache-dependency-path: './libs/package-lock.json'
+          working-directory: libs
+
       - name: Check npm outdated
         id: outdated
         run: |
@@ -76,6 +83,26 @@ jobs:
           OUTPUT_FILE=$(mktemp)
           .github/workflows/scripts/check-npm-audit.sh > "$OUTPUT_FILE"
           # Base64エンコードして安全に保存
+          ENCODED=$(base64 -w 0 "$OUTPUT_FILE")
+          echo "audit=$ENCODED" >> "$GITHUB_OUTPUT"
+
+      - name: Check npm outdated (libs)
+        id: outdated_libs
+        env:
+          NPM_WORKDIR: libs
+        run: |
+          OUTPUT_FILE=$(mktemp)
+          .github/workflows/scripts/check-npm-outdated.sh > "$OUTPUT_FILE"
+          ENCODED=$(base64 -w 0 "$OUTPUT_FILE")
+          echo "outdated=$ENCODED" >> "$GITHUB_OUTPUT"
+
+      - name: Check npm audit (libs)
+        id: audit_libs
+        env:
+          NPM_WORKDIR: libs
+        run: |
+          OUTPUT_FILE=$(mktemp)
+          .github/workflows/scripts/check-npm-audit.sh > "$OUTPUT_FILE"
           ENCODED=$(base64 -w 0 "$OUTPUT_FILE")
           echo "audit=$ENCODED" >> "$GITHUB_OUTPUT"
 
@@ -102,6 +129,8 @@ jobs:
         env:
           OUTDATED: ${{ steps.outdated.outputs.outdated }}
           AUDIT: ${{ steps.audit.outputs.audit }}
+          OUTDATED_LIBS: ${{ steps.outdated_libs.outputs.outdated }}
+          AUDIT_LIBS: ${{ steps.audit_libs.outputs.audit }}
           DUPLICATES: ${{ steps.duplicates.outputs.duplicates }}
           INCONSISTENCY: ${{ steps.inconsistency.outputs.inconsistency }}
           NEXT_DATE: ${{ steps.next_check.outputs.next_date }}
