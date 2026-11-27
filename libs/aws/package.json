@@ -1,6 +1,6 @@
 {
   "name": "@nagiyu/aws",
-  "version": "0.1.1",
+  "version": "0.2.0-next.0",
   "type": "module",
   "main": "dist/cjs/index.js",
   "types": "dist/src/index.d.ts",
@@ -37,6 +37,6 @@
     "@aws-sdk/client-secrets-manager": "^3.1063.0",
     "@aws-sdk/lib-dynamodb": "^3.1063.0",
     "@aws-sdk/s3-request-presigner": "^3.1063.0",
-    "@nagiyu/common": "^0.1.1"
+    "@nagiyu/common": "^0.2.0-next.0"
   }
 }
