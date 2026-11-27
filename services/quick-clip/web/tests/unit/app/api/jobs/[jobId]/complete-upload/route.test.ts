@@ -50,6 +50,12 @@ jest.mock('next/server', () => ({
   },
 }));
 
+// 期限を過ぎていないことを示す、十分に先の時刻 (ミリ秒)
+const FUTURE_EXPIRES_AT = 4102444800000;
+
+// 期限を過ぎていることを示す、過去の時刻 (ミリ秒)
+const PAST_EXPIRES_AT = 1;
+
 describe('POST /api/jobs/[jobId]/complete-upload', () => {
   const mockedGetBatchClient = getBatchClient as jest.MockedFunction<typeof getBatchClient>;
   const mockedGetS3Client = getS3Client as jest.MockedFunction<typeof getS3Client>;
@@ -71,7 +77,7 @@ describe('POST /api/jobs/[jobId]/complete-upload', () => {
       originalFileName: 'movie.mp4',
       fileSize: 1024,
       createdAt: 1,
-      expiresAt: 2,
+      expiresAt: FUTURE_EXPIRES_AT,
     });
     mockUpdateBatchJobId.mockResolvedValue(undefined);
     mockMarkUsageReleased.mockResolvedValue(true);
@@ -98,7 +104,7 @@ describe('POST /api/jobs/[jobId]/complete-upload', () => {
       originalFileName: 'movie.mp4',
       fileSize: 1024,
       createdAt: 1,
-      expiresAt: 2,
+      expiresAt: FUTURE_EXPIRES_AT,
       usage: consumed.record,
     });
   };
@@ -198,7 +204,7 @@ describe('POST /api/jobs/[jobId]/complete-upload', () => {
       fileSize: 1024,
       durationSec: 12000,
       createdAt: 1,
-      expiresAt: 2,
+      expiresAt: FUTURE_EXPIRES_AT,
     });
 
     const response = await POST(
@@ -227,7 +233,7 @@ describe('POST /api/jobs/[jobId]/complete-upload', () => {
       originalFileName: 'movie.mp4',
       fileSize: 9 * 1024 * 1024 * 1024,
       createdAt: 1,
-      expiresAt: 2,
+      expiresAt: FUTURE_EXPIRES_AT,
     });
 
     const response = await POST(
@@ -296,6 +302,36 @@ describe('POST /api/jobs/[jobId]/complete-upload', () => {
     expect(mockUpdateBatchJobId).not.toHaveBeenCalled();
   });
 
+  it('異常系: 期限を過ぎたジョブは、削除前でも存在しない場合と同じ404を返し、投入しない', async () => {
+    mockGetById.mockResolvedValueOnce({
+      jobId: 'job-1',
+      originalFileName: 'movie.mp4',
+      fileSize: 100,
+      createdAt: 1,
+      expiresAt: PAST_EXPIRES_AT,
+    });
+
+    const response = await POST(
+      createRequest({
+        uploadId: 'upload-1',
+        parts: [{ PartNumber: 1, ETag: '"etag-1"' }],
+      }),
+      {
+        params: Promise.resolve({ jobId: 'job-1' }),
+      }
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(404);
+    expect(body).toEqual({
+      error: 'JOB_NOT_FOUND',
+      message: '指定されたジョブが見つかりません',
+    });
+    expect(s3Send).not.toHaveBeenCalled();
+    expect(batchSend).not.toHaveBeenCalled();
+    expect(mockUpdateBatchJobId).not.toHaveBeenCalled();
+  });
+
   it('異常系: ジョブがPENDING以外の場合は409を返す', async () => {
     mockGetById.mockResolvedValueOnce({
       jobId: 'job-1',
@@ -303,7 +339,7 @@ describe('POST /api/jobs/[jobId]/complete-upload', () => {
       originalFileName: 'movie.mp4',
       fileSize: 1024,
       createdAt: 1,
-      expiresAt: 2,
+      expiresAt: FUTURE_EXPIRES_AT,
     });
 
     const response = await POST(
@@ -435,7 +471,7 @@ describe('POST /api/jobs/[jobId]/complete-upload', () => {
       originalFileName: 'movie.mp4',
       fileSize: 1024,
       createdAt: 1,
-      expiresAt: 2,
+      expiresAt: FUTURE_EXPIRES_AT,
       aiAnalysis: false,
     });
 

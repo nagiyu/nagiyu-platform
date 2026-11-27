@@ -14,7 +14,10 @@ import type { CryptoConfig } from '@nagiyu/niconico-mylist-assistant-core';
 import { createErrorReporter, reportErrorEvent, withErrorReporting } from '@nagiyu/aws';
 import { sendWebPushNotification, getVapidConfig } from '@nagiyu/common/push';
 import { executeMylistRegistration } from './playwright-automation.js';
-import { createBatchCompletionPayload } from './lib/web-push-client.js';
+import {
+  createBatchCompletionPayload,
+  createSessionInvalidPayload,
+} from './lib/web-push-client.js';
 import { determineBatchJobStatus } from './lib/job-status.js';
 import { getTimestamp, toErrorMessage } from '@nagiyu/common';
 import type { PushSubscription } from '@nagiyu/common';
@@ -203,7 +206,7 @@ async function main() {
         // Push 通知で失敗を通知
         if (pushSubscription && params.jobId) {
           try {
-            const notificationPayload = createBatchCompletionPayload(params.jobId, 0, 0, 0);
+            const notificationPayload = createSessionInvalidPayload(params.jobId);
             await sendWebPushNotification(pushSubscription, notificationPayload, getVapidConfig());
           } catch (notifyError) {
             console.error('失敗通知の送信中にエラーが発生しました:', notifyError);

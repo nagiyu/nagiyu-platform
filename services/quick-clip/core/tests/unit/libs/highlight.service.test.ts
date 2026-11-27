@@ -18,8 +18,11 @@ const baseHighlight: Highlight = {
   source: 'motion',
   status: 'unconfirmed',
   clipStatus: 'PENDING',
-  expiresAt: 1700000000,
+  // 期限を過ぎていない、十分に先の時刻 (ミリ秒)
+  expiresAt: 4102444800000,
 };
+
+const EXPIRES_AT = 1700000000000;
 
 describe('HighlightService', () => {
   it('jobId で見どころ一覧を取得する', async () => {
@@ -211,5 +214,60 @@ describe('HighlightService', () => {
       clipGeneratingStartedAt: 1700000000000,
     });
     expect(result).toEqual(updated);
+  });
+
+  describe('期限 (expiresAt) を過ぎた見どころ', () => {
+    const expiring: Highlight = { ...baseHighlight, expiresAt: EXPIRES_AT };
+
+    it.each([
+      ['期限の前', EXPIRES_AT - 1, true],
+      ['ちょうど期限', EXPIRES_AT, false],
+      ['期限の後', EXPIRES_AT + 1, false],
+    ])('getHighlights: %sは、見どころを返す = %s', async (_label, now, visible) => {
+      const repository = createRepositoryMock();
+      const service = new HighlightService(repository, () => now);
+      repository.getByJobId.mockResolvedValue([expiring, baseHighlight]);
+
+      const result = await service.getHighlights('job-1');
+
+      expect(result).toEqual(visible ? [expiring, baseHighlight] : [baseHighlight]);
+    });
+
+    it.each([
+      ['期限の前', EXPIRES_AT - 1, expiring],
+      ['ちょうど期限', EXPIRES_AT, null],
+      ['期限の後', EXPIRES_AT + 1, null],
+    ])('getHighlight: %sは、取得結果が一致する', async (_label, now, expected) => {
+      const repository = createRepositoryMock();
+      const service = new HighlightService(repository, () => now);
+      repository.getById.mockResolvedValue(expiring);
+
+      await expect(service.getHighlight('job-1', 'h1')).resolves.toEqual(expected);
+    });
+
+    it('updateHighlight: 期限の前は更新できる', async () => {
+      const repository = createRepositoryMock();
+      const service = new HighlightService(repository, () => EXPIRES_AT - 1);
+      repository.getById.mockResolvedValue(expiring);
+      repository.update.mockResolvedValue({ ...expiring, status: 'accepted' });
+
+      await service.updateHighlight('job-1', 'h1', { status: 'accepted' });
+
+      expect(repository.update).toHaveBeenCalledWith('job-1', 'h1', { status: 'accepted' });
+    });
+
+    it.each([
+      ['ちょうど期限', EXPIRES_AT],
+      ['期限の後', EXPIRES_AT + 1],
+    ])('updateHighlight: %sは見つからない扱いで、更新しない', async (_label, now) => {
+      const repository = createRepositoryMock();
+      const service = new HighlightService(repository, () => now);
+      repository.getById.mockResolvedValue(expiring);
+
+      await expect(service.updateHighlight('job-1', 'h1', { status: 'accepted' })).rejects.toThrow(
+        '見どころが見つかりません'
+      );
+      expect(repository.update).not.toHaveBeenCalled();
+    });
   });
 });

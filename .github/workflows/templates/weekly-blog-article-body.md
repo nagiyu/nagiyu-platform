@@ -98,7 +98,7 @@ Issue → integration/{issue-number}-{slug} ブランチ（develop から分岐�
 - 既存記事: `services/portal/web/src/content/tech/`
 - 記事読み込みロジック: `services/portal/web/src/lib/content.ts`
 - frontmatter 型: `services/portal/web/src/types/content.ts`
-- 開発フロー: `CLAUDE.md`, `docs/development/flow.md`
+- 開発フロー: `CLAUDE.md`
 
 ---
 

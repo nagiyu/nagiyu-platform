@@ -12,7 +12,7 @@ sources:
   - services/niconico-mylist-assistant/batch/playwright.config.ts
   - services/niconico-mylist-assistant/batch/.env.local.example
   - services/niconico-mylist-assistant/batch/tests/integration/mylist-registration.spec.ts
-sources_hash: c0cb20d1973e1ed34a7c090e76b46a9d74bebd8a2a6ede3afd0112795f177983
+sources_hash: 1669e325bfb88bcc24dc856e0c93046dea79541b4ebf12c1435d1547b62fe41e
 ---
 
 # マイリスト登録バッチ (mylist-register)
@@ -41,7 +41,7 @@ flowchart TD
     A[① 入力を検証] --> B[② 購読を読み<br/>RUNNING に更新]
     B --> C[③ セッションを復号]
     C --> D{④ セッションの有効性}
-    D -->|無効| X[FAILED を保存<br/>失敗を通知して終了]
+    D -->|無効| X[FAILED を保存<br/>失敗の通知を送って終了]
     D -->|有効・判定不能| E[⑤ ブラウザを起動<br/>セッションを注入]
     E --> F[⑥ 既存のマイリストを全削除]
     F --> G[⑦ マイリストを作成]
@@ -83,6 +83,8 @@ flowchart TD
 | 成功が 0 件 | マイリスト登録に失敗しました (M 件) |
 | 一部失敗 | X 件登録完了、M 件失敗 (成功率 P%)。P は四捨五入した整数 |
 
+セッション無効の失敗通知は、完了通知とは別の通知で、題名が「マイリスト登録失敗」、本文が「ニコニコのセッションが無効なため、マイリスト登録を開始できませんでした。セッションを再設定してください」。通知をタップすると、セッション管理があるマイリスト登録画面 (`/mylist/register`) が開く。件数は含めない。
+
 - 宛先が無効 (購読の失効、または `endpoint` が許可されない。判定は [Web Push](../../../../platform/specs/lib/common/web-push.md)のとおり) だと、警告を出すだけ。送信のほかの失敗も、ジョブの成否には影響しない
 
 ## 上限
@@ -97,7 +99,7 @@ flowchart TD
 |---|---|---|---|---|
 | 環境変数や入力の不正 (① の失敗) | 更新しない (`SUBMITTED` のまま) | critical 「バッチジョブ全体の失敗」 | なし | 1 |
 | 復号の失敗 | `FAILED`、`errorMessage` は「user_session の復号化に失敗しました: ...」 | critical 「user_session 復号化失敗」と、続けて critical 「バッチジョブ全体の失敗」 | なし | 1 |
-| セッションが無効 | `FAILED`、`errorMessage` は「user_session が無効です。再取得してください」 | error 「user_session 無効」 | 送る。件数が 0 のため、本文は「全 0 件のマイリスト登録が完了しました」になる | 1 |
+| セッションが無効 | `FAILED`、`errorMessage` は「user_session が無効です。再取得してください」 | error 「user_session 無効」 | 送る (セッション無効の失敗通知。下) | 1 |
 | ブラウザの処理の例外 (全削除・作成・起動の失敗) | `FAILED`、全動画を失敗として保存、`errorMessage` に原因 | error 「Playwright 自動化処理失敗」と、続けて critical 「バッチジョブ全失敗」 | 送る (失敗の本文) | 1 |
 | 全動画の登録に失敗 | `FAILED` | critical 「バッチジョブ全失敗」 | 送る (失敗の本文) | 1 |
 | 一部の動画の登録に失敗 | `SUCCEEDED` (`failedCount` が 1 以上) | なし | 送る (成功率の本文) | 0 |

@@ -2,7 +2,7 @@
 sources:
   - docs/layout.json
   - .github/workflows/scripts/docs-structure.mjs
-sources_hash: 0ba0bb6c9174719988e4b11e87955953ef3aebc5f64fd44360437e712bc1a70f
+sources_hash: 1cdb37a8b4ed6386487a5242ddeff57d41adb95c6ad9f4e37dc693cfac366812
 ---
 
 # docs の書き方
@@ -21,6 +21,7 @@ sources_hash: 0ba0bb6c9174719988e4b11e87955953ef3aebc5f64fd44360437e712bc1a70f
 
 ```
 docs/
+├── README.md                     公開サイトのホーム
 ├── services/
 │   ├── _template/                サービス 1 つ分の雛形
 │   └── <service>/
@@ -52,7 +53,7 @@ docs/
 
 一緒に変わるものを 1 つの文書にする。同じ内容をほかの文書に書かず、リンクする。2 か所に書くと、片方だけが古くなる。
 
-README・目次・ドキュメント一覧は手で書かない。公開サイトのサイドバーが `docs/layout.json` から作る。手で書いた一覧は、文書を足すたびに直し漏れが出るためである。
+README・目次・ドキュメント一覧は手で書かない。公開サイトのサイドバーが `docs/layout.json` から作る。手で書いた一覧は、文書を足すたびに直し漏れが出るためである。例外は `docs/README.md` の 1 本で、公開サイトのホームになる入口のページとして、リポジトリとサイトの説明と章の読み分けだけを書く。文書の一覧は書かない。
 
 ## 種別と単位
 
@@ -136,7 +137,3 @@ README・目次・ドキュメント一覧は手で書かない。公開サイ�
 | リンク切れと docs の外へのリンクがない (`python3 .github/workflows/scripts/check-doc-links.py`) | 全文書 |
 
 本文の見出しが型に合っているかは検査しない。docs の外のファイルへはリンクを張らず、コード表記のパスで書く。docs だけを公開する先でリンクが壊れないようにするためである。
-
-## 旧配置の文書
-
-まだ新しい配置へ移していない文書は、`docs/layout.json` の `legacy` に挙げてある。`legacy` の文書は移すまで従来どおりの検査だけを受け、新しい配置の規則 (frontmatter の 3 項目など) は求められない。移したら `legacy` から外す。
