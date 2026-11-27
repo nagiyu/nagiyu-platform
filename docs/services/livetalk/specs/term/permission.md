@@ -4,24 +4,22 @@ sources:
   - libs/nextjs/src/auth.ts
   - libs/nextjs/src/middleware.ts
   - services/livetalk/web/src/middleware.ts
-sources_hash: e0447c92da19018a1d7d56092bddc5a87130e3730d73d8120960b06a01b3ff8e
+sources_hash: 1d54fca99c411f393e047a339e50e7f076052deb15766f99b3296eb6b2e3f8f8
 ---
 
 # 権限とロール
 
-リブトークの画面と API は、ログインした利用者のロールが持つ 2 つの権限で、使える操作を分ける。ロールの定義は[ロールと権限の定義](../../../../platform/specs/lib/common/roles-and-permissions.md)にある。
+リブトークは、ログインしていれば誰でも使える。管理者向けの機能だけを、ログインした利用者のロールが持つ権限 `livetalk:admin` で分ける。ロールの定義は[ロールと権限の定義](../../../../platform/specs/lib/common/roles-and-permissions.md)にある。
 
 ## 説明
 
-| 権限 | できること | 持つロール |
-|---|---|---|
-| `livetalk:chat` | 会話、記憶・ノートの閲覧、同意、通知の受け取り、退会など、利用者向けの機能すべて | `livetalk-user`、`livetalk-admin` |
-| `livetalk:admin` | ステータス画面、ステータス API、テスト通知の送信 | `livetalk-admin` |
+| 条件 | できること |
+|---|---|
+| ログインしていること | 会話、記憶・ノートの閲覧、同意、通知の受け取り、退会など、利用者向けの機能すべて |
+| `livetalk:admin` (ロール `livetalk-admin` が持つ) | ステータス画面、ステータス API、テスト通知の送信 |
 
-- `livetalk-admin` は `livetalk:chat` も持つ。利用者向けの機能も使える
-- ページはミドルウェアが `livetalk:chat` を要求する
+- ページはミドルウェアがログインだけを確かめ、権限は見ない
     - 未ログインは、Auth サービスのサインインへ移す
-    - ログイン済みで権限がなければ、`/forbidden?from={元のパス}` へ移す ([権限なし画面](../screen/forbidden.md))
-    - `/legal/` 配下と `/forbidden` は、権限の判定をしない
-- `/api` 配下はミドルウェアを通らず、各 API が自分で判定する。未ログインは 401 (`UNAUTHORIZED`)、権限がなければ 403 (`FORBIDDEN`)。本文の形は [API のエラー応答](./api-error.md)
+    - `/legal/` 配下は、ログインしていなくても開ける
+- `/api` 配下はミドルウェアを通らず、各 API が自分で判定する。未ログインは 401 (`UNAUTHORIZED`)、`livetalk:admin` を求める API で権限がなければ 403 (`FORBIDDEN`)。本文の形は [API のエラー応答](./api-error.md)
 - ステータス画面は、ミドルウェアが通したあと、画面自身が `livetalk:admin` を確かめる。持たなければ「アクセス権限がありません」を出す

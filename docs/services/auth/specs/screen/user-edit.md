@@ -12,7 +12,7 @@ sources:
   - services/auth/web/src/app/api/users/[userId]/stripe-customer/route.ts
   - services/auth/web/src/lib/manual-roles.ts
   - libs/common/src/auth/role-grants.ts
-sources_hash: f895f6aa4944997e077ac080b47144e59a9d2c92975b5f9b3c61530fbe4925bb
+sources_hash: 707cba227b2c2210e0fe0108be5def9a3cb2132fa6168a15295eb89069f7e2c5
 ---
 
 # ユーザー編集画面

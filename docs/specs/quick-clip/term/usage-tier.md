@@ -8,7 +8,7 @@ sources:
   - services/quick-clip/web/src/lib/server/usage-context.ts
   - libs/common/src/auth/roles.ts
   - libs/common/src/auth/permissions.ts
-sources_hash: ae9c6a09806f97869266d0efd97f55cb599058e0635ece489fb2158406297666
+sources_hash: 96727adca2ec1ef411d5dffd3fbd000a93f37d56ec96f104ec8517459e393d2e
 terms: []
 related_cards: [quick-clip/api/usage, quick-clip/api/jobs, quick-clip/flow/usage-metering, quick-clip/screen/upload]
 related_adr:
