@@ -27,18 +27,13 @@ const mockGetCurrentPrice = jest.fn();
 let mockFinnhubGetCurrentPrice: jest.Mock;
 
 // モックの設定
-// createScheduledHandler の骨格は本物を使い、骨格内部のエラー報告も同じモックで観測できるよう
-// 報告関数の実体モジュールを差し替える。
-jest.mock('../../../../../libs/aws/src/error-events/report.js', () => ({
-  ...jest.requireActual('../../../../../libs/aws/src/error-events/report.js'),
-  reportErrorEvent: jest.fn().mockResolvedValue(null),
-}));
+// createScheduledHandler の骨格は本物を使う。骨格内部のエラー報告も、レポーターと同じ in-memory の
+// 書き込み先に入るため、getReportedEvents() でまとめて観測できる。
 jest.mock('@nagiyu/aws', () => {
   const actual = jest.requireActual('@nagiyu/aws');
   return {
     ...jest.createMockFromModule('@nagiyu/aws'),
     createScheduledHandler: actual.createScheduledHandler,
-    reportErrorEvent: actual.reportErrorEvent,
     // レポーターは実物を通し、書き込み先の in-memory ライターで報告内容を確かめる
     createErrorReporter: actual.createErrorReporter,
     createErrorEventWriter: actual.createErrorEventWriter,
@@ -479,7 +474,6 @@ describe('minute batch handler', () => {
       // 共有セッション・新規 WS リトライともに失敗
       mockSession.getCurrentPrice.mockRejectedValue(new Error('TradingView API タイムアウト'));
       mockGetCurrentPrice.mockRejectedValue(new Error('TradingView API タイムアウト（新規 WS）'));
-      (awsClients.reportErrorEvent as jest.Mock).mockResolvedValue(null);
 
       // Act
       const response = await handler(mockEvent);
@@ -555,18 +549,17 @@ describe('minute batch handler', () => {
       // Arrange
       const dbError = new Error('DynamoDB 接続エラー');
       mockAlertRepo.getByFrequency.mockRejectedValue(dbError);
-      (awsClients.reportErrorEvent as jest.Mock).mockResolvedValue(null);
 
       // Act & Assert
       await expect(handler(mockEvent)).rejects.toBe(dbError);
-      expect(awsClients.reportErrorEvent).toHaveBeenCalledWith(
+      expect(getReportedEvents()).toEqual([
         expect.objectContaining({
           serviceId: 'stock-tracker',
           severity: 'error',
           title: '分次バッチ: 致命的エラー',
           message: 'DynamoDB 接続エラー',
-        })
-      );
+        }),
+      ]);
     });
   });
 
@@ -984,7 +977,6 @@ describe('minute batch handler', () => {
       (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(true);
       mockSession.getCurrentPrice.mockRejectedValue(new Error('TradingView API タイムアウト'));
       mockGetCurrentPrice.mockRejectedValue(new Error('TradingView API タイムアウト（新規 WS）'));
-      (awsClients.reportErrorEvent as jest.Mock).mockResolvedValue(null);
 
       // Act
       await handler(mockEvent);
@@ -1037,7 +1029,7 @@ describe('minute batch handler', () => {
       expect(body.statistics.notificationsSent).toBe(0);
       expect(body.statistics.errors).toBe(0);
       expect(body.statistics.invalidSubscriptions).toBe(1);
-      expect(awsClients.reportErrorEvent).not.toHaveBeenCalled();
+      expect(getReportedEvents()).toEqual([]);
       expect(exitSpy).not.toHaveBeenCalled();
       expect(mockAlertRepo.update).not.toHaveBeenCalled();
       expect(mockAlertRepo.delete).not.toHaveBeenCalled();
@@ -1052,7 +1044,6 @@ describe('minute batch handler', () => {
       (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(true);
       mockSession.getCurrentPrice.mockRejectedValue(new Error('TradingView API タイムアウト'));
       mockGetCurrentPrice.mockRejectedValue(new Error('TradingView API タイムアウト（新規 WS）'));
-      (awsClients.reportErrorEvent as jest.Mock).mockResolvedValue(null);
 
       // Act
       await handler(mockEvent);
@@ -1103,7 +1094,7 @@ describe('minute batch handler', () => {
       expect(body.statistics.notificationsSent).toBe(1);
     });
 
-    it('1 回目・2 回目ともに失敗: errors が増え reportErrorEvent が呼ばれる', async () => {
+    it('1 回目・2 回目ともに失敗: errors が増えエラーが報告される', async () => {
       // Arrange
       const alert = makeAlert();
       mockAlertRepo.getByFrequency.mockResolvedValue([alert]);
@@ -1113,7 +1104,6 @@ describe('minute batch handler', () => {
       // 共有セッション失敗 → 新規 WS も失敗
       mockSession.getCurrentPrice.mockRejectedValue(new Error('共有セッション タイムアウト'));
       mockGetCurrentPrice.mockRejectedValue(new Error('新規 WS タイムアウト'));
-      (awsClients.reportErrorEvent as jest.Mock).mockResolvedValue(null);
 
       // Act
       const response = await handler(mockEvent);
@@ -1242,7 +1232,6 @@ describe('minute batch handler', () => {
 
       // Finnhub エラー（fresh-WS リトライなしで直接 catch に流れる）
       mockFinnhubGetCurrentPrice.mockRejectedValue(new Error('Finnhub API タイムアウト'));
-      (awsClients.reportErrorEvent as jest.Mock).mockResolvedValue(null);
 
       // Act
       await handler(mockEvent);
@@ -1263,7 +1252,6 @@ describe('minute batch handler', () => {
       (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(true);
 
       mockFinnhubGetCurrentPrice.mockRejectedValue(new Error('Finnhub API エラー'));
-      (awsClients.reportErrorEvent as jest.Mock).mockResolvedValue(null);
 
       // Act
       const response = await handler(mockEvent);

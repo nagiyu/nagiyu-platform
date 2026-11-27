@@ -16,14 +16,7 @@ const config: Config = {
     '\\.module\\.css$': 'identity-obj-proxy',
     '^@/(.*)$': '<rootDir>/src/$1',
     '^@nagiyu/auth-core$': '<rootDir>/../core/src/index.ts',
-    '^@nagiyu/aws$': '<rootDir>/../../../libs/aws/src/index.ts',
-    '^@nagiyu/common$': '<rootDir>/../../../libs/common/src/index.ts',
-    '^@nagiyu/browser$': '<rootDir>/../../../libs/browser/src/index.ts',
-    '^@nagiyu/nextjs$': '<rootDir>/../../../libs/nextjs/src/index.ts',
-    '^@nagiyu/nextjs/(.*)$': '<rootDir>/../../../libs/nextjs/src/$1.ts',
-    '^@nagiyu/ui/session-provider$': '<rootDir>/../../../libs/ui/src/session-provider.ts',
-    '^@nagiyu/ui$': '<rootDir>/../../../libs/ui/src/index.ts',
-    // ESM .js extension to .ts mapping for libs/common
+    // ESM の .js 拡張子付き相対 import を .ts に解決する
     '^(\\.{1,2}/.*)\\.js$': '$1',
   },
   testMatch: ['**/tests/unit/**/*.test.ts', '**/tests/unit/**/*.test.tsx'],
