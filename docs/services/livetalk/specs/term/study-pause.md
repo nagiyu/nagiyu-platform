@@ -2,7 +2,7 @@
 sources:
   - services/livetalk/core/src/study/active-window.ts
   - services/livetalk/core/src/constants.ts
-sources_hash: bad771fe4a4b051f581767283636767680422f61376ce2306f8834cbadfd5b60
+sources_hash: ed2b4b641e51bd53e811a328cfaa0ba3ad607590865b5bb021a77da8360f411d
 ---
 
 # 勉強の停止 (3 日ルール)

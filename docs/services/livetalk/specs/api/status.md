@@ -5,7 +5,7 @@ sources:
   - services/livetalk/web/src/lib/server/status.ts
   - services/livetalk/core/src/constants.ts
   - services/livetalk/core/src/notification/decision.ts
-sources_hash: 70336fe79a1347fe60a27b028ddc25ac61f5bacbcfebb983c0a8fc2ae8492549
+sources_hash: 271affe2df66ccc62bc646af9e2daafd3dab8d0e3682e72223239b632c06011b
 ---
 
 # ステータス API

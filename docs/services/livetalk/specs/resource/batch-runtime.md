@@ -3,7 +3,7 @@ sources:
   - infra/livetalk/lib/batch-stack.ts
   - infra/livetalk/bin/livetalk.ts
   - infra/livetalk/lib/batch-ecr-stack.ts
-sources_hash: ca59657b36d2894461d3c6a16a21cea2d8795e695e5aa2017df9df90b14a7d45
+sources_hash: ade4233f44b7361dacb1680e075b9256e4f6f56972256de237dc591b21ee12a3
 ---
 
 # バッチの実行環境
@@ -71,6 +71,7 @@ EventBridge のルールのターゲットと、Lambda の関数のどちらに�
 | `DYNAMODB_TABLE_NAME` | [テーブル](../data/main-table.md)の名前 | 4 つ | `nagiyu-livetalk-dynamodb-{env}` |
 | `TZ` | プロセスのタイムゾーン | 4 つ | `Asia/Tokyo` |
 | `ERROR_EVENTS_TABLE_NAME` | エラー履歴の書き込み先 | 4 つ | `nagiyu-error-events-{env}`。共通部品が設定する |
+| `AUTH_USERS_TABLE_NAME` | 区分を決めるために読む [Auth のユーザーテーブル](../../../auth/specs/data/users.md)の名前 | 取得 | `nagiyu-auth-users-{env}` |
 | `OPENAI_API_KEY` | OpenAI の API キー | 通知・集約・取得 | [シークレット](./secrets.md)。デプロイ時に Secrets Manager から取り出して渡す |
 | `VAPID_PUBLIC_KEY`、`VAPID_PRIVATE_KEY` | Web Push の署名キー | 通知 | [シークレット](./secrets.md)。デプロイ時に取り出して渡す |
 
@@ -84,9 +85,10 @@ EventBridge のルールのターゲットと、Lambda の関数のどちらに�
 | 4 つとも | AWS 管理ポリシー `AWSLambdaBasicExecutionRole` | ログの出力に必要な操作 |
 | 4 つとも | [テーブル](../data/main-table.md)とそのインデックス | 読み書き (`grantReadWriteData`) |
 | 4 つとも | 自分のバッチの DLQ | メッセージの送信 |
+| 取得 | [Auth のユーザーテーブル](../../../auth/specs/data/users.md) | `dynamodb:GetItem` だけ |
 | 4 つとも | [エラーイベントのテーブル](../../../../platform/specs/data/error-events.md) | `dynamodb:PutItem` (共通部品の既定) |
 
-- ロールは、バッチごとに別々に作る。同じ権限だが、DLQ は自分のキューにだけ送れる
+- ロールは、バッチごとに別々に作る。同じ権限だが、DLQ は自分のキューにだけ送れる。取得だけが Auth のユーザーテーブルを読める
 - どのロールも Secrets Manager を読まない。OpenAI API キーと VAPID キーは、デプロイのときに環境変数として渡す
 - テーブルのインデックスを読む権限の付け方は、[テーブル](../data/main-table.md)の「手順」にある
 

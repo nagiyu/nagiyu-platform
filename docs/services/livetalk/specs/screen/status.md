@@ -7,7 +7,7 @@ sources:
   - services/livetalk/web/src/components/StatusTestPush.tsx
   - services/livetalk/core/src/notification/decision.ts
   - services/livetalk/core/src/constants.ts
-sources_hash: a431b75014d362a722bee3bce2b6ad9c000fa7c0e67860d4c68199b3dd879ae2
+sources_hash: a4596a9d6f8737972507b2f6a62f2f28e614fb725086d3d0fd9b9d9e75d4b850
 ---
 
 # ステータス画面

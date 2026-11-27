@@ -27,7 +27,7 @@ sources:
   - services/livetalk/core/src/mappers/safety-event.mapper.ts
   - services/livetalk/core/src/mappers/notification-event.mapper.ts
   - services/livetalk/core/src/mappers/push-subscription.mapper.ts
-sources_hash: 821b7f197de95b3d6c1eb2b012778710bd8f05e02e661c484bad1568b07b95b0
+sources_hash: c8c56300e63e24a9411bce845b23c4d3b77fc9047aa416e4ebcc0f47ddd05843
 ---
 
 # LiveTalk のテーブル
@@ -59,7 +59,7 @@ LiveTalk のデータをすべて保存する DynamoDB の 1 つのテーブル�
 
 | 属性 | 値 |
 |---|---|
-| パーティションキー `PK` | `USER#{利用者 ID}` (どの種類も同じ) |
+| パーティションキー `PK` | `USER#{利用者 ID}`。全利用者の勉強の 1 日の合計の回数だけ `GLOBAL#STUDYUSAGE` |
 | ソートキー `SK` | 種類ごとの形 (下の表) |
 
 `{c}` は[キャラクター](../term/character.md)の ID、`{t}` は話題の ID。
@@ -81,6 +81,7 @@ LiveTalk のデータをすべて保存する DynamoDB の 1 つのテーブル�
 | [鮮度確認の依頼](../term/freshness-check-request.md) | `FreshnessCheckRequest` | `CHAR#{c}#FRESHCHECK#{t}` |
 | [勉強の依頼](../term/study-topic.md) | `StudyTopic` | `CHAR#{c}#STUDY#{t}` |
 | 勉強の 1 日の回数 | `StudyUsage` | `STUDYUSAGE#{YYYYMMDD}` |
+| 全利用者の勉強の 1 日の合計の回数 (`PK` は `GLOBAL#STUDYUSAGE`) | `StudyUsage` | `STUDYUSAGE#{YYYYMMDD}` |
 | [セーフティ](../term/safety.md)の検出の記録 | `SafetyEvent` | `SAFETY#{ULID}` |
 | [通知の記録](../term/notification-event.md) | `NotificationEvent` | `NOTIF#{ULID}` |
 | Push の購読 | `PushSubscription` | `PUSH_SUBSCRIPTION#{購読 ID}` |
@@ -90,6 +91,7 @@ LiveTalk のデータをすべて保存する DynamoDB の 1 つのテーブル�
 - 1 つの話題の ヘッダ・SELF fact・WEB fact は、同じ `CHAR#{c}#TOPIC#{t}#` の接頭辞で束ねる。この接頭辞の `begins_with` で、1 回の Query で 1 話題をまとめて取れる
 - 話題の束の外に置くもの (`NOTESKIP`、`EXPLORE`、`FRESHCHECK`) がある。束の `begins_with` に混ざらないようにするため
 - `STUDYUSAGE` の日は日本時間の暦日。キャラクター別の回数 (`Count#{c}`) と、利用者の合計 (`Count#total`) を、1 つの項目の属性に持つ
+- 全利用者の合計は、日ごとに 1 つの項目の `Count#total` で数える。`USER#` の配下の外に置くので、退会で消えず、利用者の回数とも混ざらない ([勉強バッチ](../batch/acquire.md))
 - `RATELIMIT` の窓の番号は、`1m` ならエポック分、`1h` ならエポック時 (`Count` を数える)
 - 退会したあとの SafetyEvent は、`UserID` が `ANON#{ULID}` に置き換わり、`PK` が `USER#ANON#{ULID}` に付け替わる ([アカウント API](../api/account.md))
 
@@ -168,7 +170,7 @@ LiveTalk のデータをすべて保存する DynamoDB の 1 つのテーブル�
 | 勉強の依頼 | 作ってから 30 日 |
 | 鮮度確認の依頼 | 作ってから 7 日 |
 | セーフティの検出の記録 | 検出から 3 年 (1,095 日)。退会で匿名化しても、期限は引き継ぐ |
-| 勉強の 1 日の回数 | 日本時間のその日が終わった 1 日後 |
+| 勉強の 1 日の回数 (利用者別・全利用者の合計) | 日本時間のその日が終わった 1 日後 |
 | チャットのレート制限 | `1m` の窓は、次の分の始まりの 120 秒後。`1h` の窓は、次の時の始まりの 7,200 秒後 |
 | チャットのロック | ロックの期限 (600 秒) の 300 秒後 |
 
