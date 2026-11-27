@@ -43,7 +43,7 @@ const roles = sources ? getEffectiveRoles(sources.roles, sources.roleGrants, Dat
 
 | 関数・クラス・定数 | 内容 |
 |---|---|
-| `UserMapper` | `User` と項目を相互に変える [EntityMapper](./entity-mapper.md)。キーは `userId` |
+| `UserMapper` | `User` と項目を相互に変える [EntityMapper](./entity-mapper.md)。キーは `userId`。auth のユーザーのリポジトリが使う |
 | `readRoles(item)` | 項目から手動のロールを読む |
 | `readRoleGrants(item)` | 項目から課金の権利を読む。属性がなければ `undefined` |
 | `roleGrantToItem(grant)` / `roleGrantToEntity(value)` | 権利 1 つと、保存形式の map を相互に変える |
