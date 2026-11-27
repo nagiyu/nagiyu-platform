@@ -1,4 +1,8 @@
-import { ERROR_MESSAGES as GROUP_ERROR_MESSAGES, inviteMember } from '@nagiyu/share-together-core';
+import {
+  ERROR_MESSAGES as GROUP_ERROR_MESSAGES,
+  inviteMember,
+  isInvitationExpired,
+} from '@nagiyu/share-together-core';
 import { withApiErrorReporting } from '@/lib/api-error-reporting';
 import { NextResponse } from 'next/server';
 import { readJsonObjectBody } from '@nagiyu/nextjs';
@@ -67,6 +71,11 @@ export const GET = withApiErrorReporting(
     const acceptedMemberships = memberships.filter(
       (membership) => membership.status === 'ACCEPTED'
     );
+    // 招待の上限判定は承認済みと期限内の招待中の合計で行うため、画面へ招待中の人数も返す
+    const now = Date.now();
+    const pendingInvitationCount = memberships.filter(
+      (membership) => membership.status === 'PENDING' && !isInvitationExpired(membership, now)
+    ).length;
     const users = await Promise.all(
       acceptedMemberships.map((membership) => userRepository.getById(membership.userId))
     );
@@ -89,7 +98,7 @@ export const GET = withApiErrorReporting(
       })
       .filter((member): member is NonNullable<typeof member> => member !== null);
 
-    return NextResponse.json({ data: { members } });
+    return NextResponse.json({ data: { members, pendingInvitationCount } });
   }
 );
 

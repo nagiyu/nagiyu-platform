@@ -10,17 +10,28 @@ type InviteFormProps = {
   groupId: string;
   isOwner: boolean;
   memberCount: number;
+  pendingInvitationCount: number;
+  onInvited: () => void;
 };
 
+// core の GROUP_RULES.MAX_MEMBER_COUNT と同じ値。クライアントから core を import すると
+// サーバー専用の AWS SDK までバンドルに入るため、値だけを持つ。
 const MAX_GROUP_MEMBERS = 5;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-export function InviteForm({ groupId, isOwner, memberCount }: InviteFormProps) {
+export function InviteForm({
+  groupId,
+  isOwner,
+  memberCount,
+  pendingInvitationCount,
+  onInvited,
+}: InviteFormProps) {
   const [email, setEmail] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const isMemberLimitReached = memberCount >= MAX_GROUP_MEMBERS;
+  // API は承認済みと期限内の招待中の合計で上限を判定するため、画面も同じ数え方にする
+  const isMemberLimitReached = memberCount + pendingInvitationCount >= MAX_GROUP_MEMBERS;
 
   const handleSubmit = async () => {
     const trimmedEmail = email.trim();
@@ -54,6 +65,7 @@ export function InviteForm({ groupId, isOwner, memberCount }: InviteFormProps) {
 
       setSubmitted(true);
       setEmail('');
+      onInvited();
     } catch (error) {
       console.error('メンバー招待の送信に失敗しました', { error });
       setSubmitted(false);

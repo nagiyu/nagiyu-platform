@@ -69,8 +69,8 @@ body:
       label: 関連ドキュメント
       description: 関連する設計書や仕様書へのパスを記載してください
       placeholder: |
-        - docs/services/example/requirements.md
-        - docs/services/example/basic-design.md
+        - docs/services/<service>/requirements/functional/<name>.md
+        - docs/services/<service>/specs/screen/<name>.md
 
   - type: markdown
     attributes:

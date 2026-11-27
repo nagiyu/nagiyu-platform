@@ -88,7 +88,7 @@ function toItems(docsDir: string, labels: Layout['labels'], node: TreeNode): Sid
 /**
  * 新しい配置の文書から、サイドバーの木を作る。
  * patterns に当たる文書だけを木にし、並びは patterns の順、同じ形に当たるものは名前順にする。
- * 当たらない文書 (旧配置) は触らない。
+ * 当たらない文書は載せない。
  *
  * @param files docs 直下からの相対パス。除外すべきものは呼び出し側で除いておく
  */

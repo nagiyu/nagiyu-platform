@@ -214,6 +214,51 @@ test.describe('グループ管理', () => {
     await expect(page.getByText('グループメンバーは最大5名です')).toBeVisible();
   });
 
+  test('承認済みと招待中の合計が5名に到達している場合は招待ボタンが無効化される', async ({
+    page,
+    request,
+  }) => {
+    const groupId = 'group-member-limit-pending';
+    const now = Date.now();
+    const acceptedUsers = LIMIT_MEMBER_USERS.slice(0, 2);
+    const pendingUsers = LIMIT_MEMBER_USERS.slice(2);
+    await resetTestData(request, {
+      users: [OWNER_USER, ...LIMIT_MEMBER_USERS],
+      groups: [{ groupId, name: '招待中上限グループ', ownerUserId: OWNER_USER.userId }],
+      memberships: [
+        {
+          groupId,
+          userId: OWNER_USER.userId,
+          role: 'OWNER',
+          status: 'ACCEPTED',
+          respondedAt: now,
+        },
+        ...acceptedUsers.map((user) => ({
+          groupId,
+          userId: user.userId,
+          role: 'MEMBER' as const,
+          status: 'ACCEPTED' as const,
+          invitedBy: OWNER_USER.userId,
+          invitedAt: now,
+          respondedAt: now,
+        })),
+        ...pendingUsers.map((user) => ({
+          groupId,
+          userId: user.userId,
+          role: 'MEMBER' as const,
+          status: 'PENDING' as const,
+          invitedBy: OWNER_USER.userId,
+          invitedAt: now,
+        })),
+      ],
+    });
+
+    await page.goto('/groups');
+    await page.getByRole('heading', { level: 2, name: '招待中上限グループ' }).first().click();
+    await expect(page.getByRole('button', { name: '招待を送信' })).toBeDisabled();
+    await expect(page.getByText('グループメンバーは最大5名です')).toBeVisible();
+  });
+
   test('UI制御をバイパスして招待 API が 409 を返した場合に上限エラーメッセージが表示される', async ({
     page,
     request,

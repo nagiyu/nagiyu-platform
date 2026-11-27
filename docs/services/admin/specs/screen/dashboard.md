@@ -7,7 +7,7 @@ sources:
   - services/admin/web/src/app/layout.tsx
   - services/admin/web/src/middleware.ts
   - libs/react/src/hooks/usePushSubscription.ts
-sources_hash: 263882025d29b2a5a92c6b414c1a93a2e217e10e7c94f299133acb189c295f54
+sources_hash: 0cbdd7dd66ff6960db2156cb980560fb618bd2a17f35e454e7087e052b318549
 ---
 
 # ダッシュボード画面
@@ -18,11 +18,11 @@ sources_hash: 263882025d29b2a5a92c6b414c1a93a2e217e10e7c94f299133acb189c295f54
 
 - パスは `/dashboard`。`/` を開くと、ここへリダイレクトする
 - ヘッダーの「Admin」(ホームに戻るリンク) から来る
-- 未ログインのときは、ミドルウェアが Auth サービスのサインイン画面 (`/signin`) へリダイレクトし、ログイン後に戻る ([認証ミドルウェア](../../../../platform/specs/lib/nextjs/auth-middleware.md))。`SKIP_AUTH_CHECK` が `true` のときは、リダイレクトしない。ミドルウェアを通ったあとにセッションが取れなかったときも、画面自身が `/signin` へリダイレクトする (戻り先は付かない)。サインイン画面の場所の環境変数 (`NEXT_PUBLIC_AUTH_URL`、`NEXTAUTH_URL`) がどちらもなければ、相対の `/signin` へ移る
+- 未ログインのときは、ミドルウェアが Auth サービスのサインイン画面 (`/signin`) へリダイレクトし、ログイン後に戻る ([認証ミドルウェア](../../../../platform/specs/lib/nextjs/auth-middleware.md))。ログインしていても `users:read` がなければ、[権限なし画面](./forbidden.md) (`/forbidden`) へリダイレクトする。`SKIP_AUTH_CHECK` が `true` のときは、どちらもリダイレクトしない。ミドルウェアを通ったあとにセッションが取れなかったときも、画面自身が `/signin` へリダイレクトする (戻り先は付かない)。サインイン画面の場所の環境変数 (`NEXT_PUBLIC_AUTH_URL`、`NEXTAUTH_URL`) がどちらもなければ、相対の `/signin` へ移る
 
 ## 表示の条件
 
-- ログインしていれば、権限がなくても開ける
+- `users:read` を持つ利用者 (`admin` と `user-manager`) だけが開ける
 - カードは権限で出し分ける。判定は[ロールと権限](../../../../platform/specs/lib/common/roles-and-permissions.md)に従う ([権限とロール](../term/permission.md))
     - 「通知設定」は `notifications:write` を持つときだけ
     - 「エラー履歴」は `errors:read` を持つときだけ

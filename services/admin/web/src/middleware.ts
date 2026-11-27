@@ -4,8 +4,11 @@ import { createAuthMiddleware } from '@nagiyu/nextjs/middleware';
 /**
  * Admin サービスのミドルウェア
  *
- * Auth サービスから発行された JWT を検証し、未認証ユーザーを
- * Auth サービスのサインインページにリダイレクトする。
+ * Auth サービスから発行された JWT を検証し、`users:read` permission を持つ
+ * ロール (admin / user-manager) のユーザーのみアクセスを許可する。未認証ユーザーは
+ * Auth サービスのサインインページへリダイレクトする。認証済みでも permission がない場合、
+ * ページは元のパスを from に付けて /forbidden へリダイレクトする (createAuthMiddleware の既定)。
+ * `/api` は matcher で除外しており、各 API ルートが自身で権限を判定する。
  *
  * 開発・テスト環境では、SKIP_AUTH_CHECK=true を設定することで
  * 認証チェックをスキップできます。
@@ -13,6 +16,9 @@ import { createAuthMiddleware } from '@nagiyu/nextjs/middleware';
 export default auth(
   createAuthMiddleware({
     getSignInBaseUrl: () => process.env.NEXT_PUBLIC_AUTH_URL || process.env.NEXTAUTH_URL,
+    requiredPermission: 'users:read',
+    // /forbidden は権限なしページのリダイレクト先。権限判定の対象にするとリダイレクトがループする。
+    publicPaths: ['/forbidden'],
   })
 );
 
