@@ -1,8 +1,4 @@
 ---
-id: portal/screen/about
-title: About 画面
-kind: screen
-service: portal
 sources:
   - services/portal/web/src/app/about/page.tsx
   - services/portal/web/src/components/AboutProfile.tsx
@@ -10,10 +6,6 @@ sources:
   - services/portal/web/src/components/AboutPolicy.tsx
   - services/portal/web/src/lib/pageMetadata.ts
 sources_hash: 2485e62b24702560f2b22a756c9da67f5830d957ac389b5067a33a346455aab5
-related_cards: [portal/screen/home, portal/screen/tech-article, portal/screen/contact, portal/screen/legal]
-related_adr:
-  - services/portal/external-design.md#1.1 画面一覧
-  - services/portal/architecture.md#ADR-004: 技術メディアへの単一目的化（サービスハブの撤去）を採択した理由
 ---
 
 # About 画面
@@ -64,7 +56,7 @@ related_adr:
 
 | スマホ | PC |
 |---|---|
-| ![About 画面 通常表示 (スマホ)](../../../images/specs/portal/screen/about-default-mobile.png) | ![About 画面 通常表示 (PC)](../../../images/specs/portal/screen/about-default-desktop.png) |
+| ![About 画面 通常表示 (スマホ)](../../../../images/specs/portal/screen/about-default-mobile.png) | ![About 画面 通常表示 (PC)](../../../../images/specs/portal/screen/about-default-desktop.png) |
 
 ### 運営方針
 
@@ -72,7 +64,7 @@ related_adr:
 
 | スマホ | PC |
 |---|---|
-| ![About 画面 運営方針 (スマホ)](../../../images/specs/portal/screen/about-policy-mobile.png) | ![About 画面 運営方針 (PC)](../../../images/specs/portal/screen/about-policy-desktop.png) |
+| ![About 画面 運営方針 (スマホ)](../../../../images/specs/portal/screen/about-policy-mobile.png) | ![About 画面 運営方針 (PC)](../../../../images/specs/portal/screen/about-policy-desktop.png) |
 
 ## つながり
 
