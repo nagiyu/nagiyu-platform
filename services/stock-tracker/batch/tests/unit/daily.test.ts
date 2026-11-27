@@ -214,6 +214,7 @@ describe('daily batch handler', () => {
 
   describe('正常系: 無効なサブスクリプションが存在する場合', () => {
     it('無効なサブスクリプションを検出してログ出力する', async () => {
+      const warnSpy = jest.spyOn(logger, 'warn');
       respondWithPages({
         'ALERT#MINUTE_LEVEL': [
           [
@@ -253,6 +254,16 @@ describe('daily batch handler', () => {
       expect(body.statistics.totalAlerts).toBe(3);
       expect(body.statistics.validSubscriptions).toBe(1);
       expect(body.statistics.invalidSubscriptions).toBe(2);
+      expect(warnSpy).toHaveBeenCalledWith('無効な Web Push サブスクリプションを検出しました', {
+        alertId: 'alert-3',
+        userId: 'user-alert-3',
+        tickerId: 'NSDQ:AAPL',
+      });
+      // 購読の endpoint は個人情報にあたるため、警告ログに含めない
+      for (const [, meta] of warnSpy.mock.calls) {
+        expect(JSON.stringify(meta)).not.toContain('invalid-url');
+        expect(meta).not.toHaveProperty('subscriptionEndpoint');
+      }
     });
 
     it('Mapper が読めないアラート (endpoint が空文字など) も、無効に数えて手動削除のログに含める', async () => {

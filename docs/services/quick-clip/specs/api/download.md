@@ -5,7 +5,7 @@ sources:
   - services/quick-clip/web/src/lib/server/aws.ts
   - services/quick-clip/web/src/lib/api-error-reporting.ts
   - services/quick-clip/core/src/libs/highlight.service.ts
-sources_hash: fc2d0ab396d03033b3c86f41922b0163bb27f4c738ed72952eb61696e24ed576
+sources_hash: 60db1244548dd3e152e5bff2ed1d3ea471b547700688a7a8e68297ea4826dcdd
 ---
 
 # ダウンロード API
@@ -26,12 +26,13 @@ sources_hash: fc2d0ab396d03033b3c86f41922b0163bb27f4c738ed72952eb61696e24ed576
 開始 (`POST`)。
 
 - 出力は 202 で `{ status: 'PROCESSING' }`
-- 受け付ける条件は、ジョブに見どころがあり、採用 (`accepted`) したものが 1 件以上あり、採用したものがすべて `GENERATED` であること
+- 受け付ける条件は、ジョブが期限 (`expiresAt`) を過ぎておらず、期限を過ぎていない見どころがあり、採用 (`accepted`) したものが 1 件以上あり、採用したものがすべて `GENERATED` であること
 - 受け付けると、先にあった ZIP を消し (なければ何もしない)、[ZIP 生成](../batch/zip-generate.md)の Lambda を非同期で起動する。渡すのは `jobId` と、採用した見どころごとの `highlightId`、`order`、`startSec`、`endSec`
 - 古い ZIP を消すのに、「ない」以外の理由で失敗したときは、警告のログと、Admin への報告 (warning、題名は「Web API: 旧 ZIP 削除エラー」) を残して、生成は続ける
 
 取得 (`GET`)。
 
+- ジョブが期限を過ぎていれば、ZIP を探さず 404。TTL の削除は遅れ、期限後は S3 のファイルも消えているため、削除の前後で見え方を変えない
 - ZIP が S3 にあるかを調べる。ないときは 202 で `{ status: 'PROCESSING' }`
 - あるときは 200 で `{ jobId, fileName, downloadUrl }`。`fileName` は `{jobId}-clips.zip`、`downloadUrl` は ZIP への署名付き URL で、有効 300 秒
 - どの ZIP かは区別しない。開始のときに古い ZIP を消すので、開始のあとに見つかる ZIP は、今回のものになる
@@ -42,7 +43,8 @@ sources_hash: fc2d0ab396d03033b3c86f41922b0163bb27f4c738ed72952eb61696e24ed576
 
 | 条件 | 状態 | `error` | `message` |
 |---|---|---|---|
-| 開始: ジョブに見どころが 1 件もない (ジョブがないときを含む) | 404 | `JOB_NOT_FOUND` | 指定されたジョブが見つかりません |
+| 開始、取得: ジョブがない、または期限を過ぎている | 404 | `JOB_NOT_FOUND` | 指定されたジョブが見つかりません |
+| 開始: ジョブに見どころが 1 件もない (期限を過ぎた見どころだけのときを含む) | 404 | `JOB_NOT_FOUND` | 指定されたジョブが見つかりません |
 | 開始: 採用した見どころがない | 400 | `DOWNLOAD_NOT_AVAILABLE` | 採用された見どころがありません |
 | 開始: 採用した見どころに `FAILED` がある | 409 | `CLIP_GENERATION_FAILED` | 採用された見どころに生成に失敗したクリップがあります。リトライするか、採用を外してください |
 | 開始: 採用した見どころに `PENDING` か `GENERATING` がある | 409 | `CLIP_GENERATION_INCOMPLETE` | 採用された見どころのクリップ生成が完了していません |
@@ -57,7 +59,7 @@ sources_hash: fc2d0ab396d03033b3c86f41922b0163bb27f4c738ed72952eb61696e24ed576
 ```mermaid
 flowchart TD
     H[見どころ確認画面] -->|開始・確認| A[ダウンロード API]
-    A --> D[(見どころのテーブル)]
+    A --> D[(ジョブ・見どころのテーブル)]
     A -->|旧 ZIP の削除・存在確認・署名付き URL| S[(S3 バケット)]
     A -->|非同期で起動| Z[ZIP 生成]
     Z --> S

@@ -76,4 +76,11 @@ describe('記事カードのリンク', () => {
       '/tech/sample'
     );
   });
+
+  it('記事一覧ページのカード題名は「記事一覧」(h2) の下の h3 になる', () => {
+    render(<TechPage />);
+    expect(screen.getByRole('heading', { level: 2, name: '記事一覧' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 3, name: 'サンプル記事' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { level: 2, name: 'サンプル記事' })).toBeNull();
+  });
 });

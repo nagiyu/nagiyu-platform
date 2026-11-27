@@ -4,7 +4,7 @@ sources:
   - services/share-together/web/src/lib/invitation-errors.ts
   - services/share-together/web/src/lib/invitation-events.ts
   - services/share-together/web/src/lib/constants/errors.ts
-sources_hash: 272d4950e9ef46a97bddc7da4985938ab1567b1b6827290fdd798666575df246
+sources_hash: 1346e70c94a7069c08f3dee587900a31d78ac3c2b0f620d4c03e6e3d18b72dea
 ---
 
 # 招待画面
@@ -33,7 +33,7 @@ sources_hash: 272d4950e9ef46a97bddc7da4985938ab1567b1b6827290fdd798666575df246
 
 - 読み込み中は「読み込み中...」を出す
 - 0 件のときは「招待はありません。」
-- 取得に失敗すると、「招待一覧の取得に失敗しました。」の通知を出す。このとき一覧は空のままなので、「招待はありません。」も出る (失敗と 0 件を区別しない)
+- 取得に失敗すると、「招待一覧の取得に失敗しました。」の通知を出す。このとき 0 件の案内は出さず、一覧は空のままになる
 - 通知は 4 秒で消える
 
 ## 操作
@@ -104,7 +104,7 @@ sources_hash: 272d4950e9ef46a97bddc7da4985938ab1567b1b6827290fdd798666575df246
 
 ### 一覧の取得に失敗したとき
 
-通知を出す。一覧は空なので「招待はありません。」も出る。
+通知だけを出す。「招待はありません。」は出さない。
 
 | スマホ | PC |
 |---|---|

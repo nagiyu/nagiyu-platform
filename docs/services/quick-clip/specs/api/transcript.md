@@ -2,7 +2,7 @@
 sources:
   - services/quick-clip/web/src/app/api/jobs/[jobId]/transcript/route.ts
   - services/quick-clip/web/src/lib/api-error-reporting.ts
-sources_hash: f80cce5f3256b5edbdd326adfdcf256930007c3775bb22315233f6168889b8d3
+sources_hash: 1274e7c62a90f0bf51c13c11b4fab824d6e6be4a87da4f5423e86acfb84b7492
 ---
 
 # 文字起こし API
@@ -21,6 +21,7 @@ sources_hash: f80cce5f3256b5edbdd326adfdcf256930007c3775bb22315233f6168889b8d3
 - 文字起こしがないときは `{ segments: [] }`。ファイル (`outputs/{jobId}/transcript.json`) がない、または S3 の応答に本文のオブジェクトがない、のときである。AI 解析をしなかったジョブ、文字起こしが 0 行だったジョブは、ファイルがない。本文はあっても中身が空の文字列のときは、JSON として読めず、500 になる
 - ファイルの中身は JSON として読み、並びも内容も検査せずにそのまま返す
 - ジョブが処理中でも、ジョブがあればファイルを探す
+- 期限 (`expiresAt`) を過ぎたジョブは、TTL で消える前でも、ジョブがないときと同じに扱い、ファイルを探さない。TTL の削除は遅れ、期限後は S3 のファイルも消えているため、削除の前後で見え方を変えない
 
 ## エラー
 
@@ -28,7 +29,7 @@ sources_hash: f80cce5f3256b5edbdd326adfdcf256930007c3775bb22315233f6168889b8d3
 
 | 条件 | 状態 | `error` | `message` |
 |---|---|---|---|
-| ジョブがない | 404 | `JOB_NOT_FOUND` | 指定されたジョブが見つかりません |
+| ジョブがない、または期限を過ぎている | 404 | `JOB_NOT_FOUND` | 指定されたジョブが見つかりません |
 | 想定外の例外 (S3 の失敗で「ない」以外のもの、JSON として読めないなど) | 500 | `INTERNAL_SERVER_ERROR` | 文字起こし情報の取得に失敗しました |
 
 ## つながり
