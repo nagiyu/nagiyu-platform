@@ -1,6 +1,14 @@
 import { DEFAULT_NOTIFICATION_ICON } from '@nagiyu/common/push';
 import type { NotificationPayload } from '@nagiyu/common';
 
+const SESSION_INVALID_NOTIFICATION = {
+  TITLE: 'マイリスト登録失敗',
+  BODY: 'ニコニコのセッションが無効なため、マイリスト登録を開始できませんでした。セッションを再設定してください',
+  // セッション管理がある画面。通知タップ時の遷移先として Service Worker が data.url を参照する
+  URL: '/mylist/register',
+  TYPE: 'batch-session-invalid',
+} as const;
+
 /**
  * バッチ完了通知のペイロードを生成する
  *
@@ -37,6 +45,25 @@ export function createBatchCompletionPayload(
       failedCount,
       totalCount,
       type: 'batch-completion',
+    },
+  };
+}
+
+/**
+ * セッション無効でバッチを開始できなかったときの失敗通知のペイロードを生成する
+ *
+ * @param jobId - ジョブID
+ * @returns 通知ペイロード
+ */
+export function createSessionInvalidPayload(jobId: string): NotificationPayload {
+  return {
+    title: SESSION_INVALID_NOTIFICATION.TITLE,
+    body: SESSION_INVALID_NOTIFICATION.BODY,
+    icon: DEFAULT_NOTIFICATION_ICON,
+    data: {
+      jobId,
+      type: SESSION_INVALID_NOTIFICATION.TYPE,
+      url: SESSION_INVALID_NOTIFICATION.URL,
     },
   };
 }
