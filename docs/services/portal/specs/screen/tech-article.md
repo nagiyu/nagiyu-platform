@@ -1,8 +1,4 @@
 ---
-id: portal/screen/tech-article
-title: 記事詳細画面
-kind: screen
-service: portal
 sources:
   - services/portal/web/src/app/tech/[slug]/page.tsx
   - services/portal/web/src/components/MarkdownContent.tsx
@@ -11,11 +7,6 @@ sources:
   - services/portal/web/src/lib/jsonLd.ts
   - services/portal/web/src/lib/author.ts
 sources_hash: cb9e5880d85c3380723d5312f3fff5d3b8bb8d96c795e0cbb13796a979b1f876
-terms: [portal/term/article, portal/term/tag, portal/term/category]
-related_cards: [portal/screen/tech, portal/screen/about, portal/screen/not-found, portal/flow/article-publishing]
-related_adr:
-  - services/portal/external-design.md#SCR-003: 技術記事詳細
-  - services/portal/architecture.md#ADR-002: gray-matter + remark/rehype（plain Markdown）を採択した理由
 ---
 
 # 記事詳細画面
@@ -72,7 +63,7 @@ related_adr:
 
 | スマホ | PC |
 |---|---|
-| ![記事詳細画面 通常表示 (スマホ)](../../../images/specs/portal/screen/tech-article-default-mobile.png) | ![記事詳細画面 通常表示 (PC)](../../../images/specs/portal/screen/tech-article-default-desktop.png) |
+| ![記事詳細画面 通常表示 (スマホ)](../../../../images/specs/portal/screen/tech-article-default-mobile.png) | ![記事詳細画面 通常表示 (PC)](../../../../images/specs/portal/screen/tech-article-default-desktop.png) |
 
 ### 関連記事
 
@@ -80,7 +71,7 @@ related_adr:
 
 | スマホ | PC |
 |---|---|
-| ![記事詳細画面 関連記事 (スマホ)](../../../images/specs/portal/screen/tech-article-related-mobile.png) | ![記事詳細画面 関連記事 (PC)](../../../images/specs/portal/screen/tech-article-related-desktop.png) |
+| ![記事詳細画面 関連記事 (スマホ)](../../../../images/specs/portal/screen/tech-article-related-mobile.png) | ![記事詳細画面 関連記事 (PC)](../../../../images/specs/portal/screen/tech-article-related-desktop.png) |
 
 ## つながり
 
@@ -93,3 +84,7 @@ flowchart TD
     A -->|著者名| B[About 画面]
     X[存在しない slug] --> N[404 画面]
 ```
+
+## 理由
+
+- [タグ](../term/tag.md)と[カテゴリ](../term/category.md)は、記事の分類を示す非リンクのラベルにする。専用の集約ページへはリンクしない。集約ページを持たない理由は[目的](../../requirements/purpose.md)にある
