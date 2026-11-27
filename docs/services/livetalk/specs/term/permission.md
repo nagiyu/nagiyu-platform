@@ -23,3 +23,4 @@ sources_hash: 9f041c69e7d0bc4a7e58671649767d90a80c5bc1a4ee0fc5262f78b5d91531b1
     - `/legal/` 配下は、ログインしていなくても開ける
 - `/api` 配下はミドルウェアを通らず、各 API が自分で判定する。未ログインは 401 (`UNAUTHORIZED`)、`livetalk:admin` を求める API で権限がなければ 403 (`FORBIDDEN`)。本文の形は [API のエラー応答](./api-error.md)
 - ステータス画面は、ミドルウェアが通したあと、画面自身が `livetalk:admin` を確かめる。持たなければ「アクセス権限がありません」を出す
+- 勉強の 1 日の回数は、`livetalk:operator` (運営者) と `livetalk:standard` (スタンダード) で区分を決める。使える機能は変わらない。区分と回数は[勉強バッチ](../batch/acquire.md)にある
