@@ -33,6 +33,12 @@ jest.mock('@nagiyu/quick-clip-core', () => ({
   ),
 }));
 
+// 期限を過ぎていないことを示す、十分に先の時刻 (ミリ秒)
+const FUTURE_EXPIRES_AT = 4102444800000;
+
+// 期限を過ぎていることを示す、過去の時刻 (ミリ秒)
+const PAST_EXPIRES_AT = 1;
+
 describe('GET /api/jobs/[jobId]', () => {
   const mockedGetBatchClient = getBatchClient as jest.MockedFunction<typeof getBatchClient>;
   const batchSend = jest.fn();
@@ -52,7 +58,7 @@ describe('GET /api/jobs/[jobId]', () => {
       originalFileName: 'movie.mp4',
       fileSize: 100,
       createdAt: 1,
-      expiresAt: 2,
+      expiresAt: FUTURE_EXPIRES_AT,
     });
 
     const response = await GET(mockRequest, {
@@ -67,7 +73,7 @@ describe('GET /api/jobs/[jobId]', () => {
       originalFileName: 'movie.mp4',
       fileSize: 100,
       createdAt: 1,
-      expiresAt: 2,
+      expiresAt: FUTURE_EXPIRES_AT,
     });
     expect(batchSend).not.toHaveBeenCalled();
   });
@@ -79,7 +85,7 @@ describe('GET /api/jobs/[jobId]', () => {
       fileSize: 100,
       durationSec: 125.5,
       createdAt: 1,
-      expiresAt: 2,
+      expiresAt: FUTURE_EXPIRES_AT,
     });
 
     const response = await GET(mockRequest, {
@@ -97,7 +103,7 @@ describe('GET /api/jobs/[jobId]', () => {
       originalFileName: 'movie.mp4',
       fileSize: 100,
       createdAt: 1,
-      expiresAt: 2,
+      expiresAt: FUTURE_EXPIRES_AT,
     };
 
     mockGetJob.mockResolvedValue({ ...base, durationSec: 60 });
@@ -119,7 +125,7 @@ describe('GET /api/jobs/[jobId]', () => {
       originalFileName: 'movie.mp4',
       fileSize: 200,
       createdAt: 1,
-      expiresAt: 2,
+      expiresAt: FUTURE_EXPIRES_AT,
     });
     batchSend.mockResolvedValue({ jobs: [{ status: 'RUNNING' }] });
 
@@ -136,7 +142,7 @@ describe('GET /api/jobs/[jobId]', () => {
       originalFileName: 'movie.mp4',
       fileSize: 200,
       createdAt: 1,
-      expiresAt: 2,
+      expiresAt: FUTURE_EXPIRES_AT,
     });
   });
 
@@ -147,7 +153,7 @@ describe('GET /api/jobs/[jobId]', () => {
       originalFileName: 'movie.mp4',
       fileSize: 300,
       createdAt: 1,
-      expiresAt: 2,
+      expiresAt: FUTURE_EXPIRES_AT,
     });
     batchSend.mockResolvedValue({ jobs: [{ status: 'SUCCEEDED' }] });
 
@@ -168,7 +174,7 @@ describe('GET /api/jobs/[jobId]', () => {
       originalFileName: 'movie.mp4',
       fileSize: 400,
       createdAt: 1,
-      expiresAt: 2,
+      expiresAt: FUTURE_EXPIRES_AT,
       errorMessage: '処理に失敗しました',
     });
     batchSend.mockResolvedValue({ jobs: [{ status: 'FAILED' }] });
@@ -190,7 +196,7 @@ describe('GET /api/jobs/[jobId]', () => {
       originalFileName: 'movie.mp4',
       fileSize: 400,
       createdAt: 1,
-      expiresAt: 2,
+      expiresAt: FUTURE_EXPIRES_AT,
       errorMessage: '動画の長さがご利用の上限を超えているため、処理できませんでした',
     });
     batchSend.mockResolvedValue({ jobs: [{ status: 'SUCCEEDED' }] });
@@ -215,7 +221,7 @@ describe('GET /api/jobs/[jobId]', () => {
         originalFileName: 'movie.mp4',
         fileSize: 500,
         createdAt: 1,
-        expiresAt: 2,
+        expiresAt: FUTURE_EXPIRES_AT,
       });
       batchSend.mockResolvedValue({ jobs: [{ status: batchStatus }] });
 
@@ -236,7 +242,7 @@ describe('GET /api/jobs/[jobId]', () => {
       originalFileName: 'movie.mp4',
       fileSize: 600,
       createdAt: 1,
-      expiresAt: 2,
+      expiresAt: FUTURE_EXPIRES_AT,
     });
     batchSend.mockResolvedValue({ jobs: [] });
 
@@ -264,6 +270,28 @@ describe('GET /api/jobs/[jobId]', () => {
     });
   });
 
+  it('異常系: 期限を過ぎたジョブは、削除前でも存在しない場合と同じ404を返す', async () => {
+    mockGetJob.mockResolvedValue({
+      jobId: 'job-1',
+      originalFileName: 'movie.mp4',
+      fileSize: 100,
+      createdAt: 1,
+      expiresAt: PAST_EXPIRES_AT,
+    });
+
+    const response = await GET(mockRequest, {
+      params: Promise.resolve({ jobId: 'job-1' }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(404);
+    expect(body).toEqual({
+      error: 'JOB_NOT_FOUND',
+      message: '指定されたジョブが見つかりません',
+    });
+    expect(batchSend).not.toHaveBeenCalled();
+  });
+
   it('異常系: DynamoDB呼び出しで例外が発生した場合は404を返す', async () => {
     mockGetJob.mockRejectedValue(new Error('DynamoDB error'));
 
@@ -286,7 +314,7 @@ describe('GET /api/jobs/[jobId]', () => {
       originalFileName: 'movie.mp4',
       fileSize: 700,
       createdAt: 1,
-      expiresAt: 2,
+      expiresAt: FUTURE_EXPIRES_AT,
     });
     batchSend.mockRejectedValue(new Error('Batch API error'));
 
@@ -316,7 +344,7 @@ describe('GET /api/jobs/[jobId]', () => {
       originalFileName: 'movie.mp4',
       fileSize: 500,
       createdAt: 1,
-      expiresAt: 2,
+      expiresAt: FUTURE_EXPIRES_AT,
     });
     batchSend.mockResolvedValue({ jobs: [{ status: 'RUNNING' }] });
 
@@ -338,7 +366,7 @@ describe('GET /api/jobs/[jobId]', () => {
       originalFileName: 'movie.mp4',
       fileSize: 500,
       createdAt: 1,
-      expiresAt: 2,
+      expiresAt: FUTURE_EXPIRES_AT,
     });
     batchSend.mockResolvedValue({ jobs: [{ status: 'RUNNING' }] });
 

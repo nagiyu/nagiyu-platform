@@ -262,4 +262,44 @@ describe('GroupDetailClient', () => {
       expect(screen.getByText('グループから脱退しました。')).toBeInTheDocument();
     });
   });
+
+  it('招待中を含めて上限に達しているときは招待フォームを無効にする', () => {
+    render(
+      <GroupDetailClient
+        groupId="g"
+        groupName="家族"
+        isOwner={true}
+        currentUserId="user-owner"
+        members={MOCK_MEMBERS}
+        pendingInvitationCount={2}
+      />
+    );
+
+    expect(screen.getByText('グループメンバーは最大5名です')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '招待を送信' })).toBeDisabled();
+  });
+
+  it('招待を送信すると招待中の人数が増え、上限に達したら招待フォームを無効にする', async () => {
+    global.fetch = jest.fn(
+      async () => ({ ok: true, json: async () => ({ data: {} }) }) as Response
+    );
+    render(
+      <GroupDetailClient
+        groupId="g"
+        groupName="家族"
+        isOwner={true}
+        currentUserId="user-owner"
+        members={MOCK_MEMBERS}
+        pendingInvitationCount={1}
+      />
+    );
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'メールアドレス' }), {
+      target: { value: 'new@example.com' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '招待を送信' }));
+
+    expect(await screen.findByText('グループメンバーは最大5名です')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '招待を送信' })).toBeDisabled();
+  });
 });

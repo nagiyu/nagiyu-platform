@@ -7,7 +7,8 @@
  * - SafetyEvent: 匿名トークン（`ANON#<ulid>`）を 1 つ発行し、
  *   TransactWriteCommand で 1 件ずつ原子的に re-key（旧 PK 削除 + 新 PK への Put）する。
  *
- * @see docs/services/livetalk/architecture.md §2.21（ADR-2.21）
+ * 匿名トークンは userId から導かずランダムに作る。userId から決まった値を導くと
+ * 同じ利用者の記録を横断して束ねられ、個人を識別する値を切り離したことにならない。
  */
 
 import { TransactWriteCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';

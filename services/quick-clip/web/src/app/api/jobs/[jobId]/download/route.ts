@@ -1,11 +1,15 @@
 import { DeleteObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
 import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import { createPresignedDownloadUrl } from '@nagiyu/aws';
-import { createHighlightRepository } from '@nagiyu/quick-clip-core';
+import { createHighlightRepository, createJobRepository } from '@nagiyu/quick-clip-core';
 import { NextResponse } from 'next/server';
 import { InvokeCommand } from '@aws-sdk/client-lambda';
 import { errorReporter, withApiErrorReporting } from '@/lib/api-error-reporting';
-import { DOMAIN_ERROR_MESSAGES, HighlightDomainService } from '@/lib/server/domain-services';
+import {
+  DOMAIN_ERROR_MESSAGES,
+  HighlightDomainService,
+  JobDomainService,
+} from '@/lib/server/domain-services';
 import {
   getZipGeneratorFunctionName,
   getLambdaClient,
@@ -25,6 +29,15 @@ const ERROR_MESSAGES = {
 const ZIP_KEY = (jobId: string): string => `outputs/${jobId}/clips.zip`;
 const ZIP_PRESIGNED_URL_EXPIRES_IN = 300;
 
+const jobNotFoundResponse = (): NextResponse =>
+  NextResponse.json(
+    {
+      error: 'JOB_NOT_FOUND',
+      message: ERROR_MESSAGES.JOB_NOT_FOUND,
+    },
+    { status: 404 }
+  );
+
 type RouteParams = {
   params: Promise<{
     jobId: string;
@@ -36,6 +49,11 @@ export const GET = withApiErrorReporting(
   ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
   async (_request: Request, { params }: RouteParams): Promise<NextResponse> => {
     const { jobId } = await params;
+    // 期限後は S3 のファイルも消えているため、ZIP が残っていても渡さない
+    const job = await new JobDomainService(createJobRepository()).getActiveJob(jobId);
+    if (!job) {
+      return jobNotFoundResponse();
+    }
     const bucketName = getBucketName();
     const s3Client = getS3Client();
 
@@ -76,16 +94,14 @@ export const POST = withApiErrorReporting(
   async (_request: Request, { params }: RouteParams): Promise<NextResponse> => {
     try {
       const { jobId } = await params;
+      const job = await new JobDomainService(createJobRepository()).getActiveJob(jobId);
+      if (!job) {
+        return jobNotFoundResponse();
+      }
       const highlightService = new HighlightDomainService(createHighlightRepository());
       const highlights = await highlightService.getHighlights(jobId);
       if (highlights.length === 0) {
-        return NextResponse.json(
-          {
-            error: 'JOB_NOT_FOUND',
-            message: ERROR_MESSAGES.JOB_NOT_FOUND,
-          },
-          { status: 404 }
-        );
+        return jobNotFoundResponse();
       }
 
       const acceptedHighlights = highlights.filter((highlight) => highlight.status === 'accepted');
@@ -171,13 +187,7 @@ export const POST = withApiErrorReporting(
       return NextResponse.json({ status: 'PROCESSING' }, { status: 202 });
     } catch (error) {
       if (error instanceof Error && error.message === DOMAIN_ERROR_MESSAGES.JOB_ID_REQUIRED) {
-        return NextResponse.json(
-          {
-            error: 'JOB_NOT_FOUND',
-            message: ERROR_MESSAGES.JOB_NOT_FOUND,
-          },
-          { status: 404 }
-        );
+        return jobNotFoundResponse();
       }
 
       throw error;

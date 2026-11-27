@@ -132,7 +132,7 @@ export default function HashGeneratorClient() {
           <Button
             variant="solid"
             onClick={handleGenerate}
-            disabled={!inputText.trim()}
+            disabled={!inputText}
             aria-label="入力文字列のハッシュを生成する"
           >
             ハッシュ生成

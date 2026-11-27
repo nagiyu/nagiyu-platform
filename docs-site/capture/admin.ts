@@ -231,6 +231,17 @@ const errorDetail: Scenario = {
   },
 };
 
+const forbidden: Scenario = {
+  screen: 'forbidden',
+  async run(ctx) {
+    // 通常表示 (権限がない利用者がダッシュボードから飛ばされた)
+    const page = await ctx.freshPage({ roles: [] });
+    await page.goto('/forbidden?from=%2Fdashboard');
+    await ready(page, 'アクセス権限がありません');
+    await ctx.shot('default');
+  },
+};
+
 export const admin: ServiceCapture = {
   service: 'admin',
   // 要件はスマホファーストで、デスクトップ (1920x1080 基準) とタブレットにも対応する
@@ -266,5 +277,5 @@ export const admin: ServiceCapture = {
   },
   defaultRoles: ['admin'],
   fixedTime: '2026-02-28T01:30:00Z',
-  scenarios: [dashboard, errors, errorDetail],
+  scenarios: [dashboard, errors, errorDetail, forbidden],
 };

@@ -2,7 +2,7 @@
 sources:
   - libs/ui/src/components/Link/Link.tsx
   - libs/ui/src/components/Link/Link.module.css
-sources_hash: 8488947cf73aef0c2d0d5272183d8fdabc3e12cd3efee6a31530f1c495089cbc
+sources_hash: 62b098194ed9ce79fa8334ee580d09bec580d2a415d2cfa9ccee47a47d471f0e
 ---
 
 # Link

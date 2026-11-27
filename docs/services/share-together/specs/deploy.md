@@ -3,7 +3,7 @@ sources:
   - infra/share-together/bin/share-together.ts
   - infra/share-together/lib/cloudfront-stack.ts
   - .github/workflows/share-together-deploy.yml
-sources_hash: 95b421cad5a211d41029e938d1331bd3190a8d316dd131bb9210bc2d21048599
+sources_hash: 32c43d1e53015e35c554d8332faf7825d888109d84e6e958ba16f318296002e8
 ---
 
 # share-together のデプロイ先

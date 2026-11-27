@@ -4,7 +4,7 @@ sources:
   - infra/stock-tracker/lib/lambda-stack.ts
   - infra/stock-tracker/bin/stock-tracker.ts
   - .github/workflows/stock-tracker-deploy.yml
-sources_hash: a130de4ed70a936df1dca9fc096bf6622210eccd8ec5b2afb4576d71c1f7bb6b
+sources_hash: cf047d891142fbaac22ef0199a05b0a59177cdbed9d7a00f2f4e2e7383ea42d3
 ---
 
 # シークレット

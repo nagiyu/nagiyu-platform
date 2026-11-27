@@ -16,7 +16,7 @@ sources:
   - services/quick-clip/core/src/libs/usage.service.ts
   - libs/nextjs/src/request-body.ts
   - libs/common/src/constants/error-messages.ts
-sources_hash: 3464dc18fbaeb84b92ac124d28ca316df5add2afa0afbe025a36292fd5d355b0
+sources_hash: c99dd7601ec635d1f879a539277fd98bc63fa58e38da29b546872f08233b1155
 ---
 
 # ジョブ API
@@ -67,6 +67,7 @@ sources_hash: 3464dc18fbaeb84b92ac124d28ca316df5add2afa0afbe025a36292fd5d355b0
 取得 (`GET /api/jobs/{jobId}`)。
 
 - 出力は 200 で `{ jobId, status, originalFileName, fileSize, createdAt, expiresAt }` に、条件つきで `durationSec`、`batchStage`、`analysisProgress`、`errorMessage` を足したもの。`status` の求め方と、足す条件は[ジョブとステータス](../term/job.md)にある。`durationSec` はジョブに記録があるときだけ足す (見どころの時刻の上限として画面が使う)
+- 期限 (`expiresAt`) を過ぎたジョブは、TTL で消える前でも、ジョブがないときと同じ 404 にする。TTL の削除は遅れ、期限後は S3 のファイルも消えているため、削除の前後で見え方を変えない。完了 (`complete-upload`) も同じ。中断 (`abort-upload`) は期限を見ない
 - ジョブに Batch のジョブ ID があるとき (投入済み) は、呼ぶたびに Batch の `DescribeJobs` で状態を取る。ないときは `PENDING` を返す。どちらも書き込みはしない
 
 ## 処理
@@ -108,11 +109,11 @@ flowchart TD
 | 作成: 分割アップロードの ID が取れない | 500 | `MULTIPART_UPLOAD_ID_NOT_FOUND` | マルチパートアップロード ID の取得に失敗しました |
 | 作成: 想定外の例外 | 500 | `INTERNAL_SERVER_ERROR` | ジョブの作成に失敗しました |
 | 完了、中断: 本文が不正 (`uploadId` が空、`parts` が空や要素の形が違うなど) | 400 | `INVALID_REQUEST` | リクエストが不正です |
-| 完了: ジョブがない | 404 | `JOB_NOT_FOUND` | 指定されたジョブが見つかりません |
+| 完了: ジョブがない、または期限を過ぎている | 404 | `JOB_NOT_FOUND` | 指定されたジョブが見つかりません |
 | 完了: すでに Batch へ投入している | 409 | `JOB_NOT_PENDING` | ジョブがアップロード完了可能な状態ではありません |
 | 完了: 想定外の例外 | 500 | `INTERNAL_SERVER_ERROR` | アップロード完了処理に失敗しました |
 | 中断: 想定外の例外 | 500 | `INTERNAL_SERVER_ERROR` | アップロード中断処理に失敗しました |
-| 取得: ジョブがない、または**どんな例外でも** | 404 | `JOB_NOT_FOUND` | 指定されたジョブが見つかりません |
+| 取得: ジョブがない、期限を過ぎている、または**どんな例外でも** | 404 | `JOB_NOT_FOUND` | 指定されたジョブが見つかりません |
 
 - 長さの上限と回数の上限の検査は、ジョブを作る前なので、断られたジョブは残らない
 - 「完了」の想定外の例外は、数えた利用回数を戻したうえで 500 にする

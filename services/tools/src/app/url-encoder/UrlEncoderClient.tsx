@@ -145,7 +145,7 @@ export default function UrlEncoderClient() {
           <Button
             variant="solid"
             onClick={handleConvert}
-            disabled={!inputText.trim()}
+            disabled={!inputText}
             aria-label={
               mode === 'encode' ? '入力をURLエンコードする' : '入力をURLエンコードからデコードする'
             }
