@@ -22,7 +22,7 @@ import type { SelfFactListItem } from '@/lib/memory/types';
  */
 export const GET = withApiErrorReporting(
   'Web API: SELF fact 一覧取得エラー',
-  withAuth(getSession, 'livetalk:chat', async (session, request: Request) => {
+  withAuth(getSession, null, async (session, request: Request) => {
     const url = new URL(request.url);
     const characterId = url.searchParams.get('characterId') || DEFAULT_CHARACTER_ID;
     if (!hasCharacter(characterId)) {

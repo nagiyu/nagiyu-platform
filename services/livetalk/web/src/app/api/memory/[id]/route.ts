@@ -22,35 +22,31 @@ type RouteContext = { params: Promise<{ id: string }> };
  */
 export const DELETE = withApiErrorReporting(
   'Web API: 記憶削除エラー',
-  withAuth(
-    getSession,
-    'livetalk:chat',
-    async (session, _request: Request, context: RouteContext) => {
-      const { id } = await context.params;
-      const key = decodeSelfFactId(id, session.user.id);
-      if (!key) {
+  withAuth(getSession, null, async (session, _request: Request, context: RouteContext) => {
+    const { id } = await context.params;
+    const key = decodeSelfFactId(id, session.user.id);
+    if (!key) {
+      return NextResponse.json(
+        { error: 'INVALID_ID', message: MEMORY_ERROR_MESSAGES.INVALID_ID },
+        { status: 400 }
+      );
+    }
+
+    try {
+      await forgetSelfFact(key, {
+        topicRepository: createTopicRepository(),
+        llmClient: getLLMClient(),
+      });
+    } catch (error) {
+      if (error instanceof EntityNotFoundError) {
         return NextResponse.json(
-          { error: 'INVALID_ID', message: MEMORY_ERROR_MESSAGES.INVALID_ID },
-          { status: 400 }
+          { error: 'NOT_FOUND', message: MEMORY_ERROR_MESSAGES.NOT_FOUND },
+          { status: 404 }
         );
       }
-
-      try {
-        await forgetSelfFact(key, {
-          topicRepository: createTopicRepository(),
-          llmClient: getLLMClient(),
-        });
-      } catch (error) {
-        if (error instanceof EntityNotFoundError) {
-          return NextResponse.json(
-            { error: 'NOT_FOUND', message: MEMORY_ERROR_MESSAGES.NOT_FOUND },
-            { status: 404 }
-          );
-        }
-        throw error;
-      }
-      return NextResponse.json({ deleted: true });
+      throw error;
     }
-  ),
+    return NextResponse.json({ deleted: true });
+  }),
   { error: 'DELETE_FAILED', message: MEMORY_ERROR_MESSAGES.DELETE_FAILED }
 );
