@@ -17,7 +17,7 @@ import { ACCOUNT_ERROR_MESSAGES } from './constants';
  */
 export const DELETE = withApiErrorReporting(
   'Web API: アカウント削除エラー',
-  withAuth(getSession, 'livetalk:chat', async (session) => {
+  withAuth(getSession, null, async (session) => {
     const userId = session.user.id;
 
     const result = await createAccountDeletionRepository().deleteAccount(userId);

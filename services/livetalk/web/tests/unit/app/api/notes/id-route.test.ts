@@ -46,7 +46,7 @@ const session = {
     id: 'u1',
     email: 'u@example.com',
     name: 'U',
-    roles: ['livetalk-user'],
+    roles: [],
   },
   expires: new Date(Date.now() + 60_000).toISOString(),
 };
