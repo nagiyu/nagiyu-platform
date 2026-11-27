@@ -2,7 +2,7 @@
 sources:
   - docs/layout.json
   - .github/workflows/scripts/docs-structure.mjs
-sources_hash: 245943eafd97f17dececb4a8c4312ff45841b770a419314c0e64f6a05ad6e891
+sources_hash: 390746a3693c0519863b4b9e03d9e587d86659c3715cf7995a2ccbda3f15bcf7
 ---
 
 # docs の書き方
