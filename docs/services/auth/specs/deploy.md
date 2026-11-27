@@ -3,7 +3,7 @@ sources:
   - infra/auth/bin/auth.ts
   - infra/auth/lib/cloudfront-stack.ts
   - .github/workflows/auth-deploy.yml
-sources_hash: 322ef2d9048a34d58d895a776fa9d18c25859bf2ca4f4e38181cc13fc4cecbc7
+sources_hash: 1f911db75a4a82863c452122dbf6cbe9def1b1d7ec4d29f80ce76190a3766a3a
 ---
 
 # Auth のデプロイ先

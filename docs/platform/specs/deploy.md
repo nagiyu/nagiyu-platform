@@ -16,6 +16,7 @@ sources:
   - .github/actions/get-stack-output/get-stack-output.sh
   - .github/actions/health-check/action.yml
   - .github/actions/health-check/health-check.sh
+  - .github/actions/setup-cdk/action.yml
   - infra/shared/bin/shared.ts
   - infra/shared/lib/account-scope.ts
   - infra/shared/lib/stack-plan.ts
@@ -26,7 +27,7 @@ sources:
   - infra/ui-storybook/bin/ui-storybook.ts
   - infra/ui-storybook/lib/storybook-stack.ts
   - .github/workflows/ui-storybook-deploy.yml
-sources_hash: 0b9f1d21fe735155b82000bbf111b18b11376f823c090a578f0127db0eea2b68
+sources_hash: 71ea7d39496a774fd346af9eb4aad622d9ca0b43c33343e3e9e9e4cb01feeb02
 ---
 
 # shared と ui-storybook のデプロイ先
@@ -157,6 +158,19 @@ Lambda@Edge の複製は、配信から外したあとも数時間残る。そ�
 
 CloudFront のドメインは、`.github/actions/get-stack-output/action.yml` が CloudFormation のスタックの出力から取る (スタック名、`OutputKey`、リージョン (既定 `us-east-1`) を渡す)。呼び出し側は、取れた値 (`value`) の前に `https://` を付けて `base-url` に渡す。`aws cloudformation describe-stacks` の失敗はそのまま失敗にする。スタックにそのキーの出力がなく値が空、または `None` (`--output text` がキーの無いときに返す) のときは、スタック名とキーを示して失敗させる (`.github/actions/get-stack-output/get-stack-output.sh`)。空の値を後ろに渡すと、ヘルスチェックの手前で欠落に気づけないためである。
 
+### CDK を動かすジョブの前段
+
+CDK を動かすジョブ (bootstrap、synth、deploy) の前段は、`.github/actions/setup-cdk/action.yml` が受け持つ。次の順に行う。
+
+| 順 | 処理 |
+|---|---|
+| 1 | 依存のインストール (Node はイメージのものを使う) |
+| 2 | `@nagiyu/infra-common` のビルド |
+| 3 | サービスの infra のビルド (`infra-workspace` を渡したときだけ) |
+| 4 | AWS の認証 (`role-to-assume` は呼び出し側が渡す。`aws-region` の既定は `us-east-1`) |
+
+サービスの infra も shared も `infra-common` のビルド成果物 (`dist`) を参照するため、2 を先に行う。shared と ui-storybook は ts-node で動くので `infra-workspace` を渡さない。`role-to-assume` を入力にするのは、composite action の中からは `vars` を読めないためである。
+
 ### ECR リポジトリ
 
 サービスの ECR リポジトリは、`infra/common/src/stacks/ecr-stack-base.ts` の `EcrStackBase` が作る。サービスのスタック一覧は、ECR のスタックがあることだけを書く。
@@ -216,8 +230,8 @@ CloudFront のドメインは、`.github/actions/get-stack-output/action.yml` �
 
 ```mermaid
 flowchart TD
-    A[push または手動実行] --> B[infra-common をビルド]
-    B --> C[AWS の認証 + 環境の決定]
+    A[push または手動実行] --> B[依存のインストール + infra-common をビルド + AWS の認証]
+    B --> C[環境の決定]
     C --> D[CDK Bootstrap]
     D --> E[CDK Synth --all]
     E --> F[CDK Deploy --all]
@@ -238,9 +252,8 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A[push または手動実行] --> B[AWS の認証]
-    B --> D[infra-common をビルド]
-    D --> E[libs で npm ci と npm run build をして Storybook の静的サイトをビルド]
+    A[push または手動実行] --> B[依存のインストール + infra-common をビルド + AWS の認証]
+    B --> E[libs で npm ci と npm run build をして Storybook の静的サイトをビルド]
     E --> F[CDK Bootstrap]
     F --> G[CDK Deploy --all<br/>env=dev]
     G --> H[Summary]

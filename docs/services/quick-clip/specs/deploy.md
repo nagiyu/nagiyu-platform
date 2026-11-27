@@ -3,7 +3,7 @@ sources:
   - infra/quick-clip/bin/quick-clip.ts
   - infra/quick-clip/lib/cloudfront-stack.ts
   - .github/workflows/quick-clip-deploy.yml
-sources_hash: f67305bbacb1c736d971c3be92d57209c4dc403ec12183dd50e55a06ed0c2372
+sources_hash: 762e05f6f6827818e192f82d7ac51538c62f0434418f877a754a37b7d1932f86
 ---
 
 # QuickClip のデプロイ先
