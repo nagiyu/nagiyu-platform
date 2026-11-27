@@ -4,10 +4,11 @@ import {
   type EntityStore,
   type PaginatedResult,
   type PaginationOptions,
+  UserMapper,
+  type UserKey,
 } from '@nagiyu/aws';
 import type { User } from '@nagiyu/common';
 import { randomUUID } from 'node:crypto';
-import { UserMapper, type UserKey } from '../mappers/user.mapper';
 import type {
   RolesAndGrantsChange,
   UpdateUserInput,
