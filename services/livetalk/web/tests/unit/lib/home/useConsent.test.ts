@@ -3,7 +3,7 @@ import { useConsent } from '@/lib/home/useConsent';
 
 const REVISED_RESPONSE = {
   consented: false,
-  requiredVersions: { terms: '1.1.0', privacy: '1.1.0' },
+  requiredVersions: { terms: '1.2.0', privacy: '1.2.0' },
   current: {
     termsAgreed: { version: '1.0.0', agreedAt: 1 },
     privacyAgreed: { version: '1.0.0', agreedAt: 1 },
@@ -48,7 +48,7 @@ describe('useConsent', () => {
         json: () =>
           Promise.resolve({
             consented: false,
-            requiredVersions: { terms: '1.1.0', privacy: '1.1.0' },
+            requiredVersions: { terms: '1.2.0', privacy: '1.2.0' },
             current: null,
           }),
       });

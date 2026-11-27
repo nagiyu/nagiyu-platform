@@ -218,7 +218,7 @@ const home: Scenario = {
     const revisionPage = await ctx.freshPage();
     await snoozeOnboarding(revisionPage);
     await mockHomeApis(revisionPage, false, {
-      requiredVersions: { terms: '1.1.0', privacy: '1.1.0' },
+      requiredVersions: { terms: '1.2.0', privacy: '1.2.0' },
       current: {
         termsAgreed: { version: '1.0.0', agreedAt: 1 },
         privacyAgreed: { version: '1.0.0', agreedAt: 1 },
@@ -673,6 +673,16 @@ const privacy: Scenario = {
   },
 };
 
+const tokushoho: Scenario = {
+  screen: 'tokushoho',
+  async run(ctx) {
+    const page = await ctx.freshPage();
+    await page.goto('/legal/tokushoho');
+    await ready(page, '販売事業者');
+    await ctx.shot('default', { viewportOnly: true });
+  },
+};
+
 export const livetalk: ServiceCapture = {
   service: 'livetalk',
   // 要件の優先プラットフォームはモバイル PWA で、外部設計もモバイルを前提にしている (PC はモバイルレイアウトの拡大表示)
@@ -718,5 +728,5 @@ export const livetalk: ServiceCapture = {
   defaultRoles: [],
   fixedTime: FIXED_TIME,
   // サーバーで描くステータスが、サーバー自身に作らせたデータを読むため、データを作る画面は他の画面のあとに置く
-  scenarios: [home, memory, notes, noteDetail, terms, privacy, status],
+  scenarios: [home, memory, notes, noteDetail, terms, privacy, tokushoho, status],
 };

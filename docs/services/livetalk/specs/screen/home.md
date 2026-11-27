@@ -30,7 +30,7 @@ sources:
   - services/livetalk/web/src/lib/pwa/standalone.ts
   - services/livetalk/web/src/lib/pwa/messages.ts
   - services/livetalk/web/src/lib/account/useAccountDeletion.ts
-sources_hash: ab1371a85494b9623bda9a871dc737300fb269d93a9e335cda0763fa64bad1ba
+sources_hash: c2ad80a56c7e2fbf28ce80478e26fa2c98287b943eb8267923ce26e16847b034
 ---
 
 # ホーム画面 (チャット)
@@ -58,7 +58,7 @@ sources_hash: ab1371a85494b9623bda9a871dc737300fb269d93a9e335cda0763fa64bad1ba
 | 会話の領域 | 利用者の発言と応答の吹き出し (ない間は「メッセージを入力すると、{名前}がお話しします。」)、エラー、案内、他のキャラクターからの知らせ。長くなると、この領域の中でスクロールし、新しい発言の位置へ移る |
 | 入力欄 | 「メッセージ」。200 文字まで。「送信」ボタン。空白だけは送れない |
 | お知らせの設定 | 「お知らせを受け取る」のボタン |
-| フッター | バージョン、「プライバシーポリシー」と「利用規約」(ダイアログで開く。[規約](./terms.md)・[プライバシーポリシー](./privacy.md)と同じ内容)、キャラクターのライセンス表記 |
+| フッター | バージョン、「プライバシーポリシー」と「利用規約」(ダイアログで開く。[規約](./terms.md)・[プライバシーポリシー](./privacy.md)と同じ内容)、「特定商取引法に基づく表記」([特定商取引法画面](./tokushoho.md)を開く)、キャラクターのライセンス表記 |
 
 - 描画の方式は、キャラクターごとに決まる。ひよりは Live2D、アゲハは一枚絵で、音声に合わせて口が動く
 - 就寝中のキャラクターは、Live2D の目が半開きになる。生活サイクルは画面を開いたときとキャラクターを切り替えたときに読み、応答の `lifecycle` でも更新する ([生活サイクル API](../api/lifecycle.md))。取得に失敗したときは、起きているものとして扱う

@@ -12,8 +12,8 @@ jest.mock('@nagiyu/livetalk-core', () => ({
 const mockGetProfileRepo = createProfileRepository as jest.Mock;
 
 const validConsents = {
-  termsAgreed: { version: '1.1.0', agreedAt: 0 },
-  privacyAgreed: { version: '1.1.0', agreedAt: 0 },
+  termsAgreed: { version: '1.2.0', agreedAt: 0 },
+  privacyAgreed: { version: '1.2.0', agreedAt: 0 },
   ageVerified: { value: true, verifiedAt: 0 },
 };
 
