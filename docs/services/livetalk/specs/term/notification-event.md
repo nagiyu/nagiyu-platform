@@ -4,7 +4,7 @@ sources:
   - services/livetalk/core/src/constants.ts
   - services/livetalk/web/src/app/api/push/first-word/route.ts
   - services/livetalk/web/src/app/api/push/pending/route.ts
-sources_hash: 8f0371bd08594ad0f585e456004cbc6a36f763561e293e387093166e0d24058a
+sources_hash: 91af4769827fd00d94cbdf1cc0769303905184734015398b32dbda519d8690ad
 ---
 
 # 通知の記録
