@@ -8,7 +8,7 @@ sources:
   - services/portal/web/Dockerfile
   - .github/workflows/root-deploy.yml
   - services/portal/web/src/app/layout.tsx
-sources_hash: 0963f6df356a0acc6c2cb90c65ef228126bf93d00088c027163f3bfea2241e59
+sources_hash: f33b2bccd5a721c2c6a4e56013f328152d215373f874c95b75654c9c1a247d29
 ---
 
 # Web の実行環境
@@ -140,20 +140,14 @@ Core Web Vitals を測る手順。基準値は[性能](../../requirements/non-fu
 
 ### Chrome DevTools の Lighthouse (手元)
 
-1. リポジトリのルートで、共通ライブラリを一度ビルドする
-
-    ```bash
-    npm run build:libs
-    ```
-
-2. `services/portal/web` で起動する
+1. `services/portal/web` で起動する
 
     ```bash
     cd services/portal/web
     npm run dev
     ```
 
-3. Chrome で `http://localhost:3000` を開き、DevTools (F12) の「Lighthouse」タブで「モバイル」か「デスクトップ」を選び、「レポートを生成」する
+2. Chrome で `http://localhost:3000` を開き、DevTools (F12) の「Lighthouse」タブで「モバイル」か「デスクトップ」を選び、「レポートを生成」する
 
 手元と本番の違い。
 

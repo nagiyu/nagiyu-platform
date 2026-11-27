@@ -9,7 +9,7 @@ sources:
   - services/portal/web/scripts/check-internal-links.mjs
   - services/portal/web/src/lib/linkChecker.ts
   - .github/workflows/portal-verify.yml
-sources_hash: 61e4615931fea301e4f1c624a1e1fc0caf17f1e39d2032e0319ca4353e4053b4
+sources_hash: 67789a18321f747c524444c7cfaa63029f5c3f8019490a17b8934d9d2a31a93d
 ---
 
 # 記事が公開されるまで
@@ -105,4 +105,4 @@ npm run check:internal-links --workspace @nagiyu/portal-web
 | ④ | `public/` の下にファイルがある。`?` 以降は除いて探す。`public/` の外へ出るパスは切れとする |
 
 - 新しい形のルートを足したときは、`src/lib/linkChecker.ts` の `validateHref` の規則を見直す。① から ④ のどれにも当たらない形は、切れと判定される
-- 入口の `scripts/check-internal-links.mjs` は、共通ライブラリをビルドしない CI で動かす。ビルドせず Node の型除去で `src/lib/linkChecker.ts` を直接読むため、`linkChecker.ts` は `@nagiyu/*` と、拡張子を省いた相対 import を使わない。使うと、解決できずに CI が落ちる
+- 入口の `scripts/check-internal-links.mjs` は、CI が `npm ci` だけで動かす。TypeScript をビルドせず、Node の型除去で `src/lib/linkChecker.ts` を直接読む。この条件では、拡張子を省いた相対 import が解決できない。共通ライブラリ (`@nagiyu/*`) にも、素の Node では読めないものがある (ESM 版の内部の import に拡張子がないもの、JSX を含むもの)。そのため `linkChecker.ts` はこれらを import しない。使うと、CI が落ちる
