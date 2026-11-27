@@ -1,0 +1,260 @@
+/**
+ * Auth ユーザー Mapper
+ *
+ * auth のユーザーテーブルの項目の形を知るのはここだけにする。
+ * auth-core と、ロールだけを読む他サービスが同じ解釈を使う。
+ */
+
+import { ROLE_GRANT_SOURCES, type RoleGrant, type User } from '@nagiyu/common';
+import {
+  readAttribute,
+  readOptionalTimestamp,
+  readTimestamp,
+  validateArrayField,
+  validateEnumField,
+  validateObjectField,
+  validateStringField,
+  validateTimestampField,
+} from '../dynamodb/validators.js';
+import {
+  immutablePatchValue,
+  optionalPatchValue,
+  requiredPatchValue,
+} from '../dynamodb/mapper/patch-values.js';
+import type {
+  DynamoDBAttributes,
+  DynamoDBKey,
+  EntityMapper,
+  EntityPatch,
+} from '../dynamodb/mapper/entity-mapper.interface.js';
+
+/** ユーザーのビジネスキー */
+export type UserKey = { userId: string };
+
+/**
+ * 保存属性の旧名。
+ *
+ * 旧データは小文字始まりの属性名で保存されている。キー属性 (`userId`) と GSI のキー (`googleId`) は
+ * テーブルを作り直さないと変えられないため据え置く。
+ */
+export const LEGACY_ATTRIBUTE_NAMES = {
+  Email: ['email'],
+  Name: ['name'],
+  Picture: ['picture'],
+  Roles: ['roles'],
+  CreatedAt: ['createdAt'],
+  UpdatedAt: ['updatedAt'],
+  LastLoginAt: ['lastLoginAt'],
+} as const;
+
+/**
+ * 権利を保存用の map にする。
+ *
+ * undefined の任意項目は属性を作らない。
+ */
+export function roleGrantToItem(grant: RoleGrant): DynamoDBAttributes {
+  const item: DynamoDBAttributes = {
+    grantId: grant.grantId,
+    roleId: grant.roleId,
+    source: grant.source,
+    createdAt: grant.createdAt,
+    updatedAt: grant.updatedAt,
+  };
+  if (grant.sourceRef !== undefined) {
+    item.sourceRef = grant.sourceRef;
+  }
+  if (grant.expiresAt !== undefined) {
+    item.expiresAt = grant.expiresAt;
+  }
+  if (grant.revokedAt !== undefined) {
+    item.revokedAt = grant.revokedAt;
+  }
+  if (grant.grantedBy !== undefined) {
+    item.grantedBy = grant.grantedBy;
+  }
+  return item;
+}
+
+/**
+ * 保存された map を権利に戻す。
+ *
+ * @throws InvalidEntityDataError 読めない要素のとき
+ */
+export function roleGrantToEntity(value: unknown): RoleGrant {
+  const raw = validateObjectField(value, 'RoleGrants[]');
+  const grant: RoleGrant = {
+    grantId: validateStringField(raw.grantId, 'RoleGrants[].grantId'),
+    roleId: validateStringField(raw.roleId, 'RoleGrants[].roleId'),
+    source: validateEnumField(raw.source, 'RoleGrants[].source', ROLE_GRANT_SOURCES),
+    createdAt: validateTimestampField(raw.createdAt, 'RoleGrants[].createdAt'),
+    updatedAt: validateTimestampField(raw.updatedAt, 'RoleGrants[].updatedAt'),
+  };
+  if (raw.sourceRef !== undefined) {
+    grant.sourceRef = validateStringField(raw.sourceRef, 'RoleGrants[].sourceRef', {
+      allowEmpty: true,
+    });
+  }
+  if (raw.expiresAt !== undefined) {
+    grant.expiresAt = validateTimestampField(raw.expiresAt, 'RoleGrants[].expiresAt');
+  }
+  if (raw.revokedAt !== undefined) {
+    grant.revokedAt = validateTimestampField(raw.revokedAt, 'RoleGrants[].revokedAt');
+  }
+  if (raw.grantedBy !== undefined) {
+    grant.grantedBy = validateStringField(raw.grantedBy, 'RoleGrants[].grantedBy');
+  }
+  return grant;
+}
+
+/**
+ * 項目からロール (手動付与) を読む。旧名 `roles` の項目も読む。
+ *
+ * @throws InvalidEntityDataError 読めないデータのとき
+ */
+export function readRoles(item: DynamoDBAttributes): string[] {
+  return validateArrayField(readAttribute(item, 'Roles', LEGACY_ATTRIBUTE_NAMES.Roles), 'Roles', {
+    isElement: (v): v is string => typeof v === 'string',
+  });
+}
+
+/**
+ * 項目から課金などの権利を読む。
+ *
+ * 権利を一度も付けていないユーザーの項目には属性が無く、そのときは undefined を返す。
+ *
+ * @throws InvalidEntityDataError 読めないデータのとき
+ */
+export function readRoleGrants(item: DynamoDBAttributes): RoleGrant[] | undefined {
+  const roleGrants = item.RoleGrants;
+  if (roleGrants === undefined) {
+    return undefined;
+  }
+  return validateArrayField(roleGrants, 'RoleGrants').map(roleGrantToEntity);
+}
+
+/**
+ * User Mapper
+ *
+ * User と DynamoDB Item 間の変換を行う
+ */
+export class UserMapper implements EntityMapper<User, UserKey> {
+  public readonly entityType = 'User';
+
+  public readonly legacyAttributeNames = LEGACY_ATTRIBUTE_NAMES;
+
+  public buildKeys(key: UserKey): DynamoDBKey {
+    return { userId: key.userId };
+  }
+
+  public getKey(entity: User): UserKey {
+    return { userId: entity.userId };
+  }
+
+  public toItem(entity: User): DynamoDBAttributes {
+    const item: DynamoDBAttributes = {
+      ...this.buildKeys(this.getKey(entity)),
+      Type: this.entityType,
+      googleId: entity.googleId,
+      Email: entity.email,
+      Name: entity.name,
+      Roles: entity.roles,
+      CreatedAt: entity.createdAt,
+      UpdatedAt: entity.updatedAt,
+    };
+
+    if (entity.roleGrants !== undefined) {
+      item.RoleGrants = entity.roleGrants.map(roleGrantToItem);
+    }
+    if (entity.stripeCustomerId !== undefined) {
+      item.StripeCustomerId = entity.stripeCustomerId;
+    }
+    if (entity.picture !== undefined) {
+      item.Picture = entity.picture;
+    }
+    if (entity.lastLoginAt !== undefined) {
+      item.LastLoginAt = entity.lastLoginAt;
+    }
+
+    return item;
+  }
+
+  /**
+   * Entity の部分を保存用の属性に変換
+   *
+   * userId・googleId・createdAt は作成後に変えられないため、含めると拒否する。
+   * googleId は GSI のキーなので、変えるとインデックスの引き当てが壊れる。
+   *
+   * @param changes - 変更する項目 (undefined は変更なし、null は属性削除)
+   * @returns 保存用の属性
+   * @throws InvalidEntityDataError 必須項目が null のとき、または変更不可の項目を含むとき
+   */
+  public toUpdateAttributes(changes: EntityPatch<User>): DynamoDBAttributes {
+    return {
+      userId: immutablePatchValue(changes.userId, 'userId'),
+      googleId: immutablePatchValue(changes.googleId, 'googleId'),
+      CreatedAt: immutablePatchValue(changes.createdAt, 'CreatedAt'),
+      Email: requiredPatchValue(changes.email, 'Email'),
+      Name: requiredPatchValue(changes.name, 'Name'),
+      Roles: requiredPatchValue(changes.roles, 'Roles'),
+      RoleGrants: optionalPatchValue(
+        changes.roleGrants === null || changes.roleGrants === undefined
+          ? changes.roleGrants
+          : changes.roleGrants.map(roleGrantToItem)
+      ),
+      StripeCustomerId: optionalPatchValue(changes.stripeCustomerId),
+      Picture: optionalPatchValue(changes.picture),
+      LastLoginAt: optionalPatchValue(changes.lastLoginAt),
+    };
+  }
+
+  /**
+   * DynamoDB Item を Entity に変換
+   *
+   * 新名を優先し、なければ旧名と ISO 文字列の時刻も読む。書き込まれないアイテムは
+   * 旧形式のまま残るため、この互換処理は外さない。
+   *
+   * @param item - DynamoDB Item
+   * @returns User
+   * @throws InvalidEntityDataError 読めないデータのとき
+   */
+  public toEntity(item: DynamoDBAttributes): User {
+    const entity: User = {
+      userId: validateStringField(item.userId, 'userId'),
+      googleId: validateStringField(item.googleId, 'googleId'),
+      email: validateStringField(this.read(item, 'Email'), 'Email'),
+      name: validateStringField(this.read(item, 'Name'), 'Name'),
+      roles: readRoles(item),
+      createdAt: readTimestamp(item, 'CreatedAt', LEGACY_ATTRIBUTE_NAMES.CreatedAt),
+      updatedAt: readTimestamp(item, 'UpdatedAt', LEGACY_ATTRIBUTE_NAMES.UpdatedAt),
+    };
+
+    // 権利を一度も付けていないユーザーの項目には属性が無く、そのときは roleGrants を持たせない
+    const roleGrants = readRoleGrants(item);
+    if (roleGrants !== undefined) {
+      entity.roleGrants = roleGrants;
+    }
+
+    if (item.StripeCustomerId !== undefined) {
+      entity.stripeCustomerId = validateStringField(item.StripeCustomerId, 'StripeCustomerId');
+    }
+
+    const picture = this.read(item, 'Picture');
+    if (picture !== undefined) {
+      entity.picture = validateStringField(picture, 'Picture', { allowEmpty: true });
+    }
+    const lastLoginAt = readOptionalTimestamp(
+      item,
+      'LastLoginAt',
+      LEGACY_ATTRIBUTE_NAMES.LastLoginAt
+    );
+    if (lastLoginAt !== undefined) {
+      entity.lastLoginAt = lastLoginAt;
+    }
+
+    return entity;
+  }
+
+  private read(item: DynamoDBAttributes, name: keyof typeof LEGACY_ATTRIBUTE_NAMES): unknown {
+    return readAttribute(item, name, LEGACY_ATTRIBUTE_NAMES[name]);
+  }
+}
