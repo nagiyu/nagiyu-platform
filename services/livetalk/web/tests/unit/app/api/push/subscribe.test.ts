@@ -55,7 +55,7 @@ describe('POST /api/push/subscribe', () => {
     process.env.VAPID_PUBLIC_KEY = 'public';
     process.env.VAPID_PRIVATE_KEY = 'private';
     mockGetSession.mockResolvedValue({
-      user: { id: 'u1', roles: ['livetalk-user'] },
+      user: { id: 'u1', roles: [] },
     } as never);
     mockGetRepo.mockReturnValue({ put } as never);
   });
@@ -99,7 +99,7 @@ describe('POST /api/push/subscribe', () => {
   it('保存に失敗した場合は 500 を返し、Push 購読登録エラーとして報告する', async () => {
     jest.spyOn(console, 'error').mockImplementation(() => {});
     mockGetSession.mockResolvedValue({
-      user: { id: 'u1', email: 'u@example.com', name: 'U', roles: ['livetalk-user'] },
+      user: { id: 'u1', email: 'u@example.com', name: 'U', roles: [] },
       expires: new Date(Date.now() + 60_000).toISOString(),
     });
     put.mockRejectedValueOnce(new Error('db down'));

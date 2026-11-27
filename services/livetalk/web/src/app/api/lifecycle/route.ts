@@ -30,7 +30,7 @@ import { hasCharacter } from '@/lib/characters/registry';
  */
 export const GET = withApiErrorReporting(
   'Web API: 生活サイクル状態取得エラー',
-  withAuth(getSession, 'livetalk:chat', async (session, request: Request) => {
+  withAuth(getSession, null, async (session, request: Request) => {
     const userId = session.user.id;
     const url = new URL(request.url);
     const queriedId = url.searchParams.get('characterId');

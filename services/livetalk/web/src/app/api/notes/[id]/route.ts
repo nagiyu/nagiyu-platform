@@ -21,47 +21,43 @@ type RouteContext = { params: Promise<{ id: string }> };
  */
 export const GET = withApiErrorReporting(
   'Web API: ノート取得エラー',
-  withAuth(
-    getSession,
-    'livetalk:chat',
-    async (session, _request: Request, context: RouteContext) => {
-      const { id } = await context.params;
-      const key = decodeNoteId(id, session.user.id);
-      if (!key) {
-        return NextResponse.json(
-          { error: 'INVALID_ID', message: NOTE_ERROR_MESSAGES.INVALID_ID },
-          { status: 400 }
-        );
-      }
-
-      const note = await createNoteRepository().get(key);
-      if (!note) {
-        return NextResponse.json(
-          { error: 'NOT_FOUND', message: NOTE_ERROR_MESSAGES.NOT_FOUND },
-          { status: 404 }
-        );
-      }
-
-      let bundle: TopicBundle | null = null;
-      try {
-        bundle = await createTopicRepository().getTopicBundle({
-          userId: key.userId,
-          characterId: key.characterId,
-          topicId: note.topicId,
-        });
-      } catch (error) {
-        // fail-soft: Topic 取得に失敗しても headline のみで詳細を返す
-        console.error(
-          '[GET /api/notes/:id] 参照先 Topic の取得に失敗しました（headline のみ返します）',
-          error
-        );
-        await errorReporter.report('Web API: ノート参照先トピック取得エラー', error, {
-          context: { characterId: key.characterId },
-        });
-      }
-
-      return NextResponse.json({ note: toNoteDetail(note, bundle) });
+  withAuth(getSession, null, async (session, _request: Request, context: RouteContext) => {
+    const { id } = await context.params;
+    const key = decodeNoteId(id, session.user.id);
+    if (!key) {
+      return NextResponse.json(
+        { error: 'INVALID_ID', message: NOTE_ERROR_MESSAGES.INVALID_ID },
+        { status: 400 }
+      );
     }
-  ),
+
+    const note = await createNoteRepository().get(key);
+    if (!note) {
+      return NextResponse.json(
+        { error: 'NOT_FOUND', message: NOTE_ERROR_MESSAGES.NOT_FOUND },
+        { status: 404 }
+      );
+    }
+
+    let bundle: TopicBundle | null = null;
+    try {
+      bundle = await createTopicRepository().getTopicBundle({
+        userId: key.userId,
+        characterId: key.characterId,
+        topicId: note.topicId,
+      });
+    } catch (error) {
+      // fail-soft: Topic 取得に失敗しても headline のみで詳細を返す
+      console.error(
+        '[GET /api/notes/:id] 参照先 Topic の取得に失敗しました（headline のみ返します）',
+        error
+      );
+      await errorReporter.report('Web API: ノート参照先トピック取得エラー', error, {
+        context: { characterId: key.characterId },
+      });
+    }
+
+    return NextResponse.json({ note: toNoteDetail(note, bundle) });
+  }),
   { error: 'FETCH_FAILED', message: NOTE_ERROR_MESSAGES.FETCH_FAILED }
 );
