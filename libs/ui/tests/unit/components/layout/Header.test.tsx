@@ -516,7 +516,7 @@ describe('Header', () => {
   describe('roles による項目の絞り込み', () => {
     const items: NavigationItem[] = [
       { label: 'ホーム', href: '/' },
-      { label: 'チャット', href: '/chat', requiredPermission: 'livetalk:chat' },
+      { label: 'チャット', href: '/chat', requiredPermission: 'stocks:read' },
       { label: 'ステータス', href: '/status', requiredPermission: 'livetalk:admin' },
       {
         label: '管理',
@@ -543,7 +543,7 @@ describe('Header', () => {
     });
 
     it('権限を満たす項目だけが表示される', () => {
-      render(<Header navigationItems={items} roles={['livetalk-user']} />);
+      render(<Header navigationItems={items} roles={['stock-user']} />);
 
       expect(screen.getByRole('link', { name: 'チャット' })).toBeInTheDocument();
       expect(screen.queryByRole('link', { name: 'ステータス' })).not.toBeInTheDocument();
@@ -560,7 +560,7 @@ describe('Header', () => {
     });
 
     it('子がすべて絞り込まれた親項目は表示されない', () => {
-      render(<Header navigationItems={items} roles={['livetalk-user']} />);
+      render(<Header navigationItems={items} roles={['stock-user']} />);
 
       expect(screen.queryByRole('button', { name: '管理 メニュー' })).not.toBeInTheDocument();
     });
@@ -602,7 +602,7 @@ describe('Header', () => {
 
     it('表示できる項目が 0 件のとき、ハンバーガーメニューも表示されない', () => {
       const guardedOnly: NavigationItem[] = [
-        { label: 'チャット', href: '/chat', requiredPermission: 'livetalk:chat' },
+        { label: 'チャット', href: '/chat', requiredPermission: 'stocks:read' },
       ];
       render(<Header navigationItems={guardedOnly} roles={[]} />);
 
@@ -658,7 +658,7 @@ describe('Header', () => {
       render(
         <Header
           navigationItems={[
-            { label: 'チャット', href: '/chat', requiredPermission: 'livetalk:chat' },
+            { label: 'チャット', href: '/chat', requiredPermission: 'stocks:read' },
           ]}
           actions={<span data-testid="invite-badge" />}
         />

@@ -83,9 +83,9 @@ export interface Session {
  * - auth:write - Manage auth configuration and user data
  *
  * LiveTalk permissions:
- * - livetalk:chat - Access LiveTalk chat UI and API
  * - livetalk:admin - Access LiveTalk admin features (status page, debug panel)
  * - livetalk:standard - Use LiveTalk standard features (paid role)
+ * - livetalk:operator - Use LiveTalk with the same study allowance as the paid plan, without an expiry (manual role, not paid)
  *
  * Quick Clip permissions:
  * - quick-clip:standard - Use Quick Clip standard features (paid role)
@@ -106,9 +106,9 @@ export type Permission =
   | 'stocks:manage-data'
   | 'auth:read'
   | 'auth:write'
-  | 'livetalk:chat'
   | 'livetalk:admin'
   | 'livetalk:standard'
+  | 'livetalk:operator'
   | 'quick-clip:standard'
   | 'quick-clip:pro'
   | 'quick-clip:unlimited'
