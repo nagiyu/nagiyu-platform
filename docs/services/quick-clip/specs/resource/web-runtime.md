@@ -5,7 +5,7 @@ sources:
   - .github/workflows/quick-clip-deploy.yml
   - services/quick-clip/web/Dockerfile
   - services/quick-clip/web/src/app/jobs/[jobId]/VideoAd.tsx
-sources_hash: 22f9cfbb53c2c2884ce3c9fabbaf2147b9d83f97c9b2002b71ff22970621ae9e
+sources_hash: f572432a3512d3e4c47826eaac6b143338f8b5d8674e66768e8f9e3360b41616
 ---
 
 # Web の実行環境
