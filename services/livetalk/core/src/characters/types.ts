@@ -2,8 +2,9 @@
  * CharacterDefinition 抽象化レイヤーの型定義（Phase 2c / Issue #3249）。
  *
  * 将来の複数キャラ対応に備えて抽象化する。MVP では桃瀬ひより 1 キャラ固定。
+ * キャラクター・LLM・音声合成を抽象の背後に置くことで、実装を差し替えても
+ * 呼び出し側を変えずに済む。
  *
- * @see docs/services/livetalk/architecture.md §2.10（CharacterDefinition 抽象化）
  * @see Issue #3249
  */
 import type { VoiceConfig } from '../voice/types.js';

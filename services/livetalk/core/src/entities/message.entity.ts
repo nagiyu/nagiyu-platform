@@ -1,8 +1,9 @@
 /**
  * 会話メッセージ 1 件を表すビジネスオブジェクト。
  *
- * `docs/services/livetalk/architecture.md` §3「データモデル概要」に対応：
- *   - 1 メッセージ = 1 item（配列保持禁止）
+ * 次の設計に従う：
+ *   - 1 メッセージ = 1 item（配列保持禁止）。配列で持つと 1 item の上限 400 KB、
+ *     並行更新の競合、TTL が使えないことが問題になる
  *   - 並べ替え用 ID は ULID（時系列順）
  *
  * DynamoDB 上の attribute は PascalCase で保存し、エンティティは camelCase で表す。

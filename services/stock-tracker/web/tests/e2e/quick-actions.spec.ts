@@ -136,8 +136,8 @@ test.describe('クイックアクションエリア - 一般ユーザー権限 (
   });
 
   test('管理者ボタンが表示されない', async ({ page }) => {
-    // docs/development/testing.md の指摘どおり、「表示されないこと」の否定 assert は
-    // 対象の状態が確定する前だと無条件に通ってしまう。管理者ボタンを assert する前に、
+    // 「表示されないこと」の否定 assert は、対象の状態が確定する前だと
+    // 無条件に通ってしまう。管理者ボタンを assert する前に、
     // 必ず表示されるはずの共通ボタンが表示されたことを先に待ち、画面の描画が
     // 完了している状態を確定させてから否定を検証する。
     await expect(page.locator('main').getByRole('link', { name: /保有株式管理/ })).toBeVisible();

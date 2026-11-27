@@ -117,8 +117,6 @@ export interface TextFieldProps {
  * - `multiline` で `<textarea>` に切替
  * - `error` で危険色の境界線・helperText、`aria-invalid` 自動付与
  * - `readOnly` / `maxLength` を top-level Props として提供（MUI の slotProps を直接露出しない）
- *
- * @see docs/development/shared-ui-components.md
  */
 const TextField = React.forwardRef<HTMLDivElement, TextFieldProps>(function TextField(
   {
