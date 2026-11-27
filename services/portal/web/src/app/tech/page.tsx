@@ -39,7 +39,7 @@ export default function TechPage() {
               <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
                 <ArticleCardLink slug={article.slug}>
                   <CardContent sx={{ flexGrow: 1 }}>
-                    <Typography variant="h6" component="h2" gutterBottom>
+                    <Typography variant="h6" component="h3" gutterBottom>
                       {article.title}
                     </Typography>
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
