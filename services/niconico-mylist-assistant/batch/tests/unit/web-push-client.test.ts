@@ -2,7 +2,10 @@
  * Web Push クライアントのユニットテスト
  */
 
-import { createBatchCompletionPayload } from '../../src/lib/web-push-client.js';
+import {
+  createBatchCompletionPayload,
+  createSessionInvalidPayload,
+} from '../../src/lib/web-push-client.js';
 import { normalizeVapidKey } from '@nagiyu/common';
 
 // web-push は ESM 専用で Jest が読み込めない。このテストは送信を検証しないため空のモックに差し替える。
@@ -105,5 +108,22 @@ describe('normalizeVapidKey', () => {
     const raw = '"{\\"publicKey\\":\\"public-value\\",\\"privateKey\\":\\"private-value\\"}"';
     expect(normalizeVapidKey(raw, 'publicKey')).toBe('public-value');
     expect(normalizeVapidKey(raw, 'privateKey')).toBe('private-value');
+  });
+});
+
+describe('createSessionInvalidPayload', () => {
+  test('セッション無効の失敗通知のペイロード', () => {
+    const payload = createSessionInvalidPayload('job-789');
+
+    expect(payload).toEqual({
+      title: 'マイリスト登録失敗',
+      body: 'ニコニコのセッションが無効なため、マイリスト登録を開始できませんでした。セッションを再設定してください',
+      icon: '/icon-192x192.png',
+      data: {
+        jobId: 'job-789',
+        type: 'batch-session-invalid',
+        url: '/mylist/register',
+      },
+    });
   });
 });
