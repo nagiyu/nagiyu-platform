@@ -13,11 +13,9 @@ const config: Config = {
   testMatch: ['**/*.test.ts'],
   moduleFileExtensions: ['ts', 'js'],
   moduleNameMapper: {
-    // `@nagiyu/aws/testing` は package.json の exports に載せていないため、このマッピングが唯一の解決経路になる
-    '^@nagiyu/aws/testing$': '<rootDir>/../../../libs/aws/src/testing/index.ts',
-    '^@nagiyu/aws$': '<rootDir>/../../../libs/aws/src/index.ts',
-    '^@nagiyu/common$': '<rootDir>/../../../libs/common/src/index.ts',
-    '^@nagiyu/common/push$': '<rootDir>/../../../libs/common/src/push/index.ts',
+    // `@nagiyu/aws/testing` は exports に載せていないため、パッケージ内の CJS 版を直接指す。
+    '^@nagiyu/aws/testing$':
+      '<rootDir>/../../../node_modules/@nagiyu/aws/dist/cjs/testing/index.js',
     '^(\\.{1,2}/.*)\\.js$': '$1',
   },
   // 未解決モジュール (2307) 等だけ型診断を抑止し、他の型エラーは検出を維持する

@@ -16,16 +16,14 @@ ENV DYNAMODB_TABLE_NAME=${DYNAMODB_TABLE_NAME}
 # モノレポ全体のファイルをコピー
 COPY package*.json ./
 COPY configs ./configs/
-COPY libs ./libs/
 COPY services/niconico-mylist-assistant/core ./services/niconico-mylist-assistant/core/
 COPY services/niconico-mylist-assistant/web ./services/niconico-mylist-assistant/web/
 
 # 依存関係をインストール（ソースコード存在下で実行）
 RUN npm ci
 
-# 共通ライブラリ、core、web の順にビルドする
+# core、web の順にビルドする
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN npm run build:libs
 RUN npm run build --workspace=@nagiyu/niconico-mylist-assistant-core
 RUN npm run build --workspace=@nagiyu/niconico-mylist-assistant-web
 

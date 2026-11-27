@@ -1,0 +1,22 @@
+---
+sources:
+  - services/portal/web/src/lib/content.ts
+  - services/portal/web/src/app/tech/page.tsx
+  - services/portal/web/src/app/tech/[slug]/page.tsx
+  - services/portal/web/src/lib/redirects.ts
+sources_hash: 4df32798070beff61fc535c7e718a42ff23a40f638df2c5695a2b39aefd3b2c1
+---
+
+# タグ
+
+[記事](./article.md)の話題を表す短い語。カードと記事詳細に枠線だけのチップで出て、関連記事を選ぶ手がかりになる。
+
+## 説明
+
+- チップは押せない。タグで絞り込む画面はなく、`/tech/tags/...` の URL は `/tech` へリダイレクトする
+- 関連記事は、タグが 1 つ以上同じ記事から選ぶ ([記事詳細画面](../screen/tech-article.md))。大文字と小文字を区別し、`AI` と `ai` は別のタグ
+- カードに出るタグの数は、[ホーム画面](../screen/home.md)の特集記事だけが先頭の 3 つまで。ほかは全部 ([技術記事一覧画面](../screen/tech.md)を含む)
+
+## 理由
+
+- 押せないチップにして集約ページを持たない理由は、[目的](../../requirements/purpose.md)にある

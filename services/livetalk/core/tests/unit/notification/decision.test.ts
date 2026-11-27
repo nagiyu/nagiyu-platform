@@ -1,6 +1,8 @@
 import { toJstDayStartMs } from '@nagiyu/common';
 import {
   shouldNotifyNow,
+  computeNextEarliestAt,
+  resolveNotifyMessageSinceMs,
   extractSessionStartTimes,
   computeSessionIntervals,
   computeBaseIntervalMs,
@@ -584,5 +586,54 @@ describe('shouldNotifyNow', () => {
       });
       expect(result.notify).toBe(true);
     });
+  });
+});
+
+describe('computeNextEarliestAt', () => {
+  it('会話も通知もなければ、既定の基準間隔 (24 時間) だけ先を返す', () => {
+    expect(computeNextEarliestAt([], [], NOW_DATE)).toBe(24 * HOUR);
+  });
+
+  it('最終会話から基準間隔だけ先を返す', () => {
+    const msgAt = NOW_UTC_MS - 2 * HOUR;
+    expect(computeNextEarliestAt([makeMsg(msgAt)], [], NOW_DATE)).toBe(msgAt + 24 * HOUR);
+  });
+
+  it('会話の後に送った平常通知の数だけ間隔が伸び、基準時刻は通知側になる', () => {
+    const msgAt = NOW_UTC_MS - 3 * DAY;
+    const notifAt = NOW_UTC_MS - 2 * DAY;
+    const result = computeNextEarliestAt(
+      [makeMsg(msgAt)],
+      [makeNotifEvent('normal', notifAt)],
+      NOW_DATE
+    );
+    expect(result).toBe(notifAt + 24 * HOUR * 1.5);
+  });
+
+  it('shouldNotifyNow が not_due から通知可能に変わる境目と一致する', () => {
+    const msgAt = NOW_UTC_MS - 2 * HOUR;
+    const userMessages = [makeMsg(msgAt)];
+    const at = computeNextEarliestAt(userMessages, [], NOW_DATE);
+    const lifecycle = AWAKE_LIFECYCLE;
+    const before = shouldNotifyNow({
+      userMessages,
+      lifecycle,
+      notificationEvents: [],
+      now: new Date(at - 1),
+    });
+    const after = shouldNotifyNow({
+      userMessages,
+      lifecycle,
+      notificationEvents: [],
+      now: new Date(at),
+    });
+    expect(before).toMatchObject({ notify: false, reason: 'not_due' });
+    expect(after).toMatchObject({ notify: true, kind: 'normal' });
+  });
+});
+
+describe('resolveNotifyMessageSinceMs', () => {
+  it('現在時刻から 7 日前の時刻を返す', () => {
+    expect(resolveNotifyMessageSinceMs(NOW_DATE)).toBe(NOW_UTC_MS - 7 * DAY);
   });
 });

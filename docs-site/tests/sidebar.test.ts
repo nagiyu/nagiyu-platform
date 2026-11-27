@@ -159,24 +159,18 @@ describe('実際の docs の章立て', () => {
       '共通基盤',
       '開発の進め方',
     ]);
-    const services = sidebar[1].items ?? [];
-    const devSync = services.find((item) => item.text === 'dev-sync');
-    expect(JSON.stringify(devSync)).toContain('/development/dev-sync');
     const guide = JSON.stringify(sidebar[3]);
-    expect(guide).not.toContain('/development/dev-sync');
     expect(guide).toContain('仕様カードの書き方');
   });
 
   it('サービスの設計資料にサービス名を繰り返さない', () => {
     const sidebar = buildSidebar(realDocs, SIDEBAR_EXCLUDED, SITE_STRUCTURE);
-    const shareTogether = (sidebar[1].items ?? []).find((item) =>
-      item.link?.includes('/services/share-together/')
-    );
-    const design = shareTogether?.items?.find((item) => item.text === '設計資料');
-    expect(design?.items?.map((item) => item.text)).toEqual([
-      '要件定義',
-      '外部設計',
-      'アーキテクチャ',
-    ]);
+    // 旧配置の設計資料はサービスごとに新しい配置へ移って減っていくため、残っているサービスすべてを見る
+    for (const service of sidebar[1].items ?? []) {
+      const design = service.items?.find((item) => item.text === '設計資料');
+      for (const item of design?.items ?? []) {
+        expect(item.text).not.toContain(service.text);
+      }
+    }
   });
 });

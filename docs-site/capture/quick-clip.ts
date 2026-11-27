@@ -523,14 +523,7 @@ export const quickClip: ServiceCapture = {
     command: ['npm', 'run', 'start', '--'],
     port: 3401,
     healthPath: '/api/health',
-    requiredBuilds: [
-      'libs/ui/dist',
-      'libs/nextjs/dist',
-      'libs/aws/dist',
-      'libs/common/dist',
-      'libs/browser/dist',
-      'services/quick-clip/core/dist',
-    ],
+    requiredBuilds: ['services/quick-clip/core/dist'],
     // E2E の環境変数ファイルはなく、AWS にはつながない。広告の URL はビルドに埋め込まれるため、ここで決める
     // (配信先には実際につながず、IMA SDK を撮影の中で差し替える)
     extraEnv: {

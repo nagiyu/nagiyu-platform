@@ -18,7 +18,7 @@ sources:
   - .github/workflows/templates/stock-tracker-inspection-body.md
   - .github/workflows/templates/stock-tracker-inspection-mkt-section.md
   - .github/workflows/templates/stock-tracker-inspection-no-mkt-section.md
-sources_hash: 21c5886486ca003705f57f2cf370bf7ff7d9c4788ca8827cef64f1f69617a8f5
+sources_hash: 4a6b931d8d1b94e3f11419e2f52fd5e5274be5d34f84b8767c5cc0998d04c616
 ---
 
 # 定期の Issue 起票
@@ -86,16 +86,37 @@ flowchart TD
 | `duplicate-check` | `.github/actions` だけを取得し、`find-open-issue` (`weekly-check`) で確認する。出力に `should_create` を持つ |
 | `npm-check` | `duplicate-check` が `should_create == 'true'` のときだけ動く。ランナーの上で、`.node-version` の版の Node を入れる (`setup-node` の `skip-setup-node` は付けない) |
 
-`npm-check` は、4 つの検査スクリプトを順に実行する。どれも 1 行の JSON を出力し、ワークフローはそれを Base64 にして次のステップに渡す。
+`npm-check` は、ルートと `libs/` の両方で `npm ci` する。`libs/` はルートの workspaces に入らない別の npm プロジェクトなので、ルートの検査だけでは libs 自身の依存 (特に devDependencies) が漏れるためである。
+
+そのうえで、検査スクリプトを順に実行する。どれも 1 行の JSON を出力し、ワークフローはそれを Base64 にして次のステップに渡す。`check-npm-outdated.sh` と `check-npm-audit.sh` は、ルートと `libs/` で 1 回ずつ実行する。どこで実行するかは、環境変数 `NPM_WORKDIR` で渡す (既定はカレントディレクトリ)。
 
 | スクリプト | 出力 |
 |---|---|
-| `check-npm-outdated.sh` | 更新可能なパッケージの数 (`count`)、メジャー更新の数と名前 (`majorCount`、`majorPackages`) |
+| `check-npm-outdated.sh` | 更新可能なパッケージの数 (`count`)、メジャー更新の数と名前 (`majorCount`、`majorPackages`)。`@nagiyu/*` はこれらに含めず、別に `nagiyuCount`、`nagiyuBreakingCount`、`nagiyuPackages` (名前、`current`、`latest`、壊れる更新か) を出す |
 | `check-npm-audit.sh` | 脆弱性の深刻度ごとの数、`critical` と `high` のパッケージ名 |
 | `check-duplicates.sh` | ルート以外の `package.json` の 3 か所以上で使われている `devDependencies` のパッケージの数 (`count`) |
 | `check-version-inconsistency.sh` | 複数のバージョンが混在するパッケージの数 (`count`)。全 `package.json` の `dependencies` と `devDependencies` が対象 |
 
-`prepare-npm-issue.py` が、これらをデコードして `weekly-npm-body.md` に埋める。本文は、検出のサマリー表、検出対象 (Critical、High、major 更新のパッケージ名。該当がなければ節ごと省略)、対応方針の行からなる。
+#### `@nagiyu/*` の更新の判定
+
+`npm outdated --json` の `current` と `latest` を比べ、`latest` のほうが新しいものを出す。`wanted` は使わない。`wanted` は範囲の中の最大の版なので、`^0.1.1` の外にある `0.2.0` を拾えないためである。
+
+| `current` → `latest` | 扱い |
+|---|---|
+| メジャー版が違う | 壊れる更新 |
+| `current` が 0.x で、マイナー版が違う | 壊れる更新 |
+| それ以外 (パッチ版だけの違い、1.x 以降のマイナー版の違い) | 壊れない更新 |
+
+0.x の間はマイナー版を上げる変更が壊れる変更になる ([共通ライブラリの公開と版の規約](../../rules/lib-packages.md))。メジャー版の数字だけを比べる判定では拾えないため、`@nagiyu/*` だけこの扱いにする。
+
+#### 本文
+
+`prepare-npm-issue.py` が、これらをデコードして `weekly-npm-body.md` に埋める。本文は次からなる。
+
+- 検出のサマリー表。ルートの件数に加えて、`libs/` の脆弱性 (深刻度ごと) と更新可能なパッケージの数を、別の行に出す
+- 検出対象: Critical、High、major 更新のパッケージ名。ルートと `libs/` を分けて出す。該当がなければ節ごと省略する
+- `@nagiyu/*` の更新: 名前、`current` → `latest`、壊れる更新か。ルートの結果だけを出す (`libs/` の中の `@nagiyu/*` は workspaces のリンクのため)。該当がないか取得に失敗したときは、節ごと省略する
+- 対応方針の行。Critical と High は、ルートと `libs/` を合わせて見る
 
 - `npm outdated` と `npm audit` が実行に失敗した (出力が空か JSON として読めない) ときは、`error: true` を返す。本文の該当の件数は `取得失敗` と書き、対応方針に「一部のチェックが実行に失敗しています」を足す。0 件と区別するため。
 - 脆弱性が Critical か High で 1 件以上あれば、対応を推奨する行を書く。なく、かつ取得の失敗もなければ、検出されていない旨を書く。
@@ -124,3 +145,24 @@ flowchart TD
 - 日付を JST で決めるのは、週次の実行時刻 (UTC の金曜 18:17) が、UTC では JST の日付の前日にあたるため。月次の点検は UTC と JST で同じ月になるが、月も JST で数える。
 - `npm outdated` や `npm audit` が失敗したとき 0 件として報告しないのは、本文が「問題なし」に見えてしまうため。
 - Assignee とマイルストーンを付けないのは、人が付けるため。
+
+### Stock Tracker の点検の頻度と異常の基準
+
+確度の点検が要ることと、システムに組み込まず Issue で行う理由は、[確度の整合性](../../../services/stock-tracker/requirements/non-functional/forecast-integrity.md)にある。ここでは、頻度と異常の基準をどう決めたかを書く。
+
+頻度は、件数で決める。
+
+- 毎月 1 日に起票する。Q-VOL は 1 か月で約 2,700 件溜まり、確率帯ごとの実績が読める
+- Q-MKT は四半期 (1・4・7・10 月) の点検だけで扱う。Q-MKT は市場ごとに 1 日 1 件しか溜まらず、月に 1 回では 20 件ほどになり、実績ではなくぶれしか見えない
+- 軸を追加したときは、月次の点検 Issue で、追加した軸の点灯回数が 100 件・400 件に達しているかを確かめ、達していれば軸の点検も行う。軸の判断に要る件数が足りるかで決める。的中率の誤差は、100 件で約 ±10pt、400 件で約 ±5pt。点灯回数を測って点検を起票する仕組みは持たない
+
+異常の基準は、次の考え方で決める。基準の値は点検 Issue のテンプレート (`.github/workflows/templates/stock-tracker-inspection-body.md`) が持つ。
+
+- 基準は、結果を見る前に決め、結果を見てから動かさない。あとから動かすと、異常を見逃す方向に寄せられるため。動かしたくなったら、その点検では変えず、別の Issue で人と決める
+- 基準は、dev のさかのぼり (2026-05 から 09 まで) に当てはめて確かめた。Q-VOL の基準に当たったのは、荒れが減って言いすぎになった 8 月 (実現率 28% に対して予測の平均 36%) だけだった
+- Q-VOL は、全体のずれ (ECE)、件数 100 件以上の確率帯のずれ、最上位と最下位の帯の実現率の差 (並べ分けられているか)、基準値の動きで見る
+    - 件数の少ない帯のぶれを異常と取り違えないよう、帯は件数で絞る
+    - AUC は、確率帯の表から出せず、点検が成績画面と同じ数字で完結しなくなるため使わない
+    - 中立の割合は、中立帯の見直しで自然に大きく動くため、割合の変化は異常に含めない
+- Q-DIR は、予測力がなく全件が中立になる前提なので、数値の基準を置かない。寄りありが出たら、別の期間でも再現するかを確かめる
+- Q-MKT は、「参考値」の間は数値の基準を置かない。少ない件数に基準を置くと、ぶれを異常と取り違える。「参考値」が外れた最初の四半期点検で、人と基準を決める

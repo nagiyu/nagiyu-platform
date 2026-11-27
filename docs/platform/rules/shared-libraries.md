@@ -2,7 +2,7 @@
 sources:
   - libs/common/package.json
   - libs/aws/package.json
-sources_hash: fa49c0bae6134e85c754d279065129fb6e952578bd050a66206ffcc7aae4ae6a
+sources_hash: 06232482fcb9b384dd89a159a3bc4f4bf0ea79e33f9211178a75dceda162c0bf
 ---
 
 # 共通ライブラリの規約
@@ -43,12 +43,6 @@ sources_hash: fa49c0bae6134e85c754d279065129fb6e952578bd050a66206ffcc7aae4ae6a
 ### `libs/common` のメインの入口は外部依存を持たない
 
 メインの入口 (`@nagiyu/common`) は Node.js 標準だけで書く。外部ライブラリが要る機能は、サブパスに分ける (`web-push` は `@nagiyu/common/push`)。メインが外部依存を持つと、common を import するすべてのパッケージが、使わない外部依存まで引き込むためである。サブパスは `libs/common/package.json` の `exports` で宣言する。
-
-### 外部依存は、lock の上でルートの `node_modules` の直下に置く
-
-バッチ・Lambda のコンテナイメージは、ルートの `node_modules` と各パッケージのビルド成果物だけをコピーし、`libs/*/node_modules` はコピーしない。ライブラリの外部依存が `libs/*/node_modules` の下に入ると、イメージの中で解決できず、起動時に失敗する。Next.js の画面のイメージは、使うモジュールをビルド時に集めて同梱する (standalone 出力) ため、この制約を受けない。
-
-CI のコンテナのビルド検証は、イメージの中でモジュールを読み込まない ([サービスの PR 検証](../specs/ci/service-verify.md))。この失敗は、デプロイして初めてわかる。外部依存を足す・上げるときは、lock で、そのパッケージが `libs/*/node_modules/` の下ではなく `node_modules/` の直下にあることを確かめる。ライブラリの下に入ったときは、lock を作り直してルートへ巻き上げる。その外部依存がさらに依存するパッケージが、ルートの別の版とぶつかって `node_modules/<パッケージ>/node_modules/` に入るのは問題ない。
 
 ### libs の中ではパスエイリアス (`@/`) を使わず、相対パスで import する
 

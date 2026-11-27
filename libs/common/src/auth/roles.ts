@@ -77,18 +77,11 @@ export const ROLES = {
     description: 'Stock Tracker のマスタデータ管理が可能',
     permissions: ['stocks:read', 'stocks:write-own', 'stocks:manage-data'],
   },
-  'livetalk-user': {
-    id: 'livetalk-user',
-    name: 'LiveTalk ユーザー',
-    description: 'LiveTalk のチャットを利用できる',
-    permissions: ['livetalk:chat'],
-  },
   'livetalk-admin': {
     id: 'livetalk-admin',
     name: 'LiveTalk 管理者',
-    // livetalk:chat を含めるのは、middleware がチャットの権限を要求するため
-    description: 'LiveTalk のチャットと、管理者向けの機能 (ステータスの閲覧など) を利用できる',
-    permissions: ['livetalk:chat', 'livetalk:admin'],
+    description: 'LiveTalk の管理者向けの機能 (ステータスの閲覧など) を利用できる',
+    permissions: ['livetalk:admin'],
   },
   'livetalk-standard': {
     id: 'livetalk-standard',
