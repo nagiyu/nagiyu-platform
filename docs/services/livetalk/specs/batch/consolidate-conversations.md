@@ -6,7 +6,7 @@ sources:
   - services/livetalk/core/src/usecases/consolidate.usecase.ts
   - services/livetalk/core/src/usecases/generate-note.usecase.ts
   - services/livetalk/core/src/constants.ts
-sources_hash: 456ba7668ce078a66d8247339780df740b9b5da93dd00abce89b533b8430a051
+sources_hash: a764f45c9564992999672fa8b53efff2f6721540efbf622185b1c8bcfd5d024b
 ---
 
 # 集約バッチ (consolidate-conversations)

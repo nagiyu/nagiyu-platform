@@ -2,7 +2,7 @@
 sources:
   - services/livetalk/core/src/entities/note.entity.ts
   - services/livetalk/core/src/constants.ts
-sources_hash: 7f5c324b7af4d0953bb7ec1bdd56fd63d7049f3722951265f2607307133c7dc8
+sources_hash: c1cd494121a064b4b7d850670f59e77658a1507f68015c5d336cfc97d9b11dc1
 ---
 
 # ノート
