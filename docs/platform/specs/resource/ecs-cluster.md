@@ -6,7 +6,7 @@ sources:
   - infra/root/ecs-cluster-stack.ts
   - infra/bin/nagiyu-platform.ts
   - infra/livetalk/lib/ecs-service-stack.ts
-sources_hash: 86bb4fcc432e7965bb870a334ab125629c5350fbaa5676a1813673d748c63704
+sources_hash: 3ebe2ec900c188aa4a4c6fdabf0ed75a4ce5a6959515f3a96d146b1edf18c86c
 ---
 
 # 共有 ECS クラスター

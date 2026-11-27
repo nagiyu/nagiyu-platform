@@ -41,7 +41,7 @@ import type { Page } from '@playwright/test';
  * **Web Push 購読そのものは E2E では担保しない。** 以前は「Web Push通知許可」describe が
  * あったが、中身は `Notification.permission` の値域チェック（恒真）と「grantPermissions の
  * 前後で値が変わらない」というブラウザ挙動の確認だけで、アプリのコードを一行も通らず
- * 「壊れても落ちない」テストだったため削除した（testing.md「形骸化テストの禁止」）。
+ * 「壊れても落ちない」テストだったため削除した。
  * 購読フローの担保は libs/browser・libs/react の単体テストの責務とする。
  */
 test.describe.configure({ mode: 'serial' });

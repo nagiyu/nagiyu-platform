@@ -86,8 +86,6 @@ export interface SelectProps {
  * - `label` と select は `useId` 経由で自動関連付け（a11y 必須対応）
  * - `placeholder` 指定時は先頭に空 option を挿入（未選択を明示）
  * - `error` で危険色の境界線・helperText、`aria-invalid` 自動付与
- *
- * @see docs/development/shared-ui-components.md
  */
 const Select = React.forwardRef<HTMLDivElement, SelectProps>(function Select(
   {

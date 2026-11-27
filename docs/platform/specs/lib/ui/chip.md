@@ -2,7 +2,7 @@
 sources:
   - libs/ui/src/components/Chip/Chip.tsx
   - libs/ui/src/components/Chip/Chip.module.css
-sources_hash: e8f763c026695f7ee1423a9237b861b7de409137e8d73c38c8035ea92a77aa06
+sources_hash: f9c553d51e5be6e923f6a5a4547e5a973a6393fd14639d8cd61ba476941f3640
 ---
 
 # Chip

@@ -317,9 +317,9 @@ test.describe('JSON Formatter - E2E Tests', () => {
     test('should read JSON from clipboard', async ({ page, context, browserName }) => {
       // クリップボード権限の付与（context.grantPermissions(['clipboard-read', 'clipboard-write'])）は
       // Chromium 系ブラウザしかサポートしておらず、Playwright は非対応ブラウザに対してこの呼び出し自体を
-      // エラーにする。これはブラウザが機能を持たない静的な制約であり、
-      // docs/development/testing.md の「E2Eテストにおけるブラウザ固有の制約」節が許容するパターンに該当する
-      // ため、browserName による静的スキップとして残す。
+      // エラーにする。これはブラウザが機能を持たない静的な制約である。実行時に状態を調べて
+      // スキップすると前提が壊れても green のままになるが、browserName による静的スキップには
+      // その恐れがないため、残す。
       test.skip(
         browserName !== 'chromium',
         'clipboard-read/write の grantPermissions は Chromium のみ対応'
@@ -349,9 +349,9 @@ test.describe('JSON Formatter - E2E Tests', () => {
     test('should copy formatted JSON to clipboard', async ({ page, context, browserName }) => {
       // クリップボード権限の付与（context.grantPermissions(['clipboard-read', 'clipboard-write'])）は
       // Chromium 系ブラウザしかサポートしておらず、Playwright は非対応ブラウザに対してこの呼び出し自体を
-      // エラーにする。これはブラウザが機能を持たない静的な制約であり、
-      // docs/development/testing.md の「E2Eテストにおけるブラウザ固有の制約」節が許容するパターンに該当する
-      // ため、browserName による静的スキップとして残す。
+      // エラーにする。これはブラウザが機能を持たない静的な制約である。実行時に状態を調べて
+      // スキップすると前提が壊れても green のままになるが、browserName による静的スキップには
+      // その恐れがないため、残す。
       test.skip(
         browserName !== 'chromium',
         'clipboard-read/write の grantPermissions は Chromium のみ対応'
@@ -389,9 +389,9 @@ test.describe('JSON Formatter - E2E Tests', () => {
     test('should copy minified JSON to clipboard', async ({ page, context, browserName }) => {
       // クリップボード権限の付与（context.grantPermissions(['clipboard-read', 'clipboard-write'])）は
       // Chromium 系ブラウザしかサポートしておらず、Playwright は非対応ブラウザに対してこの呼び出し自体を
-      // エラーにする。これはブラウザが機能を持たない静的な制約であり、
-      // docs/development/testing.md の「E2Eテストにおけるブラウザ固有の制約」節が許容するパターンに該当する
-      // ため、browserName による静的スキップとして残す。
+      // エラーにする。これはブラウザが機能を持たない静的な制約である。実行時に状態を調べて
+      // スキップすると前提が壊れても green のままになるが、browserName による静的スキップには
+      // その恐れがないため、残す。
       test.skip(
         browserName !== 'chromium',
         'clipboard-read/write の grantPermissions は Chromium のみ対応'

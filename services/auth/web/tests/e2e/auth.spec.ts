@@ -5,7 +5,7 @@ import { test, expect } from '@playwright/test';
  *
  * 未認証時のリダイレクト（未認証で /dashboard にアクセス → /signin）は、E2E 環境が
  * `SKIP_AUTH_CHECK=true` で起動するため未認証状態を作れず、以前は無条件 `test.skip` で
- * 封印されていた。testing.md「形骸化テストの禁止」に従い封印テストは削除し、担保は
+ * 封印されていた。封印したテストは前提が壊れても green のままになるため削除し、担保は
  * `libs/nextjs/tests/unit/middleware.test.ts` の `createAuthMiddleware` の単体テストに
  * 委ねる（「未認証時に外部サインインURLへリダイレクトする」「ローカルサインインURLに
  * リダイレクトできる」「未認証の場合は permission チェックを経由せずサインインへ

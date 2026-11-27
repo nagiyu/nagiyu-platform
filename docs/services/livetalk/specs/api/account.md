@@ -3,7 +3,7 @@ sources:
   - services/livetalk/web/src/app/api/account/route.ts
   - services/livetalk/web/src/app/api/account/constants.ts
   - services/livetalk/core/src/repositories/dynamodb-account-deletion.repository.ts
-sources_hash: 7085fa97f68f0202c2e4e047caac7168adc37ed0bb3e5f5a566060c3e22ccca6
+sources_hash: 34a22f4b050096c4efec208ad05e1d045802b7de9ebe904d582cff83c850f9db
 ---
 
 # アカウント API
