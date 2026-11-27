@@ -4,16 +4,27 @@ import { DOMAIN_ERROR_MESSAGES } from './domain-error-messages.js';
 
 export class HighlightService {
   private readonly highlightRepository: HighlightRepository;
+  private readonly now: () => number;
 
-  constructor(highlightRepository: HighlightRepository) {
+  /**
+   * @param now - 現在時刻 (ミリ秒) を返す関数。期限の判定を時刻に依存させずに確かめるため、差し替えられる
+   */
+  constructor(highlightRepository: HighlightRepository, now: () => number = () => Date.now()) {
     this.highlightRepository = highlightRepository;
+    this.now = now;
+  }
+
+  /** TTL による削除は期限から遅れるため、期限 (expiresAt) を過ぎた見どころは見つからない扱いにする */
+  private isExpired(highlight: Highlight): boolean {
+    return highlight.expiresAt <= this.now();
   }
 
   public async getHighlights(jobId: string): Promise<Highlight[]> {
     if (jobId.trim().length === 0) {
       throw new Error(DOMAIN_ERROR_MESSAGES.JOB_ID_REQUIRED);
     }
-    return this.highlightRepository.getByJobId(jobId);
+    const highlights = await this.highlightRepository.getByJobId(jobId);
+    return highlights.filter((highlight) => !this.isExpired(highlight));
   }
 
   public async getHighlight(jobId: string, highlightId: string): Promise<Highlight | null> {
@@ -23,7 +34,8 @@ export class HighlightService {
     if (highlightId.trim().length === 0) {
       throw new Error(DOMAIN_ERROR_MESSAGES.HIGHLIGHT_ID_REQUIRED);
     }
-    return this.highlightRepository.getById(jobId, highlightId);
+    const highlight = await this.highlightRepository.getById(jobId, highlightId);
+    return highlight === null || this.isExpired(highlight) ? null : highlight;
   }
 
   /**
@@ -60,7 +72,7 @@ export class HighlightService {
     }
 
     const current = await this.highlightRepository.getById(jobId, highlightId);
-    if (!current) {
+    if (!current || this.isExpired(current)) {
       throw new Error(DOMAIN_ERROR_MESSAGES.HIGHLIGHT_NOT_FOUND);
     }
 

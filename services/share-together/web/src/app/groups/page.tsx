@@ -19,6 +19,7 @@ export default function GroupsPage() {
   const [selectedGroupId, setSelectedGroupId] = useState('');
   const [currentUserId, setCurrentUserId] = useState('');
   const [members, setMembers] = useState<Array<{ userId: string; name: string }>>([]);
+  const [pendingInvitationCount, setPendingInvitationCount] = useState(0);
   const [groupLists, setGroupLists] = useState<Array<{ listId: string; name: string }>>([]);
   const [isSelectedGroupLoading, setIsSelectedGroupLoading] = useState(false);
   const [selectedGroupError, setSelectedGroupError] = useState<string | null>(null);
@@ -92,13 +93,17 @@ export default function GroupsPage() {
         }
 
         const membersData = (await membersResponse.json()) as {
-          data: { members: Array<{ userId: string; name: string }> };
+          data: {
+            members: Array<{ userId: string; name: string }>;
+            pendingInvitationCount: number;
+          };
         };
         const listsData = (await listsResponse.json()) as {
           data: { lists: Array<{ listId: string; name: string }> };
         };
 
         setMembers(membersData.data.members);
+        setPendingInvitationCount(membersData.data.pendingInvitationCount);
         setGroupLists(listsData.data.lists);
       } catch (error: unknown) {
         console.error('グループ詳細の取得に失敗しました', { selectedGroupId, error });
@@ -185,6 +190,7 @@ export default function GroupsPage() {
                 isOwner={selectedGroup.isOwner ?? selectedGroup.ownerUserId === currentUserId}
                 currentUserId={currentUserId}
                 members={members}
+                pendingInvitationCount={pendingInvitationCount}
                 groupLists={groupLists}
               />
             ) : null}

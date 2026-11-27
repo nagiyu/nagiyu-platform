@@ -18,7 +18,6 @@ export interface LiveTalkDynamoDbStackProps extends cdk.StackProps {
  *   Topic 中心モデル（リブトーク知識再設計 P1 / #3697、shadow build）のために GSI3 を追加した。
  *   GSI-TOPIC: Topic ヘッダ(META) のみを sparse 索引化する。想起の座標列挙と acquire の
  *   care 降順取得を賄う（#3697）。
- *   （`docs/services/livetalk/architecture.md` §3「データモデル概要」参照）
  * - Message は TTL（属性名 `TTL`、Unix 秒）で 90 日後に自動削除
  * - Point-in-time Recovery 有効、AWS マネージドキーで at-rest 暗号化
  * - dev は破棄、prod は保持

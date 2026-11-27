@@ -26,7 +26,7 @@ export interface ScenarioContext {
 }
 
 export interface Scenario {
-  /** 画面名。カードの名前 (`docs/specs/<service>/screen/<画面名>.md`) と同じにする */
+  /** 画面名。カードの名前 (`docs/services/<service>/specs/screen/<画面名>.md`) と同じにする */
   screen: string;
   /** この画面で撮るパターンを順に撮る */
   run(ctx: ScenarioContext): Promise<void>;

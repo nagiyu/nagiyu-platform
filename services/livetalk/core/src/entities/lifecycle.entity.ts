@@ -1,7 +1,7 @@
 /**
  * ユーザー × キャラの生活サイクル設定。
  *
- * `docs/services/livetalk/architecture.md` §3「データモデル概要」の SK パターン `CHAR#<id>#LIFECYCLE` に対応。
+ * DynamoDB SK: `CHAR#<id>#LIFECYCLE`。
  *
  * Phase 4b スコープでは bedtime / wakeUpTime をデフォルト固定で運用する。
  * ユーザーが自分でスケジュールを変更できる UI は Phase 4c 以降で実装する。

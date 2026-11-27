@@ -5,7 +5,7 @@ sources:
   - infra/quick-clip/bin/quick-clip.ts
   - .github/workflows/quick-clip-deploy.yml
   - services/quick-clip/batch/src/lib/environment.ts
-sources_hash: 1eb3514c2ef46e346b31e6b3d47f5b5ad4d021e40ca3121c4a654b7aa3bbd672
+sources_hash: bd59c35fd4d4aaa9fefb47ddfc626485203c360d207a397628862e6dbb1d2dc9
 ---
 
 # シークレット

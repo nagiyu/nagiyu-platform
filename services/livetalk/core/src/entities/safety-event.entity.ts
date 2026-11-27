@@ -12,8 +12,6 @@
  * GSI2: SafetyEvent のみを sparse 索引化する横断レビュー用 GSI（ADR-2.22 / #3580）
  * - GSI2PK='SAFETY' の SafetyEvent アイテムのみが対象
  * - 射影は INCLUDE（メタデータのみ。InputText / ResponseText は PII のため除外）
- *
- * @see docs/services/livetalk/architecture.md §3「データモデル概要」
  */
 
 import type { SafetyTrigger } from '../safety/types.js';

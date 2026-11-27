@@ -2,7 +2,6 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { SIDEBAR_EXCLUDED } from '../src/constants';
-import { SITE_STRUCTURE, type StructureNode } from '../src/legacy/site-structure';
 import { buildSidebar, escapeInterpolation } from '../src/sidebar';
 
 describe('escapeInterpolation', () => {
@@ -11,7 +10,7 @@ describe('escapeInterpolation', () => {
   });
 });
 
-describe('新しい配置の木', () => {
+describe('配置から作る木', () => {
   let docs: string;
 
   const write = (path: string, body: string) => {
@@ -21,6 +20,7 @@ describe('新しい配置の木', () => {
 
   const layout = {
     patterns: [
+      'README.md',
       'services/<service>/requirements/purpose.md',
       'services/<service>/requirements/use-cases/<name>.md',
       'services/<service>/specs/deploy.md',
@@ -31,6 +31,8 @@ describe('新しい配置の木', () => {
     ],
     template: 'services/_template',
     labels: {
+      services: 'サービス',
+      platform: '共通基盤',
       requirements: '要件',
       'purpose.md': '目的',
       'use-cases': 'ユースケース',
@@ -42,40 +44,10 @@ describe('新しい配置の木', () => {
     },
   };
 
-  const structure: StructureNode[] = [
-    { type: 'page', path: 'README.md', title: 'はじめに' },
-    {
-      type: 'group',
-      title: 'サービス',
-      collapsed: false,
-      items: [
-        {
-          type: 'services',
-          designDir: 'services',
-          cardsDir: 'specs',
-          excludeServices: ['platform'],
-          designTitle: '設計資料',
-          extraDesign: {},
-          designLabels: { 'architecture.md': 'アーキテクチャ' },
-        },
-      ],
-    },
-    {
-      type: 'group',
-      title: '共通基盤',
-      collapsed: false,
-      items: [
-        { type: 'platformTree' },
-        { type: 'directory', path: 'specs/platform/term', title: '共通の用語' },
-      ],
-    },
-  ];
-
   beforeEach(() => {
     docs = mkdtempSync(join(tmpdir(), 'docs-site-'));
     write('layout.json', JSON.stringify(layout));
     write('README.md', '# トップ\n');
-    write('services/alpha/architecture.md', '# アルファ構成\n');
     write('services/alpha/requirements/purpose.md', '---\nsources: []\n---\n本文のみ\n');
     write('services/alpha/requirements/use-cases/zeta.md', '# 後ろのユースケース\n');
     write('services/alpha/requirements/use-cases/alpha.md', '# 先のユースケース\n');
@@ -83,8 +55,6 @@ describe('新しい配置の木', () => {
     write('services/alpha/specs/deploy.md', '# デプロイ\n');
     write('services/newonly/specs/deploy.md', '# 新規のデプロイ\n');
     write('services/_template/specs/deploy.md', '# 雛形\n');
-    write('specs/alpha/screen/old.md', '# 旧画面\n');
-    write('specs/platform/term/t.md', '# 共通語\n');
     write('platform/rules/docs.md', '# docs の規約\n');
     write('platform/specs/lib/common/logging.md', '# ログ\n');
     write('platform/specs/deploy.md', '# 共通のデプロイ\n');
@@ -92,12 +62,17 @@ describe('新しい配置の木', () => {
 
   afterEach(() => rmSync(docs, { recursive: true, force: true }));
 
-  const run = () => buildSidebar(docs, [], structure);
+  const run = () => buildSidebar(docs, []);
   const services = () => run()[1].items ?? [];
 
-  it('サービスの下に新しい配置の木を先に置き、旧配置の項目を続ける', () => {
+  it('先頭にホームを置き、サービスと共通基盤を続ける', () => {
+    expect(run().map((item) => item.text)).toEqual(['はじめに', 'サービス', '共通基盤']);
+    expect(run()[0]).toEqual({ text: 'はじめに', link: '/' });
+  });
+
+  it('サービスの下に要件と仕様の木を置く', () => {
     const alpha = services().find((item) => item.text === 'alpha');
-    expect(alpha?.items?.map((item) => item.text)).toEqual(['要件', '仕様', '設計資料', '画面']);
+    expect(alpha?.items?.map((item) => item.text)).toEqual(['要件', '仕様']);
     const requirements = alpha?.items?.[0];
     expect(requirements).toEqual({
       text: '要件',
@@ -118,7 +93,7 @@ describe('新しい配置の木', () => {
     expect(specs?.items?.map((item) => item.text)).toEqual(['デプロイ先', '画面']);
   });
 
-  it('新しい配置の文書だけのサービスも載せ、雛形は載せない', () => {
+  it('すべてのサービスを名前順に載せ、雛形は載せない', () => {
     const names = services().map((item) => item.text);
     expect(names).toEqual(['alpha', 'newonly']);
     expect(JSON.stringify(run())).not.toContain('_template');
@@ -126,7 +101,7 @@ describe('新しい配置の木', () => {
 
   it('共通基盤の先頭に platform の木を置き、固定でない名前はそのまま使う', () => {
     const platform = run()[2].items ?? [];
-    expect(platform.map((item) => item.text)).toEqual(['仕様', '規約', '共通の用語']);
+    expect(platform.map((item) => item.text)).toEqual(['仕様', '規約']);
     const lib = platform[0].items?.find((item) => item.text === 'ライブラリ');
     expect(lib?.items).toEqual([
       {
@@ -135,6 +110,26 @@ describe('新しい配置の木', () => {
         items: [{ text: 'ログ', link: '/platform/specs/lib/common/logging' }],
       },
     ]);
+  });
+
+  it('ホームの README.md が無ければ「はじめに」を置かない', () => {
+    rmSync(join(docs, 'README.md'));
+    expect(run().map((item) => item.text)).toEqual(['サービス', '共通基盤']);
+  });
+
+  it('配置の木が空なら章を置かない', () => {
+    rmSync(join(docs, 'services'), { recursive: true });
+    rmSync(join(docs, 'platform'), { recursive: true });
+    expect(run().map((item) => item.text)).toEqual(['はじめに']);
+  });
+
+  it('章の表示名が layout.json に無ければキーをそのまま使う', () => {
+    write('layout.json', JSON.stringify({ ...layout, labels: {} }));
+    expect(run().map((item) => item.text)).toEqual(['はじめに', 'services', 'platform']);
+  });
+
+  it('同じページが複数の場所に載ると例外にする', () => {
+    expect(() => buildSidebar(docs, ['README.md'])).not.toThrow();
   });
 
   it('layout.json が無ければ例外にする', () => {
@@ -152,25 +147,7 @@ describe('実際の docs の章立て', () => {
   const realDocs = join(__dirname, '../../docs');
 
   it('漏れも重複もなく生成できる', () => {
-    const sidebar = buildSidebar(realDocs, SIDEBAR_EXCLUDED, SITE_STRUCTURE);
-    expect(sidebar.map((item) => item.text)).toEqual([
-      'はじめに',
-      'サービス',
-      '共通基盤',
-      '開発の進め方',
-    ]);
-    const guide = JSON.stringify(sidebar[3]);
-    expect(guide).toContain('仕様カードの書き方');
-  });
-
-  it('サービスの設計資料にサービス名を繰り返さない', () => {
-    const sidebar = buildSidebar(realDocs, SIDEBAR_EXCLUDED, SITE_STRUCTURE);
-    // 旧配置の設計資料はサービスごとに新しい配置へ移って減っていくため、残っているサービスすべてを見る
-    for (const service of sidebar[1].items ?? []) {
-      const design = service.items?.find((item) => item.text === '設計資料');
-      for (const item of design?.items ?? []) {
-        expect(item.text).not.toContain(service.text);
-      }
-    }
+    const sidebar = buildSidebar(realDocs, SIDEBAR_EXCLUDED);
+    expect(sidebar.map((item) => item.text)).toEqual(['はじめに', 'サービス', '共通基盤']);
   });
 });

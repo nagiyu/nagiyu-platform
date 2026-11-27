@@ -62,8 +62,6 @@ export interface ChipProps extends Omit<React.HTMLAttributes<HTMLElement>, 'colo
  * - `variant` × `color` × `size` の直交した API
  * - `onClick` を渡すと `<button>` として描画され、キーボード操作にも対応
  * - `asChild` で `<Link>` / `<a>` 等への変身に対応（Radix Slot パターン）
- *
- * @see docs/development/shared-ui-components.md
  */
 const Chip = React.forwardRef<HTMLElement, ChipProps>(function Chip(
   {

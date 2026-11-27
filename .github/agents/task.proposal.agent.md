@@ -32,7 +32,7 @@ description: Issueの内容から実装の指針となるMarkdownドキュメン
     - `docs/platform/rules/architecture.md` - アーキテクチャ方針
     - タスクタイプに応じた既存ドキュメント:
         - サービス: `docs/services/{サービス名}/`
-        - インフラ: `docs/infra/`
+        - インフラ: `docs/platform/specs/`
         - ライブラリ: `docs/platform/specs/lib/`
 
 ### Phase 2: タスクドキュメントの生成
@@ -56,14 +56,14 @@ description: Issueの内容から実装の指針となるMarkdownドキュメン
 3. **各ファイルの生成**
     テンプレートを参照しながら、Issueの内容に基づいて各ファイルを作成する。
 
-    - **`requirements.md`**: `docs/templates/services/requirements.md` をベースに、この作業スコープの要件を記述。冒頭に以下のコメントを追加:
+    - **`requirements.md`**: `docs/services/_template/requirements/purpose.md` をベースに、この作業スコープの要件を記述。冒頭に以下のコメントを追加:
         ```markdown
         <!--
             このドキュメントは開発時のみ使用します。
             開発完了後に docs/services/{service}/requirements.md に統合して削除します。
         -->
         ```
-    - **`external-design.md`**（UI変更がある場合）: `docs/templates/services/external-design.md` をベースに、画面設計・概念データモデルを記述。同様の冒頭コメントを追加。
+    - **`external-design.md`**（UI変更がある場合）: `docs/services/_template/specs/screen/example.md` をベースに、画面設計・概念データモデルを記述。同様の冒頭コメントを追加。
     - **`design.md`**: `tasks/templates/design.md` をベースに、技術設計（API仕様・データモデル・コンポーネント設計）を記述。「docs/ への移行メモ」セクションも記入する。
 
 4. **リポジトリルールの適用**
@@ -164,7 +164,7 @@ description: Issueの内容から実装の指針となるMarkdownドキュメン
 
 ### インフラタスク
 
-- `docs/infra/` の構造を理解
+- `docs/platform/specs/` の構造を理解
 - 共有インフラ（VPC、IAM等）の影響範囲を考慮
 - CloudFormation/CDKのスタック構成を意識
 
