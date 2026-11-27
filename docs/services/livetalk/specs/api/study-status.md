@@ -5,7 +5,7 @@ sources:
   - services/livetalk/web/src/lib/study/study-status.ts
   - services/livetalk/web/src/lib/study/types.ts
   - services/livetalk/core/src/study/study-plan.ts
-sources_hash: 365452bc8fabe7e75f0b816da750441d0b67b12a3f4f2e7d05d50e2d225efe56
+sources_hash: e74b1d54b0ac681cc6db92733448e4897293d516aaf47c2fa146b8e9a916cdfc
 ---
 
 # 勉強の状態 API
