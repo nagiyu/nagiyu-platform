@@ -29,7 +29,7 @@ describe('imageRepoPath / cardImageLink', () => {
 
   it('カードからは docs 内の相対リンクになる', () => {
     expect(cardImageLink('stock-tracker', 'screen', 'a-b-mobile.png')).toBe(
-      '../../../images/specs/stock-tracker/screen/a-b-mobile.png'
+      '../../../../images/specs/stock-tracker/screen/a-b-mobile.png'
     );
   });
 

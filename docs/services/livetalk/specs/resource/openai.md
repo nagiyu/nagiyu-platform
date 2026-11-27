@@ -17,7 +17,7 @@ sources:
   - services/livetalk/core/src/lib/llm-retry.ts
   - services/livetalk/web/src/lib/server/voice.ts
   - services/livetalk/web/src/lib/server/safety.ts
-sources_hash: a819770532d9b4b419ca71f63390c85a72722919ef9f83254cfc1cc17580b0ac
+sources_hash: f4d601b0669b9869b3ca5778f775ea74325c19af75ddcbc9b3bcc43cccce67ee
 ---
 
 # OpenAI の使い方

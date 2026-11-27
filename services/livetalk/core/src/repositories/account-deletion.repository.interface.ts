@@ -3,8 +3,7 @@
  *
  * ADR-2.21 の要件に従い、ユーザー PK 配下の全アイテムをハード削除し、
  * SafetyEvent のみ匿名化して残す操作を提供する。
- *
- * @see docs/services/livetalk/architecture.md §2.21（ADR-2.21）
+ * 項目の種別を列挙せず PK 配下を走査して消すため、種別が増えても削除の漏れが出ない。
  */
 
 import type { AccountDeletionResult } from '../entities/account-deletion.entity.js';

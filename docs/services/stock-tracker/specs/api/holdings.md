@@ -5,7 +5,7 @@ sources:
   - services/stock-tracker/web/app/api/holdings/tickers/[tickerId]/route.ts
   - services/stock-tracker/core/src/validation/index.ts
   - services/stock-tracker/core/src/validation/presets.ts
-sources_hash: a64d575c2f65adeb3cdaa18fe8304b8ac57d198182913c28952e3152a6bad182
+sources_hash: d8165ccafda5e645777c9740e663f8a59a34bf6520eb64091b7f7aa66b5abed6
 ---
 
 # 保有株式 API

@@ -73,8 +73,6 @@ export interface CheckboxProps {
  * - `label` を渡せば `<label>` で input と自動関連付け（a11y 必須対応）
  * - `indeterminate` で DOM プロパティと視覚（横棒アイコン）を同期
  * - 視覚的に隠した native `<input type="checkbox">` を CSS で再描画
- *
- * @see docs/development/shared-ui-components.md
  */
 const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(function Checkbox(
   {

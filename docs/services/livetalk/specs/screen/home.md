@@ -27,7 +27,7 @@ sources:
   - services/livetalk/web/src/lib/pwa/standalone.ts
   - services/livetalk/web/src/lib/pwa/messages.ts
   - services/livetalk/web/src/lib/account/useAccountDeletion.ts
-sources_hash: 8997d80bcc913cd1e76658b498c913d6c1592d49ea9158352687f015c5279f20
+sources_hash: 72d0084d1615ed3cfb49b6be655276042609d31b04f6368b245089f2df8d8ce6
 ---
 
 # ホーム画面 (チャット)
