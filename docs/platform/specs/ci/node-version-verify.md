@@ -2,7 +2,7 @@
 sources:
   - .github/workflows/node-version-verify.yml
   - .github/workflows/scripts/check-node-version.mjs
-sources_hash: 7118554f9f14b38ee7d5d63e1b8aa2c34c0ff1e27e1e85e0af82965d09bd3f60
+sources_hash: c1c548aa051b5d3a98fce9e055b422d5cdf9caad4c371be7b7ca1d1f93d71d0a
 ---
 
 # Node のメジャー版の一致の検査

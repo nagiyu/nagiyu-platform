@@ -148,7 +148,7 @@ export default function Base64Client() {
           <Button
             variant="solid"
             onClick={handleConvert}
-            disabled={!inputText.trim()}
+            disabled={!inputText}
             aria-label={
               mode === 'encode' ? '入力をBase64にエンコードする' : '入力をBase64からデコードする'
             }

@@ -4,7 +4,6 @@ import { withMermaid } from 'vitepress-plugin-mermaid';
 import { SIDEBAR_EXCLUDED, SITE_CONFIG } from '../src/constants';
 import { buildSidebar, escapeInterpolation } from '../src/sidebar';
 import { readmeToIndex } from '../src/sidebar-utils';
-import { SITE_STRUCTURE } from '../src/legacy/site-structure';
 import { tokenize } from '../src/tokenize';
 
 const docsDir = fileURLToPath(new URL('../../docs', import.meta.url));
@@ -32,7 +31,7 @@ export default withMermaid(
     rewrites: readmeToIndex,
     themeConfig: {
       nav: [{ text: 'ホーム', link: '/' }],
-      sidebar: buildSidebar(docsDir, SIDEBAR_EXCLUDED, SITE_STRUCTURE),
+      sidebar: buildSidebar(docsDir, SIDEBAR_EXCLUDED),
       outline: { level: [2, 3], label: '目次' },
       docFooter: { prev: '前へ', next: '次へ' },
       sidebarMenuLabel: 'メニュー',

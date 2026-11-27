@@ -17,8 +17,10 @@ on:
       - '.github/workflows/auth-deploy.yml'
       - '.github/actions/build-docker-image/**'
       - '.github/actions/build-web-app/**'
+      - '.github/actions/get-stack-output/**'
       - '.github/actions/health-check/**'
       - '.github/actions/push-ecr-image/**'
+      - '.github/actions/setup-cdk/**'
       - '.github/actions/setup-environment/**'
       - '.github/actions/setup-node/**'
       - '.github/scripts/docker-build-with-retry.sh'
@@ -56,6 +58,7 @@ jobs:
 
     outputs:
       environment: ${{ steps.setup-environment.outputs.environment }}
+      stack-suffix: ${{ steps.setup-environment.outputs.stack-suffix }}
 
     # 検査と同じ実行環境でビルドとデプロイを行うため、共通イメージの上で動かす。docker のデーモンはランナーのものを使う
     container:
@@ -74,22 +77,10 @@ jobs:
         id: setup-environment
         uses: ./.github/actions/setup-environment
 
-      - name: Setup Node.js and install dependencies
-        uses: ./.github/actions/setup-node
+      - name: Setup CDK
+        uses: ./.github/actions/setup-cdk
         with:
-          # Node はイメージに入っているものを使う
-          skip-setup-node: 'true'
-          cache-dependency-path: package-lock.json
-
-      - name: Build common infrastructure package
-        run: npm run build --workspace=@nagiyu/infra-common
-
-      - name: Build CDK TypeScript
-        run: npm run build --workspace=@nagiyu/infra-auth
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
+          infra-workspace: '@nagiyu/infra-auth'
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
@@ -101,21 +92,14 @@ jobs:
       - name: Deploy Infrastructure (DynamoDB, Secrets, ECR)
         env:
           ENVIRONMENT: ${{ steps.setup-environment.outputs.environment }}
+          STACK_SUFFIX: ${{ steps.setup-environment.outputs.stack-suffix }}
         run: |
           echo "Deploying DynamoDB, Secrets Manager, and ECR stacks..."
 
-          # Set stack names based on environment
-          if [[ "$ENVIRONMENT" == "prod" ]]; then
-            DYNAMODB_STACK="NagiyuAuthDynamoDBProd"
-            SECRETS_STACK="NagiyuAuthSecretsProd"
-            STRIPE_SECRETS_STACK="NagiyuAuthStripeSecretsProd"
-            ECR_STACK="NagiyuAuthECRProd"
-          else
-            DYNAMODB_STACK="NagiyuAuthDynamoDBDev"
-            SECRETS_STACK="NagiyuAuthSecretsDev"
-            STRIPE_SECRETS_STACK="NagiyuAuthStripeSecretsDev"
-            ECR_STACK="NagiyuAuthECRDev"
-          fi
+          DYNAMODB_STACK="NagiyuAuthDynamoDB${STACK_SUFFIX}"
+          SECRETS_STACK="NagiyuAuthSecrets${STACK_SUFFIX}"
+          STRIPE_SECRETS_STACK="NagiyuAuthStripeSecrets${STACK_SUFFIX}"
+          ECR_STACK="NagiyuAuthECR${STACK_SUFFIX}"
 
           # Deploy infrastructure stacks
           npm run deploy --workspace=@nagiyu/infra-auth -- \
@@ -132,6 +116,7 @@ jobs:
     outputs:
       image-uri: ${{ steps.build-image.outputs.image-uri }}
       environment: ${{ needs.infrastructure.outputs.environment }}
+      stack-suffix: ${{ needs.infrastructure.outputs.stack-suffix }}
       app-version: ${{ steps.get-version.outputs.app-version }}
 
     # 検査と同じ実行環境でビルドとデプロイを行うため、共通イメージの上で動かす。docker のデーモンはランナーのものを使う
@@ -173,13 +158,9 @@ jobs:
         id: get-ecr
         env:
           ENVIRONMENT: ${{ needs.infrastructure.outputs.environment }}
+          STACK_SUFFIX: ${{ needs.infrastructure.outputs.stack-suffix }}
         run: |
-          # Set ECR stack name based on environment
-          if [[ "$ENVIRONMENT" == "prod" ]]; then
-            ECR_STACK_NAME="NagiyuAuthECRProd"
-          else
-            ECR_STACK_NAME="NagiyuAuthECRDev"
-          fi
+          ECR_STACK_NAME="NagiyuAuthECR${STACK_SUFFIX}"
 
           # Try to get from CloudFormation stack
           REPOSITORY_URI=$(aws cloudformation describe-stacks \
@@ -213,10 +194,6 @@ jobs:
     needs: [infrastructure, build]
     environment: ${{ needs.build.outputs.environment }}
 
-    outputs:
-      lambda-function-url: ${{ steps.get-lambda-url.outputs.function-url }}
-      cloudfront-domain: ${{ steps.get-cloudfront.outputs.cloudfront-domain }}
-
     # 検査と同じ実行環境でビルドとデプロイを行うため、共通イメージの上で動かす。docker のデーモンはランナーのものを使う
     container:
       image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v3
@@ -230,22 +207,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js and install dependencies
-        uses: ./.github/actions/setup-node
+      - name: Setup CDK
+        uses: ./.github/actions/setup-cdk
         with:
-          # Node はイメージに入っているものを使う
-          skip-setup-node: 'true'
-          cache-dependency-path: package-lock.json
-
-      - name: Build common infrastructure package
-        run: npm run build --workspace=@nagiyu/infra-common
-
-      - name: Build CDK TypeScript
-        run: npm run build --workspace=@nagiyu/infra-auth
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
+          infra-workspace: '@nagiyu/infra-auth'
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
@@ -280,45 +245,18 @@ jobs:
             --all \
             --require-approval never
 
-      - name: Get Lambda Function URL
-        id: get-lambda-url
-        env:
-          ENVIRONMENT: ${{ needs.build.outputs.environment }}
-        run: |
-          FUNCTION_URL=$(aws cloudformation describe-stacks \
-            --stack-name "NagiyuAuthLambda$(echo $ENVIRONMENT | sed 's/\(.\)/\U\1/')" \
-            --query "Stacks[0].Outputs[?OutputKey=='FunctionUrl'].OutputValue" \
-            --output text \
-            --region "${{ env.AWS_REGION }}" 2>/dev/null || echo "")
-
-          echo "function-url=$FUNCTION_URL" >> "$GITHUB_OUTPUT"
-          echo "Lambda Function URL: $FUNCTION_URL"
-
-      - name: Get CloudFront URL
+      - name: Get CloudFront domain
         id: get-cloudfront-url
-        env:
-          ENVIRONMENT: ${{ needs.build.outputs.environment }}
-        run: |
-          CF_DOMAIN=$(aws cloudformation describe-stacks \
-            --stack-name "NagiyuAuthCloudFront$(echo $ENVIRONMENT | sed 's/\(.\)/\U\1/')" \
-            --query "Stacks[0].Outputs[?OutputKey=='DistributionDomainName'].OutputValue" \
-            --output text \
-            --region "${{ env.AWS_REGION }}")
-
-          # ドメインが空のまま https:// だけが渡ると URL の欠落をヘルスチェックが検出できないため、空のときは空のまま渡す
-          if [ -n "$CF_DOMAIN" ]; then
-            BASE_URL="https://${CF_DOMAIN}"
-          else
-            BASE_URL=""
-          fi
-
-          echo "base-url=$BASE_URL" >> "$GITHUB_OUTPUT"
-          echo "CloudFront URL: $BASE_URL"
+        uses: ./.github/actions/get-stack-output
+        with:
+          stack-name: NagiyuAuthCloudFront${{ needs.build.outputs.stack-suffix }}
+          region: ${{ env.AWS_REGION }}
+          output-key: DistributionDomainName
 
       - name: Invoke health check
         uses: ./.github/actions/health-check
         with:
-          base-url: ${{ steps.get-cloudfront-url.outputs.base-url }}
+          base-url: https://${{ steps.get-cloudfront-url.outputs.value }}
 
   cloudfront-invalidation:
     name: CloudFront Invalidation
@@ -345,10 +283,10 @@ jobs:
       - name: Get CloudFront distribution ID
         id: get-cloudfront
         env:
-          ENVIRONMENT: ${{ needs.build.outputs.environment }}
+          STACK_SUFFIX: ${{ needs.build.outputs.stack-suffix }}
         run: |
           DISTRIBUTION_ID=$(aws cloudformation describe-stacks \
-            --stack-name "NagiyuAuthCloudFront$(echo $ENVIRONMENT | sed 's/\(.\)/\U\1/')" \
+            --stack-name "NagiyuAuthCloudFront${STACK_SUFFIX}" \
             --query "Stacks[0].Outputs[?OutputKey=='DistributionId'].OutputValue" \
             --output text \
             --region "${{ env.AWS_REGION }}" 2>/dev/null || echo "")
@@ -413,6 +351,7 @@ jobs:
       - name: Display deployment summary
         env:
           ENVIRONMENT: ${{ needs.build.outputs.environment }}
+          STACK_SUFFIX: ${{ needs.infrastructure.outputs.stack-suffix }}
         run: |
           echo "## 🚀 Auth App Deployment Summary - $ENVIRONMENT" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -429,16 +368,9 @@ jobs:
           echo "| CloudFront Invalidation | ${{ needs.cloudfront-invalidation.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          # Lambda Function URL
-          if [ -n "${{ needs.deploy.outputs.lambda-function-url }}" ]; then
-            echo "### Lambda Function URL" >> $GITHUB_STEP_SUMMARY
-            echo "${{ needs.deploy.outputs.lambda-function-url }}" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-          fi
-
           # CloudFront Domain
           CF_DOMAIN=$(aws cloudformation describe-stacks \
-            --stack-name "NagiyuAuthCloudFront$(echo $ENVIRONMENT | sed 's/\(.\)/\U\1/')" \
+            --stack-name "NagiyuAuthCloudFront${STACK_SUFFIX}" \
             --query "Stacks[0].Outputs[?OutputKey=='DistributionDomainName'].OutputValue" \
             --output text \
             --region "${{ env.AWS_REGION }}" 2>/dev/null || echo "")
@@ -451,7 +383,7 @@ jobs:
 
           # Custom Domain (if configured)
           CUSTOM_DOMAIN=$(aws cloudformation describe-stacks \
-            --stack-name "NagiyuAuthCloudFront$(echo $ENVIRONMENT | sed 's/\(.\)/\U\1/')" \
+            --stack-name "NagiyuAuthCloudFront${STACK_SUFFIX}" \
             --query "Stacks[0].Parameters[?ParameterKey=='DomainName'].ParameterValue" \
             --output text \
             --region "${{ env.AWS_REGION }}" 2>/dev/null || echo "")

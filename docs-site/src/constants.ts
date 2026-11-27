@@ -18,9 +18,8 @@ export const SIDEBAR_EXCLUDED: readonly string[] = [];
 export const ERROR_MESSAGES = {
   DOCS_DIR_NOT_FOUND: (dir: string) => `docs ディレクトリが見つかりません: ${dir}`,
   LAYOUT_NOT_FOUND: (file: string) => `配置の定義が見つかりません: ${file}`,
-  PAGE_NOT_FOUND: (path: string) => `章立てに指定されたページが docs にありません: ${path}`,
   UNLISTED_PAGES: (paths: readonly string[]) =>
-    `サイドバーに載っていないページがあります。docs/layout.json の配置に当てるか、旧配置の章立てに加えるか、除外に加えてください:\n${paths.map((p) => `  - ${p}`).join('\n')}`,
+    `サイドバーに載っていないページがあります。docs/layout.json の配置に当てるか、除外に加えてください:\n${paths.map((p) => `  - ${p}`).join('\n')}`,
   DUPLICATE_PAGES: (paths: readonly string[]) =>
     `サイドバーの複数の場所に載っているページがあります:\n${paths.map((p) => `  - ${p}`).join('\n')}`,
 } as const;

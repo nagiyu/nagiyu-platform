@@ -1,8 +1,7 @@
 /**
  * リブトーク全体で参照するドメイン定数。
  *
- * MVP では桃瀬ひより 1 キャラのみを扱うため characterId は固定値とする
- * （将来の拡張は `docs/services/livetalk/roadmap.md` も参照）。
+ * MVP では桃瀬ひより 1 キャラのみを扱うため characterId は固定値とする。
  */
 export const DEFAULT_CHARACTER_ID = 'hiyori';
 

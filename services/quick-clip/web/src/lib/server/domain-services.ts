@@ -12,14 +12,14 @@ export const DOMAIN_ERROR_MESSAGES = {
 } as const;
 
 export class JobDomainService extends JobService {
-  constructor(repository: JobRepository) {
-    super(repository);
+  constructor(repository: JobRepository, now?: () => number) {
+    super(repository, now);
   }
 }
 
 export class HighlightDomainService extends HighlightService {
-  constructor(repository: HighlightRepository) {
-    super(repository);
+  constructor(repository: HighlightRepository, now?: () => number) {
+    super(repository, now);
   }
 }
 

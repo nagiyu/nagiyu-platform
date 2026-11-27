@@ -12,7 +12,7 @@ sources:
   - services/livetalk/core/src/lifecycle/state-resolver.ts
   - services/livetalk/core/src/constants.ts
   - libs/aws/src/dynamodb/counter/try-increment-in-order.ts
-sources_hash: 1bc7ba155de1bb7d0e9ae2d4d94b3a31221e0802edccb0ca0e5ca00ef6281b0f
+sources_hash: 8b82f3f21674a84ad971816bab479012140ff469c85bd729e12fe7433d5e0bb1
 ---
 
 # 勉強バッチ (acquire)
