@@ -10,6 +10,7 @@ import {
 import { STUDY_USAGE_ITEM_TYPE } from './study-usage.repository.interface.js';
 import type {
   StudyUsageDeniedScope,
+  StudyUsageToday,
   TryConsumeStudyUsageInput,
   TryConsumeStudyUsageResult,
 } from './study-usage.repository.interface.js';
@@ -74,4 +75,22 @@ export async function tryConsumeStudyUsage(
   );
   if (result.ok) return { ok: true };
   return { ok: false, deniedBy: DENIED_SCOPES[result.deniedIndex] };
+}
+
+/**
+ * 今日の利用者合計と全利用者合計を、数えるときと同じキー・属性名で読む。
+ * 別の書き方にすると、数える側と読む側でキーがずれて常に 0 に見えるため、同じ builder を使う。
+ */
+export async function readStudyUsageToday(
+  counter: UsageCounter,
+  userId: string,
+  nowMs: number
+): Promise<StudyUsageToday> {
+  const sk = buildStudyUsageSK(toJstDayKey(nowMs));
+  const attribute = buildStudyUsageTotalAttribute();
+  const [user, global] = await Promise.all([
+    counter.read({ PK: buildUserPK(userId), SK: sk }, [attribute]),
+    counter.read({ PK: buildGlobalStudyUsagePK(), SK: sk }, [attribute]),
+  ]);
+  return { userTotal: user[attribute] ?? 0, globalTotal: global[attribute] ?? 0 };
 }

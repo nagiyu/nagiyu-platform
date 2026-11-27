@@ -3,9 +3,11 @@ sources:
   - services/livetalk/web/src/app/api/status/route.ts
   - services/livetalk/web/src/app/api/status/constants.ts
   - services/livetalk/web/src/lib/server/status.ts
+  - services/livetalk/web/src/lib/study/admin-study-status.ts
+  - services/livetalk/core/src/repositories/study-usage-counting.ts
   - services/livetalk/core/src/constants.ts
   - services/livetalk/core/src/notification/decision.ts
-sources_hash: 271affe2df66ccc62bc646af9e2daafd3dab8d0e3682e72223239b632c06011b
+sources_hash: 577cd8bacd787c073085e5c9c7004ed725f993452cb79cbd2e07c317567364a0
 ---
 
 # ステータス API
@@ -29,9 +31,11 @@ sources_hash: 271affe2df66ccc62bc646af9e2daafd3dab8d0e3682e72223239b632c06011b
 | `recentNotifications` | 直近 5 件の[通知の記録](../term/notification-event.md)。本文は 100 文字まで、消化の日時はなければ null |
 | `notifyDecision` | 今この時刻に平常通知を出せるかの判定。出せないときは理由 (`not_due`、`outside_window`、`sleeping`、`daily_cap`、`inactive_stopped`、`no_content`)。`not_due` のときは、間隔が解ける目安の時刻 `nextEarliestAt` が付く |
 | `studyTopicPendingCount` | 勉強の待ちの件数 |
+| `study` | 呼んだ管理者自身の勉強の区分と今日の回数。`tier` (`operator`・`standard`・`free`)、`trial` (運営者・スタンダードは null。無料は `{ state: 'not_started' }` か `{ state: 'active' \| 'ended', endsAt }`)、`user` と `global` (それぞれ `{ used, limit, reached }`。`reached` は `used >= limit`)。`user.limit` は区分の 1 日の回数で、無料でお試しを過ぎたときと、Profile がない (お試しが始まっていない) ときは 0。`global.limit` は 200 |
 
 - 判定と `recentNotifications` は、表示キャラクターの通知の記録だけを使う。通知の記録は利用者の直近 60 件 (通知バッチと同じ件数) を読み、そこから表示キャラクターのものに絞る。他のキャラクターの通知は、1 日の上限・無視の回数・基準時刻にも一覧にも効かない
 - 判定に使う会話は、通知バッチと同じ直近 7 日の分だけを読む。7 日より前の発話は、セッションの間隔にも最後の発話の時刻にも入らない
+- `study` の区分とお試しは、[勉強バッチ](../batch/acquire.md)と同じ関数で決める。ただし区分はセッションのロールから決めるので、解約や権利の期限切れの直後は、バッチの区分と食い違うことがある ([勉強の状態 API](./study-status.md))。今日の回数は、勉強バッチが数えるのと同じ項目 (利用者の合計と全利用者の合計) を、数えずに読む ([テーブル](../data/main-table.md))
 - 判定と間隔が解ける目安の時刻は、[通知バッチ](../batch/notify.md)の平常通知の判定と同じ関数で求める。画面とこの API は、読み取りと判定を同じ処理で行う。重要通知の判定 (話題の指定) と、複数のキャラクターの調停は含まない
 
 ## エラー
@@ -49,5 +53,6 @@ flowchart TD
     C[呼び出し元] --> A[ステータス API]
     A --> L[(生活サイクル・通知の記録)]
     A --> M[(会話履歴・勉強の待ち)]
+    A --> U[(Profile・勉強の 1 日の回数)]
     S[ステータス画面] -.同じ読み取り.-> L
 ```
