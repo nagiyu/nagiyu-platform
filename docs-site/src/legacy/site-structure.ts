@@ -62,7 +62,6 @@ export const SITE_STRUCTURE: readonly StructureNode[] = [
           'architecture.md': 'アーキテクチャ',
           'api-spec.md': 'API 仕様',
           'roles-and-permissions.md': 'ロールと権限',
-          'tools-catalog.md': 'ツール一覧',
           'deployment.md': 'デプロイ',
           'testing.md': 'テスト',
           'roadmap.md': 'ロードマップ',
