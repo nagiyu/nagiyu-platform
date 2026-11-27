@@ -1,8 +1,4 @@
 ---
-id: codec-converter/screen/job-detail
-title: ジョブ詳細画面
-kind: screen
-service: codec-converter
 sources:
   - services/codec-converter/web/src/app/jobs/[jobId]/page.tsx
   - services/codec-converter/web/src/lib/constants/errors.ts
@@ -12,8 +8,6 @@ sources:
   - libs/common/src/format/jst.ts
   - libs/common/src/constants/error-messages.ts
 sources_hash: d7f7fd81e228a5303b3e9407bc71433c01e3830f37501a99b81620a4be411a4d
-terms: [codec-converter/term/job, codec-converter/term/output-codec]
-related_cards: [codec-converter/api/jobs, codec-converter/screen/upload, codec-converter/flow/conversion]
 ---
 
 # ジョブ詳細画面
@@ -78,7 +72,7 @@ related_cards: [codec-converter/api/jobs, codec-converter/screen/upload, codec-c
 
 | スマホ | PC |
 |---|---|
-| ![ジョブ詳細画面 待機中 (スマホ)](../../../images/specs/codec-converter/screen/job-detail-pending-mobile.png) | ![ジョブ詳細画面 待機中 (PC)](../../../images/specs/codec-converter/screen/job-detail-pending-desktop.png) |
+| ![ジョブ詳細画面 待機中 (スマホ)](../../../../images/specs/codec-converter/screen/job-detail-pending-mobile.png) | ![ジョブ詳細画面 待機中 (PC)](../../../../images/specs/codec-converter/screen/job-detail-pending-desktop.png) |
 
 ### 処理中
 
@@ -86,7 +80,7 @@ related_cards: [codec-converter/api/jobs, codec-converter/screen/upload, codec-c
 
 | スマホ | PC |
 |---|---|
-| ![ジョブ詳細画面 処理中 (スマホ)](../../../images/specs/codec-converter/screen/job-detail-processing-mobile.png) | ![ジョブ詳細画面 処理中 (PC)](../../../images/specs/codec-converter/screen/job-detail-processing-desktop.png) |
+| ![ジョブ詳細画面 処理中 (スマホ)](../../../../images/specs/codec-converter/screen/job-detail-processing-mobile.png) | ![ジョブ詳細画面 処理中 (PC)](../../../../images/specs/codec-converter/screen/job-detail-processing-desktop.png) |
 
 ### ステータスを確認中
 
@@ -94,7 +88,7 @@ related_cards: [codec-converter/api/jobs, codec-converter/screen/upload, codec-c
 
 | スマホ | PC |
 |---|---|
-| ![ジョブ詳細画面 ステータスを確認中 (スマホ)](../../../images/specs/codec-converter/screen/job-detail-refreshing-mobile.png) | ![ジョブ詳細画面 ステータスを確認中 (PC)](../../../images/specs/codec-converter/screen/job-detail-refreshing-desktop.png) |
+| ![ジョブ詳細画面 ステータスを確認中 (スマホ)](../../../../images/specs/codec-converter/screen/job-detail-refreshing-mobile.png) | ![ジョブ詳細画面 ステータスを確認中 (PC)](../../../../images/specs/codec-converter/screen/job-detail-refreshing-desktop.png) |
 
 ### 完了
 
@@ -102,7 +96,7 @@ related_cards: [codec-converter/api/jobs, codec-converter/screen/upload, codec-c
 
 | スマホ | PC |
 |---|---|
-| ![ジョブ詳細画面 完了 (スマホ)](../../../images/specs/codec-converter/screen/job-detail-completed-mobile.png) | ![ジョブ詳細画面 完了 (PC)](../../../images/specs/codec-converter/screen/job-detail-completed-desktop.png) |
+| ![ジョブ詳細画面 完了 (スマホ)](../../../../images/specs/codec-converter/screen/job-detail-completed-mobile.png) | ![ジョブ詳細画面 完了 (PC)](../../../../images/specs/codec-converter/screen/job-detail-completed-desktop.png) |
 
 ### 失敗
 
@@ -110,7 +104,7 @@ related_cards: [codec-converter/api/jobs, codec-converter/screen/upload, codec-c
 
 | スマホ | PC |
 |---|---|
-| ![ジョブ詳細画面 失敗 (スマホ)](../../../images/specs/codec-converter/screen/job-detail-failed-mobile.png) | ![ジョブ詳細画面 失敗 (PC)](../../../images/specs/codec-converter/screen/job-detail-failed-desktop.png) |
+| ![ジョブ詳細画面 失敗 (スマホ)](../../../../images/specs/codec-converter/screen/job-detail-failed-mobile.png) | ![ジョブ詳細画面 失敗 (PC)](../../../../images/specs/codec-converter/screen/job-detail-failed-desktop.png) |
 
 ### 指定したジョブがないとき
 
@@ -118,7 +112,7 @@ related_cards: [codec-converter/api/jobs, codec-converter/screen/upload, codec-c
 
 | スマホ | PC |
 |---|---|
-| ![ジョブ詳細画面 指定したジョブがないとき (スマホ)](../../../images/specs/codec-converter/screen/job-detail-not-found-mobile.png) | ![ジョブ詳細画面 指定したジョブがないとき (PC)](../../../images/specs/codec-converter/screen/job-detail-not-found-desktop.png) |
+| ![ジョブ詳細画面 指定したジョブがないとき (スマホ)](../../../../images/specs/codec-converter/screen/job-detail-not-found-mobile.png) | ![ジョブ詳細画面 指定したジョブがないとき (PC)](../../../../images/specs/codec-converter/screen/job-detail-not-found-desktop.png) |
 
 ### 読み込み中
 
@@ -126,7 +120,7 @@ related_cards: [codec-converter/api/jobs, codec-converter/screen/upload, codec-c
 
 | スマホ | PC |
 |---|---|
-| ![ジョブ詳細画面 読み込み中 (スマホ)](../../../images/specs/codec-converter/screen/job-detail-loading-mobile.png) | ![ジョブ詳細画面 読み込み中 (PC)](../../../images/specs/codec-converter/screen/job-detail-loading-desktop.png) |
+| ![ジョブ詳細画面 読み込み中 (スマホ)](../../../../images/specs/codec-converter/screen/job-detail-loading-mobile.png) | ![ジョブ詳細画面 読み込み中 (PC)](../../../../images/specs/codec-converter/screen/job-detail-loading-desktop.png) |
 
 ### 取得に失敗したとき
 
@@ -134,7 +128,7 @@ related_cards: [codec-converter/api/jobs, codec-converter/screen/upload, codec-c
 
 | スマホ | PC |
 |---|---|
-| ![ジョブ詳細画面 取得に失敗したとき (スマホ)](../../../images/specs/codec-converter/screen/job-detail-fetch-error-mobile.png) | ![ジョブ詳細画面 取得に失敗したとき (PC)](../../../images/specs/codec-converter/screen/job-detail-fetch-error-desktop.png) |
+| ![ジョブ詳細画面 取得に失敗したとき (スマホ)](../../../../images/specs/codec-converter/screen/job-detail-fetch-error-mobile.png) | ![ジョブ詳細画面 取得に失敗したとき (PC)](../../../../images/specs/codec-converter/screen/job-detail-fetch-error-desktop.png) |
 ## つながり
 
 ```mermaid

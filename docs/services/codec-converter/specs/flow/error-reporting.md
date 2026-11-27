@@ -1,8 +1,4 @@
 ---
-id: codec-converter/flow/error-reporting
-title: エラー報告の経路
-kind: flow
-service: codec-converter
 sources:
   - services/codec-converter/web/src/lib/api-error-reporting.ts
   - services/codec-converter/web/src/app/api/jobs/route.ts
@@ -16,17 +12,15 @@ sources:
   - libs/aws/src/error-events/with-error-reporting.ts
   - infra/codec-converter/lib/codec-converter-stack.ts
 sources_hash: b8e86fffeceef202cb301682c53b1266ac1ed298325b4ae4547b668c3b9f45c2
-terms: []
-related_cards: [codec-converter/api/jobs, codec-converter/batch/convert, codec-converter/flow/conversion]
 ---
 
 # エラー報告の経路
 
-codec-converter の失敗が、Admin のエラー履歴に届くまでの流れ。全体の仕組み (保存、通知、画面) は[エラー通知の経路](../../../services/admin/specs/flow/error-notification.md)にあり、ここでは codec-converter が何を、どこから報告するかだけを書く。
+codec-converter の失敗が、Admin のエラー履歴に届くまでの流れ。全体の仕組み (保存、通知、画面) は[エラー通知の経路](../../../admin/specs/flow/error-notification.md)にあり、ここでは codec-converter が何を、どこから報告するかだけを書く。
 
 ## 起点
 
-失敗を [ErrorEvent](../../../platform/specs/term/error-event.md) として報告する場所は 2 か所。どちらも `serviceId` は `codec-converter`、`source` は `application`。
+失敗を [ErrorEvent](../../../../platform/specs/term/error-event.md) として報告する場所は 2 か所。どちらも `serviceId` は `codec-converter`、`source` は `application`。
 
 | 場所 | 契機 |
 |---|---|

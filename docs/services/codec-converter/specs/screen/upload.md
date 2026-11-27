@@ -1,16 +1,10 @@
 ---
-id: codec-converter/screen/upload
-title: アップロード画面
-kind: screen
-service: codec-converter
 sources:
   - services/codec-converter/web/src/app/page.tsx
   - services/codec-converter/core/src/validation.ts
   - services/codec-converter/core/src/constants.ts
   - libs/common/src/format/file-size.ts
 sources_hash: 1fcec88d39a22844648231ac7226c1db805d0e47d8aeb75ffb7ca1df07b5314e
-terms: [codec-converter/term/output-codec, codec-converter/term/job]
-related_cards: [codec-converter/api/jobs, codec-converter/screen/job-detail, codec-converter/flow/conversion]
 ---
 
 # アップロード画面
@@ -78,7 +72,7 @@ related_cards: [codec-converter/api/jobs, codec-converter/screen/job-detail, cod
 
 | スマホ | PC |
 |---|---|
-| ![アップロード画面 通常表示 (スマホ)](../../../images/specs/codec-converter/screen/upload-default-mobile.png) | ![アップロード画面 通常表示 (PC)](../../../images/specs/codec-converter/screen/upload-default-desktop.png) |
+| ![アップロード画面 通常表示 (スマホ)](../../../../images/specs/codec-converter/screen/upload-default-mobile.png) | ![アップロード画面 通常表示 (PC)](../../../../images/specs/codec-converter/screen/upload-default-desktop.png) |
 
 ### ファイルを選んだ状態
 
@@ -86,7 +80,7 @@ related_cards: [codec-converter/api/jobs, codec-converter/screen/job-detail, cod
 
 | スマホ | PC |
 |---|---|
-| ![アップロード画面 ファイルを選んだ状態 (スマホ)](../../../images/specs/codec-converter/screen/upload-file-selected-mobile.png) | ![アップロード画面 ファイルを選んだ状態 (PC)](../../../images/specs/codec-converter/screen/upload-file-selected-desktop.png) |
+| ![アップロード画面 ファイルを選んだ状態 (スマホ)](../../../../images/specs/codec-converter/screen/upload-file-selected-mobile.png) | ![アップロード画面 ファイルを選んだ状態 (PC)](../../../../images/specs/codec-converter/screen/upload-file-selected-desktop.png) |
 
 ### MP4 でないファイルを選んだとき
 
@@ -94,7 +88,7 @@ related_cards: [codec-converter/api/jobs, codec-converter/screen/job-detail, cod
 
 | スマホ | PC |
 |---|---|
-| ![アップロード画面 MP4 でないファイルを選んだとき (スマホ)](../../../images/specs/codec-converter/screen/upload-invalid-type-mobile.png) | ![アップロード画面 MP4 でないファイルを選んだとき (PC)](../../../images/specs/codec-converter/screen/upload-invalid-type-desktop.png) |
+| ![アップロード画面 MP4 でないファイルを選んだとき (スマホ)](../../../../images/specs/codec-converter/screen/upload-invalid-type-mobile.png) | ![アップロード画面 MP4 でないファイルを選んだとき (PC)](../../../../images/specs/codec-converter/screen/upload-invalid-type-desktop.png) |
 
 ### 500MB を超えるファイルを選んだとき
 
@@ -102,7 +96,7 @@ related_cards: [codec-converter/api/jobs, codec-converter/screen/job-detail, cod
 
 | スマホ | PC |
 |---|---|
-| ![アップロード画面 500MB を超えるファイルを選んだとき (スマホ)](../../../images/specs/codec-converter/screen/upload-too-large-mobile.png) | ![アップロード画面 500MB を超えるファイルを選んだとき (PC)](../../../images/specs/codec-converter/screen/upload-too-large-desktop.png) |
+| ![アップロード画面 500MB を超えるファイルを選んだとき (スマホ)](../../../../images/specs/codec-converter/screen/upload-too-large-mobile.png) | ![アップロード画面 500MB を超えるファイルを選んだとき (PC)](../../../../images/specs/codec-converter/screen/upload-too-large-desktop.png) |
 
 ### アップロード中
 
@@ -110,7 +104,7 @@ related_cards: [codec-converter/api/jobs, codec-converter/screen/job-detail, cod
 
 | スマホ | PC |
 |---|---|
-| ![アップロード画面 アップロード中 (スマホ)](../../../images/specs/codec-converter/screen/upload-uploading-mobile.png) | ![アップロード画面 アップロード中 (PC)](../../../images/specs/codec-converter/screen/upload-uploading-desktop.png) |
+| ![アップロード画面 アップロード中 (スマホ)](../../../../images/specs/codec-converter/screen/upload-uploading-mobile.png) | ![アップロード画面 アップロード中 (PC)](../../../../images/specs/codec-converter/screen/upload-uploading-desktop.png) |
 
 ### ジョブの作成に失敗したとき
 
@@ -118,7 +112,7 @@ API が返した「ジョブの作成に失敗しました」を出す。選ん�
 
 | スマホ | PC |
 |---|---|
-| ![アップロード画面 ジョブの作成に失敗したとき (スマホ)](../../../images/specs/codec-converter/screen/upload-create-failed-mobile.png) | ![アップロード画面 ジョブの作成に失敗したとき (PC)](../../../images/specs/codec-converter/screen/upload-create-failed-desktop.png) |
+| ![アップロード画面 ジョブの作成に失敗したとき (スマホ)](../../../../images/specs/codec-converter/screen/upload-create-failed-mobile.png) | ![アップロード画面 ジョブの作成に失敗したとき (PC)](../../../../images/specs/codec-converter/screen/upload-create-failed-desktop.png) |
 
 ### S3 へのアップロードに失敗したとき
 
@@ -126,7 +120,7 @@ API が返した「ジョブの作成に失敗しました」を出す。選ん�
 
 | スマホ | PC |
 |---|---|
-| ![アップロード画面 S3 へのアップロードに失敗したとき (スマホ)](../../../images/specs/codec-converter/screen/upload-upload-failed-mobile.png) | ![アップロード画面 S3 へのアップロードに失敗したとき (PC)](../../../images/specs/codec-converter/screen/upload-upload-failed-desktop.png) |
+| ![アップロード画面 S3 へのアップロードに失敗したとき (スマホ)](../../../../images/specs/codec-converter/screen/upload-upload-failed-mobile.png) | ![アップロード画面 S3 へのアップロードに失敗したとき (PC)](../../../../images/specs/codec-converter/screen/upload-upload-failed-desktop.png) |
 
 ### 投入に失敗したとき
 
@@ -134,7 +128,7 @@ API が返した「ジョブの作成に失敗しました」を出す。選ん�
 
 | スマホ | PC |
 |---|---|
-| ![アップロード画面 投入に失敗したとき (スマホ)](../../../images/specs/codec-converter/screen/upload-submit-failed-mobile.png) | ![アップロード画面 投入に失敗したとき (PC)](../../../images/specs/codec-converter/screen/upload-submit-failed-desktop.png) |
+| ![アップロード画面 投入に失敗したとき (スマホ)](../../../../images/specs/codec-converter/screen/upload-submit-failed-mobile.png) | ![アップロード画面 投入に失敗したとき (PC)](../../../../images/specs/codec-converter/screen/upload-submit-failed-desktop.png) |
 ## つながり
 
 ```mermaid

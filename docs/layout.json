@@ -53,21 +53,6 @@
     "agents/docs.write.README.md",
     "agents/task.implement.README.md",
     "agents/task.proposal.README.md",
-    "services/codec-converter/README.md",
-    "services/codec-converter/architecture.md",
-    "services/codec-converter/deployment.md",
-    "services/codec-converter/requirements.md",
-    "services/codec-converter/testing.md",
-    "specs/README.md",
-    "specs/codec-converter/api/jobs.md",
-    "specs/codec-converter/api/system.md",
-    "specs/codec-converter/batch/convert.md",
-    "specs/codec-converter/flow/conversion.md",
-    "specs/codec-converter/flow/error-reporting.md",
-    "specs/codec-converter/screen/job-detail.md",
-    "specs/codec-converter/screen/upload.md",
-    "specs/codec-converter/term/job-definition-size.md",
-    "specs/codec-converter/term/job.md",
-    "specs/codec-converter/term/output-codec.md"
+    "specs/README.md"
   ]
 }

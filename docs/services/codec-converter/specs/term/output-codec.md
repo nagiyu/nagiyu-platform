@@ -1,15 +1,10 @@
 ---
-id: codec-converter/term/output-codec
-title: 出力コーデック
-kind: term
-service: codec-converter
 sources:
   - services/codec-converter/core/src/types.ts
   - services/codec-converter/core/src/constants.ts
   - services/codec-converter/batch/src/index.ts
   - services/codec-converter/web/src/app/page.tsx
 sources_hash: 33e89b198130c0f785851f0322121ae31687110da265f73c3d93d54780bee994
-related_cards: [codec-converter/api/jobs, codec-converter/batch/convert, codec-converter/screen/upload, codec-converter/screen/job-detail, codec-converter/term/job-definition-size]
 ---
 
 # 出力コーデック
@@ -28,8 +23,3 @@ related_cards: [codec-converter/api/jobs, codec-converter/batch/convert, codec-c
 - 音声のビットレートは指定せず、FFmpeg の既定に任せる
 - 出力の S3 キーの拡張子はコンテナで決まる (`h264` は `.mp4`、それ以外は `.webm`)
 - ジョブのコーデックによって、Batch の[ジョブ定義のサイズ](./job-definition-size.md)も変わる
-
-## 関連するカード
-
-- [ジョブ API](../api/jobs.md)・[変換バッチ](../batch/convert.md)
-- [アップロード画面](../screen/upload.md)・[ジョブ詳細画面](../screen/job-detail.md)
