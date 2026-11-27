@@ -3,7 +3,7 @@ sources:
   - infra/stock-tracker/bin/stock-tracker.ts
   - infra/stock-tracker/lib/cloudfront-stack.ts
   - .github/workflows/stock-tracker-deploy.yml
-sources_hash: 92feea4103392286430bf580ac7ce0e6eb7388b41ea9919c2e4a8bf091586c4d
+sources_hash: f3bdb6a18a6a7efd60b1c7dea8155a3c6ae11e0791d7dbbf5736445e5b86bfe4
 ---
 
 # Stock Tracker のデプロイ先

@@ -4,7 +4,7 @@ sources:
   - infra/root/cloudfront-lambda-stack.ts
   - infra/root/cloudfront-stack.ts
   - .github/workflows/root-deploy.yml
-sources_hash: 901a6b73c4b5452b234ff2094681cc7084b072a2395dd2f5b6f575d5ada2872b
+sources_hash: 044e8991da28f05de04d4f0658350be534f5f6c75dce4e707939a29be3ce13cd
 ---
 
 # Portal のデプロイ先
