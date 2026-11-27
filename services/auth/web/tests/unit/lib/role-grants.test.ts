@@ -61,7 +61,7 @@ describe('applyGrantChanges', () => {
   });
 
   it('有料ロール以外・存在しないロールの追加は拒否する', () => {
-    for (const roleId of ['admin', 'livetalk-user', 'nope']) {
+    for (const roleId of ['admin', 'stock-user', 'nope']) {
       expect(() =>
         applyGrantChanges(user(), [], { add: [{ roleId, expiresAt: FUTURE }] }, 'op', NOW)
       ).toThrow(GRANT_CHANGE_ERROR_MESSAGES.INVALID_GRANT_ROLE);
