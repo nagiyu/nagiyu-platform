@@ -14,11 +14,9 @@ const config: Config = {
   testMatch: ['**/*.test.ts'],
   moduleFileExtensions: ['ts', 'js'],
   moduleNameMapper: {
-    // `@nagiyu/aws/testing` は package.json の exports に意図的に載せていないため、
-    // このマッピングが唯一の解決経路になる（詳細は libs/aws/src/testing/index.ts）。
-    '^@nagiyu/aws/testing$': '<rootDir>/../../../libs/aws/src/testing/index.ts',
-    '^@nagiyu/aws$': '<rootDir>/../../../libs/aws/src/index.ts',
-    '^@nagiyu/common$': '<rootDir>/../../../libs/common/src/index.ts',
+    // `@nagiyu/aws/testing` は exports に載せていないため、パッケージ内の CJS 版を直接指す。
+    '^@nagiyu/aws/testing$':
+      '<rootDir>/../../../node_modules/@nagiyu/aws/dist/cjs/testing/index.js',
     // livetalk の CDK スタック（infra/livetalk/lib/dynamodb-stack.ts）が
     // `@nagiyu/infra-common` に依存しているため、ドリフトガードの synth に必要
     // （stock-tracker のスタックは infra-common に依存していないため対応するマッピングが無い）。

@@ -7,9 +7,6 @@ const config: Config = {
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
     '^@nagiyu/livetalk-core$': '<rootDir>/../core/src/index.ts',
-    '^@nagiyu/aws$': '<rootDir>/../../../libs/aws/src/index.ts',
-    '^@nagiyu/common/push$': '<rootDir>/../../../libs/common/src/push/index.ts',
-    '^@nagiyu/common$': '<rootDir>/../../../libs/common/src/index.ts',
   },
   transform: {
     '^.+\\.tsx?$': [

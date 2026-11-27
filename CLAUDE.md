@@ -321,7 +321,6 @@ Claude Code on the web で本リポジトリを扱う際の環境固有の事情
 - **Playwright**：素の `npx playwright install` はベースイメージ同梱の global を呼んでしまうため使わない。プロジェクトローカル CLI（`node_modules/.bin/playwright`）か `npx playwright@<project-version>` を使う
 - **AWS CLI**: 毎回 `--profile nagiyu-dev` / `--profile nagiyu-prod` を付ける (`AWS_PROFILE` では切り替わらない)。付けないと AccessDenied になるが、権限不足ではなく呼び方の誤り。読み取りを諦めて人に頼む前に [`docs/platform/specs/resource/claude-access.md`](docs/platform/specs/resource/claude-access.md) を確かめる
 - **WebKit の E2E は on-demand**：Full CI 相当の確認が必要なセッションでのみ `playwright install --with-deps webkit` を実行する
-- **shared libs のビルド**：`next dev` や E2E を回す前に `npm run build:libs` で `dist/` をビルドする（ルート `package.json` が依存順に並べている。`npm ci` だけでは作られない）
 
 セッションを分けて進める際の制約（親子間で何が届き何が届かないか・起動コスト・遅延）は [`docs/platform/rules/claude-sessions.md`](docs/platform/rules/claude-sessions.md) にまとめてある。
 
