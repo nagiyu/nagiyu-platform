@@ -232,7 +232,7 @@ describe('/api/lists/[listId]/todos/[todoId] route handlers', () => {
     expect(validationResponse.status).toBe(500);
   });
 
-  it('PUT: アクセス権限がない個人リストの場合は403を返す', async () => {
+  it('PUT: アクセス権限がない個人リストの場合は404を返す', async () => {
     mockGetSessionOrUnauthorized.mockResolvedValue({
       user: {
         id: 'user-1',
@@ -242,10 +242,10 @@ describe('/api/lists/[listId]/todos/[todoId] route handlers', () => {
 
     const response = await PUT(createRequest({ isCompleted: true }), createContext());
 
-    expect(response.status).toBe(403);
+    expect(response.status).toBe(404);
     await expect(response.json()).resolves.toEqual({
-      error: 'FORBIDDEN',
-      message: ERROR_MESSAGES.FORBIDDEN,
+      error: 'NOT_FOUND',
+      message: ERROR_MESSAGES.NOT_FOUND,
     });
     expect(mockUpdateTodo).not.toHaveBeenCalled();
   });
@@ -305,7 +305,7 @@ describe('/api/lists/[listId]/todos/[todoId] route handlers', () => {
     expect(response.status).toBe(500);
   });
 
-  it('DELETE: アクセス権限がない個人リストの場合は403を返す', async () => {
+  it('DELETE: アクセス権限がない個人リストの場合は404を返す', async () => {
     mockGetSessionOrUnauthorized.mockResolvedValue({
       user: {
         id: 'user-1',
@@ -315,10 +315,10 @@ describe('/api/lists/[listId]/todos/[todoId] route handlers', () => {
 
     const response = await DELETE({} as Request, createContext());
 
-    expect(response.status).toBe(403);
+    expect(response.status).toBe(404);
     await expect(response.json()).resolves.toEqual({
-      error: 'FORBIDDEN',
-      message: ERROR_MESSAGES.FORBIDDEN,
+      error: 'NOT_FOUND',
+      message: ERROR_MESSAGES.NOT_FOUND,
     });
     expect(mockDeleteTodo).not.toHaveBeenCalled();
   });

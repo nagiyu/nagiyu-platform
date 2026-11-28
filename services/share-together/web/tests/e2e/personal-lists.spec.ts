@@ -430,13 +430,13 @@ test.describe('個人リスト管理', () => {
       ],
     });
 
-    const forbiddenResponse = await request.put(
+    const notFoundResponse = await request.put(
       '/api/lists/other-default-list/todos/other-secret-todo',
       {
         data: { isCompleted: true },
       }
     );
-    expect(forbiddenResponse.status()).toBe(403);
+    expect(notFoundResponse.status()).toBe(404);
 
     // 自分の個人リストに無い listId は開かず、自分のデフォルトリストを開く。
     await page.goto('/lists?listId=other-default-list');

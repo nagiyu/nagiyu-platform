@@ -5,7 +5,7 @@ sources:
   - services/share-together/core/src/libs/todo.ts
   - services/share-together/core/src/libs/list.ts
   - services/share-together/core/src/libs/sort.ts
-sources_hash: 532da56efd2d28f26460c4c7da8bc6f45ca32427493027bf42af21e47495209b
+sources_hash: 92a59a1234bc52694696cadaa8bd1120180f11d01511061836335dd2d65e7153
 ---
 
 # 個人 ToDo API
@@ -27,7 +27,7 @@ sources_hash: 532da56efd2d28f26460c4c7da8bc6f45ca32427493027bf42af21e47495209b
 - 作成の入力は `{ title }`。前後の空白を除いて 1〜200 文字。201 で ToDo を `{ data: ToDo }` で返す。`createdBy` は自分の ID
 - 変更の入力は `{ title?, isCompleted? }`。どちらか 1 つ以上が必要で、`title` は文字列 (1〜200 文字)、`isCompleted` は真偽値。完了にすると完了した人 (`completedBy`) に自分の ID を入れ、未完了に戻すと消す
 - 削除は 204 で本文はない
-- 持ち主かどうかの確認は、操作で違う。一覧と作成は、リストが自分のものとして見つからなければ 404。変更と削除は 403
+- どの操作も、リストが自分のものとして見つからなければ 404。個人リストは利用者ごとのキーで引くため、「自分のものでない」と「ない」は区別できない
 
 ## エラー
 
@@ -35,8 +35,7 @@ sources_hash: 532da56efd2d28f26460c4c7da8bc6f45ca32427493027bf42af21e47495209b
 |---|---|---|
 | 未ログイン | 401 | `UNAUTHORIZED` |
 | 本文が不正、`title` が文字列でない・空白だけ・200 文字超 (作成)、変更の項目の型の誤りや、どちらもない | 400 | `VALIDATION_ERROR` |
-| リストが自分のものとして見つからない (一覧・作成) | 404 | `NOT_FOUND` |
-| リストが自分のものとして見つからない (変更・削除) | 403 | `FORBIDDEN` |
+| リストが自分のものとして見つからない | 404 | `NOT_FOUND` |
 | ToDo がない (変更・削除) | 404 | `NOT_FOUND` |
 
 - 形は[API のエラー応答](../term/api-error.md)。
