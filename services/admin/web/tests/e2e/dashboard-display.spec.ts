@@ -10,6 +10,7 @@ import { test, expect } from '@playwright/test';
  * TEST_USER_EMAIL と TEST_USER_ROLES の環境変数を使用します。
  */
 test.describe('Dashboard Display', () => {
+  const testUserName = process.env.TEST_USER_NAME || 'Test User';
   const testUserEmail = process.env.TEST_USER_EMAIL || 'test@example.com';
 
   test.beforeEach(async ({ page }) => {
@@ -22,6 +23,10 @@ test.describe('Dashboard Display', () => {
   test('should display user info on dashboard', async ({ page }) => {
     // ユーザー情報カードが表示されることを確認
     await expect(page.getByRole('heading', { name: 'ユーザー情報' })).toBeVisible();
+
+    // 名前が表示されることを確認
+    await expect(page.getByText('名前:')).toBeVisible();
+    await expect(page.getByText(testUserName)).toBeVisible();
 
     // メールアドレスが表示されることを確認
     await expect(page.getByText('メールアドレス:')).toBeVisible();
@@ -49,8 +54,9 @@ test.describe('Dashboard Display', () => {
       page.getByText('✓ Auth サービスとの SSO 連携が正常に動作しています')
     ).toBeVisible();
 
-    // JWT トークンメッセージが表示されることを確認
-    await expect(page.getByText('JWT トークンによる認証が有効です')).toBeVisible();
+    // JWT の有効期限が JST の "YYYY/MM/DD HH:mm" 形式で表示されることを確認
+    await expect(page.getByText('JWT の有効期限:')).toBeVisible();
+    await expect(page.getByText(/JWT の有効期限: \d{4}\/\d{2}\/\d{2} \d{2}:\d{2}/)).toBeVisible();
   });
 
   test('should show logout in the header account menu', async ({ page }) => {

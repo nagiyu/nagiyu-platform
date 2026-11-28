@@ -2,12 +2,13 @@
 sources:
   - services/admin/web/src/app/page.tsx
   - services/admin/web/src/app/(protected)/dashboard/page.tsx
+  - services/admin/web/src/lib/dashboard/user-info.ts
   - services/admin/web/src/components/dashboard/DashboardRoleCards.tsx
   - services/admin/web/src/components/notify/NotifyButton.tsx
   - services/admin/web/src/app/layout.tsx
   - services/admin/web/src/middleware.ts
   - libs/react/src/hooks/usePushSubscription.ts
-sources_hash: 550c2150a43a5fda012ff274a618a90a177f703ad5a31622fde949e9fa9641c8
+sources_hash: 048a759eb6c20f11f27bbf2370019b0c403580e50c370134a7acaaa48ff27e13
 ---
 
 # ダッシュボード画面
@@ -31,8 +32,8 @@ sources_hash: 550c2150a43a5fda012ff274a618a90a177f703ad5a31622fde949e9fa9641c8
 
 | カード | 内容 | 出る条件 |
 |---|---|---|
-| ユーザー情報 | メールアドレスと、持っているロールの名前の札 ([ロールと権限の定義](../../../../platform/specs/lib/common/roles-and-permissions.md))。定義にないロール ID は ID のまま出す | 常に |
-| 認証ステータス | 「✓ Auth サービスとの SSO 連携が正常に動作しています」と「JWT トークンによる認証が有効です」。固定の文言で、実際の状態は確かめていない | 常に |
+| ユーザー情報 | 名前 (Auth 側に名前がなく空のときは「未設定」)、メールアドレス、持っているロールの名前の札 ([ロールと権限の定義](../../../../platform/specs/lib/common/roles-and-permissions.md))。定義にないロール ID は ID のまま出す | 常に |
+| 認証ステータス | 「✓ Auth サービスとの SSO 連携が正常に動作しています」(固定の文言で、実際の状態は確かめていない) と、「JWT の有効期限: YYYY/MM/DD HH:mm」(JST、秒なし)。期限はセッションの有効期限で、Auth.js がセッションを読むたびに再署名する JWT の期限と同じ値 | 常に |
 | 通知設定 | 「通知を有効にする」ボタン | `notifications:write` |
 | エラー履歴 | 説明と、「エラー履歴を表示」のリンク | `errors:read` |
 
