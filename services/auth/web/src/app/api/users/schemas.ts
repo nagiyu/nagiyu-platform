@@ -37,6 +37,8 @@ export const UpdateUserSchema = z
     {
       name: z
         .string({ error: USER_VALIDATION_ERROR_MESSAGES.NAME_NOT_STRING })
+        // 空白だけの名前を通さないよう、長さの検証より先に前後の空白を取り除く
+        .trim()
         .min(1, { error: USER_VALIDATION_ERROR_MESSAGES.NAME_TOO_SHORT })
         .max(100, { error: USER_VALIDATION_ERROR_MESSAGES.NAME_TOO_LONG })
         .optional(),

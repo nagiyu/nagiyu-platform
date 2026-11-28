@@ -39,11 +39,9 @@ function ErrorContent() {
           <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
             {errorMessage}
           </Typography>
-          <Link href="/signin" style={{ textDecoration: 'none' }}>
-            <Button variant="solid" size="lg">
-              サインインページへ戻る
-            </Button>
-          </Link>
+          <Button asChild variant="solid" size="lg">
+            <Link href="/signin">サインインページへ戻る</Link>
+          </Button>
         </Paper>
       </Box>
     </Container>
