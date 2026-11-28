@@ -3,7 +3,7 @@ sources:
   - services/auth/web/src/app/auth/error/page.tsx
   - services/auth/web/src/lib/auth-error-message.ts
   - services/auth/web/src/lib/auth/auth.ts
-sources_hash: 1c0e617b37d1dfec23e24991777999e4b3843c5ab98510fcf302c5d741210ddc
+sources_hash: 3cc1ae01a9efd10ea84d960bc7d37858fe0277ef517288151b1f22af73601460
 ---
 
 # 認証エラー画面
@@ -21,7 +21,7 @@ sources_hash: 1c0e617b37d1dfec23e24991777999e4b3843c5ab98510fcf302c5d741210ddc
 |---|---|
 | 見出し | 「認証エラー」 |
 | 説明 | `error` の値に応じた文 |
-| ボタン | 「サインインページへ戻る」 |
+| ボタン | 「サインインページへ戻る」 (リンク 1 つ。ボタンをリンクの中に入れ子にしない) |
 
 | `error` の値 | 説明の文 |
 |---|---|

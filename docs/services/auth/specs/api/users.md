@@ -13,7 +13,7 @@ sources:
   - services/auth/web/src/lib/api-error-reporting.ts
   - services/auth/core/src/repositories/dynamodb-user-repository.ts
   - services/auth/core/src/repositories/user-repository.ts
-sources_hash: 415d4f6ae83ac5a8c28ead234a967c77d00d19c2f194ba10759338af331e4d87
+sources_hash: 4937ab77f06709ac9375c9efa467e4c55ea28a1650e83a7e09f3eac450aa61a1
 ---
 
 # ユーザー API
@@ -27,8 +27,8 @@ sources_hash: 415d4f6ae83ac5a8c28ead234a967c77d00d19c2f194ba10759338af331e4d87
 | GET | `/api/users` | `users:read` |
 | GET | `/api/users/me` | ログインのみ (権限は見ない) |
 | GET | `/api/users/{userId}` | `users:read` |
-| PATCH | `/api/users/{userId}` | `users:write`。`roles` を変えるなら `roles:assign` も |
-| DELETE | `/api/users/{userId}` | `users:write` |
+| PATCH | `/api/users/{userId}` | `users:write`。`roles` を変えるなら `roles:assign` も。対象が `roles:assign` を持つなら `roles:assign` も |
+| DELETE | `/api/users/{userId}` | `users:write`。対象が `roles:assign` を持つなら `roles:assign` も |
 | POST | `/api/users/{userId}/roles` | `roles:assign` |
 | DELETE | `/api/users/{userId}/stripe-customer` | `roles:assign` |
 
@@ -47,16 +47,22 @@ sources_hash: 415d4f6ae83ac5a8c28ead234a967c77d00d19c2f194ba10759338af331e4d87
 
 | 項目 | 条件 |
 |---|---|
-| `name` | 任意。1〜100 文字。名前は次のログインで Google の名前に上書きされる |
+| `name` | 任意。前後の空白を取り除いたうえで 1〜100 文字 (空白だけは受け付けない。取り除いた名前を保存する)。名前は次のログインで Google の名前に上書きされる |
 | `roles` | 任意。手動ロールの ID の配列。定義済みの ID だけで、重複と有料ロールは入れられない。手動ロールを丸ごと置き換える |
 
 - これ以外の項目は受け付けない。本文は JSON のオブジェクトで、課金の権利は変えられない
+- 実行者が `roles:assign` を持たないとき、対象のユーザーが `roles:assign` を持つなら 403 で拒否する (下の「対象のユーザーによる制限」)
 - 出力は更新後のユーザー
 
 削除 (`DELETE /api/users/{userId}`)
 
-- 自分自身は消せない。成功すると `{ message: 'ユーザーが正常に削除されました' }`
+- 自分自身は消せない。実行者が `roles:assign` を持たないとき、対象のユーザーが `roles:assign` を持つなら 403 で拒否する (下の「対象のユーザーによる制限」)。成功すると `{ message: 'ユーザーが正常に削除されました' }`
 - Stripe の契約には触れない (契約中のユーザーを消すときの手順は下の「手順」)
+
+対象のユーザーによる制限 (`PATCH`・`DELETE`)
+
+- 実行者が `roles:assign` を持たないときだけ、対象のユーザーを読み、対象の `roles` が `roles:assign` を持つなら 403 を返す (`details` は `Required permission: roles:assign`)。対象がいなければ 404
+- 実行者が `roles:assign` を持つなら、対象を先に読まずに進める
 
 ロールと権利の変更 (`POST /api/users/{userId}/roles`)
 
@@ -84,7 +90,7 @@ sources_hash: 415d4f6ae83ac5a8c28ead234a967c77d00d19c2f194ba10759338af331e4d87
 | 条件 | 状態 | `error` |
 |---|---|---|
 | 未ログイン | 401 | 認証が必要です |
-| 権限がない | 403 | この操作を実行する権限がありません (`details` に必要な権限) |
+| 権限がない、または `roles:assign` を持たない実行者が `roles:assign` を持つユーザーを更新・削除する | 403 | この操作を実行する権限がありません (`details` に必要な権限) |
 | 一覧の `limit` が範囲外・数字でない | 400 | リクエストパラメータが不正です (`details` に `limit` の文) |
 | 本文が JSON のオブジェクトでない、項目の検証に失敗 (更新・ロール変更) | 400 | リクエストボディが不正です (`details` に項目ごとの文) |
 | `roles` に定義にないロール (ロール変更) | 400 | 無効なロールが含まれています: {ID} (`validRoles` に手動ロールの一覧を付ける) |
@@ -92,7 +98,7 @@ sources_hash: 415d4f6ae83ac5a8c28ead234a967c77d00d19c2f194ba10759338af331e4d87
 | `roles` に有料ロール (更新・ロール変更) | 400 | 有料ロールは手動ロールでは付けられません。課金の権利から付けてください: {ID}。更新では `details` の文、ロール変更では `error` |
 | 権利の変更が今の状態に合わない (対象なし、手動でない、取り消し済み、重複、期限が過去、有料でないロール) | 400 | 原因ごとの文 |
 | 自分自身を削除 | 400 | 自分自身を削除することはできません |
-| 対象のユーザーがいない | 404 | ユーザーが見つかりません |
+| 対象のユーザーがいない (更新・削除は、実行者が `roles:assign` を持たないときは先に読んで確かめる) | 404 | ユーザーが見つかりません |
 | 対応の解除で、Stripe の顧客との対応がない | 404 | このユーザーは Stripe の顧客と対応していません |
 | 書き込みの競合が解けなかった (ロール変更・対応の解除) | 409 | 他の更新と競合しました。再読み込みしてください |
 | 想定外の失敗 | 500 | 経路ごとの固定の文 (ユーザー情報の取得に失敗しました、ロールの割り当てに失敗しました など) |
@@ -112,6 +118,9 @@ flowchart TD
 - ユーザーの削除は Stripe の契約に触れない。削除は整合を取るための管理者の操作で、利用者からは使えないので、契約の解約という課金の操作まで持たせない
 - 課金の権利を `PATCH` で変えられないようにし、手動ロール (`roles`) と分ける。有料ロールを手動ロールに入れられないのも同じで、課金の権利は期限と出どころを持つ ([課金の権利](../term/role-grant.md))
 - 手動ロールと権利の変更を、読み直した最新のユーザーに対する 1 回の書き込みにする。書き込みが重なったら読み直してやり直し、解けなければ競合として返す。失敗しても変更は失われず、管理者は再読み込みして保存し直せる
+
+- `roles:assign` を持たない実行者 (`user-manager`) が、`roles:assign` を持つユーザー (`admin`) の名前の更新や削除をできないようにする。ロールの割り当てを `roles:assign` に限って権限昇格を防いでいるのと同じ理由で、下位のロールが上位のユーザーを消したり書き換えたりできると、その制限が抜けるため
+- 名前は前後の空白を取り除いてから検証する。空白だけの名前が通ると、一覧で名前が空に見えるため
 
 ## 手順
 

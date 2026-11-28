@@ -325,6 +325,36 @@ describe('UserEditForm', () => {
         expect(screen.getByText('ロールの割り当てに失敗しました')).toBeInTheDocument();
       });
     });
+
+    it('保存の応答が JSON でない場合は英語のパースエラーを出さず既定の文言を表示する', async () => {
+      const mockUser = {
+        userId: 'user-123',
+        name: 'テストユーザー',
+        email: 'test@example.com',
+        roles: [],
+      };
+
+      (global.fetch as jest.Mock)
+        .mockResolvedValueOnce({ ok: true, json: async () => mockUser })
+        .mockResolvedValueOnce({
+          ok: false,
+          json: async () => {
+            throw new SyntaxError("Unexpected token '<'");
+          },
+        });
+
+      render(<UserEditForm userId="user-123" />);
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: '保存' })).toBeInTheDocument();
+      });
+      fireEvent.click(screen.getByRole('button', { name: '保存' }));
+
+      await waitFor(() => {
+        expect(screen.getByText('ロールの割り当てに失敗しました')).toBeInTheDocument();
+      });
+      expect(screen.queryByText(/Unexpected token/)).not.toBeInTheDocument();
+    });
   });
 
   describe('キャンセルボタン', () => {

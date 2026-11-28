@@ -146,6 +146,60 @@ describe('DELETE /api/users/[userId]', () => {
     expect(mockDeleteUser).toHaveBeenCalledWith('user-456');
   });
 
+  describe('対象ユーザーの権限による制限', () => {
+    // user-manager 相当: users:write は持つが roles:assign は持たない
+    const asUserManager = () => {
+      mockGetSession.mockResolvedValue({ user: { id: 'manager-1', roles: ['user-manager'] } });
+      mockHasPermission.mockImplementation((roles: string[], permission: string) =>
+        permission === 'roles:assign' ? roles.includes('admin') : true
+      );
+    };
+
+    it('roles:assign を持たない実行者が admin を削除しようとした場合は 403 を返す', async () => {
+      asUserManager();
+      mockGetUserById.mockResolvedValue({ userId: 'user-456', roles: ['admin'] });
+
+      const response = await DELETE(createRequest('DELETE'), context);
+
+      expect(response.status).toBe(403);
+      expect(await response.json()).toEqual({
+        error: 'この操作を実行する権限がありません',
+        details: 'Required permission: roles:assign',
+      });
+      expect(mockDeleteUser).not.toHaveBeenCalled();
+    });
+
+    it('roles:assign を持たない実行者でも、対象が admin 以外なら削除できる', async () => {
+      asUserManager();
+      mockGetUserById.mockResolvedValue({ userId: 'user-456', roles: ['user-manager'] });
+      mockDeleteUser.mockResolvedValue(undefined);
+
+      const response = await DELETE(createRequest('DELETE'), context);
+
+      expect(response.status).toBe(200);
+      expect(mockDeleteUser).toHaveBeenCalledWith('user-456');
+    });
+
+    it('roles:assign を持たない実行者が存在しない対象を指定した場合は 404 を返す', async () => {
+      asUserManager();
+      mockGetUserById.mockResolvedValue(null);
+
+      const response = await DELETE(createRequest('DELETE'), context);
+
+      expect(response.status).toBe(404);
+      expect(mockDeleteUser).not.toHaveBeenCalled();
+    });
+
+    it('実行者が roles:assign を持つ場合は対象を引かずに削除する', async () => {
+      mockDeleteUser.mockResolvedValue(undefined);
+
+      const response = await DELETE(createRequest('DELETE'), context);
+
+      expect(response.status).toBe(200);
+      expect(mockGetUserById).not.toHaveBeenCalled();
+    });
+  });
+
   it('削除対象のユーザーが存在しない場合は 404 を返す', async () => {
     mockDeleteUser.mockRejectedValue(new EntityNotFoundError('User', 'user-456'));
 

@@ -21,6 +21,42 @@ const ERROR_MESSAGES = {
 } as const;
 
 /**
+ * 実行者が対象ユーザーを変更・削除してよいかを判定する。
+ *
+ * ロールの割り当てを roles:assign を持つロール (admin) に限っているのと同じ理由で、
+ * roles:assign を持たない実行者が roles:assign を持つユーザーを書き換え・削除できると、
+ * 下位のロールが上位のユーザーに手を出せてしまう (権限昇格) ため拒否する。
+ * 実行者が roles:assign を持つ場合は対象を引かない。
+ *
+ * @returns 拒否または対象不在のときはそのレスポンス、許可のときは null
+ */
+async function checkTargetUserAccess(
+  actorRoles: string[],
+  userId: string
+): Promise<NextResponse | null> {
+  if (hasPermission(actorRoles, 'roles:assign')) {
+    return null;
+  }
+
+  const target = await createUserRepository().getUserById(userId);
+  if (!target) {
+    return NextResponse.json({ error: ERROR_MESSAGES.USER_NOT_FOUND }, { status: 404 });
+  }
+
+  if (hasPermission(target.roles, 'roles:assign')) {
+    return NextResponse.json(
+      {
+        error: ERROR_MESSAGES.FORBIDDEN,
+        details: 'Required permission: roles:assign',
+      },
+      { status: 403 }
+    );
+  }
+
+  return null;
+}
+
+/**
  * GET /api/users/[userId] - ユーザー詳細取得
  *
  * 必要な権限: users:read
@@ -69,7 +105,7 @@ export const GET = withApiErrorReporting(
  *
  * 必要な権限:
  * - users:write (名前更新)
- * - roles:assign (ロール変更)
+ * - roles:assign (ロール変更。対象が roles:assign を持つユーザーのときの名前更新も同様)
  */
 export const PATCH = withApiErrorReporting(
   'Web API: ユーザー情報更新エラー',
@@ -119,6 +155,11 @@ export const PATCH = withApiErrorReporting(
         );
       }
 
+      const denied = await checkTargetUserAccess(session.user.roles, userId);
+      if (denied) {
+        return denied;
+      }
+
       const repo = createUserRepository();
 
       // ユーザー情報を更新（リポジトリ層で存在チェックを実施）
@@ -153,7 +194,7 @@ export const PATCH = withApiErrorReporting(
 /**
  * DELETE /api/users/[userId] - ユーザー削除
  *
- * 必要な権限: users:write
+ * 必要な権限: users:write (対象が roles:assign を持つユーザーのときは roles:assign も必要)
  */
 export const DELETE = withApiErrorReporting(
   'Web API: ユーザー削除エラー',
@@ -181,6 +222,11 @@ export const DELETE = withApiErrorReporting(
     // 自分自身を削除しようとしていないかチェック
     if (userId === session.user.id) {
       return NextResponse.json({ error: ERROR_MESSAGES.CANNOT_DELETE_SELF }, { status: 400 });
+    }
+
+    const denied = await checkTargetUserAccess(session.user.roles, userId);
+    if (denied) {
+      return denied;
     }
 
     const repo = createUserRepository();

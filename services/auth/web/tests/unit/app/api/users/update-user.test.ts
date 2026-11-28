@@ -10,6 +10,7 @@ import { USER_VALIDATION_ERROR_MESSAGES } from '../../../../../src/app/api/users
 
 const mockGetSession = jest.fn();
 const mockUpdateUser = jest.fn();
+const mockGetUserById = jest.fn();
 const mockHasPermission = jest.fn();
 const mockReportErrorEvent = jest.fn().mockResolvedValue(null);
 
@@ -17,6 +18,7 @@ const mockReportErrorEvent = jest.fn().mockResolvedValue(null);
 jest.mock('@nagiyu/auth-core', () => ({
   createUserRepository: jest.fn(() => ({
     updateUser: (...args: unknown[]) => mockUpdateUser(...args),
+    getUserById: (...args: unknown[]) => mockGetUserById(...args),
   })),
 }));
 
@@ -84,6 +86,60 @@ describe('PATCH /api/users/[userId]', () => {
     });
   });
 
+  describe('対象ユーザーの権限による制限', () => {
+    // user-manager 相当: users:write は持つが roles:assign は持たない
+    const asUserManager = () => {
+      mockGetSession.mockResolvedValue({ user: { id: 'manager-1', roles: ['user-manager'] } });
+      mockHasPermission.mockImplementation((roles: string[], permission: string) =>
+        permission === 'roles:assign' ? roles.includes('admin') : true
+      );
+    };
+
+    it('roles:assign を持たない実行者が admin の名前を変えようとした場合は 403 を返す', async () => {
+      asUserManager();
+      mockGetUserById.mockResolvedValue({ userId: 'user-456', roles: ['admin'] });
+
+      const response = await patchJson({ name: '新しい名前' });
+
+      expect(response.status).toBe(403);
+      expect(await response.json()).toEqual({
+        error: 'この操作を実行する権限がありません',
+        details: 'Required permission: roles:assign',
+      });
+      expect(mockUpdateUser).not.toHaveBeenCalled();
+    });
+
+    it('roles:assign を持たない実行者でも、対象が admin 以外なら更新できる', async () => {
+      asUserManager();
+      mockGetUserById.mockResolvedValue({ userId: 'user-456', roles: ['user-manager'] });
+      mockUpdateUser.mockResolvedValue({ userId: 'user-456', name: '新しい名前', roles: [] });
+
+      const response = await patchJson({ name: '新しい名前' });
+
+      expect(response.status).toBe(200);
+      expect(mockUpdateUser).toHaveBeenCalledWith('user-456', { name: '新しい名前' });
+    });
+
+    it('roles:assign を持たない実行者が存在しない対象を指定した場合は 404 を返す', async () => {
+      asUserManager();
+      mockGetUserById.mockResolvedValue(null);
+
+      const response = await patchJson({ name: '新しい名前' });
+
+      expect(response.status).toBe(404);
+      expect(mockUpdateUser).not.toHaveBeenCalled();
+    });
+
+    it('実行者が roles:assign を持つ場合は対象を引かずに更新する', async () => {
+      mockUpdateUser.mockResolvedValue({ userId: 'user-456', name: '新しい名前', roles: [] });
+
+      const response = await patchJson({ name: '新しい名前' });
+
+      expect(response.status).toBe(200);
+      expect(mockGetUserById).not.toHaveBeenCalled();
+    });
+  });
+
   describe('正常系', () => {
     it('名前とロールを更新できる', async () => {
       const updated = { userId: 'user-456', name: '新しい名前', roles: ['admin'] };
@@ -97,6 +153,15 @@ describe('PATCH /api/users/[userId]', () => {
         name: '新しい名前',
         roles: ['admin'],
       });
+    });
+
+    it('名前の前後の空白を取り除いて保存する', async () => {
+      mockUpdateUser.mockResolvedValue({ userId: 'user-456', name: '新しい名前', roles: [] });
+
+      const response = await patchJson({ name: '  新しい名前 ' });
+
+      expect(response.status).toBe(200);
+      expect(mockUpdateUser).toHaveBeenCalledWith('user-456', { name: '新しい名前' });
     });
 
     it('ユーザーが存在しない場合は 404 を返す', async () => {
@@ -160,6 +225,12 @@ describe('PATCH /api/users/[userId]', () => {
       ['name が数値', { name: 1 }, 'name', USER_VALIDATION_ERROR_MESSAGES.NAME_NOT_STRING],
       ['name が null', { name: null }, 'name', USER_VALIDATION_ERROR_MESSAGES.NAME_NOT_STRING],
       ['name が空文字', { name: '' }, 'name', USER_VALIDATION_ERROR_MESSAGES.NAME_TOO_SHORT],
+      [
+        'name が空白だけ',
+        { name: ' \u3000\t ' },
+        'name',
+        USER_VALIDATION_ERROR_MESSAGES.NAME_TOO_SHORT,
+      ],
       [
         'name が 101 文字',
         { name: 'a'.repeat(101) },

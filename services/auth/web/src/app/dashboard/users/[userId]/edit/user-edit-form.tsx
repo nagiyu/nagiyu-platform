@@ -13,6 +13,7 @@ import {
   buildGrantChanges,
   type PendingGrantChanges,
 } from '@/lib/role-grant-editing';
+import { saveUserRoles } from '@/lib/user-roles-client';
 import { RoleGrantsSection } from './role-grants-section';
 import { StripeCustomerSection } from './stripe-customer-section';
 
@@ -24,7 +25,6 @@ const ERROR_MESSAGES = {
   USER_NOT_FOUND: 'ユーザーが見つかりません',
   FETCH_FAILED: 'ユーザー情報の取得に失敗しました',
   INVALID_RESPONSE: '不正なレスポンス形式です',
-  ASSIGN_FAILED: 'ロールの割り当てに失敗しました',
   UNKNOWN: 'エラーが発生しました',
 } as const;
 
@@ -111,27 +111,19 @@ export function UserEditForm({ userId }: UserEditFormProps) {
     setSaving(true);
     setError(null);
 
-    try {
-      const response = await fetch(`/api/users/${userId}/roles`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          roles: selectedRoles,
-          grantChanges: buildGrantChanges(pendingGrants),
-        }),
-      });
+    const result = await saveUserRoles(userId, {
+      roles: selectedRoles,
+      grantChanges: buildGrantChanges(pendingGrants),
+    });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || ERROR_MESSAGES.ASSIGN_FAILED);
-      }
-
-      // 成功したらユーザー一覧に戻る
-      router.push(USERS_LIST_PATH);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : ERROR_MESSAGES.UNKNOWN);
+    if (!result.ok) {
+      setError(result.message);
       setSaving(false);
+      return;
     }
+
+    // 成功したらユーザー一覧に戻る
+    router.push(USERS_LIST_PATH);
   };
 
   // 取得に成功したかにかかわらず、見出しと一覧への導線を出して画面の文脈を失わせない
