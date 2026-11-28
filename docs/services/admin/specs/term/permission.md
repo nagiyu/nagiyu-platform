@@ -8,7 +8,7 @@ sources:
   - services/admin/web/src/app/api/errors/[eventId]/route.ts
   - services/admin/web/src/app/api/notify/subscribe/route.ts
   - services/admin/web/src/middleware.ts
-sources_hash: 78a790982f31137b0742ce82e6dd25d6a83e0a6427ba2caa881af5348cdf79cf
+sources_hash: 42943f14eb6749bd2c7e8b96c1e8ed19b07d71697921b1374af5bcc44faaa4ab
 ---
 
 # 権限とロール
