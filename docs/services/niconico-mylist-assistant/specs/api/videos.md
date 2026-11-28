@@ -4,7 +4,7 @@ sources:
   - services/niconico-mylist-assistant/web/src/app/api/videos/[id]/route.ts
   - services/niconico-mylist-assistant/web/src/app/api/videos/[id]/settings/route.ts
   - services/niconico-mylist-assistant/core/src/db/videos.ts
-sources_hash: dc502482cdacd861828ce074b4869518da7548e687895016d60a8ab23954f226
+sources_hash: 3407e33eefd08a05ecaee0dd321ba8f9d9be5a7967ec1fd4660e4a9559788af0
 ---
 
 # 動画 API
@@ -36,7 +36,7 @@ sources_hash: dc502482cdacd861828ce074b4869518da7548e687895016d60a8ab23954f226
 - 応答は `{ videos, total, limit, offset }`。`total` は絞り込み後の総件数。`videos` の要素は `videoId`、`title`、`thumbnailUrl`、`length`、`createdAt` と、自分の設定があれば `userSetting` (`isFavorite`、`isSkip`、`memo`、`createdAt`、`updatedAt`)
 - 動画基本情報を全件読んでから、メモリ上で絞り込んでページを切る。件数が増えると遅くなる
 
-1 件の取得 (`GET /api/videos/{id}`) は `{ video }` を返す。形は一覧の要素と同じだが、`createdAt` は自分の設定があればその作成日時、なければ動画基本情報の登録日になる (一覧は常に動画基本情報の登録日)。
+1 件の取得 (`GET /api/videos/{id}`) は `{ video }` を返す。形は一覧の要素と同じで、`createdAt` も一覧と同じく動画基本情報の登録日。設定の作成日時は `userSetting.createdAt` に入る。
 
 設定の更新 (`PUT /api/videos/{id}/settings`) の入力。どの項目も省略できる。
 
@@ -47,7 +47,7 @@ sources_hash: dc502482cdacd861828ce074b4869518da7548e687895016d60a8ab23954f226
 | `memo` | 文字列。1000 文字以内 |
 
 - 設定がある動画は、送った項目だけを更新する (送った項目がなければ更新日時だけが変わる)。設定がなければ、送らなかった `isFavorite` と `isSkip` を `false` として新しく作る
-- 応答は `{ video }`。動画基本情報と、更新後の設定を合わせたもの。この応答の `createdAt` は設定の作成日時
+- 応答は `{ video }`。動画基本情報と、更新後の設定を合わせたもの。`createdAt` は一覧と同じく動画基本情報の登録日
 
 削除 (`DELETE /api/videos/{id}`) は動画基本情報と、自分の設定を消して `{ success: true }` を返す。
 
@@ -87,3 +87,12 @@ flowchart TD
     A --> V[(動画基本情報)]
     A --> U[(ユーザー設定)]
 ```
+
+## 理由
+
+### 動画の `createdAt` は、どの応答も動画基本情報の登録日にそろえる
+
+一覧の並びは動画基本情報の登録日で決まり、画面はカードにも詳細にもトップレベルの `createdAt` を出す。応答ごとに別の日付を返すと、同じ動画のカードと詳細で日付が食い違う。取り込みはすべての動画に設定を作るので、設定の作成日時を優先すると取り込んだ動画のほぼすべてで食い違いが出る。
+
+- 採らない案: 設定の作成日時 (利用者ごとの取り込んだ日) にそろえる。一覧の並びも設定の作成日時に変えないと、カードの日付と並びが合わなくなる
+- 設定の作成日時は `userSetting.createdAt` で返すので、失われない
