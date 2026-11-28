@@ -2,20 +2,30 @@
  * @jest-environment node
  */
 import { loadStatusSnapshot } from '@/lib/server/status';
+import { buildAdminStudyStatus } from '@/lib/study/admin-study-status';
 import {
   createLifecycleRepository,
   createMessageRepository,
   createNotificationEventRepository,
+  createPushSubscriptionRepository,
+  getCharacterDefinitionById,
   createStudyTopicRepository,
+  createFreshnessCheckRequestRepository,
+  createTopicRepository,
   NOTIFY_EVENT_READ_LIMIT,
+  NOTIFY_TOPIC_HEADER_READ_LIMIT,
 } from '@nagiyu/livetalk-core';
 
 jest.mock('@nagiyu/livetalk-core', () => ({
   ...jest.requireActual('@nagiyu/livetalk-core'),
+  createPushSubscriptionRepository: jest.fn(),
+  getCharacterDefinitionById: jest.fn(),
   createLifecycleRepository: jest.fn(),
   createNotificationEventRepository: jest.fn(),
   createStudyTopicRepository: jest.fn(),
   createMessageRepository: jest.fn(),
+  createFreshnessCheckRequestRepository: jest.fn(),
+  createTopicRepository: jest.fn(),
 }));
 
 const HOUR = 60 * 60 * 1000;
@@ -35,35 +45,96 @@ const makeEvent = (notifId: string, characterId: string, createdAt: number) => (
   expiresAt: 9_999_999_999_000,
 });
 
+/**
+ * 勉強の節 (区分・お試し・合計の回数) と表示キャラクターの回数を、画面・API と同じ作り方で用意する。
+ * 既定は運営者 (1 日の上限 20) で、お試しの有無に左右されない。
+ */
+function studyInput(
+  overrides: {
+    roles?: string[];
+    profileCreatedAt?: number | null;
+    characterCount?: number;
+    userTotal?: number;
+    globalTotal?: number;
+  } = {}
+) {
+  const { userTotal = 0, globalTotal = 0, characterCount = 0 } = overrides;
+  return {
+    study: buildAdminStudyStatus(
+      overrides.roles ?? ['livetalk-operator'],
+      overrides.profileCreatedAt ?? null,
+      { userTotal, globalTotal },
+      NOW.getTime()
+    ),
+    characterCount,
+  };
+}
+
 function setup(options: {
   lifecycle?: unknown;
-  events?: ReturnType<typeof makeEvent>[];
+  events?: Record<string, unknown>[];
   messages?: { role: string; createdAt: number }[];
   pending?: number;
+  /** キャラクター別の lifecycle。指定があれば lifecycle より優先する */
+  lifecycleFor?: Record<string, unknown>;
+  /** キャラクター別の会話。指定があれば messages より優先する */
+  messagesFor?: Record<string, { role: string; createdAt: number }[]>;
+  freshnessRequests?: { topicId: string; createdAt: number }[];
+  topics?: { topicId: string; subject: string; care: number }[];
+  webFacts?: Record<string, unknown[]>;
+  /** 購読の数。既定は 1 件 */
+  subscriptionCount?: number;
 }) {
   const listByUser = jest.fn(async () => options.events ?? []);
+  (createPushSubscriptionRepository as jest.Mock).mockReturnValue({
+    listByUser: jest.fn(async () => Array(options.subscriptionCount ?? 1).fill({})),
+  });
   // 実際のリポジトリと同じく、since より後の会話だけを返す
-  const listSince = jest.fn(async (_userId: string, _characterId: string, since: number) =>
-    (options.messages ?? []).filter((m) => m.createdAt > since)
+  const listSince = jest.fn(async (_userId: string, characterId: string, since: number) =>
+    (options.messagesFor?.[characterId] ?? options.messages ?? []).filter(
+      (m) => m.createdAt > since
+    )
   );
   (createLifecycleRepository as jest.Mock).mockReturnValue({
-    get: jest.fn(async () => options.lifecycle ?? null),
+    get: jest.fn(async ({ characterId }: { characterId: string }) =>
+      options.lifecycleFor
+        ? (options.lifecycleFor[characterId] ?? null)
+        : (options.lifecycle ?? null)
+    ),
+  });
+  (createFreshnessCheckRequestRepository as jest.Mock).mockReturnValue({
+    listByCharacter: jest.fn(async () => options.freshnessRequests ?? []),
+  });
+  const listTopicHeadersByCareDesc = jest.fn(async () => options.topics ?? []);
+  const listWebFacts = jest.fn(
+    async (_u: string, _c: string, topicId: string) => options.webFacts?.[topicId] ?? []
+  );
+  (createTopicRepository as jest.Mock).mockReturnValue({
+    listTopicHeadersByCareDesc,
+    listWebFacts,
   });
   (createNotificationEventRepository as jest.Mock).mockReturnValue({ listByUser });
   (createMessageRepository as jest.Mock).mockReturnValue({ listSince });
   (createStudyTopicRepository as jest.Mock).mockReturnValue({
     listByStatus: jest.fn(async () => Array(options.pending ?? 0).fill({ topicId: 't' })),
   });
-  return { listByUser, listSince };
+  return { listByUser, listSince, listTopicHeadersByCareDesc, listWebFacts };
 }
 
 describe('loadStatusSnapshot', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    // 定義の有無だけを差し替えるため、既定は実物をそのまま返す
+    (getCharacterDefinitionById as jest.Mock).mockImplementation(
+      (jest.requireActual('@nagiyu/livetalk-core') as typeof import('@nagiyu/livetalk-core'))
+        .getCharacterDefinitionById
+    );
+  });
 
   it('会話を通知バッチと同じ直近 7 日から読み、通知の記録をバッチと同じ件数で読む', async () => {
     const { listByUser, listSince } = setup({});
 
-    await loadStatusSnapshot('u1', 'hiyori', NOW);
+    await loadStatusSnapshot('u1', 'hiyori', NOW, studyInput());
 
     expect(listSince).toHaveBeenCalledWith('u1', 'hiyori', NOW.getTime() - 7 * DAY);
     expect(listByUser).toHaveBeenCalledWith('u1', NOTIFY_EVENT_READ_LIMIT);
@@ -73,7 +144,7 @@ describe('loadStatusSnapshot', () => {
     // 8 日前の会話が判定に入れば経過 8 日で long、入らなければ会話なしで veryLong になる
     setup({ messages: [{ role: 'user', createdAt: NOW.getTime() - 8 * DAY }] });
 
-    const snapshot = await loadStatusSnapshot('u1', 'hiyori', NOW);
+    const snapshot = await loadStatusSnapshot('u1', 'hiyori', NOW, studyInput());
 
     expect(snapshot.notifyDecision).toMatchObject({ notify: true, toneBucket: 'veryLong' });
   });
@@ -81,7 +152,7 @@ describe('loadStatusSnapshot', () => {
   it('生活サイクルがなければ既定値と null のプロファイルを返す', async () => {
     setup({ pending: 2 });
 
-    const snapshot = await loadStatusSnapshot('u1', 'hiyori', NOW);
+    const snapshot = await loadStatusSnapshot('u1', 'hiyori', NOW, studyInput());
 
     expect(snapshot.lifecycle).toMatchObject({
       bedtime: '01:30',
@@ -110,7 +181,7 @@ describe('loadStatusSnapshot', () => {
       },
     });
 
-    const snapshot = await loadStatusSnapshot('u1', 'hiyori', NOW);
+    const snapshot = await loadStatusSnapshot('u1', 'hiyori', NOW, studyInput());
 
     expect(snapshot.lifecycle).toMatchObject({
       bedtime: '23:00',
@@ -127,7 +198,7 @@ describe('loadStatusSnapshot', () => {
     ];
     setup({ events });
 
-    const snapshot = await loadStatusSnapshot('u1', 'hiyori', NOW);
+    const snapshot = await loadStatusSnapshot('u1', 'hiyori', NOW, studyInput());
 
     expect(snapshot.recentNotifications.map((e) => e.notifId)).toEqual([
       'own-0',
@@ -142,7 +213,7 @@ describe('loadStatusSnapshot', () => {
     const msgAt = NOW.getTime() - HOUR;
     setup({ messages: [{ role: 'user', createdAt: msgAt }] });
 
-    const snapshot = await loadStatusSnapshot('u1', 'hiyori', NOW);
+    const snapshot = await loadStatusSnapshot('u1', 'hiyori', NOW, studyInput());
 
     expect(snapshot.notifyDecision).toMatchObject({ notify: false, reason: 'not_due' });
     expect(snapshot.nextEarliestAt).toBe(msgAt + 24 * HOUR);
@@ -151,7 +222,7 @@ describe('loadStatusSnapshot', () => {
   it('通知可能なときは解除予測を含めない', async () => {
     setup({});
 
-    const snapshot = await loadStatusSnapshot('u1', 'hiyori', NOW);
+    const snapshot = await loadStatusSnapshot('u1', 'hiyori', NOW, studyInput());
 
     expect(snapshot.notifyDecision).toMatchObject({ notify: true });
     expect(snapshot).not.toHaveProperty('nextEarliestAt');
@@ -160,8 +231,524 @@ describe('loadStatusSnapshot', () => {
   it('ユーザー以外の発話は判定に使わない', async () => {
     setup({ messages: [{ role: 'assistant', createdAt: NOW.getTime() - HOUR }] });
 
-    const snapshot = await loadStatusSnapshot('u1', 'hiyori', NOW);
+    const snapshot = await loadStatusSnapshot('u1', 'hiyori', NOW, studyInput());
 
     expect(snapshot.notifyDecision).toMatchObject({ notify: true });
+  });
+
+  describe('3 日ルール (studyPause)', () => {
+    it('発話がなければ停止中で、時刻は null', async () => {
+      setup({});
+
+      const { studyPause } = await loadStatusSnapshot('u1', 'hiyori', NOW, studyInput());
+
+      expect(studyPause).toEqual({ paused: true, lastUserMessageAt: null, pausesAt: null });
+    });
+
+    it('72 時間経っていなければ勉強中で、止まる時刻は最後の発話の 72 時間後', async () => {
+      const at = NOW.getTime() - 72 * HOUR + 1;
+      setup({ messages: [{ role: 'user', createdAt: at }] });
+
+      const { studyPause } = await loadStatusSnapshot('u1', 'hiyori', NOW, studyInput());
+
+      expect(studyPause).toEqual({
+        paused: false,
+        lastUserMessageAt: at,
+        pausesAt: at + 72 * HOUR,
+      });
+    });
+
+    it('72 時間ちょうどで停止する', async () => {
+      const at = NOW.getTime() - 72 * HOUR;
+      setup({ messages: [{ role: 'user', createdAt: at }] });
+
+      const { studyPause } = await loadStatusSnapshot('u1', 'hiyori', NOW, studyInput());
+
+      expect(studyPause).toEqual({ paused: true, lastUserMessageAt: at, pausesAt: NOW.getTime() });
+    });
+
+    it('アシスタントの発話は最後の発話に数えない', async () => {
+      setup({
+        messages: [
+          { role: 'user', createdAt: NOW.getTime() - 5 * HOUR },
+          { role: 'assistant', createdAt: NOW.getTime() - HOUR },
+        ],
+      });
+
+      const { studyPause } = await loadStatusSnapshot('u1', 'hiyori', NOW, studyInput());
+
+      expect(studyPause.lastUserMessageAt).toBe(NOW.getTime() - 5 * HOUR);
+    });
+  });
+
+  describe('勉強の日次の回数 (studyUsage)', () => {
+    const lifecycle = (characterId: string) => ({
+      userId: 'u1',
+      characterId,
+      bedtime: '01:30',
+      wakeUpTime: '09:30',
+      createdAt: 0,
+      updatedAt: 0,
+    });
+    const recent = [{ role: 'user', createdAt: NOW.getTime() - HOUR }];
+    const twoCharacters = {
+      lifecycleFor: { hiyori: lifecycle('hiyori'), ageha: lifecycle('ageha') },
+      messages: recent,
+    };
+
+    it('勉強中が 0 キャラなら上限は 0 で、キャラ別の上限到達になる', async () => {
+      setup({});
+
+      const { studyUsage } = await loadStatusSnapshot('u1', 'hiyori', NOW, studyInput());
+
+      expect(studyUsage).toEqual({
+        characterCount: 0,
+        characterLimit: 0,
+        studyingCharacterCount: 0,
+        limitReachedBy: 'character',
+        limitReached: true,
+      });
+    });
+
+    it('利用者の合計と全利用者の合計は、勉強の節に任せて持たない', async () => {
+      setup(twoCharacters);
+
+      const { studyUsage } = await loadStatusSnapshot('u1', 'hiyori', NOW, studyInput());
+
+      expect(studyUsage).not.toHaveProperty('totalCount');
+      expect(studyUsage).not.toHaveProperty('totalLimit');
+    });
+
+    it('キャラ別の上限は、区分の 1 日の上限を勉強中のキャラ数で等分する', async () => {
+      setup({
+        ...twoCharacters,
+        lifecycleFor: { ...twoCharacters.lifecycleFor, ageha2: lifecycle('ageha2') },
+      });
+      const input = studyInput({ characterCount: 9, userTotal: 10 });
+
+      const { studyUsage } = await loadStatusSnapshot('u1', 'hiyori', NOW, input);
+
+      expect(input.study.user.limit).toBe(20);
+      expect(studyUsage).toMatchObject({
+        characterCount: 9,
+        studyingCharacterCount: 2,
+        characterLimit: 10,
+        limitReachedBy: null,
+        limitReached: false,
+      });
+    });
+
+    it('等分に使う上限は、勉強の節の上限と同じ値になる (区分ごとの値を直接持たない)', async () => {
+      setup(twoCharacters);
+      const standard = studyInput({ roles: ['livetalk-standard'] });
+      const trial = studyInput({ roles: [], profileCreatedAt: NOW.getTime() - DAY });
+
+      const a = await loadStatusSnapshot('u1', 'hiyori', NOW, standard);
+      const b = await loadStatusSnapshot('u1', 'hiyori', NOW, trial);
+
+      expect(a.studyUsage.characterLimit).toBe(Math.floor(standard.study.user.limit / 2));
+      expect(b.studyUsage.characterLimit).toBe(Math.floor(trial.study.user.limit / 2));
+      expect(b.studyUsage.characterLimit).toBeGreaterThan(0);
+    });
+
+    it('lifecycle がないキャラと 3 日ルールで止まっているキャラは数えない', async () => {
+      setup({
+        lifecycleFor: { hiyori: lifecycle('hiyori'), ageha: lifecycle('ageha') },
+        messagesFor: { hiyori: recent, ageha: [] },
+      });
+
+      const { studyUsage } = await loadStatusSnapshot('u1', 'hiyori', NOW, studyInput());
+      expect(studyUsage).toMatchObject({ studyingCharacterCount: 1, characterLimit: 20 });
+
+      setup({
+        lifecycleFor: { hiyori: lifecycle('hiyori') },
+        messages: recent,
+      });
+      const second = await loadStatusSnapshot('u1', 'hiyori', NOW, studyInput());
+      expect(second.studyUsage.studyingCharacterCount).toBe(1);
+    });
+
+    it('定義を返さないキャラは、lifecycle があり発話があっても数えない', async () => {
+      const actual = (
+        jest.requireActual('@nagiyu/livetalk-core') as typeof import('@nagiyu/livetalk-core')
+      ).getCharacterDefinitionById;
+      (getCharacterDefinitionById as jest.Mock).mockImplementation((id: string) =>
+        id === 'ageha' ? undefined : actual(id)
+      );
+      setup(twoCharacters);
+
+      const { studyUsage } = await loadStatusSnapshot('u1', 'hiyori', NOW, studyInput());
+
+      expect(studyUsage.studyingCharacterCount).toBe(1);
+    });
+
+    describe('上限に達した枠 (limitReachedBy)', () => {
+      it('キャラ別の上限に達したら character', async () => {
+        setup(twoCharacters);
+
+        const { studyUsage } = await loadStatusSnapshot(
+          'u1',
+          'hiyori',
+          NOW,
+          studyInput({ characterCount: 10, userTotal: 10 })
+        );
+
+        expect(studyUsage).toMatchObject({ limitReachedBy: 'character', limitReached: true });
+      });
+
+      it('キャラ別の上限内で、利用者の合計の上限に達したら user', async () => {
+        setup(twoCharacters);
+
+        const { studyUsage } = await loadStatusSnapshot(
+          'u1',
+          'hiyori',
+          NOW,
+          studyInput({ characterCount: 1, userTotal: 20 })
+        );
+
+        expect(studyUsage).toMatchObject({ limitReachedBy: 'user', limitReached: true });
+      });
+
+      it('利用者の上限内で、全利用者の合計の上限に達したら global', async () => {
+        setup(twoCharacters);
+
+        const { studyUsage } = await loadStatusSnapshot(
+          'u1',
+          'hiyori',
+          NOW,
+          studyInput({ characterCount: 1, userTotal: 1, globalTotal: 200 })
+        );
+
+        expect(studyUsage).toMatchObject({ limitReachedBy: 'global', limitReached: true });
+      });
+
+      it('複数の枠に達していれば、狭い順で最初のもの', async () => {
+        setup(twoCharacters);
+
+        const { studyUsage } = await loadStatusSnapshot(
+          'u1',
+          'hiyori',
+          NOW,
+          studyInput({ characterCount: 1, userTotal: 20, globalTotal: 200 })
+        );
+
+        expect(studyUsage.limitReachedBy).toBe('user');
+      });
+    });
+  });
+
+  describe('勉強の状態 (studyState)', () => {
+    const lifecycle = {
+      userId: 'u1',
+      characterId: 'hiyori',
+      bedtime: '01:30',
+      wakeUpTime: '09:30',
+      createdAt: 0,
+      updatedAt: 0,
+    };
+    const recent = [{ role: 'user', createdAt: NOW.getTime() - HOUR }];
+    const twoCharacters = {
+      lifecycleFor: { hiyori: lifecycle, ageha: { ...lifecycle, characterId: 'ageha' } },
+      messages: recent,
+    };
+
+    it('1 日の上限が 0 (無料でお試しが始まっていない) なら、他の理由より先に trial_ended になる', async () => {
+      setup({ ...twoCharacters });
+
+      const { studyState } = await loadStatusSnapshot(
+        'u1',
+        'hiyori',
+        NOW,
+        studyInput({ roles: [], profileCreatedAt: null })
+      );
+
+      expect(studyState).toBe('trial_ended');
+    });
+
+    it('無料でお試しが終わっていても trial_ended になる', async () => {
+      setup({ lifecycle });
+
+      const { studyState } = await loadStatusSnapshot(
+        'u1',
+        'hiyori',
+        NOW,
+        studyInput({ roles: [], profileCreatedAt: NOW.getTime() - 30 * DAY })
+      );
+
+      expect(studyState).toBe('trial_ended');
+    });
+
+    it('無料でもお試し中なら trial_ended にならない', async () => {
+      setup(twoCharacters);
+
+      const { studyState } = await loadStatusSnapshot(
+        'u1',
+        'hiyori',
+        NOW,
+        studyInput({ roles: [], profileCreatedAt: NOW.getTime() - DAY })
+      );
+
+      expect(studyState).toBe('studying');
+    });
+
+    it('生活サイクルが未登録なら、3 日ルールや回数より先に no_lifecycle になる', async () => {
+      setup({ messages: recent });
+
+      const { studyState } = await loadStatusSnapshot('u1', 'hiyori', NOW, studyInput());
+
+      expect(studyState).toBe('no_lifecycle');
+    });
+
+    it('生活サイクルがあり 3 日ルールで止まっていれば paused', async () => {
+      setup({ lifecycle });
+
+      const { studyState } = await loadStatusSnapshot('u1', 'hiyori', NOW, studyInput());
+
+      expect(studyState).toBe('paused');
+    });
+
+    it('生活サイクルがあり 3 日ルールで止まっておらず就寝帯なら、回数の上限より先に sleeping になる', async () => {
+      // 日本時間の 03:00 (就寝 01:30 から起床 09:30 の間)
+      const sleepingNow = new Date('2026-06-09T18:00:00.000Z');
+      setup({
+        lifecycleFor: twoCharacters.lifecycleFor,
+        messages: [{ role: 'user', createdAt: sleepingNow.getTime() - HOUR }],
+      });
+
+      const { studyState, studyUsage } = await loadStatusSnapshot(
+        'u1',
+        'hiyori',
+        sleepingNow,
+        studyInput({ characterCount: 10, userTotal: 10 })
+      );
+
+      expect(studyState).toBe('sleeping');
+      // 枠の配分は就寝を数え直さない
+      expect(studyUsage.studyingCharacterCount).toBe(2);
+    });
+
+    it('就寝帯でも 3 日ルールで止まっていれば paused', async () => {
+      setup({ lifecycle });
+
+      const { studyState } = await loadStatusSnapshot(
+        'u1',
+        'hiyori',
+        new Date('2026-06-09T18:00:00.000Z'),
+        studyInput()
+      );
+
+      expect(studyState).toBe('paused');
+    });
+
+    it.each([
+      ['キャラ別', { characterCount: 10, userTotal: 10, globalTotal: 0 }],
+      ['利用者の合計', { characterCount: 1, userTotal: 20, globalTotal: 0 }],
+      ['全利用者の合計', { characterCount: 1, userTotal: 1, globalTotal: 200 }],
+    ])('止まっておらず %s の上限に達していれば limit_reached', async (_scope, counts) => {
+      setup(twoCharacters);
+
+      const { studyState } = await loadStatusSnapshot('u1', 'hiyori', NOW, studyInput(counts));
+
+      expect(studyState).toBe('limit_reached');
+    });
+
+    it('どれにも当たらなければ studying', async () => {
+      setup(twoCharacters);
+
+      const { studyState } = await loadStatusSnapshot(
+        'u1',
+        'hiyori',
+        NOW,
+        studyInput({ characterCount: 1, userTotal: 1 })
+      );
+
+      expect(studyState).toBe('studying');
+    });
+  });
+
+  describe('鮮度確認の依頼待ち', () => {
+    it('件数と、各依頼の topicId・記録時刻を返す', async () => {
+      setup({
+        freshnessRequests: [
+          { topicId: 't1', createdAt: 100 },
+          { topicId: 't2', createdAt: 200 },
+        ],
+      });
+
+      const { freshnessCheckRequests } = await loadStatusSnapshot(
+        'u1',
+        'hiyori',
+        NOW,
+        studyInput()
+      );
+
+      expect(freshnessCheckRequests).toEqual({
+        count: 2,
+        requests: [
+          { topicId: 't1', createdAt: 100 },
+          { topicId: 't2', createdAt: 200 },
+        ],
+      });
+    });
+  });
+
+  describe('重要通知の判定の手前 (criticalCandidates)', () => {
+    const recent = [{ role: 'user', createdAt: NOW.getTime() - HOUR }];
+    const lifecycle = {
+      userId: 'u1',
+      characterId: 'hiyori',
+      bedtime: '01:30',
+      wakeUpTime: '09:30',
+      createdAt: 0,
+      updatedAt: 0,
+    };
+    const topic = (topicId: string, care: number) => ({
+      topicId,
+      subject: `話題-${topicId}`,
+      care,
+    });
+
+    it('勉強が止まっているときは判定せず、Topic を読まない', async () => {
+      const { listTopicHeadersByCareDesc, listWebFacts } = setup({
+        lifecycle,
+        topics: [topic('t1', 5)],
+      });
+
+      const { criticalCandidates } = await loadStatusSnapshot('u1', 'hiyori', NOW, studyInput());
+
+      expect(criticalCandidates).toEqual({
+        evaluated: false,
+        skipReason: 'study_paused',
+        candidates: [],
+        staleExcluded: [],
+        sentCriticals: [],
+      });
+      expect(listTopicHeadersByCareDesc).not.toHaveBeenCalled();
+      expect(listWebFacts).not.toHaveBeenCalled();
+    });
+
+    it('購読がなければ no_subscription で判定せず、Topic を読まない', async () => {
+      const { listTopicHeadersByCareDesc, listWebFacts } = setup({
+        lifecycle,
+        messages: recent,
+        subscriptionCount: 0,
+        topics: [topic('t1', 5)],
+      });
+
+      const { criticalCandidates } = await loadStatusSnapshot('u1', 'hiyori', NOW, studyInput());
+
+      expect(criticalCandidates).toEqual({
+        evaluated: false,
+        skipReason: 'no_subscription',
+        candidates: [],
+        staleExcluded: [],
+        sentCriticals: [],
+      });
+      expect(listTopicHeadersByCareDesc).not.toHaveBeenCalled();
+      expect(listWebFacts).not.toHaveBeenCalled();
+    });
+
+    it('購読がなく生活サイクルも未登録なら、バッチと同じ順で no_subscription になる', async () => {
+      setup({ subscriptionCount: 0 });
+
+      const { criticalCandidates } = await loadStatusSnapshot('u1', 'hiyori', NOW, studyInput());
+
+      expect(criticalCandidates.skipReason).toBe('no_subscription');
+    });
+
+    it('生活サイクルが未登録なら no_lifecycle で判定せず、Topic を読まない', async () => {
+      const { listTopicHeadersByCareDesc, listWebFacts } = setup({
+        messages: recent,
+        topics: [topic('t1', 5)],
+      });
+
+      const { criticalCandidates } = await loadStatusSnapshot('u1', 'hiyori', NOW, studyInput());
+
+      expect(criticalCandidates).toEqual({
+        evaluated: false,
+        skipReason: 'no_lifecycle',
+        candidates: [],
+        staleExcluded: [],
+        sentCriticals: [],
+      });
+      expect(listTopicHeadersByCareDesc).not.toHaveBeenCalled();
+      expect(listWebFacts).not.toHaveBeenCalled();
+    });
+
+    it('care の閾値以上の話題だけを候補にし、WEB fact の中身は出さない', async () => {
+      const { listTopicHeadersByCareDesc } = setup({
+        lifecycle,
+        messages: recent,
+        topics: [topic('t1', 5), topic('t2', 1)],
+        webFacts: { t1: [{ factId: 'f1', volatility: 'stable', content: '秘密の中身' }] },
+      });
+
+      const { criticalCandidates } = await loadStatusSnapshot('u1', 'hiyori', NOW, studyInput());
+
+      expect(listTopicHeadersByCareDesc).toHaveBeenCalledWith(
+        'u1',
+        'hiyori',
+        NOTIFY_TOPIC_HEADER_READ_LIMIT
+      );
+      expect(criticalCandidates.evaluated).toBe(true);
+      expect(criticalCandidates.skipReason).toBeNull();
+      expect(criticalCandidates.candidates).toEqual([
+        { topicId: 't1', subject: '話題-t1', care: 5 },
+      ]);
+      expect(JSON.stringify(criticalCandidates)).not.toContain('秘密の中身');
+    });
+
+    it('鮮度切れの WEB fact を持つ話題は候補から外れ、staleExcluded に出る', async () => {
+      setup({
+        lifecycle,
+        messages: recent,
+        topics: [topic('t1', 5), topic('t2', 4)],
+        webFacts: {
+          t1: [{ factId: 'f1', volatility: 'high', nextReview: NOW.getTime() - 1 }],
+          t2: [{ factId: 'f2', volatility: 'high', nextReview: NOW.getTime() + HOUR }],
+        },
+      });
+
+      const { criticalCandidates } = await loadStatusSnapshot('u1', 'hiyori', NOW, studyInput());
+
+      expect(criticalCandidates.candidates.map((t) => t.topicId)).toEqual(['t2']);
+      expect(criticalCandidates.staleExcluded.map((t) => t.topicId)).toEqual(['t1']);
+    });
+
+    it('送り済みの重要通知を表示キャラの記録から返し、topicId のないものは除く', async () => {
+      setup({
+        messages: recent,
+        events: [
+          {
+            ...makeEvent('c1', 'hiyori', 1000),
+            kind: 'critical' as const,
+            topicId: 't1',
+            eventDate: '2026-06-20',
+          },
+          { ...makeEvent('c2', 'hiyori', 900), kind: 'critical' as const, topicId: 't2' },
+          { ...makeEvent('c3', 'hiyori', 800), kind: 'critical' as const },
+          { ...makeEvent('c4', 'ageha', 700), kind: 'critical' as const, topicId: 't9' },
+        ],
+      });
+
+      const { criticalCandidates } = await loadStatusSnapshot('u1', 'hiyori', NOW, studyInput());
+
+      expect(criticalCandidates.sentCriticals).toEqual([
+        { topicId: 't1', eventDate: '2026-06-20' },
+        { topicId: 't2', eventDate: null },
+      ]);
+    });
+
+    it('勉強が止まっていても送り済みの重要通知は返す', async () => {
+      setup({
+        lifecycle,
+        events: [{ ...makeEvent('c1', 'hiyori', 1000), kind: 'critical' as const, topicId: 't1' }],
+      });
+
+      const { criticalCandidates } = await loadStatusSnapshot('u1', 'hiyori', NOW, studyInput());
+
+      expect(criticalCandidates.evaluated).toBe(false);
+      expect(criticalCandidates.sentCriticals).toEqual([{ topicId: 't1', eventDate: null }]);
+    });
   });
 });

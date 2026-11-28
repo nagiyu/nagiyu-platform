@@ -6,8 +6,11 @@ import { getSession } from '@/lib/server/session';
 import {
   createLifecycleRepository,
   createNotificationEventRepository,
+  createPushSubscriptionRepository,
   createStudyTopicRepository,
   createMessageRepository,
+  createFreshnessCheckRequestRepository,
+  createTopicRepository,
   NOTIFY_EVENT_READ_LIMIT,
   createProfileRepository,
   createStudyUsageRepository,
@@ -30,8 +33,11 @@ jest.mock('@nagiyu/livetalk-core', () => ({
   ...jest.requireActual('@nagiyu/livetalk-core'),
   createLifecycleRepository: jest.fn(),
   createNotificationEventRepository: jest.fn(),
+  createPushSubscriptionRepository: jest.fn(),
   createStudyTopicRepository: jest.fn(),
   createMessageRepository: jest.fn(),
+  createFreshnessCheckRequestRepository: jest.fn(),
+  createTopicRepository: jest.fn(),
   createProfileRepository: jest.fn(),
   createStudyUsageRepository: jest.fn(),
 }));
@@ -59,14 +65,23 @@ const mockGetStudyUsageRepo = createStudyUsageRepository as jest.MockedFunction<
 
 const DAY = 24 * 60 * 60 * 1000;
 
-const mockStudyRepos = (createdAt: number | null, usage = { userTotal: 0, globalTotal: 0 }) => {
+const mockReadToday = jest.fn();
+
+const mockStudyRepos = (
+  createdAt: number | null,
+  usage: { userTotal: number; globalTotal: number; characterCount?: number } = {
+    userTotal: 0,
+    globalTotal: 0,
+  }
+) => {
   mockGetProfileRepo.mockReturnValue({
     getById: jest.fn(async () =>
       createdAt === null ? null : { userId: 'u1', createdAt, updatedAt: createdAt, lastActiveAt: 0 }
     ),
   } as unknown as ProfileRepository);
+  mockReadToday.mockImplementation(async () => usage);
   mockGetStudyUsageRepo.mockReturnValue({
-    readToday: jest.fn(async () => usage),
+    readToday: mockReadToday,
   } as unknown as StudyUsageRepository);
 };
 
@@ -140,7 +155,18 @@ function setupDefaultMocks() {
 describe('GET /api/status', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockStudyRepos(null);
+    (createPushSubscriptionRepository as jest.Mock).mockReturnValue({
+      listByUser: jest.fn(async () => [{}]),
+    });
+    // 勉強の回数と、重要通知の読み取りは既定で空にする
+    mockStudyRepos(null, { userTotal: 5, globalTotal: 50, characterCount: 3 });
+    (createFreshnessCheckRequestRepository as jest.Mock).mockReturnValue({
+      listByCharacter: jest.fn(async () => [{ topicId: 't1', createdAt: 123 }]),
+    });
+    (createTopicRepository as jest.Mock).mockReturnValue({
+      listTopicHeadersByCareDesc: jest.fn(async () => []),
+      listWebFacts: jest.fn(async () => []),
+    });
   });
 
   it('未認証は 401', async () => {
@@ -158,6 +184,7 @@ describe('GET /api/status', () => {
   it('livetalk-admin 権限ありは 200 でステータスデータを返す', async () => {
     mockGetSession.mockResolvedValueOnce(adminSession);
     setupDefaultMocks();
+    mockStudyRepos(null, { userTotal: 5, globalTotal: 50, characterCount: 3 });
 
     const res = await GET(buildGetRequest());
     expect(res.status).toBe(200);
@@ -167,6 +194,28 @@ describe('GET /api/status', () => {
     expect(json).toHaveProperty('recentNotifications');
     expect(json).toHaveProperty('notifyDecision');
     expect(json).toHaveProperty('studyTopicPendingCount');
+    // Profile がない無料は 1 日の上限が 0 で、取得バッチの対象外になる
+    expect(json.studyState).toBe('trial_ended');
+    expect(json.studyPause).toEqual({ paused: true, lastUserMessageAt: null, pausesAt: null });
+    expect(json.studyUsage).toMatchObject({
+      characterCount: 3,
+      characterLimit: 0,
+      limitReachedBy: 'character',
+    });
+    // 利用者・全利用者の合計は勉強の節に任せ、勉強と重要通知には持たせない
+    expect(json.studyUsage).not.toHaveProperty('totalCount');
+    expect(json.studyUsage).not.toHaveProperty('totalLimit');
+    expect(json.freshnessCheckRequests).toEqual({
+      count: 1,
+      requests: [{ topicId: 't1', createdAt: 123 }],
+    });
+    expect(json.criticalCandidates).toEqual({
+      evaluated: false,
+      skipReason: 'study_paused',
+      candidates: [],
+      staleExcluded: [],
+      sentCriticals: [],
+    });
     expect(json).toHaveProperty('study');
   });
 
@@ -174,7 +223,7 @@ describe('GET /api/status', () => {
     const now = Date.now();
     mockGetSession.mockResolvedValueOnce(adminSession);
     setupDefaultMocks();
-    mockStudyRepos(now - DAY, { userTotal: 3, globalTotal: 50 });
+    mockStudyRepos(now - DAY, { userTotal: 3, globalTotal: 50, characterCount: 1 });
 
     const json = await (await GET(buildGetRequest())).json();
 
@@ -207,6 +256,18 @@ describe('GET /api/status', () => {
 
     expect(json.study.tier).toBe('operator');
     expect(json.study.trial).toBeNull();
+    expect(json.studyState).toBe('paused');
+  });
+
+  it('勉強の読み取りを二重にせず、表示キャラクターの回数まで 1 回で読む', async () => {
+    mockGetSession.mockResolvedValueOnce(adminSession);
+    setupDefaultMocks();
+    mockStudyRepos(null, { userTotal: 5, globalTotal: 50, characterCount: 3 });
+
+    await GET(buildGetRequest('ageha'));
+
+    expect(mockReadToday).toHaveBeenCalledTimes(1);
+    expect(mockReadToday).toHaveBeenCalledWith('u1', expect.any(Number), 'ageha');
   });
 
   it('lifecycle が null の場合はデフォルト値でフォールバックする', async () => {

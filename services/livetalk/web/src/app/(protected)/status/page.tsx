@@ -25,10 +25,16 @@ import {
 import {
   ADMIN_STUDY_LABELS,
   formatAdminStudyLines,
-  loadAdminStudyStatus,
+  loadAdminStudyStatusForCharacter,
 } from '@/lib/study/admin-study-status';
 import StatusCharacterSwitcher from '@/components/StatusCharacterSwitcher';
 import StatusTestPush from '@/components/StatusTestPush';
+import type {
+  CriticalSkipReason,
+  CriticalTopicSummary,
+  StudyLimitScope,
+  StudyState,
+} from '@/lib/server/status';
 
 const REASON_LABELS: Record<string, string> = {
   not_due: 'インターバル未経過',
@@ -39,6 +45,30 @@ const REASON_LABELS: Record<string, string> = {
   no_content: 'コンテンツなし',
 };
 
+/** 勉強が止まっている理由のラベル。止まっていなければ「勉強中」 */
+const STUDY_STATE_LABELS: Record<StudyState, string> = {
+  no_lifecycle: '対象外（生活サイクル未登録）',
+  paused: '勉強停止中（3 日ルール）',
+  sleeping: '就寝中（起床後に勉強）',
+  trial_ended: '対象外（お試し期間外）',
+  limit_reached: '本日の上限到達',
+  studying: '勉強中',
+};
+
+/** 回数の上限に達した枠のラベル。どの枠かで、直し方 (キャラ別の等分か、区分か、全体か) が変わる */
+const LIMIT_REACHED_BY_LABELS: Record<StudyLimitScope, string> = {
+  character: 'キャラ別',
+  user: 'あなたの合計',
+  global: '全利用者',
+};
+
+/** 重要通知を判定しない理由のラベル */
+const CRITICAL_SKIP_LABELS: Record<CriticalSkipReason, string> = {
+  no_subscription: '判定しない（購読なし）',
+  no_lifecycle: '判定しない（生活サイクル未登録）',
+  study_paused: '判定しない（勉強停止中）',
+};
+
 /** セーフティ検出の Trigger を日本語ラベルに変換する */
 const SAFETY_TRIGGER_LABELS: Record<string, string> = {
   input_keyword: 'キーワード検出',
@@ -47,6 +77,27 @@ const SAFETY_TRIGGER_LABELS: Record<string, string> = {
 
 interface StatusPageProps {
   searchParams: Promise<{ characterId?: string }>;
+}
+
+/** 重要通知の判定に関わる話題の一覧。 */
+function TopicList({ title, topics }: { title: string; topics: CriticalTopicSummary[] }) {
+  return (
+    <Box sx={{ mt: 0.5 }}>
+      <Typography variant="body2">
+        {title}: {topics.length === 0 ? 'なし' : `${topics.length} 件`}
+      </Typography>
+      {topics.map((t) => (
+        <Typography
+          key={t.topicId}
+          variant="body2"
+          color="text.secondary"
+          sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}
+        >
+          {t.topicId} | {t.subject} | care {t.care}
+        </Typography>
+      ))}
+    </Box>
+  );
 }
 
 export default async function StatusPage({ searchParams }: StatusPageProps) {
@@ -66,14 +117,22 @@ export default async function StatusPage({ searchParams }: StatusPageProps) {
   const userId = session.user.id;
   const now = new Date();
 
-  const [snapshot, recentSafetyEvents, studyStatus] = await Promise.all([
-    loadStatusSnapshot(userId, characterId, now),
+  // 勉強の節と止まっている理由が食い違わないよう、同じ読み取りを両方に使う
+  const { status: studyStatus, characterCount } = await loadAdminStudyStatusForCharacter(
+    userId,
+    session.user.roles,
+    now.getTime(),
+    characterId
+  );
+  const [snapshot, recentSafetyEvents] = await Promise.all([
+    loadStatusSnapshot(userId, characterId, now, { study: studyStatus, characterCount }),
     createSafetyEventRepository().listRecent(SAFETY_REVIEW_DEFAULT_LIMIT),
-    loadAdminStudyStatus(userId, session.user.roles, now.getTime()),
   ]);
   const { lifecycle, notifyDecision, nextEarliestAt, recentNotifications } = snapshot;
   const { state, bedtime, wakeUpTime } = lifecycle;
   const studyPendingCount = snapshot.studyTopicPendingCount;
+  const { studyState, studyPause, studyUsage, freshnessCheckRequests, criticalCandidates } =
+    snapshot;
 
   // テスト通知送信用: 登録キャラクターの表示名マップを構築する
   const registeredCharacterIds = getRegisteredCharacterIds();
@@ -187,6 +246,92 @@ export default async function StatusPage({ searchParams }: StatusPageProps) {
           ))}
         </Box>
       )}
+
+      <Divider sx={{ my: 1.5 }} />
+
+      {/* 勉強と重要通知 */}
+      <Typography variant="subtitle2" sx={{ mb: 0.5, fontWeight: 'bold' }}>
+        勉強と重要通知
+      </Typography>
+      <Box sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Typography variant="body2">勉強:</Typography>
+        <Chip size="sm" color={studyState === 'studying' ? 'success' : 'warning'}>
+          {studyState === 'limit_reached' && studyUsage.limitReachedBy !== null
+            ? `${STUDY_STATE_LABELS[studyState]}（${LIMIT_REACHED_BY_LABELS[studyUsage.limitReachedBy]}）`
+            : STUDY_STATE_LABELS[studyState]}
+        </Chip>
+      </Box>
+      <Box sx={{ mb: 1 }}>
+        <Typography variant="body2">
+          3 日ルール: {studyPause.paused ? '止まっている' : '止まっていない'}
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          最後の発話:{' '}
+          {studyPause.lastUserMessageAt !== null
+            ? formatJstDateTime(studyPause.lastUserMessageAt, { seconds: true })
+            : 'なし（直近 7 日）'}
+        </Typography>
+        {studyPause.pausesAt !== null && (
+          <Typography variant="body2" color="text.secondary">
+            {studyPause.paused ? '停止した時刻' : '停止する時刻'}:{' '}
+            {formatJstDateTime(studyPause.pausesAt, { seconds: true })}
+          </Typography>
+        )}
+      </Box>
+      <Box sx={{ mb: 1 }}>
+        <Typography variant="body2">本日の勉強の回数:</Typography>
+        <Typography variant="body2" color="text.secondary">
+          このキャラ: {studyUsage.characterCount} / {studyUsage.characterLimit} 回 （勉強中のキャラ{' '}
+          {studyUsage.studyingCharacterCount} 人で等分）
+        </Typography>
+      </Box>
+      <Box sx={{ mb: 1 }}>
+        <Typography variant="body2">
+          鮮度確認の依頼待ち: {freshnessCheckRequests.count} 件
+        </Typography>
+        {freshnessCheckRequests.requests.map((r) => (
+          <Typography
+            key={r.topicId}
+            variant="body2"
+            color="text.secondary"
+            sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}
+          >
+            {r.topicId} | {formatJstDateTime(r.createdAt, { seconds: true })}
+          </Typography>
+        ))}
+      </Box>
+      <Box sx={{ mb: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Typography variant="body2">重要通知の判定:</Typography>
+          <Chip size="sm" color={criticalCandidates.skipReason === null ? 'success' : 'warning'}>
+            {criticalCandidates.skipReason === null
+              ? '判定する'
+              : CRITICAL_SKIP_LABELS[criticalCandidates.skipReason]}
+          </Chip>
+        </Box>
+        {criticalCandidates.evaluated && (
+          <>
+            <TopicList title="判定に渡る候補" topics={criticalCandidates.candidates} />
+            <TopicList title="鮮度切れで外れた話題" topics={criticalCandidates.staleExcluded} />
+          </>
+        )}
+        <Typography variant="body2" sx={{ mt: 0.5 }}>
+          送り済みの重要通知:{' '}
+          {criticalCandidates.sentCriticals.length === 0
+            ? 'なし'
+            : `${criticalCandidates.sentCriticals.length} 件`}
+        </Typography>
+        {criticalCandidates.sentCriticals.map((c) => (
+          <Typography
+            key={`${c.topicId}-${c.eventDate ?? ''}`}
+            variant="body2"
+            color="text.secondary"
+            sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}
+          >
+            {c.topicId} | 予定日: {c.eventDate ?? '記録なし'}
+          </Typography>
+        ))}
+      </Box>
 
       <Divider sx={{ my: 1.5 }} />
 
