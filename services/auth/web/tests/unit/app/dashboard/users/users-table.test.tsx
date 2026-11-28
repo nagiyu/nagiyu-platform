@@ -2,7 +2,7 @@
  * Unit tests for UsersTable component
  */
 
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import { UsersTable } from '../../../../../src/app/dashboard/users/users-table';
 
 // Mock fetch
@@ -44,11 +44,14 @@ describe('UsersTable', () => {
       render(<UsersTable canAssignRoles={false} />);
 
       await waitFor(() => {
-        expect(screen.getByText('legacy-role')).toBeInTheDocument();
+        expect(
+          within(screen.getByTestId('users-table')).getByText('legacy-role')
+        ).toBeInTheDocument();
       });
-      expect(screen.getByText('constructor')).toBeInTheDocument();
-      expect(screen.getByText('管理者')).toBeInTheDocument();
-      expect(screen.queryByText('admin')).not.toBeInTheDocument();
+      const table = within(screen.getByTestId('users-table'));
+      expect(table.getByText('constructor')).toBeInTheDocument();
+      expect(table.getByText('管理者')).toBeInTheDocument();
+      expect(table.queryByText('admin')).not.toBeInTheDocument();
     });
   });
 
@@ -77,14 +80,16 @@ describe('UsersTable', () => {
       render(<UsersTable canAssignRoles={false} />);
 
       await waitFor(() => {
-        expect(screen.getByText('テストユーザー1')).toBeInTheDocument();
+        expect(screen.getAllByText('テストユーザー1').length).toBeGreaterThan(0);
       });
 
-      expect(screen.getByText('user1@example.com')).toBeInTheDocument();
-      expect(screen.getByText('テストユーザー2')).toBeInTheDocument();
-      expect(screen.getByText('user2@example.com')).toBeInTheDocument();
-      expect(screen.getByText('管理者')).toBeInTheDocument();
-      expect(screen.getByText('ユーザー管理者')).toBeInTheDocument();
+      const table = within(screen.getByTestId('users-table'));
+      expect(table.getByText('テストユーザー1')).toBeInTheDocument();
+      expect(table.getByText('user1@example.com')).toBeInTheDocument();
+      expect(table.getByText('テストユーザー2')).toBeInTheDocument();
+      expect(table.getByText('user2@example.com')).toBeInTheDocument();
+      expect(table.getByText('管理者')).toBeInTheDocument();
+      expect(table.getByText('ユーザー管理者')).toBeInTheDocument();
     });
 
     it('ロールがない場合は「なし」を表示する', async () => {
@@ -105,10 +110,10 @@ describe('UsersTable', () => {
       render(<UsersTable canAssignRoles={false} />);
 
       await waitFor(() => {
-        expect(screen.getByText('ロールなしユーザー')).toBeInTheDocument();
+        expect(screen.getAllByText('ロールなしユーザー').length).toBeGreaterThan(0);
       });
 
-      expect(screen.getByText('なし')).toBeInTheDocument();
+      expect(within(screen.getByTestId('users-table')).getByText('なし')).toBeInTheDocument();
     });
   });
 
@@ -183,10 +188,11 @@ describe('UsersTable', () => {
       render(<UsersTable canAssignRoles={true} />);
 
       await waitFor(() => {
-        expect(screen.getByText('テストユーザー')).toBeInTheDocument();
+        expect(screen.getAllByText('テストユーザー').length).toBeGreaterThan(0);
       });
 
-      expect(screen.getByRole('link', { name: '編集' })).toBeInTheDocument();
+      const link = within(screen.getByTestId('users-table')).getByRole('link', { name: '編集' });
+      expect(link).toHaveAttribute('href', '/dashboard/users/user-1/edit');
     });
 
     it('canAssignRoles が false の場合は編集ボタンを表示しない', async () => {
@@ -207,10 +213,68 @@ describe('UsersTable', () => {
       render(<UsersTable canAssignRoles={false} />);
 
       await waitFor(() => {
-        expect(screen.getByText('テストユーザー')).toBeInTheDocument();
+        expect(screen.getAllByText('テストユーザー').length).toBeGreaterThan(0);
       });
 
       expect(screen.queryByRole('link', { name: '編集' })).not.toBeInTheDocument();
+    });
+  });
+
+  describe('カード表示 (狭い幅)', () => {
+    const mockUsers = [
+      {
+        userId: 'user-1',
+        name: 'カードユーザー',
+        email: 'card@example.com',
+        roles: ['admin'],
+      },
+      {
+        userId: 'user-2',
+        name: 'ロールなしカード',
+        email: 'norole-card@example.com',
+        roles: [],
+      },
+    ];
+
+    async function renderCards(canAssignRoles: boolean) {
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        json: async () => ({ users: mockUsers }),
+      });
+      render(<UsersTable canAssignRoles={canAssignRoles} />);
+      await waitFor(() => {
+        expect(screen.getByTestId('users-cards')).toBeInTheDocument();
+      });
+      return within(screen.getByTestId('users-cards'));
+    }
+
+    it('ユーザー 1 人に 1 枚、名前・メールアドレス・ロールを項目名つきで表示する', async () => {
+      const cards = await renderCards(false);
+
+      expect(cards.getByText('カードユーザー')).toBeInTheDocument();
+      expect(cards.getByText('card@example.com')).toBeInTheDocument();
+      expect(cards.getByText('ロールなしカード')).toBeInTheDocument();
+      expect(cards.getByText('norole-card@example.com')).toBeInTheDocument();
+      expect(cards.getAllByText('メールアドレス')).toHaveLength(2);
+      expect(cards.getAllByText('ロール')).toHaveLength(2);
+      expect(cards.getByText('管理者')).toBeInTheDocument();
+      expect(cards.getByText('なし')).toBeInTheDocument();
+    });
+
+    it('canAssignRoles が true の場合は各カードに編集リンクを表示する', async () => {
+      const cards = await renderCards(true);
+
+      const links = cards.getAllByRole('link', { name: '編集' });
+      expect(links.map((link) => link.getAttribute('href'))).toEqual([
+        '/dashboard/users/user-1/edit',
+        '/dashboard/users/user-2/edit',
+      ]);
+    });
+
+    it('canAssignRoles が false の場合はカードに編集リンクを表示しない', async () => {
+      const cards = await renderCards(false);
+
+      expect(cards.queryByRole('link', { name: '編集' })).not.toBeInTheDocument();
     });
   });
 
