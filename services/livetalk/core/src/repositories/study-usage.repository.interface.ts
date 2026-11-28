@@ -51,7 +51,7 @@ export interface StudyUsageRepository {
   tryConsume(input: TryConsumeStudyUsageInput): Promise<TryConsumeStudyUsageResult>;
 
   /**
-   * 今日 (日本時间) の回数を、数えずに読む。記録がない日は 0 を返す。
+   * 今日 (日本時間) の回数を、数えずに読む。記録がない日は 0 を返す。
    * `characterId` を渡すと、そのキャラクターの回数も `characterCount` に入れる。
    *
    * @throws 記録の読み取りに失敗したとき
