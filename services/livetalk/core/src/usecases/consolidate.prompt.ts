@@ -3,8 +3,8 @@ import type { WebRawOrigin } from '../entities/webraw.entity.js';
 
 /**
  * `consolidate` usecase に渡す候補 Topic 1 件分。
- * 埋め込み近傍で粗く絞った既存 Topic のヘッダ情報と、新しい WEB fact との見比べに使う既存の WEB fact
- * (新しい側に絞った分を番号付きで) を渡す。座標と SELF fact は渡さない。
+ * 埋め込み近傍で粗く絞った既存 Topic のヘッダ情報と、新しい事実との見比べに使う既存の WEB fact
+ * (新しい側に絞った分) と SELF fact (全件) を、重ならない番号付きで渡す。座標は渡さない。
  */
 export interface ConsolidatePromptCandidateTopic {
   topicId: string;
@@ -21,6 +21,17 @@ export interface ConsolidatePromptCandidateTopic {
     volatility: string;
     /** 観測日ラベル ("M月D日" 表記) */
     observedAtLabel: string;
+  }>;
+  /**
+   * この Topic の既存 SELF fact (全件)。
+   * `index` は WEB fact の番号の後ろから振る、プロンプト全体で通しの番号で、LLM が selfFacts の
+   * existingFactIndices に返す。
+   */
+  existingSelfFacts: Array<{
+    index: number;
+    text: string;
+    /** 聞いた日のラベル ("M月D日" 表記) */
+    heardAtLabel: string;
   }>;
 }
 
@@ -84,6 +95,13 @@ export function buildConsolidatePrompt(input: ConsolidatePromptInput): ChatMessa
                         (f) =>
                           `    [事実 #${f.index}] ${f.text}（揮発性: ${f.volatility}、観測日: ${f.observedAtLabel}）`
                       )
+                      .join('\n')
+                  : 'なし'
+              }\n  既存の自分の事実: ${
+                t.existingSelfFacts.length > 0
+                  ? '\n' +
+                    t.existingSelfFacts
+                      .map((f) => `    [自分 #${f.index}] ${f.text}（聞いた日: ${f.heardAtLabel}）`)
                       .join('\n')
                   : 'なし'
               }`
@@ -162,6 +180,19 @@ export function buildConsolidatePrompt(input: ConsolidatePromptInput): ChatMessa
     existingFactIndices は空配列（[]）にしてください。
   - 番号は統合先 Topic の「既存の事実」に表示された [事実 #N] の N だけを使ってください。
     新規 Topic（targetTopicId が空文字）の webFacts は常に add です。憶測で番号を作らないでください。
+- selfFacts の各要素は、統合先 Topic の候補に表示された「既存の自分の事実」（[自分 #N]）と見比べて、
+  action に add / replace のいずれかを指定してください。
+  - replace にしてよいのは、「ユーザー:」とラベル付けされた発話で、ユーザー自身が既存の自分の事実と
+    同じ事柄を言い直した・訂正した・取り消したときだけです。existingFactIndices に、古くなった
+    既存の自分の事実の番号をすべて入れてください。
+  - 「${characterName}:」の発話、別の事柄、好みや事実が増えただけの場合（例: 「緑茶が好き」に対する
+    「ほうじ茶も好き」）は add とし、existingFactIndices は空配列（[]）にしてください。
+    迷ったら add にしてください（誤って消すより、古いものが残る方が安全です）。
+  - 取り消しだけの発話（例: 「あれは嘘」）も、今の状態を書いた事実（例: 「ほうじ茶は好きではない」）を
+    text にして replace としてください。
+  - 番号は統合先 Topic の「既存の自分の事実」に表示された [自分 #N] の N だけを使ってください。
+    新規 Topic（targetTopicId が空文字）の selfFacts は常に add です。憶測で番号を作らないでください。
+  - canonicalSummary には、replace で古くなった既存の自分の事実の内容を残さないでください。
 - 出力はすべて日本語で書いてください。`;
 
   const userPrompt = `今日の日付: ${todayLabel}

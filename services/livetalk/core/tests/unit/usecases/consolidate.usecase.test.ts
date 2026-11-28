@@ -1,4 +1,5 @@
 import { InMemorySingleTableStore } from '@nagiyu/aws';
+import { logger } from '@nagiyu/common';
 import { consolidate } from '../../../src/usecases/consolidate.usecase.js';
 import { InMemoryTopicRepository } from '../../../src/repositories/in-memory-topic.repository.js';
 import { InMemoryMessageRepository } from '../../../src/repositories/in-memory-message.repository.js';
@@ -6,6 +7,7 @@ import { InMemoryWebRawRepository } from '../../../src/repositories/in-memory-we
 import { InMemoryConsolidationCursorRepository } from '../../../src/repositories/in-memory-consolidation-cursor.repository.js';
 import type { ILLMClient, IEmbeddingClient } from '../../../src/llm-client/types.js';
 import type { ConsolidationRaw } from '../../../src/llm-client/schemas/consolidation.schema.js';
+import type { SelfFactKey } from '../../../src/entities/self-fact.entity.js';
 import type { TopicRepository } from '../../../src/repositories/topic.repository.interface.js';
 import {
   CONSOLIDATION_ROUTING_TEXT_MAX_CHARS,
@@ -61,6 +63,8 @@ const makeRepos = () => {
 const makeSelfFact = (overrides: Partial<TopicResult['selfFacts'][number]> = {}) => ({
   text: 'ユーザーは猫を飼っている',
   provenance: '「うちの猫が〜」という発話より',
+  action: 'add' as const,
+  existingFactIndices: [] as number[],
   ...overrides,
 });
 
@@ -1401,6 +1405,373 @@ describe('consolidate', () => {
       });
       expect(topic?.requestText).toBe('今度はコーヒーの新情報を調べて');
       expect(topic?.requestedAt).toBe(newRequestedAt);
+    });
+  });
+
+  describe('SELF fact の言い直しによる置き換え（add / replace）', () => {
+    const TOPIC_A = 'TOPIC-A';
+    const TOPIC_B = 'TOPIC-B';
+
+    /** Topic A に SELF fact 2 件 (番号 0, 1)、Topic B に 1 件 (番号 2) を用意する */
+    const setup = async () => {
+      const repos = makeRepos();
+      const { topicRepo, messageRepo } = repos;
+      for (const topicId of [TOPIC_A, TOPIC_B]) {
+        await topicRepo.putTopic({
+          userId: 'u1',
+          characterId: 'hiyori',
+          topicId,
+          subject: topicId,
+          canonicalSummary: '以前の要約',
+          category: '飲み物',
+          care: 1,
+          embedding: [1, 0],
+        });
+      }
+      for (const [topicId, factId, text] of [
+        [TOPIC_A, 'SA-1', 'ユーザーは緑茶が好き'],
+        [TOPIC_A, 'SA-2', 'ユーザーは朝に飲む'],
+        [TOPIC_B, 'SB-1', 'B の自分の事実'],
+      ]) {
+        await topicRepo.putSelfFact({
+          userId: 'u1',
+          characterId: 'hiyori',
+          topicId,
+          factId,
+          text,
+          provenance: '',
+        });
+      }
+      tick = fixedNow;
+      await messageRepo.create({
+        userId: 'u1',
+        characterId: 'hiyori',
+        role: 'user',
+        text: '本当はほうじ茶の方が好き',
+      });
+      return repos;
+    };
+
+    const run = async (
+      repos: Awaited<ReturnType<typeof setup>>,
+      topics: TopicResult[],
+      topicRepo: TopicRepository = repos.topicRepo,
+      llmClient: ILLMClient = makeLLMClient(topics)
+    ) =>
+      consolidate('u1', 'hiyori', {
+        topicRepo,
+        messageRepo: repos.messageRepo,
+        webRawRepo: repos.webRawRepo,
+        cursorRepo: repos.cursorRepo,
+        llmClient,
+        embeddingClient: makeEmbeddingClient(),
+        characterName: 'ひより',
+        now: () => fixedNow + 100_000,
+      });
+
+    const selfTexts = async (repos: Awaited<ReturnType<typeof setup>>, topicId: string) =>
+      (await repos.topicRepo.listSelfFacts('u1', 'hiyori', topicId)).map((f) => f.text).sort();
+
+    it('プロンプトに既存の SELF fact が Topic をまたいだ通し番号で渡される', async () => {
+      const repos = await setup();
+      const chatStructured = jest.fn(async () => ({ topics: [] }) as unknown as never);
+      const llmClient: ILLMClient = { ...makeLLMClient([]), chatStructured };
+      await run(repos, [], repos.topicRepo, llmClient);
+      const calls = chatStructured.mock.calls as unknown as Array<
+        [Array<{ role: string; content: string }>]
+      >;
+      const user = calls[0][0].find((m) => m.role === 'user')?.content ?? '';
+      expect(user).toContain('[自分 #0] ユーザーは緑茶が好き');
+      expect(user).toContain('[自分 #1] ユーザーは朝に飲む');
+      expect(user).toContain('[自分 #2] B の自分の事実');
+    });
+
+    it('SELF fact の番号は WEB fact の番号の後ろから振られ、WEB の番号を指す replace は追加になる', async () => {
+      const repos = await setup();
+      await repos.topicRepo.putWebFact({
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId: TOPIC_A,
+        factId: 'WA-1',
+        text: 'A の調べた事実',
+        sourceUrls: [],
+        volatility: 'low',
+        observedAt: 10_000,
+        nextReview: 99_000,
+      });
+      const topics = [
+        makeTopicResult({
+          targetTopicId: TOPIC_A,
+          selfFacts: [
+            makeSelfFact({
+              text: 'ユーザーはほうじ茶の方が好き',
+              action: 'replace',
+              existingFactIndices: [0],
+            }),
+          ],
+        }),
+      ];
+      const chatStructured = jest.fn(async () => ({ topics }) as unknown as never);
+      const llmClient: ILLMClient = { ...makeLLMClient(topics), chatStructured };
+      await run(repos, topics, repos.topicRepo, llmClient);
+      const calls = chatStructured.mock.calls as unknown as Array<
+        [Array<{ role: string; content: string }>]
+      >;
+      const user = calls[0][0].find((m) => m.role === 'user')?.content ?? '';
+      expect(user).toContain('[事実 #0] A の調べた事実');
+      expect(user).toContain('[自分 #1] ユーザーは緑茶が好き');
+      expect(user).toContain('[自分 #2] ユーザーは朝に飲む');
+      expect(await selfTexts(repos, TOPIC_A)).toEqual(
+        ['ユーザーはほうじ茶の方が好き', 'ユーザーは朝に飲む', 'ユーザーは緑茶が好き'].sort()
+      );
+    });
+
+    it('replace は新しい SELF fact を書き、番号が指す古い SELF fact を削除する', async () => {
+      const repos = await setup();
+      await run(repos, [
+        makeTopicResult({
+          targetTopicId: TOPIC_A,
+          selfFacts: [
+            makeSelfFact({
+              text: 'ユーザーはほうじ茶の方が好き',
+              action: 'replace',
+              existingFactIndices: [0],
+            }),
+          ],
+          webFacts: [],
+        }),
+      ]);
+      expect(await selfTexts(repos, TOPIC_A)).toEqual([
+        'ユーザーはほうじ茶の方が好き',
+        'ユーザーは朝に飲む',
+      ]);
+    });
+
+    it('取り消しも、今の状態を書いた事実で置き換える', async () => {
+      const repos = await setup();
+      await run(repos, [
+        makeTopicResult({
+          targetTopicId: TOPIC_A,
+          selfFacts: [
+            makeSelfFact({
+              text: 'ユーザーは緑茶が好きではない',
+              action: 'replace',
+              existingFactIndices: [0],
+            }),
+          ],
+          webFacts: [],
+        }),
+      ]);
+      expect(await selfTexts(repos, TOPIC_A)).toContain('ユーザーは緑茶が好きではない');
+      expect(await selfTexts(repos, TOPIC_A)).not.toContain('ユーザーは緑茶が好き');
+    });
+
+    it('add は新しい SELF fact を足し、既存の SELF fact には触れない', async () => {
+      const repos = await setup();
+      await run(repos, [
+        makeTopicResult({
+          targetTopicId: TOPIC_A,
+          selfFacts: [makeSelfFact({ text: 'ユーザーはほうじ茶も好き' })],
+          webFacts: [],
+        }),
+      ]);
+      expect(await selfTexts(repos, TOPIC_A)).toHaveLength(3);
+      expect(await selfTexts(repos, TOPIC_A)).toContain('ユーザーは緑茶が好き');
+    });
+
+    it('replace は作成を先、削除を後に行う', async () => {
+      const repos = await setup();
+      const order: string[] = [];
+      const spied: TopicRepository = {
+        ...withNullGetTopic(repos.topicRepo),
+        getTopic: repos.topicRepo.getTopic.bind(repos.topicRepo),
+        putSelfFact: async (input) => {
+          order.push('put');
+          return repos.topicRepo.putSelfFact(input);
+        },
+        deleteSelfFact: async (k) => {
+          order.push('delete');
+          return repos.topicRepo.deleteSelfFact(k);
+        },
+      };
+      await run(
+        repos,
+        [
+          makeTopicResult({
+            targetTopicId: TOPIC_A,
+            selfFacts: [
+              makeSelfFact({ text: 'x', action: 'add' }),
+              makeSelfFact({ text: 'y', action: 'replace', existingFactIndices: [0] }),
+            ],
+            webFacts: [],
+          }),
+        ],
+        spied
+      );
+      expect(order).toEqual(['put', 'put', 'delete']);
+    });
+
+    it('範囲外・非整数・別 Topic の番号は無視し、有効な番号が残らなければ add として扱う', async () => {
+      const repos = await setup();
+      await run(repos, [
+        makeTopicResult({
+          targetTopicId: TOPIC_A,
+          selfFacts: [
+            makeSelfFact({ text: 'r', action: 'replace', existingFactIndices: [2, 99, 1.5, -1] }),
+          ],
+          webFacts: [],
+        }),
+      ]);
+      expect(await selfTexts(repos, TOPIC_A)).toHaveLength(3);
+      expect(await selfTexts(repos, TOPIC_B)).toEqual(['B の自分の事実']);
+    });
+
+    it('無効な番号が混ざっていても有効な番号だけで置き換える', async () => {
+      const repos = await setup();
+      await run(repos, [
+        makeTopicResult({
+          targetTopicId: TOPIC_A,
+          selfFacts: [
+            makeSelfFact({ text: 'r', action: 'replace', existingFactIndices: [0, 2, 99] }),
+          ],
+          webFacts: [],
+        }),
+      ]);
+      expect(await selfTexts(repos, TOPIC_A)).toEqual(['r', 'ユーザーは朝に飲む']);
+      expect(await selfTexts(repos, TOPIC_B)).toEqual(['B の自分の事実']);
+    });
+
+    it('同じ古い事実を複数が指しても、削除は 1 回だけ行う', async () => {
+      const repos = await setup();
+      const deleteSelfFact = jest.fn((k: SelfFactKey) => repos.topicRepo.deleteSelfFact(k));
+      const spied: TopicRepository = {
+        ...withNullGetTopic(repos.topicRepo),
+        getTopic: repos.topicRepo.getTopic.bind(repos.topicRepo),
+        deleteSelfFact,
+      };
+      await run(
+        repos,
+        [
+          makeTopicResult({
+            targetTopicId: TOPIC_A,
+            selfFacts: [makeSelfFact({ text: 'r1', action: 'replace', existingFactIndices: [0] })],
+            webFacts: [],
+          }),
+          makeTopicResult({
+            targetTopicId: TOPIC_A,
+            selfFacts: [
+              makeSelfFact({ text: 'r2', action: 'replace', existingFactIndices: [0, 0] }),
+            ],
+            webFacts: [],
+          }),
+        ],
+        spied
+      );
+      expect(deleteSelfFact).toHaveBeenCalledTimes(1);
+      expect(await selfTexts(repos, TOPIC_A)).toEqual(['r1', 'r2', 'ユーザーは朝に飲む']);
+    });
+
+    it('既に消えている古い SELF fact を指していても失敗せず、新しい事実は書かれる', async () => {
+      const repos = await setup();
+      const spied: TopicRepository = {
+        ...withNullGetTopic(repos.topicRepo),
+        getTopic: repos.topicRepo.getTopic.bind(repos.topicRepo),
+        deleteSelfFact: async (k) => {
+          await repos.topicRepo.deleteSelfFact(k);
+          // 2 回目 (既に無い) を模擬
+          return repos.topicRepo.deleteSelfFact(k);
+        },
+      };
+      await expect(
+        run(
+          repos,
+          [
+            makeTopicResult({
+              targetTopicId: TOPIC_A,
+              selfFacts: [makeSelfFact({ text: 'r', action: 'replace', existingFactIndices: [0] })],
+              webFacts: [],
+            }),
+          ],
+          spied
+        )
+      ).resolves.toBe('consolidated');
+      expect(await selfTexts(repos, TOPIC_A)).toContain('r');
+    });
+
+    it('削除が EntityNotFoundError 以外で失敗したら伝播し、カーソルは前進しない', async () => {
+      const repos = await setup();
+      const spied: TopicRepository = {
+        ...withNullGetTopic(repos.topicRepo),
+        getTopic: repos.topicRepo.getTopic.bind(repos.topicRepo),
+        deleteSelfFact: async () => {
+          throw new Error('DB 障害');
+        },
+      };
+      await expect(
+        run(
+          repos,
+          [
+            makeTopicResult({
+              targetTopicId: TOPIC_A,
+              selfFacts: [makeSelfFact({ action: 'replace', existingFactIndices: [0] })],
+              webFacts: [],
+            }),
+          ],
+          spied
+        )
+      ).rejects.toThrow('DB 障害');
+      expect(await repos.cursorRepo.get('u1', 'hiyori')).toBeNull();
+    });
+
+    it('新規 Topic の replace は add として扱い、既存の SELF fact は消さない', async () => {
+      const repos = await setup();
+      await run(repos, [
+        makeTopicResult({
+          targetTopicId: '',
+          selfFacts: [makeSelfFact({ text: 'n', action: 'replace', existingFactIndices: [0] })],
+          webFacts: [],
+        }),
+      ]);
+      expect(await selfTexts(repos, TOPIC_A)).toHaveLength(2);
+      const headers = await repos.topicRepo.listTopicHeaders('u1', 'hiyori');
+      const created = headers.find((h) => h.topicId !== TOPIC_A && h.topicId !== TOPIC_B);
+      expect(created).toBeDefined();
+      expect(await selfTexts(repos, created!.topicId)).toEqual(['n']);
+    });
+
+    it('replace でも care は SELF fact が 1 件以上あれば +1 される', async () => {
+      const repos = await setup();
+      await run(repos, [
+        makeTopicResult({
+          targetTopicId: TOPIC_A,
+          selfFacts: [makeSelfFact({ action: 'replace', existingFactIndices: [0] })],
+          webFacts: [],
+        }),
+      ]);
+      expect(
+        (await repos.topicRepo.getTopic({ userId: 'u1', characterId: 'hiyori', topicId: TOPIC_A }))
+          ?.care
+      ).toBe(2);
+    });
+
+    it('集約完了ログに replacedSelfFactCount が出る', async () => {
+      const repos = await setup();
+      const infoSpy = jest.spyOn(logger, 'info');
+      await run(repos, [
+        makeTopicResult({
+          targetTopicId: TOPIC_A,
+          selfFacts: [
+            makeSelfFact({ text: 'r', action: 'replace', existingFactIndices: [0] }),
+            makeSelfFact({ text: 'a' }),
+          ],
+          webFacts: [],
+        }),
+      ]);
+      expect(infoSpy).toHaveBeenCalledWith(
+        '[consolidate] 集約完了',
+        expect.objectContaining({ selfFactCount: 2, replacedSelfFactCount: 1 })
+      );
+      infoSpy.mockRestore();
     });
   });
 
