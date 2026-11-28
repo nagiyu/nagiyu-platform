@@ -10,7 +10,7 @@ sources:
   - services/quick-clip/core/src/libs/quick-clip-batch-runner.ts
   - services/quick-clip/lambda/clip/src/handler.ts
   - services/quick-clip/lambda/zip/src/handler.ts
-sources_hash: e472d017760174ea3087d85052b31831848de3084943b1c0bc16b63a9aebabf0
+sources_hash: aa41900e397c5a3093651d487e442237e4d50a516a9a6d5e088de22df25fe38b
 ---
 
 # ストレージ

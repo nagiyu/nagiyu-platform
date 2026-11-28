@@ -34,7 +34,7 @@ export type QuickClipBatchRunInput = {
   tableName: string;
   bucketName: string;
   awsRegion: string;
-  /** OpenAI API キー（未設定時は感情分析をスキップ）。 */
+  /** OpenAI API キー（未設定時は文字起こし・感情分析をスキップ）。 */
   openAiApiKey?: string;
   /** AI 解析 (文字起こし + 感情分析) を行うか（未指定時は行う）。 */
   aiAnalysis?: boolean;

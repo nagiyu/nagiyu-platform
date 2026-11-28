@@ -11,7 +11,7 @@ sources:
   - services/quick-clip/core/src/libs/job.service.ts
   - infra/quick-clip/lib/storage-stack.ts
   - infra/quick-clip/lib/dynamodb-stack.ts
-sources_hash: 163abdede486feece1cc91ff671ef5a7ebbae8512433bd6df041f8389f5d5447
+sources_hash: 066de7dc80107248a570825ce049e17d3a51ae811e5469f9dc6c8037bcc8e4e4
 ---
 
 # 見どころを受け取るまでの経路
