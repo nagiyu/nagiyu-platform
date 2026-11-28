@@ -43,8 +43,8 @@ test.describe('Dashboard', () => {
       page.getByText('✓ Auth サービスとの SSO 連携が正常に動作しています')
     ).toBeVisible();
 
-    // Check JWT message
-    await expect(page.getByText('JWT トークンによる認証が有効です')).toBeVisible();
+    // Check JWT expiry (JST, YYYY/MM/DD HH:mm)
+    await expect(page.getByText(/JWT の有効期限: \d{4}\/\d{2}\/\d{2} \d{2}:\d{2}/)).toBeVisible();
   });
 
   test('should show logout in the header account menu', async ({ page }) => {

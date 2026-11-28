@@ -9,7 +9,7 @@ sources:
   - services/portal/web/src/lib/adsense.ts
   - services/portal/web/src/lib/author.ts
   - services/portal/web/src/lib/jsonLd.ts
-sources_hash: 637a10fbba1e98bd266fdab53871386f177c672592d723a7c77e58118149022b
+sources_hash: dcf780076db806bae4abf9e5dfa1680d20e5e5838044bf53ae1f5a3150fd7a49
 ---
 
 # ホーム画面

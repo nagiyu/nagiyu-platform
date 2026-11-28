@@ -40,9 +40,8 @@ export default function HomeHeroSection() {
         color="text.secondary"
         sx={{ maxWidth: 680, mx: 'auto', mb: 4, lineHeight: 1.8 }}
       >
-        個人で複数の Web サービスを AWS 上で開発・運用しています。
-        そこで実際に踏んだ失敗と、その場で下した判断を、
-        きれいに整える前の形で記録しているメディアです。
+        個人で複数の Web サービスを AWS
+        上で開発・運用しています。そこで実際に踏んだ失敗と、その場で下した判断を、きれいに整える前の形で記録しているメディアです。
       </Typography>
 
       {/* CTA ボタン */}

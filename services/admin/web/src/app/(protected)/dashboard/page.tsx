@@ -3,6 +3,7 @@ import { Chip } from '@nagiyu/ui';
 import { getRoleName, hasPermission } from '@nagiyu/common';
 import { getSession } from '@/lib/auth/session';
 import { redirect } from 'next/navigation';
+import { formatDisplayName, formatSessionExpiry } from '@/lib/dashboard/user-info';
 import DashboardRoleCards from '@/components/dashboard/DashboardRoleCards';
 
 export default async function DashboardPage() {
@@ -30,6 +31,9 @@ export default async function DashboardPage() {
             ユーザー情報
           </Typography>
           <Typography variant="body1">
+            <strong>名前:</strong> {formatDisplayName(user.name)}
+          </Typography>
+          <Typography variant="body1" sx={{ mt: 1 }}>
             <strong>メールアドレス:</strong> {user.email}
           </Typography>
           <Typography variant="body1" sx={{ mt: 1 }}>
@@ -55,7 +59,7 @@ export default async function DashboardPage() {
             ✓ Auth サービスとの SSO 連携が正常に動作しています
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-            JWT トークンによる認証が有効です
+            JWT の有効期限: {formatSessionExpiry(session.expires)}
           </Typography>
         </CardContent>
       </Card>
