@@ -7,6 +7,8 @@ import { Readable } from 'stream';
 import {
   createJobRepository,
   readBatchJobInput,
+  CONVERSION_TIMEOUT_SECONDS,
+  CONVERSION_TIMEOUT_MARGIN_SECONDS,
   type CodecType,
 } from '@nagiyu/codec-converter-core';
 import {
@@ -27,6 +29,7 @@ const ERROR_MESSAGES = {
   DYNAMODB_UPDATE_FAILED: 'DynamoDBの更新に失敗しました',
   FFMPEG_EXECUTION_FAILED: 'FFmpegの実行に失敗しました',
   CLEANUP_FAILED: '一時ファイルのクリーンアップに失敗しました',
+  CONVERSION_TIMEOUT: '変換が制限時間を超過したため打ち切りました',
 } as const;
 
 /**
@@ -40,7 +43,24 @@ export const USER_ERROR_MESSAGES = {
     '動画の変換に失敗しました。ファイルが壊れているか、対応していない形式の可能性があります',
   UPLOAD_FAILED: '変換後のファイルの保存に失敗しました。しばらくしてからもう一度お試しください',
   UNKNOWN: '変換中にエラーが発生しました。しばらくしてからもう一度お試しください',
+  TIMEOUT:
+    '変換が制限時間 (2 時間) 内に終わりませんでした。ファイルを短くするか、別のコーデックでお試しください',
 } as const;
+
+/**
+ * 処理全体の既定の期限 (ミリ秒)。
+ * 余裕を引くのは、Batch のタイムアウトより先に打ち切り、FAILED の保存・報告・一時ファイルの削除を終える時間を残すため
+ */
+export const DEFAULT_DEADLINE_MS =
+  (CONVERSION_TIMEOUT_SECONDS - CONVERSION_TIMEOUT_MARGIN_SECONDS) * 1000;
+
+/** 処理が期限を超えたときの例外。経過時間などの技術的な内容はログと報告にだけ出す */
+export class ConversionTimeoutError extends Error {
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
+    this.name = 'ConversionTimeoutError';
+  }
+}
 
 /** FFmpeg の stderr として保持する末尾の最大文字数。失敗理由は末尾に出るため末尾を残す */
 export const FFMPEG_STDERR_MAX_LENGTH = 4000;
@@ -146,11 +166,12 @@ export async function downloadFromS3(
   s3Client: S3Client,
   bucket: string,
   key: string,
-  localPath: string
+  localPath: string,
+  signal?: AbortSignal
 ): Promise<void> {
   try {
     const command = new GetObjectCommand({ Bucket: bucket, Key: key });
-    const response = await s3Client.send(command);
+    const response = await s3Client.send(command, { abortSignal: signal });
 
     if (!response.Body) {
       throw new Error('S3レスポンスのBodyが空です');
@@ -158,7 +179,7 @@ export async function downloadFromS3(
 
     const readableStream = response.Body as Readable;
     const writeStream = createWriteStream(localPath);
-    await pipeline(readableStream, writeStream);
+    await pipeline(readableStream, writeStream, { signal });
   } catch (error) {
     const message = toErrorMessage(error);
     throw new Error(`${ERROR_MESSAGES.S3_DOWNLOAD_FAILED}: ${message}`, { cause: error });
@@ -172,7 +193,8 @@ export async function uploadToS3(
   s3Client: S3Client,
   bucket: string,
   key: string,
-  localPath: string
+  localPath: string,
+  signal?: AbortSignal
 ): Promise<void> {
   try {
     const fileStream = createReadStream(localPath);
@@ -181,7 +203,7 @@ export async function uploadToS3(
       Key: key,
       Body: fileStream,
     });
-    await s3Client.send(command);
+    await s3Client.send(command, { abortSignal: signal });
   } catch (error) {
     const message = toErrorMessage(error);
     throw new Error(`${ERROR_MESSAGES.S3_UPLOAD_FAILED}: ${message}`, { cause: error });
@@ -218,8 +240,10 @@ export async function updateJobStatus(
 export async function convertWithFFmpeg(
   inputPath: string,
   outputPath: string,
-  codec: CodecType
+  codec: CodecType,
+  signal?: AbortSignal
 ): Promise<void> {
+  signal?.throwIfAborted();
   const codecConfig = CODEC_PARAMS[codec];
 
   const args = [
@@ -236,6 +260,12 @@ export async function convertWithFFmpeg(
 
   return new Promise((resolve, reject) => {
     const ffmpeg = spawn('ffmpeg', args);
+    // 期限が来たら、SIGTERM の後始末を待たずに確実に止める
+    const onAbort = () => {
+      ffmpeg.kill('SIGKILL');
+    };
+    signal?.addEventListener('abort', onAbort, { once: true });
+    const settle = () => signal?.removeEventListener('abort', onAbort);
     let stderr = '';
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     let stdout = '';
@@ -258,7 +288,10 @@ export async function convertWithFFmpeg(
     });
 
     ffmpeg.on('close', (code) => {
-      if (code === 0) {
+      settle();
+      if (signal?.aborted) {
+        reject(signal.reason);
+      } else if (code === 0) {
         resolve();
       } else {
         reject(
@@ -270,6 +303,7 @@ export async function convertWithFFmpeg(
     });
 
     ffmpeg.on('error', (error) => {
+      settle();
       reject(
         new FFmpegSpawnError(`${ERROR_MESSAGES.FFMPEG_EXECUTION_FAILED}: ${error.message}`, {
           cause: error,
@@ -307,7 +341,8 @@ export async function cleanup(paths: string[]): Promise<void> {
 export async function processJob(
   env: EnvironmentVariables,
   s3Client: S3Client,
-  dynamodbClient: DynamoDBDocumentClient
+  dynamodbClient: DynamoDBDocumentClient,
+  deadlineMs: number = DEFAULT_DEADLINE_MS
 ): Promise<void> {
   const inputKey = `uploads/${env.JOB_ID}/input.mp4`;
   const outputKey = `outputs/${env.JOB_ID}/output.${CODEC_PARAMS[env.OUTPUT_CODEC].container}`;
@@ -317,21 +352,35 @@ export async function processJob(
   // 失敗した段に応じて、利用者向けの文言を選ぶために現在の段を持つ
   let userErrorMessage: string = USER_ERROR_MESSAGES.UNKNOWN;
 
+  // 期限は処理開始から数える。ダウンロード・変換・アップロードは、この signal で打ち切る
+  const startedAt = Date.now();
+  const deadline = new AbortController();
+  const timer = setTimeout(() => {
+    const elapsedSeconds = Math.round((Date.now() - startedAt) / 1000);
+    deadline.abort(
+      new ConversionTimeoutError(`${ERROR_MESSAGES.CONVERSION_TIMEOUT}: ${elapsedSeconds}秒経過`)
+    );
+  }, deadlineMs);
+  // タイマーが残ってもプロセスの終了を妨げない
+  timer.unref();
+
   try {
     // ステータスをPROCESSINGに更新
     await updateJobStatus(dynamodbClient, env.DYNAMODB_TABLE_NAME, env.JOB_ID, 'PROCESSING');
 
     // S3から入力ファイルをダウンロード
     userErrorMessage = USER_ERROR_MESSAGES.DOWNLOAD_FAILED;
-    await downloadFromS3(s3Client, env.S3_BUCKET, inputKey, inputPath);
+    await downloadFromS3(s3Client, env.S3_BUCKET, inputKey, inputPath, deadline.signal);
+    deadline.signal.throwIfAborted();
 
     // FFmpegで変換
     userErrorMessage = USER_ERROR_MESSAGES.CONVERT_FAILED;
-    await convertWithFFmpeg(inputPath, outputPath, env.OUTPUT_CODEC);
+    await convertWithFFmpeg(inputPath, outputPath, env.OUTPUT_CODEC, deadline.signal);
 
     // S3に出力ファイルをアップロード
     userErrorMessage = USER_ERROR_MESSAGES.UPLOAD_FAILED;
-    await uploadToS3(s3Client, env.S3_BUCKET, outputKey, outputPath);
+    await uploadToS3(s3Client, env.S3_BUCKET, outputKey, outputPath, deadline.signal);
+    deadline.signal.throwIfAborted();
 
     // ステータスをCOMPLETEDに更新
     userErrorMessage = USER_ERROR_MESSAGES.UNKNOWN;
@@ -345,7 +394,12 @@ export async function processJob(
 
     // 一時ファイルをクリーンアップ
     await cleanup([inputPath, outputPath]);
-  } catch (error) {
+  } catch (caught) {
+    // 以降の保存・報告・削除は期限で打ち切らないため、タイマーを止める
+    clearTimeout(timer);
+    // 期限切れで中断された操作は様々な例外で落ちるので、原因として時間切れの例外に置き換える
+    const timedOut = deadline.signal.aborted;
+    const error: unknown = timedOut ? deadline.signal.reason : caught;
     const errorMessage = toErrorMessage(error);
     console.error(`Job ${env.JOB_ID} failed:`, errorMessage);
     await errorReporter.report('Batchジョブが失敗しました', error, {
@@ -361,7 +415,11 @@ export async function processJob(
         env.JOB_ID,
         'FAILED',
         undefined,
-        error instanceof FFmpegSpawnError ? USER_ERROR_MESSAGES.UNKNOWN : userErrorMessage
+        timedOut
+          ? USER_ERROR_MESSAGES.TIMEOUT
+          : error instanceof FFmpegSpawnError
+            ? USER_ERROR_MESSAGES.UNKNOWN
+            : userErrorMessage
       );
     } catch (updateError) {
       console.error('Failed to update job status to FAILED:', updateError);
@@ -382,6 +440,8 @@ export async function processJob(
     }
 
     throw error;
+  } finally {
+    clearTimeout(timer);
   }
 }
 

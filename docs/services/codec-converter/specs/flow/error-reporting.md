@@ -11,7 +11,7 @@ sources:
   - libs/aws/src/error-events/report.ts
   - libs/aws/src/error-events/with-error-reporting.ts
   - infra/codec-converter/lib/codec-converter-stack.ts
-sources_hash: b8e86fffeceef202cb301682c53b1266ac1ed298325b4ae4547b668c3b9f45c2
+sources_hash: 5667c2218f03dbc2f4a00a525fa1993da5b1dd105b9fc7d41f74169de85d4375
 ---
 
 # エラー報告の経路
@@ -71,7 +71,7 @@ flowchart TD
 
 - 次の失敗は報告されない
     - 画面 (ブラウザ) の例外。エラー画面は `console.error` に出すだけで、報告しない
-    - 変換バッチのプロセスが即死する失敗 (メモリ不足、タイムアウトによる停止など)。codec-converter のインフラは、Batch のジョブ失敗を拾う EventBridge のルールも、CloudWatch Alarm も持たない
+    - 変換バッチのプロセスが即死する失敗 (メモリ不足、Batch のタイムアウトによる強制停止など)。変換が期限 (6,900 秒) を超えた時間切れは、ワーカーが自分で打ち切るので、処理の失敗として報告される。codec-converter のインフラは、Batch のジョブ失敗を拾う EventBridge のルールも、CloudWatch Alarm も持たない
     - Lambda の失敗 (起動の失敗、タイムアウトなど)。アラームがない
 - 報告できるのは、アプリが自分で例外を受けられたときだけ
 

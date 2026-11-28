@@ -697,6 +697,148 @@ describe('processJob', () => {
     );
   });
 
+  describe('時間切れ', () => {
+    const env = {
+      S3_BUCKET: 'test-bucket',
+      DYNAMODB_TABLE_NAME: 'test-table',
+      AWS_REGION: 'ap-northeast-1',
+      JOB_ID: 'test-job-timeout',
+      OUTPUT_CODEC: 'h264' as CodecType,
+    };
+
+    const getFailedSets = () =>
+      dynamodbMock
+        .calls()
+        .map((call) => parseUpdateExpression(call.args[0].input as never).set)
+        .filter((set) => set.Status === 'FAILED');
+
+    const run = (deadlineMs: number) =>
+      processJob(
+        env,
+        new S3Client({ region: 'us-east-1' }),
+        createMockDynamoDBClient(),
+        deadlineMs
+      );
+
+    beforeEach(() => {
+      dynamodbMock.on(UpdateCommand).resolves({ Attributes: buildJobItem() });
+      jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    });
+
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    it('変換中に期限が来ると FFmpeg を kill し、FAILED と時間切れの文言を保存して例外を投げ直す', async () => {
+      s3Mock.on(GetObjectCommand).resolves({
+        Body: Readable.from(['test content']) as SdkStream<Readable>,
+      });
+      let onClose: ((code: number | null) => void) | undefined;
+      const kill = jest.fn(() => {
+        // kill されたプロセスは終了コードなしで close する
+        onClose?.(null);
+        return true;
+      });
+      spawnMock.mockReturnValue({
+        stdout: { on: jest.fn() },
+        stderr: { on: jest.fn() },
+        kill,
+        on: jest.fn((event, callback) => {
+          if (event === 'close') onClose = callback;
+        }),
+      } as unknown as ChildProcess);
+
+      await expect(run(30)).rejects.toThrow('変換が制限時間を超過したため打ち切りました');
+
+      expect(kill).toHaveBeenCalledWith('SIGKILL');
+      const failed = getFailedSets();
+      expect(failed).toHaveLength(1);
+      expect(failed[0].ErrorMessage).toBe(USER_ERROR_MESSAGES.TIMEOUT);
+      expect(failed[0].ErrorMessage).not.toContain('秒経過');
+      expect(unlinkMock).toHaveBeenCalledTimes(2);
+
+      const reported = getReportedEvents();
+      expect(reported).toEqual([
+        expect.objectContaining({ severity: 'critical', title: 'Batchジョブが失敗しました' }),
+      ]);
+      expect(reported[0].message).toContain('秒経過');
+    });
+
+    it('ダウンロード中に期限が来ると打ち切られ、時間切れの文言を保存する', async () => {
+      // 終わらないストリームでダウンロードを止め続ける
+      const stalled = new Readable({ read() {} });
+      s3Mock.on(GetObjectCommand).resolves({ Body: stalled as unknown as SdkStream<Readable> });
+
+      await expect(run(30)).rejects.toThrow('変換が制限時間を超過したため打ち切りました');
+
+      expect(spawnMock).not.toHaveBeenCalled();
+      const failed = getFailedSets();
+      expect(failed).toHaveLength(1);
+      expect(failed[0].ErrorMessage).toBe(USER_ERROR_MESSAGES.TIMEOUT);
+      expect(unlinkMock).toHaveBeenCalledTimes(2);
+    });
+
+    it('S3 の send に期限の AbortSignal を渡す', async () => {
+      s3Mock.on(GetObjectCommand).resolves({
+        Body: Readable.from(['test content']) as SdkStream<Readable>,
+      });
+      s3Mock.on(PutObjectCommand).resolves({});
+      createReadStreamMock.mockReturnValue(Readable.from(['x']) as unknown as ReadStream);
+      spawnMock.mockReturnValue({
+        stdout: { on: jest.fn() },
+        stderr: { on: jest.fn() },
+        kill: jest.fn(),
+        on: jest.fn((event, callback) => {
+          if (event === 'close') callback(0);
+        }),
+      } as unknown as ChildProcess);
+
+      await run(60_000);
+
+      const sendCalls = s3Mock.calls();
+      expect(sendCalls).toHaveLength(2);
+      for (const call of sendCalls) {
+        expect(call.args[1]).toEqual({ abortSignal: expect.any(AbortSignal) });
+      }
+    });
+
+    it('正常終了したときはタイマーを解除する', async () => {
+      s3Mock.on(GetObjectCommand).resolves({
+        Body: Readable.from(['test content']) as SdkStream<Readable>,
+      });
+      s3Mock.on(PutObjectCommand).resolves({});
+      createReadStreamMock.mockReturnValue(Readable.from(['x']) as unknown as ReadStream);
+      spawnMock.mockReturnValue({
+        stdout: { on: jest.fn() },
+        stderr: { on: jest.fn() },
+        kill: jest.fn(),
+        on: jest.fn((event, callback) => {
+          if (event === 'close') callback(0);
+        }),
+      } as unknown as ChildProcess);
+      const setTimeoutSpy = jest.spyOn(global, 'setTimeout');
+      const clearTimeoutSpy = jest.spyOn(global, 'clearTimeout');
+
+      await run(60_000);
+
+      const deadlineTimer = setTimeoutSpy.mock.results[0].value;
+      expect(clearTimeoutSpy).toHaveBeenCalledWith(deadlineTimer);
+      expect(getFailedSets()).toHaveLength(0);
+    });
+
+    it('ほかの理由で失敗したときもタイマーを解除し、時間切れの文言にしない', async () => {
+      s3Mock.on(GetObjectCommand).rejects(new Error('S3 download error'));
+      const setTimeoutSpy = jest.spyOn(global, 'setTimeout');
+      const clearTimeoutSpy = jest.spyOn(global, 'clearTimeout');
+
+      await expect(run(60_000)).rejects.toThrow('S3からのダウンロードに失敗しました');
+
+      const deadlineTimer = setTimeoutSpy.mock.results[0].value;
+      expect(clearTimeoutSpy).toHaveBeenCalledWith(deadlineTimer);
+      expect(getFailedSets()[0].ErrorMessage).toBe(USER_ERROR_MESSAGES.DOWNLOAD_FAILED);
+    });
+  });
+
   describe('FAILED に保存する errorMessage', () => {
     const env = {
       S3_BUCKET: 'test-bucket',

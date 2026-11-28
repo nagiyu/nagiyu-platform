@@ -8,7 +8,7 @@ sources:
   - services/codec-converter/batch/src/index.ts
   - services/codec-converter/core/src/constants.ts
   - infra/codec-converter/lib/codec-converter-stack.ts
-sources_hash: 336805960a80389c1ebbf4bba4dd6c4a86f6b2a919a18ce2ffc7b9aaa3e8ec7d
+sources_hash: afd170afe5a5d25032e1f2ed62681e124bda0ce0cc925f33ee4c63de0af6a013
 ---
 
 # 変換の経路
@@ -51,7 +51,7 @@ flowchart TD
 ## 失敗・取りこぼしのとき
 
 - 作成のあと、アップロードか投入で失敗すると、ジョブは `PENDING` のまま残る。画面は「変換開始」を押し直すたびに新しいジョブを作るので、残ったジョブは使われない
-- ジョブの状態の変わり方は[ジョブとステータス](../term/job.md)にある。変換バッチの失敗は `FAILED` になり、AWS Batch が 2 回まで試行する。タイムアウト (7,200 秒) で止められたときは、`PROCESSING` のまま残る ([変換バッチ](../batch/convert.md))
+- ジョブの状態の変わり方は[ジョブとステータス](../term/job.md)にある。変換バッチの失敗は `FAILED` になり、AWS Batch が 2 回まで試行する。変換が 2 時間 (ワーカーの期限は 6,900 秒) を超えたときも `FAILED` になり、時間切れ専用の文言が `errorMessage` に入る。ワーカーが外から即死させられたときだけ、`PROCESSING` のまま残りうる ([変換バッチ](../batch/convert.md))
 - ジョブ (DynamoDB の TTL) と S3 のファイルは、作成から 24 時間で削除の対象になる。消えたあとは、画面が「指定されたジョブが見つかりません」を出す
 - 失敗は Admin のエラー履歴にも報告される ([エラー報告の経路](./error-reporting.md))
 
