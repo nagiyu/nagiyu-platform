@@ -34,6 +34,7 @@ import HoldingDeleteDialog from '../../components/HoldingDeleteDialog';
 import HoldingFormDialog from '../../components/HoldingFormDialog';
 import type { AlertResponse } from '../../types/alert';
 import { resolveInitialCurrency } from '../../lib/holding-currency';
+import { fetchAllPages } from '../../lib/fetch-all-pages';
 import type { ExchangeMarket } from '@nagiyu/stock-tracker-core';
 
 // エラーメッセージ定数
@@ -183,13 +184,7 @@ export default function HoldingsPage() {
     setError('');
 
     try {
-      const response = await fetch('/api/holdings');
-      if (!response.ok) {
-        throw new Error(ERROR_MESSAGES.FETCH_HOLDINGS_ERROR);
-      }
-
-      const data = await response.json();
-      setHoldings(data.holdings || []);
+      setHoldings(await fetchAllPages<HoldingResponse>('/api/holdings', 'holdings'));
     } catch (err) {
       console.error('Error fetching holdings:', err);
       setError(ERROR_MESSAGES.FETCH_HOLDINGS_ERROR);
@@ -243,24 +238,19 @@ export default function HoldingsPage() {
   // アラート一覧を取得してチェック
   const fetchAlerts = async () => {
     try {
-      const response = await fetch('/api/alerts');
-      if (!response.ok) {
-        // エラーの場合は単にアラート情報を空にする
-        return;
-      }
-
-      const data = await response.json();
+      const allAlerts = await fetchAllPages<{ tickerId: string; mode: string; enabled: boolean }>(
+        '/api/alerts',
+        'alerts'
+      );
       const alertMap: Record<string, boolean> = {};
 
       // アラート一覧からHoldingに対応するアラートをマッピング
-      if (data.alerts) {
-        data.alerts.forEach((alert: { tickerId: string; mode: string; enabled: boolean }) => {
-          // 売りアラートのみを対象
-          if (alert.mode === 'Sell' && alert.enabled) {
-            alertMap[alert.tickerId] = true;
-          }
-        });
-      }
+      allAlerts.forEach((alert) => {
+        // 売りアラートのみを対象
+        if (alert.mode === 'Sell' && alert.enabled) {
+          alertMap[alert.tickerId] = true;
+        }
+      });
 
       setAlerts(alertMap);
     } catch (err) {
@@ -347,13 +337,7 @@ export default function HoldingsPage() {
     setSelectedHolding(holding);
 
     try {
-      const response = await fetch('/api/alerts');
-      if (!response.ok) {
-        throw new Error(ERROR_MESSAGES.FETCH_SELL_ALERTS_ERROR);
-      }
-
-      const data = await response.json();
-      const sellAlerts = ((data.alerts || []) as AlertResponse[])
+      const sellAlerts = (await fetchAllPages<AlertResponse>('/api/alerts', 'alerts'))
         .filter((alert) => alert.tickerId === holding.tickerId && alert.mode === 'Sell')
         .map((alert) => ({
           alertId: alert.alertId,

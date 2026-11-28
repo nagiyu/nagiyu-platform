@@ -4,7 +4,8 @@ sources:
   - services/stock-tracker/web/components/AlertSettingsModal.tsx
   - services/stock-tracker/web/components/AlertDeleteConfirmDialog.tsx
   - services/stock-tracker/web/lib/alert-filter.ts
-sources_hash: 3a8524dc1b231d37beaea859c959449c9860afaaaba70f02dc7138ea84c3dfbd
+  - services/stock-tracker/web/lib/fetch-all-pages.ts
+sources_hash: 381f011c6853817a5d01583c27ca5e13ed30ee750e628e3b9073dce033103b3b
 ---
 
 # アラート一覧画面
@@ -34,7 +35,8 @@ sources_hash: 3a8524dc1b231d37beaea859c959449c9860afaaaba70f02dc7138ea84c3dfbd
 
 - 読み込み中は読み込み表示を出す
 - 0 件のときは「アラートがありません」。絞り込みで 0 件のときは「フィルタ条件に一致するアラートがありません」
-- 取得に失敗したときはエラーを出す
+- 一覧は、API の続きがなくなるまで 1 回 100 件ずつ取り、全件を対象にする
+- 取得に失敗したとき (続きの位置が進まず打ち切ったときを含む) はエラーを出す
 
 ## 操作
 

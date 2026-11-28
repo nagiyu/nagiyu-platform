@@ -137,7 +137,7 @@ async function mockAlertApis(page: Page, alerts: unknown[]): Promise<void> {
       }),
     });
   });
-  await page.route('**/api/alerts', async (route) => {
+  await page.route(/\/api\/alerts(\?.*)?$/, async (route) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
