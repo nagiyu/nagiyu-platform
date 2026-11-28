@@ -40,7 +40,7 @@ const validSession = {
     id: 'u1',
     email: 'u@example.com',
     name: 'U',
-    roles: ['livetalk-user'],
+    roles: [],
   },
   expires: new Date(Date.now() + 60 * 1000).toISOString(),
 };

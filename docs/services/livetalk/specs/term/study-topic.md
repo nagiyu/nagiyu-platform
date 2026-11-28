@@ -5,7 +5,7 @@ sources:
   - services/livetalk/core/src/usecases/chat-usecase.ts
   - services/livetalk/core/src/repositories/dynamodb-study-topic.repository.ts
   - services/livetalk/core/src/constants.ts
-sources_hash: 5a3790c107d43077ae66b1e8c8d8ccc808bd73b3397f8b72421880331af14220
+sources_hash: 785639b73a70dbf1e8e0a7fa0583620943afd637f4f562933c53d19d3f80ae64
 ---
 
 # 勉強の依頼 (StudyTopic)

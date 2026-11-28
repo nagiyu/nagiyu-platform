@@ -22,6 +22,11 @@ import {
   getRegisteredCharacterIds,
   getCharacterDisplay,
 } from '@/lib/characters/registry';
+import {
+  ADMIN_STUDY_LABELS,
+  formatAdminStudyLines,
+  loadAdminStudyStatus,
+} from '@/lib/study/admin-study-status';
 import StatusCharacterSwitcher from '@/components/StatusCharacterSwitcher';
 import StatusTestPush from '@/components/StatusTestPush';
 
@@ -61,9 +66,10 @@ export default async function StatusPage({ searchParams }: StatusPageProps) {
   const userId = session.user.id;
   const now = new Date();
 
-  const [snapshot, recentSafetyEvents] = await Promise.all([
+  const [snapshot, recentSafetyEvents, studyStatus] = await Promise.all([
     loadStatusSnapshot(userId, characterId, now),
     createSafetyEventRepository().listRecent(SAFETY_REVIEW_DEFAULT_LIMIT),
+    loadAdminStudyStatus(userId, session.user.roles, now.getTime()),
   ]);
   const { lifecycle, notifyDecision, nextEarliestAt, recentNotifications } = snapshot;
   const { state, bedtime, wakeUpTime } = lifecycle;
@@ -189,6 +195,18 @@ export default async function StatusPage({ searchParams }: StatusPageProps) {
         コンテンツ
       </Typography>
       <Typography variant="body2">STUDY_TOPIC (pending): {studyPendingCount} 件</Typography>
+
+      <Divider sx={{ my: 1.5 }} />
+
+      {/* 勉強が止まっているとき、区分・お試し・上限のどれが理由かを見分ける */}
+      <Typography variant="subtitle2" sx={{ mb: 0.5, fontWeight: 'bold' }}>
+        {ADMIN_STUDY_LABELS.SECTION_TITLE}
+      </Typography>
+      {formatAdminStudyLines(studyStatus).map((line) => (
+        <Typography key={line} variant="body2">
+          {line}
+        </Typography>
+      ))}
 
       <Divider sx={{ my: 1.5 }} />
 

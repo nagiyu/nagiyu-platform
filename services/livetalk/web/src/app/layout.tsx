@@ -69,6 +69,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 version,
                 termsContent: liveTalkTermsSections,
                 privacyContent: liveTalkPrivacySections,
+                commercialTransactionsHref: '/legal/tokushoho',
                 licenseText: <CharacterLicenseText />,
               }}
             >

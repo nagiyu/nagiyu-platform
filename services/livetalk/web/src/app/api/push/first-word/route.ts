@@ -20,7 +20,7 @@ import { createNotificationEventRepository } from '@nagiyu/livetalk-core';
 
 export const GET = withApiErrorReporting(
   'Web API: 第一声取得エラー',
-  withAuth(getSession, 'livetalk:chat', async (session, request: Request) => {
+  withAuth(getSession, null, async (session, request: Request) => {
     const url = new URL(request.url);
     const characterId = url.searchParams.get('characterId');
 

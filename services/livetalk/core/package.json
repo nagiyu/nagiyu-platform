@@ -18,8 +18,8 @@
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.1063.0",
     "@aws-sdk/lib-dynamodb": "^3.1063.0",
-    "@nagiyu/aws": "^0.1.1",
-    "@nagiyu/common": "^0.1.1",
+    "@nagiyu/aws": "^0.2.0",
+    "@nagiyu/common": "^0.2.0",
     "js-tiktoken": "^1.0.21",
     "openai": "^7.5.0",
     "ulid": "^3.0.1",

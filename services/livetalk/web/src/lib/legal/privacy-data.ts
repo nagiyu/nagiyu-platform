@@ -1,8 +1,8 @@
 /**
  * LiveTalk 専用 プライバシーポリシーテキストデータ
  *
- * バージョン: 1.1.0
- * 施行日: 2026年11月15日
+ * バージョン: 1.2.0
+ * 施行日: 2026年11月27日
  */
 
 import type { LegalSection } from '@nagiyu/ui';
@@ -54,6 +54,12 @@ export const liveTalkPrivacySections: LegalSection[] = [
               '親密度: キャラクターとのやりとりの積み重ねから算出する値',
               '最終利用日時',
               '勉強の候補と通知の履歴: キャラクターが調べる話題の候補、送信した通知の記録',
+            ],
+          },
+          {
+            subContent: '有料プランの契約情報',
+            subItems: [
+              '決済代行事業者（Stripe）から受け取る契約の状態（プラン、更新日、支払いの成否）',
             ],
           },
           {
@@ -115,6 +121,10 @@ export const liveTalkPrivacySections: LegalSection[] = [
             subContent: '同意の記録の利用目的',
             subItems: ['規約・ポリシーへの同意状況の確認'],
           },
+          {
+            subContent: '有料プランの利用目的',
+            subItems: ['有料サービスにおいて利用料金を請求するため'],
+          },
         ],
       },
     ],
@@ -155,6 +165,24 @@ export const liveTalkPrivacySections: LegalSection[] = [
     ],
   },
   {
+    title: '決済に関する情報の取り扱い',
+    contents: [
+      {
+        mainContent:
+          '有料プランの決済は、Stripe, Inc.が提供する決済サービスで行います。クレジットカード番号などの決済情報は、Stripeが直接取得し、当社は受け取らず、保存しません。',
+      },
+      {
+        mainContent:
+          '当社は、決済の処理と契約の管理のため、ユーザーの識別子、メールアドレスおよび表示名をStripeに提供し、Stripeから契約の状態（プラン、更新日、支払いの成否）を受け取ります。',
+      },
+      {
+        mainContent:
+          'Stripeは米国の事業者であり、提供した情報は米国その他の国で取り扱われることがあります。Stripeにおける取り扱いは、Stripeのプライバシーポリシーをご確認ください。',
+        link: 'https://stripe.com/jp/privacy',
+      },
+    ],
+  },
+  {
     title: '外部サービスの利用',
     contents: [
       {
@@ -186,7 +214,7 @@ export const liveTalkPrivacySections: LegalSection[] = [
       },
       {
         mainContent:
-          '上記以外の第三者にユーザーの個人情報を提供することはありません。ただし、法令に基づく開示要求があった場合はこの限りではありません。',
+          '本ポリシーに定める場合を除き、第三者にユーザーの個人情報を提供することはありません。ただし、法令に基づく開示要求があった場合はこの限りではありません。',
       },
     ],
   },
@@ -319,7 +347,7 @@ export const liveTalkPrivacySections: LegalSection[] = [
           '変更後のプライバシーポリシーは、本サービス内に掲示した時点から効力を生じます。',
       },
       {
-        mainContent: '施行日: 2026年11月15日\nバージョン: 1.1.0',
+        mainContent: '施行日: 2026年11月27日\nバージョン: 1.2.0',
       },
     ],
   },

@@ -3,7 +3,7 @@ sources:
   - services/livetalk/web/src/app/api/lifecycle/route.ts
   - services/livetalk/core/src/lifecycle/state-resolver.ts
   - services/livetalk/core/src/constants.ts
-sources_hash: ab3c7426ead8c21342c13b8db2fbcd1f6e27cf32f272001ebc1b9ba64c58401c
+sources_hash: e571a20e55564297856a83f6ab844ae9cdd5f4446d333de13cf1440e9e8b94a6
 ---
 
 # 生活サイクル API
@@ -14,7 +14,7 @@ sources_hash: ab3c7426ead8c21342c13b8db2fbcd1f6e27cf32f272001ebc1b9ba64c58401c
 
 | メソッド | パス | 権限 |
 |---|---|---|
-| GET | `/api/lifecycle` | `livetalk:chat` |
+| GET | `/api/lifecycle` | ログインしていること |
 
 ## 入力と出力
 
@@ -24,7 +24,7 @@ sources_hash: ab3c7426ead8c21342c13b8db2fbcd1f6e27cf32f272001ebc1b9ba64c58401c
 ## エラー
 
 - 読み取りに失敗しても 500 にせず、`awake` を返す。失敗は Admin へ報告する ([API のエラー応答](../term/api-error.md))
-- 権限の不足は 401 / 403
+- 未ログインは 401
 
 ## つながり
 

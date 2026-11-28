@@ -7,6 +7,7 @@ sources:
   - services/livetalk/web/src/components/AccountDeletionModal.tsx
   - services/livetalk/web/src/components/CharacterSelectButton.tsx
   - services/livetalk/web/src/components/CharacterSelectModal.tsx
+  - services/livetalk/web/src/components/StudyStatusBadge.tsx
   - services/livetalk/web/src/components/ChatInput.tsx
   - services/livetalk/web/src/components/ResponseDisplay.tsx
   - services/livetalk/web/src/components/ConsentModal.tsx
@@ -23,11 +24,13 @@ sources:
   - services/livetalk/web/src/lib/home/usePendingNotifications.ts
   - services/livetalk/web/src/lib/home/useLifecycle.ts
   - services/livetalk/web/src/lib/home/useCharacterQuerySync.ts
+  - services/livetalk/web/src/lib/study/study-badge.ts
+  - services/livetalk/web/src/lib/study/useStudyStatus.ts
   - services/livetalk/web/src/lib/home/chat-error-messages.ts
   - services/livetalk/web/src/lib/pwa/standalone.ts
   - services/livetalk/web/src/lib/pwa/messages.ts
   - services/livetalk/web/src/lib/account/useAccountDeletion.ts
-sources_hash: 72d0084d1615ed3cfb49b6be655276042609d31b04f6368b245089f2df8d8ce6
+sources_hash: 5a9a83c7d7efffdd17f4d0ebf92fa0557eb8b527f08427f94627f3eece333485
 ---
 
 # ホーム画面 (チャット)
@@ -41,7 +44,7 @@ sources_hash: 72d0084d1615ed3cfb49b6be655276042609d31b04f6368b245089f2df8d8ce6
 
 ## 表示の条件
 
-- `livetalk:chat` を持つ利用者だけ ([権限とロール](../term/permission.md))。権限がなければ[権限なし画面](./forbidden.md)へ移る
+- ログインしている利用者なら誰でも ([権限とロール](../term/permission.md))
 - [同意](../term/consent.md)がない間は、同意のダイアログを出し、入力欄を使えなくする
 
 ## 表示するもの
@@ -50,11 +53,12 @@ sources_hash: 72d0084d1615ed3cfb49b6be655276042609d31b04f6368b245089f2df8d8ce6
 |---|---|
 | ヘッダー (全画面共通) | タイトル「リブトーク」。メニューに「私が覚えていること」([記憶画面](./memory.md))、「ノート」([ノート一覧画面](./notes.md))、`livetalk:admin` を持つ利用者には「ステータス」([ステータス画面](./status.md))。右端のアカウントメニューに「ログアウト」と「退会・データ削除」 |
 | キャラクター選択 | 「キャラ：{名前}」のボタン。応答中は押せない |
+| 勉強の札 | キャラクター選択の右端。無料の利用者にだけ出す ([勉強の状態 API](../api/study-status.md))。お試し中は「お試し中 あと N 日」(N は残りを日に切り上げた値)。お試しを過ぎたら「勉強はお休み中」(注意の色) で、押すと Auth のプランの画面 (`{Auth の URL}/plans`) を開く ([プラン画面](../../../auth/specs/screen/plans.md))。Auth の URL がないときは押せない。状態は同意が済んでから取りに行くので、初めての同意や再同意の直後にも、画面を移らずに出る。運営者・スタンダード、同意の前、取得に失敗したときは出さない |
 | キャラクターの描画 | 選んだキャラクターの Live2D か一枚絵。下に状態の文字 (待機中、考え中…、話している) |
 | 会話の領域 | 利用者の発言と応答の吹き出し (ない間は「メッセージを入力すると、{名前}がお話しします。」)、エラー、案内、他のキャラクターからの知らせ。長くなると、この領域の中でスクロールし、新しい発言の位置へ移る |
 | 入力欄 | 「メッセージ」。200 文字まで。「送信」ボタン。空白だけは送れない |
 | お知らせの設定 | 「お知らせを受け取る」のボタン |
-| フッター | バージョン、「プライバシーポリシー」と「利用規約」(ダイアログで開く。[規約](./terms.md)・[プライバシーポリシー](./privacy.md)と同じ内容)、キャラクターのライセンス表記 |
+| フッター | バージョン、「プライバシーポリシー」と「利用規約」(ダイアログで開く。[規約](./terms.md)・[プライバシーポリシー](./privacy.md)と同じ内容)、「特定商取引法に基づく表記」([特定商取引法画面](./tokushoho.md)を開く)、キャラクターのライセンス表記 |
 
 - 描画の方式は、キャラクターごとに決まる。ひよりは Live2D、アゲハは一枚絵で、音声に合わせて口が動く
 - 就寝中のキャラクターは、Live2D の目が半開きになる。生活サイクルは画面を開いたときとキャラクターを切り替えたときに読み、応答の `lifecycle` でも更新する ([生活サイクル API](../api/lifecycle.md))。取得に失敗したときは、起きているものとして扱う
@@ -87,7 +91,7 @@ sources_hash: 72d0084d1615ed3cfb49b6be655276042609d31b04f6368b245089f2df8d8ce6
 
 | 操作 | 結果 |
 |---|---|
-| 画面を開く | 同意 ([同意 API](../api/consent.md))、生活サイクル ([生活サイクル API](../api/lifecycle.md))、第一声と他のキャラクターの未読の知らせ ([通知まわりの API](../api/push-notification.md)) を読む |
+| 画面を開く | 勉強の状態 ([勉強の状態 API](../api/study-status.md))、同意 ([同意 API](../api/consent.md))、生活サイクル ([生活サイクル API](../api/lifecycle.md))、第一声と他のキャラクターの未読の知らせ ([通知まわりの API](../api/push-notification.md)) を読む |
 | 送信 | 発言を[チャット API](../api/chat.md) へ送り、[チャットのイベント](../term/chat-event.md)を受けて、応答を文字と音声で出す。成功すると入力欄を空にする |
 | 「キャラ：{名前}」 | 選択のダイアログを開く。登録のあるキャラクターを、名前、説明、モデル、音声とともにラジオボタンで並べる。「決定」で切り替え (ローカルストレージに残す)、「キャンセル」で閉じる |
 | 利用開始 (改定のお知らせでは「同意して続ける」) | 同意を[同意 API](../api/consent.md) へ保存し、ダイアログを閉じる |
@@ -113,6 +117,22 @@ sources_hash: 72d0084d1615ed3cfb49b6be655276042609d31b04f6368b245089f2df8d8ce6
 | スマホ |
 |---|
 | ![ホーム画面 通常表示 (スマホ)](../../../../images/specs/livetalk/screen/home-default-mobile.png) |
+
+### 勉強のお試し中
+
+無料の利用者で、お試しの残りが 3 日のとき。
+
+| スマホ |
+|---|
+| ![ホーム画面 勉強のお試し中 (スマホ)](../../../../images/specs/livetalk/screen/home-study-trial-mobile.png) |
+
+### 勉強のお休み中
+
+無料の利用者で、お試しを過ぎたとき。札を押すとプランの画面を開く。
+
+| スマホ |
+|---|
+| ![ホーム画面 勉強のお休み中 (スマホ)](../../../../images/specs/livetalk/screen/home-study-ended-mobile.png) |
 
 ### 初回アクセス (同意のダイアログ)
 
@@ -236,7 +256,7 @@ sources_hash: 72d0084d1615ed3cfb49b6be655276042609d31b04f6368b245089f2df8d8ce6
 
 ### ヘッダーのメニュー
 
-`livetalk:chat` だけを持つ利用者。
+`livetalk:admin` を持たない利用者。
 
 | スマホ |
 |---|
@@ -286,6 +306,7 @@ flowchart TD
     S -->|第一声・未読の知らせ| A4[通知まわりの API]
     S -->|購読| A5[Push 購読の API]
     S -->|退会| A6[アカウント API]
+    S -->|勉強の札| A7[勉強の状態 API]
     S -->|メニュー| P[記憶・ノート・ステータス画面]
 ```
 

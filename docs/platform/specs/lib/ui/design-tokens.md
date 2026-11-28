@@ -5,7 +5,7 @@ sources:
   - libs/ui/src/styles/theme.ts
   - libs/ui/src/styles/base.css
   - libs/ui/package.json
-sources_hash: 3a86d95dd9dca4bd708526119b2f20999ab06299d4efb371f532f6cc0cf79d5e
+sources_hash: 2da49a22d531a6468b50a64e0605e1ea936975057309fbec7f887b83f62deb9c
 ---
 
 # デザイントークン

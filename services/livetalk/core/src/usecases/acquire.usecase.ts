@@ -81,6 +81,12 @@ export interface AcquireForUserResult {
   webRawWritten: number;
   /** 1 日の上限に達して、以降のリサーチを止めたか */
   dailyLimitReached: boolean;
+  /**
+   * 全利用者の合計の上限で断られて、以降のリサーチを止めたか。
+   * 利用者ごとの上限と区別して、呼び出し側が他の利用者の勉強も止められるようにする。
+   * 断られたときは `dailyLimitReached` も true になる。
+   */
+  globalLimitReached: boolean;
   /** 回数の記録に失敗して、以降のリサーチを止めたか (止める側に倒す) */
   counterFailed: boolean;
   /**
@@ -286,6 +292,7 @@ export async function acquireForUser(
       selfStudied: 0,
       webRawWritten: 0,
       dailyLimitReached: false,
+      globalLimitReached: false,
       counterFailed: false,
       webSearchCalls: 0,
     };
@@ -299,6 +306,7 @@ export async function acquireForUser(
   let selfStudied = 0;
   let webRawWritten = 0;
   let dailyLimitReached = false;
+  let globalLimitReached = false;
   let counterFailed = false;
 
   /**
@@ -308,9 +316,15 @@ export async function acquireForUser(
    */
   const tryConsumeAllowance = async (): Promise<boolean> => {
     try {
-      if (await researchAllowance.tryConsume()) return true;
+      const consumed = await researchAllowance.tryConsume();
+      if (consumed.ok) return true;
       dailyLimitReached = true;
-      logger.info('[acquire] 1 日の上限に達したため勉強を止めます', { userId, characterId });
+      if (consumed.deniedBy === 'global') globalLimitReached = true;
+      logger.info('[acquire] 1 日の上限に達したため勉強を止めます', {
+        userId,
+        characterId,
+        deniedBy: consumed.deniedBy,
+      });
     } catch (err) {
       // 数えられないまま勉強すると原価の上限を守れないため、止める側に倒す。
       counterFailed = true;
@@ -698,6 +712,7 @@ export async function acquireForUser(
     selfStudied,
     webRawWritten,
     dailyLimitReached,
+    globalLimitReached,
     counterFailed,
     webSearchCalls,
   };

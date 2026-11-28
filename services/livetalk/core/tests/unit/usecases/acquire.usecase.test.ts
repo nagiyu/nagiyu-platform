@@ -129,7 +129,7 @@ describe('acquireForUser', () => {
   let explorationRepo: InMemoryExplorationRepository;
   let angleGenerator: IExplorationAngleGenerator;
   /** 上限なしの枠。上限の挙動を見ないケースで使う */
-  const researchAllowance: ResearchAllowance = { tryConsume: async () => true };
+  const researchAllowance: ResearchAllowance = { tryConsume: async () => ({ ok: true as const }) };
 
   beforeEach(() => {
     const topicStore = new InMemorySingleTableStore();
@@ -291,6 +291,31 @@ describe('acquireForUser', () => {
       expect(result.dailyLimitReached).toBe(true);
     });
 
+    it('全体の上限で断られたら、globalLimitReached を立てて以降を止める', async () => {
+      await seedRequests(3);
+      const allowance: ResearchAllowance = {
+        tryConsume: async () => ({ ok: false as const, deniedBy: 'global' as const }),
+      };
+
+      const { result, researchClient } = await run(allowance);
+
+      expect(researchClient.research).not.toHaveBeenCalled();
+      expect(result.globalLimitReached).toBe(true);
+      expect(result.dailyLimitReached).toBe(true);
+    });
+
+    it('キャラクター・利用者の上限で断られたときは、globalLimitReached を立てない', async () => {
+      await seedRequests(1);
+      const allowance: ResearchAllowance = {
+        tryConsume: async () => ({ ok: false as const, deniedBy: 'character' as const }),
+      };
+
+      const { result } = await run(allowance);
+
+      expect(result.dailyLimitReached).toBe(true);
+      expect(result.globalLimitReached).toBe(false);
+    });
+
     it('3 種を合わせて上限を数える', async () => {
       await freshnessCheckRequestRepo.put({
         userId: 'u1',
@@ -389,7 +414,7 @@ describe('acquireForUser', () => {
       expect(await studyTopicRepo.listByStatus('u1', 'hiyori', 'pending')).toHaveLength(5);
       // 枠は 3 回分だけ減っている (残り 17 回)
       let remaining = 0;
-      while (await allowance.tryConsume()) remaining++;
+      while ((await allowance.tryConsume()).ok) remaining++;
       expect(remaining).toBe(20 - ACQUIRE_MAX_QUERIES_PER_RUN);
     });
 
@@ -436,7 +461,7 @@ describe('acquireForUser', () => {
       const { researchClient } = await run(allowance);
 
       expect(researchClient.research).not.toHaveBeenCalled();
-      expect(await allowance.tryConsume()).toBe(true);
+      expect((await allowance.tryConsume()).ok).toBe(true);
     });
 
     it('枠が使えず止めた依頼は pending に戻る', async () => {
@@ -492,7 +517,7 @@ describe('acquireForUser', () => {
         tryConsume: async () => {
           calls++;
           if (calls > 1) throw new Error('DynamoDB 障害');
-          return true;
+          return { ok: true as const };
         },
       };
       const { result, researchClient } = await run(flaky);
@@ -517,8 +542,8 @@ describe('acquireForUser', () => {
         limit: 1,
         now: () => new Date(clockMs),
       });
-      expect(await other.tryConsume()).toBe(true);
-      expect(await other.tryConsume()).toBe(false);
+      expect((await other.tryConsume()).ok).toBe(true);
+      expect((await other.tryConsume()).ok).toBe(false);
 
       const { result } = await run(allowanceFor(1));
       expect(result.requestsProcessed).toBe(1);
@@ -1228,7 +1253,12 @@ describe('acquireForUser', () => {
         characterId: 'hiyori',
         topicId: 'topic-1',
       });
-      const params = { ...baseParams(), researchAllowance: { tryConsume: async () => false } };
+      const params = {
+        ...baseParams(),
+        researchAllowance: {
+          tryConsume: async () => ({ ok: false as const, deniedBy: 'user' as const }),
+        },
+      };
 
       const result = await acquireForUser('u1', 'hiyori', { ...params, maxQueriesPerRun: 1 });
 
@@ -1940,7 +1970,7 @@ describe('acquireForUser', () => {
       explorationRepo,
       character,
       lifecycle: makeLifecycle(),
-      researchAllowance: { tryConsume: async () => true },
+      researchAllowance: { tryConsume: async () => ({ ok: true as const }) },
       now: () => awakeNonPeak,
     });
 
@@ -1976,7 +2006,7 @@ describe('acquireForUser: care 自発リサーチの探索の角度', () => {
   const awakeNonPeak = jst(2026, 5, 1, 14, 0, 0);
   const NOW_MS = awakeNonPeak.getTime();
   const COOLDOWN_MS = 24 * 60 * 60 * 1000;
-  const researchAllowance: ResearchAllowance = { tryConsume: async () => true };
+  const researchAllowance: ResearchAllowance = { tryConsume: async () => ({ ok: true as const }) };
 
   let topicRepo: InMemoryTopicRepository;
   let webRawRepo: InMemoryWebRawRepository;
@@ -2285,7 +2315,9 @@ describe('acquireForUser: care 自発リサーチの探索の角度', () => {
       webRawRepo,
       studyTopicRepo,
       freshnessCheckRequestRepo,
-      researchAllowance: { tryConsume: async () => false },
+      researchAllowance: {
+        tryConsume: async () => ({ ok: false as const, deniedBy: 'user' as const }),
+      },
       researchClient: makeResearchClient(),
       changeDetector: makeChangeDetector(),
       angleGenerator,

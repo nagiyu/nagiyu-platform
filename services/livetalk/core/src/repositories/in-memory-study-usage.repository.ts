@@ -6,10 +6,12 @@
  */
 
 import { InMemoryUsageCounter, type InMemorySingleTableStore } from '@nagiyu/aws';
-import { tryConsumeStudyUsage } from './study-usage-counting.js';
+import { readStudyUsageToday, tryConsumeStudyUsage } from './study-usage-counting.js';
 import type {
   StudyUsageRepository,
+  StudyUsageToday,
   TryConsumeStudyUsageInput,
+  TryConsumeStudyUsageResult,
 } from './study-usage.repository.interface.js';
 
 export class InMemoryStudyUsageRepository implements StudyUsageRepository {
@@ -19,7 +21,11 @@ export class InMemoryStudyUsageRepository implements StudyUsageRepository {
     this.counter = new InMemoryUsageCounter(store);
   }
 
-  public async tryConsume(input: TryConsumeStudyUsageInput): Promise<boolean> {
+  public async tryConsume(input: TryConsumeStudyUsageInput): Promise<TryConsumeStudyUsageResult> {
     return tryConsumeStudyUsage(this.counter, input);
+  }
+
+  public async readToday(userId: string, nowMs: number): Promise<StudyUsageToday> {
+    return readStudyUsageToday(this.counter, userId, nowMs);
   }
 }

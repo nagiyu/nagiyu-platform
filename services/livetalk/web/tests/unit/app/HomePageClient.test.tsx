@@ -4,7 +4,7 @@
  * ナビゲーション・サインアウト・退会の導線は LiveTalkHeader（layout.tsx 経由）へ
  * 移設されたため、これらに依存するテストは LiveTalkHeader.test.tsx へ移設した。
  *
- * 本テストでは HomePageClient（チャット本体）が authUrl を受け取らずに正常動作することと、
+ * 本テストでは HomePageClient（チャット本体）が正常動作することと、
  * 移設したコンポーネントへの依存が残っていないことを確認する。
  */
 
@@ -92,6 +92,9 @@ jest.mock('@/lib/characters/CharacterContext', () => ({
   CharacterProvider: ({ children }: { children: React.ReactNode }) => children,
 }));
 
+/** /api/study-status の応答。テストごとに差し替える */
+let studyStatusResponse: unknown = { state: 'hidden' };
+
 /** 最小限の fetch モック（同意済み・lifecycle あり・first-word なし） */
 function setupMinimalFetchMocks() {
   global.fetch = jest.fn().mockImplementation((url: string) => {
@@ -116,6 +119,12 @@ function setupMinimalFetchMocks() {
         json: () => Promise.resolve([]),
       });
     }
+    if (url === '/api/study-status') {
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve(studyStatusResponse),
+      });
+    }
     const emptyStream = new ReadableStream({
       start(controller) {
         controller.enqueue(new TextEncoder().encode(JSON.stringify({ type: 'done' }) + '\n'));
@@ -128,21 +137,38 @@ function setupMinimalFetchMocks() {
 
 afterEach(() => {
   jest.clearAllMocks();
+  studyStatusResponse = { state: 'hidden' };
 });
 
 describe('HomePageClient の基本動作', () => {
-  it('props なしで正常にレンダリングされる（authUrl prop が不要になったことの確認）', async () => {
+  it('正常にレンダリングされる', async () => {
     setupMinimalFetchMocks();
-    // authUrl prop を渡さずにレンダリングできることを確認
-    render(<HomePageClient />);
+    render(<HomePageClient authUrl="https://auth.example.com" />);
 
     // キャラクターキャンバスが描画される
     await waitFor(() => expect(screen.getByTestId('character-canvas')).toBeInTheDocument());
   });
 
+  it('勉強がお休み中のとき、上の段にプランの画面へのリンクが出る', async () => {
+    studyStatusResponse = { state: 'ended' };
+    setupMinimalFetchMocks();
+    render(<HomePageClient authUrl="https://auth.example.com" />);
+
+    const link = await screen.findByRole('link', { name: '勉強はお休み中' });
+    expect(link).toHaveAttribute('href', 'https://auth.example.com/plans');
+  });
+
+  it('勉強の状態が hidden のとき、札が出ない', async () => {
+    setupMinimalFetchMocks();
+    render(<HomePageClient authUrl="https://auth.example.com" />);
+
+    await waitFor(() => expect(screen.getByTestId('character-canvas')).toBeInTheDocument());
+    expect(screen.queryByTestId('study-status-badge')).not.toBeInTheDocument();
+  });
+
   it('移設済みのナビゲーションリンクが本体に含まれない', async () => {
     setupMinimalFetchMocks();
-    render(<HomePageClient />);
+    render(<HomePageClient authUrl="https://auth.example.com" />);
 
     await waitFor(() => expect(screen.getByTestId('character-canvas')).toBeInTheDocument());
 
@@ -154,7 +180,7 @@ describe('HomePageClient の基本動作', () => {
 
   it('移設済みのサインアウトボタンが本体に含まれない', async () => {
     setupMinimalFetchMocks();
-    render(<HomePageClient />);
+    render(<HomePageClient authUrl="https://auth.example.com" />);
 
     await waitFor(() => expect(screen.getByTestId('character-canvas')).toBeInTheDocument());
 
@@ -164,7 +190,7 @@ describe('HomePageClient の基本動作', () => {
 
   it('移設済みの退会ボタンが本体に含まれない', async () => {
     setupMinimalFetchMocks();
-    render(<HomePageClient />);
+    render(<HomePageClient authUrl="https://auth.example.com" />);
 
     await waitFor(() => expect(screen.getByTestId('character-canvas')).toBeInTheDocument());
 
@@ -174,7 +200,7 @@ describe('HomePageClient の基本動作', () => {
 
   it('チャット入力欄が表示される', async () => {
     setupMinimalFetchMocks();
-    render(<HomePageClient />);
+    render(<HomePageClient authUrl="https://auth.example.com" />);
 
     await waitFor(() =>
       expect(screen.getByPlaceholderText('メッセージを入力')).toBeInTheDocument()
@@ -186,7 +212,7 @@ describe('HomePageClient の基本動作', () => {
     // どちらも欠落せずレンダリングされることを確認する。
     // jsdom は実レイアウト計算をしないため overflow の検証は行わない。
     setupMinimalFetchMocks();
-    render(<HomePageClient />);
+    render(<HomePageClient authUrl="https://auth.example.com" />);
 
     await waitFor(() => expect(screen.getByTestId('response-display-mock')).toBeInTheDocument());
     expect(screen.getByPlaceholderText('メッセージを入力')).toBeInTheDocument();
@@ -207,7 +233,7 @@ describe('HomePageClient の基本動作', () => {
     Object.defineProperty(window, 'innerHeight', { configurable: true, value: 568 });
 
     try {
-      render(<HomePageClient />, { container: main });
+      render(<HomePageClient authUrl="https://auth.example.com" />, { container: main });
       const scrollArea = await screen.findByTestId('chat-scroll-area');
 
       const container = scrollArea.closest('.MuiContainer-root');
