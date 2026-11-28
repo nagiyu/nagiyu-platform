@@ -103,7 +103,6 @@ export const handler = createScheduledHandler(
           alertId: alert.alertId,
           userId: alert.userId,
           tickerId: alert.tickerId,
-          subscriptionEndpoint: alert.subscription.endpoint || '(empty)',
         });
       }
     }

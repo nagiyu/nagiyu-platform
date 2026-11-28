@@ -9,12 +9,12 @@
 
 import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { DynamoDBUsageCounter } from '@nagiyu/aws';
-import { readStudyUsage, tryConsumeStudyUsage } from './study-usage-counting.js';
+import { readStudyUsageToday, tryConsumeStudyUsage } from './study-usage-counting.js';
 import type {
-  ReadStudyUsageInput,
-  StudyUsageCounts,
   StudyUsageRepository,
+  StudyUsageToday,
   TryConsumeStudyUsageInput,
+  TryConsumeStudyUsageResult,
 } from './study-usage.repository.interface.js';
 
 export class DynamoDBStudyUsageRepository implements StudyUsageRepository {
@@ -24,11 +24,15 @@ export class DynamoDBStudyUsageRepository implements StudyUsageRepository {
     this.counter = new DynamoDBUsageCounter(docClient, tableName);
   }
 
-  public async tryConsume(input: TryConsumeStudyUsageInput): Promise<boolean> {
+  public async tryConsume(input: TryConsumeStudyUsageInput): Promise<TryConsumeStudyUsageResult> {
     return tryConsumeStudyUsage(this.counter, input);
   }
 
-  public async readUsage(input: ReadStudyUsageInput): Promise<StudyUsageCounts> {
-    return readStudyUsage(this.counter, input);
+  public async readToday(
+    userId: string,
+    nowMs: number,
+    characterId?: string
+  ): Promise<StudyUsageToday> {
+    return readStudyUsageToday(this.counter, userId, nowMs, characterId);
   }
 }

@@ -8,7 +8,7 @@ sources: []
 
 ## 前提
 
-- ログインしていて、`livetalk:chat` を持つ ([権限とロール](../../specs/term/permission.md))
+- ログインしている ([権限とロール](../../specs/term/permission.md))
 - 今の版の規約とプライバシーポリシーに、まだ同意していない
 
 ## 流れ

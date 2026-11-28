@@ -37,17 +37,17 @@ describe('getSession', () => {
 
     const session = await getSession();
     expect(session?.user.email).toBe('test@example.com');
-    expect(session?.user.roles).toEqual(['livetalk-user']);
+    expect(session?.user.roles).toEqual([]);
   });
 
   it('TEST_USER_EMAIL / TEST_USER_ROLES を尊重する', async () => {
     process.env.SKIP_AUTH_CHECK = 'true';
     process.env.TEST_USER_EMAIL = 'taro@example.com';
-    process.env.TEST_USER_ROLES = 'admin,livetalk-user';
+    process.env.TEST_USER_ROLES = 'admin,livetalk-admin';
 
     const session = await getSession();
     expect(session?.user.email).toBe('taro@example.com');
-    expect(session?.user.roles).toEqual(['admin', 'livetalk-user']);
+    expect(session?.user.roles).toEqual(['admin', 'livetalk-admin']);
   });
 
   it('テストセッションの有効期限は 30 日後になる', async () => {
@@ -75,7 +75,7 @@ describe('getSession', () => {
 
     const session = await getSession();
 
-    expect(session?.user.roles).toEqual(['livetalk-user']);
+    expect(session?.user.roles).toEqual([]);
   });
 
   it('auth() が null のとき null を返す', async () => {
@@ -91,7 +91,7 @@ describe('getSession', () => {
         id: 'user-1',
         email: 'a@example.com',
         name: 'Alice',
-        roles: ['livetalk-user'],
+        roles: [],
       },
       expires: '2026-12-31T00:00:00.000Z',
     };

@@ -81,7 +81,7 @@ export const POST = withApiErrorReporting(
     const body = bodyResult.body;
 
     const jobService = new JobDomainService(createJobRepository());
-    const job = await jobService.getJob(jobId);
+    const job = await jobService.getActiveJob(jobId);
     if (!job) {
       return NextResponse.json(
         {

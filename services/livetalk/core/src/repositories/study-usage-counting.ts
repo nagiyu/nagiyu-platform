@@ -1,6 +1,7 @@
 import { createErrorReporter, tryIncrementInOrder, type UsageCounter } from '@nagiyu/aws';
 import { toDayTtlSeconds, toJstDayKey } from '@nagiyu/common';
 import {
+  buildGlobalStudyUsagePK,
   buildStudyUsageCountAttribute,
   buildStudyUsageSK,
   buildStudyUsageTotalAttribute,
@@ -8,14 +9,18 @@ import {
 } from '../mappers/keys.js';
 import { STUDY_USAGE_ITEM_TYPE } from './study-usage.repository.interface.js';
 import type {
-  ReadStudyUsageInput,
-  StudyUsageCounts,
+  StudyUsageDeniedScope,
+  StudyUsageToday,
   TryConsumeStudyUsageInput,
+  TryConsumeStudyUsageResult,
 } from './study-usage.repository.interface.js';
 
 export const STUDY_USAGE_ERROR_MESSAGES = {
-  ROLLBACK_FAILED: '勉強回数のキャラクター別の回数を戻せませんでした (1 回分多く数えたまま)',
+  ROLLBACK_FAILED: '勉強回数を戻せませんでした (1 回分多く数えたまま)',
 } as const;
+
+/** tryIncrementInOrder に渡す段の並びと対応させる。段を足すときはここも揃える */
+const DENIED_SCOPES: readonly StudyUsageDeniedScope[] = ['character', 'user', 'global'];
 
 /**
  * 戻しの失敗は断りや元の例外を優先して握るため、握る箇所でその場で報告する。
@@ -24,28 +29,24 @@ export const STUDY_USAGE_ERROR_MESSAGES = {
 const errorReporter = createErrorReporter({ serviceId: 'livetalk' });
 
 /**
- * 数える側と読む側でキーがずれると、止まる理由の表示が実際の判定と食い違うため、組み立てを 1 か所に置く。
- */
-function buildStudyUsageKey(userId: string, nowMs: number) {
-  return { PK: buildUserPK(userId), SK: buildStudyUsageSK(toJstDayKey(nowMs)) };
-}
-
-/**
- * キャラクター別と利用者合計の 2 つの属性を、それぞれ上限付きで数える。
+ * キャラクター別・利用者合計・全利用者合計の 3 つを、それぞれ上限付きで数える。
  *
  * 勉強中の人数が日の途中で変わると、キャラクター別の上限だけでは合計が利用者の上限を超えるため、
- * 合計も同じアイテムで数える。
+ * 合計も同じアイテムで数える。全利用者の合計は、登録が急に増えたときの原価を止めるため、
+ * 日ごとの別のアイテムで数える。
  *
- * キャラクター別を先に数える: 上限で断る理由の大半はキャラクター別の枠の使い切りで、
- * その場合は合計に触れず戻しも要らない。合計だけが断った場合は、キャラクター別を戻す。
+ * 範囲の狭い順 (キャラクター別 → 利用者合計 → 全体) に数える: 上限で断る理由の大半は狭い枠の使い切りで、
+ * その場合は広い枠に触れず戻しも要らない。広い枠が断った場合は、通った狭い枠を戻す。
  * 戻しに失敗しても 1 回分多く数えたままになるだけで、止める側にずれるため、
  * 元の結果 (断り・例外) を優先して続行し、失敗はエラーイベントに報告する。
  */
 export async function tryConsumeStudyUsage(
   counter: UsageCounter,
   input: TryConsumeStudyUsageInput
-): Promise<boolean> {
-  const key = buildStudyUsageKey(input.userId, input.nowMs);
+): Promise<TryConsumeStudyUsageResult> {
+  const sk = buildStudyUsageSK(toJstDayKey(input.nowMs));
+  const key = { PK: buildUserPK(input.userId), SK: sk };
+  const globalKey = { PK: buildGlobalStudyUsagePK(), SK: sk };
   const common = { key, ttlSec: toDayTtlSeconds(input.nowMs), itemType: STUDY_USAGE_ITEM_TYPE };
 
   const result = await tryIncrementInOrder(
@@ -57,6 +58,12 @@ export async function tryConsumeStudyUsage(
         limit: input.limit,
       },
       { ...common, attribute: buildStudyUsageTotalAttribute(), limit: input.totalLimit },
+      {
+        ...common,
+        key: globalKey,
+        attribute: buildStudyUsageTotalAttribute(),
+        limit: input.globalLimit,
+      },
     ],
     {
       onRollbackError: (error, rolledBack) =>
@@ -66,25 +73,35 @@ export async function tryConsumeStudyUsage(
         }),
     }
   );
-  return result.ok;
+  if (result.ok) return { ok: true };
+  return { ok: false, deniedBy: DENIED_SCOPES[result.deniedIndex] };
 }
 
 /**
- * その日のキャラクター別と利用者合計の回数を、数えずに読む。
- * 数える側 (tryConsumeStudyUsage) と同じキー・属性を読むため、判定に使われる値がそのまま返る。
+ * 今日の利用者合計と全利用者合計を、数えるときと同じキー・属性名で読む。
+ * 別の書き方にすると、数える側と読む側でキーがずれて常に 0 に見えるため、同じ builder を使う。
+ * `characterId` を渡すと、利用者のアイテムを同じ 1 回の読み取りでキャラクター別の回数まで読む。
  */
-export async function readStudyUsage(
+export async function readStudyUsageToday(
   counter: UsageCounter,
-  input: ReadStudyUsageInput
-): Promise<StudyUsageCounts> {
-  const countAttribute = buildStudyUsageCountAttribute(input.characterId);
+  userId: string,
+  nowMs: number,
+  characterId?: string
+): Promise<StudyUsageToday> {
+  const sk = buildStudyUsageSK(toJstDayKey(nowMs));
   const totalAttribute = buildStudyUsageTotalAttribute();
-  const values = await counter.read(buildStudyUsageKey(input.userId, input.nowMs), [
-    countAttribute,
-    totalAttribute,
+  const characterAttribute =
+    characterId === undefined ? undefined : buildStudyUsageCountAttribute(characterId);
+  const userAttributes =
+    characterAttribute === undefined ? [totalAttribute] : [totalAttribute, characterAttribute];
+  const [user, global] = await Promise.all([
+    counter.read({ PK: buildUserPK(userId), SK: sk }, userAttributes),
+    counter.read({ PK: buildGlobalStudyUsagePK(), SK: sk }, [totalAttribute]),
   ]);
-  return {
-    characterCount: values[countAttribute] ?? 0,
-    totalCount: values[totalAttribute] ?? 0,
+  const today: StudyUsageToday = {
+    userTotal: user[totalAttribute] ?? 0,
+    globalTotal: global[totalAttribute] ?? 0,
   };
+  if (characterAttribute !== undefined) today.characterCount = user[characterAttribute] ?? 0;
+  return today;
 }

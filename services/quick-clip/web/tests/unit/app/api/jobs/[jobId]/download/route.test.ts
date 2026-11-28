@@ -16,6 +16,7 @@ type DownloadResponse = {
 };
 
 const mockGetByJobId = jest.fn();
+const mockGetJob = jest.fn();
 const mockGetSignedUrl = jest.fn();
 
 jest.mock('@nagiyu/quick-clip-core', () => ({
@@ -28,6 +29,7 @@ jest.mock('@nagiyu/quick-clip-core', () => ({
         update: jest.fn(),
       }) as unknown as HighlightRepository
   ),
+  createJobRepository: jest.fn().mockImplementation(() => ({ getById: mockGetJob })),
 }));
 
 jest.mock('@nagiyu/aws', () => ({
@@ -63,12 +65,18 @@ jest.mock('next/server', () => ({
   },
 }));
 
+// 期限を過ぎていないことを示す、十分に先の時刻 (ミリ秒)
+const FUTURE_EXPIRES_AT = 4102444800000;
+// 期限を過ぎていることを示す、過去の時刻 (ミリ秒)
+const PAST_EXPIRES_AT = 1;
+
 describe('GET /api/jobs/[jobId]/download', () => {
   const mockedGetS3Client = getS3Client as jest.MockedFunction<typeof getS3Client>;
   const s3Send = jest.fn();
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockGetJob.mockResolvedValue({ jobId: 'job-1', expiresAt: FUTURE_EXPIRES_AT });
     mockedGetS3Client.mockReturnValue({
       send: s3Send,
     } as unknown as ReturnType<typeof getS3Client>);
@@ -104,6 +112,34 @@ describe('GET /api/jobs/[jobId]/download', () => {
 
     expect(response.status).toBe(202);
     expect(body).toEqual({ status: 'PROCESSING' });
+  });
+
+  it('異常系: 期限を過ぎたジョブは、ZIP が残っていても 404 を返す', async () => {
+    mockGetJob.mockResolvedValue({ jobId: 'job-1', expiresAt: PAST_EXPIRES_AT });
+
+    const response = await GET(mockRequest, {
+      params: Promise.resolve({ jobId: 'job-1' }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(404);
+    expect(body).toEqual({
+      error: 'JOB_NOT_FOUND',
+      message: '指定されたジョブが見つかりません',
+    });
+    expect(s3Send).not.toHaveBeenCalled();
+    expect(mockGetSignedUrl).not.toHaveBeenCalled();
+  });
+
+  it('異常系: ジョブが存在しない場合は 404 を返す', async () => {
+    mockGetJob.mockResolvedValue(null);
+
+    const response = await GET(mockRequest, {
+      params: Promise.resolve({ jobId: 'missing' }),
+    });
+
+    expect(response.status).toBe(404);
+    expect(s3Send).not.toHaveBeenCalled();
   });
 
   it('異常系: S3 アクセスエラーの場合は500を返す', async () => {
@@ -144,6 +180,7 @@ describe('POST /api/jobs/[jobId]/download', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockGetJob.mockResolvedValue({ jobId: 'job-1', expiresAt: FUTURE_EXPIRES_AT });
     mockedGetLambdaClient.mockReturnValue({
       send: lambdaSend,
     } as unknown as ReturnType<typeof getLambdaClient>);
@@ -394,6 +431,57 @@ describe('POST /api/jobs/[jobId]/download', () => {
 
     expect(response.status).toBe(202);
     expect(reportErrorEvent).not.toHaveBeenCalled();
+  });
+
+  it('異常系: 期限を過ぎたジョブは 404 を返し、ZIP の削除も Lambda 起動もしない', async () => {
+    mockGetJob.mockResolvedValue({ jobId: 'job-1', expiresAt: PAST_EXPIRES_AT });
+    mockGetByJobId.mockResolvedValue([
+      {
+        highlightId: 'h1',
+        jobId: 'job-1',
+        order: 1,
+        startSec: 10,
+        endSec: 20,
+        status: 'accepted',
+        clipStatus: 'GENERATED',
+        expiresAt: FUTURE_EXPIRES_AT,
+      },
+    ]);
+
+    const response = await POST(mockRequest, {
+      params: Promise.resolve({ jobId: 'job-1' }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(404);
+    expect(body).toEqual({
+      error: 'JOB_NOT_FOUND',
+      message: '指定されたジョブが見つかりません',
+    });
+    expect(s3Send).not.toHaveBeenCalled();
+    expect(lambdaSend).not.toHaveBeenCalled();
+  });
+
+  it('異常系: 見どころがすべて期限を過ぎている場合は 404 を返す', async () => {
+    mockGetByJobId.mockResolvedValue([
+      {
+        highlightId: 'h1',
+        jobId: 'job-1',
+        order: 1,
+        startSec: 10,
+        endSec: 20,
+        status: 'accepted',
+        clipStatus: 'GENERATED',
+        expiresAt: PAST_EXPIRES_AT,
+      },
+    ]);
+
+    const response = await POST(mockRequest, {
+      params: Promise.resolve({ jobId: 'job-1' }),
+    });
+
+    expect(response.status).toBe(404);
+    expect(lambdaSend).not.toHaveBeenCalled();
   });
 
   it('異常系: 採用見どころがない場合は400を返す', async () => {

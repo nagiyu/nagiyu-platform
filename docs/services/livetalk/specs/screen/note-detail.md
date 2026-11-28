@@ -17,7 +17,7 @@ sources_hash: 5afa2d8811bf561ecd98cc49c45cbc2be0b99c0eb22785424a026dc5573699fd
 
 ## 表示の条件
 
-- `livetalk:chat` を持つ利用者だけ ([権限とロール](../term/permission.md))
+- ログインしている利用者なら誰でも ([権限とロール](../term/permission.md))
 
 ## 表示するもの
 

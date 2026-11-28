@@ -4,7 +4,7 @@ sources:
   - libs/ui/src/components/layout/AppLayout.tsx
   - libs/ui/src/components/providers/AppThemeProvider.tsx
   - libs/ui/package.json
-sources_hash: 6484705f8577df25ffc110a9a0ad57613cadb0fa3c497a4752d68c393bebfeeb
+sources_hash: 9789c19c4e412b1f7d5ea2227d04c8ddf813cb247c315b6e2e56df6a8b8b4093
 ---
 
 # サービスのレイアウト

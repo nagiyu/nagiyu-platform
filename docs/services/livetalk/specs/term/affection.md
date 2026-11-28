@@ -5,7 +5,7 @@ sources:
   - services/livetalk/core/src/repositories/dynamodb-character-state.repository.ts
   - services/livetalk/core/src/mappers/character-state.mapper.ts
   - services/livetalk/core/src/constants.ts
-sources_hash: 4cc178a9021fa9ccd6eafe5adb61b5a96cf2730428b8ecad23ee6630c6aa148f
+sources_hash: x
 ---
 
 # 親密度

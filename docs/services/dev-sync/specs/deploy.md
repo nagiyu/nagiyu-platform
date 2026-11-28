@@ -2,7 +2,7 @@
 sources:
   - infra/dev-sync/bin/dev-sync.ts
   - .github/workflows/dev-sync-deploy.yml
-sources_hash: 4849576a58a707484d8bccea2d89bc20ef028a2b8f31bac9a008a28a28d430fe
+sources_hash: e7c379e1bbbc3c655ebc78d2660fb11ca8acfc4ce060c813640cd9be2e3de02c
 ---
 
 # dev-sync のデプロイ先

@@ -8,7 +8,7 @@ sources:
   - services/livetalk/web/src/app/api/push/first-word/route.ts
   - services/livetalk/web/src/app/api/push/pending/route.ts
   - services/livetalk/web/src/app/api/push/consumed/route.ts
-sources_hash: 8d99e9d57ec49648d5ff572ac02b08a4804d5e770d1230cc3307475731e99795
+sources_hash: x
 ---
 
 # 通知から会話への経路

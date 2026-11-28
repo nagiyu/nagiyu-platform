@@ -18,8 +18,6 @@ import { breakpoints } from './tokens';
  * 共通 UI コンポーネント（Phase 1 以降の `Button` 等）は MUI Theme に依存せず、
  * 直接 `tokens.css` の CSS 変数を参照することで、ライト/ダーク・サービス別
  * アクセント等のテーマ切替に追従する。
- *
- * 詳細: docs/development/shared-ui-components.md
  */
 const theme = createTheme({
   palette: {

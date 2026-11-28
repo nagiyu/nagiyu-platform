@@ -1,5 +1,8 @@
 import { InMemorySingleTableStore } from '@nagiyu/aws';
-import { STUDY_DAILY_RESEARCH_LIMIT_PER_USER } from '../../../src/constants.js';
+import {
+  STUDY_DAILY_RESEARCH_LIMIT_GLOBAL,
+  STUDY_DAILY_RESEARCH_LIMIT_PER_USER,
+} from '../../../src/constants.js';
 import { InMemoryStudyUsageRepository } from '../../../src/repositories/in-memory-study-usage.repository.js';
 import {
   computePerCharacterResearchLimit,
@@ -41,9 +44,9 @@ describe('createDailyResearchAllowance', () => {
       now: () => new Date('2026-11-05T03:00:00Z'),
     });
 
-    expect(await allowance.tryConsume()).toBe(true);
-    expect(await allowance.tryConsume()).toBe(true);
-    expect(await allowance.tryConsume()).toBe(false);
+    expect(await allowance.tryConsume()).toEqual({ ok: true });
+    expect(await allowance.tryConsume()).toEqual({ ok: true });
+    expect(await allowance.tryConsume()).toEqual({ ok: false, deniedBy: 'character' });
   });
 
   it('now を省略すると現在時刻で数える', async () => {
@@ -54,8 +57,8 @@ describe('createDailyResearchAllowance', () => {
       limit: 1,
     });
 
-    expect(await allowance.tryConsume()).toBe(true);
-    expect(await allowance.tryConsume()).toBe(false);
+    expect(await allowance.tryConsume()).toEqual({ ok: true });
+    expect(await allowance.tryConsume()).toEqual({ ok: false, deniedBy: 'character' });
   });
 
   it('呼ぶたびに時刻を評価し、日をまたぐと枠が戻る', async () => {
@@ -68,9 +71,54 @@ describe('createDailyResearchAllowance', () => {
       now: () => new Date(nowMs),
     });
 
-    expect(await allowance.tryConsume()).toBe(true);
-    expect(await allowance.tryConsume()).toBe(false);
+    expect(await allowance.tryConsume()).toEqual({ ok: true });
+    expect(await allowance.tryConsume()).toEqual({ ok: false, deniedBy: 'character' });
     nowMs = Date.parse('2026-11-05T15:00:00Z');
-    expect(await allowance.tryConsume()).toBe(true);
+    expect(await allowance.tryConsume()).toEqual({ ok: true });
+  });
+
+  it('全体の上限を渡すと、別の利用者との合計でも止まる', async () => {
+    const repo = makeRepo();
+    const make = (userId: string) =>
+      createDailyResearchAllowance({
+        studyUsageRepo: repo,
+        userId,
+        characterId: 'hiyori',
+        limit: 5,
+        globalLimit: 1,
+        now: () => new Date('2026-11-05T03:00:00Z'),
+      });
+
+    expect(await make('u1').tryConsume()).toEqual({ ok: true });
+    expect(await make('u2').tryConsume()).toEqual({ ok: false, deniedBy: 'global' });
+  });
+
+  it('利用者の合計の上限で断られたら、利用者の枠で断られたと返す', async () => {
+    const allowance = createDailyResearchAllowance({
+      studyUsageRepo: makeRepo(),
+      userId: 'u1',
+      characterId: 'hiyori',
+      limit: 5,
+      totalLimit: 1,
+      now: () => new Date('2026-11-05T03:00:00Z'),
+    });
+
+    expect(await allowance.tryConsume()).toEqual({ ok: true });
+    expect(await allowance.tryConsume()).toEqual({ ok: false, deniedBy: 'user' });
+  });
+
+  it('全体の上限の既定は定数', async () => {
+    const repo = new InMemoryStudyUsageRepository(new InMemorySingleTableStore());
+    const spy = jest.spyOn(repo, 'tryConsume');
+    await createDailyResearchAllowance({
+      studyUsageRepo: repo,
+      userId: 'u1',
+      characterId: 'hiyori',
+      limit: 1,
+    }).tryConsume();
+
+    expect(spy).toHaveBeenCalledWith(
+      expect.objectContaining({ globalLimit: STUDY_DAILY_RESEARCH_LIMIT_GLOBAL })
+    );
   });
 });

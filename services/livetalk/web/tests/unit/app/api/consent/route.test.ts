@@ -26,7 +26,7 @@ const validSession = {
     id: 'u1',
     email: 'u@example.com',
     name: 'U',
-    roles: ['livetalk-user'],
+    roles: [],
   },
   expires: new Date(Date.now() + 60 * 1000).toISOString(),
 };
@@ -37,8 +37,8 @@ const consentedProfile = {
   createdAt: 0,
   updatedAt: 0,
   consents: {
-    termsAgreed: { version: '1.1.0', agreedAt: 0 },
-    privacyAgreed: { version: '1.1.0', agreedAt: 0 },
+    termsAgreed: { version: '1.2.0', agreedAt: 0 },
+    privacyAgreed: { version: '1.2.0', agreedAt: 0 },
     ageVerified: { value: true, verifiedAt: 0 },
   },
 };
@@ -74,7 +74,7 @@ describe('GET /api/consent', () => {
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.consented).toBe(true);
-    expect(json.requiredVersions).toEqual({ terms: '1.1.0', privacy: '1.1.0' });
+    expect(json.requiredVersions).toEqual({ terms: '1.2.0', privacy: '1.2.0' });
     // current はエンティティの camelCase のまま返す
     expect(json.current).toEqual(consentedProfile.consents);
   });
@@ -220,8 +220,8 @@ describe('POST /api/consent', () => {
       { userId: 'u1' },
       expect.objectContaining({
         consents: expect.objectContaining({
-          termsAgreed: expect.objectContaining({ version: '1.1.0' }),
-          privacyAgreed: expect.objectContaining({ version: '1.1.0' }),
+          termsAgreed: expect.objectContaining({ version: '1.2.0' }),
+          privacyAgreed: expect.objectContaining({ version: '1.2.0' }),
           ageVerified: { value: true, verifiedAt: expect.any(Number) },
         }),
       })
@@ -259,7 +259,7 @@ describe('POST /api/consent', () => {
       { userId: 'u1' },
       expect.objectContaining({
         consents: expect.objectContaining({
-          termsAgreed: expect.objectContaining({ version: '1.1.0' }),
+          termsAgreed: expect.objectContaining({ version: '1.2.0' }),
           ageVerified: { value: true, verifiedAt: 1234 },
         }),
       })
@@ -272,7 +272,7 @@ describe('POST /api/consent', () => {
       ...consentedProfile,
       consents: {
         termsAgreed: { version: '1.0.0', agreedAt: 5 },
-        privacyAgreed: { version: '1.1.0', agreedAt: 7 },
+        privacyAgreed: { version: '1.2.0', agreedAt: 7 },
         ageVerified: { value: true, verifiedAt: 1234 },
       },
     });
@@ -280,8 +280,8 @@ describe('POST /api/consent', () => {
     const res = await POST(buildPostRequest({ termsAgreed: true, privacyAgreed: true }));
     expect(res.status).toBe(200);
     const [, input] = (repo.upsert as jest.Mock).mock.calls[0];
-    expect(input.consents.privacyAgreed).toEqual({ version: '1.1.0', agreedAt: 7 });
-    expect(input.consents.termsAgreed.version).toBe('1.1.0');
+    expect(input.consents.privacyAgreed).toEqual({ version: '1.2.0', agreedAt: 7 });
+    expect(input.consents.termsAgreed.version).toBe('1.2.0');
     expect(input.consents.termsAgreed.agreedAt).not.toBe(5);
   });
 

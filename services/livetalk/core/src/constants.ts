@@ -1,8 +1,7 @@
 /**
  * リブトーク全体で参照するドメイン定数。
  *
- * MVP では桃瀬ひより 1 キャラのみを扱うため characterId は固定値とする
- * （将来の拡張は `docs/services/livetalk/roadmap.md` も参照）。
+ * MVP では桃瀬ひより 1 キャラのみを扱うため characterId は固定値とする。
  */
 export const DEFAULT_CHARACTER_ID = 'hiyori';
 
@@ -35,8 +34,8 @@ export const TOKEN_BUDGETED_QUERY_PAGE_SIZE = 50;
  * 利用規約・プライバシーポリシーのバージョン。
  * 改定時にインクリメントし、ユーザーの再同意を促す。
  */
-export const LIVETALK_TERMS_VERSION = '1.1.0';
-export const LIVETALK_PRIVACY_VERSION = '1.1.0';
+export const LIVETALK_TERMS_VERSION = '1.2.0';
+export const LIVETALK_PRIVACY_VERSION = '1.2.0';
 
 /**
  * 親密度: 1 件の C→B 昇格（情報開示）に対する加算量（Phase 3f）。
@@ -86,6 +85,19 @@ export const STUDY_PAUSE_AFTER_HOURS = 72;
  * 本番での使用感を見て調整する仮の値。
  */
 export const STUDY_DAILY_RESEARCH_LIMIT_PER_USER = 20;
+
+/**
+ * 無料の利用者が勉強できるお試しの長さ (日)。利用者の Profile の作成時刻 (最初に同意した時刻。Profile は同意のときに作る) から数える。
+ * お試しは新しい登録ごとに原価がかかるため、期限を設けて原価を有限にする。
+ */
+export const STUDY_FREE_TRIAL_DAYS = 7;
+
+/**
+ * 全利用者の勉強 (Web リサーチ) の合計の 1 日あたりの上限回数。日本時間の暦日で数える。
+ * 勉強 1 回の原価は約 2 円で、200 回/日は月最大で約 1.2 万円。ふだんの使い方の 15 人分ほどにあたる。
+ * 登録が急に増えたときに、利用者ごとの上限では原価を止められないため、全体にも上限を置く。
+ */
+export const STUDY_DAILY_RESEARCH_LIMIT_GLOBAL = 200;
 
 /**
  * StudyTopic に付与する DynamoDB TTL（秒）。30 日後に自動削除。

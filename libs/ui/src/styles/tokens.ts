@@ -8,8 +8,6 @@
  *   import { tokens } from '@nagiyu/ui/styles/tokens';
  *   const style = { color: tokens.color.action.primary };
  *   // → { color: 'var(--color-action-primary)' }
- *
- * 詳細: docs/development/shared-ui-components.md
  */
 
 export const tokens = {

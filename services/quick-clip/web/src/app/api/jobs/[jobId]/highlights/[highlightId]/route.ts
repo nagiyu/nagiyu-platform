@@ -1,4 +1,5 @@
 import { createHighlightRepository, createJobRepository } from '@nagiyu/quick-clip-core';
+import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import { readJsonObjectBody } from '@nagiyu/nextjs';
 import { NextResponse } from 'next/server';
 import { InvokeCommand } from '@aws-sdk/client-lambda';
@@ -14,6 +15,7 @@ import type { Highlight, UpdateHighlightInput } from '@/types/quick-clip';
 
 const ERROR_MESSAGES = {
   INVALID_REQUEST: '更新内容が不正です',
+  JOB_NOT_FOUND: COMMON_ERROR_MESSAGES.JOB_NOT_FOUND,
   HIGHLIGHT_NOT_FOUND: '指定された見どころが見つかりません',
   INTERNAL_SERVER_ERROR: '見どころの更新に失敗しました',
   CLIP_REGENERATE_INVOKE_FAILED: 'クリップ再生成の起動に失敗しました',
@@ -115,6 +117,18 @@ export const PATCH = withApiErrorReporting(
     }
 
     try {
+      // 消えた・期限を過ぎたジョブの見どころは更新させない。動画の長さの上限もジョブから引くため、ジョブは必須
+      const job = await new JobDomainService(createJobRepository()).getActiveJob(jobId);
+      if (!job) {
+        return NextResponse.json(
+          {
+            error: 'JOB_NOT_FOUND',
+            message: ERROR_MESSAGES.JOB_NOT_FOUND,
+          },
+          { status: 404 }
+        );
+      }
+
       const hasTimeUpdateRequest =
         typeof body.startSec === 'number' || typeof body.endSec === 'number';
       if (!hasTimeUpdateRequest) {
@@ -156,13 +170,12 @@ export const PATCH = withApiErrorReporting(
         clipGeneratingStartedAt: Date.now(),
       };
 
-      // 動画の長さはジョブにあるときだけ上限にする。作り直しの起動より前に検証を通すため、ここで渡す
-      const job = await new JobDomainService(createJobRepository()).getJob(jobId);
+      // 動画の長さがジョブに無いときは上限を見ない。作り直しの起動より前に検証を通すため、ここで渡す
       let updated = await highlightService.updateHighlight(
         jobId,
         highlightId,
         updates,
-        job?.durationSec
+        job.durationSec
       );
 
       try {

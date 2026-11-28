@@ -2,7 +2,7 @@
 sources:
   - libs/ui/src/components/Button/Button.tsx
   - libs/ui/src/components/Button/Button.module.css
-sources_hash: 446996f9157ced8869fef2d7c59654a8f0e6a502d98b104af17a7b23d16a7232
+sources_hash: 4eb5d3995fbf60a5e8bef2e94567d2c521f313d4405b1f308d1b9c6e7821772a
 ---
 
 # Button

@@ -18,8 +18,10 @@ on:
       - '.github/workflows/admin-deploy.yml'
       - '.github/actions/build-docker-image/**'
       - '.github/actions/build-web-app/**'
+      - '.github/actions/get-stack-output/**'
       - '.github/actions/health-check/**'
       - '.github/actions/push-ecr-image/**'
+      - '.github/actions/setup-cdk/**'
       - '.github/actions/setup-environment/**'
       - '.github/actions/setup-node/**'
       - '.github/scripts/docker-build-with-retry.sh'
@@ -57,6 +59,7 @@ jobs:
 
     outputs:
       environment: ${{ steps.setup-environment.outputs.environment }}
+      stack-suffix: ${{ steps.setup-environment.outputs.stack-suffix }}
 
     # 検査と同じ実行環境でビルドとデプロイを行うため、共通イメージの上で動かす。docker のデーモンはランナーのものを使う
     container:
@@ -75,22 +78,10 @@ jobs:
         id: setup-environment
         uses: ./.github/actions/setup-environment
 
-      - name: Setup Node.js and install dependencies
-        uses: ./.github/actions/setup-node
+      - name: Setup CDK
+        uses: ./.github/actions/setup-cdk
         with:
-          # Node はイメージに入っているものを使う
-          skip-setup-node: 'true'
-          cache-dependency-path: package-lock.json
-
-      - name: Build common infrastructure package
-        run: npm run build --workspace=@nagiyu/infra-common
-
-      - name: Build CDK TypeScript
-        run: npm run build --workspace=@nagiyu/infra-admin
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
+          infra-workspace: '@nagiyu/infra-admin'
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
@@ -102,17 +93,12 @@ jobs:
       - name: Deploy Infrastructure (ECR)
         env:
           ENVIRONMENT: ${{ steps.setup-environment.outputs.environment }}
+          STACK_SUFFIX: ${{ steps.setup-environment.outputs.stack-suffix }}
         run: |
           echo "Deploying ECR stacks..."
 
-          # Set stack names based on environment
-          if [[ "$ENVIRONMENT" == "prod" ]]; then
-            ECR_STACK="NagiyuAdminECRProd"
-            BATCH_ECR_STACK="NagiyuAdminBatchECRProd"
-          else
-            ECR_STACK="NagiyuAdminECRDev"
-            BATCH_ECR_STACK="NagiyuAdminBatchECRDev"
-          fi
+          ECR_STACK="NagiyuAdminECR${STACK_SUFFIX}"
+          BATCH_ECR_STACK="NagiyuAdminBatchECR${STACK_SUFFIX}"
 
           # Deploy Web ECR stack
           npm run deploy --workspace=@nagiyu/infra-admin -- \
@@ -129,15 +115,11 @@ jobs:
       - name: Deploy Infrastructure (AdminInfra)
         env:
           ENVIRONMENT: ${{ steps.setup-environment.outputs.environment }}
+          STACK_SUFFIX: ${{ steps.setup-environment.outputs.stack-suffix }}
         run: |
           echo "Deploying AdminInfra stack..."
 
-          # Set stack name based on environment
-          if [[ "$ENVIRONMENT" == "prod" ]]; then
-            ADMIN_INFRA_STACK="NagiyuAdminInfraProd"
-          else
-            ADMIN_INFRA_STACK="NagiyuAdminInfraDev"
-          fi
+          ADMIN_INFRA_STACK="NagiyuAdminInfra${STACK_SUFFIX}"
 
           # Deploy AdminInfra stack
           npm run deploy --workspace=@nagiyu/infra-admin -- \
@@ -154,6 +136,7 @@ jobs:
     outputs:
       image-uri: ${{ steps.build-image.outputs.image-uri }}
       environment: ${{ needs.infrastructure.outputs.environment }}
+      stack-suffix: ${{ needs.infrastructure.outputs.stack-suffix }}
       app-version: ${{ steps.get-version.outputs.app-version }}
 
     # 検査と同じ実行環境でビルドとデプロイを行うため、共通イメージの上で動かす。docker のデーモンはランナーのものを使う
@@ -195,13 +178,9 @@ jobs:
         id: get-ecr
         env:
           ENVIRONMENT: ${{ needs.infrastructure.outputs.environment }}
+          STACK_SUFFIX: ${{ needs.infrastructure.outputs.stack-suffix }}
         run: |
-          # Set ECR stack name based on environment
-          if [[ "$ENVIRONMENT" == "prod" ]]; then
-            ECR_STACK_NAME="NagiyuAdminECRProd"
-          else
-            ECR_STACK_NAME="NagiyuAdminECRDev"
-          fi
+          ECR_STACK_NAME="NagiyuAdminECR${STACK_SUFFIX}"
 
           # Try to get from CloudFormation stack
           REPOSITORY_URI=$(aws cloudformation describe-stacks \
@@ -260,13 +239,9 @@ jobs:
       - name: Get Batch ECR repository from CDK outputs
         id: get-ecr
         env:
-          ENVIRONMENT: ${{ needs.infrastructure.outputs.environment }}
+          STACK_SUFFIX: ${{ needs.infrastructure.outputs.stack-suffix }}
         run: |
-          if [[ "$ENVIRONMENT" == "prod" ]]; then
-            ECR_STACK_NAME="NagiyuAdminBatchECRProd"
-          else
-            ECR_STACK_NAME="NagiyuAdminBatchECRDev"
-          fi
+          ECR_STACK_NAME="NagiyuAdminBatchECR${STACK_SUFFIX}"
 
           REPOSITORY_URI=$(aws cloudformation describe-stacks \
             --stack-name "$ECR_STACK_NAME" \
@@ -297,10 +272,6 @@ jobs:
     needs: [infrastructure, build, build-batch]
     environment: ${{ needs.build.outputs.environment }}
 
-    outputs:
-      lambda-function-url: ${{ steps.get-lambda-url.outputs.function-url }}
-      cloudfront-domain: ${{ steps.get-cloudfront.outputs.cloudfront-domain }}
-
     # 検査と同じ実行環境でビルドとデプロイを行うため、共通イメージの上で動かす。docker のデーモンはランナーのものを使う
     container:
       image: ghcr.io/nagiyu/nagiyu-platform/ci:base-v3
@@ -314,22 +285,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js and install dependencies
-        uses: ./.github/actions/setup-node
+      - name: Setup CDK
+        uses: ./.github/actions/setup-cdk
         with:
-          # Node はイメージに入っているものを使う
-          skip-setup-node: 'true'
-          cache-dependency-path: package-lock.json
-
-      - name: Build common infrastructure package
-        run: npm run build --workspace=@nagiyu/infra-common
-
-      - name: Build CDK TypeScript
-        run: npm run build --workspace=@nagiyu/infra-admin
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
+          infra-workspace: '@nagiyu/infra-admin'
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
@@ -361,45 +320,18 @@ jobs:
             --all \
             --require-approval never
 
-      - name: Get Lambda Function URL
-        id: get-lambda-url
-        env:
-          ENVIRONMENT: ${{ needs.build.outputs.environment }}
-        run: |
-          FUNCTION_URL=$(aws cloudformation describe-stacks \
-            --stack-name "NagiyuAdminLambda$(echo $ENVIRONMENT | sed 's/\(.\)/\U\1/')" \
-            --query "Stacks[0].Outputs[?OutputKey=='FunctionUrl'].OutputValue" \
-            --output text \
-            --region "${{ env.AWS_REGION }}" 2>/dev/null || echo "")
-
-          echo "function-url=$FUNCTION_URL" >> "$GITHUB_OUTPUT"
-          echo "Lambda Function URL: $FUNCTION_URL"
-
-      - name: Get CloudFront URL
+      - name: Get CloudFront domain
         id: get-cloudfront-url
-        env:
-          ENVIRONMENT: ${{ needs.build.outputs.environment }}
-        run: |
-          CF_DOMAIN=$(aws cloudformation describe-stacks \
-            --stack-name "NagiyuAdminCloudFront$(echo $ENVIRONMENT | sed 's/\(.\)/\U\1/')" \
-            --query "Stacks[0].Outputs[?OutputKey=='DistributionDomainName'].OutputValue" \
-            --output text \
-            --region "${{ env.AWS_REGION }}")
-
-          # ドメインが空のまま https:// だけが渡ると URL の欠落をヘルスチェックが検出できないため、空のときは空のまま渡す
-          if [ -n "$CF_DOMAIN" ]; then
-            BASE_URL="https://${CF_DOMAIN}"
-          else
-            BASE_URL=""
-          fi
-
-          echo "base-url=$BASE_URL" >> "$GITHUB_OUTPUT"
-          echo "CloudFront URL: $BASE_URL"
+        uses: ./.github/actions/get-stack-output
+        with:
+          stack-name: NagiyuAdminCloudFront${{ needs.build.outputs.stack-suffix }}
+          region: ${{ env.AWS_REGION }}
+          output-key: DistributionDomainName
 
       - name: Invoke health check
         uses: ./.github/actions/health-check
         with:
-          base-url: ${{ steps.get-cloudfront-url.outputs.base-url }}
+          base-url: https://${{ steps.get-cloudfront-url.outputs.value }}
 
   cloudfront-invalidation:
     name: CloudFront Invalidation
@@ -426,10 +358,10 @@ jobs:
       - name: Get CloudFront distribution ID
         id: get-cloudfront
         env:
-          ENVIRONMENT: ${{ needs.build.outputs.environment }}
+          STACK_SUFFIX: ${{ needs.build.outputs.stack-suffix }}
         run: |
           DISTRIBUTION_ID=$(aws cloudformation describe-stacks \
-            --stack-name "NagiyuAdminCloudFront$(echo $ENVIRONMENT | sed 's/\(.\)/\U\1/')" \
+            --stack-name "NagiyuAdminCloudFront${STACK_SUFFIX}" \
             --query "Stacks[0].Outputs[?OutputKey=='DistributionId'].OutputValue" \
             --output text \
             --region "${{ env.AWS_REGION }}" 2>/dev/null || echo "")
@@ -497,10 +429,10 @@ jobs:
   #
   #     - name: Get CloudFront domain
   #       env:
-  #         ENVIRONMENT: ${{ needs.build.outputs.environment }}
+  #         STACK_SUFFIX: ${{ needs.build.outputs.stack-suffix }}
   #       run: |
   #         CF_DOMAIN=$(aws cloudformation describe-stacks \
-  #           --stack-name "NagiyuAdminCloudFront$(echo $ENVIRONMENT | sed 's/\(.\)/\U\1/')" \
+  #           --stack-name "NagiyuAdminCloudFront${STACK_SUFFIX}" \
   #           --query "Stacks[0].Outputs[?OutputKey=='DistributionDomainName'].OutputValue" \
   #           --output text \
   #           --region "${{ env.AWS_REGION }}" 2>/dev/null || echo "")
@@ -508,8 +440,9 @@ jobs:
   #         if [ -n "$CF_DOMAIN" ]; then
   #           echo "ADMIN_URL=https://$CF_DOMAIN" >> $GITHUB_ENV
   #         else
-  #           # Fallback to Lambda Function URL
-  #           echo "ADMIN_URL=${{ needs.deploy.outputs.lambda-function-url }}" >> $GITHUB_ENV
+  #           # Function URL は CloudFront 経由に限っており直接は呼べないため、フォールバックしない
+  #           echo "::error::CloudFront のドメインが取得できません"
+  #           exit 1
   #         fi
   #
   #     - name: Run E2E tests against deployed environment
@@ -560,6 +493,7 @@ jobs:
       - name: Display deployment summary
         env:
           ENVIRONMENT: ${{ needs.build.outputs.environment }}
+          STACK_SUFFIX: ${{ needs.infrastructure.outputs.stack-suffix }}
         run: |
           echo "## 🚀 Admin App Deployment Summary - $ENVIRONMENT" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -579,16 +513,9 @@ jobs:
           echo "- **App Version**: ${{ needs.build.outputs.app-version }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          # Lambda Function URL
-          if [ -n "${{ needs.deploy.outputs.lambda-function-url }}" ]; then
-            echo "### Lambda Function URL" >> $GITHUB_STEP_SUMMARY
-            echo "${{ needs.deploy.outputs.lambda-function-url }}" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-          fi
-
           # CloudFront Domain
           CF_DOMAIN=$(aws cloudformation describe-stacks \
-            --stack-name "NagiyuAdminCloudFront$(echo $ENVIRONMENT | sed 's/\(.\)/\U\1/')" \
+            --stack-name "NagiyuAdminCloudFront${STACK_SUFFIX}" \
             --query "Stacks[0].Outputs[?OutputKey=='DistributionDomainName'].OutputValue" \
             --output text \
             --region "${{ env.AWS_REGION }}" 2>/dev/null || echo "")
@@ -601,7 +528,7 @@ jobs:
 
           # Custom Domain (if configured)
           CUSTOM_DOMAIN=$(aws cloudformation describe-stacks \
-            --stack-name "NagiyuAdminCloudFront$(echo $ENVIRONMENT | sed 's/\(.\)/\U\1/')" \
+            --stack-name "NagiyuAdminCloudFront${STACK_SUFFIX}" \
             --query "Stacks[0].Parameters[?ParameterKey=='DomainName'].ParameterValue" \
             --output text \
             --region "${{ env.AWS_REGION }}" 2>/dev/null || echo "")

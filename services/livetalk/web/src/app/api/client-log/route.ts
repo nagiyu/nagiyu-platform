@@ -51,7 +51,7 @@ function isValidBody(b: Record<string, unknown>): b is Record<string, unknown> &
 
 export const POST = withApiErrorReporting(
   'Web API: クライアントログ受信エラー',
-  withAuth(getSession, 'livetalk:chat', async (session, request: NextRequest) => {
+  withAuth(getSession, null, async (session, request: NextRequest) => {
     const bodyResult = await readJsonObjectBody(request);
     if (!bodyResult.ok || !isValidBody(bodyResult.body)) {
       return NextResponse.json(

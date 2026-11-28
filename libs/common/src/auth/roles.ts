@@ -77,18 +77,11 @@ export const ROLES = {
     description: 'Stock Tracker のマスタデータ管理が可能',
     permissions: ['stocks:read', 'stocks:write-own', 'stocks:manage-data'],
   },
-  'livetalk-user': {
-    id: 'livetalk-user',
-    name: 'LiveTalk ユーザー',
-    description: 'LiveTalk のチャットを利用できる',
-    permissions: ['livetalk:chat'],
-  },
   'livetalk-admin': {
     id: 'livetalk-admin',
     name: 'LiveTalk 管理者',
-    // livetalk:chat を含めるのは、middleware がチャットの権限を要求するため
-    description: 'LiveTalk のチャットと、管理者向けの機能 (ステータスの閲覧など) を利用できる',
-    permissions: ['livetalk:chat', 'livetalk:admin'],
+    description: 'LiveTalk の管理者向けの機能 (ステータスの閲覧など) を利用できる',
+    permissions: ['livetalk:admin'],
   },
   'livetalk-standard': {
     id: 'livetalk-standard',
@@ -96,6 +89,14 @@ export const ROLES = {
     description: '課金の権利として付く有料ロール。LiveTalk のスタンダード機能を利用できる',
     permissions: ['livetalk:standard'],
     billing: { service: 'livetalk', rank: 1 },
+  },
+  'livetalk-operator': {
+    id: 'livetalk-operator',
+    name: 'LiveTalk 運営者',
+    // 売らず課金とも結びつけないため billing を持たない
+    description:
+      '運営者が自分で使うためのロール。有料プランと同じ量の勉強 (キャラクターが Web で調べものをすること) ができ、期限もない',
+    permissions: ['livetalk:operator'],
   },
   'quick-clip-standard': {
     id: 'quick-clip-standard',

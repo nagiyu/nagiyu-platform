@@ -3,7 +3,7 @@ sources:
   - services/livetalk/core/src/entities/topic.entity.ts
   - services/livetalk/core/src/knowledge/retrieval.ts
   - services/livetalk/core/src/constants.ts
-sources_hash: bf9092866e8ecedb10e2b38016089cd4cffd87f643da093dfab3feb956c0caee
+sources_hash: x
 ---
 
 # Topic (話題)
