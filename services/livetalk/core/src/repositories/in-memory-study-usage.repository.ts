@@ -25,7 +25,11 @@ export class InMemoryStudyUsageRepository implements StudyUsageRepository {
     return tryConsumeStudyUsage(this.counter, input);
   }
 
-  public async readToday(userId: string, nowMs: number): Promise<StudyUsageToday> {
-    return readStudyUsageToday(this.counter, userId, nowMs);
+  public async readToday(
+    userId: string,
+    nowMs: number,
+    characterId?: string
+  ): Promise<StudyUsageToday> {
+    return readStudyUsageToday(this.counter, userId, nowMs, characterId);
   }
 }

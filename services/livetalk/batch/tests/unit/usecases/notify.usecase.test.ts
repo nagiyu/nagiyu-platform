@@ -68,6 +68,14 @@ jest.mock('@nagiyu/livetalk-core', () => ({
   // 鮮度確認の依頼も純粋関数 + 渡したリポジトリへの記録だけなので実物を使う
   hasStaleWebFact: jest.requireActual('../../../../core/src/study/freshness-check.js')
     .hasStaleWebFact,
+  selectCriticalCandidateTopics: jest.requireActual(
+    '../../../../core/src/notification/critical-candidates.js'
+  ).selectCriticalCandidateTopics,
+  partitionCriticalCandidates: jest.requireActual(
+    '../../../../core/src/notification/critical-candidates.js'
+  ).partitionCriticalCandidates,
+  toSentCriticals: jest.requireActual('../../../../core/src/notification/critical-candidates.js')
+    .toSentCriticals,
   requestFreshnessChecks: jest.requireActual('../../../../core/src/study/freshness-check.js')
     .requestFreshnessChecks,
   computeIntensityFactor: jest.fn(() => 1),
@@ -76,6 +84,7 @@ jest.mock('@nagiyu/livetalk-core', () => ({
   defaultUlidFactory: jest.fn(() => 'ULID-0001'),
   NOTIFICATION_EVENT_TTL_SECONDS: 2592000,
   NOTIFY_CRITICAL_CARE_THRESHOLD: 3,
+  NOTIFY_TOPIC_HEADER_READ_LIMIT: 10,
   // 判定に使う会話の読み始めは純粋関数なので実物を使う
   resolveNotifyMessageSinceMs:
     jest.requireActual('@nagiyu/livetalk-core').resolveNotifyMessageSinceMs,

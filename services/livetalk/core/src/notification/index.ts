@@ -30,3 +30,10 @@ export type {
 
 export { selectNotificationsToSend } from './selection.js';
 export type { SelectNotificationsInput, SelectNotificationsResult } from './selection.js';
+
+export {
+  selectCriticalCandidateTopics,
+  partitionCriticalCandidates,
+  toSentCriticals,
+} from './critical-candidates.js';
+export type { PartitionedCriticalCandidates } from './critical-candidates.js';

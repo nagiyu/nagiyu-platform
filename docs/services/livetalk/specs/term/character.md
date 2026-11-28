@@ -4,7 +4,7 @@ sources:
   - services/livetalk/web/src/lib/characters/registry.ts
   - services/livetalk/web/src/lib/characters/client-profiles.ts
   - services/livetalk/web/src/lib/characters/CharacterContext.tsx
-sources_hash: 526544a4413fc098d9f34f26a507a7ed080ee589738d785fc6d8da0d8cc08ac2
+sources_hash: 7166e55f8b31b2fce4d3cc14b8bf2f1f49f9e4b16def4e97809194ef2f790baf
 ---
 
 # キャラクター
