@@ -322,7 +322,7 @@ describe('StatusPage 勉強と重要通知', () => {
 
     const html = await renderPage();
 
-    expect(html).toContain('対象外（お試し終了）');
+    expect(html).toContain('対象外（お試し期間外）');
   });
 
   it('発話がなければ勉強停止中と表示し、重要通知も判定しない', async () => {

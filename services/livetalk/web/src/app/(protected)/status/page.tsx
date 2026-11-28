@@ -50,7 +50,7 @@ const STUDY_STATE_LABELS: Record<StudyState, string> = {
   no_lifecycle: '対象外（生活サイクル未登録）',
   paused: '勉強停止中（3 日ルール）',
   sleeping: '就寝中（起床後に勉強）',
-  trial_ended: '対象外（お試し終了）',
+  trial_ended: '対象外（お試し期間外）',
   limit_reached: '本日の上限到達',
   studying: '勉強中',
 };

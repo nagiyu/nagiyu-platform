@@ -11,7 +11,7 @@ sources:
   - services/livetalk/core/src/study/active-window.ts
   - services/livetalk/core/src/usecases/acquire.usecase.ts
   - services/livetalk/core/src/study/research-allowance.ts
-sources_hash: 8171e2c807908df361a9d914f294bc426fa9ac36739f45e146ea0dbdee96d99f
+sources_hash: 76717872d7ba2696d5f0768361d1365ae475cc627f50381b8c362774759099c4
 ---
 
 # ステータス API
@@ -46,7 +46,7 @@ sources_hash: 8171e2c807908df361a9d914f294bc426fa9ac36739f45e146ea0dbdee96d99f
 - 判定に使う会話は、通知バッチと同じ直近 7 日の分だけを読む。7 日より前の発話は、セッションの間隔にも最後の発話の時刻にも入らない
 - `study` の区分とお試しは、[勉強バッチ](../batch/acquire.md)と同じ関数で決める。ただし区分はセッションのロールから決めるので、解約や権利の期限切れの直後は、バッチの区分と食い違うことがある ([勉強の状態 API](./study-status.md))。今日の回数は、勉強バッチが数えるのと同じ項目 (利用者の合計と全利用者の合計) を、数えずに読む ([テーブル](../data/main-table.md))
 - 判定と間隔が解ける目安の時刻は、[通知バッチ](../batch/notify.md)の平常通知の判定と同じ関数で求める。画面とこの API は、読み取りと判定を同じ処理で行う。重要通知を出すかの判定 (LLM による話題の指定) と、複数のキャラクターの調停は含まない
-- `studyState` から `criticalCandidates` までの求め方 (勉強中のキャラクターの数え方、候補の絞り方) は、[ステータス画面](../screen/status.md#勉強と重要通知)と同じ。この API も読むだけで、鮮度確認の依頼を記録しない
+- `studyState` から `criticalCandidates` までの求め方 (勉強中のキャラクターの数え方、候補の絞り方) は、[ステータス画面](../screen/status.md#勉強と重要通知)と同じ。この API も読むだけで、鮮度確認の依頼を記録しない。`studyState` と `studyUsage.characterLimit` は `study` と同じ区分 (セッションのロール) を使うので、`study` と同じく、解約や権利の期限切れの直後はバッチと食い違うことがある
 
 ## エラー
 

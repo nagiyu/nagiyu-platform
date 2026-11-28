@@ -57,30 +57,30 @@ if (!Number.isNaN(fixedNow) && isNextStart && process.argv.includes('start')) {
 }
 
 const pushPort = process.env.CAPTURE_PUSH_PORT;
-if (pushPort) {
-  const original = https.request;
-  https.request = function request(...args) {
-    const options = args[0];
-    const isObject = options !== null && typeof options === 'object' && !(options instanceof URL);
-    const isPush = isObject && (options.host === PUSH_HOST || options.hostname === PUSH_HOST);
-    if (!isPush) {
-      const host = isObject ? (options.hostname ?? options.host) : options?.hostname;
-      if (isRealPushHost(host)) {
-        throw new Error(`撮影の差し替えから外れた Push サービス宛ての通信を止めました: ${host}`);
-      }
-      return original.apply(this, args);
+// 偽の Push サーバーの指定が無いときも、実在の Push サービス宛ては止める。止める処理を指定の有無で
+// 分けると、指定が漏れた撮影で購読先 (実在のドメインの下) へ通信が出てしまうため
+const original = https.request;
+https.request = function request(...args) {
+  const options = args[0];
+  const isObject = options !== null && typeof options === 'object' && !(options instanceof URL);
+  const host = isObject ? (options.hostname ?? options.host) : options?.hostname;
+  const isPush = isObject && (options.host === PUSH_HOST || options.hostname === PUSH_HOST);
+  if (!isPush || !pushPort) {
+    if (isRealPushHost(host)) {
+      throw new Error(`撮影の差し替えから外れた Push サービス宛ての通信を止めました: ${host}`);
     }
-    // https 用の agent と暗号スイートの指定は、http の通信では使えない
-    const { agent: _agent, ciphers: _ciphers, ...rest } = options;
-    return http.request(
-      {
-        ...rest,
-        host: '127.0.0.1',
-        hostname: '127.0.0.1',
-        port: Number(pushPort),
-        protocol: 'http:',
-      },
-      ...args.slice(1)
-    );
-  };
-}
+    return original.apply(this, args);
+  }
+  // https 用の agent と暗号スイートの指定は、http の通信では使えない
+  const { agent: _agent, ciphers: _ciphers, ...rest } = options;
+  return http.request(
+    {
+      ...rest,
+      host: '127.0.0.1',
+      hostname: '127.0.0.1',
+      port: Number(pushPort),
+      protocol: 'http:',
+    },
+    ...args.slice(1)
+  );
+};
