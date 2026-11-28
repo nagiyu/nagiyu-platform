@@ -36,7 +36,8 @@ const BILLING_TESTER_ROLES = ['billing-tester'];
 
 /** 描画が落ち着くまで待つ。待つ対象のテキストを明示する */
 async function ready(page: Page, text: string): Promise<void> {
-  await page.getByText(text, { exact: false }).first().waitFor();
+  // 一覧は表とカードの両方が DOM にあり、片方は隠れている。見えているものを待つ
+  await page.getByText(text, { exact: false }).locator('visible=true').first().waitFor();
   await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => undefined);
 }
 
@@ -44,14 +45,6 @@ async function mockJson(page: Page, pattern: string, body: unknown, status = 200
   await page.route(pattern, (route) =>
     route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) })
   );
-}
-
-/** 狭い画面では表が横にはみ出すので、右端 (ロールと操作の列) までスクロールして写す */
-async function scrollTableToEnd(page: Page): Promise<void> {
-  await page.evaluate(() => {
-    const container = document.querySelector('.MuiTableContainer-root');
-    if (container) container.scrollLeft = container.scrollWidth;
-  });
 }
 
 const signin: Scenario = {
@@ -131,14 +124,12 @@ const users: Scenario = {
     let page = await ctx.freshPage({ roles: ADMIN_ROLES });
     await page.goto('/dashboard/users');
     await ready(page, '山田 太郎');
-    await scrollTableToEnd(page);
     await ctx.shot('default');
 
     // roles:assign を持たない (「編集」が出ない)
     page = await ctx.freshPage({ roles: READ_ONLY_ROLES });
     await page.goto('/dashboard/users');
     await ready(page, '山田 太郎');
-    await scrollTableToEnd(page);
     await ctx.shot('read-only');
 
     // 一覧の取得に失敗した
