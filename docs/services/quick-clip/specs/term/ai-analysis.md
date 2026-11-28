@@ -9,7 +9,7 @@ sources:
   - services/quick-clip/web/src/app/api/jobs/[jobId]/complete-upload/route.ts
   - services/quick-clip/web/src/app/page.tsx
   - services/quick-clip/web/src/app/jobs/[jobId]/page.tsx
-sources_hash: 71d3295d99a548b399d373e996f378ac94b669def26d2adada3f024bc25de90c
+sources_hash: ebf84819114e8f664e5606b23fd3baaff700bd4fc42b934d69621c6022c29238
 ---
 
 # AI 解析
