@@ -32,7 +32,7 @@ export default function ContactPage() {
           お問い合わせフォーム
         </Typography>
         <Typography variant="body1" sx={{ mb: 3 }}>
-          以下のフォームからお問い合わせいただけます。Google フォームを利用しており、 Google
+          以下のフォームからお問い合わせいただけます。Google フォームを利用しており、Google
           アカウントなしでもご利用いただけます。
         </Typography>
         <Box sx={{ textAlign: 'center', mb: 3 }}>

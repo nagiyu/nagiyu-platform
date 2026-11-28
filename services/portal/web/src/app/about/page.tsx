@@ -26,13 +26,11 @@ export default function AboutPage() {
         </Typography>
         <Typography variant="body1" sx={{ mb: 2 }}>
           nagiyu は、個人で複数の Web サービスを AWS
-          上で開発・運用する中で得た経験を、一次情報として記録・公開する個人技術メディアです。
-          クラウドインフラ・CI
+          上で開発・運用する中で得た経験を、一次情報として記録・公開する個人技術メディアです。クラウドインフラ・CI
           とテストの設計・運用で実際に直面した課題と、その解決にあたっての判断過程を技術記事として掲載しています。
         </Typography>
         <Typography variant="body1" sx={{ mb: 2 }}>
-          私が個人開発で設計・実装・運用しているプロダクト群は、こうした記事の一次情報の源泉です。
-          記事はすべて自分の実装・運用経験に基づいており、検証していない内容は掲載しません。
+          私が個人開発で設計・実装・運用しているプロダクト群は、こうした記事の一次情報の源泉です。記事はすべて自分の実装・運用経験に基づいており、検証していない内容は掲載しません。
         </Typography>
       </Box>
 
@@ -145,7 +143,7 @@ export default function AboutPage() {
           による広告配信のみです。
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          詳細は <Link href="/privacy">プライバシーポリシー</Link> をご確認ください。
+          詳細は<Link href="/privacy">プライバシーポリシー</Link>をご確認ください。
         </Typography>
       </Box>
     </Container>
