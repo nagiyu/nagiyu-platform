@@ -1,6 +1,6 @@
 {
   "name": "@nagiyu/nextjs",
-  "version": "0.2.0-next.0",
+  "version": "0.2.0",
   "type": "module",
   "main": "dist/cjs/index.js",
   "types": "dist/src/index.d.ts",
@@ -44,7 +44,7 @@
     "format:check": "prettier --check ."
   },
   "dependencies": {
-    "@nagiyu/common": "^0.2.0-next.0",
+    "@nagiyu/common": "^0.2.0",
     "next-auth": "^5.0.0-beta.32"
   },
   "peerDependencies": {
