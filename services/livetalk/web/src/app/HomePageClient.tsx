@@ -171,7 +171,7 @@ function HomePageInner({ authUrl }: HomePageClientProps) {
           }}
         >
           <CharacterSelectButton disabled={phase !== 'idle'} />
-          <StudyStatusBadge authUrl={authUrl} />
+          <StudyStatusBadge authUrl={authUrl} consented={consentPhase === 'done'} />
         </Box>
         {/* 縦の短い画面ではキャラ側を縮めて、会話の領域 (下の minHeight) を優先して確保する。 */}
         <Box sx={{ flex: '0 1 60%', minHeight: 0, mb: 1 }}>

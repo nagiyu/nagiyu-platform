@@ -11,14 +11,16 @@ export interface StudyStatusBadgeProps {
    * 空文字になるため、サーバーコンポーネントで解決して渡す。
    */
   authUrl: string;
+  /** 同意が済んでいるか。済むまでは状態を取りに行かず、何も描かない */
+  consented: boolean;
 }
 
 /**
  * 勉強の状態を示す小さな札。お試し中は残り日数、お試しのあとは「勉強はお休み中」を出し、
  * 後者はプランの画面へのリンクにする。出さない状態や取得失敗のときは何も描かない。
  */
-export default function StudyStatusBadge({ authUrl }: StudyStatusBadgeProps) {
-  const status = useStudyStatus();
+export default function StudyStatusBadge({ authUrl, consented }: StudyStatusBadgeProps) {
+  const status = useStudyStatus(consented);
   const badge = status ? buildStudyBadge(status, authUrl) : null;
   if (!badge) return null;
 
