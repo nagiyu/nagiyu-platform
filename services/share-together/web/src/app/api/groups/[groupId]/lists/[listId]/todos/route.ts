@@ -1,4 +1,4 @@
-import { type ListRepository, type TodoRepository } from '@nagiyu/share-together-core';
+import { type ListRepository, TodoService } from '@nagiyu/share-together-core';
 import { withApiErrorReporting } from '@/lib/api-error-reporting';
 import { NextResponse } from 'next/server';
 import { readJsonObjectBody } from '@nagiyu/nextjs';
@@ -18,7 +18,7 @@ async function getAuthorizedContext(params: RouteParams['params']): Promise<
       listId: string;
       userId: string;
       listRepository: ListRepository;
-      todoRepository: TodoRepository;
+      todoService: TodoService;
     }
   | NextResponse
 > {
@@ -33,7 +33,7 @@ async function getAuthorizedContext(params: RouteParams['params']): Promise<
     listId,
     userId,
     listRepository: createListRepository(docClient, tableName),
-    todoRepository: createTodoRepository(docClient, tableName),
+    todoService: new TodoService(createTodoRepository(docClient, tableName)),
   };
 }
 
@@ -53,7 +53,7 @@ export const GET = withApiErrorReporting(
       return createNotFoundErrorResponse();
     }
 
-    const todos = await authorizedContextOrResponse.todoRepository.getByListId(
+    const todos = await authorizedContextOrResponse.todoService.getTodosByListId(
       authorizedContextOrResponse.listId
     );
     const response: TodosResponse = { data: { todos } };
@@ -88,13 +88,11 @@ export const POST = withApiErrorReporting(
       return createNotFoundErrorResponse();
     }
 
-    const todo = await authorizedContextOrResponse.todoRepository.create({
-      todoId: crypto.randomUUID(),
-      listId: authorizedContextOrResponse.listId,
+    const todo = await authorizedContextOrResponse.todoService.createTodo(
+      authorizedContextOrResponse.listId,
       title,
-      isCompleted: false,
-      createdBy: authorizedContextOrResponse.userId,
-    });
+      authorizedContextOrResponse.userId
+    );
     const response: TodoResponse = { data: todo };
 
     return NextResponse.json(response, { status: 201 });

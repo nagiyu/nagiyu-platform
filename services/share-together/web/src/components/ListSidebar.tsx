@@ -1,8 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import {
@@ -33,9 +31,8 @@ type ListSidebarProps = {
   createButtonLabel: string;
   selectedListId: string;
   lists?: readonly SidebarList[];
-  hrefPrefix: string;
   onCreateList?: () => void;
-  onListSelect?: (listId: string) => void;
+  onListSelect: (listId: string) => void;
   onRenameList?: (list: SidebarList) => void;
   onDeleteList?: (list: SidebarList) => void;
 };
@@ -70,13 +67,11 @@ export function ListSidebar({
   createButtonLabel,
   selectedListId,
   lists,
-  hrefPrefix,
   onCreateList,
   onListSelect,
   onRenameList,
   onDeleteList,
 }: ListSidebarProps) {
-  const router = useRouter();
   const [apiLists, setApiLists] = useState<readonly SidebarList[]>([]);
   const [snackbarMessage, setSnackbarMessage] = useState<string | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -87,13 +82,6 @@ export function ListSidebar({
   const isPersonalListLimitReached = !hasExternalLists && displayedLists.length >= 100;
   const shouldShowListActions =
     !hasExternalLists || onRenameList !== undefined || onDeleteList !== undefined;
-  const navigateToList = (listId: string) => {
-    if (onListSelect) {
-      onListSelect(listId);
-      return;
-    }
-    router.push(`${hrefPrefix}/${listId}`);
-  };
 
   useEffect(() => {
     if (hasExternalLists) {
@@ -148,7 +136,7 @@ export function ListSidebar({
         }
         const result = (await response.json()) as PersonalListResponse;
         setApiLists((prev) => [...prev, result.data]);
-        navigateToList(result.data.listId);
+        onListSelect(result.data.listId);
         setSnackbarMessage('個人リストを作成しました。');
       })
       .catch((error: unknown) => {
@@ -200,7 +188,7 @@ export function ListSidebar({
         setApiLists((prev) => {
           const updated = prev.filter((target) => target.listId !== list.listId);
           if (list.listId === selectedListId && updated.length > 0) {
-            navigateToList(updated[0].listId);
+            onListSelect(updated[0].listId);
           }
           return updated;
         });
@@ -276,26 +264,15 @@ export function ListSidebar({
               ) : undefined
             }
           >
-            {onListSelect ? (
-              <ListItemButton
-                selected={selectedListId === list.listId}
-                aria-current={selectedListId === list.listId ? 'page' : undefined}
-                component="button"
-                type="button"
-                onClick={() => navigateToList(list.listId)}
-              >
-                <ListItemText primary={list.name} />
-              </ListItemButton>
-            ) : (
-              <ListItemButton
-                selected={selectedListId === list.listId}
-                aria-current={selectedListId === list.listId ? 'page' : undefined}
-                component={Link}
-                href={`${hrefPrefix}/${list.listId}`}
-              >
-                <ListItemText primary={list.name} />
-              </ListItemButton>
-            )}
+            <ListItemButton
+              selected={selectedListId === list.listId}
+              aria-current={selectedListId === list.listId ? 'page' : undefined}
+              component="button"
+              type="button"
+              onClick={() => onListSelect(list.listId)}
+            >
+              <ListItemText primary={list.name} />
+            </ListItemButton>
           </ListItem>
         ))}
       </List>

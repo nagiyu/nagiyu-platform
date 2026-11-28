@@ -4,7 +4,7 @@ sources:
   - services/share-together/web/src/app/api/groups/[groupId]/lists/[listId]/todos/[todoId]/route.ts
   - services/share-together/web/src/lib/api/authorization.ts
   - services/share-together/core/src/libs/todo.ts
-sources_hash: d19028a86293e8eda9f07c01fccdfcc1f2fcbd3e4116fcc4559ef20c864ba26d
+sources_hash: b65b71cadc7c11570c03f70cf7244386bb91d8fa2398e1ba6067e3cac3c8e947
 ---
 
 # 共有 ToDo API
@@ -24,7 +24,7 @@ sources_hash: d19028a86293e8eda9f07c01fccdfcc1f2fcbd3e4116fcc4559ef20c864ba26d
 
 ## 入力と出力
 
-- 一覧は `{ data: { todos: [...] } }`。並べ替えず、保存先が返した順のまま返す ([個人 ToDo API](./personal-todos.md) は作成の古い順に並べる)。ToDo の項目は個人と同じ
+- 一覧は `{ data: { todos: [...] } }`。作成の古い順 (同時刻は ID の順)。[個人 ToDo API](./personal-todos.md) と同じ。ToDo の項目は個人と同じ
 - 作成の入力は `{ title }`。前後の空白を除いて 1〜200 文字。201 で ToDo を返す。`createdBy` は自分の ID
 - 変更の入力は `{ title?, isCompleted? }`。どちらか 1 つ以上が必要で、`title` は文字列 (1〜200 文字)、`isCompleted` は真偽値。完了にすると完了した人 (`completedBy`) に自分の ID を入れ、未完了に戻すと消す
 - 削除は 204 で本文はない

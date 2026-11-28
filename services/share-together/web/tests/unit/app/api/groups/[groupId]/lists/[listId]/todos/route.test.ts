@@ -16,6 +16,7 @@ jest.mock('@nagiyu/aws', () => ({
 }));
 
 jest.mock('@nagiyu/share-together-core', () => ({
+  TodoService: jest.fn(),
   DynamoDBListRepository: jest.fn(),
   createListRepository: jest.fn(),
   DynamoDBMembershipRepository: jest.fn(),
@@ -28,6 +29,7 @@ import {
   DynamoDBListRepository,
   DynamoDBMembershipRepository,
   DynamoDBTodoRepository,
+  TodoService,
 } from '@nagiyu/share-together-core';
 import { GET, POST } from '@/app/api/groups/[groupId]/lists/[listId]/todos/route';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
@@ -55,6 +57,7 @@ const mockDynamoDBMembershipRepository = DynamoDBMembershipRepository as jest.Mo
 ).createMembershipRepository.mockImplementation((...args: unknown[]) =>
   mockDynamoDBMembershipRepository(...args)
 );
+const mockTodoService = TodoService as jest.MockedClass<typeof TodoService>;
 const mockDynamoDBTodoRepository = DynamoDBTodoRepository as jest.MockedClass<
   typeof DynamoDBTodoRepository
 >;
@@ -74,9 +77,8 @@ import {
 describe('/api/groups/[groupId]/lists/[listId]/todos route', () => {
   const mockGetMembershipById = jest.fn();
   const mockGetGroupListById = jest.fn();
-  const mockGetByListId = jest.fn();
+  const mockGetTodosByListId = jest.fn();
   const mockCreateTodo = jest.fn();
-  let mockRandomUUID: jest.SpiedFunction<typeof crypto.randomUUID> | undefined;
 
   beforeEach(() => {
     process.env.DYNAMODB_TABLE_NAME = 'test-share-together-main';
@@ -96,18 +98,19 @@ describe('/api/groups/[groupId]/lists/[listId]/todos route', () => {
         }) as InstanceType<typeof DynamoDBListRepository>
     );
     mockDynamoDBTodoRepository.mockImplementation(
+      () => ({}) as InstanceType<typeof DynamoDBTodoRepository>
+    );
+    mockTodoService.mockImplementation(
       () =>
         ({
-          getByListId: mockGetByListId,
-          create: mockCreateTodo,
-        }) as InstanceType<typeof DynamoDBTodoRepository>
+          getTodosByListId: mockGetTodosByListId,
+          createTodo: mockCreateTodo,
+        }) as InstanceType<typeof TodoService>
     );
   });
 
   afterEach(() => {
     delete process.env.DYNAMODB_TABLE_NAME;
-    mockRandomUUID?.mockRestore();
-    mockRandomUUID = undefined;
     jest.clearAllMocks();
   });
 
@@ -158,7 +161,7 @@ describe('/api/groups/[groupId]/lists/[listId]/todos route', () => {
     });
 
     expect(response.status).toBe(404);
-    expect(mockGetByListId).not.toHaveBeenCalled();
+    expect(mockGetTodosByListId).not.toHaveBeenCalled();
   });
 
   it('GET: 共有リスト内のToDo一覧を返す', async () => {
@@ -178,7 +181,7 @@ describe('/api/groups/[groupId]/lists/[listId]/todos route', () => {
       createdAt: 1767225600000,
       updatedAt: 1767225600000,
     });
-    mockGetByListId.mockResolvedValue([
+    mockGetTodosByListId.mockResolvedValue([
       {
         todoId: 'todo-1',
         listId: 'list-1',
@@ -195,7 +198,7 @@ describe('/api/groups/[groupId]/lists/[listId]/todos route', () => {
     });
 
     expect(response.status).toBe(200);
-    expect(mockGetByListId).toHaveBeenCalledWith('list-1');
+    expect(mockGetTodosByListId).toHaveBeenCalledWith('list-1');
     await expect(response.json()).resolves.toEqual({
       data: {
         todos: [
@@ -232,7 +235,6 @@ describe('/api/groups/[groupId]/lists/[listId]/todos route', () => {
   });
 
   it('POST: 共有リストにToDoを作成して201レスポンスを返す', async () => {
-    mockRandomUUID = jest.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue('todo-9');
     mockGetSessionOrUnauthorized.mockResolvedValue({
       user: { id: 'user-1' },
     } as SessionOrErrorResponse);
@@ -264,13 +266,7 @@ describe('/api/groups/[groupId]/lists/[listId]/todos route', () => {
     });
 
     expect(response.status).toBe(201);
-    expect(mockCreateTodo).toHaveBeenCalledWith({
-      todoId: 'todo-9',
-      listId: 'list-1',
-      title: '卵を買う',
-      isCompleted: false,
-      createdBy: 'user-1',
-    });
+    expect(mockCreateTodo).toHaveBeenCalledWith('list-1', '卵を買う', 'user-1');
     await expect(response.json()).resolves.toEqual({
       data: {
         todoId: 'todo-9',

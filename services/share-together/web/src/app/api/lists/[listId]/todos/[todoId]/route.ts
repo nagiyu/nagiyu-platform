@@ -8,11 +8,7 @@ import { EntityNotFoundError, getDynamoDBDocumentClient } from '@nagiyu/aws';
 import { InvalidInputError } from '@nagiyu/common';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 import { createListRepository, createTodoRepository } from '@nagiyu/share-together-core';
-import {
-  createValidationErrorResponse,
-  createNotFoundErrorResponse,
-  createForbiddenErrorResponse,
-} from '@/lib/api/responses';
+import { createValidationErrorResponse, createNotFoundErrorResponse } from '@/lib/api/responses';
 import { isNonEmptyString } from '@/lib/api/validation';
 
 interface TodoRouteParams {
@@ -87,7 +83,7 @@ export const PUT = withApiErrorReporting(
       const { listRepository, todoService } = createServices();
       const existingList = await listRepository.getPersonalListById(userId, listId);
       if (!existingList) {
-        return createForbiddenErrorResponse();
+        return createNotFoundErrorResponse();
       }
       const todo = await todoService.updateTodo(listId, todoId, updates, userId);
       const response: TodoResponse = {
@@ -127,7 +123,7 @@ export const DELETE = withApiErrorReporting(
       const { listRepository, todoService } = createServices();
       const existingList = await listRepository.getPersonalListById(userId, listId);
       if (!existingList) {
-        return createForbiddenErrorResponse();
+        return createNotFoundErrorResponse();
       }
       await todoService.deleteTodo(listId, todoId);
       return new NextResponse(null, { status: 204 });
