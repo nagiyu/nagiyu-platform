@@ -12,5 +12,6 @@ sources_hash: 6ecac58677d5a6b288b5ef90cc8ce71f3b5e97116aec58d087ac4b4998e960cb
 ## 説明
 
 - 会話から集約バッチが取り出す。出所のメモ (provenance) を添え、誤ってまとめたときに辿れるようにする
+- 利用者が会話で言い直す (訂正・取り消す) と、集約バッチが古い SELF fact を新しい SELF fact に置き換える。取り消しは、今の状態を書いた事実で置き換える。言い直しでない発言では消さず、迷うときは古いものを残す ([集約バッチ](../batch/consolidate-conversations.md))
 - 利用者が削除できる単位である。削除は物理削除で、残った SELF fact と [WEB fact](./web-fact.md) から Topic の要約をその場で作り直す。要約の作り直しに失敗しても SELF fact は消えたままで、押し直すと要約だけを作り直す
 - 生まれた回の集約は [care](./care.md) を上げる。care を上げる唯一の根拠である

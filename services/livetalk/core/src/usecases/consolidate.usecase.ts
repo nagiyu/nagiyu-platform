@@ -1,4 +1,5 @@
 import { performance } from 'perf_hooks';
+import { EntityNotFoundError } from '@nagiyu/aws';
 import { logger } from '@nagiyu/common';
 import {
   TOPIC_ROUTING_SIMILARITY_THRESHOLD,
@@ -23,6 +24,7 @@ import type { WebRawEntity } from '../entities/webraw.entity.js';
 import type { IEmbeddingClient, ILLMClient } from '../llm-client/types.js';
 import type { ConsolidationRaw } from '../llm-client/schemas/consolidation.schema.js';
 import type { TopicEntity } from '../entities/topic.entity.js';
+import type { SelfFactEntity } from '../entities/self-fact.entity.js';
 import type { WebFactEntity, WebFactVolatility } from '../entities/web-fact.entity.js';
 import type { TopicRepository } from '../repositories/topic.repository.interface.js';
 import type { MessageRepository } from '../repositories/message.repository.interface.js';
@@ -178,6 +180,12 @@ function countSelfFacts(entries: TopicResult[]): number {
  */
 type ExistingFactRefs = ReadonlyMap<number, WebFactEntity>;
 
+/**
+ * 統合先 Topic の既存 SELF fact のうち、LLM に番号付きで見せたもの (番号 → 事実)。
+ * WEB fact とは別の番号空間で、この Map に載っている番号だけが replace の有効な参照先になる。
+ */
+type ExistingSelfFactRefs = ReadonlyMap<number, SelfFactEntity>;
+
 /** WEB fact の適用結果の件数。 */
 interface WebFactCounts {
   added: number;
@@ -189,12 +197,20 @@ interface WebFactCounts {
  * LLM が返した番号を、統合先 Topic の既存の事実を指す有効な番号だけに絞る。
  * 範囲外・非整数・別 Topic の事実を指す番号 (LLM の捏造・取り違え) は無視する。重複は畳む。
  */
-function filterValidFactIndices(indices: number[], refs: ExistingFactRefs): number[] {
+function filterValidFactIndices(
+  indices: number[],
+  refs: ExistingFactRefs | ExistingSelfFactRefs
+): number[] {
   return [...new Set(indices.filter((i) => Number.isInteger(i) && refs.has(i)))];
 }
 
 /**
  * 1 Topic 分の selfFacts/webFacts をグループ内の全エントリ分連結して追記する。
+ *
+ * selfFacts は、利用者の言い直しで古くなった既存の SELF fact との見比べ結果 (add / replace) に従って
+ * 適用する。有効な番号が残らない replace は add として扱う (誤って消すより古いものが残る方が安全)。
+ * 適用順は「新しい SELF fact を全部書く → 古い SELF fact を消す」で、途中で落ちても事実が失われない。
+ * 同じ古い事実を複数のエントリが指しても、削除は 1 回だけ行う。
  *
  * webFacts は既存の事実との見比べ結果 (add / replace / duplicate) に従って適用する。
  * 有効な番号が残らない replace / duplicate は add として扱う (溜まりすぎは上限が受け止める)。
@@ -209,9 +225,12 @@ async function appendTopicFacts(
   topicId: string,
   entries: TopicResult[],
   readAt: number,
-  existingFacts: ExistingFactRefs
-): Promise<{ selfFactCount: number } & WebFactCounts> {
+  existingFacts: ExistingFactRefs,
+  existingSelfFacts: ExistingSelfFactRefs
+): Promise<{ selfFactCount: number; replacedSelfFactCount: number } & WebFactCounts> {
   let selfFactCount = 0;
+  let replacedSelfFactCount = 0;
+  const deleteSelfIndices = new Set<number>();
 
   type Planned = {
     wf: TopicResult['webFacts'][number];
@@ -222,6 +241,10 @@ async function appendTopicFacts(
 
   for (const entry of entries) {
     for (const sf of entry.selfFacts) {
+      const selfIndices =
+        sf.action === 'add'
+          ? []
+          : filterValidFactIndices(sf.existingFactIndices, existingSelfFacts);
       await topicRepo.putSelfFact({
         userId,
         characterId,
@@ -230,6 +253,10 @@ async function appendTopicFacts(
         provenance: sf.provenance,
       });
       selfFactCount++;
+      if (sf.action === 'replace' && selfIndices.length > 0) {
+        replacedSelfFactCount++;
+        selfIndices.forEach((i) => deleteSelfIndices.add(i));
+      }
     }
 
     for (const wf of entry.webFacts) {
@@ -292,7 +319,20 @@ async function appendTopicFacts(
     await topicRepo.deleteWebFact({ userId, characterId, topicId, factId: fact.factId });
   }
 
-  return { selfFactCount, ...counts };
+  // 新しい SELF fact をすべて書いたあとで消す。同じ番号は Set で畳まれ、削除は 1 回になる
+  for (const i of deleteSelfIndices) {
+    const fact = existingSelfFacts.get(i);
+    if (!fact) continue;
+    try {
+      await topicRepo.deleteSelfFact({ userId, characterId, topicId, factId: fact.factId });
+    } catch (err) {
+      // 既に消えている (利用者が忘れさせた等) なら、消したい状態にはなっている
+      if (err instanceof EntityNotFoundError) continue;
+      throw err;
+    }
+  }
+
+  return { selfFactCount, replacedSelfFactCount, ...counts };
 }
 
 /**
@@ -349,11 +389,13 @@ async function trimWebFacts(
  * 3. 新規データ（会話 + Web 生データ）から「ルーティング用テキスト」を作り、埋め込みで
  *    既存 Topic ヘッダ（GSI3 経由で全件列挙）との cosine similarity を計算し、閾値以上・
  *    上位 N 件を候補 Topic として LLM プロンプトに渡す。候補 Topic の既存 WEB fact は
- *    新しい順に `WEB_FACT_TOPIC_LIMIT` 件まで、番号付きで一緒に渡す
+ *    新しい順に `WEB_FACT_TOPIC_LIMIT` 件まで、既存の SELF fact は全件、それぞれ別の番号空間の番号付きで
+ *    一緒に渡す
  * 4. LLM が話題ごとに「既存 Topic への merge」または「新規作成」を判断し、
  *    canonicalSummary・selfFacts・webFacts を返す
  * 5. 各 Topic について META (put) → SELF/WEB fact (append) の順で書き込む。新しい WEB fact は
- *    統合先 Topic の既存の事実と見比べた判断 (add / replace / duplicate) に従って適用する
+ *    統合先 Topic の既存の事実と見比べた判断 (add / replace / duplicate) に、新しい SELF fact は
+ *    既存の SELF fact と見比べた判断 (add / replace) に従って適用する
  * 6. 触れた Topic の WEB fact を、揮発性の区分ごとの上限まで古い順に削る (best-effort)
  * 7. 全 Topic の適用が成功したら、カーソルをストリーム別・条件付きで前進させる
  *
@@ -452,8 +494,14 @@ export async function consolidate(
       )
     )
   );
+  // SELF fact は件数の上限が無く、置き換え対象を見落とすと古い事実が残り続けるため全件見せる
+  const candidateSelfFacts = await Promise.all(
+    scored.map((s) => topicRepo.listSelfFacts(userId, characterId, s.header.topicId))
+  );
   const existingFactRefsByTopic = new Map<string, Map<number, WebFactEntity>>();
+  const existingSelfFactRefsByTopic = new Map<string, Map<number, SelfFactEntity>>();
   let nextFactIndex = 0;
+  let nextSelfFactIndex = 0;
   const candidateTopics = scored.map((s, i) => {
     const refs = new Map<number, WebFactEntity>();
     const existingWebFacts = candidateFacts[i].map((fact) => {
@@ -467,12 +515,20 @@ export async function consolidate(
       };
     });
     existingFactRefsByTopic.set(s.header.topicId, refs);
+    const selfRefs = new Map<number, SelfFactEntity>();
+    const existingSelfFacts = candidateSelfFacts[i].map((fact) => {
+      const index = nextSelfFactIndex++;
+      selfRefs.set(index, fact);
+      return { index, text: fact.text, heardAtLabel: formatJstMonthDay(fact.createdAt) };
+    });
+    existingSelfFactRefsByTopic.set(s.header.topicId, selfRefs);
     return {
       topicId: s.header.topicId,
       subject: s.header.subject,
       category: s.header.category,
       canonicalSummary: s.header.canonicalSummary,
       existingWebFacts,
+      existingSelfFacts,
     };
   });
 
@@ -508,6 +564,7 @@ export async function consolidate(
   let newTopicCount = 0;
   let updatedTopicCount = 0;
   let selfFactCount = 0;
+  let replacedSelfFactCount = 0;
   let webFactCount = 0;
   let replacedWebFactCount = 0;
   let duplicateWebFactCount = 0;
@@ -548,10 +605,12 @@ export async function consolidate(
         topicId,
         [topicResult],
         readAt,
+        new Map(),
         new Map()
       );
       touchedTopicIds.add(topicId);
       selfFactCount += counts.selfFactCount;
+      replacedSelfFactCount += counts.replacedSelfFactCount;
       webFactCount += counts.added + counts.replaced;
       replacedWebFactCount += counts.replaced;
       duplicateWebFactCount += counts.duplicated;
@@ -626,10 +685,12 @@ export async function consolidate(
       group.entries,
       readAt,
       // 番号は統合先 Topic の事実だけを指せる。META が消えていて新規扱いにした場合は参照先が無い
-      current ? (existingFactRefsByTopic.get(group.topicId) ?? new Map()) : new Map()
+      current ? (existingFactRefsByTopic.get(group.topicId) ?? new Map()) : new Map(),
+      current ? (existingSelfFactRefsByTopic.get(group.topicId) ?? new Map()) : new Map()
     );
     touchedTopicIds.add(topicId);
     selfFactCount += counts.selfFactCount;
+    replacedSelfFactCount += counts.replacedSelfFactCount;
     webFactCount += counts.added + counts.replaced;
     replacedWebFactCount += counts.replaced;
     duplicateWebFactCount += counts.duplicated;
@@ -690,6 +751,7 @@ export async function consolidate(
     newTopicCount,
     updatedTopicCount,
     selfFactCount,
+    replacedSelfFactCount,
     webFactCount,
     addedWebFactCount: webFactCount - replacedWebFactCount,
     replacedWebFactCount,
