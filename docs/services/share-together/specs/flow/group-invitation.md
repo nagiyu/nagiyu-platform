@@ -10,7 +10,7 @@ sources:
   - services/share-together/web/src/app/api/invitations/route.ts
   - services/share-together/web/src/app/api/invitations/[groupId]/route.ts
   - services/share-together/core/src/libs/group.ts
-sources_hash: 58df79065849f27b7a6e884a791dd15904d84a3cb3e9c194388070b0c81c29dd
+sources_hash: 109aa7ddba8a15209128fc36baef9305a8aafbd325ffb665d7ae8f2032e35cc9
 ---
 
 # 招待から参加までの経路

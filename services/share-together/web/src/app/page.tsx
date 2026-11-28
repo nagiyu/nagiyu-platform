@@ -4,7 +4,7 @@ import { Button } from '@nagiyu/ui';
 
 export default function Home() {
   return (
-    <main>
+    <>
       <Box component="section" sx={{ p: 2, maxWidth: 720, mx: 'auto' }}>
         <Typography variant="h5" component="h1" sx={{ mb: 2 }}>
           Share Together へようこそ
@@ -21,6 +21,6 @@ export default function Home() {
           </Button>
         </Stack>
       </Box>
-    </main>
+    </>
   );
 }

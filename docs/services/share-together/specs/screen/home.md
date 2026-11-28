@@ -4,7 +4,7 @@ sources:
   - services/share-together/web/src/app/layout.tsx
   - services/share-together/web/src/components/InvitationBadge.tsx
   - services/share-together/web/src/lib/invitation-events.ts
-sources_hash: 013e3038812279581f4dd8568ce7d55c33d49250a5fafeb3eac82d8489dd6ddc
+sources_hash: 359916ee5146f90e8c230c486aec01d832ce2e1bcfd1a6f10416591b27ebce7d
 ---
 
 # トップ画面

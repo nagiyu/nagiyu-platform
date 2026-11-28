@@ -16,7 +16,7 @@ const LISTS_PAGE_MESSAGES = {
 
 export default function ListsPage() {
   return (
-    <main>
+    <>
       <Box component="section" sx={{ p: 2, maxWidth: 1080, mx: 'auto' }}>
         <Typography variant="h5" component="h1" gutterBottom>
           リスト
@@ -31,7 +31,7 @@ export default function ListsPage() {
           <ListsPageContent />
         </Suspense>
       </Box>
-    </main>
+    </>
   );
 }
 
