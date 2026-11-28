@@ -47,6 +47,16 @@ export const ConsolidationSchema = z.object({
               ),
             /** 出所メモ（誤マージ可逆化用）。根拠となった発話の要旨を短く記す */
             provenance: z.string(),
+            action: z
+              .enum(['add', 'replace'])
+              .describe(
+                '統合先 Topic の「既存の自分の事実」と見比べた判断。replace は「ユーザー:」の発話で、ユーザー自身が既存の事実と同じ事柄を言い直した・訂正した・取り消したとき。好みや事実が増えただけ・別の事柄・キャラの発話・迷うときは add。新規 Topic では常に add。'
+              ),
+            existingFactIndices: z
+              .array(z.number().int())
+              .describe(
+                'replace なら古くなった既存の事実の番号 N（プロンプトの「既存の自分の事実」に表示された [自分 #N] の N）をすべて入れる。add なら空配列。統合先 Topic の「既存の自分の事実」に表示された番号だけを使い、憶測で番号を作らない。'
+              ),
           })
         )
         .describe(

@@ -94,6 +94,7 @@ describe('buildConsolidatePrompt', () => {
           category: '料理',
           canonicalSummary: 'ユーザーはせいろ蒸しが好き',
           existingWebFacts: [],
+          existingSelfFacts: [],
         },
       ],
       newMessages: [],
@@ -116,6 +117,7 @@ describe('buildConsolidatePrompt', () => {
           subject: '蒸し料理',
           category: '料理',
           canonicalSummary: '要約',
+          existingSelfFacts: [],
           existingWebFacts: [
             { index: 3, text: '強火で蒸す', volatility: 'low', observedAtLabel: '3月5日' },
             { index: 4, text: '蒸し時間は10分', volatility: 'stable', observedAtLabel: '3月1日' },
@@ -126,6 +128,7 @@ describe('buildConsolidatePrompt', () => {
           subject: '紅茶',
           category: '飲み物',
           canonicalSummary: '要約2',
+          existingSelfFacts: [],
           existingWebFacts: [
             { index: 5, text: '茶葉は95度', volatility: 'high', observedAtLabel: '2月1日' },
           ],
@@ -141,6 +144,74 @@ describe('buildConsolidatePrompt', () => {
     expect(content).toContain('[事実 #5] 茶葉は95度（揮発性: high、観測日: 2月1日）');
   });
 
+  it('候補 Topic の既存の SELF fact が WEB fact とは別の番号で、聞いた日とともに表示される', () => {
+    const messages = buildConsolidatePrompt({
+      characterName: '早瀬アゲハ',
+      todayLabel: '2026年11月20日(金)',
+      candidateTopics: [
+        {
+          topicId: 'topic-1',
+          subject: 'お茶',
+          category: '飲み物',
+          canonicalSummary: '要約',
+          existingWebFacts: [
+            { index: 0, text: '茶葉は95度', volatility: 'high', observedAtLabel: '2月1日' },
+          ],
+          existingSelfFacts: [
+            { index: 0, text: 'ユーザーは緑茶が好き', heardAtLabel: '11月3日' },
+            { index: 1, text: 'ユーザーは朝に飲む', heardAtLabel: '11月5日' },
+          ],
+        },
+      ],
+      newMessages: [],
+      webRaws: [],
+    });
+
+    const content = messages.find((m) => m.role === 'user')?.content ?? '';
+    expect(content).toContain('[自分 #0] ユーザーは緑茶が好き（聞いた日: 11月3日）');
+    expect(content).toContain('[自分 #1] ユーザーは朝に飲む（聞いた日: 11月5日）');
+    expect(content).toContain('[事実 #0] 茶葉は95度');
+  });
+
+  it('既存の SELF fact が無い候補 Topic は「既存の自分の事実: なし」と表示する', () => {
+    const messages = buildConsolidatePrompt({
+      characterName: '早瀬アゲハ',
+      todayLabel: '2026年11月20日(金)',
+      candidateTopics: [
+        {
+          topicId: 'topic-1',
+          subject: 'お茶',
+          category: '飲み物',
+          canonicalSummary: '要約',
+          existingWebFacts: [],
+          existingSelfFacts: [],
+        },
+      ],
+      newMessages: [],
+      webRaws: [],
+    });
+
+    const content = messages.find((m) => m.role === 'user')?.content ?? '';
+    expect(content).toContain('既存の自分の事実: なし');
+  });
+
+  it('system メッセージに selfFacts の置き換え基準が書かれている', () => {
+    const messages = buildConsolidatePrompt({
+      characterName: '早瀬アゲハ',
+      todayLabel: '2026年11月20日(金)',
+      candidateTopics: [],
+      newMessages: [],
+      webRaws: [],
+    });
+
+    const system = messages.find((m) => m.role === 'system')?.content ?? '';
+    expect(system).toContain('[自分 #N]');
+    expect(system).toContain('言い直した・訂正した・取り消したときだけ');
+    expect(system).toContain('迷ったら add にしてください');
+    expect(system).toContain('ほうじ茶は好きではない');
+    expect(system).toContain('replace で古くなった既存の自分の事実の内容を残さないでください');
+  });
+
   it('既存の事実が無い候補 Topic は「既存の事実: なし」と表示する', () => {
     const messages = buildConsolidatePrompt({
       characterName: '早瀬アゲハ',
@@ -152,6 +223,7 @@ describe('buildConsolidatePrompt', () => {
           category: '料理',
           canonicalSummary: '要約',
           existingWebFacts: [],
+          existingSelfFacts: [],
         },
       ],
       newMessages: [],

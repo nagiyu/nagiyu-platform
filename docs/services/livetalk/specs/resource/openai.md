@@ -17,7 +17,7 @@ sources:
   - services/livetalk/core/src/lib/llm-retry.ts
   - services/livetalk/web/src/lib/server/voice.ts
   - services/livetalk/web/src/lib/server/safety.ts
-sources_hash: f4d601b0669b9869b3ca5778f775ea74325c19af75ddcbc9b3bcc43cccce67ee
+sources_hash: 78fcdb34abd9fc43190a9b3176c3ac7b95a08715b26501c6039a356a8c1507f2
 ---
 
 # OpenAI の使い方
@@ -58,7 +58,7 @@ LiveTalk が OpenAI の API をどう使うか。会話・要約・分類・Web 
 
 | スキーマ | 用途 | 返すもの |
 |---|---|---|
-| `ConsolidationSchema` | 要約 | 集約バッチが、未集約の会話と Web 取得を話題ごとにまとめた結果 (既存 Topic への名寄せか新規か、要約、SELF fact、WEB fact) |
+| `ConsolidationSchema` | 要約 | 集約バッチが、未集約の会話と Web 取得を話題ごとにまとめた結果 (既存 Topic への名寄せか新規か、要約、SELF fact と既存の SELF fact の置き換え、WEB fact と既存の WEB fact との見比べ) |
 | `RegenerateSummarySchema` | 要約 | SELF fact を消したあとの、Topic の要約の作り直し |
 | `NoteLetterSchema` | 要約 | ノートにするか (`skip`)、手紙の文面 |
 | `KnowledgeGateSchema` | 分類 | 勉強が要る話題か (`needsStudy`)、正規化した話題名 |
