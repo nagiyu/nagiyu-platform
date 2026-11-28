@@ -14,6 +14,7 @@
  *   - 勉強の日次の回数と上限（studyUsage）
  *   - 鮮度確認の依頼待ち（freshnessCheckRequests）
  *   - 重要通知の判定の手前（criticalCandidates: 判定に渡る候補 / 鮮度切れで外れた話題 / 送り済み）
+ *   - 勉強の区分・お試し・今日の回数 (study)
  *
  * chat metrics（promptTokens / latencyMs）は DynamoDB 未永続のため本 Issue のスコープ外。
  * CloudWatch Logs Insights で確認する。
@@ -25,6 +26,7 @@ import { DEFAULT_CHARACTER_ID } from '@nagiyu/livetalk-core';
 import { getSession } from '@/lib/server/session';
 import { withApiErrorReporting } from '@/lib/server/api-error-reporting';
 import { loadStatusSnapshot } from '@/lib/server/status';
+import { loadAdminStudyStatusForCharacter } from '@/lib/study/admin-study-status';
 import { STATUS_ERROR_MESSAGES } from './constants';
 import { hasCharacter } from '@/lib/characters/registry';
 
@@ -35,7 +37,15 @@ export const GET = withApiErrorReporting(
     const url = new URL(request.url);
     const queriedId = url.searchParams.get('characterId');
     const characterId = queriedId && hasCharacter(queriedId) ? queriedId : DEFAULT_CHARACTER_ID;
-    const snapshot = await loadStatusSnapshot(userId, characterId, new Date());
+    const now = new Date();
+    // 画面の勉強の節と止まっている理由が食い違わないよう、同じ読み取りを両方に使う
+    const { status: study, characterCount } = await loadAdminStudyStatusForCharacter(
+      userId,
+      session.user.roles,
+      now.getTime(),
+      characterId
+    );
+    const snapshot = await loadStatusSnapshot(userId, characterId, now, { study, characterCount });
     const { notifyDecision, nextEarliestAt } = snapshot;
 
     return NextResponse.json({
@@ -58,6 +68,7 @@ export const GET = withApiErrorReporting(
       studyUsage: snapshot.studyUsage,
       freshnessCheckRequests: snapshot.freshnessCheckRequests,
       criticalCandidates: snapshot.criticalCandidates,
+      study,
     });
   }),
   { error: 'FETCH_FAILED', message: STATUS_ERROR_MESSAGES.FETCH_FAILED }

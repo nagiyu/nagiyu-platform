@@ -16,6 +16,7 @@ on:
       - 'package-lock.json'
       - '.node-version'
       - '.github/workflows/ui-storybook-deploy.yml'
+      - '.github/actions/setup-cdk/**'
       - '.github/actions/setup-node/**'
   workflow_dispatch:
     inputs:
@@ -54,21 +55,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js and install dependencies
-        uses: ./.github/actions/setup-node
-        with:
-          # Node はイメージに入っているものを使う
-          skip-setup-node: 'true'
-          cache-dependency-path: package-lock.json
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      # infra-ui-storybook は ts-node で動くため、サービスの infra のビルドは要らない
+      - name: Setup CDK
+        uses: ./.github/actions/setup-cdk
         with:
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
-          aws-region: us-east-1
-
-      - name: Build common infrastructure package
-        run: npm run build --workspace=@nagiyu/infra-common
 
       # libs はルートのワークスペースではなく独立した npm プロジェクトのため、libs の中で入れてビルドする
       # Storybook は @nagiyu/common などを libs の中のリンクから dist で読むため、先に libs をビルドする

@@ -9,7 +9,7 @@ sources:
   - services/livetalk/core/src/repositories/chat-guard-counting.ts
   - services/livetalk/core/src/lib/chat-guard-window.ts
   - libs/aws/src/dynamodb/counter/try-increment-in-order.ts
-sources_hash: 46d5f42e2f22e27a0c13aa3b46ddcd1db2b1fe79f49b87a8f65e3072c74f5264
+sources_hash: x
 ---
 
 # チャット API
@@ -20,7 +20,7 @@ sources_hash: 46d5f42e2f22e27a0c13aa3b46ddcd1db2b1fe79f49b87a8f65e3072c74f5264
 
 | メソッド | パス | 権限 |
 |---|---|---|
-| POST | `/api/chat` | `livetalk:chat` ([権限とロール](../term/permission.md)) |
+| POST | `/api/chat` | ログインしていること ([権限とロール](../term/permission.md)) |
 
 ## 入力と出力
 
@@ -79,7 +79,7 @@ flowchart TD
 | 同じ利用者の別の呼び出しが処理中 | 429 | `CONCURRENT_REQUEST` |
 | 1 分または 1 時間の上限を超えた (ロックは外す) | 429 | `RATE_LIMIT_EXCEEDED` |
 
-- 権限の不足は 401 / 403。形は [API のエラー応答](../term/api-error.md)
+- 未ログインは 401。形は [API のエラー応答](../term/api-error.md)
 
 ## つながり
 

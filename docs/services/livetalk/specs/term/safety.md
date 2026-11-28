@@ -5,7 +5,7 @@ sources:
   - services/livetalk/core/src/safety/moderation.ts
   - services/livetalk/core/src/entities/safety-event.entity.ts
   - services/livetalk/core/src/usecases/chat-usecase.ts
-sources_hash: 1e5d174f3af7d22b3a777a8953e37cc22e60e7a7bdba07c4974b5a6be702f4aa
+sources_hash: 81058e1930b4c7e1ed35962836a9ccc0af7260119ac6a3551cf5610977ae2a65
 ---
 
 # セーフティ

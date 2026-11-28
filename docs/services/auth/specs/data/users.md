@@ -1,18 +1,18 @@
 ---
 sources:
   - infra/auth/lib/dynamodb-stack.ts
-  - services/auth/core/src/mappers/user.mapper.ts
+  - libs/aws/src/auth-users/mapper.ts
   - services/auth/core/src/repositories/dynamodb-user-repository.ts
   - services/auth/core/src/repositories/update-roles-and-grants.ts
   - services/auth/core/src/repositories/user-repository.ts
   - libs/common/src/auth/role-grants.ts
   - services/auth/web/src/lib/auth/auth.ts
-sources_hash: 4205e1486efc293fbc3508639f414eac66a9291d0fcb86a22449b1fe948da489
+sources_hash: fc836144596678f9f3fa1d26e456e5353137a3a8bd6e60683f5957185d5fa3ef
 ---
 
 # ユーザーテーブル
 
-Auth が持つユーザーを保存する DynamoDB のテーブル。ユーザー 1 人が 1 項目で、Google アカウントとの対応、手動で付けたロール、[課金の権利](../term/role-grant.md)、Stripe の顧客 ID を持つ。Auth だけが読み書きし、ほかのサービスはこのテーブルを参照しない。
+Auth が持つユーザーを保存する DynamoDB のテーブル。ユーザー 1 人が 1 項目で、Google アカウントとの対応、手動で付けたロール、[課金の権利](../term/role-grant.md)、Stripe の顧客 ID を持つ。書くのは Auth だけである。ほかのサービスでは、LiveTalk の勉強バッチが、勉強の区分を決めるためにロールの属性 (手動のロールと課金の権利) だけを `GetItem` で読む ([LiveTalk の勉強バッチ](../../../livetalk/specs/batch/acquire.md))。項目と `User` の変換 (mapper) は `@nagiyu/aws` に置き ([auth のユーザー](../../../../platform/specs/lib/aws/auth-users.md))、Auth のリポジトリはそれを使う。
 
 ## テーブル
 

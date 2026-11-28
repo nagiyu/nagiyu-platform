@@ -13,7 +13,7 @@ sources:
   - services/auth/web/src/lib/api-error-reporting.ts
   - services/auth/core/src/repositories/dynamodb-user-repository.ts
   - services/auth/core/src/repositories/user-repository.ts
-sources_hash: 27f3ba821ed60c932374c5a88e5fb2b48cd3219ca1f9c70bde1c6ca40fd4b91a
+sources_hash: 415d4f6ae83ac5a8c28ead234a967c77d00d19c2f194ba10759338af331e4d87
 ---
 
 # ユーザー API

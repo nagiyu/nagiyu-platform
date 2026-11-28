@@ -87,14 +87,17 @@ async function selectCharacter(page: Page, characterId: string): Promise<void> {
 
 /**
  * ホーム画面が開くときに読む API を、既定の応答にそろえる。
- * 同意済み・生活サイクルは起きている・未消化の通知はない、が既定。
+ * 同意済み・生活サイクルは起きている・未消化の通知はない・勉強の札は出ない、が既定。
  */
 async function mockHomeApis(
   page: Page,
   consented = true,
-  consentExtra: Record<string, unknown> = {}
+  consentExtra: Record<string, unknown> = {},
+  studyStatus: Record<string, unknown> = { state: 'hidden' }
 ): Promise<void> {
   await muteClientLog(page);
+  // 勉強の札の状態。Profile の作成時刻から決まる値を、固定の応答で差し替える
+  await mockJson(page, '**/api/study-status', studyStatus);
   await mockJson(page, '**/api/consent', { consented, ...consentExtra });
   await mockJson(page, '**/api/lifecycle*', { state: 'awake' });
   await page.route('**/api/push/first-word*', (route) => route.fulfill({ status: 204 }));
@@ -187,6 +190,22 @@ const home: Scenario = {
     await openHome(ctx);
     await ctx.shot('default');
 
+    // 勉強の札 (無料でお試し中。残り 3 日)
+    const trialPage = await ctx.freshPage();
+    await snoozeOnboarding(trialPage);
+    await mockHomeApis(trialPage, true, {}, { state: 'trial', remainingDays: 3 });
+    await trialPage.goto('/');
+    await ready(trialPage, 'お試し中 あと 3 日');
+    await ctx.shot('study-trial');
+
+    // 勉強の札 (無料でお試しのあと。押すとプランの画面へ)
+    const endedPage = await ctx.freshPage();
+    await snoozeOnboarding(endedPage);
+    await mockHomeApis(endedPage, true, {}, { state: 'ended' });
+    await endedPage.goto('/');
+    await ready(endedPage, '勉強はお休み中');
+    await ctx.shot('study-ended');
+
     // 初回アクセス (同意のダイアログ)
     let page = await ctx.freshPage();
     await snoozeOnboarding(page);
@@ -199,7 +218,7 @@ const home: Scenario = {
     const revisionPage = await ctx.freshPage();
     await snoozeOnboarding(revisionPage);
     await mockHomeApis(revisionPage, false, {
-      requiredVersions: { terms: '1.1.0', privacy: '1.1.0' },
+      requiredVersions: { terms: '1.2.0', privacy: '1.2.0' },
       current: {
         termsAgreed: { version: '1.0.0', agreedAt: 1 },
         privacyAgreed: { version: '1.0.0', agreedAt: 1 },
@@ -628,17 +647,6 @@ const status: Scenario = {
   },
 };
 
-const forbidden: Scenario = {
-  screen: 'forbidden',
-  async run(ctx) {
-    // 通常表示 (権限がないページから飛ばされた)
-    const page = await ctx.freshPage();
-    await page.goto('/forbidden?from=%2Fnotes');
-    await ready(page, 'アクセス権限がありません');
-    await ctx.shot('default');
-  },
-};
-
 const terms: Scenario = {
   screen: 'terms',
   async run(ctx) {
@@ -667,6 +675,16 @@ const privacy: Scenario = {
     const history = page.getByTestId('legal-revision-history');
     await history.scrollIntoViewIfNeeded();
     await ctx.shot('revision-history', { around: history });
+  },
+};
+
+const tokushoho: Scenario = {
+  screen: 'tokushoho',
+  async run(ctx) {
+    const page = await ctx.freshPage();
+    await page.goto('/legal/tokushoho');
+    await ready(page, '販売事業者');
+    await ctx.shot('default', { viewportOnly: true });
   },
 };
 
@@ -712,8 +730,8 @@ export const livetalk: ServiceCapture = {
       },
     ],
   },
-  defaultRoles: ['livetalk-user'],
+  defaultRoles: [],
   fixedTime: FIXED_TIME,
   // サーバーで描くステータスが、サーバー自身に作らせたデータを読むため、データを作る画面は他の画面のあとに置く
-  scenarios: [home, memory, notes, noteDetail, forbidden, terms, privacy, status],
+  scenarios: [home, memory, notes, noteDetail, terms, privacy, tokushoho, status],
 };

@@ -59,8 +59,8 @@ const mockGetChatGuardRepository = createChatGuardRepository as jest.Mock;
 const mockGetProfileRepository = createProfileRepository as jest.Mock;
 
 const consentedConsents = {
-  termsAgreed: { version: '1.1.0', agreedAt: 0 },
-  privacyAgreed: { version: '1.1.0', agreedAt: 0 },
+  termsAgreed: { version: '1.2.0', agreedAt: 0 },
+  privacyAgreed: { version: '1.2.0', agreedAt: 0 },
   ageVerified: { value: true, verifiedAt: 0 },
 };
 
@@ -83,7 +83,7 @@ const validSession = {
     id: 'u1',
     email: 'u@example.com',
     name: 'U',
-    roles: ['livetalk-user'],
+    roles: [],
   },
   expires: new Date(Date.now() + 60 * 1000).toISOString(),
 };
@@ -127,15 +127,6 @@ describe('POST /api/chat', () => {
     mockGetSession.mockResolvedValueOnce(null);
     const res = await POST(buildRequest({ text: 'hello' }));
     expect(res.status).toBe(401);
-  });
-
-  it('permission がない場合は 403', async () => {
-    mockGetSession.mockResolvedValueOnce({
-      ...validSession,
-      user: { ...validSession.user, roles: ['guest'] },
-    });
-    const res = await POST(buildRequest({ text: 'hello' }));
-    expect(res.status).toBe(403);
   });
 
   describe('認証済み', () => {

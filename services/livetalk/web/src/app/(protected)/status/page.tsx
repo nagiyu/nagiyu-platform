@@ -22,9 +22,19 @@ import {
   getRegisteredCharacterIds,
   getCharacterDisplay,
 } from '@/lib/characters/registry';
+import {
+  ADMIN_STUDY_LABELS,
+  formatAdminStudyLines,
+  loadAdminStudyStatusForCharacter,
+} from '@/lib/study/admin-study-status';
 import StatusCharacterSwitcher from '@/components/StatusCharacterSwitcher';
 import StatusTestPush from '@/components/StatusTestPush';
-import type { CriticalSkipReason, CriticalTopicSummary, StudyState } from '@/lib/server/status';
+import type {
+  CriticalSkipReason,
+  CriticalTopicSummary,
+  StudyLimitScope,
+  StudyState,
+} from '@/lib/server/status';
 
 const REASON_LABELS: Record<string, string> = {
   not_due: 'インターバル未経過',
@@ -40,8 +50,16 @@ const STUDY_STATE_LABELS: Record<StudyState, string> = {
   no_lifecycle: '対象外（生活サイクル未登録）',
   paused: '勉強停止中（3 日ルール）',
   sleeping: '就寝中（起床後に勉強）',
+  trial_ended: '対象外（お試し終了）',
   limit_reached: '本日の上限到達',
   studying: '勉強中',
+};
+
+/** 回数の上限に達した枠のラベル。どの枠かで、直し方 (キャラ別の等分か、区分か、全体か) が変わる */
+const LIMIT_REACHED_BY_LABELS: Record<StudyLimitScope, string> = {
+  character: 'キャラ別',
+  user: 'あなたの合計',
+  global: '全利用者',
 };
 
 /** 重要通知を判定しない理由のラベル */
@@ -99,8 +117,15 @@ export default async function StatusPage({ searchParams }: StatusPageProps) {
   const userId = session.user.id;
   const now = new Date();
 
+  // 勉強の節と止まっている理由が食い違わないよう、同じ読み取りを両方に使う
+  const { status: studyStatus, characterCount } = await loadAdminStudyStatusForCharacter(
+    userId,
+    session.user.roles,
+    now.getTime(),
+    characterId
+  );
   const [snapshot, recentSafetyEvents] = await Promise.all([
-    loadStatusSnapshot(userId, characterId, now),
+    loadStatusSnapshot(userId, characterId, now, { study: studyStatus, characterCount }),
     createSafetyEventRepository().listRecent(SAFETY_REVIEW_DEFAULT_LIMIT),
   ]);
   const { lifecycle, notifyDecision, nextEarliestAt, recentNotifications } = snapshot;
@@ -231,7 +256,9 @@ export default async function StatusPage({ searchParams }: StatusPageProps) {
       <Box sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
         <Typography variant="body2">勉強:</Typography>
         <Chip size="sm" color={studyState === 'studying' ? 'success' : 'warning'}>
-          {STUDY_STATE_LABELS[studyState]}
+          {studyState === 'limit_reached' && studyUsage.limitReachedBy !== null
+            ? `${STUDY_STATE_LABELS[studyState]}（${LIMIT_REACHED_BY_LABELS[studyUsage.limitReachedBy]}）`
+            : STUDY_STATE_LABELS[studyState]}
         </Chip>
       </Box>
       <Box sx={{ mb: 1 }}>
@@ -256,9 +283,6 @@ export default async function StatusPage({ searchParams }: StatusPageProps) {
         <Typography variant="body2" color="text.secondary">
           このキャラ: {studyUsage.characterCount} / {studyUsage.characterLimit} 回 （勉強中のキャラ{' '}
           {studyUsage.studyingCharacterCount} 人で等分）
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          全キャラ合計: {studyUsage.totalCount} / {studyUsage.totalLimit} 回
         </Typography>
       </Box>
       <Box sx={{ mb: 1 }}>
@@ -316,6 +340,18 @@ export default async function StatusPage({ searchParams }: StatusPageProps) {
         コンテンツ
       </Typography>
       <Typography variant="body2">STUDY_TOPIC (pending): {studyPendingCount} 件</Typography>
+
+      <Divider sx={{ my: 1.5 }} />
+
+      {/* 勉強が止まっているとき、区分・お試し・上限のどれが理由かを見分ける */}
+      <Typography variant="subtitle2" sx={{ mb: 0.5, fontWeight: 'bold' }}>
+        {ADMIN_STUDY_LABELS.SECTION_TITLE}
+      </Typography>
+      {formatAdminStudyLines(studyStatus).map((line) => (
+        <Typography key={line} variant="body2">
+          {line}
+        </Typography>
+      ))}
 
       <Divider sx={{ my: 1.5 }} />
 

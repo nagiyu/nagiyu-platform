@@ -1,7 +1,6 @@
 /**
  * Single Table 設計の PK / SK を組み立てるための共通ヘルパー。
  *
- * 設計は `docs/services/livetalk/architecture.md` §3「データモデル概要」の SK パターンに準拠する。
  * PK は全エンティティで `USER#<userId>` に統一する。
  *
  * GSI1: Profile 列挙用 sparse GSI（#3527）
@@ -228,6 +227,15 @@ export function buildStudyUsageSK(dayKey: string): string {
  */
 export function buildStudyUsageCountAttribute(characterId: string): string {
   return `Count#${characterId}`;
+}
+
+/**
+ * 全利用者の勉強の合計を数えるアイテムの PK。
+ * SK は利用者別と同じ {@link buildStudyUsageSK}、属性は {@link buildStudyUsageTotalAttribute} を使う。
+ * `USER#` 配下に置かないため、アカウント削除で消えることも、利用者の回数と混ざることもない。
+ */
+export function buildGlobalStudyUsagePK(): string {
+  return 'GLOBAL#STUDYUSAGE';
 }
 
 /** 勉強の回数アイテム内の、利用者の全キャラクター合計の回数の属性名 */

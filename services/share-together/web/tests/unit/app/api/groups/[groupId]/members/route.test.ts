@@ -33,6 +33,7 @@ jest.mock('@nagiyu/share-together-core', () => {
     DynamoDBUserRepository: jest.fn(),
     createUserRepository: jest.fn(),
     inviteMember: jest.fn(),
+    isInvitationExpired: actualCore.isInvitationExpired,
     ERROR_MESSAGES: {
       DUPLICATE_INVITATION: actualCore.ERROR_MESSAGES.DUPLICATE_INVITATION,
       ALREADY_GROUP_MEMBER: actualCore.ERROR_MESSAGES.ALREADY_GROUP_MEMBER,
@@ -213,8 +214,45 @@ describe('/api/groups/[groupId]/members route', () => {
             joinedAt: 1767225600000,
           },
         ],
+        pendingInvitationCount: 1,
       },
     });
+  });
+
+  it('GET: 招待中の人数は期限切れを除いて数える', async () => {
+    const now = 1767225600000;
+    jest.spyOn(Date, 'now').mockReturnValue(now);
+    mockGetSessionOrUnauthorized.mockResolvedValue({
+      user: { id: 'owner-1' },
+    } as SessionOrUnauthorized);
+    const base = {
+      groupId: 'group-1',
+      role: 'MEMBER',
+      createdAt: now - 1000,
+      updatedAt: now - 1000,
+    };
+    mockGetMembershipById.mockResolvedValue({ ...base, userId: 'owner-1', status: 'ACCEPTED' });
+    mockGetMembershipsByGroupId.mockResolvedValue([
+      { ...base, userId: 'owner-1', role: 'OWNER', status: 'ACCEPTED' },
+      { ...base, userId: 'p-valid', status: 'PENDING', expiresAt: now + 1000 },
+      { ...base, userId: 'p-no-expiry', status: 'PENDING' },
+      { ...base, userId: 'p-expired', status: 'PENDING', expiresAt: now - 1 },
+      { ...base, userId: 'p-expired-exact', status: 'PENDING', expiresAt: now },
+      { ...base, userId: 'rejected', status: 'REJECTED' },
+    ]);
+    mockGetUserById.mockResolvedValue({
+      userId: 'owner-1',
+      email: 'owner@example.com',
+      name: 'オーナー',
+      defaultListId: 'list-1',
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const response = await GET({} as Request, { params: Promise.resolve({ groupId: 'group-1' }) });
+
+    const body = (await response.json()) as { data: { pendingInvitationCount: number } };
+    expect(body.data.pendingInvitationCount).toBe(2);
   });
 
   it('POST: オーナー以外は403レスポンスを返す', async () => {

@@ -20,14 +20,21 @@ const NOW_MS = Date.parse('2026-11-05T03:00:00Z');
 const tableName = 'nagiyu-livetalk-dev';
 
 const makeClient = (send: jest.Mock) => ({ send }) as never;
-const input = { userId: 'u1', characterId: 'hiyori', limit: 5, totalLimit: 20, nowMs: NOW_MS };
+const input = {
+  userId: 'u1',
+  characterId: 'hiyori',
+  limit: 5,
+  totalLimit: 20,
+  globalLimit: 200,
+  nowMs: NOW_MS,
+};
 
 describe('DynamoDBStudyUsageRepository', () => {
   it('利用者 × 日のアイテムのキャラクター別の属性を、上限付きで加算する', async () => {
     const send = jest.fn().mockResolvedValue({});
     const repo = new DynamoDBStudyUsageRepository(makeClient(send), tableName);
 
-    expect(await repo.tryConsume(input)).toBe(true);
+    expect(await repo.tryConsume(input)).toEqual({ ok: true });
 
     const command = send.mock.calls[0][0] as UpdateCommand;
     expect(command).toBeInstanceOf(UpdateCommand);
@@ -48,7 +55,7 @@ describe('DynamoDBStudyUsageRepository', () => {
     });
   });
 
-  it('上限に達していたら false を返す', async () => {
+  it('上限に達していたら、断った枠つきで返す', async () => {
     const send = jest
       .fn()
       .mockRejectedValue(
@@ -56,7 +63,7 @@ describe('DynamoDBStudyUsageRepository', () => {
       );
     const repo = new DynamoDBStudyUsageRepository(makeClient(send), tableName);
 
-    expect(await repo.tryConsume(input)).toBe(false);
+    expect(await repo.tryConsume(input)).toEqual({ ok: false, deniedBy: 'character' });
   });
 
   it('DynamoDB の障害は DatabaseError として投げる', async () => {
@@ -73,7 +80,7 @@ describe('DynamoDBStudyUsageRepository', () => {
     const send = jest.fn().mockRejectedValue(conditionFailed());
     const repo = new DynamoDBStudyUsageRepository(makeClient(send), tableName);
 
-    expect(await repo.tryConsume(input)).toBe(false);
+    expect(await repo.tryConsume(input)).toEqual({ ok: false, deniedBy: 'character' });
     expect(send).toHaveBeenCalledTimes(1);
   });
 
@@ -85,7 +92,7 @@ describe('DynamoDBStudyUsageRepository', () => {
       .mockResolvedValueOnce({});
     const repo = new DynamoDBStudyUsageRepository(makeClient(send), tableName);
 
-    expect(await repo.tryConsume(input)).toBe(false);
+    expect(await repo.tryConsume(input)).toEqual({ ok: false, deniedBy: 'user' });
     const rollback = send.mock.calls[2][0] as UpdateCommand;
     expect(rollback.input.ExpressionAttributeValues).toMatchObject({ ':minusOne': -1 });
     expect(rollback.input.ExpressionAttributeNames).toMatchObject({ '#cnt': 'Count#hiyori' });
@@ -99,7 +106,7 @@ describe('DynamoDBStudyUsageRepository', () => {
       .mockRejectedValueOnce(new Error('戻し失敗'));
     const repo = new DynamoDBStudyUsageRepository(makeClient(send), tableName);
 
-    expect(await repo.tryConsume(input)).toBe(false);
+    expect(await repo.tryConsume(input)).toEqual({ ok: false, deniedBy: 'user' });
     expect(mockReport).toHaveBeenCalledWith(
       STUDY_USAGE_ERROR_MESSAGES.ROLLBACK_FAILED,
       expect.any(DatabaseError),
@@ -119,43 +126,99 @@ describe('DynamoDBStudyUsageRepository', () => {
     expect(send).toHaveBeenCalledTimes(3);
   });
 
-  describe('readUsage', () => {
-    const readInput = { userId: 'u1', characterId: 'hiyori', nowMs: NOW_MS };
+  it('全体の加算は日ごとの別アイテムに、全体の上限で数える', async () => {
+    const send = jest.fn().mockResolvedValue({});
+    const repo = new DynamoDBStudyUsageRepository(makeClient(send), tableName);
 
-    it('利用者 × 日のアイテムを 1 回読み、キャラクター別と合計を別に返す', async () => {
-      const send = jest.fn().mockResolvedValue({
-        Item: { 'Count#hiyori': 2, 'Count#ageha': 5, 'Count#total': 7 },
-      });
+    expect(await repo.tryConsume(input)).toEqual({ ok: true });
+
+    expect(send).toHaveBeenCalledTimes(3);
+    const global = send.mock.calls[2][0] as UpdateCommand;
+    expect(global.input.Key).toEqual({ PK: 'GLOBAL#STUDYUSAGE', SK: 'STUDYUSAGE#20261105' });
+    expect(global.input.ExpressionAttributeNames).toMatchObject({ '#cnt': 'Count#total' });
+    expect(global.input.ExpressionAttributeValues).toMatchObject({
+      ':limit': 200,
+      ':type': 'StudyUsage',
+    });
+  });
+
+  it('全体だけが断ったら、利用者の合計とキャラクター別を逆順に戻して false を返す', async () => {
+    const send = jest
+      .fn()
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({})
+      .mockRejectedValueOnce(conditionFailed())
+      .mockResolvedValue({});
+    const repo = new DynamoDBStudyUsageRepository(makeClient(send), tableName);
+
+    expect(await repo.tryConsume(input)).toEqual({ ok: false, deniedBy: 'global' });
+
+    expect(send).toHaveBeenCalledTimes(5);
+    const first = send.mock.calls[3][0] as UpdateCommand;
+    const second = send.mock.calls[4][0] as UpdateCommand;
+    expect(first.input.ExpressionAttributeNames).toMatchObject({ '#cnt': 'Count#total' });
+    expect(first.input.Key).toEqual({ PK: 'USER#u1', SK: 'STUDYUSAGE#20261105' });
+    expect(second.input.ExpressionAttributeNames).toMatchObject({ '#cnt': 'Count#hiyori' });
+  });
+
+  describe('readToday', () => {
+    it('数えるときと同じキーを、強い整合性で読む', async () => {
+      const send = jest
+        .fn()
+        .mockResolvedValueOnce({ Item: { 'Count#total': 3 } })
+        .mockResolvedValueOnce({ Item: { 'Count#total': 40 } });
       const repo = new DynamoDBStudyUsageRepository(makeClient(send), tableName);
 
-      expect(await repo.readUsage(readInput)).toEqual({ characterCount: 2, totalCount: 7 });
+      expect(await repo.readToday('u1', NOW_MS)).toEqual({ userTotal: 3, globalTotal: 40 });
 
-      expect(send).toHaveBeenCalledTimes(1);
-      const command = send.mock.calls[0][0] as GetCommand;
-      expect(command).toBeInstanceOf(GetCommand);
-      expect(command.input.TableName).toBe(tableName);
-      expect(command.input.Key).toEqual({ PK: 'USER#u1', SK: 'STUDYUSAGE#20261105' });
+      const keys = send.mock.calls.map((call) => (call[0] as GetCommand).input.Key);
+      expect(keys).toEqual(
+        expect.arrayContaining([
+          { PK: 'USER#u1', SK: 'STUDYUSAGE#20261105' },
+          { PK: 'GLOBAL#STUDYUSAGE', SK: 'STUDYUSAGE#20261105' },
+        ])
+      );
+      expect((send.mock.calls[0][0] as GetCommand).input.ConsistentRead).toBe(true);
     });
 
-    it('記録が無い日は 0 を返す', async () => {
+    it('記録がない日は 0 を返す', async () => {
       const send = jest.fn().mockResolvedValue({});
       const repo = new DynamoDBStudyUsageRepository(makeClient(send), tableName);
 
-      expect(await repo.readUsage(readInput)).toEqual({ characterCount: 0, totalCount: 0 });
+      expect(await repo.readToday('u1', NOW_MS)).toEqual({ userTotal: 0, globalTotal: 0 });
     });
 
-    it('そのキャラクターの属性だけ無ければ、キャラクター別だけ 0 になる', async () => {
+    it('characterId を渡すと、利用者のアイテムを 1 回読んでキャラクター別も返す', async () => {
+      const send = jest
+        .fn()
+        .mockImplementation(async (command: GetCommand) =>
+          command.input.Key?.PK === 'USER#u1'
+            ? { Item: { 'Count#hiyori': 2, 'Count#ageha': 5, 'Count#total': 7 } }
+            : { Item: { 'Count#total': 40 } }
+        );
+      const repo = new DynamoDBStudyUsageRepository(makeClient(send), tableName);
+
+      expect(await repo.readToday('u1', NOW_MS, 'hiyori')).toEqual({
+        userTotal: 7,
+        globalTotal: 40,
+        characterCount: 2,
+      });
+      expect(send).toHaveBeenCalledTimes(2);
+    });
+
+    it('そのキャラクターの属性が無ければ characterCount は 0、characterId なしでは持たない', async () => {
       const send = jest.fn().mockResolvedValue({ Item: { 'Count#total': 3 } });
       const repo = new DynamoDBStudyUsageRepository(makeClient(send), tableName);
 
-      expect(await repo.readUsage(readInput)).toEqual({ characterCount: 0, totalCount: 3 });
+      expect(await repo.readToday('u1', NOW_MS, 'hiyori')).toMatchObject({ characterCount: 0 });
+      expect(await repo.readToday('u1', NOW_MS)).not.toHaveProperty('characterCount');
     });
 
-    it('DynamoDB の障害は DatabaseError として投げる', async () => {
-      const send = jest.fn().mockRejectedValue(new Error('障害'));
+    it('読み取りに失敗したら DatabaseError を投げる', async () => {
+      const send = jest.fn().mockRejectedValue(new Error('boom'));
       const repo = new DynamoDBStudyUsageRepository(makeClient(send), tableName);
 
-      await expect(repo.readUsage(readInput)).rejects.toBeInstanceOf(DatabaseError);
+      await expect(repo.readToday('u1', NOW_MS)).rejects.toBeInstanceOf(DatabaseError);
     });
   });
 });

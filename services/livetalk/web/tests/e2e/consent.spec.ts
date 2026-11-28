@@ -9,7 +9,7 @@ async function openWithConsent(page: Page, body: Record<string, unknown>) {
   await page.goto('/');
 }
 
-const REQUIRED_VERSIONS = { terms: '1.1.0', privacy: '1.1.0' };
+const REQUIRED_VERSIONS = { terms: '1.2.0', privacy: '1.2.0' };
 
 test.describe('LiveTalk - 同意のダイアログ', () => {
   test('前の版に同意済みなら、改定を知らせるダイアログを出す', async ({ page }) => {

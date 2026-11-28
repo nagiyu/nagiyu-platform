@@ -245,11 +245,22 @@ export {
   createDailyResearchAllowance,
   type ResearchAllowance,
 } from './study/research-allowance.js';
+export {
+  resolveStudyTier,
+  isStudyTrialActive,
+  getStudyTrialEndsAt,
+  getStudyTrialRemainingMs,
+  resolveStudyDailyLimit,
+  STUDY_DAILY_LIMITS,
+  STUDY_FREE_TRIAL_DURATION_MS,
+  type StudyTier,
+} from './study/study-plan.js';
 export type {
-  ReadStudyUsageInput,
-  StudyUsageCounts,
   StudyUsageRepository,
+  StudyUsageDeniedScope,
+  StudyUsageToday,
   TryConsumeStudyUsageInput,
+  TryConsumeStudyUsageResult,
 } from './repositories/study-usage.repository.interface.js';
 export { InMemoryStudyUsageRepository } from './repositories/in-memory-study-usage.repository.js';
 export { DynamoDBStudyUsageRepository } from './repositories/dynamodb-study-usage.repository.js';

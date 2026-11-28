@@ -6,7 +6,7 @@ sources:
   - services/auth/web/src/app/api/billing/webhook/route.ts
   - services/auth/web/src/lib/plans.ts
   - libs/common/src/auth/roles.ts
-sources_hash: b2f4a3b03292502e9a2591126a08e8ea61f7d3b4f898e4d5184110b9d4adfcdc
+sources_hash: 9905eac7af1fff2c408c66d3010821e476b2ca1169f239babcb46652e947a498
 ---
 
 # Stripe

@@ -4,7 +4,7 @@ sources:
   - services/stock-tracker/web/app/api/exchanges/[id]/route.ts
   - services/stock-tracker/web/lib/request-guards.ts
   - services/stock-tracker/core/src/validation/index.ts
-sources_hash: 0c66cfb08eaa07eecb455ae6a3e236fa94931495d85171cc09aa1fe0b0c5ad5d
+sources_hash: e001a07bdca05580fe8074c8659e61e0fbfbab57584a1db19e0e03d07f18b29a
 ---
 
 # 取引所 API

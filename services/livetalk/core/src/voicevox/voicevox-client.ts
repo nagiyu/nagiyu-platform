@@ -20,9 +20,9 @@ const DEFAULT_TIMEOUT_MS = 30000;
  *
  * `/audio_query` → `/synthesis` の 2 段呼び出しで WAV を取得する。
  * 将来共通サービス化したときに `baseUrl` だけ差し替えられるようにしてある。
+ * 既定の接続先は、Next.js と同じタスクに同居する VOICEVOX を `localhost` で呼ぶ値である。
  *
  * @see https://voicevox.github.io/voicevox_engine/api/
- * @see docs/services/livetalk/architecture.md §2.3 / §2.4（VOICEVOX パイプライン・2 コンテナ構成）
  */
 export class VoicevoxClient implements IVoiceClient {
   private readonly baseUrl: string;

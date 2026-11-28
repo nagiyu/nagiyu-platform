@@ -11,7 +11,7 @@ sources:
   - services/quick-clip/core/src/repositories/counting-usage.repository.ts
   - services/quick-clip/core/src/libs/job.service.ts
   - services/quick-clip/core/src/libs/usage.service.ts
-sources_hash: 450659994d11eeea673696998a445504706c6b58c48b8557e728e47b7541225e
+sources_hash: 5b91978c6a984e6ddc0ce8ee740ee9728c1eb9de893746e288029f2fbba20f52
 ---
 
 # ジョブのテーブル
@@ -36,7 +36,7 @@ Quick Clip が持つ、ジョブ・見どころ・利用回数・日ごとの塩
 - 名前は、[Web の実行環境](../resource/web-runtime.md)、[バッチの実行環境](../resource/batch-runtime.md)、[ワーカーの実行環境](../resource/worker-runtime.md)の環境変数 `DYNAMODB_TABLE_NAME` で渡す。ワーカーのうち clip-regenerate だけが読み書きし、zip-generator は触れない
 - スタックは `NagiyuQuickClipDynamoDB{Env}` ([デプロイ先](../deploy.md))
 - 項目を消すのは TTL だけ。コードにテーブルの項目を消す操作はない
-- TTL の削除は、期限の直後とは限らない
+- TTL の削除は、期限の直後とは限らない。Web の API は、期限 (`expiresAt`) を過ぎたジョブと見どころを、削除の前でも見つからない扱いにする ([ジョブとステータス](../term/job.md))
 
 ## キー設計
 

@@ -12,9 +12,10 @@ import {
   createSafetyEventRepository,
   createStudyTopicRepository,
   createMessageRepository,
-  createStudyUsageRepository,
   createFreshnessCheckRequestRepository,
   createTopicRepository,
+  createProfileRepository,
+  createStudyUsageRepository,
 } from '@nagiyu/livetalk-core';
 import type {
   LifecycleRepository,
@@ -22,6 +23,8 @@ import type {
   SafetyEventRepository,
   StudyTopicRepository,
   MessageRepository,
+  ProfileRepository,
+  StudyUsageRepository,
 } from '@nagiyu/livetalk-core';
 
 jest.mock('@/lib/server/session', () => ({
@@ -50,9 +53,10 @@ jest.mock('@nagiyu/livetalk-core', () => ({
   createSafetyEventRepository: jest.fn(),
   createStudyTopicRepository: jest.fn(),
   createMessageRepository: jest.fn(),
-  createStudyUsageRepository: jest.fn(),
   createFreshnessCheckRequestRepository: jest.fn(),
   createTopicRepository: jest.fn(),
+  createProfileRepository: jest.fn(),
+  createStudyUsageRepository: jest.fn(),
 }));
 
 const mockGetSession = getSession as jest.MockedFunction<typeof getSession>;
@@ -70,6 +74,13 @@ const mockStudyRepo = createStudyTopicRepository as jest.MockedFunction<
 >;
 const mockMessageRepo = createMessageRepository as jest.MockedFunction<
   typeof createMessageRepository
+>;
+
+const mockProfileRepo = createProfileRepository as jest.MockedFunction<
+  typeof createProfileRepository
+>;
+const mockStudyUsageRepo = createStudyUsageRepository as jest.MockedFunction<
+  typeof createStudyUsageRepository
 >;
 
 const adminSession = {
@@ -96,7 +107,12 @@ function setup(
   events: ReturnType<typeof makeEvent>[],
   extra: {
     messages?: { role: string; createdAt: number }[];
-    usage?: { characterCount: number; totalCount: number };
+    /** 今日の回数。全利用者の合計の既定は 12 */
+    usage?: { characterCount?: number; userTotal?: number; globalTotal?: number };
+    /** セッションのロール。既定は管理者だけ (無料) */
+    roles?: string[];
+    /** Profile の作成時刻。null なら Profile がない */
+    profileCreatedAt?: number | null;
     topics?: { topicId: string; subject: string; care: number }[];
     freshnessRequests?: { topicId: string; createdAt: number }[];
     /** false なら生活サイクルを未登録にする */
@@ -106,7 +122,10 @@ function setup(
   } = {}
 ) {
   const listByUser = jest.fn(async () => events);
-  mockGetSession.mockResolvedValue(adminSession);
+  mockGetSession.mockResolvedValue({
+    ...adminSession,
+    user: { ...adminSession.user, roles: extra.roles ?? adminSession.user.roles },
+  });
   mockLifecycleRepo.mockReturnValue({
     get: jest.fn(async () =>
       extra.hasLifecycle === false
@@ -134,9 +153,6 @@ function setup(
   mockMessageRepo.mockReturnValue({
     listSince: jest.fn(async () => extra.messages ?? []),
   } as unknown as MessageRepository);
-  (createStudyUsageRepository as jest.Mock).mockReturnValue({
-    readUsage: jest.fn(async () => extra.usage ?? { characterCount: 0, totalCount: 0 }),
-  });
   (createFreshnessCheckRequestRepository as jest.Mock).mockReturnValue({
     listByCharacter: jest.fn(async () => extra.freshnessRequests ?? []),
   });
@@ -144,6 +160,19 @@ function setup(
     listTopicHeadersByCareDesc: jest.fn(async () => extra.topics ?? []),
     listWebFacts: jest.fn(async () => []),
   });
+  const createdAt = extra.profileCreatedAt ?? null;
+  mockProfileRepo.mockReturnValue({
+    getById: jest.fn(async () =>
+      createdAt === null ? null : { userId: 'u1', createdAt, updatedAt: createdAt, lastActiveAt: 0 }
+    ),
+  } as unknown as ProfileRepository);
+  mockStudyUsageRepo.mockReturnValue({
+    readToday: jest.fn(async () => ({
+      userTotal: extra.usage?.userTotal ?? 0,
+      globalTotal: extra.usage?.globalTotal ?? 12,
+      characterCount: extra.usage?.characterCount ?? 0,
+    })),
+  } as unknown as StudyUsageRepository);
   return listByUser;
 }
 
@@ -234,10 +263,14 @@ describe('StatusPage 勉強と重要通知', () => {
     jest.useRealTimers();
   });
 
+  const OPERATOR = ['livetalk-admin', 'livetalk-operator'];
+  const setupOp = (events: Parameters<typeof setup>[0], extra: Parameters<typeof setup>[1] = {}) =>
+    setup(events, { roles: OPERATOR, ...extra });
+
   const recentUser = () => [{ role: 'user', createdAt: NOW.getTime() - 60 * 60 * 1000 }];
 
   it('生活サイクルが未登録なら対象外と表示し、重要通知も判定しない', async () => {
-    setup([], { hasLifecycle: false, messages: recentUser() });
+    setupOp([], { hasLifecycle: false, messages: recentUser() });
 
     const html = await renderPage();
 
@@ -247,7 +280,7 @@ describe('StatusPage 勉強と重要通知', () => {
   });
 
   it('購読がなければ重要通知を判定しないと表示する', async () => {
-    setup([], { messages: recentUser(), hasSubscription: false });
+    setupOp([], { messages: recentUser(), hasSubscription: false });
 
     const html = await renderPage();
 
@@ -258,7 +291,9 @@ describe('StatusPage 勉強と重要通知', () => {
     // 日本時間の 03:00
     const sleepingNow = new Date('2026-06-09T18:00:00.000Z');
     jest.setSystemTime(sleepingNow);
-    setup([], { messages: [{ role: 'user', createdAt: sleepingNow.getTime() - 60 * 60 * 1000 }] });
+    setupOp([], {
+      messages: [{ role: 'user', createdAt: sleepingNow.getTime() - 60 * 60 * 1000 }],
+    });
 
     const html = await renderPage();
 
@@ -266,10 +301,10 @@ describe('StatusPage 勉強と重要通知', () => {
   });
 
   it('送り済みの重要通知は、なければ「なし」、あれば件数を見出しに出す', async () => {
-    setup([], { messages: recentUser() });
+    setupOp([], { messages: recentUser() });
     expect(await renderPage()).toContain('送り済みの重要通知: なし');
 
-    setup(
+    setupOp(
       [
         {
           ...makeEvent('c1', 'hiyori', NOW.getTime() - 1000),
@@ -282,8 +317,16 @@ describe('StatusPage 勉強と重要通知', () => {
     expect(await renderPage()).toContain('送り済みの重要通知: 1 件');
   });
 
+  it('無料でお試しが始まっていなければ、対象外 (お試し終了) と表示する', async () => {
+    setup([], { messages: recentUser() });
+
+    const html = await renderPage();
+
+    expect(html).toContain('対象外（お試し終了）');
+  });
+
   it('発話がなければ勉強停止中と表示し、重要通知も判定しない', async () => {
-    setup([]);
+    setupOp([]);
 
     const html = await renderPage();
 
@@ -293,9 +336,9 @@ describe('StatusPage 勉強と重要通知', () => {
   });
 
   it('回数の上限に達していれば本日の上限到達と表示する', async () => {
-    setup([], {
+    setupOp([], {
       messages: recentUser(),
-      usage: { characterCount: 20, totalCount: 20 },
+      usage: { characterCount: 20, userTotal: 20 },
     });
 
     const html = await renderPage();
@@ -305,10 +348,32 @@ describe('StatusPage 勉強と重要通知', () => {
     expect(html).toContain('判定する');
   });
 
+  it.each([
+    ['キャラ別', { characterCount: 20, userTotal: 0, globalTotal: 0 }],
+    ['あなたの合計', { characterCount: 0, userTotal: 20, globalTotal: 0 }],
+    ['全利用者', { characterCount: 0, userTotal: 0, globalTotal: 200 }],
+  ])('上限に達した枠 (%s) を、本日の上限到達に添えて表示する', async (scope, usage) => {
+    setupOp([], { messages: recentUser(), usage });
+
+    const html = await renderPage();
+
+    expect(html).toContain(`本日の上限到達（${scope}）`);
+  });
+
+  it('利用者の合計の行は勉強と重要通知から外し、勉強の節にだけ出す', async () => {
+    setupOp([], { messages: recentUser(), usage: { userTotal: 7, globalTotal: 30 } });
+
+    const html = await renderPage();
+
+    expect(html).not.toContain('全キャラ合計');
+    expect(html).toContain('今日の回数 (あなた): 7 / 20');
+    expect(html).toContain('今日の回数 (全利用者): 30 / 200');
+  });
+
   it('勉強中は回数・依頼待ち・判定に渡る候補を表示する', async () => {
-    setup([], {
+    setupOp([], {
       messages: recentUser(),
-      usage: { characterCount: 0, totalCount: 0 },
+      usage: { characterCount: 0, userTotal: 0 },
       topics: [{ topicId: 'topic-1', subject: '来週のライブ', care: 5 }],
       freshnessRequests: [{ topicId: 'topic-9', createdAt: NOW.getTime() - 1000 }],
     });
@@ -320,5 +385,29 @@ describe('StatusPage 勉強と重要通知', () => {
     expect(html).toContain('topic-1 | 来週のライブ | care 5');
     expect(html).toContain('鮮度確認の依頼待ち: 1 件');
     expect(html).toContain('topic-9');
+  });
+});
+
+describe('StatusPage 勉強の節', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.useFakeTimers().setSystemTime(NOW);
+  });
+  afterEach(() => jest.useRealTimers());
+
+  it('区分・お試し・今日の回数を出し、上限に達していればそうとわかる', async () => {
+    setup([]);
+    const html = await renderPage();
+
+    expect(html).toContain('区分: 無料');
+    expect(html).toContain('お試し: まだ始まっていない');
+    expect(html).toContain('今日の回数 (あなた): 0 / 0 (上限に達している)');
+    expect(html).toContain('今日の回数 (全利用者): 12 / 200');
+    expect(html).not.toContain('今日の回数 (全利用者): 12 / 200 (');
+  });
+
+  it('既存の勉強の待ち件数は変えない', async () => {
+    setup([]);
+    expect(await renderPage()).toContain('STUDY_TOPIC (pending): 0 件');
   });
 });

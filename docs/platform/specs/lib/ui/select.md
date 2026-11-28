@@ -2,7 +2,7 @@
 sources:
   - libs/ui/src/components/Select/Select.tsx
   - libs/ui/src/components/Select/Select.module.css
-sources_hash: fafebb81616438206d667777dca87c24635364db926fe0a516e192b0ff21d337
+sources_hash: 837223016a08a576fee7579ff7af71865e298c8c3124f88b15ecb1276f3285db
 ---
 
 # Select

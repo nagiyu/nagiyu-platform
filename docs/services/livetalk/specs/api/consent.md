@@ -5,7 +5,7 @@ sources:
   - services/livetalk/web/src/lib/server/consent.ts
   - services/livetalk/core/src/lib/consent.ts
   - services/livetalk/core/src/constants.ts
-sources_hash: 665e0f187210ff28e399d2c35a372eb46428a8f89011192eeb7f40bc38b03ac8
+sources_hash: x
 ---
 
 # 同意 API
@@ -16,8 +16,8 @@ sources_hash: 665e0f187210ff28e399d2c35a372eb46428a8f89011192eeb7f40bc38b03ac8
 
 | メソッド | パス | 権限 |
 |---|---|---|
-| GET | `/api/consent` | `livetalk:chat` |
-| POST | `/api/consent` | `livetalk:chat` |
+| GET | `/api/consent` | ログインしていること |
+| POST | `/api/consent` | ログインしていること |
 
 ## 入力と出力
 
@@ -35,7 +35,7 @@ sources_hash: 665e0f187210ff28e399d2c35a372eb46428a8f89011192eeb7f40bc38b03ac8
 | 保存の失敗 | 500 | `SAVE_FAILED` |
 | 読み取りの失敗 | 500 | `FETCH_FAILED` |
 
-- 権限の不足は 401 / 403。形は [API のエラー応答](../term/api-error.md)
+- 未ログインは 401。形は [API のエラー応答](../term/api-error.md)
 
 ## つながり
 

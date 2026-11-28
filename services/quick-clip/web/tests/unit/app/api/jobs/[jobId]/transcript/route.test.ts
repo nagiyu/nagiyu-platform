@@ -44,6 +44,12 @@ jest.mock('@nagiyu/quick-clip-core', () => ({
   ),
 }));
 
+// 期限を過ぎていないことを示す、十分に先の時刻 (ミリ秒)
+const FUTURE_EXPIRES_AT = 4102444800000;
+
+// 期限を過ぎていることを示す、過去の時刻 (ミリ秒)
+const PAST_EXPIRES_AT = 1;
+
 describe('GET /api/jobs/[jobId]/transcript', () => {
   const mockedGetS3Client = getS3Client as jest.MockedFunction<typeof getS3Client>;
 
@@ -67,7 +73,7 @@ describe('GET /api/jobs/[jobId]/transcript', () => {
       originalFileName: 'movie.mp4',
       fileSize: 100,
       createdAt: 1,
-      expiresAt: 2,
+      expiresAt: FUTURE_EXPIRES_AT,
     });
     mockS3Send.mockResolvedValue({
       Body: {
@@ -91,7 +97,7 @@ describe('GET /api/jobs/[jobId]/transcript', () => {
       originalFileName: 'movie.mp4',
       fileSize: 100,
       createdAt: 1,
-      expiresAt: 2,
+      expiresAt: FUTURE_EXPIRES_AT,
     });
     mockS3Send.mockResolvedValue({ Body: null });
 
@@ -111,7 +117,7 @@ describe('GET /api/jobs/[jobId]/transcript', () => {
       originalFileName: 'movie.mp4',
       fileSize: 100,
       createdAt: 1,
-      expiresAt: 2,
+      expiresAt: FUTURE_EXPIRES_AT,
     });
     mockS3Send.mockRejectedValue({ name: 'NoSuchKey', Code: 'NoSuchKey' });
 
@@ -139,6 +145,28 @@ describe('GET /api/jobs/[jobId]/transcript', () => {
     });
   });
 
+  it('異常系: 期限を過ぎたジョブは、削除前でも存在しない場合と同じ 404 を返す', async () => {
+    mockGetJob.mockResolvedValue({
+      jobId: 'job-1',
+      originalFileName: 'movie.mp4',
+      fileSize: 100,
+      createdAt: 1,
+      expiresAt: PAST_EXPIRES_AT,
+    });
+
+    const response = await GET(mockRequest, {
+      params: Promise.resolve({ jobId: 'job-1' }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(404);
+    expect(body).toEqual({
+      error: 'JOB_NOT_FOUND',
+      message: expect.any(String),
+    });
+    expect(mockS3Send).not.toHaveBeenCalled();
+  });
+
   it('異常系: S3 で予期しないエラーが発生した場合は 500 を返す', async () => {
     mockGetJob.mockResolvedValue({
       jobId: 'job-1',
@@ -146,7 +174,7 @@ describe('GET /api/jobs/[jobId]/transcript', () => {
       originalFileName: 'movie.mp4',
       fileSize: 100,
       createdAt: 1,
-      expiresAt: 2,
+      expiresAt: FUTURE_EXPIRES_AT,
     });
     mockS3Send.mockRejectedValue(new Error('S3 接続エラー'));
 

@@ -3,7 +3,7 @@ sources:
   - services/stock-tracker/web/app/api/tickers/route.ts
   - services/stock-tracker/web/app/api/tickers/[id]/route.ts
   - services/stock-tracker/core/src/validation/index.ts
-sources_hash: db4464e4dfea5346fdcfced9d945507681dac714b937aa0528bdd1e8e60aa92f
+sources_hash: 25d60ab16ec2856fd8a8f7744a041879ed9072de5b802d7932c3a6142aa5ef4c
 ---
 
 # ティッカー API

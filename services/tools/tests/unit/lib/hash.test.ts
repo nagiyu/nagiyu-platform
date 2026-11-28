@@ -24,6 +24,12 @@ describe('hash', () => {
       );
     });
 
+    it('空白だけの文字列もそのまま計算に含める', async () => {
+      await expect(generateHash(' ', 'SHA-256')).resolves.toBe(
+        '36a9e7f1c95b82ffb99743e0c5c4ce95d83c9a430aac59f84ef3cbfab6145068'
+      );
+    });
+
     it('日本語を含む文字列でもハッシュ値を生成できる', async () => {
       await expect(generateHash('こんにちは🌟', 'SHA-256')).resolves.toBe(
         '731ea015bdeb13813dfd999ad72150ed41b0cfb18b82adf22adb3dc0d4eb3423'

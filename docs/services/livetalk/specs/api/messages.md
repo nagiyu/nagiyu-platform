@@ -3,7 +3,7 @@ sources:
   - services/livetalk/web/src/app/api/messages/route.ts
   - services/livetalk/web/src/app/api/messages/constants.ts
   - services/livetalk/core/src/constants.ts
-sources_hash: 3aaf3dafdb5fadb015635871efd68cac8ae0d39d271674f2ea4c73c6a3818332
+sources_hash: x
 ---
 
 # メッセージ API
@@ -14,7 +14,7 @@ sources_hash: 3aaf3dafdb5fadb015635871efd68cac8ae0d39d271674f2ea4c73c6a3818332
 
 | メソッド | パス | 権限 |
 |---|---|---|
-| GET | `/api/messages` | `livetalk:chat` |
+| GET | `/api/messages` | ログインしていること |
 
 ## 入力と出力
 
@@ -34,7 +34,7 @@ sources_hash: 3aaf3dafdb5fadb015635871efd68cac8ae0d39d271674f2ea4c73c6a3818332
 | `tokenLimit` が整数でない、または範囲外 | 400 | `INVALID_REQUEST` |
 | 読み取りの失敗 | 500 | `FETCH_FAILED` |
 
-- 権限の不足は 401 / 403。形は [API のエラー応答](../term/api-error.md)
+- 未ログインは 401。形は [API のエラー応答](../term/api-error.md)
 
 ## つながり
 
