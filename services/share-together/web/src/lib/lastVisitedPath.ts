@@ -2,7 +2,8 @@ import { getItem, removeItem, setItem } from '@nagiyu/browser';
 
 export const LAST_VISITED_PATH_STORAGE_KEY = 'share-together:last-visited-path';
 
-// 既存セッションのフラグを引き継ぐため、PR #2982 で導入されたキー値をそのまま使用する。
+// キー名は今の役割 (セッションで最初の effect かの判定) と合わないが、値は変えない。
+// 変えると、反映の時点で開いているタブも「セッション初回」と判定され、前回画面の復元がもう一度走るため。
 export const SESSION_BOOTSTRAP_STORAGE_KEY = 'share-together:home-redirect-checked';
 
 export function isRecordablePath(path: string): boolean {

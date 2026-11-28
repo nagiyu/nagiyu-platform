@@ -455,7 +455,6 @@ export function ListWorkspace({
             createButtonLabel={scope === 'personal' ? '個人リストを作成' : '共有リストを作成'}
             selectedListId={currentListId}
             lists={scope === 'personal' ? undefined : sidebarLists}
-            hrefPrefix={scope === 'personal' ? '/lists' : `/groups/${selectedGroupId}/lists`}
             onCreateList={scope === 'shared' ? () => setCreateDialogOpen(true) : undefined}
             onListSelect={(listId) => {
               setHasUserSelected(true);

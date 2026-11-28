@@ -16,6 +16,8 @@ jest.mock('@nagiyu/aws', () => ({
 }));
 
 jest.mock('@nagiyu/share-together-core', () => ({
+  // 並びの確認に実物を使う。index 経由だと AWS SDK まで読み込むため、todo.ts だけを直接読む。
+  TodoService: jest.requireActual('../../../../../../../../../../core/src/libs/todo').TodoService,
   DynamoDBListRepository: jest.fn(),
   createListRepository: jest.fn(),
   DynamoDBMembershipRepository: jest.fn(),
@@ -211,6 +213,52 @@ describe('/api/groups/[groupId]/lists/[listId]/todos route', () => {
         ],
       },
     });
+  });
+
+  it('GET: ToDo を作成の古い順に並べ、同時刻は ID の順にして返す', async () => {
+    mockGetSessionOrUnauthorized.mockResolvedValue({
+      user: { id: 'user-1' },
+    } as SessionOrErrorResponse);
+    mockGetMembershipById.mockResolvedValue({
+      groupId: 'group-1',
+      userId: 'user-1',
+      status: 'ACCEPTED',
+    });
+    mockGetGroupListById.mockResolvedValue({
+      listId: 'list-1',
+      groupId: 'group-1',
+      name: '共有リスト',
+      createdBy: 'user-1',
+      createdAt: 1767225600000,
+      updatedAt: 1767225600000,
+    });
+    const buildTodo = (todoId: string, createdAt: number) => ({
+      todoId,
+      listId: 'list-1',
+      title: todoId,
+      isCompleted: false,
+      createdBy: 'user-1',
+      createdAt,
+      updatedAt: createdAt,
+    });
+    mockGetByListId.mockResolvedValue([
+      buildTodo('todo-c', 3000),
+      buildTodo('todo-b', 1000),
+      buildTodo('todo-a', 1000),
+      buildTodo('todo-d', 2000),
+    ]);
+
+    const response = await GET({} as Request, {
+      params: Promise.resolve({ groupId: 'group-1', listId: 'list-1' }),
+    });
+
+    const body = (await response.json()) as { data: { todos: { todoId: string }[] } };
+    expect(body.data.todos.map((todo) => todo.todoId)).toEqual([
+      'todo-a',
+      'todo-b',
+      'todo-d',
+      'todo-c',
+    ]);
   });
 
   it('POST: title が空文字の場合は400レスポンスを返す', async () => {

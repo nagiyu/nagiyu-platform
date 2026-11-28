@@ -2,20 +2,14 @@ import '@testing-library/jest-dom';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { ListSidebar } from '@/components/ListSidebar';
 
-const mockPush = jest.fn();
-
-jest.mock('next/navigation', () => ({
-  useRouter: () => ({
-    push: mockPush,
-  }),
-}));
+const mockSelect = jest.fn();
 
 describe('ListSidebar', () => {
   let originalFetch: typeof globalThis.fetch;
 
   beforeEach(() => {
     originalFetch = globalThis.fetch;
-    mockPush.mockReset();
+    mockSelect.mockReset();
   });
 
   afterEach(() => {
@@ -64,13 +58,13 @@ describe('ListSidebar', () => {
         heading="個人リスト"
         createButtonLabel="個人リストを作成"
         selectedListId="work-list"
-        hrefPrefix="/lists"
+        onListSelect={mockSelect}
       />
     );
 
     await waitFor(() => {
-      expect(screen.getByRole('link', { name: 'デフォルトリスト' })).toBeInTheDocument();
-      expect(screen.getByRole('link', { name: '仕事' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'デフォルトリスト' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: '仕事' })).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByRole('button', { name: '個人リストを作成' }));
@@ -87,7 +81,7 @@ describe('ListSidebar', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: '新規リスト' }),
       });
-      expect(mockPush).toHaveBeenCalledWith('/lists/new-list');
+      expect(mockSelect).toHaveBeenCalledWith('new-list');
     });
 
     // ダイアログが閉じ終わるまで、背後の要素は支援技術から隠れている。
@@ -109,7 +103,7 @@ describe('ListSidebar', () => {
       });
     });
     await waitFor(() => {
-      expect(screen.getByRole('link', { name: '仕事(更新)' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: '仕事(更新)' })).toBeInTheDocument();
     });
 
     await waitFor(() => {
@@ -125,7 +119,7 @@ describe('ListSidebar', () => {
       });
     });
     await waitFor(() => {
-      expect(screen.queryByRole('link', { name: '仕事(更新)' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: '仕事(更新)' })).not.toBeInTheDocument();
     });
   });
 
@@ -147,7 +141,7 @@ describe('ListSidebar', () => {
         heading="個人リスト"
         createButtonLabel="個人リストを作成"
         selectedListId="default-list"
-        hrefPrefix="/lists"
+        onListSelect={mockSelect}
       />
     );
 
@@ -172,7 +166,6 @@ describe('ListSidebar', () => {
           { listId: 'shared-1', name: '旅行準備' },
           { listId: 'shared-2', name: '買い出し' },
         ]}
-        hrefPrefix="/groups/group-1/lists"
         onCreateList={handleCreate}
         onListSelect={handleSelect}
       />
@@ -208,8 +201,8 @@ describe('ListSidebar', () => {
           { listId: 'shared-1', name: '旅行準備' },
           { listId: 'shared-2', name: '買い出し' },
         ]}
-        hrefPrefix="/groups/group-1/lists"
         onRenameList={handleRename}
+        onListSelect={mockSelect}
       />
     );
 
@@ -236,8 +229,8 @@ describe('ListSidebar', () => {
           { listId: 'shared-1', name: '旅行準備' },
           { listId: 'shared-2', name: '買い出し' },
         ]}
-        hrefPrefix="/groups/group-1/lists"
         onDeleteList={handleDelete}
+        onListSelect={mockSelect}
       />
     );
 
@@ -270,10 +263,10 @@ describe('ListSidebar', () => {
           heading="個人リスト"
           createButtonLabel="個人リストを作成"
           selectedListId="work-list"
-          hrefPrefix="/lists"
+          onListSelect={mockSelect}
         />
       );
-      await screen.findByRole('link', { name: '仕事' });
+      await screen.findByRole('button', { name: '仕事' });
     };
 
     it('名前を変更しないで保存しても API を呼ばない', async () => {
@@ -329,7 +322,7 @@ describe('ListSidebar', () => {
         expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
       });
       expect(fetchMock).toHaveBeenCalledTimes(1);
-      expect(screen.getByRole('link', { name: '仕事' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: '仕事' })).toBeInTheDocument();
     });
   });
 });
