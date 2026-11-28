@@ -8,7 +8,7 @@ sources:
   - infra/common/src/utils/naming.ts
   - infra/common/src/utils/vpc.ts
   - services/codec-converter/batch/src/index.ts
-sources_hash: 3133c5f11de1a473f54644354af2f6c906d3074df6139e50d6c0d6aa07d9d0ac
+sources_hash: fd810ffc883b9f06ffc73920561fc140b9c578cc2098c8a843763ebd0de86fda
 ---
 
 # Batch の実行環境
@@ -51,7 +51,7 @@ sources_hash: 3133c5f11de1a473f54644354af2f6c906d3074df6139e50d6c0d6aa07d9d0ac
 | 実行基盤 | Fargate |
 | イメージ | ワーカー用の ECR リポジトリ (`nagiyu-codec-converter-batch-ecr-{env}`) の、環境変数 `IMAGE_TAG` のタグ。Web の関数と同じタグ。`IMAGE_TAG` がないか空なら、合成が失敗する |
 | 試行の回数 | 2 (リトライは 1 回) |
-| 試行ごとのタイムアウト | 7,200 秒 |
+| 試行ごとのタイムアウト | 7,200 秒。ワーカーは、これより 300 秒早い 6,900 秒で自分で打ち切る ([変換バッチ](../batch/convert.md))。このタイムアウトは外側の安全網 |
 | ログの出力先 | ロググループ `/aws/batch/nagiyu-codec-converter-{env}` ([ロググループ](#ロググループ))。ストリームの接頭辞は `batch` (`awslogs`) |
 | タスク実行ロール | 下の「権限」のタスク実行ロール |
 | ジョブロール | 下の「権限」のジョブロール |

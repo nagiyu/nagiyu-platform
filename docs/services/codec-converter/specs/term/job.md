@@ -4,7 +4,7 @@ sources:
   - services/codec-converter/core/src/constants.ts
   - services/codec-converter/core/src/mappers/job.mapper.ts
   - services/codec-converter/core/src/format.ts
-sources_hash: 7d4776fe8c73e97138409d3eb906cba45c58def08d7a2098dc0cb9ba5e385add
+sources_hash: 023a65708f208a559361c6d61934a1814aa7c507a31c0a3912f0e28bc39fa0fd
 ---
 
 # ジョブとステータス

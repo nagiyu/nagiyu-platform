@@ -11,7 +11,7 @@ sources:
   - libs/aws/src/dynamodb/validators.ts
   - libs/aws/src/dynamodb/store/dynamodb-entity-store.ts
   - libs/aws/src/dynamodb/store/entity-store-support.ts
-sources_hash: 75fc282f91f06dc6f75108bdba087d70d60b84f91bb9456463b12b55a6cf3b35
+sources_hash: 0fd219025b5814f591fcb266c432b9d7be344774e59fb4b7076072ae3471649f
 ---
 
 # ジョブのテーブル

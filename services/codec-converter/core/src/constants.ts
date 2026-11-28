@@ -9,6 +9,12 @@ export const MAX_FILE_SIZE = 500 * 1024 * 1024; // 524,288,000 bytes
 export const CONVERSION_TIMEOUT_SECONDS = 7200;
 
 /**
+ * 変換ワーカーが自分で打ち切る期限に持たせる余裕 (5分)。
+ * Batch のタイムアウトより先にワーカー側で打ち切り、FAILED の保存・報告・一時ファイルの削除を終える時間を残すため
+ */
+export const CONVERSION_TIMEOUT_MARGIN_SECONDS = 300;
+
+/**
  * ジョブの有効期限 (24時間)
  */
 export const JOB_EXPIRATION_SECONDS = 86400;
