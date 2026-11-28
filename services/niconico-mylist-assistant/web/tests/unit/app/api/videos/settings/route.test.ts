@@ -174,6 +174,22 @@ describe('PUT /api/videos/[id]/settings', () => {
     expect(mockUpdateUserVideoSetting).not.toHaveBeenCalled();
   });
 
+  it('トップレベルの createdAt は基本情報の登録日、userSetting.createdAt は設定の作成日時を返す', async () => {
+    const settingCreatedAt = BASIC_INFO.createdAt + 5000;
+    const updated: UserVideoSetting = { ...SETTING, createdAt: settingCreatedAt };
+    mockGetSession.mockResolvedValue(MOCK_SESSION);
+    mockGetVideoBasicInfo.mockResolvedValue(BASIC_INFO);
+    mockGetUserVideoSetting.mockResolvedValue(updated);
+    mockUpdateUserVideoSetting.mockResolvedValue(updated);
+
+    const response = await PUT(makePutRequest({ isFavorite: true }), ROUTE_PARAMS);
+    expect(response.status).toBe(200);
+
+    const json = await response.json();
+    expect(json.video.createdAt).toBe(BASIC_INFO.createdAt);
+    expect(json.video.userSetting.createdAt).toBe(settingCreatedAt);
+  });
+
   it('memo が 1000 文字を超える場合は 400 を返す', async () => {
     mockGetSession.mockResolvedValue(MOCK_SESSION);
 

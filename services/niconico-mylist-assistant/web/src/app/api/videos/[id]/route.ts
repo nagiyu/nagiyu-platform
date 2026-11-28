@@ -48,7 +48,7 @@ export const GET = withGetErrorReporting(
       title: basicInfo.title,
       thumbnailUrl: basicInfo.thumbnailUrl,
       length: basicInfo.length,
-      createdAt: setting?.createdAt ?? basicInfo.createdAt,
+      createdAt: basicInfo.createdAt,
       userSetting: setting
         ? {
             videoId: setting.videoId,
