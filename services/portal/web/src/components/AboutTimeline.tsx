@@ -17,9 +17,8 @@ export default function AboutTimeline() {
       </Typography>
 
       <Typography variant="body1" sx={{ mb: 3 }}>
-        私が nagiyu-platform の開発を始めたのは 2026 年 5 月です。
-        当初から「複数サービスを一元管理するモノレポ構成」を前提に設計しており、
-        現在も継続的に開発・更新を続けています。
+        私が nagiyu-platform の開発を始めたのは 2026 年 5
+        月です。当初から「複数サービスを一元管理するモノレポ構成」を前提に設計しており、現在も継続的に開発・更新を続けています。
       </Typography>
 
       <Box

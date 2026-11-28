@@ -5,7 +5,7 @@ sources:
   - services/portal/web/src/components/AboutTimeline.tsx
   - services/portal/web/src/components/AboutPolicy.tsx
   - services/portal/web/src/lib/pageMetadata.ts
-sources_hash: 2485e62b24702560f2b22a756c9da67f5830d957ac389b5067a33a346455aab5
+sources_hash: 18f3e6b2a46876b3166738a339d3d2d362af49afa777a48ea189030a8dc6f526
 ---
 
 # About 画面

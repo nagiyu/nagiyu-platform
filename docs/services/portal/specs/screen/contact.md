@@ -3,7 +3,7 @@ sources:
   - services/portal/web/src/app/contact/page.tsx
   - services/portal/web/src/lib/contact.ts
   - services/portal/web/src/lib/pageMetadata.ts
-sources_hash: 1a79e9e3b3e17447cdf4deb79c1a515d90d42ff8a8cdddaae96283d4b23d9f55
+sources_hash: 8b7d30f3b7f366af11181924421ccf0644de9f37160d717b03fa81bbab94670c
 ---
 
 # お問い合わせ画面
