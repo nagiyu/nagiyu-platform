@@ -145,7 +145,7 @@ export default function GroupsPage() {
   };
 
   return (
-    <main>
+    <>
       <Box component="section" sx={{ p: 2, maxWidth: 720, mx: 'auto' }}>
         <Stack
           direction="row"
@@ -210,6 +210,6 @@ export default function GroupsPage() {
         onClose={() => setSnackbarMessage(null)}
         message={snackbarMessage}
       />
-    </main>
+    </>
   );
 }

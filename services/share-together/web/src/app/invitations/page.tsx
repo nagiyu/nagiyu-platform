@@ -139,7 +139,7 @@ export default function InvitationsPage() {
   };
 
   return (
-    <main>
+    <>
       <Container maxWidth="sm" sx={{ py: 4 }}>
         <Typography component="h1" variant="h4" gutterBottom>
           招待一覧
@@ -216,6 +216,6 @@ export default function InvitationsPage() {
         onClose={() => setSnackbarMessage(null)}
         message={snackbarMessage}
       />
-    </main>
+    </>
   );
 }
