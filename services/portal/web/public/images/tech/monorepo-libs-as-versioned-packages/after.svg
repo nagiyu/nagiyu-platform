@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="480" height="300" viewBox="0 0 480 300" font-family="'Hiragino Sans','Noto Sans JP','Yu Gothic',sans-serif" font-size="15">
+  <rect width="480" height="300" fill="#ffffff"/>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#555"/></marker>
+  </defs>
+  <!-- 後 -->
+  <text x="16" y="26" font-weight="bold" font-size="17" fill="#15803d">ライブラリだけ外に出して公開</text>
+  <rect x="16" y="40" width="448" height="160" rx="10" fill="#f0fdf4" stroke="#15803d" stroke-width="1.5" stroke-dasharray="6 4"/>
+  <text x="32" y="64" fill="#14532d" font-size="14">同じリポジトリ</text>
+  <rect x="36" y="78" width="200" height="104" rx="6" fill="#eef2f7" stroke="#5b6b82" stroke-width="1.5"/>
+  <text x="136" y="100" text-anchor="middle" fill="#374151" font-size="14">npm workspaces</text>
+  <text x="136" y="126" text-anchor="middle" fill="#374151">A: ui@0.1.1</text>
+  <text x="136" y="150" text-anchor="middle" fill="#374151">B: ui@0.1.1</text>
+  <text x="136" y="174" text-anchor="middle" fill="#374151">C: ui@0.1.0</text>
+  <rect x="260" y="78" width="188" height="104" rx="6" fill="#fff7ed" stroke="#c2410c" stroke-width="1.5"/>
+  <text x="354" y="116" text-anchor="middle" fill="#7c2d12">共通ライブラリ</text>
+  <text x="354" y="140" text-anchor="middle" fill="#7c2d12" font-size="13">(独立した npm プロジェクト)</text>
+  <rect x="140" y="240" width="200" height="44" rx="6" fill="#eef2f7" stroke="#5b6b82" stroke-width="1.5"/>
+  <text x="240" y="267" text-anchor="middle" fill="#374151">npmjs.com</text>
+  <line x1="354" y1="182" x2="300" y2="238" stroke="#555" stroke-width="2" marker-end="url(#a)"/>
+  <text x="348" y="220" fill="#374151" font-size="13">publish</text>
+  <line x1="180" y1="238" x2="136" y2="184" stroke="#555" stroke-width="2" marker-end="url(#a)"/>
+  <text x="40" y="220" fill="#374151" font-size="13">版を選んで取る</text>
+</svg>
