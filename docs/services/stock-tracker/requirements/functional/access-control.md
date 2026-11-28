@@ -9,6 +9,7 @@ sources: []
 ## 要件
 
 - 権限は、閲覧 (`stocks:read`)、自分のデータの書き込み (`stocks:write-own`)、マスタ管理 (`stocks:manage-data`) の 3 つに分ける。ロールは、`stock-viewer`、`stock-user`、`stock-admin` の 3 つで、上位のロールは下位の権限を含む。各権限でできることと、ロールとの対応は[権限とロール](../../specs/term/permission.md)にある
+- 新しい利用者は、ロールを持たない ([サインイン](../../../auth/requirements/functional/sign-in.md))。閲覧するにも、管理者が `stock-viewer` 以上のロールを付ける必要がある。このサービスは管理者がロールを付けた人だけが使うもので、ログインできるだけの人には見せないため
 - 保有株式とアラートは、利用者ごとに分かれる。ほかの利用者のものは、読み書きできない
 - 権限がない操作は、使えない。拒否のしかたは[API のエラー応答](../../specs/term/api-error.md)に、画面での見え方は各画面の仕様にある
 - ロールと権限の定義は、コードで持つ ([ロールと権限](../../../../platform/specs/lib/common/roles-and-permissions.md))
