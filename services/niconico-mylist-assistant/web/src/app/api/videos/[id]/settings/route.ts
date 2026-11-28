@@ -86,7 +86,7 @@ export const PUT = withApiErrorReporting(
       title: basicInfo?.title || '',
       thumbnailUrl: basicInfo?.thumbnailUrl || '',
       length: basicInfo?.length || '',
-      createdAt: updatedSetting.createdAt,
+      createdAt: basicInfo.createdAt,
       userSetting: {
         videoId: updatedSetting.videoId,
         isFavorite: updatedSetting.isFavorite,
