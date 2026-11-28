@@ -4,7 +4,7 @@ sources:
   - services/codec-converter/core/src/validation.ts
   - services/codec-converter/core/src/constants.ts
   - libs/common/src/format/file-size.ts
-sources_hash: 1fcec88d39a22844648231ac7226c1db805d0e47d8aeb75ffb7ca1df07b5314e
+sources_hash: f1678f1e402f4f7cf44517ed283b2527480b2bda84eda3747f7efcaeab45a180
 ---
 
 # アップロード画面

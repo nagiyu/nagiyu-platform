@@ -2,12 +2,13 @@
 sources:
   - services/codec-converter/batch/src/index.ts
   - services/codec-converter/core/src/batch-job-input.ts
+  - services/codec-converter/core/src/constants.ts
   - services/codec-converter/core/src/mappers/job.mapper.ts
   - services/codec-converter/core/src/repositories/dynamodb-job.repository.ts
   - infra/codec-converter/lib/codec-converter-stack.ts
   - libs/aws/src/error-events/with-error-reporting.ts
   - libs/aws/src/error-events/report.ts
-sources_hash: 602ca10c214b47ba72205b72afc9c921871fc06cc9e361382e6ba86a6d1ae453
+sources_hash: eb1e8df39cb00137ed99ae2862bae48188337fb024dab8c5a60b3c0823edb432
 ---
 
 # 変換バッチ (convert)
@@ -42,11 +43,13 @@ flowchart TD
     F --> G[⑦ 一時ファイルを削除]
 ```
 
+②〜⑦ は、処理の開始から 6,900 秒 (7,200 秒から余裕の 300 秒を引いた値) までに終える。超えると、その場で打ち切って失敗の扱いにする ([時間切れ](#時間切れ))。
+
 | 手順 | 内容 |
 |---|---|
-| ③ 入力 | `uploads/{JOB_ID}/input.mp4` を `/tmp/input-{JOB_ID}.mp4` に保存する |
-| ④ 変換 | `ffmpeg -i {入力} -c:v {動画} -c:a {音声} {品質の引数} -y {出力}`。コーデックごとの値は[出力コーデック](../term/output-codec.md)。標準エラー出力に `time=` を含む行があれば、進捗としてログに出す |
-| ⑤ 出力 | `/tmp/output-{JOB_ID}.{拡張子}` を `outputs/{JOB_ID}/output.{mp4 か webm}` に保存する |
+| ③ 入力 | `uploads/{JOB_ID}/input.mp4` を `/tmp/input-{JOB_ID}.mp4` に保存する。期限が来たら取得を打ち切る |
+| ④ 変換 | `ffmpeg -i {入力} -c:v {動画} -c:a {音声} {品質の引数} -y {出力}`。コーデックごとの値は[出力コーデック](../term/output-codec.md)。標準エラー出力に `time=` を含む行があれば、進捗としてログに出す。期限が来たら FFmpeg を強制終了する (SIGKILL) |
+| ⑤ 出力 | `/tmp/output-{JOB_ID}.{拡張子}` を `outputs/{JOB_ID}/output.{mp4 か webm}` に保存する。期限が来たらアップロードを打ち切る |
 | ⑥ 更新 | `status` を `COMPLETED`、`outputFile` を出力のキーにする。空の `outputFile`、`errorMessage` は保存しない |
 
 - 起動時に、ジョブ定義名と、ECS のタスクメタデータから取れた CPU とメモリの上限をログに出す。メタデータが取れなくても処理は続ける
@@ -70,6 +73,7 @@ flowchart TD
 | ③ 入力のダウンロード | 動画ファイルの取得に失敗しました。しばらくしてからもう一度お試しください |
 | ④ FFmpeg の変換 (終了コードが 0 以外) | 動画の変換に失敗しました。ファイルが壊れているか、対応していない形式の可能性があります |
 | ⑤ 出力のアップロード | 変換後のファイルの保存に失敗しました。しばらくしてからもう一度お試しください |
+| 期限を超えた (②〜⑥ のどこで超えても。段ごとの文言より優先する) | 変換が制限時間 (2 時間) 内に終わりませんでした。ファイルを短くするか、別のコーデックでお試しください |
 | 上以外 (② と ⑥ のステータス更新、⑦ の削除、④ で FFmpeg を起動できなかったとき) | 変換中にエラーが発生しました。しばらくしてからもう一度お試しください |
 
 - FFmpeg の標準エラー出力は、末尾 4,000 文字だけを保持する。長い変換で溜まり続けないようにするためで、失敗の理由は末尾に出るので末尾を残す
@@ -79,8 +83,24 @@ flowchart TD
 - 終了コードが 0 でないので、AWS Batch が 2 回まで試行する。再試行で最初から処理し直し、報告も試行ごとに増える
 - ⑥ の `COMPLETED` の保存が失敗したときも、同じ失敗の扱いになる。`FAILED` の保存も失敗すれば、ステータスは `PROCESSING` のまま残る
 - ⑦ の一時ファイルの削除は、処理の `try` の中にある。削除に失敗する (ないファイル以外の理由) と、`COMPLETED` にしたあとでも失敗の扱いになり、`FAILED` で上書きする
-- 7,200 秒を超えると Batch がジョブを止める。ワーカーは時間を見ておらず、ステータスを更新できないので、ジョブは `PROCESSING` のまま残る。Batch の失敗を拾う EventBridge のルールや CloudWatch Alarm は、codec-converter のインフラには定義されていない ([エラー通知の経路](../../../admin/specs/flow/error-notification.md)の `batch-event` の対象にならない)
+- Batch のタイムアウト (7,200 秒) は、ワーカーの期限 (6,900 秒) の外側の安全網として残る。ワーカーが自分で打ち切れなかったとき、たとえばプロセスが外から即死させられたときは、ステータスを更新できず、ジョブは `PROCESSING` のまま残りうる。Batch の失敗を拾う EventBridge のルールや CloudWatch Alarm は、codec-converter のインフラには定義されていない ([エラー通知の経路](../../../admin/specs/flow/error-notification.md)の `batch-event` の対象にならない)
 - 報告の書き込みに失敗しても、例外は伝えない。ログだけを残す
+
+## 時間切れ
+
+変換は 2 時間で打ち切り、そのジョブは失敗にする ([変換の要件](../../requirements/functional/conversion.md))。
+
+| 項目 | 内容 |
+|---|---|
+| 期限 | ワーカーの処理開始 (② の直前) から 6,900 秒。7,200 秒から、後始末の余裕 300 秒を引く |
+| 対象 | ②〜⑦ の全体 |
+| 止め方 | ③ のダウンロードと ⑤ のアップロードは、S3 への要求と書き込みを中止する。④ は FFmpeg の子プロセスを SIGKILL で止める。ステータスの更新 (② と ⑥) は中止できないので、完了を待ち、次の段に進む前に期限を確かめる |
+| 失敗の扱い | 上の「失敗したとき」と同じ。報告の本文は時間切れの例外 (経過秒数を含む) で、`errorMessage` には時間切れの文言だけを保存する。期限後の保存・報告・削除は、期限では打ち切らない |
+| 再試行 | 終了コード 1 なので、Batch が 2 回まで試行する。再試行でも最初から 6,900 秒を数える。2 回とも時間切れなら、最終的に `FAILED` で終わる |
+
+- 余裕を取るのは、Batch のタイムアウトより先にワーカー側で打ち切り、`FAILED` の保存・報告・一時ファイルの削除を終える時間を残すため
+- 正常に終わったときも、ほかの理由で失敗したときも、期限のタイマーは解除する。タイマーはプロセスの終了を妨げない
+- 時間切れになったあとに別の例外で落ちても、時間切れとして扱う。中断された操作は様々な例外で終わるため、期限が来たかどうかで判定する
 
 ## つながり
 
