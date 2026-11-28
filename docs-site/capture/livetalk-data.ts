@@ -6,8 +6,14 @@
 
 /** 偽の Web Push サーバーを待ち受けるポート */
 export const FAKE_PUSH_PORT = 43405;
-/** 撮影用の Web Push の購読先。サーバー側の通信だけを偽の Push サーバーへ向ける名前 */
-export const FAKE_PUSH_ENDPOINT = 'https://push.capture.invalid/send/capture-1';
+/**
+ * 撮影用の Web Push の購読先。サーバー側の通信だけを偽の Push サーバーへ向ける名前。
+ * 購読の登録は既知の Push サービスのホストしか受け付けないため、許可されたサフィックスの下の
+ * 実在しないサブドメインにする。撮影のサーバーに読み込ませる preload が Push サービス宛ての通信を
+ * 例外で止めるため、偽の Push サーバーへの差し替えが効かなくても、実在の Push サービスへは出ない。
+ * preload 自体が読み込まれない起動では止まらないので、撮影は撮影の起動手順からだけ行う。
+ */
+export const FAKE_PUSH_ENDPOINT = 'https://push-capture.notify.windows.com/send/capture-1';
 /** 撮影用の Web Push の購読の鍵。実在の端末のものではなく、撮影のために生成した使い捨ての値 */
 export const FAKE_PUSH_KEYS = {
   p256dh: 'BNA1rxmYRHNMak_MWtVQNENvHCwUfZ7gicnMAoUrK6nXlVUhEwEFbmp59oJ6oUs88kR2R0oAWEivz4fMSfvcRKo',

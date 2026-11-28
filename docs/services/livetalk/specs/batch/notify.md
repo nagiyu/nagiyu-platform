@@ -5,11 +5,12 @@ sources:
   - services/livetalk/batch/src/usecases/notify.usecase.ts
   - services/livetalk/core/src/notification/decision.ts
   - services/livetalk/core/src/notification/escalation.ts
+  - services/livetalk/core/src/notification/critical-candidates.ts
   - services/livetalk/core/src/notification/selection.ts
   - services/livetalk/core/src/study/active-window.ts
   - services/livetalk/core/src/study/freshness-check.ts
   - services/livetalk/core/src/constants.ts
-sources_hash: 9ad411ab638b4da377207c9d5dfe79e987201ee53d6dc0b7d43e3ddb36bf1479
+sources_hash: 299a69025300561eafa90a25901c78357359ac8d9e706a884d6ac5ae8efdf12a
 ---
 
 # 通知バッチ (notify)

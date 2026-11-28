@@ -80,17 +80,28 @@ export async function tryConsumeStudyUsage(
 /**
  * 今日の利用者合計と全利用者合計を、数えるときと同じキー・属性名で読む。
  * 別の書き方にすると、数える側と読む側でキーがずれて常に 0 に見えるため、同じ builder を使う。
+ * `characterId` を渡すと、利用者のアイテムを同じ 1 回の読み取りでキャラクター別の回数まで読む。
  */
 export async function readStudyUsageToday(
   counter: UsageCounter,
   userId: string,
-  nowMs: number
+  nowMs: number,
+  characterId?: string
 ): Promise<StudyUsageToday> {
   const sk = buildStudyUsageSK(toJstDayKey(nowMs));
-  const attribute = buildStudyUsageTotalAttribute();
+  const totalAttribute = buildStudyUsageTotalAttribute();
+  const characterAttribute =
+    characterId === undefined ? undefined : buildStudyUsageCountAttribute(characterId);
+  const userAttributes =
+    characterAttribute === undefined ? [totalAttribute] : [totalAttribute, characterAttribute];
   const [user, global] = await Promise.all([
-    counter.read({ PK: buildUserPK(userId), SK: sk }, [attribute]),
-    counter.read({ PK: buildGlobalStudyUsagePK(), SK: sk }, [attribute]),
+    counter.read({ PK: buildUserPK(userId), SK: sk }, userAttributes),
+    counter.read({ PK: buildGlobalStudyUsagePK(), SK: sk }, [totalAttribute]),
   ]);
-  return { userTotal: user[attribute] ?? 0, globalTotal: global[attribute] ?? 0 };
+  const today: StudyUsageToday = {
+    userTotal: user[totalAttribute] ?? 0,
+    globalTotal: global[totalAttribute] ?? 0,
+  };
+  if (characterAttribute !== undefined) today.characterCount = user[characterAttribute] ?? 0;
+  return today;
 }

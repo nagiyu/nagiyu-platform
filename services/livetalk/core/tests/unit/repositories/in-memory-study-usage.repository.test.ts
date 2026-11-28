@@ -184,6 +184,33 @@ describe('InMemoryStudyUsageRepository', () => {
       });
     });
 
+    it('characterId を渡すと、同じ呼び出しでキャラクター別の回数も返す', async () => {
+      await consume();
+      await consume();
+      await consume({ characterId: 'ageha' });
+
+      expect(await repo.readToday('u1', NOW_MS, 'hiyori')).toEqual({
+        userTotal: 3,
+        globalTotal: 3,
+        characterCount: 2,
+      });
+      expect(await repo.readToday('u1', NOW_MS, 'ageha')).toMatchObject({ characterCount: 1 });
+      expect(await repo.readToday('u1', NOW_MS, 'unknown')).toMatchObject({ characterCount: 0 });
+    });
+
+    it('記録がない日は、キャラクター別も 0 を返す', async () => {
+      expect(await repo.readToday('u1', NOW_MS, 'hiyori')).toEqual({
+        userTotal: 0,
+        globalTotal: 0,
+        characterCount: 0,
+      });
+    });
+
+    it('characterId を渡さなければ characterCount を持たない', async () => {
+      await consume();
+      expect(await repo.readToday('u1', NOW_MS)).not.toHaveProperty('characterCount');
+    });
+
     it('読むだけでは数えない', async () => {
       await repo.readToday('u1', NOW_MS);
       expect(store.get('USER#u1', 'STUDYUSAGE#20261105')).toBeUndefined();

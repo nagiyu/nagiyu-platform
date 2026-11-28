@@ -4,7 +4,7 @@ sources:
   - services/livetalk/core/src/study/freshness-check.ts
   - services/livetalk/core/src/knowledge/recent-web-facts.ts
   - services/livetalk/core/src/constants.ts
-sources_hash: c4b8f8e9244198b4be4c6acd91df890ef7497946e3441e66f22f4bbd4e148d12
+sources_hash: 7aaa0d91de260f51911467308499c1c6aede70d91d989c9d8216ac3d9e02a186
 ---
 
 # WEB fact

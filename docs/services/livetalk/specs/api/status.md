@@ -7,7 +7,11 @@ sources:
   - services/livetalk/core/src/repositories/study-usage-counting.ts
   - services/livetalk/core/src/constants.ts
   - services/livetalk/core/src/notification/decision.ts
-sources_hash: 5c4492fa3af3f491f5c8e1b381acb22f0bc7c9890c22b69fc947ab69e810b8e6
+  - services/livetalk/core/src/notification/critical-candidates.ts
+  - services/livetalk/core/src/study/active-window.ts
+  - services/livetalk/core/src/usecases/acquire.usecase.ts
+  - services/livetalk/core/src/study/research-allowance.ts
+sources_hash: 76717872d7ba2696d5f0768361d1365ae475cc627f50381b8c362774759099c4
 ---
 
 # ステータス API
@@ -31,12 +35,18 @@ sources_hash: 5c4492fa3af3f491f5c8e1b381acb22f0bc7c9890c22b69fc947ab69e810b8e6
 | `recentNotifications` | 直近 5 件の[通知の記録](../term/notification-event.md)。本文は 100 文字まで、消化の日時はなければ null |
 | `notifyDecision` | 今この時刻に平常通知を出せるかの判定。出せないときは理由 (`not_due`、`outside_window`、`sleeping`、`daily_cap`、`inactive_stopped`、`no_content`)。`not_due` のときは、間隔が解ける目安の時刻 `nextEarliestAt` が付く |
 | `studyTopicPendingCount` | 勉強の待ちの件数 |
+| `studyState` | 勉強がいま止まっている理由の要約。取得バッチが確かめる順に、1 日の上限が 0 (無料でお試しが終わった、または始まっていない) なら `trial_ended`、生活サイクルが未登録なら `no_lifecycle`、3 日ルールで止まっていれば `paused`、キャラクターが就寝中なら `sleeping`、回数の上限なら `limit_reached`、どれでもなければ `studying` |
+| `studyPause` | [勉強の停止](../term/study-pause.md)。`paused`、最後の発話の時刻 `lastUserMessageAt` と止まる (止まった) 時刻 `pausesAt` (最後の発話から 72 時間後)。直近 7 日に発話が無ければ、どちらも null |
+| `studyUsage` | 日本時間のその日の、表示キャラクターの勉強の回数。回数 `characterCount` と上限 `characterLimit` (`study.user.limit` を勉強中のキャラクターの数で等分した値。端数は切り捨て、勉強中が 0 なら 0)、勉強中のキャラクターの数 `studyingCharacterCount`、上限に達した枠 `limitReachedBy` (`character`・`user`・`global` のうち狭い順で最初に当たったもの。達していなければ null)、いずれかの枠の上限に達しているか `limitReached`。利用者の合計と全利用者の合計は `study` が持つ |
+| `freshnessCheckRequests` | [鮮度確認の依頼](../term/freshness-check-request.md)の件数 `count` と、各依頼の `topicId` と `createdAt` |
+| `criticalCandidates` | 重要通知の判定の手前。`evaluated` と判定しない理由 `skipReason` (通知バッチが確かめる順に、Push の購読が無ければ `no_subscription`、生活サイクルが未登録なら `no_lifecycle`、勉強が止まっていれば `study_paused`、判定するときは null。判定しないときは話題を読まない)、判定に渡る候補 `candidates` と鮮度切れで外れた話題 `staleExcluded` (どちらも `topicId`、`subject`、`care`)、送り済みの重要通知 `sentCriticals` (`topicId` と `eventDate`。予定日が無ければ null) |
 | `study` | 呼んだ管理者自身の勉強の区分と今日の回数。`tier` (`operator`・`standard`・`free`)、`trial` (運営者・スタンダードは null。無料は `{ state: 'not_started' }` か `{ state: 'active' \| 'ended', endsAt }`)、`user` と `global` (それぞれ `{ used, limit, reached }`。`reached` は `used >= limit`)。`user.limit` は区分の 1 日の回数で、無料でお試しを過ぎたときと、Profile がない (お試しが始まっていない) ときは 0。`global.limit` は 200 |
 
 - 判定と `recentNotifications` は、表示キャラクターの通知の記録だけを使う。通知の記録は利用者の直近 60 件 (通知バッチと同じ件数) を読み、そこから表示キャラクターのものに絞る。他のキャラクターの通知は、1 日の上限・無視の回数・基準時刻にも一覧にも効かない
 - 判定に使う会話は、通知バッチと同じ直近 7 日の分だけを読む。7 日より前の発話は、セッションの間隔にも最後の発話の時刻にも入らない
 - `study` の区分とお試しは、[勉強バッチ](../batch/acquire.md)と同じ関数で決める。ただし区分はセッションのロールから決めるので、解約や権利の期限切れの直後は、バッチの区分と食い違うことがある ([勉強の状態 API](./study-status.md))。今日の回数は、勉強バッチが数えるのと同じ項目 (利用者の合計と全利用者の合計) を、数えずに読む ([テーブル](../data/main-table.md))
-- 判定と間隔が解ける目安の時刻は、[通知バッチ](../batch/notify.md)の平常通知の判定と同じ関数で求める。画面とこの API は、読み取りと判定を同じ処理で行う。重要通知の判定 (話題の指定) と、複数のキャラクターの調停は含まない
+- 判定と間隔が解ける目安の時刻は、[通知バッチ](../batch/notify.md)の平常通知の判定と同じ関数で求める。画面とこの API は、読み取りと判定を同じ処理で行う。重要通知を出すかの判定 (LLM による話題の指定) と、複数のキャラクターの調停は含まない
+- `studyState` から `criticalCandidates` までの求め方 (勉強中のキャラクターの数え方、候補の絞り方) は、[ステータス画面](../screen/status.md#勉強と重要通知)と同じ。この API も読むだけで、鮮度確認の依頼を記録しない。`studyState` と `studyUsage.characterLimit` は `study` と同じ区分 (セッションのロール) を使うので、`study` と同じく、解約や権利の期限切れの直後はバッチと食い違うことがある
 
 ## エラー
 
@@ -53,6 +63,6 @@ flowchart TD
     C[呼び出し元] --> A[ステータス API]
     A --> L[(生活サイクル・通知の記録)]
     A --> M[(会話履歴・勉強の待ち)]
-    A --> U[(Profile・勉強の 1 日の回数)]
+    A --> U[(Profile・勉強の 1 日の回数・鮮度確認の依頼・Topic と WEB fact)]
     S[ステータス画面] -.同じ読み取り.-> L
 ```

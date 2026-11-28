@@ -37,6 +37,8 @@ export interface StudyUsageToday {
   userTotal: number;
   /** 全利用者の合計 */
   globalTotal: number;
+  /** 指定したキャラクターの回数。`characterId` を渡したときだけ入る */
+  characterCount?: number;
 }
 
 export interface StudyUsageRepository {
@@ -50,8 +52,9 @@ export interface StudyUsageRepository {
 
   /**
    * 今日 (日本時間) の回数を、数えずに読む。記録がない日は 0 を返す。
+   * `characterId` を渡すと、そのキャラクターの回数も `characterCount` に入れる。
    *
    * @throws 記録の読み取りに失敗したとき
    */
-  readToday(userId: string, nowMs: number): Promise<StudyUsageToday>;
+  readToday(userId: string, nowMs: number, characterId?: string): Promise<StudyUsageToday>;
 }

@@ -116,15 +116,30 @@ export function formatAdminStudyLines(status: AdminStudyStatus): string[] {
   ];
 }
 
-/** Profile と今日の回数を読んで、勉強の節を作る */
-export async function loadAdminStudyStatus(
+/** 勉強の節と、表示キャラクターの今日の回数 */
+export interface AdminStudyStatusForCharacter {
+  status: AdminStudyStatus;
+  /** 表示キャラクターの今日の回数 */
+  characterCount: number;
+}
+
+/**
+ * Profile と今日の回数を読んで、勉強の節と表示キャラクターの回数を作る。
+ * 利用者の合計とキャラクター別は同じアイテムにあるため、1 回の読み取りで揃える。
+ * ステータスの「勉強が止まっている理由」は、この節と同じ値から決める。
+ */
+export async function loadAdminStudyStatusForCharacter(
   userId: string,
   effectiveRoles: readonly string[],
-  nowMs: number
-): Promise<AdminStudyStatus> {
+  nowMs: number,
+  characterId: string
+): Promise<AdminStudyStatusForCharacter> {
   const [profile, usage] = await Promise.all([
     createProfileRepository().getById({ userId }),
-    createStudyUsageRepository().readToday(userId, nowMs),
+    createStudyUsageRepository().readToday(userId, nowMs, characterId),
   ]);
-  return buildAdminStudyStatus(effectiveRoles, profile?.createdAt ?? null, usage, nowMs);
+  return {
+    status: buildAdminStudyStatus(effectiveRoles, profile?.createdAt ?? null, usage, nowMs),
+    characterCount: usage.characterCount ?? 0,
+  };
 }

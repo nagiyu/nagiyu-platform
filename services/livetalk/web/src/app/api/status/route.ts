@@ -9,6 +9,11 @@
  *   - 現時点の通知判定結果（shouldNotifyNow の reason / toneBucket 等）
  *   - インターバル解除予測時刻（reason が not_due の場合のみ）
  *   - STUDY_TOPIC pending 件数
+ *   - 勉強が止まっている理由の要約 (studyState)
+ *   - 3 日ルール (studyPause: 停止中か / 最後の発話 / 停止する時刻)
+ *   - 勉強の日次の回数と上限 (studyUsage)
+ *   - 鮮度確認の依頼待ち (freshnessCheckRequests)
+ *   - 重要通知の判定の手前 (criticalCandidates: 判定に渡る候補 / 鮮度切れで外れた話題 / 送り済み)
  *   - 勉強の区分・お試し・今日の回数 (study)
  *
  * chat metrics（promptTokens / latencyMs）は DynamoDB 未永続のため本 Issue のスコープ外。
@@ -21,7 +26,7 @@ import { DEFAULT_CHARACTER_ID } from '@nagiyu/livetalk-core';
 import { getSession } from '@/lib/server/session';
 import { withApiErrorReporting } from '@/lib/server/api-error-reporting';
 import { loadStatusSnapshot } from '@/lib/server/status';
-import { loadAdminStudyStatus } from '@/lib/study/admin-study-status';
+import { loadAdminStudyStatusForCharacter } from '@/lib/study/admin-study-status';
 import { STATUS_ERROR_MESSAGES } from './constants';
 import { hasCharacter } from '@/lib/characters/registry';
 
@@ -33,10 +38,14 @@ export const GET = withApiErrorReporting(
     const queriedId = url.searchParams.get('characterId');
     const characterId = queriedId && hasCharacter(queriedId) ? queriedId : DEFAULT_CHARACTER_ID;
     const now = new Date();
-    const [snapshot, study] = await Promise.all([
-      loadStatusSnapshot(userId, characterId, now),
-      loadAdminStudyStatus(userId, session.user.roles, now.getTime()),
-    ]);
+    // 画面の勉強の節と止まっている理由が食い違わないよう、同じ読み取りを両方に使う
+    const { status: study, characterCount } = await loadAdminStudyStatusForCharacter(
+      userId,
+      session.user.roles,
+      now.getTime(),
+      characterId
+    );
+    const snapshot = await loadStatusSnapshot(userId, characterId, now, { study, characterCount });
     const { notifyDecision, nextEarliestAt } = snapshot;
 
     return NextResponse.json({
@@ -54,6 +63,11 @@ export const GET = withApiErrorReporting(
         ...(nextEarliestAt !== undefined ? { nextEarliestAt } : {}),
       },
       studyTopicPendingCount: snapshot.studyTopicPendingCount,
+      studyState: snapshot.studyState,
+      studyPause: snapshot.studyPause,
+      studyUsage: snapshot.studyUsage,
+      freshnessCheckRequests: snapshot.freshnessCheckRequests,
+      criticalCandidates: snapshot.criticalCandidates,
       study,
     });
   }),

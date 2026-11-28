@@ -3,7 +3,7 @@ sources:
   - services/livetalk/web/src/app/api/lifecycle/route.ts
   - services/livetalk/core/src/lifecycle/state-resolver.ts
   - services/livetalk/core/src/constants.ts
-sources_hash: e571a20e55564297856a83f6ab844ae9cdd5f4446d333de13cf1440e9e8b94a6
+sources_hash: 41323916cd46cfd760c42ee49f203c4d091244a9e98ae92f4451581a4443956d
 ---
 
 # 生活サイクル API
