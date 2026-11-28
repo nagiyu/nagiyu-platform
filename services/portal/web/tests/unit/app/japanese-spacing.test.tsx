@@ -19,11 +19,6 @@ const BETWEEN_JA = new RegExp(`${JA}\\s+${JA}`, 'u');
 const AROUND_PUNCT = new RegExp(`${JA_PUNCT}\\s|\\s${JA_PUNCT}`, 'u');
 
 /**
- * JSX 内で和文を途中改行すると、改行と字下げが空白 1 つとして描画される。
- * 和文どうしの間と全角約物の隣に空白が出ないことを確かめる。
- * 英字・数字と和文の境目の空白は表記として許す。
- */
-/**
  * 技術スタックの「項目名 - 説明」は半角ハイフンを区切りにする表記なので、
  * 区切りの前後の空白は判定から外す。
  */
@@ -38,6 +33,11 @@ const cases: [string, () => ReactElement][] = [
   ['ContactPage', () => <ContactPage />],
 ];
 
+/**
+ * JSX 内で和文を途中改行すると、改行と字下げが空白 1 つとして描画される。
+ * 和文どうしの間と全角約物の隣に空白が出ないことを確かめる。
+ * 英字・数字と和文の境目の空白は表記として許す。
+ */
 describe('和文の描画に余計な空白が入らない', () => {
   it.each(cases)('%s の本文に和文どうしの間の空白がない', (_name, create) => {
     const { container } = render(create());
