@@ -24,8 +24,8 @@
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.1063.0",
     "@aws-sdk/lib-dynamodb": "^3.1063.0",
-    "@nagiyu/aws": "^0.2.0-next.0",
-    "@nagiyu/common": "^0.2.0-next.0",
+    "@nagiyu/aws": "^0.2.0",
+    "@nagiyu/common": "^0.2.0",
     "stripe": "^23.1.0"
   }
 }
