@@ -3,8 +3,9 @@ sources:
   - services/stock-tracker/web/app/holdings/page.tsx
   - services/stock-tracker/web/components/HoldingFormDialog.tsx
   - services/stock-tracker/web/components/HoldingDeleteDialog.tsx
+  - services/stock-tracker/web/lib/fetch-all-pages.ts
   - services/stock-tracker/web/lib/holding-currency.ts
-sources_hash: 14ec937aa102ed6c587bf9b4c197ab55e506bf8f162a3166acdf9a7c19eca896
+sources_hash: fa0d4475fc8165ef543bb12136e805a9322bc18405ca955b1e60e831a2a52ebf
 ---
 
 # 保有株式画面
@@ -46,7 +47,8 @@ sources_hash: 14ec937aa102ed6c587bf9b4c197ab55e506bf8f162a3166acdf9a7c19eca896
 | 削除する | その銘柄の売りアラートを[アラート API](../api/alerts.md) から取り、確認の中に並べる。確定すると保有株式を削除し、続けて売りアラートも削除する。売りアラートの削除に失敗したものがあれば、その旨を出す |
 | 売りアラートを設定する | 売りのアラート設定ダイアログを開く。目標価格の初期値は平均取得価格の 1.2 倍、割合入力の基準は平均取得価格。登録は[アラート API](../api/alerts.md) |
 
-- 一覧の取得は 1 回だけで、最初の 50 件までを表示する (続きは取りにいかない)
+- 保有株式の一覧と、売りアラートの有無・削除前の売りアラートに使うアラートの一覧は、API の続きがなくなるまで 1 回 100 件ずつ取り、全件を対象にする。同じ続きの位置が続けて返ったときは、取得を打ち切って失敗として扱う
+- 売りアラートの有無を決めるアラートの取得に失敗したときは、エラーを出さずに全銘柄を「売りアラート」のボタンにする
 
 ## 画面の見た目
 

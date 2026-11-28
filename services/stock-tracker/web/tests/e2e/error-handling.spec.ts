@@ -26,7 +26,7 @@ test.describe('Error Handling', () => {
   test.describe('Error Display', () => {
     test('should display error message when API fails', async ({ page }) => {
       // ネットワークエラーをシミュレート
-      await page.route('**/api/holdings', (route) => {
+      await page.route(/\/api\/holdings(\?.*)?$/, (route) => {
         route.abort('failed');
       });
 
@@ -42,7 +42,7 @@ test.describe('Error Handling', () => {
 
     test('should display validation error details', async ({ page }) => {
       // バリデーションエラーをシミュレート
-      await page.route('**/api/holdings', (route) => {
+      await page.route(/\/api\/holdings(\?.*)?$/, (route) => {
         if (route.request().method() === 'GET') {
           route.fulfill({
             status: 200,
@@ -76,7 +76,7 @@ test.describe('Error Handling', () => {
   test.describe('Toast Messages', () => {
     test('should display success toast on successful operation', async ({ page }) => {
       // 成功レスポンスをモック
-      await page.route('**/api/holdings', (route) => {
+      await page.route(/\/api\/holdings(\?.*)?$/, (route) => {
         if (route.request().method() === 'POST') {
           route.fulfill({
             status: 201,
@@ -115,7 +115,7 @@ test.describe('Error Handling', () => {
 
     test('should display error toast on failed operation', async ({ page }) => {
       // エラーレスポンスをモック
-      await page.route('**/api/holdings', (route) => {
+      await page.route(/\/api\/holdings(\?.*)?$/, (route) => {
         if (route.request().method() === 'POST') {
           route.fulfill({
             status: 500,
@@ -147,7 +147,7 @@ test.describe('Error Handling', () => {
   test.describe('Retry Functionality', () => {
     test('should handle network errors gracefully', async ({ page }) => {
       // ネットワークエラーをシミュレート
-      await page.route('**/api/holdings', (route) => {
+      await page.route(/\/api\/holdings(\?.*)?$/, (route) => {
         route.abort('failed');
       });
 
@@ -162,7 +162,7 @@ test.describe('Error Handling', () => {
 
     test('should load page successfully with valid response', async ({ page }) => {
       // 成功レスポンスをモック
-      await page.route('**/api/holdings', (route) => {
+      await page.route(/\/api\/holdings(\?.*)?$/, (route) => {
         route.fulfill({
           status: 200,
           contentType: 'application/json',
@@ -183,7 +183,7 @@ test.describe('Error Handling', () => {
   test.describe('Error Boundary', () => {
     test('should have error boundary in place', async ({ page }) => {
       // 正常なページロードでエラーバウンダリーが組み込まれていることを確認
-      await page.route('**/api/holdings', (route) => {
+      await page.route(/\/api\/holdings(\?.*)?$/, (route) => {
         route.fulfill({
           status: 200,
           contentType: 'application/json',
