@@ -227,7 +227,7 @@ test.describe('JSON Formatter - E2E Tests', () => {
       await formatButton.click();
 
       // エラーメッセージが表示されることを確認する。
-      // `lib/parsers/jsonParser.ts` の ERROR_MESSAGES.INVALID_JSON は
+      // `lib/formatters/jsonFormatter.ts` の ERROR_MESSAGES.INVALID_JSON は
       // JSON.parse に失敗した場合に一意に返る文言であり、決定的に assert できる
       // （以前は `[role="alert"]` と汎用テキスト正規表現を `.or()` で束ね、
       // 件数が 1 件以上あることしか見ておらず、何が表示されたかを検証していなかった）。
