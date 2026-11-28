@@ -4,7 +4,7 @@ import type { WebRawOrigin } from '../entities/webraw.entity.js';
 /**
  * `consolidate` usecase に渡す候補 Topic 1 件分。
  * 埋め込み近傍で粗く絞った既存 Topic のヘッダ情報と、新しい事実との見比べに使う既存の WEB fact
- * (新しい側に絞った分) と SELF fact (全件) を、それぞれ別の番号空間で番号付きで渡す。座標は渡さない。
+ * (新しい側に絞った分) と SELF fact (全件) を、重ならない番号付きで渡す。座標は渡さない。
  */
 export interface ConsolidatePromptCandidateTopic {
   topicId: string;
@@ -24,7 +24,7 @@ export interface ConsolidatePromptCandidateTopic {
   }>;
   /**
    * この Topic の既存 SELF fact (全件)。
-   * `index` は WEB fact とは別の、プロンプト全体で通しの番号で、LLM が selfFacts の
+   * `index` は WEB fact の番号の後ろから振る、プロンプト全体で通しの番号で、LLM が selfFacts の
    * existingFactIndices に返す。
    */
   existingSelfFacts: Array<{

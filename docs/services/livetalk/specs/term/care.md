@@ -3,7 +3,7 @@ sources:
   - services/livetalk/core/src/entities/topic.entity.ts
   - services/livetalk/core/src/usecases/consolidate.usecase.ts
   - services/livetalk/core/src/constants.ts
-sources_hash: c7e7bdc60f20adb9e65f1a854843f14a166ad8ed523280550b8aec5caa8e2f41
+sources_hash: 7538e597a96d24d5fe590151e1315df13bb8e4f0831bf0a5e1b80c6f84700764
 ---
 
 # care (話題への注目度)

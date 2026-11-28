@@ -182,7 +182,7 @@ type ExistingFactRefs = ReadonlyMap<number, WebFactEntity>;
 
 /**
  * 統合先 Topic の既存 SELF fact のうち、LLM に番号付きで見せたもの (番号 → 事実)。
- * WEB fact とは別の番号空間で、この Map に載っている番号だけが replace の有効な参照先になる。
+ * WEB fact の番号とは重ならず、この Map に載っている番号だけが replace の有効な参照先になる。
  */
 type ExistingSelfFactRefs = ReadonlyMap<number, SelfFactEntity>;
 
@@ -211,6 +211,7 @@ function filterValidFactIndices(
  * 適用する。有効な番号が残らない replace は add として扱う (誤って消すより古いものが残る方が安全)。
  * 適用順は「新しい SELF fact を全部書く → 古い SELF fact を消す」で、途中で落ちても事実が失われない。
  * 同じ古い事実を複数のエントリが指しても、削除は 1 回だけ行う。
+ * `replacedSelfFactCount` は、有効な番号で置き換えた新しい SELF fact の件数で、消した古い事実の件数ではない。
  *
  * webFacts は既存の事実との見比べ結果 (add / replace / duplicate) に従って適用する。
  * 有効な番号が残らない replace / duplicate は add として扱う (溜まりすぎは上限が受け止める)。
@@ -389,7 +390,7 @@ async function trimWebFacts(
  * 3. 新規データ（会話 + Web 生データ）から「ルーティング用テキスト」を作り、埋め込みで
  *    既存 Topic ヘッダ（GSI3 経由で全件列挙）との cosine similarity を計算し、閾値以上・
  *    上位 N 件を候補 Topic として LLM プロンプトに渡す。候補 Topic の既存 WEB fact は
- *    新しい順に `WEB_FACT_TOPIC_LIMIT` 件まで、既存の SELF fact は全件、それぞれ別の番号空間の番号付きで
+ *    新しい順に `WEB_FACT_TOPIC_LIMIT` 件まで、既存の SELF fact は全件、重ならない番号付きで
  *    一緒に渡す
  * 4. LLM が話題ごとに「既存 Topic への merge」または「新規作成」を判断し、
  *    canonicalSummary・selfFacts・webFacts を返す
@@ -501,7 +502,9 @@ export async function consolidate(
   const existingFactRefsByTopic = new Map<string, Map<number, WebFactEntity>>();
   const existingSelfFactRefsByTopic = new Map<string, Map<number, SelfFactEntity>>();
   let nextFactIndex = 0;
-  let nextSelfFactIndex = 0;
+  // SELF の番号は WEB の番号の後ろから振る。LLM が 2 つの番号を取り違えても無効な番号として落ち、
+  // 利用者の事実を誤って消さずに追加へ倒れるようにするため
+  let nextSelfFactIndex = candidateFacts.reduce((n, facts) => n + facts.length, 0);
   const candidateTopics = scored.map((s, i) => {
     const refs = new Map<number, WebFactEntity>();
     const existingWebFacts = candidateFacts[i].map((fact) => {

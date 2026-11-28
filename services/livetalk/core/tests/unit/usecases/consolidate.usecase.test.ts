@@ -1486,6 +1486,46 @@ describe('consolidate', () => {
       expect(user).toContain('[自分 #2] B の自分の事実');
     });
 
+    it('SELF fact の番号は WEB fact の番号の後ろから振られ、WEB の番号を指す replace は追加になる', async () => {
+      const repos = await setup();
+      await repos.topicRepo.putWebFact({
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId: TOPIC_A,
+        factId: 'WA-1',
+        text: 'A の調べた事実',
+        sourceUrls: [],
+        volatility: 'low',
+        observedAt: 10_000,
+        nextReview: 99_000,
+      });
+      const topics = [
+        makeTopicResult({
+          targetTopicId: TOPIC_A,
+          selfFacts: [
+            makeSelfFact({
+              text: 'ユーザーはほうじ茶の方が好き',
+              action: 'replace',
+              existingFactIndices: [0],
+            }),
+          ],
+        }),
+      ];
+      const chatStructured = jest.fn(async () => ({ topics }) as unknown as never);
+      const llmClient: ILLMClient = { ...makeLLMClient(topics), chatStructured };
+      await run(repos, topics, repos.topicRepo, llmClient);
+      const calls = chatStructured.mock.calls as unknown as Array<
+        [Array<{ role: string; content: string }>]
+      >;
+      const user = calls[0][0].find((m) => m.role === 'user')?.content ?? '';
+      expect(user).toContain('[事実 #0] A の調べた事実');
+      expect(user).toContain('[自分 #1] ユーザーは緑茶が好き');
+      expect(user).toContain('[自分 #2] ユーザーは朝に飲む');
+      expect(await selfTexts(repos, TOPIC_A)).toEqual(
+        ['ユーザーはほうじ茶の方が好き', 'ユーザーは朝に飲む', 'ユーザーは緑茶が好き'].sort()
+      );
+    });
+
     it('replace は新しい SELF fact を書き、番号が指す古い SELF fact を削除する', async () => {
       const repos = await setup();
       await run(repos, [
