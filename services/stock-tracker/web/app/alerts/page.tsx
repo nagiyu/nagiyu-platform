@@ -27,6 +27,7 @@ import AlertSettingsModal from '../../components/AlertSettingsModal';
 import AlertDeleteConfirmDialog from '../../components/AlertDeleteConfirmDialog';
 import type { AlertResponse } from '../../types/alert';
 import { filterAlerts } from '../../lib/alert-filter';
+import { fetchAllPages } from '../../lib/fetch-all-pages';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
@@ -121,13 +122,7 @@ function AlertsPageContent() {
     setError('');
 
     try {
-      const response = await fetch('/api/alerts');
-      if (!response.ok) {
-        throw new Error(ERROR_MESSAGES.FETCH_ALERTS_ERROR);
-      }
-
-      const data = await response.json();
-      setAlerts(data.alerts || []);
+      setAlerts(await fetchAllPages<AlertResponse>('/api/alerts', 'alerts'));
     } catch (err) {
       console.error('Error fetching alerts:', err);
       setError(ERROR_MESSAGES.FETCH_ALERTS_ERROR);
