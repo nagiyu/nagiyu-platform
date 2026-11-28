@@ -6,13 +6,14 @@ sources:
   - services/auth/web/src/app/dashboard/users/[userId]/edit/stripe-customer-section.tsx
   - services/auth/web/src/lib/role-grant-editing.ts
   - services/auth/web/src/lib/stripe-customer-client.ts
+  - services/auth/web/src/lib/user-roles-client.ts
   - libs/common/src/auth/roles.ts
   - libs/common/src/auth/permissions.ts
   - services/auth/web/src/lib/stripe-customer-unlink.ts
   - services/auth/web/src/app/api/users/[userId]/stripe-customer/route.ts
   - services/auth/web/src/lib/manual-roles.ts
   - libs/common/src/auth/role-grants.ts
-sources_hash: 707cba227b2c2210e0fe0108be5def9a3cb2132fa6168a15295eb89069f7e2c5
+sources_hash: 52871a83377f00a04fe36018246d525edee02c02fd1431b2885f99b76014e0c2
 ---
 
 # ユーザー編集画面
@@ -51,7 +52,7 @@ sources_hash: 707cba227b2c2210e0fe0108be5def9a3cb2132fa6168a15295eb89069f7e2c5
 - ユーザーがいなければ「ユーザーが見つかりません」。それ以外の取得の失敗は「ユーザー情報の取得に失敗しました」、応答の形が不正なら「不正なレスポンス形式です」
 - 権利が 0 件なら「課金の権利はありません」
 - 入力エラーは、追加の下 (「ロールを選択してください」「有効期限の日付を入力してください」「有効期限は今日以降の日付を指定してください」「メモは 200 文字以内で入力してください」など) と、期限の変更の行に出す
-- 保存や対応の解除が失敗したら、応答の `error` の文をエラーの帯で出す。保存中は入力と操作を押せなくする
+- 保存や対応の解除が失敗したら、応答の `error` が文字列ならその文をエラーの帯で出す。通信自体が失敗したときは「通信に失敗しました。時間をおいてもう一度お試しください」、応答が JSON でない (502/504 で HTML が返る場合など) か `error` が文字列でないときは、保存では「ロールの割り当てに失敗しました」、対応の解除では「Stripe の顧客との対応を外すことに失敗しました」を出す。保存中は入力と操作を押せなくする
 
 ## 操作
 
