@@ -185,7 +185,7 @@ test.describe('グループ共有 ToDo 管理', () => {
     });
 
     await page.goto('/lists?scope=shared&groupId=group-private&listId=private-list');
-    await expect(page.getByRole('link', { name: '非公開リスト' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: '非公開リスト' })).toHaveCount(0);
     await expect(page.getByRole('textbox', { name: 'タイトル' })).toHaveCount(0);
   });
 });
