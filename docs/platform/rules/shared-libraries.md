@@ -2,7 +2,7 @@
 sources:
   - libs/common/package.json
   - libs/aws/package.json
-sources_hash: 06232482fcb9b384dd89a159a3bc4f4bf0ea79e33f9211178a75dceda162c0bf
+sources_hash: db5ec42dab884457d5785f0f40ffe919c017e7fdad7a4b56dd8f91b80a7f6552
 ---
 
 # 共通ライブラリの規約
