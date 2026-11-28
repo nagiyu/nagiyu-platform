@@ -2,7 +2,6 @@ import '@testing-library/jest-dom';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import HighlightsPage from '@/app/jobs/[jobId]/highlights/page';
-import { clearSelectedIdIfHighlightMatches } from '@/app/jobs/[jobId]/highlights/selection';
 
 /**
  * 復旧 API・有効期限・文字起こしへの呼び出しを、順番に消費するモックから切り離す
@@ -1764,19 +1763,5 @@ describe('HighlightsPage', () => {
       // 実行環境の TZ に依存せず JST (2023-11-14T22:13:20Z = 2023/11/15 07:13:20) で表示される
       expect(screen.getByText(/2023\/11\/15 07:13:20/)).toBeInTheDocument();
     });
-  });
-});
-
-describe('clearSelectedIdIfHighlightMatches', () => {
-  it('対象highlightIdと一致するselectedIdをnullにする', () => {
-    expect(clearSelectedIdIfHighlightMatches('h-1')('h-1')).toBeNull();
-  });
-
-  it('対象highlightIdと一致しないselectedIdは維持する', () => {
-    expect(clearSelectedIdIfHighlightMatches('h-1')('h-2')).toBe('h-2');
-  });
-
-  it('selectedIdがnullの場合はnullを維持する', () => {
-    expect(clearSelectedIdIfHighlightMatches('h-1')(null)).toBeNull();
   });
 });

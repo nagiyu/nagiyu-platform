@@ -5,7 +5,7 @@ sources:
   - services/quick-clip/web/src/app/api/jobs/[jobId]/transcript/route.ts
   - services/quick-clip/web/src/app/jobs/[jobId]/highlights/page.tsx
   - services/quick-clip/lambda/zip/src/handler.ts
-sources_hash: e3b26d141158bea3fe6cb4c9d8abc9b4c7ac27c1e34527bcbf158284105f2063
+sources_hash: 4285e212b2db78ec72a698eebc36fbb094deeb7be0ba4182a10a49f887151e02
 ---
 
 # 文字起こし
