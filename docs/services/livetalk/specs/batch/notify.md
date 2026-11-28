@@ -10,7 +10,7 @@ sources:
   - services/livetalk/core/src/study/active-window.ts
   - services/livetalk/core/src/study/freshness-check.ts
   - services/livetalk/core/src/constants.ts
-sources_hash: x
+sources_hash: 299a69025300561eafa90a25901c78357359ac8d9e706a884d6ac5ae8efdf12a
 ---
 
 # 通知バッチ (notify)

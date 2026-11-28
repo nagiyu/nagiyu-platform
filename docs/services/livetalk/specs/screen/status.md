@@ -13,7 +13,7 @@ sources:
   - services/livetalk/core/src/study/research-allowance.ts
   - services/livetalk/core/src/repositories/study-usage-counting.ts
   - services/livetalk/core/src/constants.ts
-sources_hash: x
+sources_hash: ce26a15650fa50be7c45b43acb29588b7a54c8030a5368eec32366042cdf0a85
 ---
 
 # ステータス画面

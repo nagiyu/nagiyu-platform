@@ -11,7 +11,7 @@ sources:
   - services/livetalk/core/src/study/active-window.ts
   - services/livetalk/core/src/usecases/acquire.usecase.ts
   - services/livetalk/core/src/study/research-allowance.ts
-sources_hash: x
+sources_hash: 8171e2c807908df361a9d914f294bc426fa9ac36739f45e146ea0dbdee96d99f
 ---
 
 # ステータス API
